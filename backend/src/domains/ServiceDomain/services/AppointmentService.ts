@@ -2,6 +2,7 @@
 import { AppointmentRepository, TimeSlot } from '../../../repositories/AppointmentRepository';
 import { logger } from '../../../utils/logger';
 import { parseLocalDateString, createDateTime } from '../../../utils/dateUtils';
+import { getCurrentTimeInTimezone, hoursUntilSlotAccurate } from '../../../utils/timezoneUtils';
 
 export class AppointmentService {
   private appointmentRepo: AppointmentRepository;
@@ -12,6 +13,15 @@ export class AppointmentService {
 
   /**
    * Generate available time slots for a specific shop, service, and date
+   *
+   * IMPORTANT: Time slot availability uses the SHOP's timezone for all calculations.
+   * The date parameter represents the date in the shop's timezone.
+   * The hoursUntilSlotAccurate function converts shop local time to absolute UTC
+   * timestamps, so minimum notice calculations work correctly for users in any timezone.
+   *
+   * @param shopId - The shop ID
+   * @param serviceId - The service ID
+   * @param date - The date in YYYY-MM-DD format (in shop's timezone)
    */
   async getAvailableTimeSlots(
     shopId: string,
@@ -28,11 +38,15 @@ export class AppointmentService {
         throw new Error('Shop time slot configuration not found');
       }
 
+      // Get shop's timezone (default to America/New_York if not set)
+      const shopTimezone = config.timezone || 'America/New_York';
+
       logger.debug('Time slot config loaded', {
         shopId,
         allowWeekendBooking: config.allowWeekendBooking,
         minBookingHours: config.minBookingHours,
-        bookingAdvanceDays: config.bookingAdvanceDays
+        bookingAdvanceDays: config.bookingAdvanceDays,
+        timezone: shopTimezone
       });
 
       // Get service duration (or use default)
@@ -115,46 +129,82 @@ export class AppointmentService {
       }
 
       // Check if booking is within advance booking window
-      const now = new Date();
-      const bookingDate = parseLocalDateString(date);
+      // IMPORTANT: The date on the calendar represents the date in the SHOP's timezone
+      // We use the shop's timezone to convert slot times to absolute timestamps,
+      // then compare to the current absolute time. This works for users in any timezone.
+      const nowInShopTz = getCurrentTimeInTimezone(shopTimezone);
 
-      // Calculate hours until start of booking date (midnight)
-      const hoursUntilBookingDate = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      logger.debug('Current time in shop timezone', {
+        shopTimezone,
+        shopCurrentDate: nowInShopTz.dateString,
+        shopCurrentTime: nowInShopTz.timeString,
+        requestedDate: date
+      });
 
       // For same-day or next-day bookings, we need more nuanced checking
       // Only reject if the entire day is too soon (date + last slot time < minBookingHours)
+      const [openHourParsed, openMinParsed] = openTime.split(':').map(Number);
       const [closeHour, closeMin] = closeTime.split(':').map(Number);
-      const [openHourCheck, openMinCheck] = openTime.split(':').map(Number);
+      const closeTimeStr = `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`;
 
-      // Calculate last slot time, accounting for overnight hours
-      let lastSlotTime = createDateTime(date, `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`);
+      // Check for overnight hours (close time <= open time means shop closes next day)
+      // e.g., 3:00 PM - 12:00 AM means close is at midnight of the NEXT day
+      const earlyOpenMinutes = openHourParsed * 60 + openMinParsed;
+      const earlyCloseMinutes = closeHour * 60 + closeMin;
+      const isOvernightHours = earlyCloseMinutes <= earlyOpenMinutes;
 
-      // CRITICAL FIX: Handle overnight hours for last slot calculation
-      const openMinsTotal = openHourCheck * 60 + openMinCheck;
-      const closeMinsTotal = closeHour * 60 + closeMin;
-      if (closeMinsTotal <= openMinsTotal) {
-        // Overnight hours: last slot is actually on the next day
-        lastSlotTime = new Date(lastSlotTime.getTime() + 24 * 60 * 60 * 1000);
+      // For overnight hours, the close time is on the NEXT day
+      let lastSlotDate = date;
+      if (isOvernightHours) {
+        const [y, m, d] = date.split('-').map(Number);
+        const nextDay = new Date(y, m - 1, d + 1);
+        lastSlotDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
       }
 
-      const hoursUntilLastSlot = (lastSlotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      // Calculate hours until the last possible slot
+      // The slot time is in the SHOP's timezone - hoursUntilSlotAccurate converts it to
+      // an absolute timestamp and compares to the current time (works for any user timezone)
+      const hoursUntilLastSlot = hoursUntilSlotAccurate(lastSlotDate, closeTimeStr, shopTimezone);
+
+      logger.debug('Hours until last slot calculation', {
+        date,
+        closeTime: closeTimeStr,
+        isOvernightHours,
+        lastSlotDate,
+        hoursUntilLastSlot: hoursUntilLastSlot.toFixed(2)
+      });
 
       // Only reject the entire day if even the last slot is too soon
       if (hoursUntilLastSlot < config.minBookingHours) {
         logger.info('All slots too soon to book', {
           date,
           hoursUntilLastSlot,
-          minBookingHours: config.minBookingHours
+          minBookingHours: config.minBookingHours,
+          shopTimezone,
+          currentTimeInShop: nowInShopTz.timeString,
+          isOvernightHours
         });
         return [];
       }
 
-      const daysUntilBooking = hoursUntilBookingDate / 24;
-      if (daysUntilBooking > config.bookingAdvanceDays) {
+      // Check if date is too far in advance
+      const [reqYear, reqMonth, reqDay] = date.split('-').map(Number);
+      const [curYear, curMonth, curDay] = nowInShopTz.dateString.split('-').map(Number);
+      const reqDateNum = reqYear * 10000 + reqMonth * 100 + reqDay;
+      const curDateNum = curYear * 10000 + curMonth * 100 + curDay;
+      const daysUntilBooking = Math.floor((reqDateNum - curDateNum) / 1); // Approximate
+
+      // More accurate calculation using timestamps
+      const reqTimestamp = Date.UTC(reqYear, reqMonth - 1, reqDay);
+      const curTimestamp = Date.UTC(curYear, curMonth - 1, curDay);
+      const actualDaysUntil = (reqTimestamp - curTimestamp) / (1000 * 60 * 60 * 24);
+
+      if (actualDaysUntil > config.bookingAdvanceDays) {
         logger.info('Date too far in advance', {
           date,
-          daysUntilBooking,
-          bookingAdvanceDays: config.bookingAdvanceDays
+          daysUntilBooking: actualDaysUntil,
+          bookingAdvanceDays: config.bookingAdvanceDays,
+          shopTimezone
         });
         return [];
       }
@@ -260,9 +310,10 @@ export class AppointmentService {
             });
           }
 
-          // Check if it's too soon (same day booking)
-          const slotDateTime = createDateTime(date, timeStr);
-          const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+          // Check if it's too soon (minimum notice requirement)
+          // The slot time is in the SHOP's timezone - hoursUntilSlotAccurate converts it to
+          // an absolute timestamp and compares to the current time (works for any user timezone)
+          const hoursUntilSlot = hoursUntilSlotAccurate(date, timeStr, shopTimezone);
 
           if (hoursUntilSlot >= config.minBookingHours) {
             slots.push({
@@ -273,6 +324,16 @@ export class AppointmentService {
             });
           } else {
             slotsSkippedTooSoon++;
+            // Debug logging for skipped slots
+            if (slotsSkippedTooSoon <= 3) {
+              logger.debug('Slot skipped (too soon)', {
+                timeStr,
+                hoursUntilSlot: hoursUntilSlot.toFixed(2),
+                minBookingHours: config.minBookingHours,
+                shopTimezone,
+                currentTimeInShop: nowInShopTz.timeString
+              });
+            }
           }
         }
 
@@ -289,7 +350,9 @@ export class AppointmentService {
         availableSlots: slots.filter(s => s.available).length,
         slotsSkippedBreak,
         slotsSkippedTooSoon,
-        slotsSkippedPastClose
+        slotsSkippedPastClose,
+        shopTimezone,
+        currentTimeInShop: nowInShopTz.timeString
       });
 
       return slots;

@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../../middleware/auth';
 import { NotificationController } from '../controllers/NotificationController';
+import { PushTokenController } from '../controllers/PushTokenController';
 import { NotificationService } from '../services/NotificationService';
 
 const router = Router();
 
-// Initialize service and controller
+// Initialize service and controllers
 const notificationService = new NotificationService();
 const notificationController = new NotificationController(notificationService);
+const pushTokenController = new PushTokenController();
 
 // All notification routes require authentication
 router.use(authMiddleware);
@@ -67,5 +69,44 @@ router.delete('/:id', (req, res) => notificationController.deleteNotification(re
  * @access  Private
  */
 router.delete('/', (req, res) => notificationController.deleteAllNotifications(req, res));
+
+// ============================================
+// Push Token Routes
+// ============================================
+
+/**
+ * @route   POST /api/notifications/push-tokens
+ * @desc    Register or update a push token for the authenticated user
+ * @access  Private
+ */
+router.post('/push-tokens', (req, res) => pushTokenController.registerToken(req, res));
+
+/**
+ * @route   GET /api/notifications/push-tokens
+ * @desc    Get all active devices for the authenticated user
+ * @access  Private
+ */
+router.get('/push-tokens', (req, res) => pushTokenController.getActiveDevices(req, res));
+
+/**
+ * @route   GET /api/notifications/push-tokens/stats
+ * @desc    Get push token statistics (admin only)
+ * @access  Private (Admin)
+ */
+router.get('/push-tokens/stats', (req, res) => pushTokenController.getTokenStats(req, res));
+
+/**
+ * @route   DELETE /api/notifications/push-tokens/:token
+ * @desc    Deactivate a specific push token (logout from device)
+ * @access  Private
+ */
+router.delete('/push-tokens/:token', (req, res) => pushTokenController.deactivateToken(req, res));
+
+/**
+ * @route   DELETE /api/notifications/push-tokens
+ * @desc    Deactivate all push tokens (logout from all devices)
+ * @access  Private
+ */
+router.delete('/push-tokens', (req, res) => pushTokenController.deactivateAllTokens(req, res));
 
 export default router;

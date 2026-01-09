@@ -2,6 +2,7 @@ import { getStripeService, StripeService } from './StripeService';
 import { logger } from '../utils/logger';
 import { BaseRepository } from '../repositories/BaseRepository';
 import { eventBus } from '../events/EventBus';
+import { ShopSubscriptionRepository } from '../repositories/ShopSubscriptionRepository';
 
 export interface SubscriptionData {
   id: number;
@@ -140,6 +141,10 @@ export class SubscriptionService extends BaseRepository {
 
       const subscription = this.mapSubscriptionRow(subscriptionResult.rows[0]);
 
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      const shopSubRepo = new ShopSubscriptionRepository();
+      await shopSubRepo.syncNextPaymentDateFromStripe(shopId, new Date(currentPeriodEnd * 1000));
+
       // Publish event
       eventBus.publish({
         type: 'subscription.created',
@@ -147,7 +152,7 @@ export class SubscriptionService extends BaseRepository {
         timestamp: new Date(),
         source: 'SubscriptionService',
         version: 1,
-        data: { 
+        data: {
           subscriptionId: subscription.stripeSubscriptionId,
           status: subscription.status,
           priceId: subscription.stripePriceId
@@ -496,6 +501,7 @@ export class SubscriptionService extends BaseRepository {
       logger.info('Stripe subscription data received', {
         subscriptionId: stripeSubscriptionId,
         status: stripeSubscription.status,
+        cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
         hasPeriodStart: !!currentPeriodStart,
         hasPeriodEnd: !!currentPeriodEnd,
         periodStart: currentPeriodStart,
@@ -574,6 +580,10 @@ export class SubscriptionService extends BaseRepository {
         });
       }
 
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      const shopSubRepo = new ShopSubscriptionRepository();
+      await shopSubRepo.syncNextPaymentDateFromStripe(shopId, periodEnd);
+
       await client.query('COMMIT');
 
       logger.info('Subscription synced from Stripe', {
@@ -643,22 +653,52 @@ export class SubscriptionService extends BaseRepository {
         subscription.stripeSubscriptionId
       ]);
 
-      // Also update shop_subscriptions table for consistency
-      const updateShopSubQuery = `
-        UPDATE shop_subscriptions
-        SET
-          status = 'cancelled',
-          is_active = false,
-          cancelled_at = $1,
-          cancellation_reason = $2
-        WHERE shop_id = $3 AND status = 'active'
-      `;
+      // Update shop_subscriptions table based on cancellation type
+      // For cancel-at-period-end: Keep status as 'active' - shop still has access until period ends
+      // For immediate cancel: Set status to 'cancelled' - shop loses access immediately
+      if (immediately) {
+        // Immediate cancellation - set to cancelled
+        const updateShopSubQuery = `
+          UPDATE shop_subscriptions
+          SET
+            status = 'cancelled',
+            is_active = false,
+            cancelled_at = $1,
+            cancellation_reason = $2
+          WHERE shop_id = $3 AND status = 'active'
+        `;
+        await client.query(updateShopSubQuery, [
+          new Date(),
+          reason || 'Cancelled by shop owner',
+          shopId
+        ]);
+      } else {
+        // Cancel at period end - keep active but store the cancellation reason for reference
+        // The status will be updated to 'cancelled' when the period actually ends (via webhook)
+        const updateShopSubQuery = `
+          UPDATE shop_subscriptions
+          SET
+            cancellation_reason = $1,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE shop_id = $2 AND status = 'active'
+        `;
+        await client.query(updateShopSubQuery, [
+          reason || 'Cancelled by shop owner (pending)',
+          shopId
+        ]);
 
-      await client.query(updateShopSubQuery, [
-        new Date(),
-        reason || 'Cancelled by shop owner',
-        shopId
-      ]);
+        logger.info('Subscription scheduled for cancellation at period end', {
+          shopId,
+          currentPeriodEnd,
+          reason
+        });
+      }
+
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      if (currentPeriodEnd) {
+        const shopSubRepo = new ShopSubscriptionRepository();
+        await shopSubRepo.syncNextPaymentDateFromStripe(shopId, currentPeriodEnd);
+      }
 
       await client.query('COMMIT');
 

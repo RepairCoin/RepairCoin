@@ -1,4 +1,5 @@
 export interface BaseResponse<T> {
+  items?: T[];
   data?: T;
   pagination?: {
     hasMore: boolean;

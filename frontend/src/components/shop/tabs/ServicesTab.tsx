@@ -35,6 +35,9 @@ import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDet
 
 interface ShopData {
   subscriptionActive?: boolean;
+  subscriptionStatus?: string | null;
+  subscriptionCancelledAt?: string | null;
+  subscriptionEndsAt?: string | null;
   rcg_balance?: number;
   rcg_tier?: string;
 }
@@ -100,13 +103,18 @@ const ToggleSwitch: React.FC<{
   );
 };
 
-export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) => {
+export const ServicesTab: React.FC<ServicesTabProps> = ({
+  shopId,
+  shopData,
+}) => {
   const router = useRouter();
   const [services, setServices] = useState<ShopService[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingService, setDeletingService] = useState<string | null>(null);
-  const [selectedService, setSelectedService] = useState<ShopService | null>(null);
+  const [selectedService, setSelectedService] = useState<ShopService | null>(
+    null
+  );
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -123,7 +131,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
     try {
       const response = await getShopServices(shopId, {
         page: currentPage,
-        limit: ITEMS_PER_PAGE
+        limit: ITEMS_PER_PAGE,
       });
 
       if (response) {
@@ -142,7 +150,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -162,12 +170,16 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
   const handleToggleActive = async (service: ShopService) => {
     try {
-      const updatedService = await updateService(service.serviceId, { active: !service.active });
-      toast.success(`Service ${service.active ? "deactivated" : "activated"} successfully!`);
+      const updatedService = await updateService(service.serviceId, {
+        active: !service.active,
+      });
+      toast.success(
+        `Service ${service.active ? "deactivated" : "activated"} successfully!`
+      );
 
       if (updatedService) {
-        setServices(prevServices =>
-          prevServices.map(s =>
+        setServices((prevServices) =>
+          prevServices.map((s) =>
             s.serviceId === service.serviceId ? { ...s, active: !s.active } : s
           )
         );
@@ -179,7 +191,11 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    if (!confirm("Are you sure you want to delete this service? This action cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this service? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
@@ -198,12 +214,19 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
-    const cat = SERVICE_CATEGORIES.find(c => c.value === category);
+    const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
     return cat?.label || category;
   };
 
   // Check if shop meets requirements to create services
-  const hasSubscription = shopData?.subscriptionActive === true;
+  // Check if subscription is active OR if it's cancelled but still within the billing period
+  const isCancelledButActive =
+    shopData?.subscriptionStatus === "cancelled" &&
+    shopData?.subscriptionCancelledAt &&
+    shopData?.subscriptionEndsAt &&
+    new Date(shopData.subscriptionEndsAt) > new Date();
+  const hasSubscription =
+    shopData?.subscriptionActive === true || isCancelledButActive;
   const hasRCG = (shopData?.rcg_balance ?? 0) >= 10000;
   const canCreateServices = hasSubscription || hasRCG;
 
@@ -230,14 +253,24 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 Subscription or RCG Holdings Required
               </h3>
               <p className="text-gray-300 text-sm mb-3">
-                To create and manage services in the marketplace, you need either:
+                To create and manage services in the marketplace, you need
+                either:
               </p>
               <ul className="text-gray-300 text-sm space-y-1 mb-3 ml-4">
                 <li>• An active RepairCoin subscription ($500/month), OR</li>
                 <li>• Hold at least 10,000 RCG tokens</li>
               </ul>
               <p className="text-gray-400 text-xs">
-                Current Status: {hasSubscription ? '✅ Active Subscription' : '❌ No Subscription'} | {hasRCG ? `✅ ${shopData?.rcg_balance?.toFixed(2)} RCG` : `❌ ${shopData?.rcg_balance?.toFixed(2) || 0} RCG (need 10,000)`}
+                Current Status:{" "}
+                {hasSubscription
+                  ? "✅ Active Subscription"
+                  : "❌ No Subscription"}{" "}
+                |{" "}
+                {hasRCG
+                  ? `✅ ${shopData?.rcg_balance?.toFixed(2)} RCG`
+                  : `❌ ${
+                      shopData?.rcg_balance?.toFixed(2) || 0
+                    } RCG (need 10,000)`}
               </p>
             </div>
           </div>
@@ -247,16 +280,23 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
       {/* Header Section - Figma Design */}
       <div className="flex items-center justify-between pb-4 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <HeartHandshake className="w-6 h-6 text-[#FFCC00]" />
-          <h2 className="text-xl font-semibold text-[#FFCC00]">Your Shop's Current Services</h2>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Service Marketplace
+          </h1>
+          <p className="text-gray-400">
+            Manage your service offerings and bookings
+          </p>
         </div>
         <button
           onClick={() => {
             if (!canCreateServices) {
-              toast.error("You need an active subscription or 10,000+ RCG to create services", {
-                duration: 5000,
-                position: 'top-right'
-              });
+              toast.error(
+                "You need an active subscription or 10,000+ RCG to create services",
+                {
+                  duration: 5000,
+                  position: "top-right",
+                }
+              );
               return;
             }
             setShowCreateModal(true);
@@ -277,7 +317,9 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
       {services.length === 0 ? (
         <div className="bg-[#111] border border-gray-800 rounded-2xl p-12 text-center">
           <div className="text-6xl mb-4">🛠️</div>
-          <h3 className="text-xl font-semibold text-white mb-2">No Services Yet</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">
+            No Services Yet
+          </h3>
           <p className="text-gray-400 mb-6">
             {canCreateServices
               ? "Create your first service to start accepting bookings from customers"
@@ -286,10 +328,13 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           <button
             onClick={() => {
               if (!canCreateServices) {
-                toast.error("You need an active subscription or 10,000+ RCG to create services", {
-                  duration: 5000,
-                  position: 'top-right'
-                });
+                toast.error(
+                  "You need an active subscription or 10,000+ RCG to create services",
+                  {
+                    duration: 5000,
+                    position: "top-right",
+                  }
+                );
                 return;
               }
               setShowCreateModal(true);
@@ -354,7 +399,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                           className="flex items-center gap-1 px-2 py-1 bg-purple-600/90 backdrop-blur-sm text-white rounded-md text-[10px] font-bold shadow-lg"
                           title={`Linked to ${group.groupName}`}
                         >
-                          <span>{group.icon || '🎁'}</span>
+                          <span>{group.icon || "🎁"}</span>
                           <span>{group.customTokenSymbol}</span>
                         </div>
                       ))}
@@ -371,7 +416,10 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 <div className="p-4 flex flex-col flex-1">
                   {/* Title and Toggle Row */}
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="text-base font-bold text-white line-clamp-1 flex-1" title={service.serviceName}>
+                    <h3
+                      className="text-base font-bold text-white line-clamp-1 flex-1"
+                      title={service.serviceName}
+                    >
                       {service.serviceName}
                     </h3>
                     <ToggleSwitch
@@ -411,10 +459,17 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <div className="mb-4 p-2.5 bg-purple-900/20 border border-purple-500/30 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Users className="w-3.5 h-3.5 text-purple-300" />
-                        <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wide">Group Rewards</span>
+                        <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wide">
+                          Group Rewards
+                        </span>
                       </div>
                       <p className="text-[11px] text-purple-200">
-                        Earn <span className="font-bold">{service.groups.map(g => g.customTokenSymbol).join(', ')}</span>
+                        Earn{" "}
+                        <span className="font-bold">
+                          {service.groups
+                            .map((g) => g.customTokenSymbol)
+                            .join(", ")}
+                        </span>
                       </p>
                     </div>
                   )}
@@ -430,7 +485,9 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     {service.durationMinutes && (
                       <div className="flex items-center gap-1.5 text-gray-400">
                         <Clock className="w-4 h-4" />
-                        <span className="text-sm">{service.durationMinutes} mins</span>
+                        <span className="text-sm">
+                          {service.durationMinutes} mins
+                        </span>
                       </div>
                     )}
                   </div>
@@ -464,7 +521,9 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/shop/services/${service.serviceId}?tab=availability`);
+                        router.push(
+                          `/shop/services/${service.serviceId}?tab=availability`
+                        );
                       }}
                       className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 text-sm"
                     >
@@ -474,7 +533,9 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/shop/services/${service.serviceId}?tab=calendar`);
+                        router.push(
+                          `/shop/services/${service.serviceId}?tab=calendar`
+                        );
                       }}
                       className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 text-sm"
                     >
@@ -518,12 +579,12 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                   )}
 
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
+                    .filter((page) => {
                       if (totalPages <= 7) return true;
                       if (page === 1 || page === totalPages) return false;
                       return Math.abs(page - currentPage) <= 2;
                     })
-                    .map(page => (
+                    .map((page) => (
                       <button
                         key={page}
                         onClick={() => handlePageChange(page)}

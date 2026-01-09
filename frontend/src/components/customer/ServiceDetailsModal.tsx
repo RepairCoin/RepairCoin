@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag, Store, Coins, TrendingUp } from "lucide-react";
+import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag, Store, Coins, TrendingUp, MessageCircle } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
 import { StarRating } from "./StarRating";
 import { FavoriteButton } from "./FavoriteButton";
@@ -11,13 +11,16 @@ import { ReviewList } from "./ReviewList";
 import { SimilarServices } from "./SimilarServices";
 import { calculateTotalRcn } from "@/utils/rcnCalculator";
 import { useCustomerStore } from "@/stores/customerStore";
+import { useAuthStore } from "@/stores/authStore";
 import { sanitizeDescription } from "@/utils/sanitize";
+import * as messagingApi from "@/services/api/messaging";
 
 interface ServiceDetailsModalProps {
   service: ShopServiceWithShopInfo;
   onClose: () => void;
   onBook: (service: ShopServiceWithShopInfo) => void;
   onViewDetails?: (service: ShopServiceWithShopInfo) => void;
+  onFavoriteChange?: (serviceId: string, isFavorited: boolean) => void;
 }
 
 export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
@@ -25,14 +28,63 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
   onClose,
   onBook,
   onViewDetails,
+  onFavoriteChange,
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
+  const [isMessaging, setIsMessaging] = useState(false);
   const { customerData } = useCustomerStore();
+  const { userProfile } = useAuthStore();
 
   const handleViewSimilar = (similarService: ShopServiceWithShopInfo) => {
     if (onViewDetails) {
       onViewDetails(similarService);
+    }
+  };
+
+  const handleMessageShop = async () => {
+    if (!userProfile?.address) {
+      alert("Please connect your wallet to send messages");
+      return;
+    }
+
+    try {
+      setIsMessaging(true);
+
+      // Create detailed message with service information
+      const initialMessage = `Hi! I'm interested in your service "${service.serviceName}".
+
+📍 Service: ${service.serviceName}
+💰 Price: $${service.priceUsd}
+📂 Category: ${getCategoryLabel(service.category)}
+${service.estimatedDuration ? `⏱️ Duration: ${service.estimatedDuration}` : ''}
+
+Could you provide more details?`;
+
+      await messagingApi.sendMessage({
+        shopId: service.shopId,
+        customerAddress: userProfile.address,
+        messageText: initialMessage,
+        messageType: "service_link",
+        metadata: {
+          serviceId: service.serviceId,
+          serviceName: service.serviceName,
+          serviceImage: service.imageUrl,
+          servicePrice: service.priceUsd,
+          serviceCategory: service.category,
+          shopName: service.companyName,
+          estimatedDuration: service.estimatedDuration,
+        }
+      });
+
+      // Close modal and navigate to messages tab
+      onClose();
+      router.push("/customer?tab=messages");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert("Failed to start conversation. Please try again.");
+    } finally {
+      setIsMessaging(false);
     }
   };
 
@@ -50,7 +102,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-[#1A1A1A] z-10 border-b border-gray-800">
+        <div className="sticky top-0 bg-[#1A1A1A] z-20 border-b border-gray-800">
           <div className="flex items-center justify-between p-6">
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-white mb-2">Service Details</h2>
@@ -66,7 +118,20 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <FavoriteButton serviceId={service.serviceId} size="md" />
+              <FavoriteButton
+                serviceId={service.serviceId}
+                initialIsFavorited={service.isFavorited}
+                size="md"
+                onFavoriteChange={(isFavorited) => onFavoriteChange?.(service.serviceId, isFavorited)}
+              />
+              <button
+                onClick={handleMessageShop}
+                disabled={isMessaging}
+                className="p-2.5 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Message Shop"
+              >
+                <MessageCircle className="w-5 h-5" />
+              </button>
               <ShareButton
                 serviceId={service.serviceId}
                 serviceName={service.serviceName}

@@ -42,7 +42,7 @@ export class ServiceController {
   };
 
   /**
-   * Get all services (Marketplace view - Public)
+   * Get all services (Marketplace view - Public, with optional auth for favorites)
    * GET /api/services
    */
   getAllServices = async (req: Request, res: Response) => {
@@ -58,9 +58,13 @@ export class ServiceController {
         state: req.query.state as string | undefined
       };
 
+      // Get customer address if authenticated (for isFavorited field)
+      const customerAddress = req.user?.role === 'customer' ? req.user.address : undefined;
+
       const options = {
         page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 20
+        limit: parseInt(req.query.limit as string) || 20,
+        customerAddress
       };
 
       const result = await this.service.getMarketplaceServices(filters, options);
@@ -80,14 +84,17 @@ export class ServiceController {
   };
 
   /**
-   * Get service by ID with shop info (Public)
+   * Get service by ID with shop info (Public, with optional auth for favorites)
    * GET /api/services/:id
    */
   getServiceById = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
-      const service = await this.service.getServiceWithShopInfo(id);
+      // Get customer address if authenticated (for isFavorited field)
+      const customerAddress = req.user?.role === 'customer' ? req.user.address : undefined;
+
+      const service = await this.service.getServiceWithShopInfo(id, customerAddress);
 
       if (!service) {
         return res.status(404).json({
@@ -110,13 +117,16 @@ export class ServiceController {
   };
 
   /**
-   * Get all services for a shop (Public or Shop owner)
+   * Get all services for a shop (Public or Shop owner, with optional auth for favorites)
    * GET /api/services/shop/:shopId
    */
   getShopServices = async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
       const requestingShopId = req.user?.shopId;
+
+      // Get customer address if authenticated (for isFavorited field)
+      const customerAddress = req.user?.role === 'customer' ? req.user.address : undefined;
 
       console.log('🔍 [getShopServices] Request details:', {
         shopId,
@@ -131,7 +141,8 @@ export class ServiceController {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 20,
         // Only show active services to public, show all to shop owner
-        activeOnly: requestingShopId !== shopId
+        activeOnly: requestingShopId !== shopId,
+        customerAddress
       };
 
       console.log('🔍 [getShopServices] Query options:', {

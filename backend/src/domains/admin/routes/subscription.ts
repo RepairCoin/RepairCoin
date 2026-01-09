@@ -25,7 +25,9 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
       WITH latest_stripe_subs AS (
         SELECT DISTINCT ON (shop_id)
           shop_id,
-          current_period_end
+          current_period_end,
+          cancel_at_period_end,
+          status as stripe_status
         FROM stripe_subscriptions
         ORDER BY shop_id, created_at DESC
       )
@@ -35,7 +37,9 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
         s.email as shop_email,
         s.wallet_address,
         s.phone,
-        ss.current_period_end as stripe_period_end
+        ss.current_period_end as stripe_period_end,
+        ss.cancel_at_period_end,
+        ss.stripe_status
       FROM shop_subscriptions subs
       JOIN shops s ON s.shop_id = subs.shop_id
       LEFT JOIN latest_stripe_subs ss ON s.shop_id = ss.shop_id
@@ -53,34 +57,45 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
     const result = await db.query(query, params);
 
     // Transform the data to match frontend expectations
-    const transformedRows = result.rows.map((row: any) => ({
-      id: row.id,
-      shopId: row.shop_id,
-      shopName: row.shop_name || 'Unknown Shop',
-      email: row.shop_email || '',
-      status: row.status || 'unknown',
-      subscriptionType: row.subscription_type,
-      billingMethod: row.billing_method,
-      billingReference: row.billing_reference,
-      monthlyAmount: parseFloat(row.monthly_amount || 500),
-      paymentsMade: row.payments_made || 0,
-      totalPaid: parseFloat(row.total_paid || 0),
-      nextPaymentDate: row.next_payment_date,
-      lastPaymentDate: row.last_payment_date,
-      stripePeriodEnd: row.stripe_period_end, // Stripe's current_period_end for accurate subscription end date
-      isActive: row.is_active,
-      enrolledAt: row.enrolled_at,
-      activatedAt: row.activated_at,
-      cancelledAt: row.cancelled_at,
-      pausedAt: row.paused_at,
-      resumedAt: row.resumed_at,
-      cancellationReason: row.cancellation_reason,
-      pauseReason: row.pause_reason,
-      notes: row.notes,
-      createdBy: row.created_by,
-      daysOverdue: row.next_payment_date && new Date(row.next_payment_date) < new Date() && row.status === 'active' ?
-        Math.floor((Date.now() - new Date(row.next_payment_date).getTime()) / (1000 * 60 * 60 * 24)) : 0
-    }));
+    const transformedRows = result.rows.map((row: any) => {
+      // Determine display status:
+      // - If shop_subscriptions.status is 'active' BUT stripe has cancel_at_period_end=true, show 'cancelling'
+      // - Otherwise use shop_subscriptions.status
+      let displayStatus = row.status || 'unknown';
+      if (row.status === 'active' && row.cancel_at_period_end === true) {
+        displayStatus = 'cancelling';
+      }
+
+      return {
+        id: row.id,
+        shopId: row.shop_id,
+        shopName: row.shop_name || 'Unknown Shop',
+        email: row.shop_email || '',
+        status: displayStatus,
+        subscriptionType: row.subscription_type,
+        billingMethod: row.billing_method,
+        billingReference: row.billing_reference,
+        monthlyAmount: parseFloat(row.monthly_amount || 500),
+        paymentsMade: row.payments_made || 0,
+        totalPaid: parseFloat(row.total_paid || 0),
+        nextPaymentDate: row.next_payment_date,
+        lastPaymentDate: row.last_payment_date,
+        stripePeriodEnd: row.stripe_period_end, // Stripe's current_period_end for accurate subscription end date
+        cancelAtPeriodEnd: row.cancel_at_period_end || false,
+        isActive: row.is_active,
+        enrolledAt: row.enrolled_at,
+        activatedAt: row.activated_at,
+        cancelledAt: row.cancelled_at,
+        pausedAt: row.paused_at,
+        resumedAt: row.resumed_at,
+        cancellationReason: row.cancellation_reason,
+        pauseReason: row.pause_reason,
+        notes: row.notes,
+        createdBy: row.created_by,
+        daysOverdue: row.next_payment_date && new Date(row.next_payment_date) < new Date() && row.status === 'active' ?
+          Math.floor((Date.now() - new Date(row.next_payment_date).getTime()) / (1000 * 60 * 60 * 24)) : 0
+      };
+    });
 
     // Get total count
     let countQuery = `
@@ -251,13 +266,26 @@ router.post('/subscriptions/:subscriptionId/cancel', async (req: Request, res: R
       [immediately ? 'canceled' : 'active', !immediately, immediately ? new Date() : null, stripeSubscriptionId]
     );
 
-    // Update shop_subscriptions
-    await db.query(
-      `UPDATE shop_subscriptions
-       SET status = 'cancelled', is_active = false, cancelled_at = CURRENT_TIMESTAMP, cancellation_reason = $1
-       WHERE id = $2`,
-      [reason || 'Cancelled by admin', subscriptionId]
-    );
+    // Update shop_subscriptions based on cancellation type
+    // For cancel-at-period-end: Keep status as 'active' - shop still has access until period ends
+    // For immediate cancel: Set status to 'cancelled' - shop loses access immediately
+    if (immediately) {
+      // Immediate cancellation - set to cancelled
+      await db.query(
+        `UPDATE shop_subscriptions
+         SET status = 'cancelled', is_active = false, cancelled_at = CURRENT_TIMESTAMP, cancellation_reason = $1
+         WHERE id = $2`,
+        [reason || 'Cancelled by admin', subscriptionId]
+      );
+    } else {
+      // Cancel at period end - keep active but store the cancellation reason for reference
+      await db.query(
+        `UPDATE shop_subscriptions
+         SET cancellation_reason = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [reason || 'Cancelled by admin (pending)', subscriptionId]
+      );
+    }
 
     // Get shop details for notifications
     const shopQuery = await db.query(
@@ -895,15 +923,7 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
       });
     }
 
-    // Only allow reactivation of cancelled subscriptions
-    if (status !== 'cancelled') {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot reactivate a subscription with status: ${status}. Only cancelled subscriptions can be reactivated.`
-      });
-    }
-
-    // Check the actual Stripe subscription status
+    // Check the actual Stripe subscription status FIRST to determine if reactivation is allowed
     let stripeSubscription;
     try {
       stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
@@ -968,6 +988,28 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
       });
     }
 
+    // Validate that reactivation is appropriate
+    // Allow reactivation for:
+    // 1. shop_subscriptions.status = 'cancelled' (already cancelled but Stripe still has it)
+    // 2. shop_subscriptions.status = 'active' AND Stripe has cancel_at_period_end = true (pending cancellation / "cancelling" state)
+    const isPendingCancellation = stripeSubscription.cancel_at_period_end === true;
+    const isFullyCancelledInDb = status === 'cancelled';
+
+    if (!isPendingCancellation && !isFullyCancelledInDb) {
+      return res.status(400).json({
+        success: false,
+        error: 'This subscription is fully active and not pending cancellation. No reactivation needed.'
+      });
+    }
+
+    // Log what Stripe returned for debugging
+    logger.info('Stripe subscription data for reactivation', {
+      stripeSubscriptionId,
+      stripeStatus: stripeSubscription.status,
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+      canceledAt: stripeSubscription.canceled_at
+    });
+
     // If subscription has cancel_at_period_end set, we can unset it to reactivate
     if (stripeSubscription.cancel_at_period_end) {
       // Remove the cancel_at_period_end flag in Stripe
@@ -976,15 +1018,66 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
       });
 
       logger.info('Removed cancel_at_period_end flag in Stripe', { stripeSubscriptionId });
+    } else {
+      logger.warn('Stripe subscription does not have cancel_at_period_end set - forcing update anyway', { stripeSubscriptionId });
+      // Force update Stripe anyway to ensure consistency
+      await stripeService.getStripe().subscriptions.update(stripeSubscriptionId, {
+        cancel_at_period_end: false
+      });
+      logger.info('Forced cancel_at_period_end to false in Stripe', { stripeSubscriptionId });
     }
 
-    // Update stripe_subscriptions table
+    // ALSO find and update ALL other Stripe subscriptions for this shop
+    // This handles the case where shop has multiple subscription records in stripe_subscriptions table
+    const allShopStripeSubsQuery = await db.query(
+      `SELECT stripe_subscription_id FROM stripe_subscriptions
+       WHERE shop_id = $1 AND stripe_subscription_id != $2`,
+      [shopId, stripeSubscriptionId]
+    );
+
+    for (const row of allShopStripeSubsQuery.rows) {
+      const otherSubId = row.stripe_subscription_id;
+      try {
+        // Check if subscription exists in Stripe and update it
+        const otherStripeSub = await stripeService.getStripe().subscriptions.retrieve(otherSubId);
+        if (otherStripeSub && otherStripeSub.status !== 'canceled') {
+          await stripeService.getStripe().subscriptions.update(otherSubId, {
+            cancel_at_period_end: false
+          });
+          logger.info('Also reactivated additional Stripe subscription for shop', {
+            shopId,
+            additionalStripeSubscriptionId: otherSubId
+          });
+        }
+      } catch (stripeError) {
+        logger.warn('Could not update additional Stripe subscription', {
+          shopId,
+          additionalStripeSubscriptionId: otherSubId,
+          error: stripeError instanceof Error ? stripeError.message : 'Unknown error'
+        });
+      }
+    }
+
+    // Update stripe_subscriptions table by subscription ID
     await db.query(
       `UPDATE stripe_subscriptions
        SET status = 'active', cancel_at_period_end = false, canceled_at = NULL, updated_at = CURRENT_TIMESTAMP
        WHERE stripe_subscription_id = $1`,
       [stripeSubscriptionId]
     );
+
+    // ALSO update ALL stripe_subscriptions for this shop by shop_id
+    // This handles the case where shop has multiple subscription records
+    const shopUpdateResult = await db.query(
+      `UPDATE stripe_subscriptions
+       SET status = 'active', cancel_at_period_end = false, canceled_at = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE shop_id = $1`,
+      [shopId]
+    );
+    logger.info('Updated all stripe_subscriptions for shop', {
+      shopId,
+      rowsUpdated: shopUpdateResult.rowCount
+    });
 
     // Update shop_subscriptions table
     await db.query(

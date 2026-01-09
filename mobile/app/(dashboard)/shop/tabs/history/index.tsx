@@ -1,0 +1,1 @@
+export { ShopHistoryScreen as default } from "@/feature/tabs/history/screens";

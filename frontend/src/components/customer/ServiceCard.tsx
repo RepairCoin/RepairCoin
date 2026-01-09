@@ -14,12 +14,14 @@ interface ServiceCardProps {
   service: ShopServiceWithShopInfo;
   onBook: (service: ShopServiceWithShopInfo) => void;
   onViewDetails: (service: ShopServiceWithShopInfo) => void;
+  onFavoriteChange?: (serviceId: string, isFavorited: boolean) => void;
 }
 
 export const ServiceCard: React.FC<ServiceCardProps> = ({
   service,
   onBook,
   onViewDetails,
+  onFavoriteChange,
 }) => {
   const [imageError, setImageError] = React.useState(false);
   const { customerData } = useCustomerStore();
@@ -80,8 +82,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         <div className="absolute top-3 right-3 z-10">
           <FavoriteButton
             serviceId={service.serviceId}
+            initialIsFavorited={service.isFavorited}
             size="md"
             className="ring-2 ring-white/20"
+            onFavoriteChange={(isFavorited) => onFavoriteChange?.(service.serviceId, isFavorited)}
           />
         </div>
 

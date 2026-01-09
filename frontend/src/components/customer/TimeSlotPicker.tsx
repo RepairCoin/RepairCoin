@@ -13,14 +13,31 @@ interface TimeSlotPickerProps {
   selectedDate: Date | null;
   selectedTimeSlot: string | null;
   onTimeSlotSelect: (timeSlot: string) => void;
+  shopTimezone?: string; // IANA timezone identifier (e.g., 'America/New_York')
 }
+
+// Map timezone identifiers to user-friendly labels
+const getTimezoneLabel = (timezone: string): string => {
+  const labels: Record<string, string> = {
+    'America/New_York': 'ET',
+    'America/Chicago': 'CT',
+    'America/Denver': 'MT',
+    'America/Los_Angeles': 'PT',
+    'America/Anchorage': 'AKT',
+    'Pacific/Honolulu': 'HT',
+    'America/Phoenix': 'AZ',
+    'UTC': 'UTC'
+  };
+  return labels[timezone] || timezone.split('/').pop()?.replace('_', ' ') || timezone;
+};
 
 export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   shopId,
   serviceId,
   selectedDate,
   selectedTimeSlot,
-  onTimeSlotSelect
+  onTimeSlotSelect,
+  shopTimezone = 'America/New_York'
 }) => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,10 +111,18 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
         <h4 className="text-sm font-semibold text-white flex items-center gap-2">
           <Clock className="w-4 h-4" />
           Select a Time
+          <span className="text-xs font-normal text-gray-400">
+            ({getTimezoneLabel(shopTimezone)})
+          </span>
         </h4>
         <span className="text-xs text-gray-400">
           {timeSlots.filter(s => s.available).length} of {timeSlots.length} available
         </span>
+      </div>
+
+      {/* Timezone notice */}
+      <div className="text-xs text-gray-500 mb-3 bg-gray-800/30 rounded-lg px-3 py-2">
+        Times shown in shop timezone ({getTimezoneLabel(shopTimezone)})
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto">

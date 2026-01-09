@@ -57,12 +57,16 @@ interface SettingsTabProps {
   shopId: string;
   shopData: ShopData | null;
   onSettingsUpdate: () => void;
+  isSuspended?: boolean;
+  isPaused?: boolean;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   shopId,
   shopData,
   onSettingsUpdate,
+  isSuspended = false,
+  isPaused = false,
 }) => {
   const [activeTab, setActiveTab] = useState<
     | "shop-profile"
@@ -785,6 +789,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <SubscriptionManagement
                   shopId={shopId}
                   shopWallet={shopData.walletAddress}
+                  isSuspended={isSuspended}
+                  isPaused={isPaused}
                 />
               )}
             </div>

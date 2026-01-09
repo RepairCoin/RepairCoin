@@ -56,6 +56,7 @@ export interface ShopServiceWithShopInfo extends ShopService {
   distance?: number;
   avgRating?: number;
   reviewCount?: number;
+  isFavorited?: boolean;
   shopLocation?: {
     lat: number;
     lng: number;
@@ -414,6 +415,26 @@ export const cancelOrder = async (
     return true;
   } catch (error) {
     console.error('Error canceling order:', error);
+    throw error;
+  }
+};
+
+/**
+ * Cancel order by shop (Shop only)
+ */
+export const cancelOrderByShop = async (
+  orderId: string,
+  cancellationReason: string,
+  cancellationNotes?: string
+): Promise<boolean> => {
+  try {
+    await apiClient.post(`/services/orders/${orderId}/shop-cancel`, {
+      cancellationReason,
+      cancellationNotes,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error canceling order by shop:', error);
     throw error;
   }
 };
@@ -891,6 +912,7 @@ export const servicesApi = {
   getOrderById,
   updateOrderStatus,
   cancelOrder,
+  cancelOrderByShop,
   markOrderAsNoShow,
   approveBooking,
   rescheduleBooking,

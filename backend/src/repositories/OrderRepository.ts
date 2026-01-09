@@ -30,6 +30,9 @@ export interface ServiceOrder {
   rescheduledBy?: string;
   rescheduleReason?: string;
   rescheduleCount: number;
+  noShow?: boolean;
+  markedNoShowAt?: Date;
+  noShowNotes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,6 +67,8 @@ export interface CreateOrderParams {
   bookingTimeSlot?: string;
   bookingEndTime?: string;
   notes?: string;
+  stripePaymentIntentId?: string;
+  status?: OrderStatus;
 }
 
 export interface OrderFilters {
@@ -75,15 +80,19 @@ export interface OrderFilters {
 export class OrderRepository extends BaseRepository {
   /**
    * Create a new order
+   * @param params Order parameters including optional status (defaults to 'paid' - no pending status)
    */
   async createOrder(params: CreateOrderParams): Promise<ServiceOrder> {
     try {
+      const status = params.status || 'paid'; // Default to 'paid' - orders are created after payment succeeds
+
       const query = `
         INSERT INTO service_orders (
           order_id, service_id, customer_address, shop_id, total_amount,
           rcn_redeemed, rcn_discount_usd, final_amount_usd,
-          booking_date, booking_time_slot, booking_end_time, notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
+          booking_date, booking_time_slot, booking_end_time, notes,
+          stripe_payment_intent_id, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
 
@@ -99,13 +108,16 @@ export class OrderRepository extends BaseRepository {
         params.bookingDate || null,
         params.bookingTimeSlot || null,
         params.bookingEndTime || null,
-        params.notes || null
+        params.notes || null,
+        params.stripePaymentIntentId || null,
+        status
       ];
 
       const result = await this.pool.query(query, values);
       logger.info('Order created', {
         orderId: params.orderId,
         serviceId: params.serviceId,
+        status,
         rcnRedeemed: params.rcnRedeemed || 0,
         discountUsd: params.rcnDiscountUsd || 0,
         bookingDate: params.bookingDate,
@@ -563,6 +575,9 @@ export class OrderRepository extends BaseRepository {
       rescheduledBy: row.rescheduled_by,
       rescheduleReason: row.reschedule_reason,
       rescheduleCount: row.reschedule_count || 0,
+      noShow: row.no_show || false,
+      markedNoShowAt: row.marked_no_show_at,
+      noShowNotes: row.no_show_notes,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

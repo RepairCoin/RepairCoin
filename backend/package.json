@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit",
     "healthcheck": "curl http://localhost:3000/api/health",
     "_comment_migrations": "# Database Migration Commands",
-    "db:migrate": "./scripts/run-migrations.sh",
+    "db:migrate": "ts-node scripts/run-migrations.ts",
     "db:create-migration": "node scripts/create-migration.js",
     "_predev_disabled": "npm run db:check",
     "docs": "echo 'API Documentation available at: http://localhost:3000/api-docs'",
@@ -46,7 +46,11 @@
     "admin:add": "ts-node src/cli/admin.ts add",
     "admin:check": "ts-node src/cli/admin.ts check",
     "mint:rcg": "ts-node scripts/mint-rcg-tokens.ts",
-    "logger": "bash scripts/logger.sh"
+    "logger": "bash scripts/logger.sh",
+    "_comment_test_reminders": "# Test Reminder Commands - Usage: npm run test:subscription-reminder:shop -- shop-3 1",
+    "test:subscription-reminder": "ts-node scripts/test-subscription-reminder.ts",
+    "test:subscription-reminder:reset": "ts-node scripts/reset-subscription-reminder.ts",
+    "test:appointment-reminder": "ts-node -r dotenv/config -e \"import { appointmentReminderService } from './src/services/AppointmentReminderService'; appointmentReminderService.checkAndSendReminders().then(r => { console.log('Result:', JSON.stringify(r, null, 2)); process.exit(0); }).catch(e => { console.error(e); process.exit(1); });\""
   },
   "keywords": [
     "blockchain",
@@ -64,6 +68,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.937.0",
     "@aws-sdk/s3-request-presigner": "^3.937.0",
+    "@smithy/node-http-handler": "^4.4.7",
     "@types/stripe": "^8.0.416",
     "@types/ws": "^8.18.1",
     "axios": "^1.11.0",
@@ -73,6 +78,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "drizzle-orm": "^0.29.1",
+    "expo-server-sdk": "^4.0.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.1",
     "helmet": "^7.1.0",

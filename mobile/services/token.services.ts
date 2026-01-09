@@ -4,6 +4,7 @@ import {
   CreateRedemptionSessionResponse,
   GiftTokenRequest,
   GiftTokenResponse,
+  MyRedemptionSessionsResponse,
   RedemptionSessionStatusResponse,
   TransferHistoryResponse,
   ValidateTransferRequest,
@@ -107,9 +108,9 @@ class TokenApi {
     }
   }
 
-  async fetchMyRedemptionSessions(): Promise<RedemptionSessionStatusResponse> {
+  async fetchMyRedemptionSessions(): Promise<MyRedemptionSessionsResponse> {
     try {
-      return await apiClient.get<RedemptionSessionStatusResponse>(
+      return await apiClient.get<MyRedemptionSessionsResponse>(
         "/tokens/redemption-session/my-sessions"
       );
     } catch (error) {

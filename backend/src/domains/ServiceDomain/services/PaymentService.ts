@@ -1,5 +1,5 @@
 // backend/src/domains/ServiceDomain/services/PaymentService.ts
-import { OrderRepository, CreateOrderParams, ServiceOrder } from '../../../repositories/OrderRepository';
+import { OrderRepository, ServiceOrder } from '../../../repositories/OrderRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
@@ -106,6 +106,7 @@ export class PaymentService {
 
   /**
    * Create a payment intent for a service booking
+   * NOTE: Order is NOT created in DB until payment succeeds (no pending status)
    */
   async createPaymentIntent(request: CreatePaymentIntentRequest): Promise<CreatePaymentIntentResponse> {
     try {
@@ -121,8 +122,9 @@ export class PaymentService {
 
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
+      let bookingDateStr: string | undefined;
       if (request.bookingDate && request.bookingTime) {
-        const dateStr = getDateString(request.bookingDate);
+        bookingDateStr = getDateString(request.bookingDate);
 
         // Get service duration
         const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
@@ -142,7 +144,7 @@ export class PaymentService {
         }
 
         // Get booked slots for this date
-        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr);
         const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
         const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
@@ -153,7 +155,7 @@ export class PaymentService {
 
         // Validate minimum notice (minBookingHours)
         // Parse booking date and time to create a proper DateTime
-        const [bookingYear, bookingMonth, bookingDay] = dateStr.split('-').map(Number);
+        const [bookingYear, bookingMonth, bookingDay] = bookingDateStr.split('-').map(Number);
         const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
         const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
         const now = new Date();
@@ -165,7 +167,7 @@ export class PaymentService {
 
         logger.info('Time slot validated', {
           shopId: service.shopId,
-          date: dateStr,
+          date: bookingDateStr,
           timeSlot: request.bookingTime,
           normalizedTime: normalizedRequestTime,
           bookedSlots: bookedSlots.map(s => ({ time: s.timeSlot, normalized: normalizeTimeSlot(s.timeSlot), count: s.count })),
@@ -198,51 +200,36 @@ export class PaymentService {
         customerRcnBalance = redemption.remainingBalance;
       }
 
-      // Generate order ID
+      // Generate order ID (will be used when order is created after payment)
       const orderId = `ord_${uuidv4()}`;
-
-      // Create order in database with pending status
-      const orderParams: CreateOrderParams = {
-        orderId,
-        serviceId: request.serviceId,
-        customerAddress: request.customerAddress,
-        shopId: service.shopId,
-        totalAmount: service.priceUsd,
-        rcnRedeemed,
-        rcnDiscountUsd,
-        finalAmountUsd,
-        bookingDate: request.bookingDate ? toLocalDate(request.bookingDate) : undefined,
-        bookingTimeSlot: request.bookingTime,
-        bookingEndTime,
-        notes: request.notes
-      };
-
-      const order = await this.orderRepository.createOrder(orderParams);
 
       // Create Stripe Payment Intent for final amount (after discount)
       // Stripe uses smallest currency unit (cents for USD)
+      // NOTE: Order is NOT created in DB - all data stored in Stripe metadata
       const amountInCents = Math.round(finalAmountUsd * 100);
 
       const paymentIntent = await this.stripeService.createPaymentIntent({
         amount: amountInCents,
         currency: 'usd',
         metadata: {
-          orderId: order.orderId,
+          orderId,
           serviceId: service.serviceId,
           shopId: service.shopId,
           customerAddress: request.customerAddress,
           totalAmount: service.priceUsd.toString(),
           rcnRedeemed: rcnRedeemed.toString(),
           rcnDiscountUsd: rcnDiscountUsd.toString(),
+          finalAmountUsd: finalAmountUsd.toString(),
+          bookingDate: bookingDateStr || '',
+          bookingTime: request.bookingTime || '',
+          bookingEndTime: bookingEndTime || '',
+          notes: request.notes || '',
           type: 'service_booking'
         },
         description: `Service Booking: ${service.serviceName}${rcnRedeemed > 0 ? ` (${rcnRedeemed} RCN redeemed)` : ''}`
       });
 
-      // Update order with payment intent ID
-      await this.orderRepository.updatePaymentIntent(orderId, paymentIntent.id);
-
-      logger.info('Payment intent created for service booking', {
+      logger.info('Payment intent created for service booking (order will be created on payment success)', {
         orderId,
         serviceId: service.serviceId,
         paymentIntentId: paymentIntent.id,
@@ -253,7 +240,7 @@ export class PaymentService {
       });
 
       return {
-        orderId: order.orderId,
+        orderId,
         clientSecret: paymentIntent.client_secret!,
         amount: finalAmountUsd,
         currency: 'usd',
@@ -272,6 +259,7 @@ export class PaymentService {
   /**
    * Create a Stripe Checkout session for web-based payment
    * This avoids Apple's 30% IAP fee by redirecting to browser
+   * NOTE: Order is NOT created in DB until payment succeeds (no pending status)
    */
   async createStripeCheckout(request: CreatePaymentIntentRequest): Promise<CreateStripeCheckoutResponse> {
     try {
@@ -287,8 +275,9 @@ export class PaymentService {
 
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
+      let bookingDateStr: string | undefined;
       if (request.bookingDate && request.bookingTime) {
-        const dateStr = getDateString(request.bookingDate);
+        bookingDateStr = getDateString(request.bookingDate);
 
         // Get service duration
         const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
@@ -308,7 +297,7 @@ export class PaymentService {
         }
 
         // Get booked slots for this date
-        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, bookingDateStr);
         const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
         const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
@@ -319,7 +308,7 @@ export class PaymentService {
 
         // Validate minimum notice (minBookingHours)
         // Parse booking date and time to create a proper DateTime
-        const [bookingYear, bookingMonth, bookingDay] = dateStr.split('-').map(Number);
+        const [bookingYear, bookingMonth, bookingDay] = bookingDateStr.split('-').map(Number);
         const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
         const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
         const now = new Date();
@@ -331,7 +320,7 @@ export class PaymentService {
 
         logger.info('Time slot validated (checkout)', {
           shopId: service.shopId,
-          date: dateStr,
+          date: bookingDateStr,
           timeSlot: request.bookingTime,
           normalizedTime: normalizedRequestTime,
           bookedCount,
@@ -363,31 +352,14 @@ export class PaymentService {
         customerRcnBalance = redemption.remainingBalance;
       }
 
-      // Generate order ID
+      // Generate order ID (will be used when order is created after payment)
       const orderId = `ord_${uuidv4()}`;
-
-      // Create order in database with pending status
-      const orderParams: CreateOrderParams = {
-        orderId,
-        serviceId: request.serviceId,
-        customerAddress: request.customerAddress,
-        shopId: service.shopId,
-        totalAmount: service.priceUsd,
-        rcnRedeemed,
-        rcnDiscountUsd,
-        finalAmountUsd,
-        bookingDate: request.bookingDate ? toLocalDate(request.bookingDate) : undefined,
-        bookingTimeSlot: request.bookingTime,
-        bookingEndTime,
-        notes: request.notes
-      };
-
-      const order = await this.orderRepository.createOrder(orderParams);
 
       // Get shop details for customer info
       const shop = await shopRepository.getShop(service.shopId);
 
       // Create Stripe Checkout session
+      // NOTE: Order is NOT created in DB - all data stored in Stripe metadata
       const stripe = this.stripeService.getStripe();
       const amountInCents = Math.round(finalAmountUsd * 100);
 
@@ -412,21 +384,23 @@ export class PaymentService {
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
-          orderId: order.orderId,
+          orderId,
           serviceId: service.serviceId,
           shopId: service.shopId,
           customerAddress: request.customerAddress,
           totalAmount: service.priceUsd.toString(),
           rcnRedeemed: rcnRedeemed.toString(),
           rcnDiscountUsd: rcnDiscountUsd.toString(),
+          finalAmountUsd: finalAmountUsd.toString(),
+          bookingDate: bookingDateStr || '',
+          bookingTime: request.bookingTime || '',
+          bookingEndTime: bookingEndTime || '',
+          notes: request.notes || '',
           type: 'service_booking'
         }
       });
 
-      // Update order with checkout session ID
-      await this.orderRepository.updatePaymentIntent(orderId, session.id);
-
-      logger.info('Stripe checkout session created for service booking', {
+      logger.info('Stripe checkout session created (order will be created on payment success)', {
         orderId,
         serviceId: service.serviceId,
         sessionId: session.id,
@@ -437,7 +411,7 @@ export class PaymentService {
       });
 
       return {
-        orderId: order.orderId,
+        orderId,
         checkoutUrl: session.url!,
         sessionId: session.id,
         amount: finalAmountUsd,
@@ -456,36 +430,74 @@ export class PaymentService {
 
   /**
    * Handle successful payment (called by webhook or confirmation endpoint)
+   * Creates order in DB from Stripe metadata (no pending status - order only exists after payment)
    * Supports both payment intent IDs (pi_xxx) and checkout session IDs (cs_xxx)
    */
   async handlePaymentSuccess(paymentIntentOrSessionId: string): Promise<ServiceOrder> {
     try {
-      // Find order by payment intent ID (or checkout session ID)
-      let order = await this.orderRepository.getOrderByPaymentIntent(paymentIntentOrSessionId);
+      const stripe = this.stripeService.getStripe();
+      let metadata: Stripe.Metadata;
+      let paymentIntentId = paymentIntentOrSessionId;
 
-      // If not found and it's a checkout session, verify with Stripe and get the actual payment status
-      if (!order && paymentIntentOrSessionId.startsWith('cs_')) {
-        // It's a checkout session ID - verify the session is paid
-        const stripe = this.stripeService.getStripe();
+      // Check if order already exists (idempotency check)
+      const existingOrder = await this.orderRepository.getOrderByPaymentIntent(paymentIntentOrSessionId);
+      if (existingOrder) {
+        // If order is already paid or completed, return it (avoid duplicate processing)
+        if (existingOrder.status === 'paid' || existingOrder.status === 'completed') {
+          logger.info('Order already processed', { orderId: existingOrder.orderId, status: existingOrder.status });
+          return existingOrder;
+        }
+      }
+
+      // Get metadata from Stripe to create the order
+      if (paymentIntentOrSessionId.startsWith('cs_')) {
+        // It's a checkout session ID
         const session = await stripe.checkout.sessions.retrieve(paymentIntentOrSessionId);
-
         if (session.payment_status !== 'paid') {
           throw new Error('Checkout session payment not completed');
         }
-
-        // The order should be stored with the session ID
-        order = await this.orderRepository.getOrderByPaymentIntent(paymentIntentOrSessionId);
+        metadata = session.metadata || {};
+        paymentIntentId = paymentIntentOrSessionId;
+      } else {
+        // It's a payment intent ID
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentOrSessionId);
+        if (paymentIntent.status !== 'succeeded') {
+          throw new Error('Payment intent not succeeded');
+        }
+        metadata = paymentIntent.metadata || {};
       }
 
-      if (!order) {
-        throw new Error('Order not found for payment');
+      // Validate required metadata
+      if (!metadata.orderId || !metadata.serviceId || !metadata.shopId || !metadata.customerAddress) {
+        throw new Error('Missing required order metadata from payment');
       }
 
-      // If order is already paid, return it (avoid duplicate processing)
-      if (order.status === 'paid' || order.status === 'completed') {
-        logger.info('Order already processed', { orderId: order.orderId, status: order.status });
-        return order;
-      }
+      // Create order from Stripe metadata with 'paid' status
+      const bookingDate = metadata.bookingDate ? toLocalDate(metadata.bookingDate) : undefined;
+      const order = await this.orderRepository.createOrder({
+        orderId: metadata.orderId,
+        serviceId: metadata.serviceId,
+        customerAddress: metadata.customerAddress,
+        shopId: metadata.shopId,
+        totalAmount: parseFloat(metadata.totalAmount) || 0,
+        rcnRedeemed: parseFloat(metadata.rcnRedeemed) || 0,
+        rcnDiscountUsd: parseFloat(metadata.rcnDiscountUsd) || 0,
+        finalAmountUsd: parseFloat(metadata.finalAmountUsd) || parseFloat(metadata.totalAmount) || 0,
+        bookingDate,
+        bookingTimeSlot: metadata.bookingTime || undefined,
+        bookingEndTime: metadata.bookingEndTime || undefined,
+        notes: metadata.notes || undefined,
+        stripePaymentIntentId: paymentIntentId,
+        status: 'paid'
+      });
+
+      logger.info('Order created from successful payment', {
+        orderId: order.orderId,
+        paymentIntentOrSessionId,
+        totalAmount: order.totalAmount,
+        finalAmount: order.finalAmountUsd,
+        rcnDiscount: order.rcnDiscountUsd
+      });
 
       // Process RCN redemption if any
       if (order.rcnRedeemed && order.rcnRedeemed > 0) {
@@ -511,17 +523,6 @@ export class PaymentService {
           });
         }
       }
-
-      // Update order status to paid
-      const updatedOrder = await this.orderRepository.updateOrderStatus(order.orderId, 'paid');
-
-      logger.info('Payment confirmed for service order', {
-        orderId: order.orderId,
-        paymentIntentOrSessionId,
-        totalAmount: order.totalAmount,
-        finalAmount: order.finalAmountUsd,
-        rcnDiscount: order.rcnDiscountUsd
-      });
 
       // Send notification to shop about new booking
       try {
@@ -555,7 +556,7 @@ export class PaymentService {
         // Don't fail the payment if confirmation fails
       }
 
-      return updatedOrder;
+      return order;
     } catch (error) {
       logger.error('Error handling payment success:', error);
       throw error;
@@ -564,47 +565,54 @@ export class PaymentService {
 
   /**
    * Handle failed payment (called by webhook)
+   * NOTE: Since orders are only created on successful payment, there's no DB order to update.
+   * We just log the failure and optionally notify the customer.
    */
   async handlePaymentFailure(paymentIntentId: string, reason?: string): Promise<void> {
     try {
-      // Find order by payment intent ID
-      const order = await this.orderRepository.getOrderByPaymentIntent(paymentIntentId);
-      if (!order) {
-        logger.warn('Order not found for failed payment intent', { paymentIntentId });
-        return;
+      // Get payment intent from Stripe to access metadata
+      const stripe = this.stripeService.getStripe();
+      let metadata: Stripe.Metadata = {};
+      let serviceName = 'Service';
+
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        metadata = paymentIntent.metadata || {};
+
+        // Get service name for notification
+        if (metadata.serviceId) {
+          const service = await this.serviceRepository.getServiceById(metadata.serviceId);
+          if (service) {
+            serviceName = service.serviceName;
+          }
+        }
+      } catch (stripeError) {
+        logger.warn('Could not retrieve payment intent details', { paymentIntentId, error: stripeError });
       }
 
-      // Update order status to cancelled
-      await this.orderRepository.updateOrderStatus(order.orderId, 'cancelled');
-
-      // Add failure reason to notes if provided
-      if (reason) {
-        const notes = order.notes
-          ? `${order.notes}\n\nPayment failed: ${reason}`
-          : `Payment failed: ${reason}`;
-        await this.orderRepository.updateOrderNotes(order.orderId, notes);
-      }
-
-      logger.info('Payment failed for service order', {
-        orderId: order.orderId,
+      logger.info('Payment failed for service booking', {
         paymentIntentId,
+        orderId: metadata.orderId || 'unknown',
+        customerAddress: metadata.customerAddress || 'unknown',
         reason
       });
 
-      // Send notification to customer about payment failure
-      try {
-        const service = await this.serviceRepository.getServiceById(order.serviceId);
-        if (service) {
+      // Send notification to customer about payment failure if we have their address
+      if (metadata.customerAddress) {
+        try {
           await this.notificationService.createServicePaymentFailedNotification(
-            order.customerAddress,
-            service.serviceName,
+            metadata.customerAddress,
+            serviceName,
             reason || 'Payment processing failed',
-            order.orderId
+            metadata.orderId || paymentIntentId
           );
-          logger.info('Payment failure notification sent to customer', { customerAddress: order.customerAddress, orderId: order.orderId });
+          logger.info('Payment failure notification sent to customer', {
+            customerAddress: metadata.customerAddress,
+            orderId: metadata.orderId
+          });
+        } catch (notifError) {
+          logger.error('Failed to send payment failure notification:', notifError);
         }
-      } catch (notifError) {
-        logger.error('Failed to send payment failure notification:', notifError);
       }
     } catch (error) {
       logger.error('Error handling payment failure:', error);

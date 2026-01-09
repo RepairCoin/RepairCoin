@@ -24,6 +24,7 @@ export interface TimeSlotConfig {
   bookingAdvanceDays: number;
   minBookingHours: number;
   allowWeekendBooking: boolean;
+  timezone: string; // IANA timezone identifier (e.g., 'America/New_York')
   createdAt: string;
   updatedAt: string;
 }
@@ -159,6 +160,7 @@ export class AppointmentRepository extends BaseRepository {
           booking_advance_days as "bookingAdvanceDays",
           min_booking_hours as "minBookingHours",
           allow_weekend_booking as "allowWeekendBooking",
+          COALESCE(timezone, 'America/New_York') as "timezone",
           created_at as "createdAt",
           updated_at as "updatedAt"
         FROM shop_time_slot_config
@@ -178,9 +180,9 @@ export class AppointmentRepository extends BaseRepository {
       const query = `
         INSERT INTO shop_time_slot_config (
           shop_id, slot_duration_minutes, buffer_time_minutes, max_concurrent_bookings,
-          booking_advance_days, min_booking_hours, allow_weekend_booking
+          booking_advance_days, min_booking_hours, allow_weekend_booking, timezone
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (shop_id)
         DO UPDATE SET
           slot_duration_minutes = EXCLUDED.slot_duration_minutes,
@@ -189,6 +191,7 @@ export class AppointmentRepository extends BaseRepository {
           booking_advance_days = EXCLUDED.booking_advance_days,
           min_booking_hours = EXCLUDED.min_booking_hours,
           allow_weekend_booking = EXCLUDED.allow_weekend_booking,
+          timezone = EXCLUDED.timezone,
           updated_at = NOW()
         RETURNING
           config_id as "configId",
@@ -199,6 +202,7 @@ export class AppointmentRepository extends BaseRepository {
           booking_advance_days as "bookingAdvanceDays",
           min_booking_hours as "minBookingHours",
           allow_weekend_booking as "allowWeekendBooking",
+          COALESCE(timezone, 'America/New_York') as "timezone",
           created_at as "createdAt",
           updated_at as "updatedAt"
       `;
@@ -210,13 +214,24 @@ export class AppointmentRepository extends BaseRepository {
         config.maxConcurrentBookings ?? 1,
         config.bookingAdvanceDays ?? 30,
         config.minBookingHours ?? 2,
-        config.allowWeekendBooking ?? true
+        config.allowWeekendBooking ?? true,
+        config.timezone ?? 'America/New_York'
       ]);
 
       return result.rows[0];
     } catch (error) {
       logger.error('Error updating time slot config:', error);
       throw new Error('Failed to update time slot config');
+    }
+  }
+
+  async deleteTimeSlotConfig(shopId: string): Promise<void> {
+    try {
+      const query = `DELETE FROM shop_time_slot_config WHERE shop_id = $1`;
+      await this.pool.query(query, [shopId]);
+    } catch (error) {
+      logger.error('Error deleting time slot config:', error);
+      throw new Error('Failed to delete time slot config');
     }
   }
 
@@ -480,7 +495,8 @@ export class AppointmentRepository extends BaseRepository {
       }));
     } catch (error) {
       logger.error('Error getting customer appointments:', error);
-      throw new Error('Failed to get customer appointments');
+      // Return empty array instead of throwing - customer may have no appointments
+      return [];
     }
   }
 

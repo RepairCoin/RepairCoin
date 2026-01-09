@@ -2,6 +2,7 @@ import { ReferralRepository } from '../repositories/ReferralRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { TransactionRepository } from '../repositories/TransactionRepository';
 import { TokenService } from '../domains/token/services/TokenService';
+import { TierManager } from '../contracts/TierManager';
 import { logger } from '../utils/logger';
 import { eventBus } from '../events/EventBus';
 import { v4 as uuidv4 } from 'uuid';
@@ -308,18 +309,46 @@ export class ReferralService {
         refereeAddress: customerAddress
       });
 
-      // Mint 25 RCN to referrer
-      logger.info('Minting 25 RCN to referrer', {
+      // Add 25 RCN to referrer's database balance (NOT minting to wallet)
+      // Wallet minting only happens through manual mint in customer overview
+      logger.info('Adding 25 RCN to referrer database balance', {
         fn,
         referrerAddress: customer.referredBy,
         amount: 25
       });
-      await this.tokenService.mintTokens(
-        customer.referredBy,
-        25,
-        'Referral bonus - referred customer completed first repair'
-      );
-      logger.info('Successfully minted 25 RCN to referrer', {
+
+      // Get referrer to calculate new tier
+      const tierManager = new TierManager();
+      const referrerCustomer = await this.customerRepository.getCustomer(customer.referredBy);
+      if (referrerCustomer) {
+        const referrerNewTier = tierManager.calculateTier(referrerCustomer.lifetimeEarnings + 25);
+        await this.customerRepository.updateBalanceAfterEarning(
+          customer.referredBy,
+          25,
+          referrerNewTier
+        );
+
+        // Record transaction for tracking (use 'tier_bonus' type for referral bonuses)
+        await this.transactionRepository.recordTransaction({
+          id: `referral_referrer_${transactionId}`,
+          type: 'tier_bonus',
+          customerAddress: customer.referredBy.toLowerCase(),
+          shopId: shopId,
+          amount: 25,
+          reason: 'Referral bonus - referred customer completed first repair',
+          transactionHash: undefined, // No blockchain transaction
+          timestamp: new Date().toISOString(),
+          status: 'confirmed',
+          metadata: {
+            refereeAddress: customerAddress,
+            referralCode: pendingReferral.referralCode,
+            bonusType: 'referral_referrer',
+            balanceOnly: true // Flag indicating this is balance-only, no wallet mint
+          }
+        });
+      }
+
+      logger.info('Successfully added 25 RCN to referrer database balance', {
         fn,
         referrerAddress: customer.referredBy
       });
@@ -339,18 +368,42 @@ export class ReferralService {
         }
       });
 
-      // Mint 10 RCN to referee (in addition to repair reward)
-      logger.info('Minting 10 RCN to referee', {
+      // Add 10 RCN to referee's database balance (NOT minting to wallet)
+      // Wallet minting only happens through manual mint in customer overview
+      logger.info('Adding 10 RCN to referee database balance', {
         fn,
         refereeAddress: customerAddress,
         amount: 10
       });
-      await this.tokenService.mintTokens(
+
+      // Calculate referee's new tier
+      const refereeNewTier = tierManager.calculateTier(customer.lifetimeEarnings + 10);
+      await this.customerRepository.updateBalanceAfterEarning(
         customerAddress,
         10,
-        'Referral bonus - first repair completed'
+        refereeNewTier
       );
-      logger.info('Successfully minted 10 RCN to referee', {
+
+      // Record transaction for tracking (use 'tier_bonus' type for referral bonuses)
+      await this.transactionRepository.recordTransaction({
+        id: `referral_referee_${transactionId}`,
+        type: 'tier_bonus',
+        customerAddress: customerAddress.toLowerCase(),
+        shopId: shopId,
+        amount: 10,
+        reason: 'Referral bonus - first repair completed',
+        transactionHash: undefined, // No blockchain transaction
+        timestamp: new Date().toISOString(),
+        status: 'confirmed',
+        metadata: {
+          referrerAddress: customer.referredBy,
+          referralCode: pendingReferral.referralCode,
+          bonusType: 'referral_referee',
+          balanceOnly: true // Flag indicating this is balance-only, no wallet mint
+        }
+      });
+
+      logger.info('Successfully added 10 RCN to referee database balance', {
         fn,
         refereeAddress: customerAddress
       });

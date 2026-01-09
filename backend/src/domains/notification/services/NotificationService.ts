@@ -22,6 +22,12 @@ export interface NotificationMessageTemplates {
   appointment_reminder: (data: { shopName: string; serviceName: string; bookingTime: string }) => string;
   booking_confirmed: (data: { shopName: string; serviceName: string; bookingDate: string; bookingTime: string }) => string;
   upcoming_appointment: (data: { customerName: string; serviceName: string; bookingTime: string }) => string;
+  reschedule_request_created: (data: { customerName: string; serviceName: string; originalDate: string; originalTime: string; requestedDate: string; requestedTime: string }) => string;
+  reschedule_request_approved: (data: { shopName: string; serviceName: string; newDate: string; newTime: string }) => string;
+  reschedule_request_rejected: (data: { shopName: string; serviceName: string; reason?: string }) => string;
+  reschedule_request_expired: (data: { shopName: string; serviceName: string }) => string;
+  shop_suspended: (data: { shopName?: string; reason?: string }) => string;
+  shop_unsuspended: (data: { shopName?: string }) => string;
 }
 
 export class NotificationService {
@@ -90,7 +96,25 @@ export class NotificationService {
         `Your appointment for ${data.serviceName} at ${data.shopName} has been confirmed for ${data.bookingDate} at ${data.bookingTime}`,
 
       upcoming_appointment: (data) =>
-        `Upcoming appointment tomorrow: ${data.customerName} - ${data.serviceName} at ${data.bookingTime}`
+        `Upcoming appointment tomorrow: ${data.customerName} - ${data.serviceName} at ${data.bookingTime}`,
+
+      reschedule_request_created: (data) =>
+        `${data.customerName} requested to reschedule ${data.serviceName} from ${data.originalDate} at ${data.originalTime} to ${data.requestedDate} at ${data.requestedTime}`,
+
+      reschedule_request_approved: (data) =>
+        `${data.shopName} approved your reschedule request for ${data.serviceName}. New appointment: ${data.newDate} at ${data.newTime}`,
+
+      reschedule_request_rejected: (data) =>
+        `${data.shopName} declined your reschedule request for ${data.serviceName}${data.reason ? ': ' + data.reason : '.'}`,
+
+      reschedule_request_expired: (data) =>
+        `Your reschedule request for ${data.serviceName} at ${data.shopName} has expired. Please submit a new request if needed.`,
+
+      shop_suspended: (data) =>
+        `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been suspended by an administrator${data.reason ? ': ' + data.reason : '.'}`,
+
+      shop_unsuspended: (data) =>
+        `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been unsuspended. You can now resume normal operations.`
     };
   }
 
@@ -416,6 +440,46 @@ export class NotificationService {
     });
   }
 
+  // Shop Suspension Notifications
+
+  async createShopSuspendedNotification(
+    shopAddress: string,
+    shopName?: string,
+    reason?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.shop_suspended({ shopName, reason });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'shop_suspended',
+      message,
+      metadata: {
+        shopName,
+        reason,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createShopUnsuspendedNotification(
+    shopAddress: string,
+    shopName?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.shop_unsuspended({ shopName });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'shop_unsuspended',
+      message,
+      metadata: {
+        shopName,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
   // Service Marketplace Notifications
 
   async createServiceBookingReceivedNotification(
@@ -507,6 +571,140 @@ export class NotificationService {
         serviceName,
         orderId,
         refundStatus,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // Reschedule Request Notifications
+
+  async createRescheduleRequestCreatedNotification(
+    customerAddress: string,
+    shopAddress: string,
+    customerName: string,
+    serviceName: string,
+    orderId: string,
+    requestId: string,
+    originalDate: string,
+    originalTime: string,
+    requestedDate: string,
+    requestedTime: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.reschedule_request_created({
+      customerName,
+      serviceName,
+      originalDate,
+      originalTime,
+      requestedDate,
+      requestedTime
+    });
+
+    return this.createNotification({
+      senderAddress: customerAddress,
+      receiverAddress: shopAddress,
+      notificationType: 'reschedule_request_created',
+      message,
+      metadata: {
+        customerName,
+        serviceName,
+        orderId,
+        requestId,
+        originalDate,
+        originalTime,
+        requestedDate,
+        requestedTime,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createRescheduleRequestApprovedNotification(
+    shopAddress: string,
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    orderId: string,
+    requestId: string,
+    newDate: string,
+    newTime: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.reschedule_request_approved({
+      shopName,
+      serviceName,
+      newDate,
+      newTime
+    });
+
+    return this.createNotification({
+      senderAddress: shopAddress,
+      receiverAddress: customerAddress,
+      notificationType: 'reschedule_request_approved',
+      message,
+      metadata: {
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
+        newDate,
+        newTime,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createRescheduleRequestRejectedNotification(
+    shopAddress: string,
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    orderId: string,
+    requestId: string,
+    reason?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.reschedule_request_rejected({
+      shopName,
+      serviceName,
+      reason
+    });
+
+    return this.createNotification({
+      senderAddress: shopAddress,
+      receiverAddress: customerAddress,
+      notificationType: 'reschedule_request_rejected',
+      message,
+      metadata: {
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
+        reason,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createRescheduleRequestExpiredNotification(
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    orderId: string,
+    requestId: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.reschedule_request_expired({
+      shopName,
+      serviceName
+    });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: customerAddress,
+      notificationType: 'reschedule_request_expired',
+      message,
+      metadata: {
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
         timestamp: new Date().toISOString()
       }
     });

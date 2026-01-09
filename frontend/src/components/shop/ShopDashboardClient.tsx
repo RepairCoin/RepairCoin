@@ -28,9 +28,12 @@ import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
+import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import ServiceAnalyticsTab from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
+import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
+import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequestsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
@@ -267,11 +270,13 @@ export default function ShopDashboardClient() {
       'subscription_self_cancelled',
       'subscription_paused',
       'subscription_resumed',
-      'subscription_reactivated'
+      'subscription_reactivated',
+      'shop_suspended',
+      'shop_unsuspended'
     ];
 
     if (subscriptionNotificationTypes.includes(latestNotification.notificationType)) {
-      console.log('📋 Subscription notification received, refreshing shop data...', {
+      console.log('📋 Shop/Subscription notification received, refreshing shop data...', {
         type: latestNotification.notificationType,
         id: latestNotification.id
       });
@@ -313,7 +318,8 @@ export default function ShopDashboardClient() {
     new Date(shopData.subscriptionEndsAt) > new Date();
 
   // Shop should be blocked if: suspended, rejected, pending, paused, or not operational (unsubscribed/expired)
-  const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || !isOperational);
+  // However, if subscription is cancelled but still within the billing period, shop should NOT be blocked
+  const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || (!isOperational && !isCancelledButActive));
 
   // Get the block reason
   const getBlockReason = () => {
@@ -491,6 +497,12 @@ export default function ShopDashboardClient() {
   };
 
   const initiatePurchase = async () => {
+    // For suspended/rejected/paused shops, show the suspended modal instead of onboarding
+    if (isSuspended || isRejected || isPaused) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     if (!isOperational) {
       setShowOnboardingModal(true);
     } else {
@@ -935,7 +947,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "bookings" && shopData && (
-            <ShopServiceOrdersTab shopId={shopData.shopId} />
+            <BookingsTabV2 shopId={shopData.shopId} />
           )}
 
           {activeTab === "service-analytics" && shopData && (
@@ -944,6 +956,14 @@ export default function ShopDashboardClient() {
 
           {activeTab === "appointments" && shopData && (
             <AppointmentCalendar />
+          )}
+
+          {activeTab === "messages" && shopData && (
+            <MessagesTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === "reschedules" && shopData && (
+            <RescheduleRequestsTab />
           )}
 
           {activeTab === "purchase" && (
@@ -1015,7 +1035,11 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "subscription" && shopData && (
-            <SubscriptionManagement shopId={shopData.shopId} />
+            <SubscriptionManagement
+              shopId={shopData.shopId}
+              isSuspended={!!isSuspended}
+              isPaused={!!isPaused}
+            />
           )}
 
           {activeTab === "marketing" && shopData && (
@@ -1027,6 +1051,8 @@ export default function ShopDashboardClient() {
               shopId={shopData.shopId}
               shopData={shopData}
               onSettingsUpdate={loadShopData}
+              isSuspended={!!isSuspended}
+              isPaused={!!isPaused}
             />
           )}
 
@@ -1042,7 +1068,7 @@ export default function ShopDashboardClient() {
               })}
               <GroupsTab
                 shopId={shopData.shopId}
-                subscriptionActive={isOperational || false}
+                subscriptionActive={isOperational || isCancelledButActive || false}
               />
             </>
           )}
@@ -1104,12 +1130,12 @@ export default function ShopDashboardClient() {
             showCoinsAnimation={true}
           />
 
-          {/* Onboarding Modal */}
+          {/* Onboarding Modal - Don't show for suspended/rejected/paused shops */}
           {shopData && (
             <>
               <OnboardingModal
                 shopData={shopData}
-                open={showOnboardingModal}
+                open={showOnboardingModal && !isSuspended && !isRejected && !isPaused}
                 onClose={() => setShowOnboardingModal(false)}
               />
 
@@ -1137,8 +1163,8 @@ export default function ShopDashboardClient() {
                 }
               />
 
-              {/* Cancelled Subscription Modal */}
-              {isCancelledButActive && shopData?.subscriptionEndsAt && (
+              {/* Cancelled Subscription Modal - Don't show for suspended/paused shops */}
+              {isCancelledButActive && shopData?.subscriptionEndsAt && !isSuspended && !isPaused && (
                 <CancelledSubscriptionModal
                   isOpen={showCancelledModal}
                   onClose={() => setShowCancelledModal(false)}

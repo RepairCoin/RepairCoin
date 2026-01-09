@@ -13,6 +13,7 @@ import {
   UserPlus,
   CheckCircle,
   Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
@@ -67,6 +68,12 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       href: "/customer?tab=orders",
       icon: <Receipt className="w-5 h-5" />,
       tabId: "orders",
+    },
+    {
+      title: "Messages",
+      href: "/customer?tab=messages",
+      icon: <MessageSquare className="w-5 h-5" />,
+      tabId: "messages",
     },
     {
       title: "Appointments",

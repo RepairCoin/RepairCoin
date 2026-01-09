@@ -18,15 +18,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Navigation,
+  MessageCircle,
 } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
 import { getGalleryPhotos, type GalleryPhoto } from "@/services/api/shop";
-import { getShopAvailability } from "@/services/api/appointments";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
+import { useAuthStore } from "@/stores/authStore";
+import * as messagingApi from "@/services/api/messaging";
 
 interface ShopInfo {
   shopId: string;
@@ -69,6 +71,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [operatingHours, setOperatingHours] = useState<any>(null);
   const [isOpenNow, setIsOpenNow] = useState(false);
+  const [isMessaging, setIsMessaging] = useState(false);
+  const { userProfile } = useAuthStore();
 
   useEffect(() => {
     loadShopData();
@@ -79,12 +83,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     try {
       console.log("🔍 [ShopProfile] Loading data for shopId:", shopId);
 
-      // Fetch shop info, services, gallery, and availability in parallel
-      const [shopData, servicesData, gallery, availability] = await Promise.all([
+      // Fetch shop info, services, and gallery in parallel
+      const [shopData, servicesData, gallery] = await Promise.all([
         ShopService.getShopById(shopId),
         getShopServices(shopId),
         getGalleryPhotos(shopId),
-        getShopAvailability(shopId).catch(() => null), // Optional: fail gracefully
       ]);
 
       console.log("🔍 [ShopProfile] Shop data:", shopData);
@@ -115,11 +118,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
         setGalleryPhotos(gallery);
       }
 
-      // Set operating hours and calculate if open now
-      if (availability?.data) {
-        setOperatingHours(availability.data);
-        calculateIsOpen(availability.data);
-      }
+      // Note: Operating hours would need to be fetched from shop availability API
+      // Currently not implemented - remove the undefined availability reference
     } catch (error) {
       console.error("Error loading shop data:", error);
       toast.error("Failed to load shop information");
@@ -168,6 +168,49 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     setTimeout(() => {
       router.push("/customer?tab=orders");
     }, 1500);
+  };
+
+  const handleMessageShop = async () => {
+    if (!userProfile?.address || !shopInfo) {
+      toast.error("Please connect your wallet to send messages");
+      return;
+    }
+
+    try {
+      setIsMessaging(true);
+
+      // Send initial general message (no service reference)
+      const initialMessage = `Hi! I'd like to inquire about your services.`;
+
+      await messagingApi.sendMessage({
+        shopId: shopInfo.shopId,
+        customerAddress: userProfile.address,
+        messageText: initialMessage,
+        messageType: "text",
+      });
+
+      // Navigate to messages tab
+      router.push("/customer?tab=messages");
+      toast.success("Conversation started!");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to start conversation. Please try again.");
+    } finally {
+      setIsMessaging(false);
+    }
+  };
+
+  const handleFavoriteChange = (serviceId: string, isFavorited: boolean) => {
+    // Update services array
+    setServices(prev => prev.map(service =>
+      service.serviceId === serviceId
+        ? { ...service, isFavorited }
+        : service
+    ));
+    // Also update selectedService if it's the same service
+    if (selectedService?.serviceId === serviceId) {
+      setSelectedService(prev => prev ? { ...prev, isFavorited } : prev);
+    }
   };
 
   const calculateAverageRating = () => {
@@ -283,11 +326,21 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
                     <p className="text-gray-400 text-lg">{shopInfo.category}</p>
                   )}
                 </div>
-                {shopInfo.verified && (
-                  <span className="px-4 py-2 bg-green-900 bg-opacity-30 text-green-400 text-sm font-medium rounded-full border border-green-700">
-                    ✓ Verified
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleMessageShop}
+                    disabled={isMessaging}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    <span className="hidden sm:inline">Message Shop</span>
+                  </button>
+                  {shopInfo.verified && (
+                    <span className="px-4 py-2 bg-green-900 bg-opacity-30 text-green-400 text-sm font-medium rounded-full border border-green-700">
+                      ✓ Verified
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Rating */}
@@ -574,6 +627,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
                     service={service}
                     onBook={handleBook}
                     onViewDetails={handleViewDetails}
+                    onFavoriteChange={handleFavoriteChange}
                   />
                 ))}
               </div>
@@ -699,6 +753,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           service={selectedService}
           onClose={() => setSelectedService(null)}
           onBook={handleBook}
+          onFavoriteChange={handleFavoriteChange}
         />
       )}
 
@@ -710,6 +765,9 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           onSuccess={handleCheckoutSuccess}
         />
       )}
+      </div>
     </div>
   );
 };
+
+export default ShopProfileClient;

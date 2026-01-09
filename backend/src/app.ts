@@ -27,10 +27,12 @@ import { NotificationDomain } from './domains/notification/NotificationDomain';
 import { AffiliateShopGroupDomain } from './domains/AffiliateShopGroupDomain';
 import { ServiceDomain } from './domains/ServiceDomain';
 import { MarketingDomain } from './domains/MarketingDomain';
+import { MessagingDomain } from './domains/messaging';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
 import { appointmentReminderService } from './services/AppointmentReminderService';
+import { subscriptionReminderService } from './services/SubscriptionReminderService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 
@@ -96,6 +98,18 @@ class RepairCoinApp {
     // This must come BEFORE any middleware that uses req.ip or req.protocol
     this.app.set('trust proxy', true);
 
+    // Disable ETag for API routes to prevent slow 304 responses
+    // Express generates ETag by running full query, comparing result - defeating cache purpose
+    this.app.set('etag', false);
+
+    // Add Cache-Control headers to prevent browser caching of API responses
+    this.app.use('/api', (req, res, next) => {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      next();
+    });
+
     // CORS must come before helmet to handle preflight requests properly
     // SUBDOMAIN SETUP: Backend at api.repaircoin.ai, Frontend at repaircoin.ai/www.repaircoin.ai
     this.app.use(cors({
@@ -109,7 +123,10 @@ class RepairCoinApp {
           // Production domains
           'https://repaircoin.ai',
           'https://www.repaircoin.ai',
-          'https://api.repaircoin.ai', // Backend subdomain (for internal API calls)
+          'https://api.repaircoin.ai',
+          // Staging domains
+          'https://staging.repaircoin.ai',
+          'https://api-staging.repaircoin.ai',
           process.env.FRONTEND_URL
         ].filter(Boolean);
 
@@ -228,6 +245,7 @@ class RepairCoinApp {
     domainRegistry.register(new AffiliateShopGroupDomain());
     domainRegistry.register(new ServiceDomain());
     domainRegistry.register(new MarketingDomain());
+    domainRegistry.register(new MessagingDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();
@@ -446,6 +464,7 @@ class RepairCoinApp {
       monitoringService.stopMonitoring();
       cleanupService.stopScheduledCleanup();
       appointmentReminderService.stopScheduledReminders();
+      subscriptionReminderService.stopScheduler();
       stopSubscriptionEnforcement();
 
       // Common cleanup
@@ -475,13 +494,13 @@ class RepairCoinApp {
     if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
       console.log('🔥 Skipping database pool warmup (connection tests disabled)');
     } else {
-      console.log('🔥 Warming up database connection pool...');
+      console.log('🔥 Warming up database connection pool (this may take a few seconds for remote DB)...');
       const { warmUpPool, startPoolMonitoring } = await import('./utils/database-pool');
       try {
         await Promise.race([
           warmUpPool(),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
+            setTimeout(() => reject(new Error('Pool warmup timeout after 10s')), 10000)
           )
         ]);
 
@@ -587,9 +606,13 @@ class RepairCoinApp {
         });
         logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
 
-        // Start appointment reminder service - runs every 2 hours
-        appointmentReminderService.scheduleReminders(2);
-        logger.info('📅 Appointment reminder service scheduled (every 2 hours)');
+        // Start appointment reminder service - runs every hour for 2h reminder accuracy
+        appointmentReminderService.scheduleReminders(1);
+        logger.info('📅 Appointment reminder service scheduled (every 1 hour for 24h and 2h reminders)');
+
+        // Start subscription reminder service - runs every 6 hours
+        subscriptionReminderService.startScheduler(6);
+        logger.info('💳 Subscription reminder service scheduled (every 6 hours for 7d, 3d, 1d reminders)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

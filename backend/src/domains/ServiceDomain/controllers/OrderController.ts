@@ -8,6 +8,7 @@ import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupService';
+import { getExpoPushService } from '../../../services/ExpoPushService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -339,6 +340,16 @@ export class OrderController {
                   rcnEarned,
                   updatedOrder.orderId
                 );
+
+                // Send push notification to customer
+                await getExpoPushService().sendOrderCompleted(
+                  updatedOrder.customerAddress,
+                  shop.name,
+                  service.serviceName,
+                  rcnEarned,
+                  updatedOrder.orderId
+                );
+
                 logger.info('Order completion notification sent to customer', {
                   customerAddress: updatedOrder.customerAddress,
                   orderId: updatedOrder.orderId,
@@ -607,6 +618,91 @@ export class OrderController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get pending approval bookings'
+      });
+    }
+  };
+
+  /**
+   * Cancel order (Shop only - can cancel paid/approved/scheduled orders)
+   * POST /api/services/orders/:id/shop-cancel
+   * Body: { cancellationReason: string, cancellationNotes?: string }
+   */
+  cancelOrderByShop = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      const { cancellationReason, cancellationNotes } = req.body;
+
+      // Validate cancellation reason
+      if (!cancellationReason) {
+        return res.status(400).json({ success: false, error: 'Cancellation reason is required' });
+      }
+
+      // Verify order belongs to shop
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      if (order.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to cancel this order' });
+      }
+
+      // Can only cancel orders that are not already completed/cancelled
+      if (order.status === 'completed') {
+        return res.status(400).json({ success: false, error: 'Cannot cancel a completed order' });
+      }
+
+      if (order.status === 'cancelled') {
+        return res.status(400).json({ success: false, error: 'Order is already cancelled' });
+      }
+
+      // Update order with cancellation data (prefix reason with 'shop:' to distinguish)
+      const updatedOrder = await this.orderRepository.updateCancellationData(
+        id,
+        `shop:${cancellationReason}`,
+        cancellationNotes
+      );
+
+      // Send notification to customer
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        const shop = await shopRepository.getShop(shopId);
+
+        if (service && shop) {
+          await this.notificationService.createNotification({
+            senderAddress: 'SYSTEM',
+            receiverAddress: order.customerAddress,
+            notificationType: 'service_cancelled_by_shop',
+            message: `Your booking for ${service.serviceName} at ${shop.name} has been cancelled`,
+            metadata: {
+              orderId: id,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              reason: cancellationReason,
+              notes: cancellationNotes,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } catch (notifError) {
+        logger.error('Failed to send shop cancellation notification:', notifError);
+      }
+
+      res.json({
+        success: true,
+        message: 'Booking cancelled successfully',
+        data: updatedOrder
+      });
+    } catch (error: unknown) {
+      logger.error('Error in cancelOrderByShop controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel booking'
       });
     }
   };

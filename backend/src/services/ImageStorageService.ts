@@ -1,9 +1,12 @@
 // backend/src/services/ImageStorageService.ts
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
 import path from 'path';
+import dns from 'dns';
+import https from 'https';
 
 // Define Multer file type to avoid dependency on @types/multer in production
 interface MulterFile {
@@ -31,6 +34,7 @@ export class ImageStorageService {
   private bucketName: string;
   private region: string;
   private cdnEndpoint: string;
+  private resolvedEndpoint: string | null = null;
 
   constructor() {
     // DigitalOcean Spaces configuration
@@ -42,20 +46,53 @@ export class ImageStorageService {
       throw new Error('DO_SPACES_BUCKET environment variable is required');
     }
 
-    // Initialize S3 client for DigitalOcean Spaces
+    // Force IPv4 for DNS resolution (fixes localhost issues)
+    dns.setDefaultResultOrder('ipv4first');
+
+    // Use Google DNS for resolution with promises API
+    dns.promises.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+
+    // Use path-style URLs to avoid DNS issues with bucket subdomains
+    // Path-style: https://sfo3.digitaloceanspaces.com/repaircoinstorage/file.jpg
+    // Virtual-hosted: https://repaircoinstorage.sfo3.digitaloceanspaces.com/file.jpg
+    const spacesEndpoint = `${this.region}.digitaloceanspaces.com`;
+
+    logger.info('Initializing DigitalOcean Spaces with path-style URLs...', {
+      endpoint: spacesEndpoint,
+      bucket: this.bucketName,
+      forcePathStyle: true
+    });
+
+    // Configure with custom HTTP handler that uses longer timeouts and keep-alive
     this.s3Client = new S3Client({
-      endpoint: `https://${this.region}.digitaloceanspaces.com`,
+      endpoint: `https://${spacesEndpoint}`,
       region: this.region,
       credentials: {
         accessKeyId: process.env.DO_SPACES_KEY || '',
         secretAccessKey: process.env.DO_SPACES_SECRET || '',
       },
-      forcePathStyle: false, // DigitalOcean Spaces uses virtual-hosted-style
+      forcePathStyle: true, // Use path-style: region.digitaloceanspaces.com/bucket/key
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: 10000, // 10 seconds
+        socketTimeout: 30000, // 30 seconds
+        httpsAgent: new https.Agent({
+          keepAlive: true,
+          keepAliveMsecs: 1000,
+          maxSockets: 50,
+          timeout: 30000,
+          family: 4, // Force IPv4
+          lookup: (hostname, options, callback) => {
+            // Custom DNS lookup with IPv4 preference
+            dns.lookup(hostname, { family: 4, all: false }, callback);
+          },
+        }),
+      }),
     });
 
     logger.info('ImageStorageService initialized', {
       bucket: this.bucketName,
       region: this.region,
+      endpoint: spacesEndpoint,
     });
   }
 
@@ -115,6 +152,13 @@ export class ImageStorageService {
       const fileName = this.generateFileName(file.originalname, folder);
       const contentType = this.getContentType(file.originalname);
 
+      logger.info('Attempting to upload image to DigitalOcean Spaces', {
+        fileName,
+        bucket: this.bucketName,
+        region: this.region,
+        size: file.size,
+      });
+
       // Upload to DigitalOcean Spaces
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
@@ -127,10 +171,10 @@ export class ImageStorageService {
 
       await this.s3Client.send(command);
 
-      // Generate public URL (use CDN endpoint if configured, otherwise Spaces endpoint)
+      // Generate public URL (use CDN endpoint if configured, otherwise path-style Spaces endpoint)
       const publicUrl = this.cdnEndpoint
         ? `${this.cdnEndpoint}/${fileName}`
-        : `https://${this.bucketName}.${this.region}.digitaloceanspaces.com/${fileName}`;
+        : `https://${this.region}.digitaloceanspaces.com/${this.bucketName}/${fileName}`;
 
       logger.info('Image uploaded successfully', {
         fileName,
@@ -144,7 +188,15 @@ export class ImageStorageService {
         key: fileName,
       };
     } catch (error: any) {
-      logger.error('Error uploading image:', error);
+      logger.error('Error uploading image - detailed error:', {
+        message: error.message,
+        code: error.code,
+        hostname: error.hostname,
+        syscall: error.syscall,
+        stack: error.stack,
+        bucket: this.bucketName,
+        region: this.region,
+      });
       return {
         success: false,
         error: `Failed to upload image: ${error.message}`,

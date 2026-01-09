@@ -11,6 +11,8 @@ interface DateAvailabilityPickerProps {
   onDateSelect: (date: Date) => void;
   minDate?: Date;
   maxAdvanceDays?: number;
+  minBookingHours?: number;
+  allowWeekendBooking?: boolean;
 }
 
 export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
@@ -18,7 +20,9 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   selectedDate,
   onDateSelect,
   minDate = new Date(),
-  maxAdvanceDays = 60
+  maxAdvanceDays = 60,
+  minBookingHours = 0,
+  allowWeekendBooking = true
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
@@ -48,6 +52,7 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   };
 
   const isDateSelectable = (date: Date): boolean => {
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const checkDate = new Date(date);
@@ -60,6 +65,18 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + maxAdvanceDays);
     if (checkDate > maxDate) return false;
+
+    // Check weekend booking restriction
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+    if (isWeekend && !allowWeekendBooking) return false;
+
+    // Check minimum booking hours (for today only)
+    if (checkDate.getTime() === today.getTime() && minBookingHours > 0) {
+      // If today, check if there's enough hours left
+      const hoursLeftToday = 24 - now.getHours() - (now.getMinutes() / 60);
+      if (hoursLeftToday < minBookingHours) return false;
+    }
 
     // Check if shop is open on this day
     return isDateAvailable(date);
@@ -127,37 +144,37 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   }
 
   return (
-    <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
+    <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-2 sm:p-4">
       {/* Month Navigation */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2 sm:mb-4">
         <button
           onClick={goToPreviousMonth}
-          className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-1.5 sm:p-2 hover:bg-gray-800 rounded-lg transition-colors"
           type="button"
         >
-          <ChevronLeft className="w-5 h-5 text-gray-400" />
+          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
         </button>
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-lg font-semibold text-white">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFCC00]" />
+          <h3 className="text-sm sm:text-lg font-semibold text-white">
             {formatMonthYear(currentMonth)}
           </h3>
         </div>
         <button
           onClick={goToNextMonth}
-          className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-1.5 sm:p-2 hover:bg-gray-800 rounded-lg transition-colors"
           type="button"
         >
-          <ChevronRight className="w-5 h-5 text-gray-400" />
+          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
         </button>
       </div>
 
       {/* Week day headers */}
-      <div className="grid grid-cols-7 gap-2 mb-2">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-2 mb-1 sm:mb-2">
         {weekDays.map(day => (
           <div
             key={day}
-            className="text-center text-xs font-semibold text-gray-500 py-2"
+            className="text-center text-[10px] sm:text-xs font-semibold text-gray-500 py-1 sm:py-2"
           >
             {day}
           </div>
@@ -165,7 +182,7 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-2">
         {days.map((date, index) => {
           if (!date) {
             return <div key={`empty-${index}`} className="aspect-square" />;
@@ -182,11 +199,11 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
               onClick={() => selectable && onDateSelect(date)}
               disabled={!selectable}
               className={`
-                aspect-square rounded-lg text-sm font-medium transition-all duration-200
+                aspect-square rounded sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200
                 flex items-center justify-center relative
                 ${
                   selected
-                    ? 'bg-[#FFCC00] text-black ring-2 ring-[#FFCC00] ring-offset-2 ring-offset-[#1A1A1A]'
+                    ? 'bg-[#FFCC00] text-black ring-1 sm:ring-2 ring-[#FFCC00] ring-offset-1 sm:ring-offset-2 ring-offset-[#1A1A1A]'
                     : selectable
                     ? 'bg-[#0D0D0D] text-white border border-gray-800 hover:border-[#FFCC00] hover:bg-[#2A2A2A]'
                     : 'bg-[#0A0A0A] text-gray-700 border border-gray-900 cursor-not-allowed'
@@ -197,12 +214,12 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
 
               {/* Today indicator */}
               {today && !selected && (
-                <div className="absolute bottom-1 w-1 h-1 bg-[#FFCC00] rounded-full" />
+                <div className="absolute bottom-0.5 sm:bottom-1 w-0.5 h-0.5 sm:w-1 sm:h-1 bg-[#FFCC00] rounded-full" />
               )}
 
               {/* Available indicator */}
               {selectable && !selected && (
-                <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-green-500 rounded-full" />
+                <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-green-500 rounded-full" />
               )}
             </button>
           );
@@ -210,17 +227,17 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-gray-800 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-green-500 rounded-full" />
+      <div className="mt-2 sm:mt-4 pt-2 sm:pt-4 border-t border-gray-800 flex items-center justify-between text-[10px] sm:text-xs">
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
           <span className="text-gray-400">Available</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-[#FFCC00] rounded-full" />
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#FFCC00] rounded-full" />
           <span className="text-gray-400">Selected</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-gray-700 rounded-full" />
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-700 rounded-full" />
           <span className="text-gray-400">Unavailable</span>
         </div>
       </div>

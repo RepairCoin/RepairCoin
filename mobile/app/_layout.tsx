@@ -13,6 +13,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "react-native-toast-notifications";
 
 import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
+import { PushNotificationProvider } from "../providers/PushNotificationProvider";
 import { queryClient } from "../config/queryClient";
 import DevTools from "../components/ui/ReactQueryDevtools";
 import "../global.css";
@@ -41,8 +42,9 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <ThirdwebProvider>
-              <BottomSheetModalProvider>
-                <ToastProvider>
+              <PushNotificationProvider>
+                <BottomSheetModalProvider>
+                  <ToastProvider>
                   <StatusBar
                     barStyle={
                       Platform.OS === "ios" ? "light-content" : "default"
@@ -58,8 +60,9 @@ export default function RootLayout() {
                     }}
                   />
                   <DevTools />
-                </ToastProvider>
-              </BottomSheetModalProvider>
+                  </ToastProvider>
+                </BottomSheetModalProvider>
+              </PushNotificationProvider>
             </ThirdwebProvider>
           </QueryClientProvider>
         </SafeAreaProvider>

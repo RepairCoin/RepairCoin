@@ -22,6 +22,7 @@ import { useActiveAccount } from "thirdweb/react";
 import QRCode from "qrcode";
 import { useAuthStore } from "@/stores/authStore";
 import { SuspendedActionModal } from "./SuspendedActionModal";
+import { NotificationPreferences } from "./NotificationPreferences";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 
 interface CustomerData {
@@ -345,43 +346,8 @@ export function SettingsTab() {
         </div>
       </div>
 
-      <div className="w-full flex flex-col md:flex-row gap-8">
-
-        {/* Notification Preferences */}
-        {/* <div className="bg-[#212121] w-full rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-          <div
-            className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-            style={{
-              backgroundImage: `url('/img/cust-ref-widget3.png')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-              Notification Preferences
-            </p>
-          </div>
-
-          <div className="space-y-3 sm:space-y-6 px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-            <label className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-medium">Email Notifications</p>
-                <p className="text-xs sm:text-sm text-gray-400">
-                  Receive updates about your rewards and transactions
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                name="notificationsEnabled"
-                checked={formData.notificationsEnabled}
-                onChange={handleInputChange}
-                className="w-5 h-5 text-[#FFCC00] bg-gray-700 border-gray-600 rounded focus:ring-[#FFCC00]"
-              />
-            </label>
-          </div>
-        </div> */}
-      </div>
+      {/* Appointment Reminder Notification Preferences */}
+      <NotificationPreferences />
 
       {/* Security Settings */}
       {/* <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">

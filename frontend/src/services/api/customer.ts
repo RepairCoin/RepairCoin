@@ -6,6 +6,7 @@ import {
   BalanceData,
   FilterParams,
   NotificationPreferences,
+  AppointmentNotificationPreferences,
   CustomerExportData,
 } from '@/constants/types';
 
@@ -410,6 +411,35 @@ export const mintTokensToCustomer = async (
   }
 };
 
+
+// Appointment Notification Preferences
+export const getAppointmentNotificationPreferences = async (
+  address: string
+): Promise<AppointmentNotificationPreferences | null> => {
+  try {
+    // apiClient interceptor returns response.data directly, so response is { success, data }
+    const response = await apiClient.get(`/customers/${address}/notification-preferences`) as { success: boolean; data: AppointmentNotificationPreferences };
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting appointment notification preferences:', error);
+    return null;
+  }
+};
+
+export const updateAppointmentNotificationPreferences = async (
+  address: string,
+  preferences: Partial<AppointmentNotificationPreferences>
+): Promise<AppointmentNotificationPreferences | null> => {
+  try {
+    // apiClient interceptor returns response.data directly, so response is { success, data }
+    const response = await apiClient.put(`/customers/${address}/notification-preferences`, preferences) as { success: boolean; data: AppointmentNotificationPreferences };
+    return response.data || null;
+  } catch (error) {
+    console.error('Error updating appointment notification preferences:', error);
+    return null;
+  }
+};
+
 // Named exports grouped as namespace for convenience
 export const customerApi = {
   // Profile
@@ -442,6 +472,8 @@ export const customerApi = {
   
   // Settings
   updateNotificationPreferences,
+  getAppointmentNotificationPreferences,
+  updateAppointmentNotificationPreferences,
   requestSuspension,
   requestUnsuspension,
   exportData: exportCustomerData,

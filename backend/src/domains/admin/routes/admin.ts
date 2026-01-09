@@ -422,12 +422,76 @@ router.get('/monitoring/status',
   })
 );
 
-router.post('/monitoring/test-alert', 
+router.post('/monitoring/test-alert',
   requireSuperAdmin,
   asyncHandler(async (req, res) => {
     const { contractMonitoringService } = await import('../../../services/ContractMonitoringService');
     await contractMonitoringService.sendTestAlert();
     res.json({ success: true, message: 'Test alert sent' });
+  })
+);
+
+// Test subscription reminder - triggers reminder check immediately
+router.post('/test/subscription-reminders',
+  asyncHandler(async (req, res) => {
+    const { subscriptionReminderService } = await import('../../../services/SubscriptionReminderService');
+
+    logger.info('Admin triggered subscription reminder test', { adminAddress: req.user?.address });
+
+    const report = await subscriptionReminderService.processAllReminders();
+
+    res.json({
+      success: true,
+      message: 'Subscription reminder check completed',
+      data: report
+    });
+  })
+);
+
+// Set subscription to expire soon for testing reminders
+router.post('/test/subscription-reminders/setup/:shopId',
+  asyncHandler(async (req, res) => {
+    const { shopId } = req.params;
+    const { daysUntilExpiry = 1 } = req.body;
+
+    const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
+
+    // Update subscription to expire in specified days
+    const result = await db.query(`
+      UPDATE stripe_subscriptions
+      SET current_period_end = NOW() + INTERVAL '${daysUntilExpiry} days',
+          reminder_7d_sent = false,
+          reminder_3d_sent = false,
+          reminder_1d_sent = false,
+          updated_at = NOW()
+      WHERE shop_id = $1
+      RETURNING shop_id, current_period_end, status
+    `, [shopId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subscription not found for this shop'
+      });
+    }
+
+    logger.info('Admin set up subscription reminder test', {
+      shopId,
+      daysUntilExpiry,
+      newExpirationDate: result.rows[0].current_period_end,
+      adminAddress: req.user?.address
+    });
+
+    res.json({
+      success: true,
+      message: `Subscription set to expire in ${daysUntilExpiry} day(s)`,
+      data: {
+        shopId,
+        newExpirationDate: result.rows[0].current_period_end,
+        status: result.rows[0].status,
+        remindersFlagsReset: true
+      }
+    });
   })
 );
 

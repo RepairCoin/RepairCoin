@@ -222,6 +222,17 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               }
               break;
 
+            case 'shop_status_changed':
+              // Shop suspended/unsuspended event
+              console.log('🏪 Shop status changed:', message.payload);
+              // Dispatch custom DOM event so shop components can refresh
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('shop-status-changed', {
+                  detail: message.payload
+                }));
+              }
+              break;
+
             default:
               console.warn('Unknown WebSocket message type:', message.type);
           }

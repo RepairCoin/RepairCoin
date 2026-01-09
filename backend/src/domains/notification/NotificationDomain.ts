@@ -4,12 +4,14 @@ import { logger } from '../../utils/logger';
 import notificationRoutes from './routes/index';
 import { NotificationService } from './services/NotificationService';
 import { WebSocketManager } from '../../services/WebSocketManager';
+import { getExpoPushService, ExpoPushService, NotificationChannels } from '../../services/ExpoPushService';
 
 export class NotificationDomain implements DomainModule {
   name = 'notifications';
   routes = notificationRoutes;
   private notificationService!: NotificationService;
   private wsManager!: WebSocketManager;
+  private expoPushService!: ExpoPushService;
 
   // Get admin addresses from environment
   private getAdminAddresses(): string[] {
@@ -19,8 +21,9 @@ export class NotificationDomain implements DomainModule {
 
   async initialize(): Promise<void> {
     this.notificationService = new NotificationService();
+    this.expoPushService = getExpoPushService();
     this.setupEventSubscriptions();
-    logger.info('Notification domain initialized');
+    logger.info('Notification domain initialized with push notification support');
   }
 
   // Set WebSocket manager (called after server initialization)
@@ -51,6 +54,15 @@ export class NotificationDomain implements DomainModule {
     eventBus.subscribe('subscription:resumed', this.handleSubscriptionResumed.bind(this), 'NotificationDomain');
     eventBus.subscribe('subscription:reactivated', this.handleSubscriptionReactivated.bind(this), 'NotificationDomain');
 
+    // Listen to shop suspension events
+    eventBus.subscribe('shop:suspended', this.handleShopSuspended.bind(this), 'NotificationDomain');
+    eventBus.subscribe('shop:unsuspended', this.handleShopUnsuspended.bind(this), 'NotificationDomain');
+
+    // Listen to reschedule request events
+    eventBus.subscribe('reschedule:request_created', this.handleRescheduleRequestCreated.bind(this), 'NotificationDomain');
+    eventBus.subscribe('reschedule:request_approved', this.handleRescheduleRequestApproved.bind(this), 'NotificationDomain');
+    eventBus.subscribe('reschedule:request_rejected', this.handleRescheduleRequestRejected.bind(this), 'NotificationDomain');
+
     logger.info('Notification domain event subscriptions set up');
   }
 
@@ -72,6 +84,9 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(customerAddress, notification);
       }
+
+      // Send push notification
+      await this.expoPushService.sendRewardNotification(customerAddress, shopName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling reward issued event:', error);
     }
@@ -95,6 +110,9 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(customerAddress, notification);
       }
+
+      // Send push notification
+      await this.expoPushService.sendRedemptionApprovalRequest(customerAddress, shopName, amount, redemptionSessionId);
     } catch (error: any) {
       logger.error('Error handling redemption approval request event:', error);
     }
@@ -189,6 +207,9 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(toCustomerAddress, notification);
       }
+
+      // Send push notification
+      await this.expoPushService.sendTokenGiftedNotification(toCustomerAddress, fromCustomerName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling token gifted event:', error);
     }
@@ -319,6 +340,192 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling subscription reactivated event:', error);
+    }
+  }
+
+  // Shop Suspension Event Handlers
+
+  private async handleShopSuspended(event: any): Promise<void> {
+    try {
+      const { shopAddress, shopName, reason } = event.data;
+
+      logger.info(`Creating shop suspended notification for ${shopAddress}`);
+
+      const notification = await this.notificationService.createShopSuspendedNotification(
+        shopAddress,
+        shopName,
+        reason
+      );
+
+      // Send real-time notification via WebSocket
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'shop_status_changed',
+            payload: {
+              shopAddress,
+              action: 'suspended'
+            }
+          });
+          logger.info('Sent shop status change event to admins', { shopAddress, action: 'suspended' });
+        }
+      }
+    } catch (error: any) {
+      logger.error('Error handling shop suspended event:', error);
+    }
+  }
+
+  private async handleShopUnsuspended(event: any): Promise<void> {
+    try {
+      const { shopAddress, shopName } = event.data;
+
+      logger.info(`Creating shop unsuspended notification for ${shopAddress}`);
+
+      const notification = await this.notificationService.createShopUnsuspendedNotification(
+        shopAddress,
+        shopName
+      );
+
+      // Send real-time notification via WebSocket
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'shop_status_changed',
+            payload: {
+              shopAddress,
+              action: 'unsuspended'
+            }
+          });
+          logger.info('Sent shop status change event to admins', { shopAddress, action: 'unsuspended' });
+        }
+      }
+    } catch (error: any) {
+      logger.error('Error handling shop unsuspended event:', error);
+    }
+  }
+
+  // Reschedule Request Event Handlers
+
+  private async handleRescheduleRequestCreated(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        originalDate,
+        originalTimeSlot,
+        requestedDate,
+        requestedTimeSlot
+      } = event.data;
+
+      logger.info(`Creating reschedule request notification for shop ${shopId}`, { requestId, orderId });
+
+      // We need to get additional info (customer name, service name, shop address) from the database
+      // For now, use placeholders - the event data could be enriched in RescheduleService
+      const customerName = event.data.customerName || 'Customer';
+      const serviceName = event.data.serviceName || 'Service';
+      const shopAddress = event.data.shopAddress || shopId;
+
+      const notification = await this.notificationService.createRescheduleRequestCreatedNotification(
+        customerAddress,
+        shopAddress,
+        customerName,
+        serviceName,
+        orderId,
+        requestId,
+        originalDate,
+        originalTimeSlot,
+        requestedDate,
+        requestedTimeSlot
+      );
+
+      // Send real-time notification via WebSocket to the shop
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling reschedule request created event:', error);
+    }
+  }
+
+  private async handleRescheduleRequestApproved(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        newDate,
+        newTimeSlot
+      } = event.data;
+
+      logger.info(`Creating reschedule approved notification for customer ${customerAddress}`, { requestId, orderId });
+
+      const shopName = event.data.shopName || 'Shop';
+      const serviceName = event.data.serviceName || 'Service';
+      const shopAddress = event.data.shopAddress || shopId;
+
+      const notification = await this.notificationService.createRescheduleRequestApprovedNotification(
+        shopAddress,
+        customerAddress,
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
+        newDate,
+        newTimeSlot
+      );
+
+      // Send real-time notification via WebSocket to the customer
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling reschedule request approved event:', error);
+    }
+  }
+
+  private async handleRescheduleRequestRejected(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        reason
+      } = event.data;
+
+      logger.info(`Creating reschedule rejected notification for customer ${customerAddress}`, { requestId, orderId });
+
+      const shopName = event.data.shopName || 'Shop';
+      const serviceName = event.data.serviceName || 'Service';
+      const shopAddress = event.data.shopAddress || shopId;
+
+      const notification = await this.notificationService.createRescheduleRequestRejectedNotification(
+        shopAddress,
+        customerAddress,
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
+        reason
+      );
+
+      // Send real-time notification via WebSocket to the customer
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling reschedule request rejected event:', error);
     }
   }
 }
