@@ -46,7 +46,11 @@
     "admin:add": "ts-node src/cli/admin.ts add",
     "admin:check": "ts-node src/cli/admin.ts check",
     "mint:rcg": "ts-node scripts/mint-rcg-tokens.ts",
-    "logger": "bash scripts/logger.sh"
+    "logger": "bash scripts/logger.sh",
+    "_comment_test_reminders": "# Test Reminder Commands - Usage: npm run test:subscription-reminder:shop -- shop-3 1",
+    "test:subscription-reminder": "ts-node scripts/test-subscription-reminder.ts",
+    "test:subscription-reminder:reset": "ts-node scripts/reset-subscription-reminder.ts",
+    "test:appointment-reminder": "ts-node -r dotenv/config -e \"import { appointmentReminderService } from './src/services/AppointmentReminderService'; appointmentReminderService.checkAndSendReminders().then(r => { console.log('Result:', JSON.stringify(r, null, 2)); process.exit(0); }).catch(e => { console.error(e); process.exit(1); });\""
   },
   "keywords": [
     "blockchain",
@@ -74,6 +78,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "drizzle-orm": "^0.29.1",
+    "expo-server-sdk": "^4.0.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.1",
     "helmet": "^7.1.0",

@@ -494,7 +494,7 @@ export class DiscoveryController {
         ${favoritesJoin}
         WHERE s.active = true
           AND sh.active = true
-        GROUP BY s.service_id, sh.shop_id${favoritesGroupBy}
+        GROUP BY s.service_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, sh.shop_id, sh.name, sh.address, sh.location_city, sh.country, sh.phone, sh.email, sh.verified, sh.location_lat, sh.location_lng, sh.location_state, sh.location_zip_code${favoritesGroupBy}
         HAVING COUNT(o.order_id) > 0
         ORDER BY trending_score DESC, booking_count DESC
         LIMIT $2

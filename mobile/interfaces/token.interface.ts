@@ -16,7 +16,8 @@ export interface RedemptionSession {
   sessionId: string;
   customerAddress: string;
   shopId: string;
-  amount: number;
+  amount?: number;
+  maxAmount?: number;
   status:
     | "pending"
     | "approved"
@@ -28,6 +29,8 @@ export interface RedemptionSession {
   qrCode?: string;
   expiresAt: string;
   createdAt: string;
+  approvedAt?: string;
+  usedAt?: string;
   updatedAt: string;
   metadata?: {
     cancelledByShop?: boolean;
@@ -100,6 +103,11 @@ export interface BalanceData {
 
 export interface CreateRedemptionSessionResponse extends BaseResponse<RedemptionSessionData> {}
 export interface RedemptionSessionStatusResponse extends BaseResponse<RedemptionSession> {}
+export interface MyRedemptionSessionsResponse {
+  success: boolean;
+  sessions: RedemptionSession[];
+  pendingCount: number;
+}
 export interface GiftTokenResponse extends BaseResponse<GiftTokenData> {}
 export interface ValidateTransferResponse extends BaseResponse<ValidateTransferData> {}
 export interface TransferHistoryResponse extends BaseResponse<TransferHistoryData> {}

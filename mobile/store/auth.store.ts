@@ -3,6 +3,7 @@ import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import apiClient from "@/utilities/axios";
 import { router } from "expo-router";
+import { notificationApi } from "@/services/notification.services";
 
 const secureStorage = {
   getItem: async (name: string) => {
@@ -91,6 +92,15 @@ export const useAuthStore = create<AuthState>()(
 
         logout: async (navigate = true) => {
           const state = get();
+
+          // Deactivate push notification tokens before logout
+          try {
+            await notificationApi.deactivateAllPushTokens();
+            console.log("[Auth] Push tokens deactivated");
+          } catch (error) {
+            console.error("[Auth] Error deactivating push tokens:", error);
+            // Continue with logout even if this fails
+          }
 
           // Disconnect wallet if any
           if (state.account?.disconnect) {

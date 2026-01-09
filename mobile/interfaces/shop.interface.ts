@@ -166,8 +166,75 @@ export interface RewardData {
   transactionHash?: string;
 }
 
+export interface Transaction {
+  id: string;
+  type: "reward" | "redemption" | "mint" | "purchase";
+  amount: number;
+  customerAddress: string | null;
+  customerName: string | null;
+  repairAmount: number | null;
+  status: string;
+  createdAt: string;
+  failureReason: string | null;
+  is_tier_bonus: boolean;
+  totalCost?: number;
+  paymentMethod?: string;
+  paymentReference?: string;
+}
+
+export interface TransactionData {
+  total: number;
+  totalPages: number;
+  page: number;
+  transactions: Transaction[];
+}
+
+export interface Purchase {
+  id: string;
+  amount: number;
+  total_cost: number;
+  status: string;
+  created_at: string;
+  payment_method?: string;
+  payment_reference?: string;
+}
+
+export interface PurchaseData {
+  items: Purchase[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+    hasMore: boolean;
+    };
+}
+
+export interface ProfitData {
+  date: string;
+  revenue: number;
+  costs: number;
+  profit: number;
+  rcnPurchased: number;
+  rcnIssued: number;
+  profitMargin: number;
+}
+
+export interface ProfitMetrics {
+  totalProfit: number;
+  totalRevenue: number;
+  totalCosts: number;
+  averageProfitMargin: number;
+  profitTrend: "up" | "down" | "flat";
+}
+
+export interface PurchasesResponse extends BaseResponse<PurchaseData> {}
+export interface TransactionsResponse extends BaseResponse<TransactionData> {}
 export interface PromoCodeValidateResponse extends BaseResponse<PromoCodeValidateData> {}
 export interface PromoCodeResponse extends BaseResponse<PromoCodeData> {}
+export interface PromoCodesListResponse {
+  items: PromoCodeData[];
+}
 export interface ProcessRedemptionResponse extends BaseResponse<ProcessRedemptionData> {}
 export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}
 export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}

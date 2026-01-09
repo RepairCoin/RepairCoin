@@ -32,6 +32,7 @@ import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
 import { appointmentReminderService } from './services/AppointmentReminderService';
+import { subscriptionReminderService } from './services/SubscriptionReminderService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 
@@ -463,6 +464,7 @@ class RepairCoinApp {
       monitoringService.stopMonitoring();
       cleanupService.stopScheduledCleanup();
       appointmentReminderService.stopScheduledReminders();
+      subscriptionReminderService.stopScheduler();
       stopSubscriptionEnforcement();
 
       // Common cleanup
@@ -607,6 +609,10 @@ class RepairCoinApp {
         // Start appointment reminder service - runs every hour for 2h reminder accuracy
         appointmentReminderService.scheduleReminders(1);
         logger.info('📅 Appointment reminder service scheduled (every 1 hour for 24h and 2h reminders)');
+
+        // Start subscription reminder service - runs every 6 hours
+        subscriptionReminderService.startScheduler(6);
+        logger.info('💳 Subscription reminder service scheduled (every 6 hours for 7d, 3d, 1d reminders)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

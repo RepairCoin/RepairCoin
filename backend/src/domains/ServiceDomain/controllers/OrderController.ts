@@ -8,6 +8,7 @@ import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupService';
+import { getExpoPushService } from '../../../services/ExpoPushService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -339,6 +340,16 @@ export class OrderController {
                   rcnEarned,
                   updatedOrder.orderId
                 );
+
+                // Send push notification to customer
+                await getExpoPushService().sendOrderCompleted(
+                  updatedOrder.customerAddress,
+                  shop.name,
+                  service.serviceName,
+                  rcnEarned,
+                  updatedOrder.orderId
+                );
+
                 logger.info('Order completion notification sent to customer', {
                   customerAddress: updatedOrder.customerAddress,
                   orderId: updatedOrder.orderId,

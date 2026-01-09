@@ -4,12 +4,14 @@ import { logger } from '../../utils/logger';
 import notificationRoutes from './routes/index';
 import { NotificationService } from './services/NotificationService';
 import { WebSocketManager } from '../../services/WebSocketManager';
+import { getExpoPushService, ExpoPushService, NotificationChannels } from '../../services/ExpoPushService';
 
 export class NotificationDomain implements DomainModule {
   name = 'notifications';
   routes = notificationRoutes;
   private notificationService!: NotificationService;
   private wsManager!: WebSocketManager;
+  private expoPushService!: ExpoPushService;
 
   // Get admin addresses from environment
   private getAdminAddresses(): string[] {
@@ -19,8 +21,9 @@ export class NotificationDomain implements DomainModule {
 
   async initialize(): Promise<void> {
     this.notificationService = new NotificationService();
+    this.expoPushService = getExpoPushService();
     this.setupEventSubscriptions();
-    logger.info('Notification domain initialized');
+    logger.info('Notification domain initialized with push notification support');
   }
 
   // Set WebSocket manager (called after server initialization)
@@ -77,6 +80,9 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(customerAddress, notification);
       }
+
+      // Send push notification
+      await this.expoPushService.sendRewardNotification(customerAddress, shopName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling reward issued event:', error);
     }
@@ -100,6 +106,9 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(customerAddress, notification);
       }
+
+      // Send push notification
+      await this.expoPushService.sendRedemptionApprovalRequest(customerAddress, shopName, amount, redemptionSessionId);
     } catch (error: any) {
       logger.error('Error handling redemption approval request event:', error);
     }
@@ -194,6 +203,9 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(toCustomerAddress, notification);
       }
+
+      // Send push notification
+      await this.expoPushService.sendTokenGiftedNotification(toCustomerAddress, fromCustomerName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling token gifted event:', error);
     }
