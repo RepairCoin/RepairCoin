@@ -828,7 +828,16 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     <input
                       type="text"
                       value={customerAddress}
-                      onChange={(e) => setCustomerAddress(e.target.value)}
+                      onChange={(e) => handleCustomerAddressChange(e.target.value)}
+                      onFocus={() => {
+                        if (customerSearchResults.length > 0) {
+                          setShowCustomerDropdown(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Delay to allow click on dropdown item
+                        setTimeout(() => setShowCustomerDropdown(false), 200);
+                      }}
                       placeholder="Enter Customer Wallet Address.."
                       disabled={isBlocked}
                       className={`w-full pl-10 px-4 py-3 bg-white border border-gray-700 text-black rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder:text-gray-600 ${
