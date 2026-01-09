@@ -212,12 +212,6 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Home className="w-4 h-4" />
-        <ChevronRight className="w-4 h-4" />
-        <span className="text-white">Bookings</span>
-      </div>
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
