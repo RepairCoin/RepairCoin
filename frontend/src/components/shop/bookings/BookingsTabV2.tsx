@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Home, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { mockBookings, MockBooking, Message, transformApiOrder } from "./mockData";
 import { BookingStatsCards } from "./BookingStatsCards";
@@ -16,6 +17,8 @@ interface BookingsTabV2Props {
 }
 
 export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
+  const searchParams = useSearchParams();
+
   // State
   const [bookings, setBookings] = useState<MockBooking[]>([]);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
@@ -58,6 +61,35 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
   useEffect(() => {
     loadBookings();
   }, [shopId]);
+
+  // Handle URL search parameter for filtering and selecting booking
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+
+    if (searchParam && searchParam !== searchQuery) {
+      // Set the search query to filter bookings
+      setSearchQuery(searchParam);
+
+      // Clear the URL param after handling
+      const url = new URL(window.location.href);
+      url.searchParams.delete('search');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, searchQuery]);
+
+  // Auto-select the booking when search query matches exactly one booking
+  useEffect(() => {
+    if (bookings.length === 0 || !searchQuery) return;
+
+    // Find booking that matches the search query (by bookingId)
+    const matchingBooking = bookings.find(b =>
+      b.bookingId.toLowerCase() === searchQuery.toLowerCase()
+    );
+
+    if (matchingBooking) {
+      setSelectedBookingId(matchingBooking.bookingId);
+    }
+  }, [bookings, searchQuery]);
 
   // Calculate unread messages count
   const unreadMessagesCount = useMemo(() => {
@@ -115,7 +147,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
     toast.success(`Booking ${bookingId} approved!`);
   };
 
-  const handleReschedule = (bookingId: string) => {
+  const handleReschedule = (_bookingId: string) => {
     toast('Reschedule functionality coming soon!', { icon: '📅' });
   };
 
