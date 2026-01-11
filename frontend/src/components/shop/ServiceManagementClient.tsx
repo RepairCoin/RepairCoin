@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Edit, Settings, Calendar, Loader2, Star } from "lucide-react";
+import { Edit, Settings, Calendar, Loader2, Star, Home, ChevronRight, HeartHandshake } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getServiceById, updateService, ShopService, UpdateServiceData } from "@/services/api/services";
 import { sanitizeDescription } from "@/utils/sanitize";
@@ -18,6 +18,14 @@ interface ServiceManagementClientProps {
 }
 
 type TabType = 'overview' | 'availability' | 'calendar' | 'reviews';
+
+// Tab labels for breadcrumb
+const TAB_LABELS: Record<TabType, string> = {
+  overview: 'Overview',
+  availability: 'Availability',
+  calendar: 'Calendar',
+  reviews: 'Reviews',
+};
 
 export default function ServiceManagementClient({ serviceId }: ServiceManagementClientProps) {
   const router = useRouter();
@@ -82,7 +90,7 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-[#FFCC00] mx-auto" />
           <p className="mt-4 text-white">Loading service...</p>
@@ -96,36 +104,56 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
   }
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => router.push("/shop?tab=services")}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Services
-          </button>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">{service.serviceName}</h1>
-              <p className="text-gray-400">
-                Manage service details, availability, and bookings
-              </p>
-            </div>
-
-            {activeTab === 'overview' && (
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="flex items-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-600/30 px-6 py-3 rounded-lg hover:bg-blue-600/30 transition-colors duration-200"
-              >
-                <Edit className="w-5 h-5" />
-                Edit Service
-              </button>
-            )}
+    <div className="min-h-screen py-8">
+      <div className="max-w-screen-2xl w-[96%] mx-auto">
+        {/* Breadcrumb */}
+        <div className="border-b border-[#303236] pb-4 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => router.push("/shop?tab=overview")}
+              className="p-1 rounded hover:bg-[#303236] transition-colors"
+              title="Go to Overview"
+            >
+              <Home className="w-5 h-5 text-white hover:text-[#FFCC00] transition-colors" />
+            </button>
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <button
+              onClick={() => router.push("/shop?tab=services")}
+              className="flex items-center gap-1.5 hover:text-[#FFCC00] transition-colors"
+            >
+              <HeartHandshake className="w-5 h-5 text-gray-400" />
+              <span className="text-base font-medium text-gray-400">Services</span>
+            </button>
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <span className="text-base font-medium text-white">{service.serviceName}</span>
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <span className="text-[#FFCC00]">
+              {activeTab === 'overview' && <Edit className="w-5 h-5 inline mr-1.5" />}
+              {activeTab === 'availability' && <Settings className="w-5 h-5 inline mr-1.5" />}
+              {activeTab === 'calendar' && <Calendar className="w-5 h-5 inline mr-1.5" />}
+              {activeTab === 'reviews' && <Star className="w-5 h-5 inline mr-1.5" />}
+            </span>
+            <span className="text-base font-medium text-[#FFCC00]">{TAB_LABELS[activeTab]}</span>
           </div>
+          <p className="text-sm text-[#ddd]">
+            Manage service details, availability, and bookings for {service.serviceName}
+          </p>
+        </div>
+
+        {/* Header with Edit Button */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white">{service.serviceName}</h1>
+          </div>
+          {activeTab === 'overview' && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-2 bg-[#FFCC00] text-black font-semibold px-5 py-2 rounded-lg hover:bg-[#FFD700] transition-colors duration-200"
+            >
+              <Edit className="w-4 h-4" />
+              Edit Service
+            </button>
+          )}
         </div>
 
         {/* Tabs */}

@@ -391,8 +391,9 @@ export const updateShopProfile = async (
   }
 ): Promise<boolean> => {
   try {
-    await apiClient.put(`/shops/${shopId}/profile`, data);
-    return true;
+    const response = await apiClient.put<{ success: boolean; message: string }>(`/shops/${shopId}/profile`, data);
+    // API client interceptor returns response.data, so response is already { success, message }
+    return (response as any).success || false;
   } catch (error) {
     console.error('Error updating shop profile:', error);
     return false;
@@ -401,8 +402,9 @@ export const updateShopProfile = async (
 
 export const getGalleryPhotos = async (shopId: string): Promise<GalleryPhoto[]> => {
   try {
-    const response = await apiClient.get<GalleryPhoto[]>(`/shops/${shopId}/gallery`);
-    return response.data || [];
+    const response = await apiClient.get<{ success: boolean; data: GalleryPhoto[] }>(`/shops/${shopId}/gallery`);
+    // API client interceptor returns response.data, so response is already { success, data }
+    return (response as any).data || [];
   } catch {
     // Gallery is optional - silently return empty array if not available
     return [];
@@ -414,8 +416,9 @@ export const addGalleryPhoto = async (
   data: { photoUrl: string; caption?: string }
 ): Promise<{ id: number } | null> => {
   try {
-    const response = await apiClient.post<{ id: number }>(`/shops/${shopId}/gallery`, data);
-    return response.data || null;
+    const response = await apiClient.post<{ success: boolean; data: { id: number } }>(`/shops/${shopId}/gallery`, data);
+    // API client interceptor returns response.data, so response is already { success, data }
+    return (response as any).data || null;
   } catch (error) {
     console.error('Error adding gallery photo:', error);
     return null;

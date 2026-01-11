@@ -25,10 +25,12 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
   // Fetch conversations from API
   useEffect(() => {
-    const fetchConversations = async () => {
+    const fetchConversations = async (isInitialLoad = true) => {
       try {
-        setIsLoadingConversations(true);
-        setError(null);
+        if (isInitialLoad) {
+          setIsLoadingConversations(true);
+          setError(null);
+        }
         const response = await messagingApi.getConversations({ page: 1, limit: 50 });
 
         // Transform API response to match Conversation type
@@ -53,32 +55,48 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       } catch (err: any) {
         console.error("Error fetching conversations:", err);
 
-        // Handle specific error cases
-        if (err?.status === 401 || err?.message?.includes('Authentication required')) {
-          setError("Please log in to view your messages");
-        } else if (err?.message?.includes('Network')) {
-          setError("Network error. Please check your connection");
-        } else {
-          setError(err?.message || "Failed to load conversations");
+        // Only show error on initial load
+        if (isInitialLoad) {
+          // Handle specific error cases
+          if (err?.status === 401 || err?.message?.includes('Authentication required')) {
+            setError("Please log in to view your messages");
+          } else if (err?.message?.includes('Network')) {
+            setError("Network error. Please check your connection");
+          } else {
+            setError(err?.message || "Failed to load conversations");
+          }
         }
       } finally {
-        setIsLoadingConversations(false);
+        if (isInitialLoad) {
+          setIsLoadingConversations(false);
+        }
       }
     };
 
-    fetchConversations();
+    // Initial fetch
+    fetchConversations(true);
+
+    // Poll for conversation updates every 5 seconds
+    const pollInterval = setInterval(() => {
+      fetchConversations(false);
+    }, 5000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(pollInterval);
   }, [userType]);
 
   // Fetch messages when conversation is selected
   useEffect(() => {
-    const fetchMessages = async () => {
+    const fetchMessages = async (isInitialLoad = true) => {
       if (!selectedConversationId) {
         setMessages([]);
         return;
       }
 
       try {
-        setIsLoadingMessages(true);
+        if (isInitialLoad) {
+          setIsLoadingMessages(true);
+        }
         const response = await messagingApi.getMessages(selectedConversationId, {
           page: 1,
           limit: 100,
@@ -107,11 +125,24 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       } catch (err) {
         console.error("Error fetching messages:", err);
       } finally {
-        setIsLoadingMessages(false);
+        if (isInitialLoad) {
+          setIsLoadingMessages(false);
+        }
       }
     };
 
-    fetchMessages();
+    // Initial fetch
+    fetchMessages(true);
+
+    // Poll for new messages every 3 seconds
+    const pollInterval = setInterval(() => {
+      if (selectedConversationId) {
+        fetchMessages(false);
+      }
+    }, 3000);
+
+    // Cleanup interval on unmount or conversation change
+    return () => clearInterval(pollInterval);
   }, [selectedConversationId, currentUserId]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
@@ -126,54 +157,49 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     setSelectedConversationId(null);
   };
 
-  const handleSendMessage = async (content: string, attachments?: File[]) => {
+  const handleSendMessage = async (content: string, attachments?: File[]): Promise<void> => {
     if (!selectedConversationId || !content.trim()) return;
 
-    try {
-      const newMessage = await messagingApi.sendMessage({
-        conversationId: selectedConversationId,
-        messageText: content,
-        messageType: "text",
-      });
+    const newMessage = await messagingApi.sendMessage({
+      conversationId: selectedConversationId,
+      messageText: content,
+      messageType: "text",
+    });
 
-      // Add the new message to the messages list
-      const transformedMessage: Message = {
-        id: newMessage.messageId,
-        conversationId: newMessage.conversationId,
-        senderId: newMessage.senderAddress,
-        senderName: newMessage.senderName || "You",
-        senderType: newMessage.senderType,
-        content: newMessage.messageText,
-        timestamp: newMessage.createdAt,
-        status: "delivered",
-        isSystemMessage: false,
-      };
+    // Add the new message to the messages list
+    const transformedMessage: Message = {
+      id: newMessage.messageId,
+      conversationId: newMessage.conversationId,
+      senderId: newMessage.senderAddress,
+      senderName: newMessage.senderName || "You",
+      senderType: newMessage.senderType,
+      content: newMessage.messageText,
+      timestamp: newMessage.createdAt,
+      status: "delivered",
+      isSystemMessage: false,
+    };
 
-      setMessages((prev) => [...prev, transformedMessage]);
+    setMessages((prev) => [...prev, transformedMessage]);
 
-      // Refresh conversations to update last message preview
-      const response = await messagingApi.getConversations({ page: 1, limit: 50 });
-      const transformedConversations: Conversation[] = response.data.map((conv) => ({
-        id: conv.conversationId,
-        serviceId: "",
-        serviceName: "",
-        shopId: userType === "customer" ? conv.shopId : undefined,
-        shopName: userType === "customer" ? conv.shopName : undefined,
-        customerId: userType === "shop" ? conv.customerAddress : undefined,
-        customerName: userType === "shop" ? conv.customerName : undefined,
-        participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
-        lastMessage: conv.lastMessagePreview || "",
-        lastMessageTime: conv.lastMessageAt || conv.createdAt,
-        unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,
-        status: conv.isArchivedCustomer || conv.isArchivedShop ? "resolved" : "active",
-        hasAttachment: false,
-        isOnline: false,
-      }));
-      setConversations(transformedConversations);
-    } catch (err) {
-      console.error("Error sending message:", err);
-      alert("Failed to send message. Please try again.");
-    }
+    // Refresh conversations to update last message preview
+    const response = await messagingApi.getConversations({ page: 1, limit: 50 });
+    const transformedConversations: Conversation[] = response.data.map((conv) => ({
+      id: conv.conversationId,
+      serviceId: "",
+      serviceName: "",
+      shopId: userType === "customer" ? conv.shopId : undefined,
+      shopName: userType === "customer" ? conv.shopName : undefined,
+      customerId: userType === "shop" ? conv.customerAddress : undefined,
+      customerName: userType === "shop" ? conv.customerName : undefined,
+      participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
+      lastMessage: conv.lastMessagePreview || "",
+      lastMessageTime: conv.lastMessageAt || conv.createdAt,
+      unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,
+      status: conv.isArchivedCustomer || conv.isArchivedShop ? "resolved" : "active",
+      hasAttachment: false,
+      isOnline: false,
+    }));
+    setConversations(transformedConversations);
   };
 
   return (

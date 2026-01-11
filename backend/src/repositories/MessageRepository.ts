@@ -313,7 +313,7 @@ export class MessageRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, [conversationId]);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get messages
+      // Get messages (oldest first for chat UI)
       const query = `
         SELECT
           m.*,
@@ -322,7 +322,7 @@ export class MessageRepository extends BaseRepository {
         LEFT JOIN customers c ON m.sender_address = c.address AND m.sender_type = 'customer'
         LEFT JOIN shops s ON m.sender_address = s.shop_id AND m.sender_type = 'shop'
         WHERE m.conversation_id = $1 AND m.is_deleted = FALSE
-        ORDER BY m.created_at DESC
+        ORDER BY m.created_at ASC
         LIMIT $2 OFFSET $3
       `;
 

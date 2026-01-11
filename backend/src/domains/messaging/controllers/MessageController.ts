@@ -19,9 +19,15 @@ export class MessageController {
     try {
       const userAddress = req.user?.address;
       const userRole = req.user?.role;
+      const userShopId = req.user?.shopId;
 
       if (!userAddress || !userRole) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      // For shops, we need the shopId
+      if (userRole === 'shop' && !userShopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
       }
 
       const { conversationId, customerAddress, shopId, messageText, messageType, metadata } = req.body;
@@ -33,11 +39,14 @@ export class MessageController {
       // Determine sender type based on role
       const senderType = userRole === 'shop' ? 'shop' : 'customer';
 
+      // For shops, senderIdentifier is shopId; for customers, it's wallet address
+      const senderIdentifier = userRole === 'shop' ? userShopId! : userAddress;
+
       const message = await this.messageService.sendMessage({
         conversationId,
         customerAddress,
         shopId,
-        senderAddress: userAddress,
+        senderIdentifier,
         senderType: senderType as 'customer' | 'shop',
         messageText,
         messageType,
@@ -65,9 +74,15 @@ export class MessageController {
     try {
       const userAddress = req.user?.address;
       const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
 
       if (!userAddress || !userRole) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      // For shops, we need the shopId to filter conversations
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
       }
 
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
@@ -75,8 +90,11 @@ export class MessageController {
 
       const userType = userRole === 'shop' ? 'shop' : 'customer';
 
+      // For shops, pass shopId; for customers, pass wallet address
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
       const result = await this.messageService.getConversations(
-        userAddress,
+        identifier,
         userType as 'customer' | 'shop',
         { page, limit }
       );
@@ -103,9 +121,15 @@ export class MessageController {
     try {
       const userAddress = req.user?.address;
       const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
 
       if (!userAddress || !userRole) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      // For shops, we need the shopId
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
       }
 
       const { conversationId } = req.params;
@@ -114,9 +138,12 @@ export class MessageController {
 
       const userType = userRole === 'shop' ? 'shop' : 'customer';
 
+      // For shops, pass shopId; for customers, pass wallet address
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
       const result = await this.messageService.getMessages(
         conversationId,
-        userAddress,
+        identifier,
         userType as 'customer' | 'shop',
         { page, limit }
       );
@@ -143,17 +170,26 @@ export class MessageController {
     try {
       const userAddress = req.user?.address;
       const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
 
       if (!userAddress || !userRole) {
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
 
+      // For shops, we need the shopId
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
       const { conversationId } = req.params;
       const userType = userRole === 'shop' ? 'shop' : 'customer';
 
+      // For shops, pass shopId; for customers, pass wallet address
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
       await this.messageService.markConversationAsRead(
         conversationId,
-        userAddress,
+        identifier,
         userType as 'customer' | 'shop'
       );
 

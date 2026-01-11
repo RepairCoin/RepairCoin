@@ -414,26 +414,30 @@ export class AppointmentRepository extends BaseRepository {
 
   async getShopCalendar(shopId: string, startDate: string, endDate: string): Promise<CalendarBooking[]> {
     try {
+      // Use direct query instead of view for better reliability
       const query = `
         SELECT
-          order_id as "orderId",
-          shop_id as "shopId",
-          service_id as "serviceId",
-          service_name as "serviceName",
-          customer_address as "customerAddress",
-          customer_name as "customerName",
-          booking_date as "bookingDate",
-          booking_time_slot as "bookingTimeSlot",
-          booking_end_time as "bookingEndTime",
-          status,
-          total_amount as "totalAmount",
-          notes,
-          created_at as "createdAt"
-        FROM shop_calendar_view
-        WHERE shop_id = $1
-          AND booking_date >= $2
-          AND booking_date <= $3
-        ORDER BY booking_date, booking_time_slot
+          o.order_id as "orderId",
+          o.shop_id as "shopId",
+          o.service_id as "serviceId",
+          s.service_name as "serviceName",
+          o.customer_address as "customerAddress",
+          COALESCE(c.name, 'Unknown Customer') as "customerName",
+          o.booking_date as "bookingDate",
+          o.booking_time_slot as "bookingTimeSlot",
+          o.booking_end_time as "bookingEndTime",
+          o.status,
+          o.total_amount as "totalAmount",
+          o.notes,
+          o.created_at as "createdAt"
+        FROM service_orders o
+        JOIN shop_services s ON o.service_id = s.service_id
+        LEFT JOIN customers c ON LOWER(o.customer_address) = LOWER(c.wallet_address)
+        WHERE o.shop_id = $1
+          AND o.booking_date IS NOT NULL
+          AND o.booking_date >= $2::date
+          AND o.booking_date <= $3::date
+        ORDER BY o.booking_date, o.booking_time_slot
       `;
 
       const result = await this.pool.query(query, [shopId, startDate, endDate]);
@@ -441,7 +445,7 @@ export class AppointmentRepository extends BaseRepository {
       // Convert totalAmount from string to number
       return result.rows.map(row => ({
         ...row,
-        totalAmount: parseFloat(row.totalAmount)
+        totalAmount: parseFloat(row.totalAmount || '0')
       }));
     } catch (error) {
       logger.error('Error getting shop calendar:', error);
@@ -474,7 +478,7 @@ export class AppointmentRepository extends BaseRepository {
           so.created_at as "createdAt",
           CASE WHEN sr.review_id IS NOT NULL THEN true ELSE false END as "hasReview"
         FROM service_orders so
-        LEFT JOIN customers c ON c.wallet_address = so.customer_address
+        LEFT JOIN customers c ON c.address = so.customer_address
         LEFT JOIN shop_services ss ON ss.service_id = so.service_id
         LEFT JOIN shops s ON s.shop_id = so.shop_id
         LEFT JOIN service_reviews sr ON sr.order_id = so.order_id
