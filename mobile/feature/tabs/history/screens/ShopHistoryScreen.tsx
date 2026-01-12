@@ -1,5 +1,3 @@
-// Libraries
-import React from "react";
 import {
   View,
   Text,
@@ -7,50 +5,15 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
-  TouchableOpacity,
   ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-
-// Components
 import { ThemedView } from "@/components/ui/ThemedView";
 import { SearchInput } from "@/components/ui/SearchInput";
-import TransactionHistoryCard from "../components/TransactionHistoryCard";
-
-// Hooks
-import { useHistoryListUI } from "../hooks";
-
-// Constants
-import { STATUS_FILTERS, DATE_FILTERS } from "../constants";
-
-// Others
 import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
-
-const FilterChip = ({
-  label,
-  isActive,
-  onPress,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity
-    onPress={onPress}
-    className={`px-4 py-2 rounded-full mr-2 ${
-      isActive ? "bg-[#FFCC00]" : "bg-zinc-800"
-    }`}
-    activeOpacity={0.7}
-  >
-    <Text
-      className={`text-sm font-medium ${
-        isActive ? "text-black" : "text-gray-400"
-      }`}
-    >
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
+import { useHistoryListUI } from "../hooks";
+import { STATUS_FILTERS, DATE_FILTERS } from "../constants";
+import { TransactionHistoryCard, FilterChip } from "../components";
 
 export default function ShopHistoryScreen() {
   const {

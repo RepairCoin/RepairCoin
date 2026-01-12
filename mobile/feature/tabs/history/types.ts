@@ -1,4 +1,10 @@
+// Shop filters
 export type StatusFilter = "all" | "pending" | "completed" | "failed";
+
+// Customer filters
+export type TransactionFilter = "all" | "earned" | "redeemed" | "gifts";
+
+// Common filters
 export type DateFilter = "all" | "today" | "week" | "month";
 export type CustomerTransactionProps = {
   variant: "customer";

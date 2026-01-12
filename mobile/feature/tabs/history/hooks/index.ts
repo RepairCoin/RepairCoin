@@ -1,5 +1,11 @@
 // Queries
-export { useShopTransactionsQuery } from "./queries";
+export { useShopTransactionsQuery, useCustomerTransactionsQuery } from "./queries";
 
-// UI
-export { useHistorySearch, useHistoryFilters, useHistoryListUI } from "./ui";
+// UI - Common
+export { useHistorySearch } from "./ui";
+
+// UI - Shop
+export { useHistoryFilters, useHistoryListUI } from "./ui";
+
+// UI - Customer
+export { useCustomerHistoryFilters, useCustomerHistoryListUI } from "./ui";
