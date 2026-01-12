@@ -4,7 +4,7 @@
 
 This document outlines the current state of subscription-related notifications, identifies gaps, and provides a strategy for implementing missing notifications including SMS via Twilio.
 
-**Last Updated**: December 29, 2024
+**Last Updated**: January 09, 2026
 
 ---
 
@@ -177,6 +177,33 @@ frontend/src/components/notifications/NotificationBell.tsx
 
 backend/src/services/SubscriptionEnforcementService.ts
   - Add in-app notification for auto-cancel
+
+backend/src/domains/admin/services/management/ShopManagementService.ts
+  - ✅ Added: shop:suspended event emission (Jan 09, 2026)
+  - ✅ Added: shop:unsuspended event emission (Jan 09, 2026)
+  - ✅ Added: Email notification calls for suspend/unsuspend (Jan 09, 2026)
+
+backend/src/services/EmailService.ts
+  - ✅ Added: sendShopSuspendedByAdmin() (Jan 09, 2026)
+  - ✅ Added: sendShopUnsuspendedByAdmin() (Jan 09, 2026)
+
+backend/src/domains/notification/services/NotificationService.ts
+  - ✅ Added: shop_suspended message template (Jan 09, 2026)
+  - ✅ Added: shop_unsuspended message template (Jan 09, 2026)
+  - ✅ Added: createShopSuspendedNotification() (Jan 09, 2026)
+  - ✅ Added: createShopUnsuspendedNotification() (Jan 09, 2026)
+
+backend/src/domains/notification/NotificationDomain.ts
+  - ✅ Added: shop:suspended event subscription (Jan 09, 2026)
+  - ✅ Added: shop:unsuspended event subscription (Jan 09, 2026)
+  - ✅ Added: handleShopSuspended() handler (Jan 09, 2026)
+  - ✅ Added: handleShopUnsuspended() handler (Jan 09, 2026)
+
+frontend/src/hooks/useNotifications.ts
+  - ✅ Added: shop_status_changed WebSocket handler (Jan 09, 2026)
+
+frontend/src/components/shop/ShopDashboardClient.tsx
+  - ✅ Added: shop_suspended, shop_unsuspended to notification refresh types (Jan 09, 2026)
 ```
 
 ### Phase 2: SMS Integration with Twilio
@@ -342,9 +369,13 @@ ALTER TABLE shops ADD COLUMN sms_opt_out_at TIMESTAMP;
 ### Current Implementation
 - `backend/src/services/EmailService.ts` - Email sending
 - `backend/src/domains/notification/services/NotificationService.ts` - In-app notifications
+- `backend/src/domains/notification/NotificationDomain.ts` - Event subscriptions and WebSocket delivery
 - `backend/src/services/SubscriptionEnforcementService.ts` - Grace period enforcement
 - `backend/src/domains/admin/routes/subscription.ts` - Admin subscription actions
+- `backend/src/domains/admin/services/management/ShopManagementService.ts` - Shop suspend/unsuspend actions
 - `backend/src/domains/shop/routes/subscription.ts` - Shop subscription actions
+- `frontend/src/hooks/useNotifications.ts` - WebSocket notification handler
+- `frontend/src/components/shop/ShopDashboardClient.tsx` - Real-time UI updates
 
 ### To Be Created (Phase 2)
 - `backend/src/services/SmsService.ts` - Twilio SMS service
