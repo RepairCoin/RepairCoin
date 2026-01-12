@@ -91,9 +91,10 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
       await loadAllData();
       setEditingDay(null);
       toast.success('Operating hours updated successfully');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating availability:', error);
-      toast.error('Failed to update operating hours');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to update operating hours: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -222,7 +223,14 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                   <input
                     type="checkbox"
                     checked={isOpen}
-                    onChange={(e) => handleUpdateAvailability(day.value, { isOpen: e.target.checked })}
+                    onChange={(e) => {
+                      // Preserve existing time values when toggling the checkbox
+                      const existingData = dayAvailability || {};
+                      handleUpdateAvailability(day.value, {
+                        ...existingData,
+                        isOpen: e.target.checked
+                      });
+                    }}
                     className="w-4 h-4 text-[#FFCC00] bg-[#0D0D0D] border-gray-700 rounded focus:ring-[#FFCC00]"
                   />
                   <span className="text-sm text-gray-400">Open</span>

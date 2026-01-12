@@ -142,7 +142,8 @@ export class AppointmentRepository extends BaseRepository {
       return result.rows[0];
     } catch (error) {
       logger.error('Error updating shop availability:', error);
-      throw new Error('Failed to update shop availability');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+      throw new Error(`Failed to update shop availability: ${errorMessage}`);
     }
   }
 
