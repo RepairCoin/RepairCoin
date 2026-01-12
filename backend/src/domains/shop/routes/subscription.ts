@@ -56,10 +56,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       });
     }
 
-    logger.info('🔍 SUBSCRIPTION STATUS - Checking for shop:', {
-      shopId,
-      user: req.user
-    });
+    logger.debug('Checking subscription status for shop', { shopId });
 
     const db = DatabaseService.getInstance();
 
@@ -2067,70 +2064,7 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
 });
 */
 
-/**
- * @swagger
- * /api/shops/subscription/debug/{shopId}:
- *   get:
- *     summary: Debug subscription status for a shop
- *     tags: [Shop Subscriptions]
- *     parameters:
- *       - in: path
- *         name: shopId
- *         required: true
- *         schema:
- *           type: string
- *         description: Shop ID
- *     responses:
- *       200:
- *         description: Debug information
- */
-publicRouter.get('/subscription/debug/:shopId', async (req: Request, res: Response) => {
-  try {
-    const { shopId } = req.params;
-
-    logger.info('🔍 DEBUG - Starting subscription debug for shop:', shopId);
-
-    // Check stripe_subscriptions table
-    const subscriptionsQuery = `
-      SELECT * FROM stripe_subscriptions 
-      WHERE shop_id = $1 
-      ORDER BY created_at DESC
-    `;
-    const subscriptionsResult = await DatabaseService.getInstance().getPool().query(subscriptionsQuery, [shopId]);
-    
-    // Check stripe_customers table
-    const customersQuery = `SELECT * FROM stripe_customers WHERE shop_id = $1`;
-    const customersResult = await DatabaseService.getInstance().getPool().query(customersQuery, [shopId]);
-    
-    // Check shop record
-    const shopQuery = `SELECT * FROM shops WHERE shop_id = $1`;
-    const shopResult = await DatabaseService.getInstance().getPool().query(shopQuery, [shopId]);
-
-    const debugInfo = {
-      shopId,
-      shop: shopResult.rows[0] || null,
-      stripeSubscriptions: subscriptionsResult.rows,
-      stripeCustomers: customersResult.rows,
-      subscriptionService: {
-        found: subscriptionsResult.rows.length > 0 ? subscriptionsResult.rows[0] : null
-      }
-    };
-
-    logger.info('🔍 DEBUG - Database results:', JSON.stringify(debugInfo, null, 2));
-
-    res.json({
-      success: true,
-      data: debugInfo
-    });
-
-  } catch (error) {
-    logger.error('❌ DEBUG - Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Debug failed'
-    });
-  }
-});
+// Debug endpoint removed - use proper monitoring tools and logs instead
 
 // Export both routers
 export default router;

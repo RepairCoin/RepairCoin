@@ -202,7 +202,7 @@ router.get('/debug/pending-mints/:shopId',
     const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
     const tokenService = require('../../../services/TokenService').TokenService;
 
-    logger.debug(`[PENDING_MINTS_DEBUG] Checking pending mints for shop: ${shopId}`);
+    logger.debug('Checking pending mints for shop', { shopId });
 
     // Get shop details
     const shopQuery = await db.query('SELECT * FROM shops WHERE shop_id = $1', [shopId]);

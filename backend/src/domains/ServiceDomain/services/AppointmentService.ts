@@ -212,7 +212,7 @@ export class AppointmentService {
       // Get already booked slots for this date
       const bookedSlots = await this.appointmentRepo.getBookedSlots(shopId, date);
 
-      logger.info('DEBUG: Raw booked slots from database', {
+      logger.debug('Raw booked slots from database', {
         shopId,
         date,
         bookedSlots: bookedSlots.map(s => ({
@@ -225,7 +225,7 @@ export class AppointmentService {
       // Normalize time format: PostgreSQL returns "09:00:00" but we use "09:00"
       const bookedMap = new Map(bookedSlots.map(s => [this.normalizeTimeSlot(s.timeSlot), s.count]));
 
-      logger.info('DEBUG: Booked map entries', {
+      logger.debug('Booked map entries', {
         shopId,
         date,
         mapEntries: Array.from(bookedMap.entries()),
@@ -299,9 +299,9 @@ export class AppointmentService {
           const bookedCount = bookedMap.get(timeStr) || 0;
           const available = bookedCount < config.maxConcurrentBookings;
 
-          // DEBUG: Log each slot's availability calculation
+          // Log slot availability when bookings exist
           if (bookedCount > 0) {
-            logger.info('DEBUG: Slot has bookings', {
+            logger.debug('Slot has bookings', {
               timeStr,
               bookedCount,
               maxConcurrent: config.maxConcurrentBookings,

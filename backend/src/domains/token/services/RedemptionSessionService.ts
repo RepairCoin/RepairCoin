@@ -659,16 +659,47 @@ export class RedemptionSessionService {
    * Send notification to customer about pending redemption
    */
   private async notifyCustomer(session: RedemptionSession): Promise<void> {
-    // TODO: Implement actual notification
-    // - Push notification to mobile app
-    // - Email notification
-    // - SMS notification
-    logger.info('Customer notification sent (mock)', {
-      sessionId: session.sessionId,
-      customerAddress: session.customerAddress,
-      shopId: session.shopId,
-      amount: session.maxAmount
-    });
+    try {
+      const { NotificationService } = await import('../../notification/services/NotificationService');
+      const notificationService = new NotificationService();
+      const shop = await shopRepository.getShop(session.shopId);
+
+      if (!shop) {
+        logger.warn('Cannot send notification: shop not found', {
+          sessionId: session.sessionId,
+          shopId: session.shopId
+        });
+        return;
+      }
+
+      await notificationService.createNotification({
+        senderAddress: shop.walletAddress || session.shopId,
+        receiverAddress: session.customerAddress,
+        notificationType: 'redemption_approval_request',
+        message: `${shop.name} is requesting approval to redeem ${session.maxAmount} RCN from your wallet.`,
+        metadata: {
+          sessionId: session.sessionId,
+          shopId: session.shopId,
+          shopName: shop.name,
+          amount: session.maxAmount,
+          expiresAt: session.expiresAt.toISOString()
+        }
+      });
+
+      logger.info('Customer notification sent successfully', {
+        sessionId: session.sessionId,
+        customerAddress: session.customerAddress,
+        shopId: session.shopId,
+        amount: session.maxAmount
+      });
+    } catch (error) {
+      logger.error('Failed to send customer notification', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        sessionId: session.sessionId,
+        customerAddress: session.customerAddress
+      });
+      // Don't throw - notification failure shouldn't block session creation
+    }
   }
 
   /**
