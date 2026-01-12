@@ -56,7 +56,7 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
   return (
     <View className="flex-1">
       {/* Header with month and calendar button */}
-      <View className="px-4 mb-3">
+      <View className="mb-4">
         <View className="flex-row items-center justify-between">
           <Text className="text-white text-lg font-semibold">
             {MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
@@ -128,12 +128,17 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                   </Text>
                 </View>
                 {hasBookings && (
-                  <View className="flex-row mt-1 gap-0.5">
+                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
                     {dayBookings.slice(0, 3).map((b, i) => (
                       <View
                         key={i}
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: getStatusColor(b.status) }}
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: getStatusColor(b.status),
+                          marginHorizontal: 1,
+                        }}
                       />
                     ))}
                   </View>
@@ -214,17 +219,17 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
         )}
 
         {/* Legend */}
-        <View className="flex-row justify-center gap-4 mt-4 mb-6">
-          <View className="flex-row items-center">
-            <View className="w-2.5 h-2.5 rounded-full bg-[#eab308] mr-1" />
+        <View className="flex-row justify-center mt-4 mb-6">
+          <View className="flex-row items-center mr-4">
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Pending</Text>
           </View>
-          <View className="flex-row items-center">
-            <View className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] mr-1" />
+          <View className="flex-row items-center mr-4">
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Paid</Text>
           </View>
           <View className="flex-row items-center">
-            <View className="w-2.5 h-2.5 rounded-full bg-[#22c55e] mr-1" />
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Completed</Text>
           </View>
         </View>
@@ -417,13 +422,16 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                               {day}
                             </Text>
                             {hasBookings && !selected && (
-                              <View className="absolute bottom-1 flex-row gap-0.5">
+                              <View style={{ position: 'absolute', bottom: 2, flexDirection: 'row' }}>
                                 {dayBookings.slice(0, 2).map((b, i) => (
                                   <View
                                     key={i}
-                                    className="w-1 h-1 rounded-full"
                                     style={{
+                                      width: 6,
+                                      height: 6,
+                                      borderRadius: 3,
                                       backgroundColor: getStatusColor(b.status),
+                                      marginHorizontal: 1,
                                     }}
                                   />
                                 ))}
@@ -439,17 +447,17 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                 </View>
 
                 {/* Legend */}
-                <View className="flex-row justify-center gap-4 mt-4">
-                  <View className="flex-row items-center">
-                    <View className="w-2.5 h-2.5 rounded-full bg-[#eab308] mr-1" />
+                <View className="flex-row justify-center mt-4">
+                  <View className="flex-row items-center mr-4">
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Pending</Text>
                   </View>
-                  <View className="flex-row items-center">
-                    <View className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] mr-1" />
+                  <View className="flex-row items-center mr-4">
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Paid</Text>
                   </View>
                   <View className="flex-row items-center">
-                    <View className="w-2.5 h-2.5 rounded-full bg-[#22c55e] mr-1" />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Completed</Text>
                   </View>
                 </View>
@@ -467,12 +475,12 @@ export default function BookingsTab() {
   const { statusFilter, setStatusFilter } = useBookingsFilter();
 
   // Data fetching
-  const { bookings, isLoading, getBookingsForDate } = useBookingsData(statusFilter);
+  const { isLoading, getBookingsForDate } = useBookingsData(statusFilter);
 
   return (
     <View className="flex-1 bg-zinc-950">
       {/* Status Filters */}
-      <View className="px-4 mb-3">
+      <View className="mb-4">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View className="flex-row gap-2">
             {BOOKING_STATUS_FILTERS.map((filter) => (

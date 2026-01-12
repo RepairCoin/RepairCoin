@@ -4,17 +4,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Platform,
   Modal,
   FlatList,
   Switch,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 // Components
 import { ThemedView } from "@/components/ui/ThemedView";
+import { AppHeader } from "@/components/ui/AppHeader";
 import FormInput from "@/components/ui/FormInput";
 import SectionHeader from "@/components/ui/SectionHeader";
 import PrimaryButton from "@/components/ui/PrimaryButton";
@@ -74,29 +73,10 @@ export default function ServicesFormScreen() {
   return (
     <ThemedView className="h-full w-full">
       {/* Header */}
-      <LinearGradient
-        colors={["#2A2A2C", "#1A1A1C"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={{
-          paddingTop: Platform.OS === "ios" ? 60 : 50,
-          paddingBottom: 20,
-          paddingHorizontal: 16,
-        }}
-      >
-        <View className="flex-row justify-between items-center">
-          <TouchableOpacity
-            onPress={navigateBack}
-            className="w-10 h-10 rounded-full bg-[#333] items-center justify-center"
-          >
-            <AntDesign name="left" color="white" size={18} />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">
-            {isEditMode ? "Edit Service" : "Add New Service"}
-          </Text>
-          <View className="w-10" />
-        </View>
-      </LinearGradient>
+      <AppHeader
+        title={isEditMode ? "Edit Service" : "Add New Service"}
+        onBackPress={navigateBack}
+      />
 
       <ScrollView
         className="flex-1 px-4"
@@ -105,8 +85,12 @@ export default function ServicesFormScreen() {
       >
         {/* Service Details Section */}
         <SectionHeader
-          icon={<Feather name="info" size={16} color="#000" />}
-          title="Service Details"
+          icon={
+            <View className="w-5 h-5 rounded-full bg-[#FFCC00] items-center justify-center">
+              <Text className="text-black text-xs font-bold">1</Text>
+            </View>
+          }
+          title="Basic Info"
         />
 
         {/* Service Name */}
@@ -125,10 +109,8 @@ export default function ServicesFormScreen() {
           </Text>
           <TouchableOpacity onPress={openCategoryModal} activeOpacity={0.7}>
             <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
-              <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
-                <Ionicons name="grid-outline" size={20} color="#000" />
-              </View>
-              <View className="flex-1">
+              <Ionicons name="grid-outline" size={20} color="#FFCC00" />
+              <View className="flex-1 ml-2">
                 <Text className="text-white text-base">
                   {selectedCategory?.label || "Select a category"}
                 </Text>
@@ -147,6 +129,7 @@ export default function ServicesFormScreen() {
           icon={
             <Ionicons name="document-text-outline" size={20} color="#FFCC00" />
           }
+          iconAlign="top"
           multiline
           numberOfLines={3}
           textAlignVertical="top"
@@ -155,7 +138,11 @@ export default function ServicesFormScreen() {
 
         {/* Pricing Section */}
         <SectionHeader
-          icon={<Feather name="dollar-sign" size={16} color="#000" />}
+          icon={
+            <View className="w-5 h-5 rounded-full bg-[#FFCC00] items-center justify-center">
+              <Text className="text-black text-xs font-bold">2</Text>
+            </View>
+          }
           title="Pricing"
         />
 
@@ -171,7 +158,11 @@ export default function ServicesFormScreen() {
 
         {/* Media Section */}
         <SectionHeader
-          icon={<Feather name="image" size={16} color="#000" />}
+          icon={
+            <View className="w-5 h-5 rounded-full bg-[#FFCC00] items-center justify-center">
+              <Text className="text-black text-xs font-bold">3</Text>
+            </View>
+          }
           title="Media"
         />
 
@@ -245,7 +236,11 @@ export default function ServicesFormScreen() {
 
         {/* Settings Section */}
         <SectionHeader
-          icon={<Feather name="settings" size={16} color="#000" />}
+          icon={
+            <View className="w-5 h-5 rounded-full bg-[#FFCC00] items-center justify-center">
+              <Text className="text-black text-xs font-bold">4</Text>
+            </View>
+          }
           title="Settings"
         />
 

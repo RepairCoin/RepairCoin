@@ -4,6 +4,7 @@ import { View, Text, TextInput, TextInputProps } from "react-native";
 interface FormInputProps extends Omit<TextInputProps, "onChangeText"> {
   label: string;
   icon?: React.ReactNode;
+  iconAlign?: "center" | "top";
   value: string;
   onChangeText: (text: string) => void;
   error?: string;
@@ -14,6 +15,7 @@ interface FormInputProps extends Omit<TextInputProps, "onChangeText"> {
 function FormInput({
   label,
   icon,
+  iconAlign = "center",
   value,
   onChangeText,
   placeholder,
@@ -33,7 +35,9 @@ function FormInput({
         {label}
       </Text>
       <View
-        className={`flex-row items-center rounded-xl px-4 ${
+        className={`flex-row rounded-xl px-4 ${
+          iconAlign === "top" ? "items-start" : "items-center"
+        } ${
           hasError
             ? "bg-red-900/20 border border-red-500"
             : editable
@@ -41,7 +45,11 @@ function FormInput({
             : "bg-[#1A1A1C]"
         }`}
       >
-        {icon && <View className="mr-3">{icon}</View>}
+        {icon && (
+          <View className={iconAlign === "top" ? "pt-3 mr-2" : "mr-2"}>
+            {icon}
+          </View>
+        )}
         {!editable ? (
           <Text
             className="flex-1 h-12 text-base text-gray-500 leading-[48px]"

@@ -93,7 +93,7 @@ export default function ServicesTab({
   return (
     <React.Fragment>
       {/* Search Input with Filter Button */}
-      <View className="flex-row items-center gap-2 mb-4">
+      <View className="flex-row items-center gap-2">
         <View className="flex-1">
           <SearchInput
             value={searchQuery}
