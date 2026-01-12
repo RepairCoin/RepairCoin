@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useNotificationStore } from '../stores/notificationStore';
+import { useNotificationStore, Notification as NotificationType } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
 
@@ -48,7 +48,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
           page: 1,
           limit: 50,
         },
-      }) as { items: unknown[]; total: number };
+      }) as { items: NotificationType[]; total: number };
 
       setNotifications(data.items || []);
     } catch (error: unknown) {
