@@ -64,16 +64,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   const handleSend = async () => {
     if (!messageInput.trim() && selectedFiles.length === 0) return;
@@ -371,8 +362,6 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
             </div>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Selected Files Preview */}
