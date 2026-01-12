@@ -6,6 +6,7 @@ import QrScanner from "qr-scanner";
 import { Camera, X, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import CustomerCard from "@/components/shop/customers/CustomerCard";
+import { CustomerDetailsModal } from "@/components/shop/customers/CustomerDetailsModal";
 
 // Search result from API
 interface CustomerSearchResult {
@@ -48,6 +49,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const searchCustomers = async (query?: string) => {
@@ -122,10 +124,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   };
 
   const handleViewProfile = (address: string) => {
-    // For now, we could open a modal or navigate to a details view
-    // This can be enhanced later with a CustomerDetailsModal
-    toast.success(`Viewing profile for ${address.slice(0, 6)}...${address.slice(-4)}`);
-    // TODO: Open CustomerDetailsModal or navigate to details page
+    setSelectedCustomer(address);
   };
 
   const handleCopyAddress = (address: string) => {
@@ -498,6 +497,15 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Customer Details Modal */}
+      {selectedCustomer && (
+        <CustomerDetailsModal
+          customerAddress={selectedCustomer}
+          shopId={shopId}
+          onClose={() => setSelectedCustomer(null)}
+        />
       )}
     </div>
   );
