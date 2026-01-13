@@ -1,7 +1,7 @@
 import { useMemo } from "react";
+import { useShopBookingQuery } from "@/feature/booking/hooks/queries";
 import { BookingData } from "@/interfaces/booking.interfaces";
 import { BookingFilterStatus } from "../../types";
-import { useShopBookingQuery } from "./../queries";
 
 export function useBookingsData(statusFilter: BookingFilterStatus) {
   const { data: bookingsData, isLoading, error, refetch } = useShopBookingQuery();

@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { View, Text } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { TimeSlotPicker, AppointmentSummaryCard } from "../components";
-import { BookingScheduleScreenProps } from "../types";
+import { AppointmentScheduleScreenProps } from "../types";
 
-export default function BookingScheduleScreen({
+export default function AppointmentScheduleScreen({
   selectedDate,
   selectedTime,
   timeSlots,
@@ -13,7 +13,7 @@ export default function BookingScheduleScreen({
   shopAvailability,
   onDateSelect,
   onTimeSelect,
-}: BookingScheduleScreenProps) {
+}: AppointmentScheduleScreenProps) {
   // Get today's date in YYYY-MM-DD format for calendar
   const today = useMemo(() => {
     return new Date().toISOString().split("T")[0];

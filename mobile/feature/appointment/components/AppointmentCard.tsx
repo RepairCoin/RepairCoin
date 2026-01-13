@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { BookingStatus } from "@/interfaces/booking.interfaces";
-import { BookingCardProps } from "../types";
+import { AppointmentCardProps } from "../types";
 
 const getStatusColor = (status: BookingStatus) => {
   switch (status) {
@@ -33,7 +33,7 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const formatBookingDate = (dateString: string) => {
+const formatAppointmentDate = (dateString: string) => {
   if (!dateString) return null;
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
@@ -50,18 +50,18 @@ const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-export default function BookingCard({
+export default function AppointmentCard({
   serviceName,
   customerAddress,
   customerName,
   status,
   totalAmount,
   createdAt,
-  bookingDate,
+  appointmentDate,
   onPress,
-}: BookingCardProps) {
+}: AppointmentCardProps) {
   const statusColor = getStatusColor(status);
-  const formattedBookingDate = bookingDate ? formatBookingDate(bookingDate) : null;
+  const formattedAppointmentDate = appointmentDate ? formatAppointmentDate(appointmentDate) : null;
 
   return (
     <TouchableOpacity
@@ -96,11 +96,11 @@ export default function BookingCard({
           </View>
 
           {/* Scheduled Date */}
-          {formattedBookingDate && (
+          {formattedAppointmentDate && (
             <View className="flex-row items-center mb-2 bg-[#FFCC00]/10 px-2 py-1 rounded self-start">
               <Feather name="calendar" size={12} color="#FFCC00" />
               <Text className="text-[#FFCC00] text-xs ml-1 font-medium">
-                {formattedBookingDate}
+                {formattedAppointmentDate}
               </Text>
             </View>
           )}

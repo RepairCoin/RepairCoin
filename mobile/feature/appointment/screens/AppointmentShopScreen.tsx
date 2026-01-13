@@ -10,9 +10,9 @@ import { goBack } from "expo-router/build/global-state/routing";
 import HorizontalCard from "@/components/ui/HorizontalCard";
 import { useShopBookingQuery } from "../hooks/queries";
 import { BookingData } from "@/interfaces/booking.interfaces";
-import { BookingCard } from "../components";
+import { AppointmentCard } from "../components";
 
-export default function BookingShopScreen() {
+export default function AppointmentShopScreen() {
   const { data: bookingsData, isLoading, error } = useShopBookingQuery();
 
   const pending = bookingsData?.filter(
@@ -65,8 +65,8 @@ export default function BookingShopScreen() {
     },
   ];
 
-  const renderBookingCard = ({ item }: { item: BookingData }) => (
-    <BookingCard
+  const renderAppointmentCard = ({ item }: { item: BookingData }) => (
+    <AppointmentCard
       serviceName={item.serviceName}
       customerAddress={item.customerAddress}
       customerName={item.customerName}
@@ -74,7 +74,7 @@ export default function BookingShopScreen() {
       totalAmount={item.totalAmount}
       createdAt={item.createdAt}
       onPress={() => {
-        // TODO: Navigate to booking details
+        // TODO: Navigate to appointment details
       }}
     />
   );
@@ -82,7 +82,7 @@ export default function BookingShopScreen() {
   const renderEmptyList = () => (
     <View className="flex-1 items-center justify-center py-10">
       <Feather name="calendar" size={48} color="#666" />
-      <Text className="text-[#666] text-lg mt-4">No bookings yet</Text>
+      <Text className="text-[#666] text-lg mt-4">No appointments yet</Text>
     </View>
   );
 
@@ -91,7 +91,7 @@ export default function BookingShopScreen() {
       <View className="pt-16 px-4 gap-4">
         <View className="flex-row justify-between items-center">
           <AntDesign name="left" color="white" size={18} onPress={goBack} />
-          <Text className="text-white text-2xl font-extrabold">Booking</Text>
+          <Text className="text-white text-2xl font-extrabold">Appointments</Text>
           <View className="w-[25px]" />
         </View>
       </View>
@@ -105,7 +105,7 @@ export default function BookingShopScreen() {
       </View>
 
       <Text className="text-white text-lg font-semibold px-4 mb-3">
-        Recent Bookings
+        Recent Appointments
       </Text>
 
       {isLoading ? (
@@ -115,7 +115,7 @@ export default function BookingShopScreen() {
       ) : (
         <FlatList
           data={bookingsData}
-          renderItem={renderBookingCard}
+          renderItem={renderAppointmentCard}
           keyExtractor={(item) => item.orderId}
           ListEmptyComponent={renderEmptyList}
           showsVerticalScrollIndicator={false}

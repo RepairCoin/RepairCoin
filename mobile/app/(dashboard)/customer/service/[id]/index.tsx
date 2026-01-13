@@ -169,7 +169,7 @@ export default function ServiceDetail() {
   };
 
   const handleBookNow = () => {
-    router.push(`/customer/booking/${id}`);
+    router.push(`/customer/appointment/${id}`);
   };
 
   const handleWriteReview = () => {

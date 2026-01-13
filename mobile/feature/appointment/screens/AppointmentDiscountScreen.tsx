@@ -5,9 +5,9 @@ import {
   RcnRedeemInput,
   PriceSummaryCard,
 } from "../components";
-import { BookingDiscountScreenProps } from "../types";
+import { AppointmentDiscountScreenProps } from "../types";
 
-export default function BookingDiscountScreen({
+export default function AppointmentDiscountScreen({
   selectedDate,
   selectedTime,
   availableRcn,
@@ -20,7 +20,7 @@ export default function BookingDiscountScreen({
   finalPrice,
   onRcnChange,
   onMaxRcn,
-}: BookingDiscountScreenProps) {
+}: AppointmentDiscountScreenProps) {
   return (
     <View className="px-4 mb-6">
       <View className="mb-6">

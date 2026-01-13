@@ -1,12 +1,5 @@
 // Appointment queries
-export {
-  useAvailableTimeSlotsQuery,
-  useShopAvailabilityQuery,
-  useTimeSlotConfigQuery,
-  useDateOverridesQuery,
-  useShopCalendarQuery,
-  useMyAppointmentsQuery,
-} from "./useAppointmentQueries";
+export { useMyAppointmentsQuery } from "./useAppointmentQueries";
 
 // Booking queries
 export {

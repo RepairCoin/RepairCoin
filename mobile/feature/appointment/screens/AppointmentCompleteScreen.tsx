@@ -22,11 +22,11 @@ import {
 import { useCreateStripeCheckoutMutation } from "../hooks/mutations";
 import { useAuthStore } from "@/store/auth.store";
 import { StepIndicator } from "../components";
-import BookingScheduleScreen from "./BookingScheduleScreen";
-import BookingDiscountScreen from "./BookingDiscountScreen";
-import { BookingStep } from "../types";
+import AppointmentScheduleScreen from "./AppointmentScheduleScreen";
+import AppointmentDiscountScreen from "./AppointmentDiscountScreen";
+import { AppointmentStep } from "../types";
 
-export default function BookingCompleteScreen() {
+export default function AppointmentCompleteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userProfile } = useAuthStore();
   const { useGetService } = useService();
@@ -34,7 +34,7 @@ export default function BookingCompleteScreen() {
   const { data: balanceData } = useBalance(userProfile?.address || "");
   const stripeCheckoutMutation = useCreateStripeCheckoutMutation();
 
-  const [currentStep, setCurrentStep] = useState<BookingStep>("schedule");
+  const [currentStep, setCurrentStep] = useState<AppointmentStep>("schedule");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [rcnToRedeem, setRcnToRedeem] = useState<string>("");
@@ -98,7 +98,7 @@ export default function BookingCompleteScreen() {
         notes: notes || undefined,
       });
     } catch (err: any) {
-      console.error("Booking initiation failed:", err);
+      console.error("Appointment initiation failed:", err);
     }
   };
 
@@ -130,7 +130,7 @@ export default function BookingCompleteScreen() {
       case "discount":
         return "Apply Discount & Pay";
       default:
-        return "Complete Booking";
+        return "Complete Appointment";
     }
   };
 
@@ -183,7 +183,7 @@ export default function BookingCompleteScreen() {
         </View>
 
         {currentStep === "schedule" && (
-          <BookingScheduleScreen
+          <AppointmentScheduleScreen
             selectedDate={selectedDate}
             selectedTime={selectedTime}
             timeSlots={timeSlots}
@@ -196,7 +196,7 @@ export default function BookingCompleteScreen() {
         )}
 
         {currentStep === "discount" && (
-          <BookingDiscountScreen
+          <AppointmentDiscountScreen
             selectedDate={selectedDate}
             selectedTime={selectedTime!}
             availableRcn={availableRcn}

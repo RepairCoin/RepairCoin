@@ -1,9 +1,9 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { CardField } from "@stripe/stripe-react-native";
-import { BookingPaymentScreenProps } from "../types";
+import { AppointmentPaymentScreenProps } from "../types";
 
-export default function BookingPaymentScreen({
+export default function AppointmentPaymentScreen({
   selectedDate,
   selectedTime,
   serviceName,
@@ -13,7 +13,7 @@ export default function BookingPaymentScreen({
   finalPrice,
   paymentError,
   onCardChange,
-}: BookingPaymentScreenProps) {
+}: AppointmentPaymentScreenProps) {
   const formatDateFull = (dateString: string) => {
     const date = new Date(dateString + "T00:00:00");
     return date.toLocaleDateString("en-US", {
