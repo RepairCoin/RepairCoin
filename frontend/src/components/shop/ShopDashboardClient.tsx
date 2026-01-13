@@ -42,6 +42,7 @@ import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
 import SuccessModal from "@/components/modals/SuccessModal";
+import { PaymentWaitingModal } from "@/components/shop/modals/PaymentWaitingModal";
 import { useNotificationStore } from "@/stores/notificationStore";
 
 const client = createThirdwebClient({
@@ -151,6 +152,15 @@ export default function ShopDashboardClient() {
     title?: string;
     subtitle?: string;
   }>({});
+
+  // Payment waiting modal state
+  const [showPaymentWaitingModal, setShowPaymentWaitingModal] = useState(false);
+  const [pendingPurchase, setPendingPurchase] = useState<{
+    purchaseId: string;
+    amount: number;
+    totalCost: number;
+    checkoutUrl: string;
+  } | null>(null);
 
   // Auth token managed via httpOnly cookies - no longer needed in state
   // Keeping state for backward compatibility during migration
@@ -533,15 +543,21 @@ export default function ShopDashboardClient() {
           throw new Error(errorMessage);
         }
 
-        const checkoutUrl = response.data?.checkoutUrl;
-        if (!checkoutUrl) {
-          throw new Error("No checkout URL received from server");
+        const { checkoutUrl, purchaseId, amount, totalCost } = response.data || {};
+        if (!checkoutUrl || !purchaseId) {
+          throw new Error("Invalid response from server - missing checkout URL or purchase ID");
         }
 
-        console.log("Redirecting to Stripe checkout...");
+        console.log("Showing payment waiting modal...");
 
-        // Redirect to Stripe checkout
-        window.location.href = checkoutUrl;
+        // Store pending purchase data and show waiting modal
+        setPendingPurchase({
+          purchaseId,
+          amount: amount || purchaseAmount,
+          totalCost: totalCost || (purchaseAmount * 0.10),
+          checkoutUrl,
+        });
+        setShowPaymentWaitingModal(true);
       } catch (err) {
         console.error("Error initiating purchase:", err);
         setError(
@@ -576,6 +592,34 @@ export default function ShopDashboardClient() {
   const cancelPayment = () => {
     setShowPayment(false);
     setCurrentPurchaseId(null);
+  };
+
+  // Payment waiting modal handlers
+  const handlePaymentWaitingSuccess = async (purchaseId: string, amount: number) => {
+    setShowPaymentWaitingModal(false);
+    setPendingPurchase(null);
+
+    // Show success modal with celebration
+    setSuccessModalData({
+      title: "Payment Successful!",
+      subtitle: `${amount.toLocaleString()} RCN tokens have been added to your account.`,
+      amount: amount,
+    });
+    setShowSuccessModal(true);
+
+    // Reload shop data to update balance
+    await loadShopData();
+  };
+
+  const handlePaymentWaitingError = (error: string) => {
+    setShowPaymentWaitingModal(false);
+    setPendingPurchase(null);
+    toast.error(error, { duration: 5000 });
+  };
+
+  const handlePaymentWaitingClose = () => {
+    setShowPaymentWaitingModal(false);
+    setPendingPurchase(null);
   };
 
   const checkPurchaseStatus = async (purchaseId: string) => {
@@ -1115,13 +1159,15 @@ export default function ShopDashboardClient() {
           {/* Success Modal - Using new reusable component */}
           <SuccessModal
             isOpen={showSuccessModal}
-            onClose={() => {
+            onClose={async () => {
               setShowSuccessModal(false);
               // Clear the payment success params from URL
               const url = new URL(window.location.href);
               url.searchParams.delete("payment");
               url.searchParams.delete("purchase_id");
               window.history.replaceState({}, "", url);
+              // Refresh purchases list to show the new purchase
+              await loadShopData();
             }}
             title={successModalData.title}
             subtitle={successModalData.subtitle}
@@ -1130,7 +1176,21 @@ export default function ShopDashboardClient() {
             showCoinsAnimation={true}
           />
 
-          {/* Onboarding Modal - Don't show for suspended/rejected/paused shops */}
+          {/* Payment Waiting Modal - For RCN purchases */}
+          {showPaymentWaitingModal && pendingPurchase && (
+            <PaymentWaitingModal
+              isOpen={showPaymentWaitingModal}
+              onClose={handlePaymentWaitingClose}
+              purchaseId={pendingPurchase.purchaseId}
+              amount={pendingPurchase.amount}
+              totalCost={pendingPurchase.totalCost}
+              checkoutUrl={pendingPurchase.checkoutUrl}
+              onSuccess={handlePaymentWaitingSuccess}
+              onError={handlePaymentWaitingError}
+            />
+          )}
+
+          {/* Onboarding Modal */}
           {shopData && (
             <>
               <OnboardingModal

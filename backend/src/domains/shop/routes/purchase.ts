@@ -494,6 +494,18 @@ router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request
       totalCost: purchaseResult.totalCost
     });
 
+    // Update the purchase record with the Stripe session ID
+    // This allows the check-payment endpoint to verify with Stripe directly
+    await db.query(
+      'UPDATE shop_rcn_purchases SET payment_reference = $1 WHERE id = $2',
+      [session.id, purchaseResult.purchaseId]
+    );
+
+    logger.info('Updated purchase with Stripe session ID', {
+      purchaseId: purchaseResult.purchaseId,
+      sessionId: session.id
+    });
+
     res.json({
       success: true,
       data: {
