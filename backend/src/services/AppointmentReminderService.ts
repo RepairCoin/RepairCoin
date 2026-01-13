@@ -965,6 +965,55 @@ export class AppointmentReminderService {
       // Don't throw - this is a best-effort notification
     }
   }
+
+  /**
+   * Send email notification when shop reschedules an appointment
+   */
+  async sendRescheduleByShopEmail(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    originalDate: string;
+    originalTime: string;
+    newDate: string;
+    newTime: string;
+    reason?: string;
+    orderId: string;
+  }): Promise<boolean> {
+    if (!data.customerEmail) {
+      logger.warn('No customer email for reschedule notification', { orderId: data.orderId });
+      return false;
+    }
+
+    try {
+      const result = await this.emailService.sendAppointmentRescheduledByShop({
+        customerEmail: data.customerEmail,
+        customerName: data.customerName,
+        shopName: data.shopName,
+        serviceName: data.serviceName,
+        originalDate: data.originalDate,
+        originalTime: data.originalTime,
+        newDate: data.newDate,
+        newTime: data.newTime,
+        reason: data.reason
+      });
+
+      if (result) {
+        logger.info('Reschedule notification email sent', {
+          orderId: data.orderId,
+          customerEmail: data.customerEmail,
+          newDate: data.newDate,
+          newTime: data.newTime
+        });
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending reschedule notification email:', error);
+      return false;
+    }
+  }
 }
 
 // Export singleton instance

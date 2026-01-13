@@ -151,10 +151,17 @@ Thank you for using RepairCoin!
     URL.revokeObjectURL(url);
   };
 
-  const statusInfo = getStatusInfo(order.status);
+  // Get effective status (auto-approved shows as scheduled)
+  const effectiveStatus = (order.status === "paid" && order.shopApproved) ? "scheduled" : order.status;
+  const statusInfo = getStatusInfo(effectiveStatus);
 
   // Order timeline based on status
+  // With auto-approval: status="paid" + shopApproved=true means approved & scheduled
   const getTimeline = () => {
+    const isAutoApproved = order.status === "paid" && order.shopApproved === true;
+    const isApproved = isAutoApproved || order.status === "approved" || order.status === "scheduled" || order.status === "completed";
+    const isScheduled = isAutoApproved || order.status === "scheduled" || order.status === "completed";
+
     const timeline = [
       {
         label: "Booking Created",
@@ -170,14 +177,14 @@ Thank you for using RepairCoin!
       },
       {
         label: "Approved by Shop",
-        date: order.status === "approved" || order.status === "scheduled" || order.status === "completed" ? order.updatedAt : null,
-        completed: order.status === "approved" || order.status === "scheduled" || order.status === "completed",
+        date: isApproved ? (order.approvedAt || order.createdAt) : null,
+        completed: isApproved,
         icon: <CheckCircle className="w-5 h-5" />,
       },
       {
         label: "Service Scheduled",
-        date: order.bookingTimeSlot || null,
-        completed: order.status === "scheduled" || order.status === "completed",
+        date: isScheduled ? order.bookingTimeSlot : null,
+        completed: isScheduled,
         icon: <Calendar className="w-5 h-5" />,
       },
       {

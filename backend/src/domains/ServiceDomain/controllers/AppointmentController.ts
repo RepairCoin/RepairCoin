@@ -851,4 +851,56 @@ export class AppointmentController {
       });
     }
   };
+
+  /**
+   * Direct reschedule by shop (Shop only - no approval needed)
+   * POST /api/services/bookings/:orderId/direct-reschedule
+   */
+  directRescheduleOrder = async (req: Request, res: Response) => {
+    try {
+      const shopAddress = req.user?.address;
+      const shopId = req.user?.shopId;
+      if (!shopAddress || !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { orderId } = req.params;
+      const { newDate, newTimeSlot, reason } = req.body;
+
+      if (!newDate || !newTimeSlot) {
+        return res.status(400).json({
+          success: false,
+          error: 'newDate and newTimeSlot are required'
+        });
+      }
+
+      const result = await this.rescheduleService.directRescheduleOrder(
+        orderId,
+        shopId,
+        shopAddress,
+        newDate,
+        newTimeSlot,
+        reason
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Appointment rescheduled successfully. Customer has been notified.'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in directRescheduleOrder controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to reschedule appointment'
+      });
+    }
+  };
 }

@@ -362,8 +362,8 @@ export const ServiceOrdersTab: React.FC = () => {
                     </span>
                   }
                   dateBooked={order.createdAt}
-                  serviceDate={order.bookingTimeSlot}
-                  serviceTime={order.bookingTimeSlot ? formatTime(order.bookingTimeSlot) : undefined}
+                  serviceDate={order.bookingTimeSlot || order.bookingDate}
+                  serviceTime={order.bookingTimeSlot ? formatTime(order.bookingTimeSlot) : order.bookingTime}
                   cost={order.totalAmount}
                   progressSection={
                     order.status !== "cancelled" ? (

@@ -670,6 +670,70 @@ export class EmailService {
   }
 
   /**
+   * Send appointment reschedule notification to customer
+   */
+  async sendAppointmentRescheduledByShop(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    originalDate: string;
+    originalTime: string;
+    newDate: string;
+    newTime: string;
+    reason?: string;
+  }): Promise<boolean> {
+    const subject = `Your appointment at ${data.shopName} has been rescheduled`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Appointment Rescheduled</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p><strong>${data.shopName}</strong> has rescheduled your appointment:</p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="margin: 5px 0; color: #856404;"><strong>Previous Time:</strong></p>
+            <p style="margin: 5px 0; text-decoration: line-through; color: #6c757d;">
+              ${data.originalDate} at ${data.originalTime}
+            </p>
+          </div>
+
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <p style="margin: 5px 0; color: #155724;"><strong>New Time:</strong></p>
+            <p style="margin: 5px 0; font-size: 18px; color: #155724;">
+              <strong>${data.newDate} at ${data.newTime}</strong>
+            </p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+            ${data.reason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${data.reason}</p>` : ''}
+          </div>
+
+          <p>If this new time doesn't work for you, please contact the shop directly to discuss alternatives.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for your understanding!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
    * Core email sending method
    */
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {

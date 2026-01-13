@@ -26,6 +26,7 @@ export interface NotificationMessageTemplates {
   reschedule_request_approved: (data: { shopName: string; serviceName: string; newDate: string; newTime: string }) => string;
   reschedule_request_rejected: (data: { shopName: string; serviceName: string; reason?: string }) => string;
   reschedule_request_expired: (data: { shopName: string; serviceName: string }) => string;
+  booking_rescheduled_by_shop: (data: { shopName: string; serviceName: string; originalDate: string; originalTime: string; newDate: string; newTime: string; reason?: string }) => string;
   shop_suspended: (data: { shopName?: string; reason?: string }) => string;
   shop_unsuspended: (data: { shopName?: string }) => string;
 }
@@ -109,6 +110,9 @@ export class NotificationService {
 
       reschedule_request_expired: (data) =>
         `Your reschedule request for ${data.serviceName} at ${data.shopName} has expired. Please submit a new request if needed.`,
+
+      booking_rescheduled_by_shop: (data) =>
+        `${data.shopName} has rescheduled your ${data.serviceName} appointment from ${data.originalDate} at ${data.originalTime} to ${data.newDate} at ${data.newTime}${data.reason ? '. Reason: ' + data.reason : '.'}`,
 
       shop_suspended: (data) =>
         `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been suspended by an administrator${data.reason ? ': ' + data.reason : '.'}`,
@@ -705,6 +709,50 @@ export class NotificationService {
         serviceName,
         orderId,
         requestId,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Create notification when shop directly reschedules a booking
+   */
+  async createBookingRescheduledByShopNotification(
+    shopAddress: string,
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    orderId: string,
+    originalDate: string,
+    originalTime: string,
+    newDate: string,
+    newTime: string,
+    reason?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.booking_rescheduled_by_shop({
+      shopName,
+      serviceName,
+      originalDate,
+      originalTime,
+      newDate,
+      newTime,
+      reason
+    });
+
+    return this.createNotification({
+      senderAddress: shopAddress,
+      receiverAddress: customerAddress,
+      notificationType: 'booking_rescheduled_by_shop',
+      message,
+      metadata: {
+        shopName,
+        serviceName,
+        orderId,
+        originalDate,
+        originalTime,
+        newDate,
+        newTime,
+        reason,
         timestamp: new Date().toISOString()
       }
     });

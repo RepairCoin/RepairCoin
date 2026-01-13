@@ -66,6 +66,11 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
         displayStatus = 'cancelling';
       }
 
+      // Use Stripe's current_period_end as the authoritative next payment date when available
+      // This ensures consistency with shop view which uses Stripe data directly
+      // Fallback to shop_subscriptions.next_payment_date if Stripe data not available
+      const nextPaymentDate = row.stripe_period_end || row.next_payment_date;
+
       return {
         id: row.id,
         shopId: row.shop_id,
@@ -78,7 +83,7 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
         monthlyAmount: parseFloat(row.monthly_amount || 500),
         paymentsMade: row.payments_made || 0,
         totalPaid: parseFloat(row.total_paid || 0),
-        nextPaymentDate: row.next_payment_date,
+        nextPaymentDate: nextPaymentDate,
         lastPaymentDate: row.last_payment_date,
         stripePeriodEnd: row.stripe_period_end, // Stripe's current_period_end for accurate subscription end date
         cancelAtPeriodEnd: row.cancel_at_period_end || false,

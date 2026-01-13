@@ -1,6 +1,7 @@
 // backend/src/repositories/OrderRepository.ts
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
+import { formatLocalDate } from '../utils/dateUtils';
 
 export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
 
@@ -52,6 +53,9 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   customerPhone?: string;
   rcnEarned?: number; // RCN tokens earned when order completed
   promoRcn?: number; // RCN from promo codes
+  // Appointment fields (combined date + time)
+  bookingTimeSlot?: string;
+  bookingEndTime?: string;
 }
 
 export interface CreateOrderParams {
@@ -592,6 +596,23 @@ export class OrderRepository extends BaseRepository {
    * Map database row to ServiceOrderWithDetails
    */
   private mapOrderWithDetailsRow(row: any): ServiceOrderWithDetails {
+    // Combine booking_date and booking_time_slot into a full datetime string
+    let bookingTimeSlot: string | undefined;
+    if (row.booking_date && row.booking_time_slot) {
+      // Format: YYYY-MM-DD + HH:MM:SS -> datetime string
+      // Use formatLocalDate to avoid timezone shift (toISOString converts to UTC which shifts dates)
+      const dateStr = row.booking_date instanceof Date
+        ? formatLocalDate(row.booking_date)
+        : String(row.booking_date).split('T')[0];
+      const timeStr = row.booking_time_slot;
+      bookingTimeSlot = `${dateStr}T${timeStr}`;
+    } else if (row.booking_date) {
+      // If only date is available, format as local date
+      bookingTimeSlot = row.booking_date instanceof Date
+        ? formatLocalDate(row.booking_date)
+        : String(row.booking_date).split('T')[0];
+    }
+
     return {
       ...this.mapOrderRow(row),
       serviceName: row.service_name,
@@ -607,7 +628,10 @@ export class OrderRepository extends BaseRepository {
       customerTier: row.customer_tier,
       customerPhone: row.customer_phone,
       rcnEarned: row.rcn_earned ? parseFloat(row.rcn_earned) : 0,
-      promoRcn: row.promo_rcn ? parseFloat(row.promo_rcn) : 0
+      promoRcn: row.promo_rcn ? parseFloat(row.promo_rcn) : 0,
+      // Appointment fields
+      bookingTimeSlot,
+      bookingEndTime: row.booking_end_time
     };
   }
 

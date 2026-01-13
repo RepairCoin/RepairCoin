@@ -357,5 +357,18 @@ export const appointmentsApi = {
       { reason }
     );
     return (response as unknown as { success: boolean; data: RescheduleRequest }).data;
+  },
+
+  // Shop: Direct reschedule (no approval needed)
+  async directRescheduleOrder(
+    orderId: string,
+    newDate: string,
+    newTimeSlot: string,
+    reason?: string
+  ): Promise<void> {
+    await apiClient.post(
+      `/services/bookings/${orderId}/direct-reschedule`,
+      { newDate, newTimeSlot, reason }
+    );
   }
 };
