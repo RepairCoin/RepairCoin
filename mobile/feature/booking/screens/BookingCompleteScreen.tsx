@@ -16,10 +16,10 @@ import { DateData } from "react-native-calendars";
 import { useService } from "@/hooks/service/useService";
 import { useBalance } from "@/hooks/balance/useBalance";
 import {
-  useCreateStripeCheckoutMutation,
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
-} from "../hooks";
+} from "../hooks/queries";
+import { useCreateStripeCheckoutMutation } from "../hooks/mutations";
 import { useAuthStore } from "@/store/auth.store";
 import { StepIndicator } from "../components";
 import BookingScheduleScreen from "./BookingScheduleScreen";

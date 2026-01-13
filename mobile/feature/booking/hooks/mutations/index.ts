@@ -1,4 +1,4 @@
-// Appointment mutations (appointmentApi)
+// Appointment mutations
 export {
   useUpdateShopAvailabilityMutation,
   useUpdateTimeSlotConfigMutation,
@@ -8,7 +8,7 @@ export {
   useCancelAppointmentMutation,
 } from "./useAppointmentMutations";
 
-// Booking mutations (bookingApi)
+// Booking mutations
 export {
   useCreateBookingMutation,
   useCreateStripeCheckoutMutation,

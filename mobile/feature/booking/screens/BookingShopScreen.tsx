@@ -8,7 +8,7 @@ import {
 } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import HorizontalCard from "@/components/ui/HorizontalCard";
-import { useShopBookingQuery } from "../hooks";
+import { useShopBookingQuery } from "../hooks/queries";
 import { BookingData } from "@/interfaces/booking.interfaces";
 import { BookingCard } from "../components";
 

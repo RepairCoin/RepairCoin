@@ -6,7 +6,6 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import {
   ServiceActionModal,
   AddServiceFab,
-  BookingsTab,
 } from "../components";
 
 // Hooks
@@ -14,10 +13,13 @@ import {
   useServiceTabUI,
   useServiceStatusUI,
   useServiceNavigation,
-} from "../hooks";
+} from "../hooks/ui";
 
 // Feature
 import ServicesTab from "@/feature/service/components/ServicesTab";
+import { BookingShopTab } from "@/feature/booking/components";
+
+// Constants
 import { SERVICE_TABS } from "../constants";
 
 export default function ShopServiceScreen() {
@@ -66,7 +68,7 @@ export default function ShopServiceScreen() {
             setSelectedService={setSelectedService}
           />
         )}
-        {activeTab === "Booking" && <BookingsTab />}
+        {activeTab === "Booking" && <BookingShopTab />}
       </View>
 
       {/* Add Service FAB */}

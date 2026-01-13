@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/feature/booking/hooks";
+import { useMyAppointmentsQuery } from "@/feature/booking/hooks/queries";
+import { useCancelAppointmentMutation } from "@/feature/booking/hooks/mutations";
 import { MyAppointment } from "@/interfaces/appointment.interface";
 import { router } from "expo-router";
 import { FilterButton } from "@/components/shared/FilterButton";

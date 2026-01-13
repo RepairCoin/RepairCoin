@@ -1,4 +1,4 @@
-// Appointment queries (appointmentApi)
+// Appointment queries
 export {
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
@@ -8,7 +8,7 @@ export {
   useMyAppointmentsQuery,
 } from "./useAppointmentQueries";
 
-// Booking queries (bookingApi)
+// Booking queries
 export {
   useShopBookingQuery,
   useCustomerBookingQuery,

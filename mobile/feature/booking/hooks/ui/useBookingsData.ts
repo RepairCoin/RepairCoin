@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useShopBookingQuery } from "@/feature/booking/hooks";
+import { useShopBookingQuery } from "@/feature/booking/hooks/queries";
 import { BookingData } from "@/interfaces/booking.interfaces";
 import { BookingFilterStatus } from "../../types";
 
