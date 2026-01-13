@@ -340,6 +340,16 @@ export default function BookingDetailScreen() {
     return bookings.find((b) => b.orderId === id);
   }, [bookings, id]);
 
+  // Check if booking date has expired (past date with no completion)
+  // Must be called before any early returns to maintain hook order
+  const isBookingExpired = useMemo(() => {
+    if (!booking?.bookingDate) return false;
+    const bookingDate = new Date(booking.bookingDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return bookingDate < now && booking.status === "paid";
+  }, [booking?.bookingDate, booking?.status]);
+
   const handleApprove = () => {
     if (!booking) return;
 
@@ -426,8 +436,14 @@ export default function BookingDetailScreen() {
   const statusColor = getStatusColor(booking.status);
   const bookingDateTime = booking.bookingDate || booking.createdAt;
   const isApproved = booking.shopApproved === true;
-  // Only shops can perform actions on bookings
-  const hasActions = isShopView && (booking.status === "pending" || booking.status === "paid");
+
+  // Shop actions: pending or paid status
+  const hasShopActions = isShopView && (booking.status === "pending" || booking.status === "paid");
+  // Customer actions: paid/approved can cancel (if not expired), completed can review/book again
+  const hasCustomerActions = !isShopView && (
+    (booking.status === "paid" && !isBookingExpired) ||
+    booking.status === "completed"
+  );
 
   // Action buttons based on status and approval
   const renderActionButtons = () => {
@@ -542,6 +558,105 @@ export default function BookingDetailScreen() {
                 </Text>
               </View>
             )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  // Customer action buttons
+  const renderCustomerActionButtons = () => {
+    // Paid (not yet approved or approved) - show Cancel button
+    if (booking.status === "paid") {
+      return (
+        <View className="space-y-3 gap-2">
+          {/* Info Message */}
+          <View className="flex-row items-start p-3 bg-[#1a1a1a] rounded-xl border border-blue-800">
+            <Ionicons name="information-circle" size={20} color="#3b82f6" />
+            <Text className="text-blue-400 text-sm ml-2 flex-1">
+              {isApproved
+                ? "Your booking has been approved. The shop will complete the service soon."
+                : "Payment received. Waiting for shop to approve your booking."}
+            </Text>
+          </View>
+
+          {/* Cancel Button */}
+          <TouchableOpacity
+            onPress={handleCancelBooking}
+            disabled={isActionLoading}
+            className="py-4 rounded-xl items-center border border-red-700/50 bg-red-900/20"
+          >
+            {isActionLoading ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <View className="flex-row items-center">
+                <Feather name="x-circle" size={20} color="#ef4444" />
+                <Text className="text-red-400 font-semibold text-base ml-2">
+                  Cancel Booking
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Completed - show Review and Book Again buttons
+    if (booking.status === "completed") {
+      return (
+        <View className="space-y-3">
+          {/* RCN Earned Info */}
+          <View className="flex-row items-center p-3 bg-green-900/20 rounded-xl border border-green-700/50">
+            <Feather name="check-circle" size={20} color="#22c55e" />
+            <View className="ml-3 flex-1">
+              <Text className="text-green-400 font-semibold">Service Completed</Text>
+              <Text className="text-green-400/70 text-sm">
+                You earned {booking.rcnEarned} RCN rewards!
+              </Text>
+            </View>
+          </View>
+
+          {/* Review Button */}
+          <TouchableOpacity
+            onPress={() => {
+              if (booking.hasReview) return;
+              const params = new URLSearchParams({
+                serviceId: booking.serviceId || "",
+                serviceName: booking.serviceName || "",
+                shopName: booking.shopName || "",
+              });
+              router.push(`/customer/review/${booking.orderId}?${params.toString()}` as any);
+            }}
+            disabled={booking.hasReview}
+            className={`py-4 rounded-xl items-center ${booking.hasReview ? "bg-zinc-800" : "bg-[#FFCC00]"}`}
+          >
+            <View className="flex-row items-center">
+              <Ionicons
+                name={booking.hasReview ? "checkmark-circle" : "star"}
+                size={20}
+                color={booking.hasReview ? "#22c55e" : "#000"}
+              />
+              <Text className={`font-semibold text-base ml-2 ${booking.hasReview ? "text-green-500" : "text-black"}`}>
+                {booking.hasReview ? "Already Reviewed" : "Write a Review"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Book Again Button */}
+          <TouchableOpacity
+            onPress={() => {
+              router.push(`/customer/service/${booking.serviceId}` as any);
+            }}
+            className="py-4 rounded-xl items-center border border-[#FFCC00] mt-3"
+          >
+            <View className="flex-row items-center">
+              <Feather name="refresh-cw" size={20} color="#FFCC00" />
+              <Text className="text-[#FFCC00] font-semibold text-base ml-2">
+                Book Again
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       );
@@ -729,13 +844,18 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {/* Action Buttons */}
-        {hasActions && (
+        {/* Action Buttons - Shop */}
+        {hasShopActions && (
           <View className="mx-4 mb-8">{renderActionButtons()}</View>
         )}
 
-        {/* Completed/Cancelled State */}
-        {booking.status === "completed" && (
+        {/* Action Buttons - Customer */}
+        {hasCustomerActions && (
+          <View className="mx-4 mb-8">{renderCustomerActionButtons()}</View>
+        )}
+
+        {/* Completed State - Shop View Only (customers have action buttons) */}
+        {booking.status === "completed" && isShopView && (
           <View className="mx-4 mb-8 p-4 bg-green-900/20 border border-green-700/50 rounded-xl">
             <View className="flex-row items-center">
               <Feather name="check-circle" size={24} color="#22c55e" />
@@ -744,9 +864,7 @@ export default function BookingDetailScreen() {
                   Service Completed
                 </Text>
                 <Text className="text-green-400/70 text-sm">
-                  {isShopView
-                    ? "RCN rewards have been issued to the customer."
-                    : `You earned ${booking.rcnEarned} RCN rewards!`}
+                  RCN rewards have been issued to the customer.
                 </Text>
               </View>
             </View>
@@ -765,6 +883,23 @@ export default function BookingDetailScreen() {
                   {isShopView
                     ? "This booking has been cancelled."
                     : "Your booking has been cancelled."}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Expired Booking - Customer View */}
+        {!isShopView && isBookingExpired && (
+          <View className="mx-4 mb-8 p-4 bg-orange-900/20 border border-orange-700/50 rounded-xl">
+            <View className="flex-row items-center">
+              <Feather name="alert-circle" size={24} color="#f97316" />
+              <View className="ml-3 flex-1">
+                <Text className="text-orange-400 font-semibold">
+                  Booking Expired
+                </Text>
+                <Text className="text-orange-400/70 text-sm">
+                  The scheduled date has passed. Please contact the shop for assistance.
                 </Text>
               </View>
             </View>

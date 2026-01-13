@@ -19,7 +19,7 @@ import { FilterButton } from "@/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/components/shared/FilterModal";
 
 type FilterTab = "upcoming" | "past" | "all";
-type StatusFilter = "all" | "pending" | "paid" | "completed" | "cancelled";
+type StatusFilter = "all" | "pending" | "paid" | "approved" | "completed" | "cancelled";
 
 // Calculate date range: 30 days ago to 90 days in the future
 const getDateRange = () => {
@@ -47,6 +47,12 @@ const getStatusConfig = (status: string) => {
         bgColor: "bg-blue-500/20",
         textColor: "text-blue-500",
         icon: "checkmark-circle-outline" as const,
+      };
+    case "approved":
+      return {
+        bgColor: "bg-emerald-500/20",
+        textColor: "text-emerald-500",
+        icon: "shield-checkmark-outline" as const,
       };
     case "completed":
       return {
@@ -168,11 +174,13 @@ function AppointmentCard({ appointment, onPress, onCancel, onReview }: Appointme
                     ? "#EAB308"
                     : statusConfig.textColor === "text-blue-500"
                       ? "#3B82F6"
-                      : statusConfig.textColor === "text-green-500"
-                        ? "#22C55E"
-                        : statusConfig.textColor === "text-red-500"
-                          ? "#EF4444"
-                          : "#6B7280"
+                      : statusConfig.textColor === "text-emerald-500"
+                        ? "#10B981"
+                        : statusConfig.textColor === "text-green-500"
+                          ? "#22C55E"
+                          : statusConfig.textColor === "text-red-500"
+                            ? "#EF4444"
+                            : "#6B7280"
                 }
               />
               <Text
@@ -258,6 +266,7 @@ const STATUS_FILTERS: FilterOption[] = [
   { key: "all", label: "All Status", color: "#FFCC00" },
   { key: "pending", label: "Pending", color: "#EAB308" },
   { key: "paid", label: "Paid", color: "#3B82F6" },
+  { key: "approved", label: "Approved", color: "#10B981" },
   { key: "completed", label: "Completed", color: "#22C55E" },
   { key: "cancelled", label: "Cancelled", color: "#EF4444" },
 ];
@@ -285,7 +294,7 @@ export default function BookingsTab() {
   // Auto-switch to "all" time filter for completed/cancelled status
   // since these are typically past appointments
   useEffect(() => {
-    if (activeStatus === "completed" || activeStatus === "cancelled") {
+    if (activeStatus === "completed" || activeStatus === "cancelled" || activeStatus === "approved") {
       if (activeTab === "upcoming") {
         setActiveTab("all");
       }

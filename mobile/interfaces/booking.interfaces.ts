@@ -43,6 +43,8 @@ export interface BookingData {
   shopName?: string;
   shopAddress?: string;
   shopPhone?: string;
+  // Review status
+  hasReview?: boolean;
 }
 
 export interface BookingResponse extends BaseResponse<BookingData[]> {}
