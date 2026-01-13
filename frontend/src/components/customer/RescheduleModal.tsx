@@ -112,6 +112,8 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
       await appointmentsApi.cancelRescheduleRequest(pendingRequest.requestId);
       toast.success('Reschedule request cancelled');
       setPendingRequest(null);
+      // Refresh parent data and close modal
+      onSuccess();
     } catch (error: unknown) {
       console.error('Error cancelling request:', error);
       toast.error('Failed to cancel reschedule request');

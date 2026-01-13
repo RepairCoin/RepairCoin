@@ -30,7 +30,7 @@ export class AdminSyncService {
       // Clean up admins that were removed from environment
       // Pass false to completely delete them from database
       // Pass true to keep them as regular admins (remove super_admin status only)
-      await this.cleanupRemovedAdmins(false);
+      await this.cleanupRemovedAdmins(true); // Changed from false to prevent admin deletion
       
       logger.info('Admin sync completed successfully');
     } catch (error) {

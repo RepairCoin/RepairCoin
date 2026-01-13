@@ -85,7 +85,9 @@
       "Bash(\"C:\\\\Program Files\\\\Microsoft\\\\jdk-21.0.9.10-hotspot\\\\bin\\\\java.exe\" -version)",
       "Bash(git show:*)",
       "Bash(gh api:*)",
-      "Bash(DATABASE_URL=\"postgresql://doadmin:AVNS_lW7Pis3I_phB6sDplys@db-postgresql-repaircoin-staging-do-user-24273652-0.i.db.ondigitalocean.com:25060/defaultdb?sslmode=require\" npx ts-node:*)"
+      "Bash(DATABASE_URL=\"postgresql://doadmin:AVNS_lW7Pis3I_phB6sDplys@db-postgresql-repaircoin-staging-do-user-24273652-0.i.db.ondigitalocean.com:25060/defaultdb?sslmode=require\" npx ts-node:*)",
+      "Bash(npx eslint:*)",
+      "Bash(rd /s /q \"C:\\\\dev\\\\RepairCoin\\\\frontend\\\\.next\")"
     ],
     "deny": [],
     "ask": []

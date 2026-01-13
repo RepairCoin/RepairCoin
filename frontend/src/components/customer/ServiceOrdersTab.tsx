@@ -93,6 +93,15 @@ export const ServiceOrdersTab: React.FC = () => {
     toast.success("Redirecting to shop...");
   };
 
+  // Map order status considering shopApproved flag
+  const getEffectiveStatus = (order: ServiceOrderWithDetails): string => {
+    // If status is 'paid' and shop has approved, show as 'scheduled' (auto-confirmed)
+    if (order.status === 'paid' && order.shopApproved) {
+      return 'scheduled';
+    }
+    return order.status;
+  };
+
   const getStatusInfo = (status: string) => {
     switch (status) {
       case "pending":
@@ -334,8 +343,9 @@ export const ServiceOrdersTab: React.FC = () => {
           {/* Bookings Cards */}
           <div className="lg:col-span-2 space-y-4">
             {orders.map((order) => {
-              const statusInfo = getStatusInfo(order.status);
-              const progress = getProgressPercentage(order.status);
+              const effectiveStatus = getEffectiveStatus(order);
+              const statusInfo = getStatusInfo(effectiveStatus);
+              const progress = getProgressPercentage(effectiveStatus);
 
               return (
                 <BookingCard
@@ -363,7 +373,7 @@ export const ServiceOrdersTab: React.FC = () => {
                             Ongoing Status
                           </span>
                           <span className="text-xs text-gray-500">
-                            Step {getCurrentStep(order.status)} out of 5
+                            Step {getCurrentStep(effectiveStatus)} out of 5
                           </span>
                         </div>
                         <div className="flex gap-1.5 mb-3">

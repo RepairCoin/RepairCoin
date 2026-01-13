@@ -108,28 +108,8 @@ export class RescheduleService {
         };
       }
 
-      // Check minimum hours before appointment
-      if (order.booking_date && order.booking_time_slot) {
-        const bookingDateStr = order.booking_date instanceof Date
-          ? order.booking_date.toISOString().split('T')[0]
-          : String(order.booking_date).split('T')[0];
-
-        const timeSlotStr = typeof order.booking_time_slot === 'string'
-          ? order.booking_time_slot.substring(0, 5)
-          : order.booking_time_slot;
-
-        const bookingDateTime = new Date(`${bookingDateStr}T${timeSlotStr}:00`);
-        const now = new Date();
-        const hoursUntil = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-        if (hoursUntil < policy.rescheduleMinHours) {
-          return {
-            valid: false,
-            error: `Reschedule requests must be made at least ${policy.rescheduleMinHours} hours before the appointment`,
-            errorCode: 'TOO_CLOSE_TO_APPOINTMENT'
-          };
-        }
-      }
+      // 24-hour restriction removed - customers can reschedule at any time
+      // Shop will review and approve/deny the request
 
       // Validate the requested time slot is available
       const availableSlots = await this.appointmentService.getAvailableTimeSlots(
@@ -193,7 +173,7 @@ export class RescheduleService {
       const orderQuery = await this.rescheduleRepo['pool'].query(
         `SELECT
           so.order_id, so.shop_id, so.service_id, so.customer_address,
-          so.booking_date, so.booking_time_slot, so.booking_end_time,
+          TO_CHAR(so.booking_date, 'YYYY-MM-DD') as booking_date, so.booking_time_slot, so.booking_end_time,
           c.name as customer_name,
           s.name as shop_name,
           s.wallet_address as shop_address,
@@ -223,10 +203,8 @@ export class RescheduleService {
       const endMins = endMinutes % 60;
       const requestedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
 
-      // Format original date and time
-      const originalDate = order.booking_date instanceof Date
-        ? order.booking_date.toISOString().split('T')[0]
-        : String(order.booking_date).split('T')[0];
+      // Format original date and time (booking_date is now a string from SQL TO_CHAR)
+      const originalDate = String(order.booking_date).split('T')[0];
 
       const originalTimeSlot = typeof order.booking_time_slot === 'string'
         ? order.booking_time_slot.substring(0, 5)
@@ -334,43 +312,41 @@ export class RescheduleService {
       );
       const orderInfo = orderInfoQuery.rows[0];
 
-      // Verify the requested slot is still available
-      // Convert requestedDate to YYYY-MM-DD string format (handles both Date objects and ISO strings from DB)
-      const requestedDateStr = typeof request.requestedDate === 'string'
-        ? request.requestedDate.split('T')[0]
-        : new Date(request.requestedDate).toISOString().split('T')[0];
+      // Slot availability check removed - shop manually approves, they know their schedule
 
-      const availableSlots = await this.appointmentService.getAvailableTimeSlots(
-        request.shopId,
-        orderInfo.service_id,
-        requestedDateStr
-      );
-
-      const normalizedTime = request.requestedTimeSlot.substring(0, 5);
-      const isStillAvailable = availableSlots.some(
-        slot => slot.time === normalizedTime && slot.available
-      );
-
-      if (!isStillAvailable) {
-        // Auto-reject if slot is no longer available
-        await this.rescheduleRepo.rejectRescheduleRequest(
-          requestId,
-          shopAddress,
-          'The requested time slot is no longer available'
-        );
-
-        return {
-          success: false,
-          error: 'The requested time slot is no longer available. Request has been auto-rejected.',
-          errorCode: 'SLOT_NO_LONGER_AVAILABLE'
-        };
-      }
-
-      // Approve the request (trigger will update the order)
+      // Approve the request
       const approvedRequest = await this.rescheduleRepo.approveRescheduleRequest(
         requestId,
         shopAddress
       );
+
+      // Update the order with the new date/time
+      await this.rescheduleRepo['pool'].query(
+        `UPDATE service_orders SET
+          original_booking_date = booking_date,
+          original_booking_time_slot = booking_time_slot,
+          booking_date = $2,
+          booking_time_slot = $3,
+          booking_end_time = $4,
+          reschedule_count = COALESCE(reschedule_count, 0) + 1,
+          rescheduled_at = NOW(),
+          rescheduled_by = $5,
+          updated_at = NOW()
+        WHERE order_id = $1`,
+        [
+          request.orderId,
+          request.requestedDate,
+          request.requestedTimeSlot,
+          request.requestedEndTime,
+          shopAddress.toLowerCase()
+        ]
+      );
+
+      logger.info('Order updated with new schedule', {
+        orderId: request.orderId,
+        newDate: request.requestedDate,
+        newTimeSlot: request.requestedTimeSlot
+      });
 
       // Emit event for notifications with enriched data
       await eventBus.publish(createDomainEvent(

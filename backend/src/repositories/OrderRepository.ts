@@ -69,6 +69,9 @@ export interface CreateOrderParams {
   notes?: string;
   stripePaymentIntentId?: string;
   status?: OrderStatus;
+  // Auto-approval fields
+  shopApproved?: boolean;
+  approvedAt?: Date;
 }
 
 export interface OrderFilters {
@@ -91,8 +94,8 @@ export class OrderRepository extends BaseRepository {
           order_id, service_id, customer_address, shop_id, total_amount,
           rcn_redeemed, rcn_discount_usd, final_amount_usd,
           booking_date, booking_time_slot, booking_end_time, notes,
-          stripe_payment_intent_id, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          stripe_payment_intent_id, status, shop_approved, approved_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING *
       `;
 
@@ -110,7 +113,9 @@ export class OrderRepository extends BaseRepository {
         params.bookingEndTime || null,
         params.notes || null,
         params.stripePaymentIntentId || null,
-        status
+        status,
+        params.shopApproved || false,
+        params.approvedAt || null
       ];
 
       const result = await this.pool.query(query, values);

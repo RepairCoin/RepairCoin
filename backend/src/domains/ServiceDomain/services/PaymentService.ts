@@ -488,7 +488,10 @@ export class PaymentService {
         bookingEndTime: metadata.bookingEndTime || undefined,
         notes: metadata.notes || undefined,
         stripePaymentIntentId: paymentIntentId,
-        status: 'paid'
+        status: 'paid',
+        // Auto-approve on payment success
+        shopApproved: true,
+        approvedAt: new Date()
       });
 
       logger.info('Order created from successful payment', {
