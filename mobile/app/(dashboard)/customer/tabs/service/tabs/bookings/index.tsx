@@ -360,10 +360,8 @@ export default function BookingsTab() {
   }, [refetch]);
 
   const handleAppointmentPress = (appointment: MyAppointment) => {
-    // Pass booking info to service detail screen
-    router.push(
-      `/customer/service/${appointment.serviceId}?orderId=${appointment.orderId}&bookingStatus=${appointment.status}&hasReview=${appointment.hasReview || false}` as any
-    );
+    // Navigate to booking detail screen
+    router.push(`/customer/booking/${appointment.orderId}` as any);
   };
 
   const handleCancelPress = (appointment: MyAppointment) => {

@@ -322,9 +322,9 @@ export default function BookingDetailScreen() {
   const { userType } = useAuthStore();
   const isShopView = userType === "shop";
 
-  // Use appropriate query based on user type
-  const shopBookingQuery = useShopBookingQuery();
-  const customerBookingQuery = useCustomerBookingQuery();
+  // Use appropriate query based on user type - only enable the relevant query
+  const shopBookingQuery = useShopBookingQuery(undefined, { enabled: isShopView });
+  const customerBookingQuery = useCustomerBookingQuery(undefined, { enabled: !isShopView });
 
   const { data: bookings, isLoading, error } = isShopView
     ? shopBookingQuery

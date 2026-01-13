@@ -3,7 +3,11 @@ import { queryKeys } from "@/config/queryClient";
 import { BookingFilters, BookingResponse } from "@/interfaces/booking.interfaces";
 import { bookingApi } from "@/services/booking.services";
 
-export function useShopBookingQuery(filters?: BookingFilters) {
+interface QueryOptions {
+  enabled?: boolean;
+}
+
+export function useShopBookingQuery(filters?: BookingFilters, options?: QueryOptions) {
   return useQuery({
     queryKey: queryKeys.shopBookings(filters),
     queryFn: async () => {
@@ -11,10 +15,11 @@ export function useShopBookingQuery(filters?: BookingFilters) {
       return response.data;
     },
     staleTime: 30 * 1000, // 30 seconds - refresh more frequently for booking status updates
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useCustomerBookingQuery(filters?: BookingFilters) {
+export function useCustomerBookingQuery(filters?: BookingFilters, options?: QueryOptions) {
   return useQuery({
     queryKey: queryKeys.customerBookings(filters),
     queryFn: async () => {
@@ -22,5 +27,6 @@ export function useCustomerBookingQuery(filters?: BookingFilters) {
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
+    enabled: options?.enabled ?? true,
   });
 }
