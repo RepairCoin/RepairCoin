@@ -1,1 +1,1 @@
-export { BookingDiscountScreen as default } from "@/feature/booking";
+export { BookingDiscountScreen as default } from "@/feature/booking/screens";
