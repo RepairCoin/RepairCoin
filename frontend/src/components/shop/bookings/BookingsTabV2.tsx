@@ -10,7 +10,7 @@ import { BookingCard } from "./BookingCard";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
 import { CancelBookingModal } from "./CancelBookingModal";
 import { toast } from "react-hot-toast";
-import { getShopOrders, updateOrderStatus } from "@/services/api/services";
+import { getShopOrders, updateOrderStatus, approveBooking } from "@/services/api/services";
 
 interface BookingsTabV2Props {
   shopId: string;
@@ -128,23 +128,37 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
   }, [bookings, selectedBookingId]);
 
   // Handlers
-  const handleApprove = (bookingId: string) => {
-    setBookings(prev => prev.map(b => {
-      if (b.bookingId === bookingId) {
-        const newTimeline = [
-          ...b.timeline,
-          {
-            id: `tl-${Date.now()}`,
-            type: 'approved' as const,
-            timestamp: new Date().toISOString(),
-            description: 'Booking approved by shop'
-          }
-        ];
-        return { ...b, status: 'approved' as const, timeline: newTimeline };
-      }
-      return b;
-    }));
-    toast.success(`Booking ${bookingId} approved!`);
+  const handleApprove = async (bookingId: string) => {
+    // Find the original order ID from the booking
+    const booking = bookings.find(b => b.bookingId === bookingId);
+    if (!booking) return;
+
+    try {
+      // Call the API to approve the booking
+      await approveBooking(booking.orderId);
+
+      // Update local state after successful API call
+      setBookings(prev => prev.map(b => {
+        if (b.bookingId === bookingId) {
+          const newTimeline = [
+            ...b.timeline,
+            {
+              id: `tl-${Date.now()}`,
+              type: 'approved' as const,
+              timestamp: new Date().toISOString(),
+              description: 'Booking approved by shop'
+            }
+          ];
+          return { ...b, status: 'approved' as const, timeline: newTimeline };
+        }
+        return b;
+      }));
+      toast.success(`Booking ${bookingId} approved!`);
+    } catch (error: unknown) {
+      console.error('Error approving booking:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to approve booking: ${errorMessage}`);
+    }
   };
 
   const handleReschedule = (_bookingId: string) => {

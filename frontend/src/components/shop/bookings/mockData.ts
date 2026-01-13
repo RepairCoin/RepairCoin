@@ -431,8 +431,14 @@ import type { ServiceOrderWithDetails, OrderStatus } from '@/services/api/servic
 
 /**
  * Map API OrderStatus to UI BookingStatus
+ * Also considers shopApproved flag for proper status display
  */
-export const mapApiStatus = (apiStatus: OrderStatus): BookingStatus => {
+export const mapApiStatus = (apiStatus: OrderStatus, shopApproved?: boolean): BookingStatus => {
+  // If status is 'paid' but shop has approved, show as 'scheduled' (auto-confirmed)
+  if (apiStatus === 'paid' && shopApproved) {
+    return 'scheduled';
+  }
+
   switch (apiStatus) {
     case 'pending':
       return 'requested';
@@ -520,7 +526,7 @@ export const transformApiOrder = (order: ServiceOrderWithDetails): MockBooking =
   return {
     bookingId: generateBookingId(order.orderId),
     orderId: order.orderId, // Keep original order ID for API calls
-    status: mapApiStatus(order.status),
+    status: mapApiStatus(order.status, order.shopApproved),
 
     // Service Info
     serviceName: order.serviceName || 'Unknown Service',
@@ -538,7 +544,7 @@ export const transformApiOrder = (order: ServiceOrderWithDetails): MockBooking =
     // Booking Info
     bookedAt: order.createdAt,
     serviceDate: order.bookingDate || order.createdAt,
-    serviceTime: order.bookingTimeSlot || '',
+    serviceTime: order.bookingTime || order.bookingTimeSlot || '',
     amount: order.totalAmount,
 
     // Payment & Rewards

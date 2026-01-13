@@ -111,21 +111,9 @@ export const AppointmentsTab: React.FC = () => {
   };
 
   const canReschedule = (appointment: CalendarBooking): boolean => {
-    // Parse booking date - handle both ISO strings and date objects
-    const bookingDateStr = appointment.bookingDate;
-    const appointmentDate = new Date(bookingDateStr);
-
-    // Check for invalid date
-    if (isNaN(appointmentDate.getTime())) {
-      console.warn('Invalid booking date:', bookingDateStr);
-      return false;
-    }
-
-    const now = new Date();
-    const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     const status = appointment.status.toLowerCase();
-    // Allow reschedule if 24+ hours before and status is paid/confirmed
-    return hoursUntil >= 24 && ['paid', 'confirmed'].includes(status);
+    // Allow reschedule if status is paid, confirmed, or scheduled (no 24-hour restriction)
+    return ['paid', 'confirmed', 'scheduled'].includes(status);
   };
 
   const hasPendingReschedule = (orderId: string): boolean => {
