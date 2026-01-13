@@ -1,6 +1,6 @@
 import { BaseResponse } from "./base.interface";
 
-export type BookingStatus = "pending" | "paid" | "completed" | "cancelled" | "refunded";
+export type BookingStatus = "pending" | "paid" | "in_progress" | "completed" | "cancelled" | "refunded";
 
 export interface BookingFilters {
   status?: BookingStatus | "all";
@@ -36,6 +36,13 @@ export interface BookingData {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  shopApproved?: boolean;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  // Shop info (returned for customer bookings)
+  shopName?: string;
+  shopAddress?: string;
+  shopPhone?: string;
 }
 
 export interface BookingResponse extends BaseResponse<BookingData[]> {}

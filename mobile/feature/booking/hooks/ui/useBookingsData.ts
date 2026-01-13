@@ -10,6 +10,21 @@ export function useBookingsData(statusFilter: BookingFilterStatus) {
   const filteredBookings = useMemo(() => {
     if (!bookingsData) return [];
     if (statusFilter === "all") return bookingsData;
+
+    // Special handling for "approved" - paid + shopApproved
+    if (statusFilter === "approved") {
+      return bookingsData.filter(
+        (booking: BookingData) => booking.status === "paid" && booking.shopApproved === true
+      );
+    }
+
+    // For "paid" filter, only show bookings that are NOT yet approved
+    if (statusFilter === "paid") {
+      return bookingsData.filter(
+        (booking: BookingData) => booking.status === "paid" && !booking.shopApproved
+      );
+    }
+
     return bookingsData.filter(
       (booking: BookingData) => booking.status === statusFilter
     );

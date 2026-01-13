@@ -10,7 +10,7 @@ export function useShopBookingQuery(filters?: BookingFilters) {
       const response: BookingResponse = await bookingApi.getShopBookings(filters);
       return response.data;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - refresh more frequently for booking status updates
   });
 }
 

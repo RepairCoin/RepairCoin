@@ -12,4 +12,7 @@ export {
 export {
   useCreateBookingMutation,
   useCreateStripeCheckoutMutation,
+  useApproveOrderMutation,
+  useCompleteOrderMutation,
+  useCancelOrderMutation,
 } from "./useBookingMutations";

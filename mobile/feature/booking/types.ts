@@ -105,7 +105,7 @@ export interface BookingDiscountScreenProps {
 
 export type BookingStep = "schedule" | "discount";
 
-export type BookingFilterStatus = "all" | BookingStatus;
+export type BookingFilterStatus = "all" | "approved" | BookingStatus;
 
 // ============================================
 // Service Response Types

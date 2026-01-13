@@ -50,6 +50,27 @@ class BookingApi {
     }
   }
 
+  async approveOrder(orderId: string) {
+    try {
+      return await apiClient.post(`/services/orders/${orderId}/approve`);
+    } catch (error: any) {
+      console.error("Failed to approve order:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelOrderByShop(orderId: string, cancellationReason: string, cancellationNotes?: string) {
+    try {
+      return await apiClient.post(`/services/orders/${orderId}/shop-cancel`, {
+        cancellationReason,
+        cancellationNotes,
+      });
+    } catch (error: any) {
+      console.error("Failed to cancel order by shop:", error.message);
+      throw error;
+    }
+  }
+
   async confirmPayment(orderId: string, paymentIntentId: string) {
     try {
       return await apiClient.post(`/services/orders/${orderId}/confirm`, { paymentIntentId });

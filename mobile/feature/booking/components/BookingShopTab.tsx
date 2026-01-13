@@ -32,6 +32,22 @@ import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
 
+// Helper to get display status considering shopApproved
+const getDisplayStatus = (booking: BookingData): string => {
+  if (booking.status === "paid" && booking.shopApproved) {
+    return "approved";
+  }
+  return booking.status;
+};
+
+// Helper to get status color considering shopApproved
+const getDisplayStatusColor = (booking: BookingData): string => {
+  if (booking.status === "paid" && booking.shopApproved) {
+    return "#10b981"; // Emerald/teal for approved (distinct from completed green)
+  }
+  return getStatusColor(booking.status);
+};
+
 interface BookingCalendarProps {
   getBookingsForDate: (date: Date) => BookingData[];
 }
@@ -140,7 +156,7 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                           width: 6,
                           height: 6,
                           borderRadius: 3,
-                          backgroundColor: getStatusColor(b.status),
+                          backgroundColor: getDisplayStatusColor(b),
                           marginHorizontal: 1,
                         }}
                       />
@@ -179,9 +195,9 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
           selectedBookings.map((booking, idx) => (
             <TouchableOpacity
               key={idx}
-              onPress={() => router.push(`/shop/service/${booking.serviceId}`)}
+              onPress={() => router.push(`/shop/booking/${booking.orderId}`)}
               className="bg-[#1a1a1a] rounded-xl p-4 mb-3 border-l-4"
-              style={{ borderLeftColor: getStatusColor(booking.status) }}
+              style={{ borderLeftColor: getDisplayStatusColor(booking) }}
             >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1">
@@ -204,13 +220,13 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                 <View className="items-end">
                   <View
                     className="px-2 py-1 rounded-full"
-                    style={{ backgroundColor: getStatusColor(booking.status) + "20" }}
+                    style={{ backgroundColor: getDisplayStatusColor(booking) + "20" }}
                   >
                     <Text
                       className="text-xs font-medium capitalize"
-                      style={{ color: getStatusColor(booking.status) }}
+                      style={{ color: getDisplayStatusColor(booking) }}
                     >
-                      {booking.status}
+                      {getDisplayStatus(booking)}
                     </Text>
                   </View>
                   <Text className="text-[#FFCC00] font-semibold mt-2">
@@ -223,14 +239,18 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
         )}
 
         {/* Legend */}
-        <View className="flex-row justify-center mt-4 mb-6">
-          <View className="flex-row items-center mr-4">
+        <View className="flex-row flex-wrap justify-center mt-4 mb-6 gap-3">
+          <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Pending</Text>
           </View>
-          <View className="flex-row items-center mr-4">
+          <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Paid</Text>
+          </View>
+          <View className="flex-row items-center">
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981', marginRight: 4 }} />
+            <Text className="text-gray-500 text-xs">Approved</Text>
           </View>
           <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
@@ -434,7 +454,7 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                                       width: 6,
                                       height: 6,
                                       borderRadius: 3,
-                                      backgroundColor: getStatusColor(b.status),
+                                      backgroundColor: getDisplayStatusColor(b),
                                       marginHorizontal: 1,
                                     }}
                                   />
@@ -451,14 +471,18 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                 </View>
 
                 {/* Legend */}
-                <View className="flex-row justify-center mt-4">
-                  <View className="flex-row items-center mr-4">
+                <View className="flex-row flex-wrap justify-center mt-4 gap-3">
+                  <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Pending</Text>
                   </View>
-                  <View className="flex-row items-center mr-4">
+                  <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Paid</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981', marginRight: 4 }} />
+                    <Text className="text-gray-500 text-xs">Approved</Text>
                   </View>
                   <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
