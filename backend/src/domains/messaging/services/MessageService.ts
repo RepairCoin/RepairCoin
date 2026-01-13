@@ -85,7 +85,22 @@ export class MessageService {
 
       const message = await this.messageRepo.createMessage(messageParams);
 
-      // Send notification to receiver
+      // Increment unread count for the receiver and update last message preview
+      try {
+        await this.messageRepo.incrementUnreadCount(
+          conversation.conversationId,
+          request.senderType === 'customer' ? 'shop' : 'customer',
+          request.messageText.trim() // Pass message text as preview
+        );
+      } catch (unreadError) {
+        logger.error('Failed to increment unread count:', unreadError);
+        // Don't fail the message send if unread count update fails
+      }
+
+      // NOTE: Notification creation removed - messages are now accessed via the Message icon in the header
+      // Users will see unread message counts on the Message icon instead of notifications
+      // Keeping the code commented for reference:
+      /*
       try {
         const receiverAddress = request.senderType === 'customer'
           ? conversation.shopId
@@ -110,8 +125,8 @@ export class MessageService {
         });
       } catch (notifError) {
         logger.error('Failed to send message notification:', notifError);
-        // Don't fail the message send if notification fails
       }
+      */
 
       logger.info('Message sent successfully', {
         messageId,

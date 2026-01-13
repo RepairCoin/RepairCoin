@@ -92,12 +92,6 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           tabId: "services",
         },
         {
-          title: "Messages",
-          href: "/shop?tab=messages",
-          icon: <MessageCircle className="w-5 h-5" />,
-          tabId: "messages",
-        },
-        {
           title: "Bookings",
           href: "/shop?tab=bookings",
           icon: <ClipboardCheckIcon className="w-5 h-5" />,

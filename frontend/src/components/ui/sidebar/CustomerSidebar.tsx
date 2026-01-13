@@ -70,12 +70,6 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       tabId: "orders",
     },
     {
-      title: "Messages",
-      href: "/customer?tab=messages",
-      icon: <MessageSquare className="w-5 h-5" />,
-      tabId: "messages",
-    },
-    {
       title: "Appointments",
       href: "/customer?tab=appointments",
       icon: <Calendar className="w-5 h-5" />,

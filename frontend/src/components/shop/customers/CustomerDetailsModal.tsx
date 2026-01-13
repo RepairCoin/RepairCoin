@@ -65,9 +65,12 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
   const loadCustomerData = async () => {
     setLoading(true);
     try {
-      // Fetch customer details, transactions, and analytics in parallel
-      const [detailsRes, transactionsRes, analyticsRes] = await Promise.all([
+      // Fetch customer details, balance, transactions, and analytics in parallel
+      const [detailsRes, balanceRes, transactionsRes, analyticsRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}`, {
+          credentials: "include",
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/balance/${customerAddress}`, {
           credentials: "include",
         }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/transactions?limit=10`, {
@@ -81,10 +84,21 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       if (!detailsRes.ok) throw new Error("Failed to load customer details");
 
       const detailsData = await detailsRes.json();
+      const balanceData = balanceRes.ok ? await balanceRes.json() : { data: null };
       const transactionsData = transactionsRes.ok ? await transactionsRes.json() : { data: [] };
       const analyticsData = analyticsRes.ok ? await analyticsRes.json() : { data: null };
 
-      setCustomerDetails(detailsData.data);
+      // API returns { data: { customer, tierBenefits, ... } }, extract customer object
+      const customerData = detailsData.data?.customer || detailsData.data;
+
+      // Use accurate balance from /tokens/balance endpoint
+      if (balanceData.data) {
+        customerData.currentBalance = balanceData.data.availableBalance;
+        customerData.lifetimeEarnings = balanceData.data.lifetimeEarned;
+        customerData.totalRedemptions = balanceData.data.totalRedeemed;
+      }
+
+      setCustomerDetails(customerData);
       setTransactions(transactionsData.data || []);
       setAnalytics(analyticsData.data);
     } catch (error) {
@@ -222,7 +236,7 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
               <Wallet className="w-4 h-4 text-[#FFCC00]" />
               <span className="text-gray-400 text-sm">Balance</span>
             </div>
-            <p className="text-2xl font-bold text-white">{customerDetails.currentBalance.toFixed(2)} RCN</p>
+            <p className="text-2xl font-bold text-white">{(customerDetails.currentBalance ?? 0).toFixed(2)} RCN</p>
           </div>
 
           <div className="bg-[#0A0A0A] rounded-xl p-4 border border-gray-800">
@@ -230,7 +244,7 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
               <TrendingUp className="w-4 h-4 text-green-500" />
               <span className="text-gray-400 text-sm">Lifetime Earned</span>
             </div>
-            <p className="text-2xl font-bold text-green-400">{customerDetails.lifetimeEarnings.toFixed(2)} RCN</p>
+            <p className="text-2xl font-bold text-green-400">{(customerDetails.lifetimeEarnings ?? 0).toFixed(2)} RCN</p>
           </div>
 
           <div className="bg-[#0A0A0A] rounded-xl p-4 border border-gray-800">
@@ -238,7 +252,7 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
               <TrendingUp className="w-4 h-4 text-blue-500 rotate-180" />
               <span className="text-gray-400 text-sm">Redeemed</span>
             </div>
-            <p className="text-2xl font-bold text-blue-400">{customerDetails.totalRedemptions.toFixed(2)} RCN</p>
+            <p className="text-2xl font-bold text-blue-400">{(customerDetails.totalRedemptions ?? 0).toFixed(2)} RCN</p>
           </div>
         </div>
 
@@ -334,19 +348,19 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Total Transactions</p>
-                      <p className="text-2xl font-bold text-white">{analytics.totalTransactions}</p>
+                      <p className="text-2xl font-bold text-white">{analytics.totalTransactions ?? 0}</p>
                     </div>
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Avg Transaction</p>
-                      <p className="text-2xl font-bold text-white">{analytics.averageTransactionValue.toFixed(1)} RCN</p>
+                      <p className="text-2xl font-bold text-white">{(analytics.averageTransactionValue ?? 0).toFixed(1)} RCN</p>
                     </div>
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Total Earned</p>
-                      <p className="text-2xl font-bold text-green-400">{analytics.totalEarnings.toFixed(1)} RCN</p>
+                      <p className="text-2xl font-bold text-green-400">{(analytics.totalEarnings ?? 0).toFixed(1)} RCN</p>
                     </div>
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Total Redeemed</p>
-                      <p className="text-2xl font-bold text-blue-400">{analytics.totalRedemptions.toFixed(1)} RCN</p>
+                      <p className="text-2xl font-bold text-blue-400">{(analytics.totalRedemptions ?? 0).toFixed(1)} RCN</p>
                     </div>
                   </div>
                 </div>

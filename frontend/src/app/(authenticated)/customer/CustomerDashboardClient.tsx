@@ -168,7 +168,6 @@ export default function CustomerDashboardClient() {
             tabs={[
               { value: "overview", label: "Overview" },
               { value: "marketplace", label: "Marketplace" },
-              { value: "messages", label: "Messages" },
               { value: "orders", label: "Bookings" },
               { value: "appointments", label: "Appointments" },
               { value: "referrals", label: "Referrals" },

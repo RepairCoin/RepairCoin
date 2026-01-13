@@ -377,9 +377,56 @@ export class MessageRepository extends BaseRepository {
       `;
 
       await this.pool.query(query, [conversationId, userType]);
+
+      // Also reset the unread count in conversations table
+      const column = userType === 'customer' ? 'unread_count_customer' : 'unread_count_shop';
+      const updateConvQuery = `
+        UPDATE conversations
+        SET ${column} = 0
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(updateConvQuery, [conversationId]);
+
       logger.info('Conversation marked as read', { conversationId, userType });
     } catch (error) {
       logger.error('Error in markConversationAsRead:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Increment unread count for a receiver and update last message preview
+   */
+  async incrementUnreadCount(conversationId: string, receiverType: 'customer' | 'shop', messagePreview?: string): Promise<void> {
+    try {
+      const column = receiverType === 'customer' ? 'unread_count_customer' : 'unread_count_shop';
+
+      let query: string;
+      let params: any[];
+
+      if (messagePreview) {
+        query = `
+          UPDATE conversations
+          SET ${column} = ${column} + 1,
+              last_message_at = NOW(),
+              last_message_preview = $2
+          WHERE conversation_id = $1
+        `;
+        params = [conversationId, messagePreview.substring(0, 100)]; // Limit to 100 chars
+      } else {
+        query = `
+          UPDATE conversations
+          SET ${column} = ${column} + 1,
+              last_message_at = NOW()
+          WHERE conversation_id = $1
+        `;
+        params = [conversationId];
+      }
+
+      await this.pool.query(query, params);
+      logger.debug('Unread count incremented', { conversationId, receiverType, hasPreview: !!messagePreview });
+    } catch (error) {
+      logger.error('Error in incrementUnreadCount:', error);
       throw error;
     }
   }

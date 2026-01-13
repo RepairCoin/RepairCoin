@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { CustomerSidebar, ShopSidebar, AdminSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -71,11 +72,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <div className="min-h-screen bg-[#1e1f22]">
       {renderSidebar()}
 
-      {/* Notification Bell - Absolute Position (only for customers and shops) */}
+      {/* Message Icon & Notification Bell - Absolute Position (only for customers and shops) */}
       {userRole !== "admin" && (
-        <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ease-in-out ${
+        <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ease-in-out flex items-center gap-2 ${
           isSidebarCollapsed ? "lg:right-4" : "lg:right-4"
         }`}>
+          <MessageIcon />
           <NotificationBell />
         </div>
       )}
