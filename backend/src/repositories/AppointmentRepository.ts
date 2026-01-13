@@ -1,6 +1,7 @@
 // backend/src/repositories/AppointmentRepository.ts
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
+import { formatLocalDate } from '../utils/dateUtils';
 
 export interface ShopAvailability {
   availabilityId: string;
@@ -443,10 +444,14 @@ export class AppointmentRepository extends BaseRepository {
 
       const result = await this.pool.query(query, [shopId, startDate, endDate]);
 
-      // Convert totalAmount from string to number
+      // Transform results: convert totalAmount and format bookingDate to avoid timezone issues
       return result.rows.map(row => ({
         ...row,
-        totalAmount: parseFloat(row.totalAmount || '0')
+        totalAmount: parseFloat(row.totalAmount || '0'),
+        // Format bookingDate using local date to prevent UTC timezone shift
+        bookingDate: row.bookingDate instanceof Date
+          ? formatLocalDate(row.bookingDate)
+          : row.bookingDate
       }));
     } catch (error) {
       logger.error('Error getting shop calendar:', error);
@@ -493,10 +498,14 @@ export class AppointmentRepository extends BaseRepository {
 
       const result = await this.pool.query(query, [customerAddress.toLowerCase(), startDate, endDate]);
 
-      // Convert totalAmount from string to number
+      // Transform results: convert totalAmount and format bookingDate to avoid timezone issues
       return result.rows.map(row => ({
         ...row,
-        totalAmount: parseFloat(row.totalAmount)
+        totalAmount: parseFloat(row.totalAmount),
+        // Format bookingDate using local date to prevent UTC timezone shift
+        bookingDate: row.bookingDate instanceof Date
+          ? formatLocalDate(row.bookingDate)
+          : row.bookingDate
       }));
     } catch (error) {
       logger.error('Error getting customer appointments:', error);

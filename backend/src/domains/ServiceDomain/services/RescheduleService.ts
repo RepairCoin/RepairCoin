@@ -5,6 +5,7 @@ import { logger } from '../../../utils/logger';
 import { parseLocalDateString } from '../../../utils/dateUtils';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AppointmentService } from './AppointmentService';
+import { getSharedPool } from '../../../utils/database-pool';
 
 export interface RescheduleValidationResult {
   valid: boolean;
@@ -535,5 +536,169 @@ export class RescheduleService {
     }
 
     return expiredCount;
+  }
+
+  /**
+   * Direct reschedule by shop (no approval needed)
+   * Shop can directly change the appointment date/time
+   */
+  async directRescheduleOrder(
+    orderId: string,
+    shopId: string,
+    shopAddress: string,
+    newDate: string,
+    newTimeSlot: string,
+    reason?: string
+  ): Promise<{ success: boolean; error?: string; errorCode?: string }> {
+    try {
+      logger.info('Direct reschedule request', { orderId, shopId, newDate, newTimeSlot });
+
+      // Get order details and verify shop owns it
+      const pool = getSharedPool();
+      const orderQuery = await pool.query(
+        `SELECT
+          so.order_id, so.shop_id, so.service_id, so.customer_address, so.status,
+          TO_CHAR(so.booking_date, 'YYYY-MM-DD') as booking_date,
+          so.booking_time_slot, so.booking_end_time,
+          COALESCE(so.reschedule_count, 0) as reschedule_count,
+          c.name as customer_name,
+          s.name as shop_name,
+          ss.service_name
+        FROM service_orders so
+        LEFT JOIN customers c ON so.customer_address = c.wallet_address
+        LEFT JOIN shops s ON so.shop_id = s.shop_id
+        LEFT JOIN shop_services ss ON so.service_id = ss.service_id
+        WHERE so.order_id = $1`,
+        [orderId]
+      );
+
+      if (orderQuery.rows.length === 0) {
+        return { success: false, error: 'Order not found', errorCode: 'ORDER_NOT_FOUND' };
+      }
+
+      const order = orderQuery.rows[0];
+
+      // Verify shop owns this order
+      if (order.shop_id !== shopId) {
+        return { success: false, error: 'Unauthorized to reschedule this order', errorCode: 'UNAUTHORIZED' };
+      }
+
+      // Check order status - only paid/confirmed/scheduled orders can be rescheduled
+      if (!['paid', 'confirmed', 'scheduled'].includes(order.status)) {
+        return {
+          success: false,
+          error: `Cannot reschedule order with status: ${order.status}`,
+          errorCode: 'INVALID_ORDER_STATUS'
+        };
+      }
+
+      // Get service duration to calculate end time
+      const serviceDuration = await this.appointmentRepo.getServiceDuration(order.service_id);
+      const config = await this.appointmentRepo.getTimeSlotConfig(order.shop_id);
+      const durationMinutes = serviceDuration?.durationMinutes || config?.slotDurationMinutes || 60;
+
+      // Calculate new end time
+      const [hours, minutes] = newTimeSlot.split(':').map(Number);
+      const endMinutes = hours * 60 + minutes + durationMinutes;
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      const newEndTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+      // Store original values before update
+      const originalDate = order.booking_date;
+      const originalTimeSlot = typeof order.booking_time_slot === 'string'
+        ? order.booking_time_slot.substring(0, 5)
+        : order.booking_time_slot;
+
+      // Update the order directly - use basic columns that are guaranteed to exist
+      logger.info('Updating order with new date/time', { orderId, newDate, newTimeSlot: newTimeSlot.substring(0, 5), newEndTime });
+
+      try {
+        const updateResult = await pool.query(
+          `UPDATE service_orders SET
+            booking_date = $2,
+            booking_time_slot = $3,
+            booking_end_time = $4,
+            updated_at = NOW()
+          WHERE order_id = $1`,
+          [
+            orderId,
+            newDate,
+            newTimeSlot.substring(0, 5),
+            newEndTime
+          ]
+        );
+
+        logger.info('Order updated successfully', { rowsAffected: updateResult.rowCount });
+
+        // Try to update optional tracking columns (may fail if columns don't exist)
+        try {
+          await pool.query(
+            `UPDATE service_orders SET
+              original_booking_date = COALESCE(original_booking_date, $2::timestamp),
+              original_booking_time_slot = COALESCE(original_booking_time_slot, $3),
+              reschedule_count = COALESCE(reschedule_count, 0) + 1,
+              rescheduled_at = NOW(),
+              rescheduled_by = $4,
+              reschedule_reason = $5
+            WHERE order_id = $1`,
+            [
+              orderId,
+              originalDate,
+              originalTimeSlot,
+              shopAddress.toLowerCase(),
+              reason || 'Rescheduled by shop'
+            ]
+          );
+        } catch (trackingError) {
+          // Tracking columns may not exist - that's OK, core update succeeded
+          logger.warn('Could not update reschedule tracking columns (migration may not be applied):', trackingError);
+        }
+      } catch (updateError) {
+        logger.error('Failed to update order:', updateError);
+        throw updateError;
+      }
+
+      // Emit event for customer notification
+      await eventBus.publish(createDomainEvent(
+        'booking:rescheduled_by_shop',
+        orderId,
+        {
+          orderId,
+          shopId: order.shop_id,
+          shopName: order.shop_name,
+          customerAddress: order.customer_address,
+          customerName: order.customer_name || 'Customer',
+          serviceName: order.service_name,
+          originalDate,
+          originalTimeSlot,
+          newDate,
+          newTimeSlot: newTimeSlot.substring(0, 5),
+          reason: reason || 'Rescheduled by shop',
+          rescheduledBy: shopAddress.toLowerCase()
+        },
+        'ServiceDomain'
+      ));
+
+      logger.info('Order rescheduled directly by shop', {
+        orderId,
+        shopId,
+        originalDate,
+        originalTimeSlot,
+        newDate,
+        newTimeSlot,
+        rescheduledBy: shopAddress
+      });
+
+      return { success: true };
+    } catch (error) {
+      logger.error('Error in direct reschedule by shop:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        error: `Failed to reschedule order: ${errorMessage}`,
+        errorCode: 'RESCHEDULE_ERROR'
+      };
+    }
   }
 }

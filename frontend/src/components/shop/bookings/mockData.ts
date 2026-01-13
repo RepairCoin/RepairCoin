@@ -27,6 +27,7 @@ export interface TimelineEvent {
 export interface MockBooking {
   bookingId: string;
   orderId: string; // Original order ID from API (needed for API calls)
+  serviceId: string; // Original service ID from API (needed for reschedule)
   status: BookingStatus;
 
   // Service Info
@@ -69,6 +70,7 @@ export const mockBookings: MockBooking[] = [
   {
     bookingId: 'BK-9F21AB',
     orderId: 'mock-order-001',
+    serviceId: 'srv_mock-001',
     status: 'paid',
     serviceName: 'iPhone Screen Repair',
     serviceCategory: 'Phone Repair',
@@ -132,6 +134,7 @@ export const mockBookings: MockBooking[] = [
   {
     bookingId: 'BK-7C43DE',
     orderId: 'mock-order-002',
+    serviceId: 'srv_mock-002',
     status: 'completed',
     serviceName: 'Oil Change & Filter',
     serviceCategory: 'Auto Service',
@@ -197,6 +200,7 @@ export const mockBookings: MockBooking[] = [
   {
     bookingId: 'BK-2A98FG',
     orderId: 'mock-order-003',
+    serviceId: 'srv_mock-003',
     status: 'requested',
     serviceName: 'MacBook Pro Battery Replacement',
     serviceCategory: 'Computer Repair',
@@ -230,6 +234,7 @@ export const mockBookings: MockBooking[] = [
   {
     bookingId: 'BK-5B67HI',
     orderId: 'mock-order-004',
+    serviceId: 'srv_mock-004',
     status: 'approved',
     serviceName: 'HVAC System Tune-Up',
     serviceCategory: 'Home Services',
@@ -289,6 +294,7 @@ export const mockBookings: MockBooking[] = [
   {
     bookingId: 'BK-8D12JK',
     orderId: 'mock-order-005',
+    serviceId: 'srv_mock-005',
     status: 'cancelled',
     serviceName: 'Window Tinting',
     serviceCategory: 'Auto Service',
@@ -526,6 +532,7 @@ export const transformApiOrder = (order: ServiceOrderWithDetails): MockBooking =
   return {
     bookingId: generateBookingId(order.orderId),
     orderId: order.orderId, // Keep original order ID for API calls
+    serviceId: order.serviceId, // Keep service ID for reschedule
     status: mapApiStatus(order.status, order.shopApproved),
 
     // Service Info

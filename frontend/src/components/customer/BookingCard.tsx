@@ -116,16 +116,8 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         </div>
 
         {/* Booking Details Grid - Full Width */}
+        {/* Service Date/Time shown first (most important), then Cost */}
         <div className="grid grid-cols-4 gap-3 mb-4">
-          {dateBooked && (
-            <div className="bg-[#0D0D0D] rounded-lg p-3">
-              <div className="text-xs text-gray-400 mb-1">Date Booked</div>
-              <div className="flex items-center gap-1.5 text-white font-semibold">
-                <Calendar className="w-4 h-4" />
-                {formatDate(dateBooked)}
-              </div>
-            </div>
-          )}
           {serviceDate && (
             <div className="bg-[#0D0D0D] rounded-lg p-3">
               <div className="text-xs text-gray-400 mb-1">Service Date</div>
@@ -137,7 +129,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
           )}
           {serviceTime && (
             <div className="bg-[#0D0D0D] rounded-lg p-3">
-              <div className="text-xs text-gray-400 mb-1">Time</div>
+              <div className="text-xs text-gray-400 mb-1">Service Time</div>
               <div className="flex items-center gap-1.5 text-white font-semibold">
                 <Clock className="w-4 h-4" />
                 {serviceTime}
@@ -151,6 +143,15 @@ export const BookingCard: React.FC<BookingCardProps> = ({
               {cost.toFixed(2)}
             </div>
           </div>
+          {dateBooked && !serviceDate && (
+            <div className="bg-[#0D0D0D] rounded-lg p-3">
+              <div className="text-xs text-gray-400 mb-1">Date Booked</div>
+              <div className="flex items-center gap-1.5 text-white font-semibold">
+                <Calendar className="w-4 h-4" />
+                {formatDate(dateBooked)}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Additional Sections - Full Width */}

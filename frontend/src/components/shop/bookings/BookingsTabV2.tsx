@@ -10,7 +10,9 @@ import { BookingCard } from "./BookingCard";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
 import { CancelBookingModal } from "./CancelBookingModal";
 import { toast } from "react-hot-toast";
-import { getShopOrders, updateOrderStatus, approveBooking } from "@/services/api/services";
+import { getShopOrders, updateOrderStatus, approveBooking, ServiceOrderWithDetails } from "@/services/api/services";
+import { appointmentsApi } from "@/services/api/appointments";
+import { RescheduleModal } from "../modals/RescheduleModal";
 
 interface BookingsTabV2Props {
   shopId: string;
@@ -28,6 +30,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelModalBooking, setCancelModalBooking] = useState<MockBooking | null>(null);
+  const [rescheduleModalBooking, setRescheduleModalBooking] = useState<MockBooking | null>(null);
+  const [isRescheduling, setIsRescheduling] = useState(false);
 
   // Load bookings from API
   const loadBookings = async () => {
@@ -161,8 +165,56 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
     }
   };
 
-  const handleReschedule = (_bookingId: string) => {
-    toast('Reschedule functionality coming soon!', { icon: '📅' });
+  const handleReschedule = (bookingId: string) => {
+    const booking = bookings.find(b => b.bookingId === bookingId);
+    if (booking) {
+      setRescheduleModalBooking(booking);
+    }
+  };
+
+  const handleRescheduleComplete = async (newDate: string, newTime: string, reason?: string) => {
+    if (!rescheduleModalBooking) return;
+
+    setIsRescheduling(true);
+    try {
+      await appointmentsApi.directRescheduleOrder(
+        rescheduleModalBooking.orderId,
+        newDate,
+        newTime,
+        reason
+      );
+
+      // Update local state
+      setBookings(prev => prev.map(b => {
+        if (b.bookingId === rescheduleModalBooking.bookingId) {
+          const newTimeline = [
+            ...b.timeline,
+            {
+              id: `tl-${Date.now()}`,
+              type: 'scheduled' as const,
+              timestamp: new Date().toISOString(),
+              description: `Appointment rescheduled to ${newDate} at ${newTime}`
+            }
+          ];
+          return {
+            ...b,
+            serviceDate: newDate,
+            serviceTime: newTime,
+            timeline: newTimeline
+          };
+        }
+        return b;
+      }));
+
+      toast.success('Appointment rescheduled successfully! Customer has been notified.');
+      setRescheduleModalBooking(null);
+    } catch (error: unknown) {
+      console.error('Error rescheduling booking:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to reschedule: ${errorMessage}`);
+    } finally {
+      setIsRescheduling(false);
+    }
   };
 
   const handleSchedule = (bookingId: string) => {
@@ -416,6 +468,23 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
           customerName={cancelModalBooking.customerName}
           onClose={() => setCancelModalBooking(null)}
           onCancelled={handleCancelComplete}
+        />
+      )}
+
+      {/* Reschedule Booking Modal */}
+      {rescheduleModalBooking && (
+        <RescheduleModal
+          order={{
+            orderId: rescheduleModalBooking.orderId,
+            serviceId: rescheduleModalBooking.serviceId,
+            bookingDate: rescheduleModalBooking.serviceDate,
+            bookingTime: rescheduleModalBooking.serviceTime,
+            bookingTimeSlot: rescheduleModalBooking.serviceTime,
+          } as ServiceOrderWithDetails}
+          shopId={shopId}
+          onReschedule={handleRescheduleComplete}
+          onClose={() => setRescheduleModalBooking(null)}
+          isProcessing={isRescheduling}
         />
       )}
     </div>

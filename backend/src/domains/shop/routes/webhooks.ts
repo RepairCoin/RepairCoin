@@ -606,9 +606,9 @@ async function handleSubscriptionDeleted(event: Stripe.Event, subscriptionServic
  */
 async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: any) {
   const invoice = event.data.object as any; // Use any for expanded Stripe objects
-  
+
   const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
-  
+
   logger.info('Processing payment succeeded webhook', {
     invoiceId: invoice.id,
     subscriptionId,
@@ -618,7 +618,7 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
   try {
     // Record successful payment attempt
     // await recordPaymentAttempt(invoice, 'succeeded');
-    
+
     eventBus.publish({
       type: 'payment.webhook.succeeded',
       aggregateId: invoice.metadata?.shopId || 'unknown',
@@ -632,6 +632,37 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
         webhookEventId: event.id
       }
     });
+
+    // IMPORTANT: Sync subscription dates after successful payment (renewal)
+    // This ensures shop_subscriptions.next_payment_date stays in sync with Stripe
+    if (subscriptionId) {
+      try {
+        const stripeService = getStripeService();
+        const stripe = stripeService.getStripe();
+
+        // Fetch the latest subscription data from Stripe
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+        logger.info('Fetched subscription from Stripe for date sync', {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString()
+        });
+
+        // Update subscription in database (this will also sync next_payment_date)
+        await updateSubscriptionInDatabase(subscription);
+
+        logger.info('Successfully synced subscription dates after payment', {
+          subscriptionId: subscription.id
+        });
+      } catch (syncError) {
+        // Log error but don't fail the webhook - payment was still successful
+        logger.error('Failed to sync subscription dates after payment', {
+          subscriptionId,
+          error: syncError instanceof Error ? syncError.message : 'Unknown error'
+        });
+      }
+    }
   } catch (error) {
     logger.error('Failed to record successful payment', {
       invoiceId: invoice.id,

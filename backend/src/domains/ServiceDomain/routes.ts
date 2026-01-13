@@ -2392,6 +2392,56 @@ export function initializeRoutes(stripe: StripeService): Router {
     appointmentController.rejectRescheduleRequest
   );
 
+  /**
+   * @swagger
+   * /api/services/bookings/{orderId}/direct-reschedule:
+   *   post:
+   *     summary: Direct reschedule by shop (Shop only)
+   *     description: Shop directly reschedules a customer's appointment without requiring approval
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - newDate
+   *               - newTimeSlot
+   *             properties:
+   *               newDate:
+   *                 type: string
+   *                 format: date
+   *               newTimeSlot:
+   *                 type: string
+   *                 example: "14:00"
+   *               reason:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Appointment rescheduled successfully
+   *       400:
+   *         description: Invalid request or order status
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Order doesn't belong to this shop
+   */
+  router.post(
+    '/bookings/:orderId/direct-reschedule',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.directRescheduleOrder
+  );
+
   // ==================== SERVICE GROUP ROUTES ====================
 
   /**

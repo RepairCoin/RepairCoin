@@ -5,6 +5,8 @@ import notificationRoutes from './routes/index';
 import { NotificationService } from './services/NotificationService';
 import { WebSocketManager } from '../../services/WebSocketManager';
 import { getExpoPushService, ExpoPushService, NotificationChannels } from '../../services/ExpoPushService';
+import { EmailService } from '../../services/EmailService';
+import { CustomerRepository } from '../../repositories/CustomerRepository';
 
 export class NotificationDomain implements DomainModule {
   name = 'notifications';
@@ -12,6 +14,8 @@ export class NotificationDomain implements DomainModule {
   private notificationService!: NotificationService;
   private wsManager!: WebSocketManager;
   private expoPushService!: ExpoPushService;
+  private emailService!: EmailService;
+  private customerRepository!: CustomerRepository;
 
   // Get admin addresses from environment
   private getAdminAddresses(): string[] {
@@ -22,6 +26,8 @@ export class NotificationDomain implements DomainModule {
   async initialize(): Promise<void> {
     this.notificationService = new NotificationService();
     this.expoPushService = getExpoPushService();
+    this.emailService = new EmailService();
+    this.customerRepository = new CustomerRepository();
     this.setupEventSubscriptions();
     logger.info('Notification domain initialized with push notification support');
   }
@@ -62,6 +68,9 @@ export class NotificationDomain implements DomainModule {
     eventBus.subscribe('reschedule:request_created', this.handleRescheduleRequestCreated.bind(this), 'NotificationDomain');
     eventBus.subscribe('reschedule:request_approved', this.handleRescheduleRequestApproved.bind(this), 'NotificationDomain');
     eventBus.subscribe('reschedule:request_rejected', this.handleRescheduleRequestRejected.bind(this), 'NotificationDomain');
+
+    // Listen to shop direct reschedule events
+    eventBus.subscribe('booking:rescheduled_by_shop', this.handleBookingRescheduledByShop.bind(this), 'NotificationDomain');
 
     logger.info('Notification domain event subscriptions set up');
   }
@@ -526,6 +535,107 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling reschedule request rejected event:', error);
+    }
+  }
+
+  // Shop Direct Reschedule Event Handler
+
+  private async handleBookingRescheduledByShop(event: any): Promise<void> {
+    try {
+      const {
+        orderId,
+        shopId,
+        shopName,
+        customerAddress,
+        customerName,
+        serviceName,
+        originalDate,
+        originalTimeSlot,
+        newDate,
+        newTimeSlot,
+        reason
+      } = event.data;
+
+      logger.info(`Creating booking rescheduled by shop notification for customer ${customerAddress}`, { orderId });
+
+      // Format dates and times for display
+      const formatDate = (dateStr: string): string => {
+        if (!dateStr) return 'TBD';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      };
+
+      const formatTime = (timeStr: string): string => {
+        if (!timeStr) return 'TBD';
+        const [hours, minutes] = timeStr.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        return `${displayHour}:${minutes} ${ampm}`;
+      };
+
+      // Get shop address for sender
+      const shopAddress = event.data.rescheduledBy || shopId;
+
+      const formattedOriginalDate = formatDate(originalDate);
+      const formattedOriginalTime = formatTime(originalTimeSlot);
+      const formattedNewDate = formatDate(newDate);
+      const formattedNewTime = formatTime(newTimeSlot);
+
+      // Create in-app notification
+      const notification = await this.notificationService.createBookingRescheduledByShopNotification(
+        shopAddress,
+        customerAddress,
+        shopName || 'Shop',
+        serviceName || 'Service',
+        orderId,
+        formattedOriginalDate,
+        formattedOriginalTime,
+        formattedNewDate,
+        formattedNewTime,
+        reason
+      );
+
+      // Send real-time notification via WebSocket to the customer
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+
+      // Send push notification using existing reschedule approved method
+      await this.expoPushService.sendRescheduleApproved(
+        customerAddress,
+        shopName || 'Shop',
+        serviceName || 'Service',
+        formattedNewDate,
+        formattedNewTime,
+        orderId
+      );
+
+      // Send email notification
+      try {
+        const customer = await this.customerRepository.getCustomer(customerAddress);
+        if (customer?.email) {
+          await this.emailService.sendAppointmentRescheduledByShop({
+            customerEmail: customer.email,
+            customerName: customerName || customer.name || 'Customer',
+            shopName: shopName || 'Shop',
+            serviceName: serviceName || 'Service',
+            originalDate: formattedOriginalDate,
+            originalTime: formattedOriginalTime,
+            newDate: formattedNewDate,
+            newTime: formattedNewTime,
+            reason
+          });
+          logger.info('Reschedule email sent to customer', { orderId, customerEmail: customer.email });
+        }
+      } catch (emailError) {
+        logger.error('Error sending reschedule email:', emailError);
+        // Don't throw - email is best effort
+      }
+
+      logger.info('Booking rescheduled by shop notification sent', { orderId, customerAddress });
+    } catch (error: any) {
+      logger.error('Error handling booking rescheduled by shop event:', error);
     }
   }
 }
