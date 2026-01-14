@@ -234,19 +234,19 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
           <label className="block text-sm font-medium text-gray-400 mb-2">
             Duration (minutes)
           </label>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             <input
               type="number"
               value={customDuration}
               onChange={(e) => setCustomDuration(parseInt(e.target.value) || 60)}
               min={15}
               step={15}
-              className="flex-1 px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              className="w-full sm:flex-1 px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
             />
             <button
               onClick={handleSaveDuration}
               disabled={saving || customDuration === (savedDuration ?? service.durationMinutes ?? 60)}
-              className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {saving ? (
                 <>
@@ -392,11 +392,11 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
             </div>
 
             {/* Save and Delete Buttons */}
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-3">
               <button
                 onClick={handleDeleteTimeSlotConfig}
                 disabled={deleting || saving}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {deleting ? (
                   <>
@@ -413,7 +413,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
               <button
                 onClick={handleSaveTimeSlotConfig}
                 disabled={saving || deleting}
-                className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>

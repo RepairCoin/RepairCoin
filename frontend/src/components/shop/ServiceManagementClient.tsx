@@ -108,47 +108,47 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
       <div className="max-w-screen-2xl w-[96%] mx-auto">
         {/* Breadcrumb */}
         <div className="border-b border-[#303236] pb-4 mb-6">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
             <button
               onClick={() => router.push("/shop?tab=overview")}
-              className="p-1 rounded hover:bg-[#303236] transition-colors"
+              className="p-1 rounded hover:bg-[#303236] transition-colors flex-shrink-0"
               title="Go to Overview"
             >
-              <Home className="w-5 h-5 text-white hover:text-[#FFCC00] transition-colors" />
+              <Home className="w-4 h-4 sm:w-5 sm:h-5 text-white hover:text-[#FFCC00] transition-colors" />
             </button>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
             <button
               onClick={() => router.push("/shop?tab=services")}
-              className="flex items-center gap-1.5 hover:text-[#FFCC00] transition-colors"
+              className="flex items-center gap-1 sm:gap-1.5 hover:text-[#FFCC00] transition-colors flex-shrink-0"
             >
-              <HeartHandshake className="w-5 h-5 text-gray-400" />
-              <span className="text-base font-medium text-gray-400">Services</span>
+              <HeartHandshake className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+              <span className="text-sm sm:text-base font-medium text-gray-400 hidden sm:inline">Services</span>
             </button>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-            <span className="text-base font-medium text-white">{service.serviceName}</span>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-            <span className="text-[#FFCC00]">
-              {activeTab === 'overview' && <Edit className="w-5 h-5 inline mr-1.5" />}
-              {activeTab === 'availability' && <Settings className="w-5 h-5 inline mr-1.5" />}
-              {activeTab === 'calendar' && <Calendar className="w-5 h-5 inline mr-1.5" />}
-              {activeTab === 'reviews' && <Star className="w-5 h-5 inline mr-1.5" />}
+            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+            <span className="text-sm sm:text-base font-medium text-white truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{service.serviceName}</span>
+            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+            <span className="text-[#FFCC00] flex-shrink-0">
+              {activeTab === 'overview' && <Edit className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
+              {activeTab === 'availability' && <Settings className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
+              {activeTab === 'calendar' && <Calendar className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
+              {activeTab === 'reviews' && <Star className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
             </span>
-            <span className="text-base font-medium text-[#FFCC00]">{TAB_LABELS[activeTab]}</span>
+            <span className="text-sm sm:text-base font-medium text-[#FFCC00] flex-shrink-0">{TAB_LABELS[activeTab]}</span>
           </div>
-          <p className="text-sm text-[#ddd]">
-            Manage service details, availability, and bookings for {service.serviceName}
+          <p className="text-xs sm:text-sm text-[#ddd]">
+            Manage service details, availability, and bookings for <span className="hidden sm:inline">{service.serviceName}</span><span className="sm:hidden">this service</span>
           </p>
         </div>
 
         {/* Header with Edit Button */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">{service.serviceName}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white truncate">{service.serviceName}</h1>
           </div>
           {activeTab === 'overview' && (
             <button
               onClick={() => setShowEditModal(true)}
-              className="flex items-center gap-2 bg-[#FFCC00] text-black font-semibold px-5 py-2 rounded-lg hover:bg-[#FFD700] transition-colors duration-200"
+              className="flex items-center justify-center gap-2 bg-[#FFCC00] text-black font-semibold px-4 sm:px-5 py-2 rounded-lg hover:bg-[#FFD700] transition-colors duration-200 w-full sm:w-auto flex-shrink-0"
             >
               <Edit className="w-4 h-4" />
               Edit Service
@@ -157,18 +157,18 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-800">
+        <div className="flex gap-1 sm:gap-2 mb-6 border-b border-gray-800 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => handleTabChange('overview')}
-            className={`px-6 py-3 font-semibold transition-colors relative ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-colors relative flex-shrink-0 text-sm sm:text-base ${
               activeTab === 'overview'
                 ? 'text-[#FFCC00]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Edit className="w-5 h-5" />
-              Overview
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Overview</span>
             </div>
             {activeTab === 'overview' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
@@ -177,15 +177,15 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
           <button
             onClick={() => handleTabChange('availability')}
-            className={`px-6 py-3 font-semibold transition-colors relative ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-colors relative flex-shrink-0 text-sm sm:text-base ${
               activeTab === 'availability'
                 ? 'text-[#FFCC00]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Availability
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Availability</span>
             </div>
             {activeTab === 'availability' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
@@ -194,15 +194,15 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
           <button
             onClick={() => handleTabChange('calendar')}
-            className={`px-6 py-3 font-semibold transition-colors relative ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-colors relative flex-shrink-0 text-sm sm:text-base ${
               activeTab === 'calendar'
                 ? 'text-[#FFCC00]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Calendar
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Calendar</span>
             </div>
             {activeTab === 'calendar' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
@@ -211,15 +211,15 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
           <button
             onClick={() => handleTabChange('reviews')}
-            className={`px-6 py-3 font-semibold transition-colors relative ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-colors relative flex-shrink-0 text-sm sm:text-base ${
               activeTab === 'reviews'
                 ? 'text-[#FFCC00]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5" />
-              Reviews
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Star className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">Reviews</span>
             </div>
             {activeTab === 'reviews' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
