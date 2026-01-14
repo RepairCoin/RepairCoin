@@ -1,9 +1,11 @@
-import { Image, View, Text } from "react-native";
+import { Image, View, Text, Pressable } from "react-native";
 import React from "react";
 import { CustomerWalletTab } from "../components";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
 import { NotificationBell } from "@/feature/notification/components";
+import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 export default function CustomerDashboard() {
   const { account } = useAuthStore();
@@ -20,7 +22,14 @@ export default function CustomerDashboard() {
             className="w-[45%] h-10"
             resizeMode="contain"
           />
-          <View style={{ marginRight: -10 }}>
+          <View style={{ marginRight: -10 }} className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.push("/customer/messages" as any)}
+              style={{ width: 40, height: 40 }}
+              className="bg-[#121212] rounded-full items-center justify-center"
+            >
+              <Feather name="message-circle" size={20} color="white" />
+            </Pressable>
             <NotificationBell userType="customer" />
           </View>
         </View>

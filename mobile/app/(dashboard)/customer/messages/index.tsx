@@ -1,0 +1,1 @@
+export { MessageScreen as default } from "@/feature/messages/screens";
