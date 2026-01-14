@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
-import { ProfileSettingsSection } from "../ProfileSettingsSection";
 import {
   Store,
   Mail,
@@ -70,7 +69,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<
     | "shop-profile"
-    | "online-presence"
     | "wallet-payouts"
     | "accessibility"
     | "notifications"
@@ -278,7 +276,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Tab menu items configuration
   const mainTabs = [
     { id: "shop-profile" as const, label: "Shop Profile", icon: User },
-    { id: "online-presence" as const, label: "Online Presence", icon: Globe },
     {
       id: "wallet-payouts" as const,
       label: "RepairCoin Wallet & Payouts",
@@ -704,25 +701,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
             </>
-          )}
-
-          {/* Online Presence Tab Content */}
-          {activeTab === "online-presence" && (
-            <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Online Presence
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Customize your shop's profile with banner, logo, about text, and photo gallery
-              </p>
-              <ProfileSettingsSection
-                shopId={shopId}
-                currentBannerUrl={shopData?.bannerUrl}
-                currentLogoUrl={shopData?.logoUrl}
-                currentAboutText={shopData?.aboutText}
-                onUpdate={onSettingsUpdate}
-              />
-            </div>
           )}
 
           {/* Wallet & Payouts Tab Content */}

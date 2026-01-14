@@ -21,6 +21,7 @@ import {
   Calendar,
   MessageCircle,
   RefreshCw,
+  User,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -167,8 +168,14 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
     {
       id: "shop-tools",
-      title: "SHOP TOOLS",
+      title: "SHOP MANAGEMENT",
       items: [
+        {
+          title: "Profile",
+          href: "/shop?tab=profile",
+          icon: <User className="w-5 h-5" />,
+          tabId: "profile",
+        },
         {
           title: "Marketing",
           href: "/shop?tab=marketing",
