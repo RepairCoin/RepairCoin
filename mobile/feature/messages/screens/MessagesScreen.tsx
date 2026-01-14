@@ -9,29 +9,25 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/components/ui/AppHeader";
-import { useFocusEffect } from "expo-router";
-
-interface Conversation {
-  id: string;
-  shopName: string;
-  lastMessage: string;
-  timestamp: string;
-  unread: boolean;
-}
+import { useFocusEffect, router } from "expo-router";
+import { messageApi } from "@/services/message.services";
+import { Conversation } from "@/interfaces/message.interface";
+import { useAuthStore } from "@/store/auth.store";
+import { formatDistanceToNow } from "date-fns";
 
 export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { userProfile } = useAuthStore();
 
   const fetchConversations = useCallback(async () => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await messagesApi.getConversations();
-      // setConversations(response.conversations);
-      setConversations([]);
+      const response = await messageApi.getConversations();
+      setConversations(response.conversations || []);
     } catch (error) {
-      console.error("Failed to fetch conversations:", error);
+      // Silently fail - API may not be implemented yet
+      setConversations([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -59,36 +55,64 @@ export default function MessagesScreen() {
     </View>
   );
 
-  const renderConversation = ({ item }: { item: Conversation }) => (
-    <Pressable
-      className="flex-row items-center px-4 py-3 border-b border-zinc-800"
-      onPress={() => {
-        // TODO: Navigate to chat screen
-        // router.push(`/customer/messages/${item.id}`);
-      }}
-    >
-      <View className="w-12 h-12 rounded-full bg-zinc-800 items-center justify-center mr-3">
-        <Ionicons name="storefront-outline" size={24} color="#FFCC00" />
-      </View>
-      <View className="flex-1">
-        <View className="flex-row justify-between items-center">
-          <Text className={`text-base ${item.unread ? "font-bold text-white" : "text-zinc-300"}`}>
-            {item.shopName}
-          </Text>
-          <Text className="text-xs text-zinc-500">{item.timestamp}</Text>
+  const getOtherParticipant = (conversation: Conversation) => {
+    return conversation.participants.find(
+      (p) => p.address !== userProfile?.address
+    ) || conversation.participants[0];
+  };
+
+  const formatTimestamp = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch {
+      return "";
+    }
+  };
+
+  const renderConversation = ({ item }: { item: Conversation }) => {
+    const otherParticipant = getOtherParticipant(item);
+    const hasUnread = item.unreadCount > 0;
+
+    return (
+      <Pressable
+        className="flex-row items-center px-4 py-3 border-b border-zinc-800"
+        onPress={() => {
+          router.push(`/customer/messages/${item.id}` as any);
+        }}
+      >
+        <View className="w-12 h-12 rounded-full bg-zinc-800 items-center justify-center mr-3">
+          <Ionicons
+            name={otherParticipant?.type === "shop" ? "storefront-outline" : "person-outline"}
+            size={24}
+            color="#FFCC00"
+          />
         </View>
-        <Text
-          className={`text-sm mt-1 ${item.unread ? "text-zinc-300" : "text-zinc-500"}`}
-          numberOfLines={1}
-        >
-          {item.lastMessage}
-        </Text>
-      </View>
-      {item.unread && (
-        <View className="w-3 h-3 rounded-full bg-[#FFCC00] ml-2" />
-      )}
-    </Pressable>
-  );
+        <View className="flex-1">
+          <View className="flex-row justify-between items-center">
+            <Text className={`text-base ${hasUnread ? "font-bold text-white" : "text-zinc-300"}`}>
+              {otherParticipant?.name || "Unknown"}
+            </Text>
+            <Text className="text-xs text-zinc-500">
+              {item.lastMessage ? formatTimestamp(item.lastMessage.createdAt) : ""}
+            </Text>
+          </View>
+          <Text
+            className={`text-sm mt-1 ${hasUnread ? "text-zinc-300" : "text-zinc-500"}`}
+            numberOfLines={1}
+          >
+            {item.lastMessage?.content || "No messages yet"}
+          </Text>
+        </View>
+        {hasUnread && (
+          <View className="min-w-[20px] h-5 rounded-full bg-[#FFCC00] ml-2 px-1.5 items-center justify-center">
+            <Text className="text-xs font-bold text-black">
+              {item.unreadCount > 99 ? "99+" : item.unreadCount}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+    );
+  };
 
   if (isLoading) {
     return (

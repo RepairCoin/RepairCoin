@@ -3,6 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { useAuthStore } from "@/store/auth.store";
+import { messageApi } from "@/services/message.services";
 
 interface MessageButtonProps {
   userType?: "customer" | "shop";
@@ -16,12 +17,11 @@ export default function MessageButton({ userType = "customer" }: MessageButtonPr
     if (!isAuthenticated) return;
 
     try {
-      // TODO: Replace with actual API call when messages API is implemented
-      // const response = await messagesApi.getUnreadCount();
-      // setUnreadCount(response.count || 0);
-      setUnreadCount(0);
+      const response = await messageApi.getUnreadCount();
+      setUnreadCount(response.count || 0);
     } catch (error) {
-      console.error("Failed to fetch unread message count:", error);
+      // Silently fail - API may not be implemented yet
+      setUnreadCount(0);
     }
   }, [isAuthenticated]);
 
