@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
@@ -26,9 +27,9 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [messageText, setMessageText] = useState("");
   const flatListRef = useRef<FlatList>(null);
-  const { userProfile, userRole } = useAuthStore();
+  const { userProfile, userType } = useAuthStore();
 
-  const isCustomer = userRole === "customer";
+  const isCustomer = userType === "customer";
 
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
@@ -188,11 +189,99 @@ export default function ChatScreen() {
                     : "bg-zinc-800 border border-zinc-700"
                 }`}
               >
-                <Text
-                  className={`text-sm ${isOwnMessage ? "text-black" : "text-white"}`}
-                >
-                  {item.messageText}
-                </Text>
+                {/* Service Link Card */}
+                {item.messageType === "service_link" && item.metadata && (
+                  <View className="mb-2">
+                    <View
+                      className={`rounded-lg overflow-hidden border ${
+                        isOwnMessage
+                          ? "border-black/20 bg-black/10"
+                          : "border-zinc-700 bg-zinc-900"
+                      }`}
+                    >
+                      {/* Service Image */}
+                      {item.metadata.serviceImage && (
+                        <Image
+                          source={{ uri: item.metadata.serviceImage }}
+                          className="w-full h-24"
+                          resizeMode="cover"
+                        />
+                      )}
+                      {/* Service Details */}
+                      <View className="p-2">
+                        <Text
+                          className={`font-semibold text-sm mb-1 ${
+                            isOwnMessage ? "text-black" : "text-white"
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {item.metadata.serviceName}
+                        </Text>
+                        <View className="flex-row items-center justify-between">
+                          <Text
+                            className={`text-xs ${
+                              isOwnMessage ? "text-black/70" : "text-zinc-400"
+                            }`}
+                          >
+                            {item.metadata.serviceCategory}
+                          </Text>
+                          <Text
+                            className={`text-sm font-bold ${
+                              isOwnMessage ? "text-black" : "text-[#FFCC00]"
+                            }`}
+                          >
+                            ${item.metadata.servicePrice}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Attachments */}
+                {item.attachments && item.attachments.length > 0 && (
+                  <View className="mb-2">
+                    {item.attachments.map((attachment, idx) => (
+                      <View key={idx} className="mb-1">
+                        {attachment.type === "image" ? (
+                          <Image
+                            source={{ uri: attachment.url }}
+                            className="w-48 h-48 rounded-lg"
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View
+                            className={`flex-row items-center p-2 rounded-lg ${
+                              isOwnMessage ? "bg-black/10" : "bg-zinc-700"
+                            }`}
+                          >
+                            <Ionicons
+                              name="document-outline"
+                              size={16}
+                              color={isOwnMessage ? "#000" : "#fff"}
+                            />
+                            <Text
+                              className={`ml-2 text-xs ${
+                                isOwnMessage ? "text-black" : "text-white"
+                              }`}
+                              numberOfLines={1}
+                            >
+                              {attachment.name}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {/* Message Text */}
+                {item.messageText && (
+                  <Text
+                    className={`text-sm ${isOwnMessage ? "text-black" : "text-white"}`}
+                  >
+                    {item.messageText}
+                  </Text>
+                )}
               </View>
 
               {/* Timestamp */}
@@ -244,7 +333,7 @@ export default function ChatScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </Pressable>
 
-          <View className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FFCC00] to-[#FFD700] items-center justify-center mr-3">
+          <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
             <Text className="text-black font-bold">
               {otherPartyName?.charAt(0).toUpperCase() || "?"}
             </Text>
@@ -290,16 +379,15 @@ export default function ChatScreen() {
         />
 
         {/* Input Area */}
-        <View className="px-4 py-3 border-t border-zinc-800 bg-zinc-900">
-          <View className="flex-row items-end">
-            <View className="flex-1 bg-zinc-800 rounded-2xl px-4 py-2 mr-2 border border-zinc-700">
+        <View className="px-4 py-4 border-t border-zinc-800 bg-zinc-900">
+          <View className="flex-row items-center">
+            <View className="flex-1 h-12 bg-zinc-800 rounded-full px-4 mr-2 border border-zinc-700 justify-center">
               <TextInput
                 value={messageText}
                 onChangeText={setMessageText}
                 placeholder="Type a message..."
                 placeholderTextColor="#71717A"
-                className="text-white text-base max-h-24"
-                multiline
+                className="text-white text-sm"
                 editable={!isSending}
               />
             </View>

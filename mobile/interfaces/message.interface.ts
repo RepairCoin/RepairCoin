@@ -20,6 +20,15 @@ export interface Conversation {
   shopImageUrl?: string;
 }
 
+// Attachment type for messages
+export interface MessageAttachment {
+  type: "image" | "file";
+  url: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+}
+
 // Message from backend API
 export interface Message {
   messageId: string;
@@ -28,7 +37,7 @@ export interface Message {
   senderType: "customer" | "shop";
   messageText: string;
   messageType: MessageType;
-  attachments: any[];
+  attachments: MessageAttachment[];
   metadata: Record<string, any>;
   isRead: boolean;
   readAt?: string;
@@ -94,4 +103,9 @@ export interface GetUnreadCountResponse {
 // Response from mark as read
 export interface MarkAsReadResponse {
   message: string;
+}
+
+// Response from start conversation
+export interface StartConversationResponse {
+  data: Conversation;
 }

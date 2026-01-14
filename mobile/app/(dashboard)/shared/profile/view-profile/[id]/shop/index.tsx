@@ -24,9 +24,9 @@ export default function ViewShopProfile({ id }: { id: string }) {
   const { data: shopData } = useGetShopById(id);
   const [activeTab, setActiveTab] = useState("services");
   const [isStartingChat, setIsStartingChat] = useState(false);
-  const { userRole } = useAuthStore();
+  const { userType } = useAuthStore();
 
-  const isCustomer = userRole === "customer";
+  const isCustomer = userType === "customer";
 
   const handleStartChat = async () => {
     if (!id || isStartingChat) return;
@@ -87,32 +87,6 @@ export default function ViewShopProfile({ id }: { id: string }) {
             )}
           </View>
         </View>
-
-        {/* Message Button - Only show for customers */}
-        {isCustomer && (
-          <View className="px-4 pb-6">
-            <Pressable
-              onPress={handleStartChat}
-              disabled={isStartingChat}
-              className={`flex-row items-center justify-center py-3 rounded-xl ${
-                isStartingChat ? "bg-zinc-700" : "bg-zinc-800 border border-zinc-700"
-              }`}
-            >
-              <Ionicons
-                name="chatbubble-outline"
-                size={20}
-                color={isStartingChat ? "#71717A" : "#FFCC00"}
-              />
-              <Text
-                className={`ml-2 font-semibold ${
-                  isStartingChat ? "text-zinc-500" : "text-white"
-                }`}
-              >
-                {isStartingChat ? "Starting chat..." : "Message Shop"}
-              </Text>
-            </Pressable>
-          </View>
-        )}
 
         {/* Tab Buttons */}
         <TabButtons

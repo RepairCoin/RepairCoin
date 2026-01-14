@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,16 +13,18 @@ import { useFocusEffect, router } from "expo-router";
 import { messageApi } from "@/services/message.services";
 import { Conversation } from "@/interfaces/message.interface";
 import { useAuthStore } from "@/store/auth.store";
-import { formatDistanceToNow } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 
 export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { userProfile, userRole } = useAuthStore();
+  const { userProfile, userType } = useAuthStore();
+
+  console.log("conversationsconversations: ", conversations)
 
   // Determine if user is customer or shop
-  const isCustomer = userRole === "customer";
+  const isCustomer = userType === "customer";
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -61,7 +63,17 @@ export default function MessagesScreen() {
   const formatTimestamp = (dateString?: string) => {
     if (!dateString) return "";
     try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+      const date = new Date(dateString);
+      if (isToday(date)) {
+        // Today: show time only (e.g., "11:02am")
+        return format(date, "h:mma").toLowerCase();
+      } else if (isYesterday(date)) {
+        // Yesterday
+        return "Yesterday";
+      } else {
+        // Older: show date (e.g., "Jan 14")
+        return format(date, "MMM d");
+      }
     } catch {
       return "";
     }

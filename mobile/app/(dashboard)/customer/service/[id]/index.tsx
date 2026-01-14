@@ -19,26 +19,20 @@ import { useService } from "@/hooks/service/useService";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
+import { messageApi } from "@/services/message.services";
 
 export default function ServiceDetail() {
-  const { id, orderId, bookingStatus, hasReview } = useLocalSearchParams<{
-    id: string;
-    orderId?: string;
-    bookingStatus?: string;
-    hasReview?: string;
-  }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Check if this is a completed booking (coming from bookings tab) and not already reviewed
-  const isCompletedBooking = bookingStatus?.toLowerCase() === "completed";
-  const alreadyReviewed = hasReview === "true";
-  const canWriteReview = isCompletedBooking && !alreadyReviewed;
   const { useGetService } = useService();
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   // Get customer tier info
-  const { account } = useAuthStore();
+  const { account, userType } = useAuthStore();
+  const isCustomer = userType === "customer";
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { data: customerData } = useGetCustomerByWalletAddress(account?.address || "");
 
@@ -172,20 +166,73 @@ export default function ServiceDetail() {
     router.push(`/customer/appointment/${id}`);
   };
 
-  const handleWriteReview = () => {
-    if (orderId) {
-      const params = new URLSearchParams({
-        serviceId: id || "",
-        serviceName: serviceData?.serviceName || "",
-        shopName: serviceData?.shopName || "",
-      });
-      router.push(`/customer/review/${orderId}?${params.toString()}` as any);
-    }
-  };
-
   const handleViewShop = () => {
     if (serviceData?.shopId) {
       router.push(`/shared/profile/view-profile/${serviceData.shopId}`);
+    }
+  };
+
+  const handleMessageShop = async () => {
+    if (!serviceData?.shopId || isStartingChat || !account?.address) return;
+
+    setIsStartingChat(true);
+    try {
+      // Build initial message with service details
+      const initialMessage = `Hi! I'm interested in your service "${serviceData.serviceName}".
+
+📍 Service: ${serviceData.serviceName}
+💰 Price: $${serviceData.priceUsd}
+📂 Category: ${getCategoryLabel(serviceData.category)}
+
+Could you provide more details?`;
+
+      // Get conversations to check if one exists with this shop
+      const response = await messageApi.getConversations();
+      const existingConversation = response.data?.find(
+        (conv) => conv.shopId === serviceData.shopId
+      );
+
+      if (existingConversation) {
+        // Send service link message to existing conversation
+        await messageApi.sendMessage({
+          conversationId: existingConversation.conversationId,
+          messageText: initialMessage,
+          messageType: "service_link",
+          metadata: {
+            serviceId: serviceData.serviceId,
+            serviceName: serviceData.serviceName,
+            serviceImage: serviceData.imageUrl,
+            servicePrice: serviceData.priceUsd,
+            serviceCategory: serviceData.category,
+            shopName: serviceData.shopName,
+          },
+        });
+        router.push(`/customer/messages/${existingConversation.conversationId}` as any);
+      } else {
+        // Send an initial message to create a conversation (need customerAddress + shopId)
+        const newMessage = await messageApi.sendMessage({
+          shopId: serviceData.shopId,
+          customerAddress: account.address,
+          messageText: initialMessage,
+          messageType: "service_link",
+          metadata: {
+            serviceId: serviceData.serviceId,
+            serviceName: serviceData.serviceName,
+            serviceImage: serviceData.imageUrl,
+            servicePrice: serviceData.priceUsd,
+            serviceCategory: serviceData.category,
+            shopName: serviceData.shopName,
+          },
+        });
+        // Navigate to the new conversation
+        if (newMessage.data?.conversationId) {
+          router.push(`/customer/messages/${newMessage.data.conversationId}` as any);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to start chat:", error);
+    } finally {
+      setIsStartingChat(false);
     }
   };
 
@@ -238,13 +285,31 @@ export default function ServiceDetail() {
             <Ionicons name="arrow-back" color="white" size={24} />
           </TouchableOpacity>
 
-          {/* Share Button */}
-          <TouchableOpacity
-            onPress={() => setShowShareModal(true)}
-            className="absolute top-14 right-4 bg-black/50 rounded-full p-2"
-          >
-            <Ionicons name="share-social-outline" color="white" size={22} />
-          </TouchableOpacity>
+          {/* Action Buttons (Top Right) */}
+          <View className="absolute top-14 right-4 flex-row">
+            {/* Message Button - Only visible for customers */}
+            {isCustomer && (
+              <TouchableOpacity
+                onPress={handleMessageShop}
+                disabled={isStartingChat}
+                className="bg-black/50 rounded-full p-2 mr-2"
+              >
+                {isStartingChat ? (
+                  <ActivityIndicator size={22} color="#FFCC00" />
+                ) : (
+                  <Ionicons name="chatbubble-outline" color="#FFCC00" size={22} />
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Share Button */}
+            <TouchableOpacity
+              onPress={() => setShowShareModal(true)}
+              className="bg-black/50 rounded-full p-2"
+            >
+              <Ionicons name="share-social-outline" color="#FFCC00" size={22} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Content */}
@@ -470,30 +535,14 @@ export default function ServiceDetail() {
             <Ionicons name="storefront-outline" size={20} color="#FFCC00" />
             <Text className="text-white text-lg font-bold ml-2">View Shop</Text>
           </TouchableOpacity>
-          {canWriteReview ? (
+          {serviceData.active && (
             <TouchableOpacity
-              onPress={handleWriteReview}
-              className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center flex-row justify-center"
+              onPress={handleBookNow}
+              className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
               activeOpacity={0.8}
             >
-              <Ionicons name="star" size={20} color="black" />
-              <Text className="text-black text-lg font-bold ml-2">Review</Text>
+              <Text className="text-black text-lg font-bold">Book Now</Text>
             </TouchableOpacity>
-          ) : alreadyReviewed ? (
-            <View className="flex-1 bg-green-500/20 rounded-xl py-4 items-center flex-row justify-center">
-              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
-              <Text className="text-green-500 text-lg font-bold ml-2">Reviewed</Text>
-            </View>
-          ) : (
-            serviceData.active && (
-              <TouchableOpacity
-                onPress={handleBookNow}
-                className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
-                activeOpacity={0.8}
-              >
-                <Text className="text-black text-lg font-bold">Book Now</Text>
-              </TouchableOpacity>
-            )
           )}
         </View>
       </View>
