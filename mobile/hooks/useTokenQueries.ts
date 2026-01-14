@@ -103,7 +103,6 @@ export const useTokenBalance = (walletAddress?: string) => {
     },
     enabled: !!walletAddress,
     staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // Refetch every minute
   });
 };
 
@@ -120,7 +119,6 @@ export const useRedemptionSessions = () => {
     },
     enabled: !!walletAddress,
     staleTime: 10000, // 10 seconds (more frequent for active sessions)
-    refetchInterval: 30000, // Refetch every 30 seconds
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
