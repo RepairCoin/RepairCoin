@@ -177,54 +177,54 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
   const monthDays = getMonthDays();
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-3 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
             {serviceName ? 'Service Bookings' : 'Appointment Calendar'}
           </h1>
-          <p className="text-gray-400">
+          <p className="text-sm sm:text-base text-gray-400">
             {serviceName ? (
-              <>Showing bookings for <span className="text-[#FFCC00]">{serviceName}</span></>
+              <>Showing bookings for <span className="text-[#FFCC00] truncate">{serviceName}</span></>
             ) : (
               'View and manage your bookings'
             )}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
           <button
             onClick={goToToday}
-            className="px-4 py-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
+            className="px-3 sm:px-4 py-2 bg-[#1A1A1A] text-white text-sm sm:text-base border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
           >
             Today
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => navigateMonth('prev')}
-              className="p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              className="p-1.5 sm:p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            <span className="text-white font-semibold min-w-[180px] text-center">
+            <span className="text-white text-sm sm:text-base font-semibold min-w-[120px] sm:min-w-[180px] text-center">
               {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </span>
 
             <button
               onClick={() => navigateMonth('next')}
-              className="p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              className="p-1.5 sm:p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
         {['pending', 'confirmed', 'completed', 'cancelled'].map(status => {
           // Count 'paid' bookings as 'confirmed' since paid = confirmed
           const count = allBookings.filter(b => {
@@ -235,9 +235,9 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
           }).length;
           const colors = STATUS_COLORS[status as keyof typeof STATUS_COLORS];
           return (
-            <div key={status} className={`bg-[#1A1A1A] border ${colors.border} rounded-lg p-4`}>
-              <div className={`text-2xl font-bold ${colors.text} mb-1`}>{count}</div>
-              <div className="text-sm text-gray-400 capitalize">{status}</div>
+            <div key={status} className={`bg-[#1A1A1A] border ${colors.border} rounded-lg p-3 sm:p-4`}>
+              <div className={`text-xl sm:text-2xl font-bold ${colors.text} mb-1`}>{count}</div>
+              <div className="text-xs sm:text-sm text-gray-400 capitalize">{status}</div>
             </div>
           );
         })}
@@ -251,80 +251,83 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
       ) : (
         <>
           {/* Calendar Grid */}
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
-            {/* Day Headers */}
-            <div className="grid grid-cols-7 bg-[#0D0D0D] border-b border-gray-800">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="py-3 text-center text-sm font-semibold text-gray-400">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar Days */}
-            <div className="grid grid-cols-7">
-              {monthDays.map((day, index) => {
-                const isTodayDate = isToday(day.date);
-                const isInCurrentMonth = isCurrentMonth(day.date);
-                const dayNumber = new Date(day.date).getDate();
-
-                return (
-                  <div
-                    key={index}
-                    className={`min-h-[120px] border-r border-b border-gray-800 p-2 ${
-                      !isInCurrentMonth ? 'bg-[#0A0A0A]' : ''
-                    } ${index % 7 === 6 ? 'border-r-0' : ''}`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span
-                        className={`text-sm font-medium ${
-                          isTodayDate
-                            ? 'bg-[#FFCC00] text-black w-6 h-6 rounded-full flex items-center justify-center'
-                            : isInCurrentMonth
-                            ? 'text-white'
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        {dayNumber}
-                      </span>
-                      {day.bookings.length > 0 && (
-                        <span className="text-xs text-gray-400">
-                          {day.bookings.length}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Bookings for this day */}
-                    <div className="space-y-1">
-                      {day.bookings.slice(0, 3).map(booking => {
-                        const colors = STATUS_COLORS[booking.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
-                        return (
-                          <button
-                            key={booking.orderId}
-                            onClick={() => {
-                              // Navigate to the service calendar page
-                              router.push(`/shop/services/${booking.serviceId}?tab=calendar`);
-                            }}
-                            className={`w-full text-left px-2 py-1 rounded ${colors.bg} ${colors.text} border ${colors.border} text-xs hover:opacity-80 transition-opacity`}
-                          >
-                            <div className="font-medium truncate">
-                              {booking.bookingTimeSlot ? formatTime(booking.bookingTimeSlot) : 'No time'}
-                            </div>
-                            <div className="truncate opacity-90 font-semibold">
-                              {booking.customerName || 'Customer'}
-                            </div>
-                          </button>
-                        );
-                      })}
-                      {day.bookings.length > 3 && (
-                        <div className="text-xs text-gray-500 text-center">
-                          +{day.bookings.length - 3} more
-                        </div>
-                      )}
-                    </div>
+          <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden overflow-x-auto">
+            <div className="min-w-[500px]">
+              {/* Day Headers */}
+              <div className="grid grid-cols-7 bg-[#0D0D0D] border-b border-gray-800">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                  <div key={day} className="py-2 sm:py-3 text-center text-xs sm:text-sm font-semibold text-gray-400">
+                    <span className="hidden sm:inline">{day}</span>
+                    <span className="sm:hidden">{day.charAt(0)}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* Calendar Days */}
+              <div className="grid grid-cols-7">
+                {monthDays.map((day, index) => {
+                  const isTodayDate = isToday(day.date);
+                  const isInCurrentMonth = isCurrentMonth(day.date);
+                  const dayNumber = new Date(day.date).getDate();
+
+                  return (
+                    <div
+                      key={index}
+                      className={`min-h-[80px] sm:min-h-[120px] border-r border-b border-gray-800 p-1 sm:p-2 ${
+                        !isInCurrentMonth ? 'bg-[#0A0A0A]' : ''
+                      } ${index % 7 === 6 ? 'border-r-0' : ''}`}
+                    >
+                      <div className="flex items-center justify-between mb-1 sm:mb-2">
+                        <span
+                          className={`text-xs sm:text-sm font-medium ${
+                            isTodayDate
+                              ? 'bg-[#FFCC00] text-black w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center'
+                              : isInCurrentMonth
+                              ? 'text-white'
+                              : 'text-gray-600'
+                          }`}
+                        >
+                          {dayNumber}
+                        </span>
+                        {day.bookings.length > 0 && (
+                          <span className="text-[10px] sm:text-xs text-gray-400">
+                            {day.bookings.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Bookings for this day */}
+                      <div className="space-y-0.5 sm:space-y-1">
+                        {day.bookings.slice(0, 2).map(booking => {
+                          const colors = STATUS_COLORS[booking.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
+                          return (
+                            <button
+                              key={booking.orderId}
+                              onClick={() => {
+                                // Navigate to the service calendar page
+                                router.push(`/shop/services/${booking.serviceId}?tab=calendar`);
+                              }}
+                              className={`w-full text-left px-1 sm:px-2 py-0.5 sm:py-1 rounded ${colors.bg} ${colors.text} border ${colors.border} text-[10px] sm:text-xs hover:opacity-80 transition-opacity`}
+                            >
+                              <div className="font-medium truncate">
+                                {booking.bookingTimeSlot ? formatTime(booking.bookingTimeSlot) : 'No time'}
+                              </div>
+                              <div className="truncate opacity-90 font-semibold hidden sm:block">
+                                {booking.customerName || 'Customer'}
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {day.bookings.length > 2 && (
+                          <div className="text-[10px] sm:text-xs text-gray-500 text-center">
+                            +{day.bookings.length - 2} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </>
