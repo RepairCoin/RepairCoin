@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useHomeDataUI } from "../hooks";
 import { ShopTabs } from "../types";
@@ -31,7 +32,14 @@ export default function Home() {
             className="w-[45%] h-10"
             resizeMode="contain"
           />
-          <View style={{ marginRight: -10 }}>
+          <View style={{ marginRight: -10 }} className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.push("/shop/messages" as any)}
+              style={{ width: 40, height: 40 }}
+              className="bg-[#121212] rounded-full items-center justify-center"
+            >
+              <Feather name="message-circle" size={20} color="white" />
+            </Pressable>
             <NotificationBell userType="shop" />
           </View>
         </View>
