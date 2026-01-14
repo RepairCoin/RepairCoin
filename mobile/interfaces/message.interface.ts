@@ -1,81 +1,89 @@
-// Conversation participant info
-export interface ConversationParticipant {
-  address: string;
-  name: string;
-  type: "customer" | "shop";
-  avatar?: string;
-}
-
-// Conversation summary for list view
+// Conversation from backend API
 export interface Conversation {
-  id: string;
-  participants: ConversationParticipant[];
-  lastMessage: Message | null;
-  unreadCount: number;
+  conversationId: string;
+  customerAddress: string;
+  shopId: string;
+  lastMessageAt?: string;
+  lastMessagePreview?: string;
+  unreadCountCustomer: number;
+  unreadCountShop: number;
+  isArchivedCustomer: boolean;
+  isArchivedShop: boolean;
+  isBlocked: boolean;
+  blockedBy?: string;
+  blockedAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Joined data
+  customerName?: string;
+  shopName?: string;
+  shopImageUrl?: string;
 }
 
-// Individual message
+// Message from backend API
 export interface Message {
-  id: string;
+  messageId: string;
   conversationId: string;
   senderAddress: string;
   senderType: "customer" | "shop";
-  content: string;
+  messageText: string;
   messageType: MessageType;
-  metadata?: Record<string, any>;
+  attachments: any[];
+  metadata: Record<string, any>;
   isRead: boolean;
+  readAt?: string;
+  isDelivered: boolean;
+  deliveredAt?: string;
+  isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
   createdAt: string;
   updatedAt: string;
+  // Joined data
+  senderName?: string;
 }
 
 // Message types
 export type MessageType =
   | "text"
-  | "image"
-  | "booking_inquiry"
-  | "booking_update"
+  | "booking_link"
+  | "service_link"
   | "system";
 
 // Request to send a message
 export interface SendMessageRequest {
   conversationId?: string;
-  recipientAddress?: string;
-  content: string;
+  customerAddress?: string;
+  shopId?: string;
+  messageText: string;
   messageType?: MessageType;
   metadata?: Record<string, any>;
 }
 
+// Pagination info
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 // Response from get conversations
 export interface GetConversationsResponse {
-  conversations: Conversation[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
+  data: Conversation[];
+  pagination: PaginationInfo;
 }
 
 // Response from get messages
 export interface GetMessagesResponse {
-  messages: Message[];
-  conversation: Conversation;
-  pagination: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
+  data: Message[];
+  pagination: PaginationInfo;
 }
 
 // Response from send message
 export interface SendMessageResponse {
-  message: Message;
-  conversation: Conversation;
+  data: Message;
 }
 
 // Response from get unread count
@@ -86,10 +94,4 @@ export interface GetUnreadCountResponse {
 // Response from mark as read
 export interface MarkAsReadResponse {
   message: string;
-  readCount: number;
-}
-
-// Response for starting a new conversation
-export interface StartConversationResponse {
-  conversation: Conversation;
 }

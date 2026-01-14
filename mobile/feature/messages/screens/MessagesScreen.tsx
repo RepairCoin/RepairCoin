@@ -19,12 +19,15 @@ export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { userProfile } = useAuthStore();
+  const { userProfile, userRole } = useAuthStore();
+
+  // Determine if user is customer or shop
+  const isCustomer = userRole === "customer";
 
   const fetchConversations = useCallback(async () => {
     try {
       const response = await messageApi.getConversations();
-      setConversations(response.conversations || []);
+      setConversations(response.data || []);
     } catch (error) {
       // Silently fail - API may not be implemented yet
       setConversations([]);
@@ -55,13 +58,8 @@ export default function MessagesScreen() {
     </View>
   );
 
-  const getOtherParticipant = (conversation: Conversation) => {
-    return conversation.participants.find(
-      (p) => p.address !== userProfile?.address
-    ) || conversation.participants[0];
-  };
-
-  const formatTimestamp = (dateString: string) => {
+  const formatTimestamp = (dateString?: string) => {
+    if (!dateString) return "";
     try {
       return formatDistanceToNow(new Date(dateString), { addSuffix: true });
     } catch {
@@ -70,19 +68,23 @@ export default function MessagesScreen() {
   };
 
   const renderConversation = ({ item }: { item: Conversation }) => {
-    const otherParticipant = getOtherParticipant(item);
-    const hasUnread = item.unreadCount > 0;
+    // Get the name of the other party in the conversation
+    const otherPartyName = isCustomer ? item.shopName : item.customerName;
+    // Get unread count based on user type
+    const unreadCount = isCustomer ? item.unreadCountCustomer : item.unreadCountShop;
+    const hasUnread = unreadCount > 0;
 
     return (
       <Pressable
         className="flex-row items-center px-4 py-3 border-b border-zinc-800"
         onPress={() => {
-          router.push(`/customer/messages/${item.id}` as any);
+          const basePath = isCustomer ? "/customer/messages" : "/shop/messages";
+          router.push(`${basePath}/${item.conversationId}` as any);
         }}
       >
         <View className="w-12 h-12 rounded-full bg-zinc-800 items-center justify-center mr-3">
           <Ionicons
-            name={otherParticipant?.type === "shop" ? "storefront-outline" : "person-outline"}
+            name={isCustomer ? "storefront-outline" : "person-outline"}
             size={24}
             color="#FFCC00"
           />
@@ -90,23 +92,23 @@ export default function MessagesScreen() {
         <View className="flex-1">
           <View className="flex-row justify-between items-center">
             <Text className={`text-base ${hasUnread ? "font-bold text-white" : "text-zinc-300"}`}>
-              {otherParticipant?.name || "Unknown"}
+              {otherPartyName || "Unknown"}
             </Text>
             <Text className="text-xs text-zinc-500">
-              {item.lastMessage ? formatTimestamp(item.lastMessage.createdAt) : ""}
+              {formatTimestamp(item.lastMessageAt)}
             </Text>
           </View>
           <Text
             className={`text-sm mt-1 ${hasUnread ? "text-zinc-300" : "text-zinc-500"}`}
             numberOfLines={1}
           >
-            {item.lastMessage?.content || "No messages yet"}
+            {item.lastMessagePreview || "No messages yet"}
           </Text>
         </View>
         {hasUnread && (
           <View className="min-w-[20px] h-5 rounded-full bg-[#FFCC00] ml-2 px-1.5 items-center justify-center">
             <Text className="text-xs font-bold text-black">
-              {item.unreadCount > 99 ? "99+" : item.unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </Text>
           </View>
         )}
@@ -128,7 +130,7 @@ export default function MessagesScreen() {
 
       <FlatList
         data={conversations}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.conversationId}
         renderItem={renderConversation}
         ListEmptyComponent={renderEmptyState}
         refreshControl={

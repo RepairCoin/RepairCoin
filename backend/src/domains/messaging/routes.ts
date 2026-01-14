@@ -44,6 +44,13 @@ router.get('/conversations/:conversationId/messages', messageController.getMessa
 router.post('/conversations/:conversationId/read', messageController.markAsRead);
 
 /**
+ * @route GET /api/messages/unread/count
+ * @description Get total unread message count for the authenticated user
+ * @access Authenticated users (Customer or Shop)
+ */
+router.get('/unread/count', messageController.getUnreadCount);
+
+/**
  * @route POST /api/messages/conversations/:conversationId/typing
  * @description Set typing indicator for a conversation
  * @param conversationId - The conversation ID

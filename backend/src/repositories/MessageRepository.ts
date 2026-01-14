@@ -432,6 +432,32 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Get total unread message count for a user
+   */
+  async getTotalUnreadCount(
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<number> {
+    try {
+      const column = userType === 'customer' ? 'unread_count_customer' : 'unread_count_shop';
+      const whereColumn = userType === 'customer' ? 'customer_address' : 'shop_id';
+      const archivedColumn = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+
+      const query = `
+        SELECT COALESCE(SUM(${column}), 0) as total
+        FROM conversations
+        WHERE ${whereColumn} = $1 AND ${archivedColumn} = FALSE
+      `;
+
+      const result = await this.pool.query(query, [userType === 'customer' ? userIdentifier.toLowerCase() : userIdentifier]);
+      return parseInt(result.rows[0].total) || 0;
+    } catch (error) {
+      logger.error('Error in getTotalUnreadCount:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set typing indicator
    */
   async setTypingIndicator(

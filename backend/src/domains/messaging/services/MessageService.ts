@@ -240,6 +240,21 @@ export class MessageService {
   }
 
   /**
+   * Get total unread message count for a user
+   */
+  async getTotalUnreadCount(
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<number> {
+    try {
+      return await this.messageRepo.getTotalUnreadCount(userIdentifier, userType);
+    } catch (error) {
+      logger.error('Error in getTotalUnreadCount:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set typing indicator
    */
   async setTypingIndicator(

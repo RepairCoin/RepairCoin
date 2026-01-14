@@ -118,7 +118,7 @@ class MessageApi {
     conversationId: string
   ): Promise<MarkAsReadResponse> {
     try {
-      return await apiClient.patch<MarkAsReadResponse>(
+      return await apiClient.post<MarkAsReadResponse>(
         `/messages/conversations/${conversationId}/read`
       );
     } catch (error) {

@@ -207,6 +207,43 @@ export class MessageController {
   };
 
   /**
+   * Get total unread message count
+   * GET /api/messages/unread/count
+   */
+  getUnreadCount = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      // For shops, we need the shopId
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      const count = await this.messageService.getTotalUnreadCount(identifier, userType as 'customer' | 'shop');
+
+      res.json({
+        success: true,
+        count
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getUnreadCount controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get unread count'
+      });
+    }
+  };
+
+  /**
    * Set typing indicator
    * POST /api/messages/conversations/:conversationId/typing
    */
