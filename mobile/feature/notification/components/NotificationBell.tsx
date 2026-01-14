@@ -1,7 +1,7 @@
 import { View, Pressable, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { notificationApi } from "@/services/notification.services";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -30,21 +30,6 @@ export default function NotificationBell({ userType = "customer" }: Notification
       fetchUnreadCount();
     }, [fetchUnreadCount])
   );
-
-  // Poll for new notifications every 30 seconds
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    // Initial fetch
-    fetchUnreadCount();
-
-    // Set up polling interval
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [isAuthenticated, fetchUnreadCount]);
 
   const handlePress = () => {
     const route = userType === "shop"
