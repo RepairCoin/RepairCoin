@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { View, ScrollView, Text } from "react-native";
+import { View, ScrollView, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useShop } from "@/hooks/shop/useShop";
 import ReviewsTab from "./tabs/ReviewsTab";
 import DetailsTab from "./tabs/DetailsTab";
@@ -9,6 +10,8 @@ import { handleLink } from "@/utilities/linking";
 import { formatDate } from "@/utilities/format";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { TabButtons } from "@/components/ui/TabButtons";
+import { messageApi } from "@/services/message.services";
+import { useAuthStore } from "@/store/auth.store";
 
 const SHOP_TABS = [
   { key: "services", label: "Services" },
@@ -20,6 +23,43 @@ export default function ViewShopProfile({ id }: { id: string }) {
   const { useGetShopById } = useShop();
   const { data: shopData } = useGetShopById(id);
   const [activeTab, setActiveTab] = useState("services");
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  const { userRole } = useAuthStore();
+
+  const isCustomer = userRole === "customer";
+
+  const handleStartChat = async () => {
+    if (!id || isStartingChat) return;
+
+    setIsStartingChat(true);
+    try {
+      // Get conversations to check if one exists with this shop
+      const response = await messageApi.getConversations();
+      const existingConversation = response.data?.find(
+        (conv) => conv.shopId === id
+      );
+
+      if (existingConversation) {
+        // Navigate to existing conversation
+        router.push(`/customer/messages/${existingConversation.conversationId}` as any);
+      } else {
+        // Send an initial message to create a conversation
+        const newMessage = await messageApi.sendMessage({
+          shopId: id,
+          messageText: "Hi, I'm interested in your services.",
+          messageType: "text",
+        });
+        // Navigate to the new conversation
+        if (newMessage.data?.conversationId) {
+          router.push(`/customer/messages/${newMessage.data.conversationId}` as any);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to start chat:", error);
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
 
   return (
     <View className="flex-1 bg-zinc-950">
@@ -29,7 +69,7 @@ export default function ViewShopProfile({ id }: { id: string }) {
         <View className="h-4" />
 
         {/* Shop Avatar & Name */}
-        <View className="flex-row items-center px-4 pb-6">
+        <View className="flex-row items-center px-4 pb-4">
           <View className="bg-[#FFCC00] w-20 h-20 rounded-full items-center justify-center mr-4">
             <Ionicons name="storefront" size={40} color="#000" />
           </View>
@@ -47,6 +87,32 @@ export default function ViewShopProfile({ id }: { id: string }) {
             )}
           </View>
         </View>
+
+        {/* Message Button - Only show for customers */}
+        {isCustomer && (
+          <View className="px-4 pb-6">
+            <Pressable
+              onPress={handleStartChat}
+              disabled={isStartingChat}
+              className={`flex-row items-center justify-center py-3 rounded-xl ${
+                isStartingChat ? "bg-zinc-700" : "bg-zinc-800 border border-zinc-700"
+              }`}
+            >
+              <Ionicons
+                name="chatbubble-outline"
+                size={20}
+                color={isStartingChat ? "#71717A" : "#FFCC00"}
+              />
+              <Text
+                className={`ml-2 font-semibold ${
+                  isStartingChat ? "text-zinc-500" : "text-white"
+                }`}
+              >
+                {isStartingChat ? "Starting chat..." : "Message Shop"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Tab Buttons */}
         <TabButtons
