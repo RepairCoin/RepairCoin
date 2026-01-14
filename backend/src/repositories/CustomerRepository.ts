@@ -605,24 +605,49 @@ export class CustomerRepository extends BaseRepository {
     totalBalance: number;
     lifetimeEarnings: number;
     totalRedemptions: number;
+    totalMintedToWallet: number;
     lastBlockchainSync: string | null;
     balanceSynced: boolean;
   } | null> {
     try {
       const query = `
         SELECT
-          current_rcn_balance,
-          pending_mint_balance,
-          lifetime_earnings,
-          total_redemptions,
-          last_blockchain_sync,
-          -- Calculate available balance dynamically to ensure accuracy:
-          -- available = lifetime_earnings - total_redemptions - pending_mint_balance
-          GREATEST(0, COALESCE(lifetime_earnings, 0) - COALESCE(total_redemptions, 0) - COALESCE(pending_mint_balance, 0)) as calculated_available_balance,
-          (current_rcn_balance + COALESCE(pending_mint_balance, 0)) as total_balance,
-          ABS(current_rcn_balance - (lifetime_earnings - COALESCE(total_redemptions, 0))) < 0.00000001 as balance_synced
-        FROM customers
-        WHERE address = $1
+          c.current_rcn_balance,
+          c.pending_mint_balance,
+          c.lifetime_earnings,
+          c.total_redemptions,
+          c.last_blockchain_sync,
+          -- Get total minted to wallet from transactions (tokens already sent to blockchain)
+          COALESCE((
+            SELECT SUM(ABS(amount))
+            FROM transactions t
+            WHERE t.customer_address = c.address
+              AND t.type = 'mint'
+              AND (
+                t.metadata->>'mintType' = 'instant_mint' OR
+                t.metadata->>'source' = 'customer_dashboard'
+              )
+          ), 0) as total_minted_to_wallet,
+          -- Calculate available balance: lifetime - redemptions - pending - minted_to_wallet
+          GREATEST(0,
+            COALESCE(c.lifetime_earnings, 0) -
+            COALESCE(c.total_redemptions, 0) -
+            COALESCE(c.pending_mint_balance, 0) -
+            COALESCE((
+              SELECT SUM(ABS(amount))
+              FROM transactions t
+              WHERE t.customer_address = c.address
+                AND t.type = 'mint'
+                AND (
+                  t.metadata->>'mintType' = 'instant_mint' OR
+                  t.metadata->>'source' = 'customer_dashboard'
+                )
+            ), 0)
+          ) as calculated_available_balance,
+          (c.current_rcn_balance + COALESCE(c.pending_mint_balance, 0)) as total_balance,
+          ABS(c.current_rcn_balance - (c.lifetime_earnings - COALESCE(c.total_redemptions, 0))) < 0.00000001 as balance_synced
+        FROM customers c
+        WHERE c.address = $1
       `;
 
       const result = await this.pool.query(query, [address.toLowerCase()]);
@@ -635,17 +660,19 @@ export class CustomerRepository extends BaseRepository {
       const pendingMintBalance = parseFloat(row.pending_mint_balance || '0');
       const lifetimeEarnings = parseFloat(row.lifetime_earnings || '0');
       const totalRedemptions = parseFloat(row.total_redemptions || '0');
+      const totalMintedToWallet = parseFloat(row.total_minted_to_wallet || '0');
 
-      // Use calculated available balance (earnings - redemptions - pending mint)
-      // This ensures consistency even if current_rcn_balance is out of sync
+      // Use calculated available balance (earnings - redemptions - pending mint - minted to wallet)
+      // This ensures consistency with VerificationService.calculateAvailableBalance()
       const calculatedAvailableBalance = parseFloat(row.calculated_available_balance || '0');
 
       return {
         databaseBalance: calculatedAvailableBalance,
         pendingMintBalance: pendingMintBalance,
-        totalBalance: lifetimeEarnings - totalRedemptions, // Total tokens customer owns (available + pending)
+        totalBalance: lifetimeEarnings - totalRedemptions - totalMintedToWallet, // Total tokens customer owns (excluding already minted)
         lifetimeEarnings: lifetimeEarnings,
         totalRedemptions: totalRedemptions,
+        totalMintedToWallet: totalMintedToWallet,
         lastBlockchainSync: row.last_blockchain_sync ? new Date(row.last_blockchain_sync).toISOString() : null,
         balanceSynced: row.balance_synced
       };

@@ -239,7 +239,10 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
   const handleComplete = async (bookingId: string) => {
     // Find the original order ID from the booking
     const booking = bookings.find(b => b.bookingId === bookingId);
-    if (!booking) return;
+    if (!booking || !booking.orderId) {
+      toast.error('Could not find order to complete');
+      return;
+    }
 
     // Update local state optimistically
     setBookings(prev => prev.map(b => {
@@ -257,7 +260,33 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
       }
       return b;
     }));
-    toast.success(`Booking ${bookingId} marked as completed! Customer will receive their RCN rewards.`);
+
+    try {
+      // Call the API to persist the status change
+      const result = await updateOrderStatus(booking.orderId, 'completed');
+      if (result) {
+        toast.success(`Booking ${bookingId} marked as completed! Customer will receive their RCN rewards.`);
+      } else {
+        // Revert optimistic update on failure
+        setBookings(prev => prev.map(b => {
+          if (b.bookingId === bookingId) {
+            return { ...b, status: 'scheduled' as const };
+          }
+          return b;
+        }));
+        toast.error('Failed to mark order as complete. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error completing order:', error);
+      // Revert optimistic update on error
+      setBookings(prev => prev.map(b => {
+        if (b.bookingId === bookingId) {
+          return { ...b, status: 'scheduled' as const };
+        }
+        return b;
+      }));
+      toast.error('Failed to mark order as complete. Please try again.');
+    }
   };
 
   const handleSendMessage = (bookingId: string, content: string) => {

@@ -12,6 +12,7 @@ export interface CustomerBalanceInfo {
   totalBalance: number;
   lifetimeEarnings: number;
   totalRedemptions: number;
+  totalMintedToWallet: number;
   lastBlockchainSync: string | null;
   balanceSynced: boolean;
   tier: TierLevel;
@@ -72,6 +73,7 @@ export class CustomerBalanceService {
         totalBalance: balanceInfo.totalBalance,
         lifetimeEarnings: balanceInfo.lifetimeEarnings,
         totalRedemptions: balanceInfo.totalRedemptions,
+        totalMintedToWallet: balanceInfo.totalMintedToWallet,
         lastBlockchainSync: balanceInfo.lastBlockchainSync,
         balanceSynced: balanceInfo.balanceSynced,
         tier: customer.tier,

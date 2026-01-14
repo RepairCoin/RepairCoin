@@ -158,6 +158,13 @@
       }
     }
 
+    // Tier bonus amounts matching TierBonusService
+    private static readonly TIER_BONUSES: Record<string, number> = {
+      BRONZE: 0,    // No bonus for Bronze tier
+      SILVER: 2,    // +2 RCN per service
+      GOLD: 5       // +5 RCN per service
+    };
+
     // Process service marketplace earning (when customer completes a service booking)
     async processServiceMarketplaceEarning(
       customerAddress: string,
@@ -190,24 +197,42 @@
         );
 
         if (result.success && result.tokensToMint && result.newTier) {
-          // Update customer in database
+          const baseTokens = result.tokensToMint;
+
+          // Calculate tier bonus based on customer tier
+          const customerTier = customer.tier.toUpperCase();
+          const tierBonus = TokenService.TIER_BONUSES[customerTier] || 0;
+          const totalTokens = baseTokens + tierBonus;
+
+          logger.info('Tier bonus calculation for service marketplace', {
+            customerAddress,
+            customerTier,
+            baseTokens,
+            tierBonus,
+            totalTokens,
+            orderId
+          });
+
+          // Update customer in database with total tokens (base + tier bonus)
           await customerRepository.updateCustomerAfterEarning(
             customerAddress,
-            result.tokensToMint,
+            totalTokens,
             result.newTier as any
           );
 
-          // Update shop statistics
-          await this.updateShopStats(shopId, result.tokensToMint, 0);
+          // Update shop statistics with total tokens
+          await this.updateShopStats(shopId, totalTokens, 0);
 
-          // Record transaction
+          // Record base earning transaction
           await transactionRepository.recordTransaction({
             id: `service_${orderId}_${Date.now()}`,
             type: 'mint',
             customerAddress: customerAddress.toLowerCase(),
             shopId,
-            amount: result.tokensToMint,
-            reason: `Service marketplace completion - $${serviceAmount}`,
+            amount: totalTokens,
+            reason: tierBonus > 0
+              ? `Service marketplace completion - $${serviceAmount} (${baseTokens} base + ${tierBonus} ${customerTier} tier bonus)`
+              : `Service marketplace completion - $${serviceAmount}`,
             transactionHash: result.transactionHash || '',
             timestamp: new Date().toISOString(),
             status: 'confirmed',
@@ -216,16 +241,47 @@
               orderId,
               oldTier: customer.tier,
               newTier: result.newTier,
-              source: 'service_marketplace'
+              source: 'service_marketplace',
+              baseTokens,
+              tierBonus,
+              totalTokens
             }
           });
 
-          // Track RCN source
+          // Record separate tier bonus transaction for tracking (if applicable)
+          if (tierBonus > 0) {
+            await transactionRepository.recordTransaction({
+              id: `tier_bonus_${orderId}_${Date.now()}`,
+              type: 'tier_bonus',
+              customerAddress: customerAddress.toLowerCase(),
+              shopId,
+              amount: tierBonus,
+              reason: `${customerTier} tier bonus for service order`,
+              transactionHash: '',
+              timestamp: new Date().toISOString(),
+              status: 'confirmed',
+              metadata: {
+                orderId,
+                customerTier: customerTier as 'BRONZE' | 'SILVER' | 'GOLD',
+                baseTransaction: `service_${orderId}`,
+                source: 'service_marketplace'
+              }
+            });
+
+            logger.info('Tier bonus recorded for service marketplace', {
+              customerAddress,
+              customerTier,
+              tierBonus,
+              orderId
+            });
+          }
+
+          // Track RCN source with total tokens
           await this.referralRepository.recordRcnSource({
             customerAddress: customerAddress.toLowerCase(),
             sourceType: 'service_marketplace',
             sourceShopId: shopId,
-            amount: result.tokensToMint,
+            amount: totalTokens,
             transactionId: `service_${orderId}`,
             transactionHash: result.transactionHash,
             isRedeemable: true,
@@ -233,7 +289,9 @@
               serviceAmount,
               orderId,
               oldTier: customer.tier,
-              newTier: result.newTier
+              newTier: result.newTier,
+              baseTokens,
+              tierBonus
             }
           });
 
@@ -242,11 +300,22 @@
 
           logger.transaction('Service marketplace earning processed successfully', {
             customerAddress,
-            tokensEarned: result.tokensToMint,
+            baseTokens,
+            tierBonus,
+            totalTokensEarned: totalTokens,
             newTier: result.newTier,
             orderId,
             transactionHash: result.transactionHash
           });
+
+          // Return result with updated total tokens
+          return {
+            ...result,
+            tokensToMint: totalTokens,
+            message: tierBonus > 0
+              ? `Minted ${totalTokens} RCN for $${serviceAmount} service (${baseTokens} base + ${tierBonus} ${customerTier} tier bonus)`
+              : result.message
+          };
         }
 
         return result;

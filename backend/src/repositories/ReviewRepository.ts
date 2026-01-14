@@ -434,11 +434,16 @@ export class ReviewRepository extends BaseRepository {
         logger.info('Review marked helpful', { reviewId, voterAddress: normalizedAddress });
       }
 
-      // Get updated count (trigger updates this, but fetch to return)
-      const countQuery = `
-        SELECT helpful_count FROM service_reviews WHERE review_id = $1
+      // Update the helpful_count in service_reviews based on actual vote count
+      const updateCountQuery = `
+        UPDATE service_reviews
+        SET helpful_count = (
+          SELECT COUNT(*) FROM review_helpful_votes WHERE review_id = $1
+        )
+        WHERE review_id = $1
+        RETURNING helpful_count
       `;
-      const countResult = await this.pool.query(countQuery, [reviewId]);
+      const countResult = await this.pool.query(updateCountQuery, [reviewId]);
       const helpfulCount = countResult.rows[0]?.helpful_count || 0;
 
       return { voted, helpfulCount };
