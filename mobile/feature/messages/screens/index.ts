@@ -1,1 +1,1 @@
-export { default as MessageScreen } from "./MessageScreens";
+export { default as MessagesScreen } from "./MessagesScreen";
