@@ -25,6 +25,7 @@ import { WriteReviewModal } from "./WriteReviewModal";
 import { BookingDetailsModal } from "./BookingDetailsModal";
 import { BookingCard } from "./BookingCard";
 import { CancelBookingModal } from "./CancelBookingModal";
+import { formatBookingId } from "@/utils/formatters";
 
 export const ServiceOrdersTab: React.FC = () => {
   const router = useRouter();
@@ -489,7 +490,7 @@ export const ServiceOrdersTab: React.FC = () => {
                       </div>
                     ) : undefined
                   }
-                  bookingId={order.orderId}
+                  bookingId={formatBookingId(order.orderId)}
                 />
               );
             })}

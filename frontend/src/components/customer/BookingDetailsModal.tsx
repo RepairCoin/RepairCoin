@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   X,
   Download,
@@ -15,8 +15,10 @@ import {
   ShoppingBag,
   CheckCircle,
   Package,
+  Loader2,
 } from "lucide-react";
 import { ServiceOrderWithDetails } from "@/services/api/services";
+import { formatBookingId } from "@/utils/formatters";
 
 interface BookingDetailsModalProps {
   order: ServiceOrderWithDetails;
@@ -29,6 +31,8 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
   if (!isOpen) return null;
 
   const formatDate = (dateString: string) => {
@@ -105,50 +109,338 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
     }
   };
 
+  // Shared receipt HTML generator for both print and download
+  const getReceiptHTML = () => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Receipt - ${formatBookingId(order.orderId)}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: Arial, sans-serif;
+          padding: 15px;
+          max-width: 800px;
+          margin: 0 auto;
+          color: #333;
+          background: #fff;
+          font-size: 13px;
+        }
+        .header {
+          text-align: center;
+          border-bottom: 2px solid #333;
+          padding-bottom: 10px;
+          margin-bottom: 12px;
+        }
+        .header h1 { font-size: 20px; margin-bottom: 3px; }
+        .header .booking-id { color: #666; font-size: 12px; margin-top: 3px; }
+        .status {
+          display: inline-block;
+          padding: 5px 12px;
+          background: #e8f5e9;
+          border-radius: 15px;
+          margin: 6px 0;
+          font-weight: bold;
+          color: #2e7d32;
+          font-size: 12px;
+        }
+        .section {
+          margin-bottom: 10px;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+        }
+        .section-title {
+          font-size: 14px;
+          font-weight: bold;
+          margin-bottom: 6px;
+          color: #333;
+          border-bottom: 1px solid #eee;
+          padding-bottom: 5px;
+        }
+        .row {
+          display: flex;
+          justify-content: space-between;
+          padding: 3px 0;
+        }
+        .row.total {
+          border-top: 2px solid #333;
+          margin-top: 6px;
+          padding-top: 6px;
+          font-weight: bold;
+          font-size: 15px;
+        }
+        .label { color: #666; }
+        .value { font-weight: 500; }
+        .highlight {
+          background: #fff8e1;
+          padding: 8px;
+          border-radius: 6px;
+          margin-top: 6px;
+          border: 1px solid #ffc107;
+        }
+        .highlight .value { color: #f57c00; font-weight: bold; }
+        .footer {
+          text-align: center;
+          margin-top: 12px;
+          padding: 10px 0 15px 0;
+          border-top: 1px solid #ddd;
+          color: #666;
+          font-size: 11px;
+        }
+        @media print {
+          body { padding: 10px; }
+          .section { break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>RepairCoin Receipt</h1>
+        <div class="booking-id">Booking ID: ${formatBookingId(order.orderId)}</div>
+        <div class="status">${statusInfo.label}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Service Details</div>
+        <div class="row">
+          <span class="label">Service</span>
+          <span class="value">${order.serviceName}</span>
+        </div>
+        <div class="row">
+          <span class="label">Shop</span>
+          <span class="value">${order.shopName}</span>
+        </div>
+        ${order.shopAddress ? `
+        <div class="row">
+          <span class="label">Address</span>
+          <span class="value">${order.shopAddress}${order.shopCity ? `, ${order.shopCity}` : ''}</span>
+        </div>
+        ` : ''}
+      </div>
+
+      ${order.bookingTimeSlot ? `
+      <div class="section">
+        <div class="section-title">Appointment</div>
+        <div class="row">
+          <span class="label">Date</span>
+          <span class="value">${formatDate(order.bookingTimeSlot)}</span>
+        </div>
+        <div class="row">
+          <span class="label">Time</span>
+          <span class="value">${formatTime(order.bookingTimeSlot)}</span>
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="section">
+        <div class="section-title">Payment Summary</div>
+        <div class="row">
+          <span class="label">Subtotal</span>
+          <span class="value">$${order.totalAmount.toFixed(2)}</span>
+        </div>
+        ${order.rcnRedeemed > 0 ? `
+        <div class="row">
+          <span class="label">RCN Redeemed</span>
+          <span class="value">${order.rcnRedeemed.toFixed(2)} RCN</span>
+        </div>
+        <div class="row">
+          <span class="label">RCN Discount</span>
+          <span class="value" style="color: #2e7d32;">-$${order.rcnDiscountUsd?.toFixed(2) || '0.00'}</span>
+        </div>
+        ` : ''}
+        <div class="row total">
+          <span>Total Paid</span>
+          <span>$${order.finalAmountUsd?.toFixed(2) || order.totalAmount.toFixed(2)}</span>
+        </div>
+        ${order.rcnEarned > 0 && order.status === 'completed' ? `
+        <div class="highlight">
+          <div class="row">
+            <span class="label">RCN Earned</span>
+            <span class="value">+${order.rcnEarned.toFixed(2)} RCN</span>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+
+      <div class="section">
+        <div class="section-title">Booking Information</div>
+        <div class="row">
+          <span class="label">Booking Date</span>
+          <span class="value">${formatDate(order.createdAt)}</span>
+        </div>
+        <div class="row">
+          <span class="label">Order ID</span>
+          <span class="value" style="font-family: monospace; font-size: 9px;">${order.orderId}</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>Thank you for using RepairCoin!</p>
+        <p style="font-size: 10px;">www.repaircoin.com</p>
+      </div>
+    </body>
+    </html>
+  `;
+
   const handlePrint = () => {
-    window.print();
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      alert('Please allow popups to print the receipt');
+      return;
+    }
+
+    printWindow.document.write(getReceiptHTML());
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
   };
 
-  const handleDownload = () => {
-    // Create a downloadable receipt
-    const receiptContent = `
-BOOKING RECEIPT
-================
+  const handleDownload = async () => {
+    setIsDownloading(true);
 
-Order ID: ${order.orderId}
-Date: ${formatDate(order.createdAt)}
+    try {
+      // Dynamic import of jsPDF
+      const jsPDFModule = await import('jspdf');
+      const { jsPDF } = jsPDFModule;
 
-SERVICE DETAILS
----------------
-Service: ${order.serviceName}
-${order.serviceDescription ? `Description: ${order.serviceDescription}\n` : ""}
-Shop: ${order.shopName}
-${order.shopAddress ? `Address: ${order.shopAddress}\n` : ""}
-${order.shopCity ? `City: ${order.shopCity}\n` : ""}
+      if (!jsPDF) {
+        console.error('jsPDF failed to load');
+        alert('Failed to load PDF library. Please try again.');
+        return;
+      }
 
-${order.bookingTimeSlot ? `APPOINTMENT DETAILS\n-------------------\nDate: ${formatDate(order.bookingTimeSlot)}\nTime: ${formatTime(order.bookingTimeSlot)}\n\n` : ""}
-PAYMENT BREAKDOWN
------------------
-Subtotal: $${order.totalAmount.toFixed(2)}
-${order.rcnRedeemed ? `RCN Redeemed: ${order.rcnRedeemed.toFixed(2)} RCN\n` : ""}
-${order.rcnDiscountUsd ? `RCN Discount: -$${order.rcnDiscountUsd.toFixed(2)}\n` : ""}
-Final Amount: $${order.finalAmountUsd?.toFixed(2) || order.totalAmount.toFixed(2)}
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 15;
 
-${order.rcnEarned ? `RCN Earned: +${order.rcnEarned.toFixed(2)} RCN\n` : ""}
-Status: ${order.status.toUpperCase()}
+      // Helper functions
+      const addText = (text: string, x: number, yPos: number, options: { fontSize?: number; fontStyle?: string; color?: number[]; align?: 'left' | 'center' | 'right'; maxWidth?: number } = {}) => {
+        const fontSize = options.fontSize || 10;
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', (options.fontStyle || 'normal') as 'normal' | 'bold' | 'italic' | 'bolditalic');
+        if (options.color && options.color.length >= 3) {
+          doc.setTextColor(options.color[0], options.color[1], options.color[2]);
+        } else {
+          doc.setTextColor(51, 51, 51);
+        }
 
-Thank you for using RepairCoin!
-    `.trim();
+        // Calculate actual x position based on alignment
+        let actualX = x;
+        if (options.align === 'center') {
+          const textWidth = doc.getTextWidth(text);
+          actualX = x - (textWidth / 2);
+        } else if (options.align === 'right') {
+          const textWidth = doc.getTextWidth(text);
+          actualX = x - textWidth;
+        }
 
-    const blob = new Blob([receiptContent], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `receipt-${order.orderId}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+        if (options.maxWidth) {
+          doc.text(text, actualX, yPos, { maxWidth: options.maxWidth });
+        } else {
+          doc.text(text, actualX, yPos);
+        }
+      };
+
+      const addSection = (title: string) => {
+        y += 4;
+        doc.setDrawColor(221, 221, 221);
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(15, y, pageWidth - 30, 8, 1, 1, 'S');
+        addText(title, 18, y + 5.5, { fontSize: 11, fontStyle: 'bold' });
+        y += 12;
+      };
+
+      const addRow = (label: string, value: string, valueColor?: number[]) => {
+        addText(label, 18, y, { fontSize: 9, color: [102, 102, 102] });
+        addText(value, pageWidth - 18, y, { fontSize: 9, fontStyle: 'bold', align: 'right', color: valueColor });
+        y += 5;
+      };
+
+      // Header
+      addText('RepairCoin Receipt', pageWidth / 2, y, { fontSize: 18, fontStyle: 'bold', align: 'center' });
+      y += 6;
+      addText(`Booking ID: ${formatBookingId(order.orderId)}`, pageWidth / 2, y, { fontSize: 9, color: [102, 102, 102], align: 'center' });
+      y += 6;
+
+      // Status badge
+      const statusText = statusInfo.label.replace(/[^\w\s]/g, '').trim();
+      doc.setFillColor(232, 245, 233);
+      doc.roundedRect(pageWidth / 2 - 15, y - 3, 30, 7, 2, 2, 'F');
+      addText(statusText, pageWidth / 2, y + 1.5, { fontSize: 8, fontStyle: 'bold', color: [46, 125, 50], align: 'center' });
+      y += 10;
+
+      // Divider
+      doc.setDrawColor(51, 51, 51);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 6;
+
+      // Service Details
+      addSection('Service Details');
+      addRow('Service', order.serviceName);
+      addRow('Shop', order.shopName);
+      if (order.shopAddress) {
+        const addr = `${order.shopAddress}${order.shopCity ? `, ${order.shopCity}` : ''}`;
+        addRow('Address', addr.length > 50 ? addr.substring(0, 50) + '...' : addr);
+      }
+
+      // Appointment (if exists)
+      if (order.bookingTimeSlot) {
+        addSection('Appointment');
+        addRow('Date', formatDate(order.bookingTimeSlot));
+        addRow('Time', formatTime(order.bookingTimeSlot) || 'N/A');
+      }
+
+      // Payment Summary
+      addSection('Payment Summary');
+      addRow('Subtotal', `$${order.totalAmount.toFixed(2)}`);
+      if (order.rcnRedeemed > 0) {
+        addRow('RCN Redeemed', `${order.rcnRedeemed.toFixed(2)} RCN`, [255, 152, 0]);
+        addRow('RCN Discount', `-$${order.rcnDiscountUsd?.toFixed(2) || '0.00'}`, [46, 125, 50]);
+      }
+      y += 2;
+      doc.setDrawColor(51, 51, 51);
+      doc.line(18, y, pageWidth - 18, y);
+      y += 5;
+      addText('Total Paid', 18, y, { fontSize: 11, fontStyle: 'bold' });
+      addText(`$${order.finalAmountUsd?.toFixed(2) || order.totalAmount.toFixed(2)}`, pageWidth - 18, y, { fontSize: 11, fontStyle: 'bold', align: 'right', color: [46, 125, 50] });
+      y += 7;
+
+      // RCN Earned (if completed)
+      if (order.rcnEarned > 0 && order.status === 'completed') {
+        doc.setFillColor(255, 248, 225);
+        doc.setDrawColor(255, 193, 7);
+        doc.roundedRect(18, y, pageWidth - 36, 10, 2, 2, 'FD');
+        addText('RCN Earned', 22, y + 6, { fontSize: 10, fontStyle: 'bold', color: [245, 124, 0] });
+        addText(`+${order.rcnEarned.toFixed(2)} RCN`, pageWidth - 22, y + 6, { fontSize: 10, fontStyle: 'bold', align: 'right', color: [245, 124, 0] });
+        y += 14;
+      }
+
+      // Booking Information
+      addSection('Booking Information');
+      addRow('Booking Date', formatDate(order.createdAt));
+      addText(`Order ID: ${order.orderId}`, 18, y, { fontSize: 7, color: [102, 102, 102] });
+      y += 10;
+
+      // Footer
+      doc.setDrawColor(221, 221, 221);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 6;
+      addText('Thank you for using RepairCoin!', pageWidth / 2, y, { fontSize: 9, color: [102, 102, 102], align: 'center' });
+      y += 4;
+      addText('www.repaircoin.com', pageWidth / 2, y, { fontSize: 8, color: [102, 102, 102], align: 'center' });
+
+      // Save
+      doc.save(`receipt-${formatBookingId(order.orderId)}.pdf`);
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Get effective status (auto-approved shows as scheduled)
@@ -214,16 +506,25 @@ Thank you for using RepairCoin!
             <div>
               <h2 className="text-2xl font-bold text-white">Booking Details</h2>
               <p className="text-sm text-gray-400 mt-1">
-                Order ID: <span className="font-mono text-gray-300">{order.orderId}</span>
+                Booking ID: <span className="font-mono text-gray-300">{formatBookingId(order.orderId)}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownload}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
-                title="Download Receipt"
+                disabled={isDownloading}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDownloading
+                    ? "text-[#FFCC00] cursor-wait"
+                    : "hover:bg-gray-800 text-gray-400 hover:text-white"
+                }`}
+                title={isDownloading ? "Generating PDF..." : "Download Receipt"}
               >
-                <Download className="w-5 h-5" />
+                {isDownloading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Download className="w-5 h-5" />
+                )}
               </button>
               <button
                 onClick={handlePrint}
@@ -379,7 +680,7 @@ Thank you for using RepairCoin!
                     ${order.totalAmount.toFixed(2)}
                   </span>
                 </div>
-                {order.rcnRedeemed && order.rcnRedeemed > 0 && (
+                {order.rcnRedeemed > 0 && (
                   <>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400 flex items-center gap-2">
@@ -406,7 +707,7 @@ Thank you for using RepairCoin!
                     </span>
                   </div>
                 </div>
-                {order.rcnEarned && order.rcnEarned > 0 && order.status === "completed" && (
+                {order.rcnEarned > 0 && order.status === "completed" && (
                   <div className="bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/10 border border-[#FFCC00]/30 rounded-lg p-4 mt-4">
                     <div className="flex items-center justify-between">
                       <span className="text-[#FFCC00] font-semibold flex items-center gap-2">
@@ -473,7 +774,7 @@ Thank you for using RepairCoin!
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <div className="text-gray-400 mb-1">Booking ID</div>
-                  <div className="text-white font-mono">{order.orderId}</div>
+                  <div className="text-white font-mono">{formatBookingId(order.orderId)}</div>
                 </div>
                 <div>
                   <div className="text-gray-400 mb-1">Booking Date</div>

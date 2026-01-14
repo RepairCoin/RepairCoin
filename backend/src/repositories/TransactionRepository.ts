@@ -169,7 +169,7 @@ export class TransactionRepository extends BaseRepository {
     try {
       const query = `
         SELECT
-          COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redeemed,
+          COALESCE(SUM(CASE WHEN type IN ('redeem', 'service_redemption') THEN amount ELSE 0 END), 0) as total_redeemed,
           COALESCE(SUM(CASE WHEN type = 'mint' AND (
             metadata->>'mintType' = 'instant_mint' OR
             metadata->>'source' = 'customer_dashboard'

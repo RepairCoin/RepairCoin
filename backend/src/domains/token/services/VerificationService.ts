@@ -348,33 +348,21 @@ export class VerificationService {
 
   /**
    * Calculate customer's available balance
-   * Returns lifetime earnings minus total redemptions minus pending mint balance
-   * Uses efficient SQL aggregation instead of fetching all transactions
+   * Returns lifetime earnings minus total redemptions minus pending mint balance minus minted to wallet
+   * Uses CustomerRepository.getCustomerBalance() for unified balance calculation
    */
   private async calculateAvailableBalance(customerAddress: string): Promise<number> {
     try {
-      // Get customer data
-      const customer = await customerRepository.getCustomer(customerAddress);
-      if (!customer) {
+      // Use CustomerRepository.getCustomerBalance() for unified balance calculation
+      // This ensures consistency between Step 1 (customer lookup) and Step 2 (validation)
+      const balanceInfo = await customerRepository.getCustomerBalance(customerAddress);
+      if (!balanceInfo) {
         return 0;
       }
 
-      const lifetimeEarnings = customer.lifetimeEarnings || 0;
-      const pendingMintBalance = customer.pendingMintBalance || 0;
-
-      // Get totals using efficient SQL aggregation (single query instead of 1000 row fetch)
-      let totalRedeemed = 0;
-      let totalMintedToWallet = 0;
-      try {
-        const totals = await transactionRepository.getCustomerTransactionTotals(customerAddress);
-        totalRedeemed = totals.totalRedeemed;
-        totalMintedToWallet = totals.totalMintedToWallet;
-      } catch (error) {
-        logger.warn('Failed to get transaction totals for balance calculation', error);
-      }
-
-      // Available balance = lifetime earnings - total redeemed - pending mint - already minted to wallet
-      return Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance - totalMintedToWallet);
+      // Return the databaseBalance which is:
+      // lifetime_earnings - total_redemptions - pending_mint - minted_to_wallet
+      return balanceInfo.databaseBalance;
 
     } catch (error) {
       logger.error('Error calculating available balance:', error);
