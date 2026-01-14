@@ -85,6 +85,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Main Content Area */}
       <div className={`
         transition-all duration-300 ease-in-out
+        pt-14 lg:pt-0
         ${isSidebarCollapsed ? "lg:ml-20" : "lg:ml-64"}
       `}>
         <main>
