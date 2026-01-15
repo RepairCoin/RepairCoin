@@ -36,42 +36,14 @@ router.get('/unread', (req, res) => notificationController.getUnreadNotification
 router.get('/unread/count', (req, res) => notificationController.getUnreadCount(req, res));
 
 /**
- * @route   GET /api/notifications/:id
- * @desc    Get a specific notification by ID
- * @access  Private
- */
-router.get('/:id', (req, res) => notificationController.getNotificationById(req, res));
-
-/**
- * @route   PATCH /api/notifications/:id/read
- * @desc    Mark a notification as read
- * @access  Private
- */
-router.patch('/:id/read', (req, res) => notificationController.markAsRead(req, res));
-
-/**
  * @route   PATCH /api/notifications/read-all
  * @desc    Mark all notifications as read
  * @access  Private
  */
 router.patch('/read-all', (req, res) => notificationController.markAllAsRead(req, res));
 
-/**
- * @route   DELETE /api/notifications/:id
- * @desc    Delete a notification
- * @access  Private
- */
-router.delete('/:id', (req, res) => notificationController.deleteNotification(req, res));
-
-/**
- * @route   DELETE /api/notifications
- * @desc    Delete all notifications for authenticated user
- * @access  Private
- */
-router.delete('/', (req, res) => notificationController.deleteAllNotifications(req, res));
-
 // ============================================
-// Push Token Routes
+// Push Token Routes (must be before :id routes)
 // ============================================
 
 /**
@@ -108,5 +80,37 @@ router.delete('/push-tokens/:token', (req, res) => pushTokenController.deactivat
  * @access  Private
  */
 router.delete('/push-tokens', (req, res) => pushTokenController.deactivateAllTokens(req, res));
+
+// ============================================
+// Dynamic :id routes (must be after static routes)
+// ============================================
+
+/**
+ * @route   GET /api/notifications/:id
+ * @desc    Get a specific notification by ID
+ * @access  Private
+ */
+router.get('/:id', (req, res) => notificationController.getNotificationById(req, res));
+
+/**
+ * @route   PATCH /api/notifications/:id/read
+ * @desc    Mark a notification as read
+ * @access  Private
+ */
+router.patch('/:id/read', (req, res) => notificationController.markAsRead(req, res));
+
+/**
+ * @route   DELETE /api/notifications/:id
+ * @desc    Delete a notification
+ * @access  Private
+ */
+router.delete('/:id', (req, res) => notificationController.deleteNotification(req, res));
+
+/**
+ * @route   DELETE /api/notifications
+ * @desc    Delete all notifications for authenticated user
+ * @access  Private
+ */
+router.delete('/', (req, res) => notificationController.deleteAllNotifications(req, res));
 
 export default router;
