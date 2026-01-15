@@ -626,6 +626,8 @@ export class OrderController {
    * Cancel order (Shop only - can cancel paid/approved/scheduled orders)
    * POST /api/services/orders/:id/shop-cancel
    * Body: { cancellationReason: string, cancellationNotes?: string }
+   *
+   * This will process full refund (RCN + Stripe) since shop initiated cancellation
    */
   cancelOrderByShop = async (req: Request, res: Response) => {
     try {
@@ -661,42 +663,22 @@ export class OrderController {
         return res.status(400).json({ success: false, error: 'Order is already cancelled' });
       }
 
-      // Update order with cancellation data (prefix reason with 'shop:' to distinguish)
-      const updatedOrder = await this.orderRepository.updateCancellationData(
+      // Process cancellation with full refund using PaymentService
+      const refundResult = await this.paymentService.processShopCancellationRefund(
         id,
         `shop:${cancellationReason}`,
         cancellationNotes
       );
 
-      // Send notification to customer
-      try {
-        const service = await this.serviceRepository.getServiceById(order.serviceId);
-        const shop = await shopRepository.getShop(shopId);
-
-        if (service && shop) {
-          await this.notificationService.createNotification({
-            senderAddress: 'SYSTEM',
-            receiverAddress: order.customerAddress,
-            notificationType: 'service_cancelled_by_shop',
-            message: `Your booking for ${service.serviceName} at ${shop.name} has been cancelled`,
-            metadata: {
-              orderId: id,
-              serviceName: service.serviceName,
-              shopName: shop.name,
-              reason: cancellationReason,
-              notes: cancellationNotes,
-              timestamp: new Date().toISOString()
-            }
-          });
-        }
-      } catch (notifError) {
-        logger.error('Failed to send shop cancellation notification:', notifError);
-      }
-
       res.json({
         success: true,
-        message: 'Booking cancelled successfully',
-        data: updatedOrder
+        message: 'Booking cancelled and refund processed',
+        data: {
+          orderId: id,
+          rcnRefunded: refundResult.rcnRefunded,
+          stripeRefunded: refundResult.stripeRefunded,
+          refundStatus: refundResult.refundStatus
+        }
       });
     } catch (error: unknown) {
       logger.error('Error in cancelOrderByShop controller:', error);

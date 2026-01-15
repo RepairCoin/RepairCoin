@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Clock, CheckCircle, Calendar, Package, Info } from "lucide-react";
-import { MockBooking, getStatusLabel, getStatusColor, formatDate, truncateAddress } from "./mockData";
+import { MockBooking, getStatusLabel, getStatusColor, formatDate, formatTime12Hour, truncateAddress } from "./mockData";
 
 interface BookingCardProps {
   booking: MockBooking;
@@ -190,7 +190,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         </div>
         <div className="bg-[#0D0D0D] rounded-lg p-2">
           <p className="text-gray-500 text-xs">Time</p>
-          <p className="text-white font-medium">{booking.serviceTime}</p>
+          <p className="text-white font-medium">{formatTime12Hour(booking.serviceTime)}</p>
         </div>
         <div className="bg-[#0D0D0D] rounded-lg p-2">
           <p className="text-gray-500 text-xs">Cost</p>

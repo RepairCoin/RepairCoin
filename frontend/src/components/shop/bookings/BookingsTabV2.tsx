@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Home, ChevronRight, Loader2, RefreshCw } from "lucide-react";
-import { mockBookings, MockBooking, Message, transformApiOrder } from "./mockData";
+import { mockBookings, MockBooking, Message, transformApiOrder, formatTime12Hour } from "./mockData";
 import { BookingStatsCards } from "./BookingStatsCards";
 import { BookingFilters } from "./BookingFilters";
 import { BookingCard } from "./BookingCard";
@@ -226,7 +226,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
             id: `tl-${Date.now()}`,
             type: 'scheduled' as const,
             timestamp: new Date().toISOString(),
-            description: `Service scheduled for ${b.serviceDate} at ${b.serviceTime}`
+            description: `Service scheduled for ${b.serviceDate} at ${formatTime12Hour(b.serviceTime)}`
           }
         ];
         return { ...b, status: 'scheduled' as const, timeline: newTimeline };

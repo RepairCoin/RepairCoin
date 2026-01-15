@@ -416,6 +416,47 @@ export const formatTime = (dateString: string): string => {
   });
 };
 
+/**
+ * Format a time string (HH:MM:SS or HH:MM) to 12-hour format with AM/PM
+ * Also handles ISO timestamps and already formatted times
+ */
+export const formatTime12Hour = (timeString: string): string => {
+  if (!timeString) return '';
+
+  // If already in 12-hour format (contains AM or PM), return as-is
+  if (timeString.includes('AM') || timeString.includes('PM')) {
+    return timeString;
+  }
+
+  // If it's an ISO timestamp, parse and format
+  if (timeString.includes('T') || timeString.includes('-')) {
+    const date = new Date(timeString);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+  }
+
+  // Parse HH:MM:SS or HH:MM format
+  const timeParts = timeString.split(':');
+  if (timeParts.length >= 2) {
+    const hours = parseInt(timeParts[0], 10);
+    const minutes = timeParts[1];
+
+    if (!isNaN(hours)) {
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      return `${hours12}:${minutes} ${period}`;
+    }
+  }
+
+  // Fallback: return original
+  return timeString;
+};
+
 export const truncateAddress = (address: string): string => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };

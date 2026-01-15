@@ -2,7 +2,7 @@
 
 import React from "react";
 import { User, MapPin, Phone, Wallet, Calendar, Clock, CreditCard, Coins, Package, Copy, Check } from "lucide-react";
-import { MockBooking, getTierColor, formatDate, truncateAddress } from "../mockData";
+import { MockBooking, getTierColor, formatDate, formatTime12Hour, truncateAddress } from "../mockData";
 import { toast } from "react-hot-toast";
 
 interface BookingOverviewTabProps {
@@ -117,7 +117,7 @@ export const BookingOverviewTab: React.FC<BookingOverviewTabProps> = ({ booking 
           </div>
           <div>
             <p className="text-gray-500 text-sm">Time</p>
-            <p className="text-white font-medium">{booking.serviceTime}</p>
+            <p className="text-white font-medium">{formatTime12Hour(booking.serviceTime)}</p>
           </div>
           <div>
             <p className="text-gray-500 text-sm">Amount</p>
