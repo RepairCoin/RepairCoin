@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import {
@@ -17,8 +17,12 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Store,
-  RotateCcw
+  RotateCcw,
+  Home,
+  ClipboardList
 } from "lucide-react";
 import { getCustomerOrders, ServiceOrderWithDetails, servicesApi } from "@/services/api/services";
 import { WriteReviewModal } from "./WriteReviewModal";
@@ -38,6 +42,27 @@ export const ServiceOrdersTab: React.FC = () => {
   const [sortBy, setSortBy] = useState<"date" | "status">("date");
   const [viewingOrder, setViewingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const filterScrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+
+  const handleFilterScroll = () => {
+    if (filterScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = filterScrollRef.current;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  const scrollFilters = (direction: 'left' | 'right') => {
+    if (filterScrollRef.current) {
+      const scrollAmount = 150;
+      filterScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   useEffect(() => {
     loadOrders();
@@ -238,88 +263,116 @@ export const ServiceOrdersTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <ShoppingBag className="w-8 h-8 text-[#FFCC00]" />
-            <h1 className="text-3xl font-bold text-white">My Bookings</h1>
-          </div>
-          <p className="text-gray-400">View and manage your service bookings</p>
+    <div className="space-y-4">
+      {/* Breadcrumb & Subtitle */}
+      <div className="border-b border-gray-800 pb-4 mb-2">
+        <div className="flex items-center gap-3 mb-2">
+          <Home className="w-5 h-5 text-gray-300" />
+          <span className="text-gray-400">&gt;</span>
+          <ClipboardList className="w-5 h-5 text-[#FFCC00]" />
+          <span className="text-[#FFCC00] font-semibold">My Bookings</span>
         </div>
-
-        {/* Sort Dropdown */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400">Sort by</span>
-          <button className="px-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-white text-sm hover:border-[#FFCC00]/50 transition-colors">
-            Date
-          </button>
-        </div>
+        <p className="text-gray-400">View your booked services, payment status, and real-time progress updates from shops.</p>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={() => setFilter("all")}
-          className={`relative px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-            filter === "all"
-              ? "bg-[#FFCC00] text-black"
-              : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50"
-          }`}
-        >
-          All
-          {filter === "all" && summary.pending > 0 && (
-            <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              {summary.pending}
-            </span>
+      {/* Filter Tabs & Sort */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Filter Buttons - Horizontal scroll on mobile with arrows */}
+        <div className="relative flex items-center">
+          {/* Left Arrow */}
+          {showLeftArrow && (
+            <button
+              onClick={() => scrollFilters('left')}
+              className="sm:hidden absolute -left-1 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center bg-[#1A1A1A] border border-gray-700 rounded-full shadow-lg active:scale-95 transition-transform"
+            >
+              <ChevronLeft className="w-4 h-4 text-[#FFCC00]" />
+            </button>
           )}
-        </button>
-        <button
-          onClick={() => setFilter("pending")}
-          className={`relative px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-            filter === "pending"
-              ? "bg-[#FFCC00] text-black"
-              : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50"
-          }`}
-        >
-          Pending
-          {summary.pending > 0 && (
-            <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              {summary.pending}
-            </span>
+
+          {/* Scrollable Filter Container */}
+          <div
+            ref={filterScrollRef}
+            onScroll={handleFilterScroll}
+            className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
+            <div className="flex gap-2 sm:gap-3 flex-nowrap min-w-max pt-2">
+              <button
+                onClick={() => setFilter("all")}
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                  filter === "all"
+                    ? "bg-[#FFCC00] text-black"
+                    : "bg-gray-200 text-black hover:bg-gray-300"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter("pending")}
+                className={`relative px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                  filter === "pending"
+                    ? "bg-[#FFCC00] text-black"
+                    : "bg-gray-200 text-black hover:bg-gray-300"
+                }`}
+              >
+                Pending
+                {summary.pending > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setFilter("paid")}
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                  filter === "paid"
+                    ? "bg-[#FFCC00] text-black"
+                    : "bg-gray-200 text-black hover:bg-gray-300"
+                }`}
+              >
+                Paid
+              </button>
+              <button
+                onClick={() => setFilter("completed")}
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                  filter === "completed"
+                    ? "bg-[#FFCC00] text-black"
+                    : "bg-gray-200 text-black hover:bg-gray-300"
+                }`}
+              >
+                Completed
+              </button>
+              <button
+                onClick={() => setFilter("cancelled")}
+                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                  filter === "cancelled"
+                    ? "bg-[#FFCC00] text-black"
+                    : "bg-gray-200 text-black hover:bg-gray-300"
+                }`}
+              >
+                Cancelled
+              </button>
+            </div>
+          </div>
+
+          {/* Right Arrow */}
+          {showRightArrow && (
+            <button
+              onClick={() => scrollFilters('right')}
+              className="sm:hidden absolute -right-1 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center bg-[#1A1A1A] border border-gray-700 rounded-full shadow-lg active:scale-95 transition-transform"
+            >
+              <ChevronRight className="w-4 h-4 text-[#FFCC00]" />
+            </button>
           )}
-        </button>
-        <button
-          onClick={() => setFilter("paid")}
-          className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-            filter === "paid"
-              ? "bg-[#FFCC00] text-black"
-              : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50"
-          }`}
-        >
-          Paid
-        </button>
-        <button
-          onClick={() => setFilter("completed")}
-          className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-            filter === "completed"
-              ? "bg-[#FFCC00] text-black"
-              : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50"
-          }`}
-        >
-          Completed
-        </button>
-        <button
-          onClick={() => setFilter("cancelled")}
-          className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-            filter === "cancelled"
-              ? "bg-[#FFCC00] text-black"
-              : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50"
-          }`}
-        >
-          Cancelled
-        </button>
+        </div>
+
+        {/* Sort Dropdown - Hidden on mobile */}
+        <div className="hidden sm:flex items-center gap-2">
+          <span className="text-sm text-gray-500">Sort by:</span>
+          <button className="px-3 py-1.5 bg-transparent border border-gray-700 rounded-lg text-white text-sm hover:border-gray-500 transition-colors flex items-center gap-2">
+            Date
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
       </div>
 
       {/* Orders List */}
@@ -340,7 +393,7 @@ export const ServiceOrdersTab: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Bookings Cards */}
           <div className="lg:col-span-2 space-y-4">
             {orders.map((order) => {
@@ -436,18 +489,19 @@ export const ServiceOrdersTab: React.FC = () => {
                     ) : undefined
                   }
                   actionButtons={
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex flex-wrap gap-2 justify-end">
                       <button
                         onClick={() => setViewingOrder(order)}
-                        className="flex items-center justify-center gap-1.5 bg-[#FFCC00] text-black font-semibold px-4 py-2 rounded-lg hover:bg-[#FFD700] transition-colors text-sm"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#FFCC00] text-black font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-[#FFD700] transition-colors text-sm"
                       >
                         <Eye className="w-4 h-4" />
-                        View Details
+                        <span className="hidden sm:inline">View Details</span>
+                        <span className="sm:hidden">View</span>
                       </button>
                       {order.status === "pending" && (
                         <button
                           onClick={() => setCancellingOrder(order)}
-                          className="flex items-center gap-1.5 bg-red-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-red-600 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
                         >
                           <XCircle className="w-4 h-4" />
                           Cancel
@@ -456,7 +510,7 @@ export const ServiceOrdersTab: React.FC = () => {
                       {order.status === "completed" && reviewEligibility.get(order.orderId) === true && (
                         <button
                           onClick={() => handleWriteReview(order)}
-                          className="flex items-center gap-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold px-4 py-2 rounded-lg hover:from-green-500 hover:to-green-400 transition-all text-sm"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg hover:from-green-500 hover:to-green-400 transition-all text-sm"
                         >
                           <Star className="w-4 h-4" />
                           Review
@@ -465,10 +519,11 @@ export const ServiceOrdersTab: React.FC = () => {
                       {(order.status === "completed" || order.status === "cancelled") && (
                         <button
                           onClick={() => handleBookAgain(order)}
-                          className="flex items-center gap-1.5 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-blue-600 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                         >
                           <RotateCcw className="w-4 h-4" />
-                          Book Again
+                          <span className="hidden sm:inline">Book Again</span>
+                          <span className="sm:hidden">Rebook</span>
                         </button>
                       )}
                     </div>
@@ -496,8 +551,8 @@ export const ServiceOrdersTab: React.FC = () => {
             })}
           </div>
 
-          {/* Quick Summary Sidebar */}
-          <div className="space-y-4">
+          {/* Quick Summary Sidebar - Hidden on mobile */}
+          <div className="hidden lg:block space-y-4">
             {/* Summary Card */}
             <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-gray-800 rounded-xl p-5 sticky top-4">
               <div className="flex items-center gap-2 mb-4">

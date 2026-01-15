@@ -163,24 +163,6 @@ export default function CustomerDashboardClient() {
             />
           )}
 
-          {/* Filter Tabs - Mobile Navigation */}
-          <FilterTabs
-            tabs={[
-              { value: "overview", label: "Overview" },
-              { value: "marketplace", label: "Marketplace" },
-              { value: "orders", label: "Bookings" },
-              { value: "appointments", label: "Appointments" },
-              { value: "referrals", label: "Referrals" },
-              { value: "approvals", label: "Approvals" },
-              { value: "findshop", label: "Find Shop" },
-              { value: "gifting", label: "Gift Tokens" },
-              { value: "settings", label: "Settings" },
-            ]}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            className="mb-6 lg:hidden"
-          />
-
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}
 
