@@ -301,18 +301,6 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
           );
         })}
       </View>
-
-      {/* Cancelled/Refunded State */}
-      {isCancelled && (
-        <View className="mt-3 flex-row items-center justify-center p-2 bg-red-900/20 rounded-lg">
-          <Feather name="x-circle" size={16} color="#ef4444" />
-          <Text className="text-red-400 text-sm ml-2 font-medium">
-            {currentStatus === "cancelled"
-              ? "Booking Cancelled"
-              : "Booking Refunded"}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -450,7 +438,7 @@ export default function BookingDetailScreen() {
     // Pending - waiting for payment
     if (booking.status === "pending") {
       return (
-        <View className="space-y-3">
+        <View className="space-y-3 gap-2">
           {/* Info Message */}
           <View className="flex-row items-start p-3 bg-[#1a1a1a] rounded-xl border border-yellow-800">
             <Ionicons name="information-circle" size={20} color="#eab308" />
@@ -522,7 +510,7 @@ export default function BookingDetailScreen() {
     // Paid and approved - show Mark Complete button
     if (booking.status === "paid" && isApproved) {
       return (
-        <View className="space-y-3">
+        <View className="space-y-3 gap-2">
           {/* Info Message */}
           <View className="flex-row items-start p-3 bg-[#1a1a1a] rounded-xl border border-green-800">
             <Ionicons name="information-circle" size={20} color="#22c55e" />
@@ -630,7 +618,7 @@ export default function BookingDetailScreen() {
               router.push(`/customer/review/${booking.orderId}?${params.toString()}` as any);
             }}
             disabled={booking.hasReview}
-            className={`py-4 rounded-xl items-center ${booking.hasReview ? "bg-zinc-800" : "bg-[#FFCC00]"}`}
+            className={`py-4 rounded-xl mt-4 items-center ${booking.hasReview ? "bg-zinc-800" : "bg-[#FFCC00]"}`}
           >
             <View className="flex-row items-center">
               <Ionicons
