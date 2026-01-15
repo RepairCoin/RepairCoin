@@ -222,9 +222,9 @@ export function GroupPerformanceSection() {
                     <div className="flex-1">
                       <h4 className="font-semibold text-white mb-1">{service.serviceName}</h4>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {service.groups.map((group) => (
+                        {service.groups.map((group, index) => (
                           <div
-                            key={group.groupId}
+                            key={`${service.serviceId}-${group.groupId}-${index}`}
                             className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-purple-600/20 to-purple-500/20 border border-purple-500/30 text-purple-300 rounded-lg text-xs font-semibold"
                           >
                             <span>{group.customTokenSymbol}</span>
