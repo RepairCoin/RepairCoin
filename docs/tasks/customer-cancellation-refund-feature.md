@@ -6,6 +6,43 @@ This document analyzes the current booking cancellation system and proposes enha
 
 ---
 
+## Implementation Status
+
+### ✅ IMPLEMENTED (Working)
+
+| Feature | Location | Notes |
+|---------|----------|-------|
+| Customer cancel with full RCN refund | `PaymentService.cancelOrder()` | Refunds all redeemed RCN tokens |
+| Customer cancel with full Stripe refund | `PaymentService.cancelOrder()` | Full payment refunded to card |
+| **Shop cancel with full RCN refund** | `PaymentService.processShopCancellationRefund()` | **NEW** - Refunds customer RCN |
+| **Shop cancel with full Stripe refund** | `PaymentService.processShopCancellationRefund()` | **NEW** - Refunds customer payment |
+| 24-hour cancellation restriction | `AppointmentRepository.cancelAppointment()` | Blocks cancellation < 24hrs before appointment |
+| Cancellation notifications | `PaymentService.cancelOrder()` | Notifies customer and shop |
+| Order status update to 'cancelled' | `OrderRepository.updateCancellationData()` | Records reason and notes |
+
+### ❌ NOT IMPLEMENTED (Proposed)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| ~~**Shop cancellation with refund**~~ | ~~**CRITICAL**~~ | ✅ **IMPLEMENTED Jan 15, 2026** - see `shop-cancellation-refund-integration.md` |
+| Tiered refund system | Medium | 100%/75%/50%/25%/0% based on time until appointment |
+| Shop-configurable cancellation policies | Medium | Allow shops to set their own refund tiers |
+| `shop_cancellation_policies` table | Medium | Database schema for policy storage |
+| Partial refund support | Medium | Stripe and RCN partial refunds |
+| Refund preview API | Low | `/refund-preview` endpoint for UI |
+| Cancellation fee mechanism | Low | Fixed fee deducted from refunds |
+| Customer trust score impact | Low | Track cancellation patterns |
+
+### ⚠️ KNOWN ISSUES
+
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| ~~Shop cancellation no refund~~ | ~~CRITICAL~~ | ✅ **FIXED Jan 15, 2026** - Now uses `PaymentService.processShopCancellationRefund()` |
+| Dual endpoint confusion | Medium | `/orders/:id/cancel` (has refund) vs `/appointments/cancel/:orderId` (no refund) |
+| Hardcoded 24hr restriction | Low | Not shop-configurable |
+
+---
+
 ## Current Implementation Analysis
 
 ### Architecture Overview
@@ -411,13 +448,19 @@ const RefundPreview = ({ order }) => {
 
 ## Summary
 
-### Current State
-- Basic cancellation works with full refund
-- 24-hour restriction exists but inconsistently applied
-- No partial refund support
-- No shop-configurable policies
+### Current State (as of January 15, 2026)
+- ✅ Customer cancellation works with full refund (RCN + Stripe)
+- ✅ **Shop cancellation works with full refund (RCN + Stripe)** - FIXED!
+- ✅ 24-hour cancellation restriction enforced
+- ✅ Notifications sent to customer and shop (with refund details)
+- ❌ No partial refund support
+- ❌ No shop-configurable policies
+- ❌ No tiered refund system
 
-### Target State
+### Next Priority
+1. **Tiered refund system** - Implement time-based refund percentages for customer cancellations
+
+### Target State (Future)
 - Tiered refund system based on time until appointment
 - Shop-configurable cancellation policies
 - Partial refund support for Stripe and RCN
@@ -427,4 +470,5 @@ const RefundPreview = ({ order }) => {
 ---
 
 *Document created: January 2, 2026*
-*Status: Ready for implementation planning*
+*Last updated: January 15, 2026*
+*Status: Shop cancellation refund IMPLEMENTED - Both customer and shop cancellations now process full refunds*

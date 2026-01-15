@@ -4,7 +4,7 @@
 
 This document outlines the current state of subscription-related notifications, identifies gaps, and provides a strategy for implementing missing notifications including SMS via Twilio.
 
-**Last Updated**: January 09, 2026
+**Last Updated**: January 16, 2026
 
 ---
 
@@ -30,6 +30,7 @@ This document outlines the current state of subscription-related notifications, 
 | Jan 09, 2026 | Shop Suspend Email | Email | `EmailService.ts`, `ShopManagementService.ts` |
 | Jan 09, 2026 | Shop Unsuspend In-App + WebSocket | In-App | `NotificationService.ts`, `NotificationDomain.ts`, `ShopManagementService.ts` |
 | Jan 09, 2026 | Shop Unsuspend Email | Email | `EmailService.ts`, `ShopManagementService.ts` |
+| Jan 16, 2026 | Booking Cancelled by Shop Email | Email | `EmailService.ts`, `PaymentService.ts` |
 
 ### In Progress 🔄
 
@@ -62,6 +63,7 @@ This document outlines the current state of subscription-related notifications, 
 | Auto-Cancel (Grace Period) | ❌ No | - | Only email sent |
 | Admin Suspend Shop | ✅ Yes | Admin action | `ShopManagementService.ts` |
 | Admin Unsuspend Shop | ✅ Yes | Admin action | `ShopManagementService.ts` |
+| Booking Cancelled by Shop | ✅ Yes | Shop action | `PaymentService.ts` |
 
 ### Email Notifications (EmailService)
 
@@ -79,6 +81,7 @@ This document outlines the current state of subscription-related notifications, 
 | Shop Self-Cancel | ✅ Yes | `sendSubscriptionCancelledByShop()` | **Added Dec 29, 2024** |
 | Admin Suspend Shop | ✅ Yes | `sendShopSuspendedByAdmin()` | **Added Jan 09, 2026** |
 | Admin Unsuspend Shop | ✅ Yes | `sendShopUnsuspendedByAdmin()` | **Added Jan 09, 2026** |
+| Booking Cancelled by Shop | ✅ Yes | `sendBookingCancelledByShop()` | **Added Jan 16, 2026** |
 | Subscription Activated | ❌ No | - | Only in-app (no email) |
 
 ### SMS Notifications
@@ -146,7 +149,11 @@ backend/src/services/EmailService.ts
   - ✅ Added: sendSubscriptionResumedByAdmin()
   - ✅ Added: sendSubscriptionReactivatedByAdmin()
   - ✅ Added: sendSubscriptionCancelledByShop() (Dec 29, 2024)
+  - ✅ Added: sendBookingCancelledByShop() (Jan 16, 2026)
   - Add: sendSubscriptionActivated()
+
+backend/src/domains/ServiceDomain/services/PaymentService.ts
+  - ✅ Added: Email notification in processShopCancellationRefund() (Jan 16, 2026)
 
 backend/src/domains/shop/routes/subscription.ts
   - ✅ Added notifications to self-cancel endpoint (Dec 29, 2024)
@@ -351,6 +358,115 @@ ALTER TABLE shops ADD COLUMN sms_opt_out_at TIMESTAMP;
 | Admin Unsuspend Shop | ✅ | ✅ | ❌ |
 | Trial Welcome | ✅ | ✅ | ❌ |
 | Trial Ending | ✅ | ✅ | ✅ |
+| Booking Cancelled by Shop | ✅ | ✅ | ❌ |
+
+---
+
+## Booking Cancelled by Shop Email (Added Jan 16, 2026)
+
+### Overview
+
+When a shop cancels a customer's booking, the customer now receives an email notification with full refund details.
+
+### Trigger
+
+- **Endpoint**: `POST /api/services/orders/:id/shop-cancel`
+- **Handler**: `PaymentService.processShopCancellationRefund()`
+- **Condition**: Customer must have an email address on file
+
+### Email Data Interface
+
+```typescript
+// backend/src/services/EmailService.ts
+export interface BookingCancelledByShopData {
+  customerEmail: string;
+  customerName: string;
+  shopName: string;
+  serviceName: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  cancellationReason?: string;
+  rcnRefunded: number;
+  stripeRefunded: number;
+}
+```
+
+### Email Template
+
+**Subject**: `Your booking at [Shop Name] has been cancelled`
+
+**Content**:
+- Greeting with customer name
+- Shop name and service name
+- Booking date and time (if available)
+- Cancellation reason (formatted from: `shop_closed`, `scheduling_conflict`, `service_unavailable`, `other`)
+- Refund information box showing:
+  - RCN tokens refunded (if any)
+  - USD amount refunded to card (if any)
+  - Note about 5-10 business days for card refunds
+
+### Implementation Details
+
+**Files Modified**:
+
+| File | Changes |
+|------|---------|
+| `backend/src/services/EmailService.ts` | Added `BookingCancelledByShopData` interface, added `sendBookingCancelledByShop()` method |
+| `backend/src/domains/ServiceDomain/services/PaymentService.ts` | Imported `EmailService`, added email call after in-app notification in `processShopCancellationRefund()` |
+
+**Code Flow**:
+
+```
+1. Shop clicks "Cancel" on booking
+2. Frontend calls POST /api/services/orders/:id/shop-cancel
+3. OrderController.cancelOrderByShop() validates and calls PaymentService
+4. PaymentService.processShopCancellationRefund():
+   a. Refunds RCN tokens (if any)
+   b. Processes Stripe refund (if paid)
+   c. Updates order status to 'cancelled'
+   d. Creates in-app notification
+   e. Sends email notification (NEW)
+5. Customer receives both in-app and email notifications
+```
+
+### Email Preview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Booking Cancelled                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Hi [Customer Name],                                         │
+│                                                              │
+│  We're sorry to inform you that [Shop Name] has cancelled   │
+│  your booking.                                               │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Service: [Service Name]                              │    │
+│  │ Date: [Booking Date]                                 │    │
+│  │ Time: [Booking Time]                                 │    │
+│  │ Reason: [Cancellation Reason]                        │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ ✓ Refund Information:                                │    │
+│  │   [X] RCN tokens and $[Y.YY] will be refunded       │    │
+│  │   Card refunds typically take 5-10 business days.   │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  We apologize for any inconvenience. Feel free to browse    │
+│  other services on RepairCoin.                              │
+│                                                              │
+│  Thank you for using RepairCoin!                            │
+│  The RepairCoin Team                                        │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Related Documentation
+
+- `docs/tasks/shop-cancellation-refund-integration.md` - Full implementation details
+- `docs/tasks/shop-cancellation-refund-fix.md` - Bug fix for Stripe refund reason
 
 ---
 
@@ -367,9 +483,10 @@ ALTER TABLE shops ADD COLUMN sms_opt_out_at TIMESTAMP;
 ## Related Files
 
 ### Current Implementation
-- `backend/src/services/EmailService.ts` - Email sending
+- `backend/src/services/EmailService.ts` - Email sending (includes `sendBookingCancelledByShop()`)
 - `backend/src/domains/notification/services/NotificationService.ts` - In-app notifications
 - `backend/src/domains/notification/NotificationDomain.ts` - Event subscriptions and WebSocket delivery
+- `backend/src/domains/ServiceDomain/services/PaymentService.ts` - Booking cancellation with email notification
 - `backend/src/services/SubscriptionEnforcementService.ts` - Grace period enforcement
 - `backend/src/domains/admin/routes/subscription.ts` - Admin subscription actions
 - `backend/src/domains/admin/services/management/ShopManagementService.ts` - Shop suspend/unsuspend actions

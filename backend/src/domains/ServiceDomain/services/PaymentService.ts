@@ -3,6 +3,7 @@ import { OrderRepository, ServiceOrder } from '../../../repositories/OrderReposi
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
 import { customerRepository, shopRepository } from '../../../repositories';
@@ -92,6 +93,7 @@ export class PaymentService {
   private serviceRepository: ServiceRepository;
   private stripeService: StripeService;
   private notificationService: NotificationService;
+  private emailService: EmailService;
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
 
@@ -100,6 +102,7 @@ export class PaymentService {
     this.serviceRepository = new ServiceRepository();
     this.stripeService = stripeService;
     this.notificationService = new NotificationService();
+    this.emailService = new EmailService();
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
   }
@@ -457,7 +460,12 @@ export class PaymentService {
           throw new Error('Checkout session payment not completed');
         }
         metadata = session.metadata || {};
-        paymentIntentId = paymentIntentOrSessionId;
+        // Extract the actual PaymentIntent ID from the session for refunds to work
+        paymentIntentId = (session.payment_intent as string) || paymentIntentOrSessionId;
+        logger.info('Extracted PaymentIntent ID from checkout session', {
+          sessionId: paymentIntentOrSessionId,
+          paymentIntentId
+        });
       } else {
         // It's a payment intent ID
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentOrSessionId);
@@ -733,14 +741,31 @@ export class PaymentService {
       // 2. Process Stripe refund if payment was made
       if (order.stripePaymentIntentId && (order.status === 'paid')) {
         try {
+          let paymentIntentId = order.stripePaymentIntentId;
+
+          // If stored ID is a checkout session (cs_), retrieve the actual PaymentIntent ID
+          if (paymentIntentId.startsWith('cs_')) {
+            const stripe = this.stripeService.getStripe();
+            const session = await stripe.checkout.sessions.retrieve(paymentIntentId);
+            if (session.payment_intent) {
+              paymentIntentId = session.payment_intent as string;
+              logger.info('Retrieved PaymentIntent ID from checkout session for refund', {
+                sessionId: order.stripePaymentIntentId,
+                paymentIntentId
+              });
+            } else {
+              throw new Error('No PaymentIntent found in checkout session');
+            }
+          }
+
           await this.stripeService.refundPayment(
-            order.stripePaymentIntentId,
+            paymentIntentId,
             'requested_by_customer'
           );
           refundDetails.push(`$${order.finalAmountUsd?.toFixed(2) || '0.00'} refunded to card`);
           logger.info('Stripe payment refunded for cancelled order', {
             orderId,
-            paymentIntentId: order.stripePaymentIntentId,
+            paymentIntentId,
             amount: order.finalAmountUsd
           });
         } catch (stripeError) {
@@ -804,6 +829,206 @@ export class PaymentService {
       });
     } catch (error) {
       logger.error('Error cancelling order:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process refund when shop cancels an order
+   * Always issues full refund since shop initiated the cancellation
+   */
+  async processShopCancellationRefund(
+    orderId: string,
+    cancellationReason: string,
+    cancellationNotes?: string
+  ): Promise<{
+    rcnRefunded: number;
+    stripeRefunded: number;
+    refundStatus: string;
+  }> {
+    logger.info('=== SHOP CANCELLATION REFUND STARTED ===', { orderId, cancellationReason });
+
+    try {
+      const order = await this.orderRepository.getOrderById(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Order found for refund', {
+        orderId,
+        status: order.status,
+        stripePaymentIntentId: order.stripePaymentIntentId,
+        finalAmountUsd: order.finalAmountUsd,
+        rcnRedeemed: order.rcnRedeemed
+      });
+
+      let rcnRefunded = 0;
+      let stripeRefunded = 0;
+      const refundDetails: string[] = [];
+
+      // 1. Refund RCN if any was redeemed
+      if (order.rcnRedeemed && order.rcnRedeemed > 0) {
+        try {
+          await customerRepository.refundRcnAfterCancellation(
+            order.customerAddress,
+            order.rcnRedeemed
+          );
+          rcnRefunded = order.rcnRedeemed;
+          refundDetails.push(`${order.rcnRedeemed} RCN refunded`);
+          logger.info('RCN refunded for shop-cancelled order', {
+            orderId,
+            customerAddress: order.customerAddress,
+            rcnAmount: order.rcnRedeemed
+          });
+        } catch (rcnError) {
+          logger.error('Failed to refund RCN for shop cancellation:', rcnError);
+          refundDetails.push('RCN refund failed - manual processing required');
+        }
+      }
+
+      // 2. Process Stripe refund if payment was made
+      // Check for stripePaymentIntentId existence - payment was made regardless of current status
+      // Status could be 'paid', or still 'paid' with shopApproved flag (shown as 'scheduled' in UI)
+      logger.info('Checking Stripe refund condition', {
+        hasStripeId: !!order.stripePaymentIntentId,
+        stripeId: order.stripePaymentIntentId,
+        orderStatus: order.status,
+        conditionResult: !!(order.stripePaymentIntentId && order.status !== 'pending')
+      });
+
+      if (order.stripePaymentIntentId && order.status !== 'pending') {
+        logger.info('=== PROCESSING STRIPE REFUND ===');
+        try {
+          let paymentIntentId = order.stripePaymentIntentId;
+
+          // If stored ID is a checkout session (cs_), retrieve the actual PaymentIntent ID
+          if (paymentIntentId.startsWith('cs_')) {
+            const stripe = this.stripeService.getStripe();
+            const session = await stripe.checkout.sessions.retrieve(paymentIntentId);
+            if (session.payment_intent) {
+              paymentIntentId = session.payment_intent as string;
+              logger.info('Retrieved PaymentIntent ID from checkout session for refund', {
+                sessionId: order.stripePaymentIntentId,
+                paymentIntentId
+              });
+            } else {
+              throw new Error('No PaymentIntent found in checkout session');
+            }
+          }
+
+          await this.stripeService.refundPayment(
+            paymentIntentId,
+            'requested_by_customer'  // Stripe only accepts: duplicate, fraudulent, requested_by_customer
+          );
+          stripeRefunded = order.finalAmountUsd || 0;
+          refundDetails.push(`$${stripeRefunded.toFixed(2)} refunded to card`);
+          logger.info('Stripe payment refunded for shop-cancelled order', {
+            orderId,
+            paymentIntentId,
+            amount: stripeRefunded
+          });
+        } catch (stripeError) {
+          logger.error('Failed to process Stripe refund for shop cancellation:', stripeError);
+          refundDetails.push('Payment refund initiated - may take 5-10 business days');
+        }
+      }
+
+      // 3. Update order with cancellation details
+      await this.orderRepository.updateCancellationData(
+        orderId,
+        cancellationReason,
+        cancellationNotes
+      );
+
+      // 4. Send notification to customer with refund info
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        const shop = await shopRepository.getShop(order.shopId);
+
+        if (service && shop) {
+          const refundMessage = refundDetails.length > 0
+            ? `. Refund: ${refundDetails.join(', ')}`
+            : '';
+
+          await this.notificationService.createNotification({
+            senderAddress: 'SYSTEM',
+            receiverAddress: order.customerAddress,
+            notificationType: 'service_cancelled_by_shop',
+            message: `Your booking for ${service.serviceName} at ${shop.name} has been cancelled by the shop${refundMessage}`,
+            metadata: {
+              orderId,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              reason: cancellationReason.replace('shop:', ''),
+              notes: cancellationNotes,
+              rcnRefunded,
+              stripeRefunded,
+              timestamp: new Date().toISOString()
+            }
+          });
+
+          // 5. Send email notification to customer
+          const customer = await customerRepository.getCustomer(order.customerAddress);
+          if (customer?.email) {
+            // Format booking date and time if available
+            let bookingDateStr: string | undefined;
+            let bookingTimeStr: string | undefined;
+            if (order.bookingDate) {
+              const bookingDateTime = new Date(order.bookingDate);
+              bookingDateStr = bookingDateTime.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              });
+            }
+            if (order.bookingTime) {
+              // bookingTime is stored as HH:MM or HH:MM:SS string
+              const [hours, minutes] = order.bookingTime.split(':').map(Number);
+              const tempDate = new Date();
+              tempDate.setHours(hours, minutes, 0, 0);
+              bookingTimeStr = tempDate.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              });
+            }
+
+            await this.emailService.sendBookingCancelledByShop({
+              customerEmail: customer.email,
+              customerName: customer.name || customer.first_name || 'Customer',
+              shopName: shop.name,
+              serviceName: service.serviceName,
+              bookingDate: bookingDateStr,
+              bookingTime: bookingTimeStr,
+              cancellationReason: cancellationReason.replace('shop:', '').replace(/_/g, ' '),
+              rcnRefunded,
+              stripeRefunded
+            });
+            logger.info('Booking cancellation email sent to customer', {
+              orderId,
+              customerEmail: customer.email
+            });
+          }
+        }
+      } catch (notifError) {
+        logger.error('Failed to send shop cancellation notification:', notifError);
+      }
+
+      logger.info('Shop cancellation processed with refund', {
+        orderId,
+        rcnRefunded,
+        stripeRefunded,
+        refundStatus: refundDetails.join(', ')
+      });
+
+      return {
+        rcnRefunded,
+        stripeRefunded,
+        refundStatus: refundDetails.length > 0 ? refundDetails.join(', ') : 'No refunds required'
+      };
+    } catch (error) {
+      logger.error('Error processing shop cancellation refund:', error);
       throw error;
     }
   }
