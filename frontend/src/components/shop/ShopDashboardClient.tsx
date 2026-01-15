@@ -19,7 +19,6 @@ import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { RedeemTabV2 } from "@/components/shop/tabs/RedeemTabV2";
 import { IssueRewardsTab } from "@/components/shop/tabs/IssueRewardsTab";
-import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
@@ -1061,10 +1060,6 @@ export default function ShopDashboardClient() {
 
           {activeTab === "customers" && shopData && (
             <CustomersTab shopId={shopData.shopId} />
-          )}
-
-          {activeTab === "lookup" && shopData && (
-            <CustomerLookupTab shopId={shopData.shopId} />
           )}
 
           {activeTab === "promo-codes" && shopData && (

@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import * as messagingApi from '@/services/api/messaging';
+import { MessagePreviewDropdown } from './MessagePreviewDropdown';
 
 export const MessageIcon: React.FC = () => {
-  const router = useRouter();
   const { userType } = useAuthStore();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Fetch unread message count
   useEffect(() => {
@@ -49,11 +49,7 @@ export const MessageIcon: React.FC = () => {
   }, [userType]);
 
   const handleClick = () => {
-    if (userType === 'customer') {
-      router.push('/customer?tab=messages');
-    } else if (userType === 'shop') {
-      router.push('/shop?tab=messages');
-    }
+    setIsDropdownOpen(!isDropdownOpen);
   };
 
   return (
@@ -74,6 +70,13 @@ export const MessageIcon: React.FC = () => {
           </span>
         )}
       </button>
+
+      {/* Message Preview Dropdown */}
+      <MessagePreviewDropdown
+        isOpen={isDropdownOpen}
+        onClose={() => setIsDropdownOpen(false)}
+        unreadCount={unreadCount}
+      />
     </div>
   );
 };

@@ -29,7 +29,6 @@ import {
   OverviewIcon,
   CustomerIcon,
   BuyRcnIcon,
-  LookupIcon,
 } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
@@ -151,18 +150,6 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=customers",
           icon: <UsersIcon className="w-5 h-5" />,
           tabId: "customers",
-        },
-        {
-          title: "Lookup",
-          href: "/shop?tab=lookup",
-          icon: (
-            <LookupIcon
-              width={24}
-              height={24}
-              isActive={activeTab === "lookup"}
-            />
-          ),
-          tabId: "lookup",
         },
       ],
     },
