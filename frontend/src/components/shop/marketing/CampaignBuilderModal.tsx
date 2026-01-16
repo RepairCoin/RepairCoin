@@ -523,12 +523,23 @@ export function CampaignBuilderModal({
   const handleSelectService = (blockId: string, serviceId: string) => {
     const service = services.find(s => s.serviceId === serviceId);
     if (service) {
+      // Update the service card block
       handleUpdateBlock(blockId, {
         serviceId: service.serviceId,
         serviceName: service.serviceName,
         servicePrice: service.priceUsd,
         serviceImage: service.imageUrl,
       });
+
+      // Also update any button blocks with the service URL
+      const serviceUrl = `${window.location.origin}/customer?tab=marketplace&service=${service.serviceId}`;
+      setBlocks(prevBlocks =>
+        prevBlocks.map(block =>
+          block.type === 'button'
+            ? { ...block, href: serviceUrl }
+            : block
+        )
+      );
     }
   };
 
@@ -564,6 +575,10 @@ export function CampaignBuilderModal({
     try {
       setSaving(true);
 
+      // Extract serviceId from service_card block if present
+      const serviceCardBlock = blocks.find(b => b.type === 'service_card' && b.serviceId);
+      const selectedServiceId = serviceCardBlock?.serviceId;
+
       // Always use select_customers since we're using the customer list approach
       const campaignData: CreateCampaignData = {
         name,
@@ -573,6 +588,7 @@ export function CampaignBuilderModal({
         audienceType: 'select_customers',
         deliveryMethod: deliveryMethod as any,
         audienceFilters: { selectedAddresses: Array.from(selectedCustomers) },
+        ...(selectedServiceId && { serviceId: selectedServiceId }),
       };
 
       if (campaignType === 'offer_coupon' && selectedPromoCodeId) {
@@ -623,9 +639,7 @@ export function CampaignBuilderModal({
         {/* Header */}
         {headerEnabled && (
           <div className="bg-[#1a1a2e] p-6 text-center">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full mx-auto mb-3 flex items-center justify-center">
-              <span className="text-white text-xl font-bold">RC</span>
-            </div>
+            <img src="/img/landing/repaircoin-icon.png" alt="RepairCoin" className="w-12 h-12 mx-auto mb-3" />
             <h1 className="text-white text-lg font-semibold">{shopName}</h1>
           </div>
         )}

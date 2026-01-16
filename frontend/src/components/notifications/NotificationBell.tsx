@@ -49,9 +49,15 @@ const renderMarketingBlock = (block: any, metadata: any) => {
       );
 
     case 'button':
+      // Build the service URL if serviceId is available
+      const buttonUrl = metadata.serviceId
+        ? `/customer?tab=marketplace&service=${metadata.serviceId}`
+        : block.href || '#';
+
       return (
         <div key={block.id} style={{ textAlign: 'center', margin: '16px 0' }}>
-          <button
+          <a
+            href={buttonUrl}
             style={{
               display: 'inline-block',
               backgroundColor: style.backgroundColor || '#eab308',
@@ -62,10 +68,11 @@ const renderMarketingBlock = (block: any, metadata: any) => {
               fontWeight: 'bold',
               fontSize: '14px',
               cursor: 'pointer',
+              textDecoration: 'none',
             }}
           >
             {block.content}
-          </button>
+          </a>
         </div>
       );
 
@@ -215,12 +222,11 @@ const MarketingCampaignContent: React.FC<{ metadata: any }> = ({ metadata }) => 
           style={{ backgroundColor: design.header?.backgroundColor || '#1a1a2e' }}
         >
           {design.header?.showLogo !== false && (
-            <div
-              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
-            >
-              <span className="text-white font-bold text-lg">RC</span>
-            </div>
+            <img
+              src="/img/landing/repaircoin-icon.png"
+              alt="RepairCoin"
+              className="w-12 h-12 mx-auto mb-3"
+            />
           )}
           <h1 className="text-white text-xl font-bold m-0">{metadata.shopName}</h1>
         </div>

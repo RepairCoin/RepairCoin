@@ -22,7 +22,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -36,7 +41,10 @@ export class MarketingController {
       res.json({ success: true, data: campaigns });
     } catch (error: any) {
       logger.error('Error getting campaigns:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get campaigns'
+      });
     }
   };
 
@@ -55,7 +63,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(campaign.shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -63,7 +76,10 @@ export class MarketingController {
       res.json({ success: true, data: campaign });
     } catch (error: any) {
       logger.error('Error getting campaign:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get campaign'
+      });
     }
   };
 
@@ -92,7 +108,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -123,7 +144,11 @@ export class MarketingController {
       res.status(201).json({ success: true, data: campaign });
     } catch (error: any) {
       logger.error('Error creating campaign:', error);
-      next(error);
+      // Return a more descriptive error message
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to create campaign'
+      });
     }
   };
 
@@ -143,7 +168,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -188,7 +218,11 @@ export class MarketingController {
       res.json({ success: true, data: campaign });
     } catch (error: any) {
       logger.error('Error updating campaign:', error);
-      next(error);
+      // Return a more descriptive error message
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to update campaign'
+      });
     }
   };
 
@@ -207,7 +241,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -222,7 +261,10 @@ export class MarketingController {
       res.json({ success: true, message: 'Campaign deleted' });
     } catch (error: any) {
       logger.error('Error deleting campaign:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to delete campaign'
+      });
     }
   };
 
@@ -241,7 +283,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -261,7 +308,11 @@ export class MarketingController {
       res.json({ success: true, data: result });
     } catch (error: any) {
       logger.error('Error sending campaign:', error);
-      next(error);
+      // Return a more descriptive error message
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to send campaign'
+      });
     }
   };
 
@@ -286,7 +337,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -296,7 +352,10 @@ export class MarketingController {
       res.json({ success: true, data: campaign });
     } catch (error: any) {
       logger.error('Error scheduling campaign:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to schedule campaign'
+      });
     }
   };
 
@@ -315,7 +374,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -325,7 +389,10 @@ export class MarketingController {
       res.json({ success: true, data: campaign });
     } catch (error: any) {
       logger.error('Error cancelling campaign:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to cancel campaign'
+      });
     }
   };
 
@@ -338,7 +405,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -348,7 +420,10 @@ export class MarketingController {
       res.json({ success: true, data: stats });
     } catch (error: any) {
       logger.error('Error getting campaign stats:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get campaign stats'
+      });
     }
   };
 
@@ -362,7 +437,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -376,7 +456,10 @@ export class MarketingController {
       res.json({ success: true, data: { count } });
     } catch (error: any) {
       logger.error('Error getting audience count:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get audience count'
+      });
     }
   };
 
@@ -391,7 +474,12 @@ export class MarketingController {
 
       // Verify shop ownership
       const shop = await this.shopRepo.getShop(shopId);
-      if (!shop || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      if (!shop) {
+        res.status(404).json({ success: false, error: 'Shop not found' });
+        return;
+      }
+
+      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -405,7 +493,10 @@ export class MarketingController {
       res.json({ success: true, data: result });
     } catch (error: any) {
       logger.error('Error getting shop customers:', error);
-      next(error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get shop customers'
+      });
     }
   };
 

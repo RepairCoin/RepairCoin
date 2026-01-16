@@ -242,13 +242,13 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Stats Summary - Unified container with dividers */}
+      {/* Stats Summary - Modern card design */}
       {stats && (
-        <div className="flex flex-col sm:flex-row bg-[#1a1a1a] rounded-xl overflow-hidden">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Campaigns */}
-          <div className="flex-1 flex items-center gap-4 p-4 sm:border-r border-b sm:border-b-0 border-gray-700">
-            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
-              <FileText className="w-5 h-5 text-yellow-400" />
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+            <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
+              <FileText className="w-5 h-5 text-black" />
             </div>
             <div>
               <p className="text-gray-400 text-sm">Total Campaigns</p>
@@ -257,9 +257,9 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
 
           {/* Draft Campaigns */}
-          <div className="flex-1 flex items-center gap-4 p-4 sm:border-r border-b sm:border-b-0 border-gray-700">
-            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
-              <Edit className="w-5 h-5 text-yellow-400" />
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+            <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
+              <Edit className="w-5 h-5 text-black" />
             </div>
             <div>
               <p className="text-gray-400 text-sm">Draft Campaigns</p>
@@ -268,9 +268,9 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
 
           {/* In-App Delivered */}
-          <div className="flex-1 flex items-center gap-4 p-4 sm:border-r border-b sm:border-b-0 border-gray-700">
-            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
-              <Bell className="w-5 h-5 text-yellow-400" />
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+            <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
+              <Bell className="w-5 h-5 text-black" />
             </div>
             <div>
               <p className="text-gray-400 text-sm">In-App Delivered</p>
@@ -279,9 +279,9 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
 
           {/* Email Sent */}
-          <div className="flex-1 flex items-center gap-4 p-4">
-            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
-              <Mail className="w-5 h-5 text-yellow-400" />
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+            <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
+              <Mail className="w-5 h-5 text-black" />
             </div>
             <div>
               <p className="text-gray-400 text-sm">Email Sent</p>

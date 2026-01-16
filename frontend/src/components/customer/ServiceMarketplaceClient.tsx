@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ShoppingBag, Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X } from "lucide-react";
 import { getAllServices, ShopServiceWithShopInfo, servicesApi } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
@@ -18,6 +18,7 @@ import { getAllCustomerBalances, CustomerAffiliateGroupBalance, getAllGroups, Af
 
 export const ServiceMarketplaceClient: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userType, address } = useAuthStore();
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,34 @@ export const ServiceMarketplaceClient: React.FC = () => {
   useEffect(() => {
     loadCustomerGroups();
   }, []);
+
+  // Handle service query parameter to auto-open service details
+  useEffect(() => {
+    const serviceId = searchParams.get('service');
+    if (serviceId && !loading) {
+      // Try to find the service in the loaded services first
+      const foundService = services.find(s => s.serviceId === serviceId);
+      if (foundService) {
+        setSelectedService(foundService);
+      } else {
+        // If not found, fetch it directly
+        servicesApi.getServiceById(serviceId)
+          .then(service => {
+            if (service) {
+              setSelectedService(service as ShopServiceWithShopInfo);
+            }
+          })
+          .catch(err => {
+            console.error('Error loading service from URL:', err);
+            toast.error('Service not found');
+          });
+      }
+      // Clear the service param from URL after handling
+      const url = new URL(window.location.href);
+      url.searchParams.delete('service');
+      window.history.replaceState({}, '', url);
+    }
+  }, [searchParams, loading, services]);
 
   useEffect(() => {
     loadServices();
