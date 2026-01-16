@@ -5,7 +5,6 @@ import { toast } from "react-hot-toast";
 import {
   Plus,
   Send,
-  Clock,
   FileText,
   Users,
   Mail,
@@ -20,9 +19,10 @@ import {
   Megaphone,
   Newspaper,
   Sparkles,
+  ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -54,13 +54,6 @@ interface MarketingTabProps {
   shopName?: string;
 }
 
-const campaignTypeIcons: Record<string, React.ReactNode> = {
-  offer_coupon: <Gift className="w-5 h-5" />,
-  announce_service: <Megaphone className="w-5 h-5" />,
-  newsletter: <Newspaper className="w-5 h-5" />,
-  custom: <Sparkles className="w-5 h-5" />,
-};
-
 const campaignTypeLabels: Record<string, string> = {
   offer_coupon: "Coupon Offer",
   announce_service: "Service Announcement",
@@ -68,12 +61,26 @@ const campaignTypeLabels: Record<string, string> = {
   custom: "Custom Campaign",
 };
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-500",
-  scheduled: "bg-blue-500",
-  sent: "bg-green-500",
-  cancelled: "bg-red-500",
+// New status badge colors matching Figma design
+const statusBadgeStyles: Record<string, { bg: string; text: string; border?: string }> = {
+  draft: { bg: "bg-gray-600/50", text: "text-gray-300" },
+  active: { bg: "bg-green-500/20", text: "text-green-400", border: "border border-green-500/30" },
+  sent: { bg: "bg-green-500/20", text: "text-green-400", border: "border border-green-500/30" },
+  scheduled: { bg: "bg-purple-500/20", text: "text-purple-400", border: "border border-purple-500/30" },
+  expired: { bg: "bg-red-500/20", text: "text-red-400", border: "border border-red-500/30" },
+  paused: { bg: "bg-amber-600/20", text: "text-amber-400", border: "border border-amber-600/30" },
+  cancelled: { bg: "bg-red-500/20", text: "text-red-400", border: "border border-red-500/30" },
 };
+
+const statusFilterOptions = [
+  { value: "all", label: "All Status" },
+  { value: "active", label: "Active" },
+  { value: "sent", label: "Sent" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "draft", label: "Draft" },
+  { value: "paused", label: "Paused" },
+  { value: "expired", label: "Expired" },
+];
 
 export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
@@ -86,6 +93,13 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<MarketingTemplate | null>(null);
   const [selectedCampaignType, setSelectedCampaignType] = useState<string | null>(null);
   const [viewOnlyMode, setViewOnlyMode] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Filter campaigns based on status
+  const filteredCampaigns = campaigns.filter((campaign) => {
+    if (statusFilter === "all") return true;
+    return campaign.status === statusFilter;
+  });
 
   useEffect(() => {
     loadData();
@@ -214,224 +228,302 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
     );
   }
 
+  // Helper function to get status badge style
+  const getStatusBadgeStyle = (status: string) => {
+    const style = statusBadgeStyles[status] || statusBadgeStyles.draft;
+    return `${style.bg} ${style.text} ${style.border || ""}`;
+  };
+
+  // Helper function to format date nicely
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Marketing</h1>
-          <p className="text-gray-400">Create and manage campaigns to engage your customers</p>
-        </div>
-        <Button
-          onClick={handleCreateCampaign}
-          className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Campaign
-        </Button>
-      </div>
-
-      {/* Stats Summary */}
+      {/* Stats Summary - Unified container with dividers */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Total Campaigns</p>
-                  <p className="text-2xl font-bold text-white">{stats.totalCampaigns}</p>
-                </div>
-                <div className="p-3 bg-blue-500/20 rounded-lg">
-                  <FileText className="w-6 h-6 text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex flex-col sm:flex-row bg-[#1a1a1a] rounded-xl overflow-hidden">
+          {/* Total Campaigns */}
+          <div className="flex-1 flex items-center gap-4 p-4 sm:border-r border-b sm:border-b-0 border-gray-700">
+            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
+              <FileText className="w-5 h-5 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm">Total Campaigns</p>
+              <p className="text-2xl font-bold text-white">{stats.totalCampaigns}</p>
+            </div>
+          </div>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Draft Campaigns</p>
-                  <p className="text-2xl font-bold text-white">{stats.draftCampaigns}</p>
-                </div>
-                <div className="p-3 bg-gray-500/20 rounded-lg">
-                  <Edit className="w-6 h-6 text-gray-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Draft Campaigns */}
+          <div className="flex-1 flex items-center gap-4 p-4 sm:border-r border-b sm:border-b-0 border-gray-700">
+            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
+              <Edit className="w-5 h-5 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm">Draft Campaigns</p>
+              <p className="text-2xl font-bold text-white">{stats.draftCampaigns}</p>
+            </div>
+          </div>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">In-App Delivered</p>
-                  <p className="text-2xl font-bold text-white">{stats.totalInAppSent}</p>
-                </div>
-                <div className="p-3 bg-green-500/20 rounded-lg">
-                  <Bell className="w-6 h-6 text-green-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* In-App Delivered */}
+          <div className="flex-1 flex items-center gap-4 p-4 sm:border-r border-b sm:border-b-0 border-gray-700">
+            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
+              <Bell className="w-5 h-5 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm">In-App Delivered</p>
+              <p className="text-2xl font-bold text-white">{stats.totalInAppSent}</p>
+            </div>
+          </div>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">Emails Sent</p>
-                  <p className="text-2xl font-bold text-white">{stats.totalEmailsSent}</p>
-                </div>
-                <div className="p-3 bg-purple-500/20 rounded-lg">
-                  <Mail className="w-6 h-6 text-purple-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Email Sent */}
+          <div className="flex-1 flex items-center gap-4 p-4">
+            <div className="flex items-center justify-center w-10 h-10 bg-yellow-500/20 rounded-lg">
+              <Mail className="w-5 h-5 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-gray-400 text-sm">Email Sent</p>
+              <p className="text-2xl font-bold text-white">{stats.totalEmailsSent}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Recent Campaigns / Drafts */}
-      <Card className="bg-gray-800 border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-white">Campaigns</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {campaigns.length === 0 ? (
-            <div className="text-center py-12">
-              <Megaphone className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+      {/* Campaigns Section - New Design */}
+      <div className="bg-[#1a1a1a] rounded-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-yellow-400" />
+            <h2 className="text-lg font-semibold text-yellow-400">Campaigns</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Status Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="bg-transparent border-gray-600 text-white hover:bg-gray-800 hover:text-white"
+                >
+                  {statusFilterOptions.find((opt) => opt.value === statusFilter)?.label || "All Status"}
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
+                {statusFilterOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setStatusFilter(option.value)}
+                    className={`text-white hover:bg-gray-700 ${
+                      statusFilter === option.value ? "bg-gray-700" : ""
+                    }`}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Create Campaign Button */}
+            <Button
+              onClick={handleCreateCampaign}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium border border-yellow-400"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Campaign
+            </Button>
+          </div>
+        </div>
+
+        {/* Campaign List */}
+        <div className="divide-y divide-gray-800">
+          {filteredCampaigns.length === 0 ? (
+            <div className="text-center py-12 px-6">
+              <div className="flex items-center justify-center w-16 h-16 bg-yellow-500/20 rounded-full mx-auto mb-4">
+                <Megaphone className="w-8 h-8 text-yellow-400" />
+              </div>
               <h3 className="text-lg font-medium text-white mb-2">No campaigns yet</h3>
               <p className="text-gray-400 mb-4">
                 Create your first campaign to start engaging with your customers
               </p>
               <Button
                 onClick={handleCreateCampaign}
-                className="bg-yellow-500 hover:bg-yellow-600 text-black"
+                className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium border border-yellow-400"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Campaign
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {campaigns.map((campaign) => (
-                <div
-                  key={campaign.id}
-                  className="flex items-center justify-between p-4 bg-gray-900 rounded-lg hover:bg-gray-850 transition-colors cursor-pointer"
-                  onClick={() => {
-                    if (campaign.status === 'draft') {
-                      handleEditCampaign(campaign);
-                    } else {
-                      handleViewCampaign(campaign);
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-gray-700 rounded-lg">
-                      {campaignTypeIcons[campaign.campaignType]}
-                    </div>
-                    <div>
-                      <h4 className="text-white font-medium">{campaign.name}</h4>
-                      <div className="flex items-center gap-3 mt-1">
-                        <Badge className={`${statusColors[campaign.status]} text-white text-xs`}>
-                          {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
-                        </Badge>
-                        <span className="text-gray-500 text-sm">
-                          {campaignTypeLabels[campaign.campaignType]}
-                        </span>
-                        <span className="text-gray-500 text-sm flex items-center gap-1">
-                          {getDeliveryMethodIcon(campaign.deliveryMethod)}
-                        </span>
-                      </div>
-                    </div>
+            filteredCampaigns.map((campaign) => (
+              <div
+                key={campaign.id}
+                className="flex items-center justify-between px-6 py-4 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                onClick={() => {
+                  if (campaign.status === "draft") {
+                    handleEditCampaign(campaign);
+                  } else {
+                    handleViewCampaign(campaign);
+                  }
+                }}
+              >
+                {/* Left side - Icon, Name, Status, Description */}
+                <div className="flex items-center gap-4">
+                  {/* Yellow circular icon */}
+                  <div className="flex items-center justify-center w-10 h-10 bg-yellow-500 rounded-full">
+                    <Megaphone className="w-5 h-5 text-black" />
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    {campaign.status === "sent" && (
-                      <div className="text-right text-sm">
-                        <p className="text-gray-400">
-                          {campaign.inAppSent} in-app • {campaign.emailsSent} emails
-                        </p>
-                        <p className="text-gray-500">
-                          {new Date(campaign.sentAt!).toLocaleDateString()}
-                        </p>
-                      </div>
-                    )}
-                    {campaign.status === "scheduled" && campaign.scheduledAt && (
-                      <div className="text-right text-sm">
-                        <p className="text-blue-400 flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          Scheduled
-                        </p>
-                        <p className="text-gray-500">
-                          {new Date(campaign.scheduledAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    )}
+                  <div className="flex flex-col gap-1">
+                    {/* Campaign name and status badges */}
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-white font-medium">{campaign.name}</h4>
+                      {/* Status badge */}
+                      <Badge
+                        className={`${getStatusBadgeStyle(campaign.status)} text-xs px-2 py-0.5 rounded-md`}
+                      >
+                        {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                      </Badge>
+                    </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-                        {campaign.status === "draft" && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={() => handleEditCampaign(campaign)}
-                              className="text-white hover:bg-gray-700"
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleSendCampaign(campaign.id)}
-                              className="text-green-400 hover:bg-gray-700"
-                            >
-                              <Send className="w-4 h-4 mr-2" />
-                              Send Now
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        {campaign.status === "scheduled" && (
+                    {/* Description row with Sent badge, type, and delivery method icons */}
+                    <div className="flex items-center gap-2 text-sm">
+                      {/* Show "Sent" badge with checkmark for sent campaigns */}
+                      {campaign.status === "sent" && (
+                        <span className="flex items-center gap-1 text-green-400 text-xs">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Sent
+                        </span>
+                      )}
+                      <span className="text-gray-400">
+                        {campaignTypeLabels[campaign.campaignType]}
+                      </span>
+                      <span className="text-gray-500 flex items-center gap-1">
+                        {getDeliveryMethodIcon(campaign.deliveryMethod)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right side - Stats and date */}
+                <div className="flex items-center gap-4">
+                  {((campaign.status as string) === "sent" || (campaign.status as string) === "active") && (
+                    <div className="text-right text-sm">
+                      <p className="text-gray-300">
+                        {campaign.inAppSent} in app • {campaign.emailsSent} email
+                      </p>
+                      <p className="text-gray-500">
+                        {campaign.sentAt ? formatDate(campaign.sentAt) : ""}
+                      </p>
+                    </div>
+                  )}
+                  {(campaign.status as string) === "scheduled" && campaign.scheduledAt && (
+                    <div className="text-right text-sm">
+                      <p className="text-gray-300">
+                        {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
+                      </p>
+                      <p className="text-gray-500">
+                        Scheduled for {formatDate(campaign.scheduledAt)}
+                      </p>
+                    </div>
+                  )}
+                  {(campaign.status as string) === "paused" && campaign.scheduledAt && (
+                    <div className="text-right text-sm">
+                      <p className="text-gray-300">
+                        {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
+                      </p>
+                      <p className="text-gray-500">
+                        Scheduled for {formatDate(campaign.scheduledAt)}
+                      </p>
+                    </div>
+                  )}
+                  {(campaign.status as string) === "expired" && (
+                    <div className="text-right text-sm">
+                      <p className="text-gray-300">
+                        {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
+                      </p>
+                      <p className="text-gray-500">
+                        {campaign.sentAt ? formatDate(campaign.sentAt) : ""}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
+                      {campaign.status === "draft" && (
+                        <>
                           <DropdownMenuItem
-                            onClick={() => handleCancelCampaign(campaign.id)}
-                            className="text-orange-400 hover:bg-gray-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditCampaign(campaign);
+                            }}
+                            className="text-white hover:bg-gray-700"
                           >
-                            <X className="w-4 h-4 mr-2" />
-                            Cancel
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
                           </DropdownMenuItem>
-                        )}
-                        {campaign.status !== "sent" && (
                           <DropdownMenuItem
-                            onClick={() => handleDeleteCampaign(campaign.id)}
-                            className="text-red-400 hover:bg-gray-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSendCampaign(campaign.id);
+                            }}
+                            className="text-green-400 hover:bg-gray-700"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
+                            <Send className="w-4 h-4 mr-2" />
+                            Send Now
                           </DropdownMenuItem>
-                        )}
+                        </>
+                      )}
+                      {campaign.status === "scheduled" && (
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleViewCampaign(campaign);
+                            handleCancelCampaign(campaign.id);
                           }}
-                          className="text-gray-400 hover:bg-gray-700"
+                          className="text-orange-400 hover:bg-gray-700"
                         >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                      )}
+                      {(campaign.status as string) !== "sent" && (campaign.status as string) !== "active" && (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCampaign(campaign.id);
+                          }}
+                          className="text-red-400 hover:bg-gray-700"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewCampaign(campaign);
+                        }}
+                        className="text-gray-400 hover:bg-gray-700"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Campaign Type Picker Dialog */}
       <Dialog open={showCampaignPicker} onOpenChange={setShowCampaignPicker}>
