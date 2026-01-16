@@ -183,7 +183,7 @@ function SortableBlockItem({
       ref={setNodeRef}
       style={style}
       className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-        isSelected ? 'bg-yellow-500/20 border border-yellow-500' : 'bg-gray-800 hover:bg-gray-750'
+        isSelected ? 'bg-yellow-500/20 border border-yellow-500' : 'bg-gray-800 hover:bg-gray-700/50'
       }`}
       onClick={onSelect}
     >
@@ -1196,12 +1196,12 @@ export function CampaignBuilderModal({
 
   return (
     <Dialog open={open} onOpenChange={() => onClose(false)}>
-      <DialogContent className="bg-gray-900 border-gray-700 max-w-6xl max-h-[95vh] p-0 overflow-hidden" aria-describedby={undefined}>
+      <DialogContent className="bg-[#1a1a1a] border-gray-800 max-w-6xl max-h-[95vh] p-0 overflow-hidden" aria-describedby={undefined}>
         <VisuallyHidden>
           <DialogTitle>Campaign Builder</DialogTitle>
         </VisuallyHidden>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div className="flex items-center gap-4">
             <button
               onClick={() => onClose(false)}
@@ -1254,7 +1254,7 @@ export function CampaignBuilderModal({
         </div>
 
         {/* Steps indicator */}
-        <div className="flex items-center justify-center gap-8 py-3 border-b border-gray-800 bg-gray-850">
+        <div className="flex items-center justify-center gap-8 py-3 border-b border-gray-800 bg-[#141414]">
           {['design', 'audience', 'delivery'].map((s, i) => (
             <button
               key={s}
@@ -1304,7 +1304,7 @@ export function CampaignBuilderModal({
 
               {/* Editor Panel */}
               {viewOnly ? (
-                <div className="w-80 bg-gray-900 border-l border-gray-700 overflow-auto p-4">
+                <div className="w-80 bg-[#1a1a1a] border-l border-gray-800 overflow-auto p-4">
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Send className="w-8 h-8 text-green-400" />
@@ -1337,7 +1337,7 @@ export function CampaignBuilderModal({
                   </div>
                 </div>
               ) : (
-              <div className="w-80 bg-gray-900 border-l border-gray-700 overflow-auto">
+              <div className="w-80 bg-[#1a1a1a] border-l border-gray-800 overflow-auto">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="w-full bg-gray-800 rounded-none">
                     <TabsTrigger value="blocks" className="flex-1">Blocks</TabsTrigger>
@@ -1524,7 +1524,7 @@ export function CampaignBuilderModal({
                         } ${
                           selectedCustomers.has(customer.walletAddress)
                             ? 'bg-yellow-500/20 border border-yellow-500'
-                            : 'bg-gray-900 hover:bg-gray-850 border border-transparent'
+                            : 'bg-gray-900 hover:bg-gray-800 border border-transparent'
                         }`}
                       >
                         <input
@@ -1649,7 +1649,7 @@ export function CampaignBuilderModal({
                     } ${
                       deliveryMethod === option.value
                         ? 'bg-yellow-500/20 border border-yellow-500'
-                        : viewOnly ? 'bg-gray-800 border border-transparent' : 'bg-gray-800 hover:bg-gray-750 border border-transparent'
+                        : viewOnly ? 'bg-gray-800 border border-transparent' : 'bg-gray-800 hover:bg-gray-700/50 border border-transparent'
                     }`}
                   >
                     <div className="text-gray-400">{option.icon}</div>

@@ -527,7 +527,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
       {/* Campaign Type Picker Dialog */}
       <Dialog open={showCampaignPicker} onOpenChange={setShowCampaignPicker}>
-        <DialogContent className="bg-gray-900 border-gray-700 max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="bg-[#1a1a1a] border-gray-800 max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white text-xl">Choose a campaign</DialogTitle>
           </DialogHeader>
@@ -551,10 +551,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.audience}
                     onClick={() => handleSelectCampaignType("offer_coupon")}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-750 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50"
                   >
                     <span className="text-white">{item.label}</span>
-                    <Badge className="bg-blue-500/20 text-blue-400 text-xs">Smart group</Badge>
+                    <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] text-xs border border-[#FFCC00]/30">Smart group</Badge>
                   </button>
                 ))}
               </div>
@@ -575,10 +575,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.type + item.label}
                     onClick={() => handleSelectCampaignType(item.type)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-750 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-gray-400">{item.icon}</div>
+                      <div className="text-[#FFCC00]">{item.icon}</div>
                       <span className="text-white">{item.label}</span>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-500" />
@@ -601,7 +601,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.type + item.label}
                     onClick={() => handleSelectCampaignType(item.type)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-750 rounded-lg transition-colors"
+                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50"
                   >
                     <span className="text-white">{item.label}</span>
                     <ChevronRight className="w-4 h-4 text-gray-500" />
@@ -626,7 +626,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                         template.category === 'newsletter' ? 'newsletter' : 'custom',
                         template
                       )}
-                      className="p-4 bg-gray-800 hover:bg-gray-750 rounded-lg text-left transition-colors"
+                      className="p-4 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-left transition-colors border border-gray-700/50"
                     >
                       <div className="text-white font-medium">{template.name}</div>
                       <div className="text-gray-500 text-sm mt-1">{template.description}</div>
