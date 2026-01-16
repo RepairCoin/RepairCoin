@@ -8,6 +8,7 @@ import {
 } from '../repositories/MarketingCampaignRepository';
 import { NotificationRepository, CreateNotificationParams } from '../repositories/NotificationRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
+import { ServiceRepository } from '../repositories/ServiceRepository';
 import { EmailService } from './EmailService';
 import { WebSocketManager } from './WebSocketManager';
 import { PaginatedResult, PaginationParams } from '../repositories/BaseRepository';
@@ -17,6 +18,14 @@ interface ShopInfo {
   name: string;
   email?: string;
   walletAddress: string;
+}
+
+interface ServiceData {
+  serviceId: string;
+  serviceName: string;
+  priceUsd: number;
+  imageUrl?: string;
+  description?: string;
 }
 
 export interface CampaignDeliveryResult {
@@ -31,6 +40,7 @@ export class MarketingService {
   private campaignRepo: MarketingCampaignRepository;
   private notificationRepo: NotificationRepository;
   private customerRepo: CustomerRepository;
+  private serviceRepo: ServiceRepository;
   private emailService: EmailService;
   private wsManager: WebSocketManager | null;
 
@@ -38,6 +48,7 @@ export class MarketingService {
     this.campaignRepo = new MarketingCampaignRepository();
     this.notificationRepo = new NotificationRepository();
     this.customerRepo = new CustomerRepository();
+    this.serviceRepo = new ServiceRepository();
     this.emailService = new EmailService();
     this.wsManager = wsManager || null;
   }
@@ -336,7 +347,26 @@ export class MarketingService {
       return false;
     }
 
-    const html = this.renderEmailTemplate(campaign, shopInfo, recipient.name);
+    // Fetch service data if serviceId is set
+    let serviceData: ServiceData | undefined;
+    if (campaign.serviceId) {
+      try {
+        const service = await this.serviceRepo.getServiceById(campaign.serviceId);
+        if (service) {
+          serviceData = {
+            serviceId: service.serviceId,
+            serviceName: service.serviceName,
+            priceUsd: service.priceUsd,
+            imageUrl: service.imageUrl,
+            description: service.description
+          };
+        }
+      } catch (error) {
+        logger.warn('Failed to fetch service data for email:', error);
+      }
+    }
+
+    const html = this.renderEmailTemplate(campaign, shopInfo, recipient.name, serviceData);
 
     try {
       const sent = await this.emailService.sendMarketingEmail({
@@ -420,16 +450,20 @@ export class MarketingService {
   private renderEmailTemplate(
     campaign: MarketingCampaign,
     shopInfo: ShopInfo,
-    recipientName?: string
+    _recipientName?: string,
+    serviceData?: ServiceData
   ): string {
     const design = campaign.designContent;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://repaircoin.ai';
+    // Always use production URL for logo in emails (localhost won't work for email recipients)
+    const logoUrl = 'https://repaircoin.ai/img/landing/repaircoin-icon.png';
 
     // Build HTML from design blocks
     let blocksHtml = '';
 
     if (design.blocks && Array.isArray(design.blocks)) {
       for (const block of design.blocks) {
-        blocksHtml += this.renderBlock(block, campaign, shopInfo);
+        blocksHtml += this.renderBlock(block, campaign, shopInfo, serviceData);
       }
     }
 
@@ -450,9 +484,7 @@ export class MarketingService {
                 <tr>
                   <td style="background-color: ${design.header?.backgroundColor || '#1a1a2e'}; padding: 30px; text-align: center;">
                     ${design.header?.showLogo !== false ? `
-                      <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #10B981, #059669); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-                        <span style="color: white; font-size: 24px; font-weight: bold;">RC</span>
-                      </div>
+                      <img src="${logoUrl}" alt="RepairCoin" style="width: 60px; height: 60px; margin: 0 auto 15px; display: block;">
                     ` : ''}
                     <h1 style="color: white; margin: 0; font-size: 24px;">${shopInfo.name}</h1>
                   </td>
@@ -491,8 +523,9 @@ export class MarketingService {
     `;
   }
 
-  private renderBlock(block: any, campaign: MarketingCampaign, shopInfo: ShopInfo): string {
+  private renderBlock(block: any, campaign: MarketingCampaign, _shopInfo: ShopInfo, serviceData?: ServiceData): string {
     const style = block.style || {};
+    const frontendUrl = process.env.FRONTEND_URL || 'https://repaircoin.ai';
 
     switch (block.type) {
       case 'headline':
@@ -518,9 +551,17 @@ export class MarketingService {
         `;
 
       case 'button':
+        // Generate proper link based on service or shop
+        let buttonUrl = `${frontendUrl}/customer?tab=marketplace`;
+        if (serviceData?.serviceId) {
+          buttonUrl = `${frontendUrl}/customer?tab=marketplace&service=${serviceData.serviceId}`;
+        } else if (campaign.serviceId) {
+          buttonUrl = `${frontendUrl}/customer?tab=marketplace&service=${campaign.serviceId}`;
+        }
+
         return `
           <div style="text-align: center; margin: 20px 0;">
-            <a href="#" style="
+            <a href="${buttonUrl}" style="
               display: inline-block;
               background-color: ${style.backgroundColor || '#eab308'};
               color: ${style.textColor || '#000'};
@@ -562,6 +603,46 @@ export class MarketingService {
         `;
 
       case 'service_card':
+        // If we have actual service data, show the real service card
+        if (serviceData) {
+          const serviceUrl = `${frontendUrl}/customer?tab=marketplace&service=${serviceData.serviceId}`;
+          return `
+            <div style="
+              border-radius: 12px;
+              overflow: hidden;
+              margin: 20px 0;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+              ${serviceData.imageUrl ? `
+                <a href="${serviceUrl}" style="display: block; text-decoration: none;">
+                  <img src="${serviceData.imageUrl}" alt="${serviceData.serviceName}" style="
+                    width: 100%;
+                    height: 200px;
+                    object-fit: cover;
+                  ">
+                </a>
+              ` : ''}
+              <div style="
+                background-color: #1a1a2e;
+                padding: 16px 20px;
+              ">
+                <div style="
+                  color: white;
+                  font-weight: bold;
+                  font-size: 18px;
+                  margin-bottom: 4px;
+                ">${serviceData.serviceName}</div>
+                <div style="
+                  color: #10B981;
+                  font-weight: bold;
+                  font-size: 16px;
+                ">$${serviceData.priceUsd.toFixed(2)}</div>
+              </div>
+            </div>
+          `;
+        }
+
+        // Fallback to generic card if no service data
         return `
           <div style="
             background-color: ${style.backgroundColor || '#10B981'};
@@ -576,11 +657,8 @@ export class MarketingService {
               background: rgba(255,255,255,0.2);
               border-radius: 50%;
               margin: 0 auto 15px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
             ">
-              <span style="font-size: 24px;">🔧</span>
+              <span style="font-size: 24px; line-height: 60px;">🔧</span>
             </div>
             <div style="color: white; font-weight: bold;">Featured Service</div>
           </div>
