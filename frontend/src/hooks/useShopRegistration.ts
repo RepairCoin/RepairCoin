@@ -182,7 +182,7 @@ export const useShopRegistration = () => {
       });
 
       setTimeout(() => {
-        router.push("/shop");
+        router.push("/shop?tab=profile");
       }, 1500);
     } catch (err) {
       // Error is already handled by toast.promise

@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Navigation,
+  Plus,
   MessageCircle,
 } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
@@ -27,8 +28,12 @@ import { getGalleryPhotos, type GalleryPhoto } from "@/services/api/shop";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
+import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
+import { createService, CreateServiceData, UpdateServiceData } from "@/services/api/services";
 import { useAuthStore } from "@/stores/authStore";
 import * as messagingApi from "@/services/api/messaging";
+import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
+import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
 
 interface ShopInfo {
   shopId: string;
@@ -66,13 +71,14 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [selectedService, setSelectedService] = useState<ShopServiceWithShopInfo | null>(null);
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews" | "analytics" | "appointments">("services");
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [operatingHours, setOperatingHours] = useState<any>(null);
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [isMessaging, setIsMessaging] = useState(false);
+  const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
   const { userProfile } = useAuthStore();
 
   useEffect(() => {
@@ -211,6 +217,19 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
     // Also update selectedService if it's the same service
     if (selectedService?.serviceId === serviceId) {
       setSelectedService(prev => prev ? { ...prev, isFavorited } : prev);
+    }
+  };
+
+  const handleCreateService = async (data: CreateServiceData | UpdateServiceData) => {
+    try {
+      await createService(data as CreateServiceData);
+      toast.success("Service created successfully!");
+      setShowCreateServiceModal(false);
+      // Reload services list
+      loadShopData();
+    } catch (error) {
+      console.error("Error creating service:", error);
+      toast.error("Failed to create service");
     }
   };
 
@@ -567,6 +586,36 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
                 )}
               </button>
+              {isPreviewMode && (
+                <>
+                  <button
+                    onClick={() => setActiveTab("analytics")}
+                    className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                      activeTab === "analytics"
+                        ? "text-[#FFCC00]"
+                        : "text-gray-400 hover:text-gray-300"
+                    }`}
+                  >
+                    Booking Analytics
+                    {activeTab === "analytics" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("appointments")}
+                    className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                      activeTab === "appointments"
+                        ? "text-[#FFCC00]"
+                        : "text-gray-400 hover:text-gray-300"
+                    }`}
+                  >
+                    Appointments
+                    {activeTab === "appointments" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                    )}
+                  </button>
+                </>
+              )}
               {shopInfo?.aboutText && (
                 <button
                   onClick={() => setActiveTab("about")}
@@ -616,6 +665,20 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {/* Tab Content */}
         {activeTab === "services" && (
           <div>
+            {/* Header with Add Service Button */}
+            {isPreviewMode && (
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-white">My Services</h3>
+                <button
+                  onClick={() => setShowCreateServiceModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg font-semibold transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create Service
+                </button>
+              </div>
+            )}
+
             {services.length === 0 ? (
               <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
                 <Package className="w-16 h-16 mx-auto mb-4 text-gray-600" />
@@ -623,6 +686,14 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   No Services Available
                 </h3>
                 <p className="text-gray-400">This shop hasn't added any services yet.</p>
+                {isPreviewMode && (
+                  <button
+                    onClick={() => setShowCreateServiceModal(true)}
+                    className="mt-6 px-6 py-3 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg font-semibold transition-colors"
+                  >
+                    Create Your First Service
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -683,6 +754,20 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
             <p className="text-gray-400">
               Shop reviews will be available in a future update.
             </p>
+          </div>
+        )}
+
+        {/* Booking Analytics Tab */}
+        {activeTab === "analytics" && isPreviewMode && (
+          <div>
+            <ServiceAnalyticsTab />
+          </div>
+        )}
+
+        {/* Appointments Tab */}
+        {activeTab === "appointments" && isPreviewMode && (
+          <div>
+            <AppointmentCalendar />
           </div>
         )}
         </div>
@@ -768,6 +853,14 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
           service={checkoutService}
           onClose={() => setCheckoutService(null)}
           onSuccess={handleCheckoutSuccess}
+        />
+      )}
+
+      {/* Create Service Modal */}
+      {showCreateServiceModal && isPreviewMode && (
+        <CreateServiceModal
+          onClose={() => setShowCreateServiceModal(false)}
+          onSubmit={handleCreateService}
         />
       )}
     </div>

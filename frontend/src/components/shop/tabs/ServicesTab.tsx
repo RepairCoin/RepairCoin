@@ -287,29 +287,31 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
       <div className="flex items-center justify-between pb-4 border-b border-gray-800">
         <div className="flex items-center gap-3">
           <HeartHandshake className="w-6 h-6 text-[#FFCC00]" />
-          <h2 className="text-xl font-semibold text-[#FFCC00]">Your Shop&apos;s Current Services</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Services ({services.length})
+          </h2>
+          <button
+            onClick={() => {
+              if (!canCreateServices) {
+                toast.error("You need an active subscription or 10,000+ RCG to create services", {
+                  duration: 5000,
+                  position: 'top-right'
+                });
+                return;
+              }
+              setShowCreateModal(true);
+            }}
+            disabled={!canCreateServices}
+            title={canCreateServices ? "Create New Service" : "Subscription or 10,000+ RCG required"}
+            className={`p-2 rounded-lg transition-all duration-200 ${
+              canCreateServices
+                ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                : "bg-gray-800 text-gray-500 cursor-not-allowed opacity-50"
+            }`}
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
-        <button
-          onClick={() => {
-            if (!canCreateServices) {
-              toast.error("You need an active subscription or 10,000+ RCG to create services", {
-                duration: 5000,
-                position: 'top-right'
-              });
-              return;
-            }
-            setShowCreateModal(true);
-          }}
-          disabled={!canCreateServices}
-          className={`flex items-center gap-2 font-semibold px-5 py-2 rounded-lg transition-all duration-200 ${
-            canCreateServices
-              ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
-              : "bg-gray-800 text-gray-500 cursor-not-allowed opacity-50"
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          Create Service
-        </button>
       </div>
 
       {/* Services Grid */}

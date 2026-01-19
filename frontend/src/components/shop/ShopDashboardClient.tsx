@@ -123,7 +123,7 @@ export default function ShopDashboardClient() {
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeTab, setActiveTab] = useState<string>("profile");
   const [authToken, setAuthToken] = useState<string | null>(null);
 
   // Purchase form state
@@ -206,6 +206,11 @@ export default function ShopDashboardClient() {
 
     if (tab) {
       setActiveTab(tab);
+    } else {
+      // If no tab specified, set URL to default tab (profile)
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "profile");
+      window.history.replaceState({}, "", url);
     }
 
     // Check if we should force reload shop data (coming from subscription success)
