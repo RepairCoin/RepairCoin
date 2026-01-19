@@ -1,19 +1,35 @@
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinkType } from "@/utilities/linking";
+import { PROFILE_COLORS } from "../constants";
 
-interface DetailsTabProps {
-  shopData: any;
-  handleLink: (type: LinkType, value?: string, platform?: string) => void;
+interface ShopData {
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  facebook?: string;
+  twitter?: string;
+  instagram?: string;
+  active?: boolean;
+  crossShopEnabled?: boolean;
+  joinDate?: string;
+}
+
+interface ShopDetailsTabProps {
+  shopData: ShopData | null;
+  onLinkPress: (type: LinkType, value?: string, platform?: string) => void;
   formatDate: (dateString?: string) => string;
 }
 
-export default function DetailsTab({
+export function ShopDetailsTab({
   shopData,
-  handleLink,
-  formatDate,
-}: DetailsTabProps) {
+  onLinkPress,
+  formatDate
+}: ShopDetailsTabProps) {
+  if (!shopData) return null;
+
   return (
     <React.Fragment>
       {/* Contact Information */}
@@ -23,10 +39,10 @@ export default function DetailsTab({
         </Text>
 
         {/* Address */}
-        {shopData?.address && (
+        {shopData.address && (
           <View className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3">
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
-              <Ionicons name="location-outline" size={20} color="#FFCC00" />
+              <Ionicons name="location-outline" size={20} color={PROFILE_COLORS.primary} />
             </View>
             <View className="flex-1">
               <Text className="text-gray-500 text-xs">Address</Text>
@@ -36,51 +52,55 @@ export default function DetailsTab({
         )}
 
         {/* Phone */}
-        {shopData?.phone && (
+        {shopData.phone && (
           <TouchableOpacity
-            onPress={() => handleLink("call", shopData.phone)}
+            onPress={() => onLinkPress("call", shopData.phone)}
             className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3"
           >
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
-              <Ionicons name="call-outline" size={20} color="#FFCC00" />
+              <Ionicons name="call-outline" size={20} color={PROFILE_COLORS.primary} />
             </View>
             <View className="flex-1">
               <Text className="text-gray-500 text-xs">Phone</Text>
-              <Text className="text-[#FFCC00] text-base">{shopData.phone}</Text>
+              <Text style={{ color: PROFILE_COLORS.primary }} className="text-base">
+                {shopData.phone}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
         )}
 
         {/* Email */}
-        {shopData?.email && (
+        {shopData.email && (
           <TouchableOpacity
-            onPress={() => handleLink("email", shopData.email)}
+            onPress={() => onLinkPress("email", shopData.email)}
             className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3"
           >
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
-              <Ionicons name="mail-outline" size={20} color="#FFCC00" />
+              <Ionicons name="mail-outline" size={20} color={PROFILE_COLORS.primary} />
             </View>
             <View className="flex-1">
               <Text className="text-gray-500 text-xs">Email</Text>
-              <Text className="text-[#FFCC00] text-base">{shopData.email}</Text>
+              <Text style={{ color: PROFILE_COLORS.primary }} className="text-base">
+                {shopData.email}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
         )}
 
         {/* Website */}
-        {shopData?.website && (
+        {shopData.website && (
           <TouchableOpacity
-            onPress={() => handleLink("website", shopData.website)}
+            onPress={() => onLinkPress("website", shopData.website)}
             className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3"
           >
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
-              <Ionicons name="globe-outline" size={20} color="#FFCC00" />
+              <Ionicons name="globe-outline" size={20} color={PROFILE_COLORS.primary} />
             </View>
             <View className="flex-1">
               <Text className="text-gray-500 text-xs">Website</Text>
-              <Text className="text-[#FFCC00] text-base">
+              <Text style={{ color: PROFILE_COLORS.primary }} className="text-base">
                 {shopData.website}
               </Text>
             </View>
@@ -90,33 +110,33 @@ export default function DetailsTab({
       </View>
 
       {/* Social Media */}
-      {(shopData?.facebook || shopData?.twitter || shopData?.instagram) && (
+      {(shopData.facebook || shopData.twitter || shopData.instagram) && (
         <View className="px-4 mb-6">
           <Text className="text-white text-lg font-semibold mb-4">
             Social Media
           </Text>
           <View className="flex-row gap-3">
-            {shopData?.facebook && (
+            {shopData.facebook && (
               <TouchableOpacity
-                onPress={() => handleLink("social", shopData.facebook, "facebook")}
+                onPress={() => onLinkPress("social", shopData.facebook, "facebook")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
                 <Ionicons name="logo-facebook" size={28} color="#1877F2" />
                 <Text className="text-gray-400 text-xs mt-2">Facebook</Text>
               </TouchableOpacity>
             )}
-            {shopData?.twitter && (
+            {shopData.twitter && (
               <TouchableOpacity
-                onPress={() => handleLink("social", shopData.twitter, "twitter")}
+                onPress={() => onLinkPress("social", shopData.twitter, "twitter")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
                 <Ionicons name="logo-twitter" size={28} color="#1DA1F2" />
                 <Text className="text-gray-400 text-xs mt-2">Twitter</Text>
               </TouchableOpacity>
             )}
-            {shopData?.instagram && (
+            {shopData.instagram && (
               <TouchableOpacity
-                onPress={() => handleLink("social", shopData.instagram, "instagram")}
+                onPress={() => onLinkPress("social", shopData.instagram, "instagram")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
                 <Ionicons name="logo-instagram" size={28} color="#E4405F" />
@@ -136,31 +156,23 @@ export default function DetailsTab({
         <View className="bg-zinc-900 rounded-xl p-4">
           <View className="flex-row justify-between py-3 border-b border-zinc-800">
             <Text className="text-gray-400">Member Since</Text>
-            <Text className="text-white">{formatDate(shopData?.joinDate)}</Text>
+            <Text className="text-white">{formatDate(shopData.joinDate)}</Text>
           </View>
           <View className="flex-row justify-between py-3 border-b border-zinc-800">
             <Text className="text-gray-400">Status</Text>
             <View className="flex-row items-center">
               <View
-                className={`w-2 h-2 rounded-full mr-2 ${shopData?.active ? "bg-green-500" : "bg-gray-500"}`}
+                className={`w-2 h-2 rounded-full mr-2 ${shopData.active ? "bg-green-500" : "bg-gray-500"}`}
               />
-              <Text
-                className={
-                  shopData?.active ? "text-green-500" : "text-gray-500"
-                }
-              >
-                {shopData?.active ? "Active" : "Inactive"}
+              <Text className={shopData.active ? "text-green-500" : "text-gray-500"}>
+                {shopData.active ? "Active" : "Inactive"}
               </Text>
             </View>
           </View>
           <View className="flex-row justify-between py-3">
             <Text className="text-gray-400">Cross-Shop Redemption</Text>
-            <Text
-              className={
-                shopData?.crossShopEnabled ? "text-green-500" : "text-gray-500"
-              }
-            >
-              {shopData?.crossShopEnabled ? "Enabled" : "Disabled"}
+            <Text className={shopData.crossShopEnabled ? "text-green-500" : "text-gray-500"}>
+              {shopData.crossShopEnabled ? "Enabled" : "Disabled"}
             </Text>
           </View>
         </View>

@@ -1,7 +1,7 @@
-import { Text, View } from "react-native";
+import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function ReviewsTab() {
+export function ShopReviewsTab() {
   return (
     <View className="px-4">
       <View className="items-center justify-center py-12">

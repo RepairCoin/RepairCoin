@@ -1,27 +1,27 @@
+import { View, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View, ActivityIndicator } from "react-native";
 import { useService } from "@/hooks/service/useService";
 import ServiceCard from "@/components/shared/ServiceCard";
 import { ServiceData } from "@/interfaces/service.interface";
-import { useRouter } from "expo-router";
+import { PROFILE_COLORS } from "../constants";
 
-interface ServicesTabProps {
+interface ShopServicesTabProps {
   shopId: string;
+  onServicePress: (serviceId: string) => void;
 }
 
-export default function ServicesTab({ shopId }: ServicesTabProps) {
-  const router = useRouter();
+export function ShopServicesTab({ shopId, onServicePress }: ShopServicesTabProps) {
   const { useShopServicesQuery } = useService();
-  const { data: services, isLoading } = useShopServicesQuery({ shopId, page: 1, limit: 20 });
-
-  const handleServicePress = (serviceId: string) => {
-    router.push(`/customer/service/${serviceId}`);
-  };
+  const { data: services, isLoading } = useShopServicesQuery({
+    shopId,
+    page: 1,
+    limit: 20
+  });
 
   if (isLoading) {
     return (
       <View className="items-center justify-center py-12">
-        <ActivityIndicator size="large" color="#FFCC00" />
+        <ActivityIndicator size="large" color={PROFILE_COLORS.primary} />
         <Text className="text-gray-400 mt-4">Loading services...</Text>
       </View>
     );
@@ -53,7 +53,7 @@ export default function ServicesTab({ shopId }: ServicesTabProps) {
               description={service.description}
               price={service.priceUsd}
               duration={service.durationMinutes}
-              onPress={() => handleServicePress(service.serviceId)}
+              onPress={() => onServicePress(service.serviceId)}
             />
           </View>
         ))}
