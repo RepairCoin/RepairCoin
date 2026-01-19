@@ -11,7 +11,8 @@ export interface RedemptionSession {
   sessionId: string;
   customerAddress: string;
   shopId: string;
-  amount: number;
+  amount?: number;
+  maxAmount?: number;
   status: "pending" | "approved" | "rejected" | "processing" | "completed" | "expired" | "used";
   expiresAt: string;
   createdAt: string;

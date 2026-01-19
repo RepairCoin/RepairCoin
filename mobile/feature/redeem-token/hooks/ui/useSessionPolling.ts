@@ -41,7 +41,7 @@ export const useSessionPolling = (
       sessionId: string;
     } = {
       customerAddress: currentSession.customerAddress,
-      amount: currentSession.amount,
+      amount: currentSession.maxAmount || currentSession.amount || 0,
       sessionId,
     };
 
