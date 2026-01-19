@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { View, ScrollView, Text, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { View, ScrollView, Text, ActivityIndicator } from "react-native";
+import { Ionicons, Feather } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { goBack } from "expo-router/build/global-state/routing";
+import { TouchableOpacity } from "react-native";
 import { useShop } from "@/hooks/shop/useShop";
 import ReviewsTab from "./tabs/ReviewsTab";
 import DetailsTab from "./tabs/DetailsTab";
@@ -11,7 +13,6 @@ import { formatDate } from "@/utilities/format";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { TabButtons } from "@/components/ui/TabButtons";
 import { messageApi } from "@/services/message.services";
-import { useAuthStore } from "@/store/auth.store";
 
 const SHOP_TABS = [
   { key: "services", label: "Services" },
@@ -19,37 +20,31 @@ const SHOP_TABS = [
   { key: "reviews", label: "Reviews" },
 ];
 
-export default function ViewShopProfile({ id }: { id: string }) {
+export default function ViewShopProfile() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { useGetShopById } = useShop();
-  const { data: shopData } = useGetShopById(id);
+  const { data: shopData, isLoading, error } = useGetShopById(id || "");
   const [activeTab, setActiveTab] = useState("services");
   const [isStartingChat, setIsStartingChat] = useState(false);
-  const { userType } = useAuthStore();
-
-  const isCustomer = userType === "customer";
 
   const handleStartChat = async () => {
     if (!id || isStartingChat) return;
 
     setIsStartingChat(true);
     try {
-      // Get conversations to check if one exists with this shop
       const response = await messageApi.getConversations();
       const existingConversation = response.data?.find(
         (conv) => conv.shopId === id
       );
 
       if (existingConversation) {
-        // Navigate to existing conversation
         router.push(`/customer/messages/${existingConversation.conversationId}` as any);
       } else {
-        // Send an initial message to create a conversation
         const newMessage = await messageApi.sendMessage({
           shopId: id,
           messageText: "Hi, I'm interested in your services.",
           messageType: "text",
         });
-        // Navigate to the new conversation
         if (newMessage.data?.conversationId) {
           router.push(`/customer/messages/${newMessage.data.conversationId}` as any);
         }
@@ -61,11 +56,38 @@ export default function ViewShopProfile({ id }: { id: string }) {
     }
   };
 
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-zinc-950 items-center justify-center">
+        <ActivityIndicator size="large" color="#FFCC00" />
+        <Text className="text-gray-400 mt-4">Loading profile...</Text>
+      </View>
+    );
+  }
+
+  if (error || !shopData) {
+    return (
+      <View className="flex-1 bg-zinc-950">
+        <View className="pt-16 px-4">
+          <TouchableOpacity onPress={goBack}>
+            <Ionicons name="arrow-back" color="white" size={24} />
+          </TouchableOpacity>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <Feather name="alert-circle" size={48} color="#ef4444" />
+          <Text className="text-white text-lg mt-4">Shop not found</Text>
+          <Text className="text-gray-400 text-sm mt-2">
+            The shop you're looking for doesn't exist
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-zinc-950">
       <AppHeader title="Shop Profile" />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Spacer for absolute header */}
         <View className="h-4" />
 
         {/* Shop Avatar & Name */}
@@ -96,7 +118,7 @@ export default function ViewShopProfile({ id }: { id: string }) {
         />
 
         {/* Services Tab Content */}
-        {activeTab === "services" && (<ServicesTab shopId={id} />)}
+        {activeTab === "services" && id && <ServicesTab shopId={id} />}
 
         {/* Details Tab Content */}
         {activeTab === "details" && (

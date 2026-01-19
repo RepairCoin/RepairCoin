@@ -20,6 +20,7 @@ export default function EditProfilePage() {
   const updateProfileMutation = useUpdateCustomerProfile(account?.address);
 
   const [formData, setFormData] = useState({
+    
     name: customerData?.customer?.name || "",
     email: customerData?.customer?.email || "",
     phone: customerData?.customer?.phone || "",

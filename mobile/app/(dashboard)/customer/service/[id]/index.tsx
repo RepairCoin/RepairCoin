@@ -168,7 +168,7 @@ export default function ServiceDetail() {
 
   const handleViewShop = () => {
     if (serviceData?.shopId) {
-      router.push(`/shared/profile/view-profile/${serviceData.shopId}`);
+      router.push(`/customer/profile/shop-profile/${serviceData.shopId}`);
     }
   };
 

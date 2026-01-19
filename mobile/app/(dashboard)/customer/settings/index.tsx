@@ -119,7 +119,7 @@ export default function SettingScreen() {
             icon={<Ionicons name="person-outline" size={20} color="#FFCC00" />}
             title="Edit Profile"
             subtitle="Update your personal information"
-            onPress={() => router.push("/customer/profile")}
+            onPress={() => router.push("/customer/profile/edit-profile")}
           />
           <Divider />
           <SettingsItem
