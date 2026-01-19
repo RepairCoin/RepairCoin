@@ -28,6 +28,14 @@ let failedQueue: Array<{
   reject: (reason?: unknown) => void;
 }> = [];
 
+// Track refresh retry attempts
+let refreshRetryCount = 0;
+const MAX_REFRESH_RETRIES = 2;
+const REFRESH_RETRY_DELAY = 1000; // 1 second
+
+// Helper to delay execution
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const processQueue = (error: AxiosError | null, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
@@ -117,55 +125,98 @@ apiClient.interceptors.response.use(
 
       originalRequest._retry = true;
       isRefreshing = true;
+      refreshRetryCount = 0;
 
-      try {
-        console.log('[API Client] Attempting to refresh token...');
+      const attemptRefresh = async (): Promise<any> => {
+        try {
+          console.log(`[API Client] Attempting to refresh token (attempt ${refreshRetryCount + 1}/${MAX_REFRESH_RETRIES + 1})...`);
 
-        // Try to refresh the token
-        // The refresh token is in httpOnly cookie and sent automatically
-        await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
+          // Try to refresh the token
+          // The refresh token is in httpOnly cookie and sent automatically
+          await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/refresh`,
+            {},
+            { withCredentials: true }
+          );
 
-        console.log('[API Client] Token refresh successful');
+          console.log('[API Client] Token refresh successful');
+          refreshRetryCount = 0; // Reset on success
 
-        // Refresh successful, process queued requests
-        processQueue(null);
-        isRefreshing = false;
+          // Refresh successful, process queued requests
+          processQueue(null);
+          isRefreshing = false;
 
-        // Retry the original request with the new access token (now in cookie)
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        // Refresh failed
-        const axiosError = refreshError as AxiosError<{ code?: string; message?: string }>;
-        console.error('[API Client] Token refresh failed:', axiosError.response?.data);
+          // Retry the original request with the new access token (now in cookie)
+          return apiClient(originalRequest);
+        } catch (refreshError) {
+          const axiosError = refreshError as AxiosError<{ code?: string; message?: string }>;
+          const errorCode = axiosError?.response?.data?.code;
+          const httpStatus = axiosError?.response?.status;
 
-        // Clear the failed queue
-        processQueue(axiosError, null);
-        isRefreshing = false;
+          console.error(`[API Client] Token refresh attempt ${refreshRetryCount + 1} failed:`, {
+            status: httpStatus,
+            code: errorCode,
+            message: axiosError?.response?.data?.message
+          });
 
-        // Check if session was revoked or refresh token is invalid
-        const isSessionRevoked = axiosError?.response?.data?.code === 'SESSION_REVOKED';
-        const isRefreshExpired =
-          axiosError?.response?.status === 401 ||
-          axiosError?.response?.data?.code === 'REFRESH_TOKEN_EXPIRED' ||
-          axiosError?.response?.data?.code === 'REFRESH_TOKEN_REVOKED';
+          // Check for explicit revocation codes - these should NOT be retried
+          const isExplicitRevocation =
+            errorCode === 'SESSION_REVOKED' ||
+            errorCode === 'REFRESH_TOKEN_EXPIRED' ||
+            errorCode === 'REFRESH_TOKEN_REVOKED' ||
+            errorCode === 'REFRESH_TOKEN_INVALID';
 
-        if (typeof window !== 'undefined' && (isSessionRevoked || isRefreshExpired)) {
-          console.log('[API Client] Session revoked or refresh token expired - triggering logout');
-          // Trigger wallet disconnect event to logout user
-          window.dispatchEvent(new CustomEvent('auth:session-revoked', {
-            detail: {
-              reason: isSessionRevoked ? 'session_revoked' : 'refresh_token_expired',
-              message: axiosError?.response?.data?.message
+          if (isExplicitRevocation) {
+            console.log('[API Client] Explicit session revocation detected - not retrying');
+            processQueue(axiosError, null);
+            isRefreshing = false;
+            refreshRetryCount = 0;
+
+            // Trigger logout for explicit revocations
+            if (typeof window !== 'undefined') {
+              console.log('[API Client] Triggering logout due to explicit revocation:', errorCode);
+              window.dispatchEvent(new CustomEvent('auth:session-revoked', {
+                detail: {
+                  reason: errorCode,
+                  message: axiosError?.response?.data?.message
+                }
+              }));
             }
-          }));
-        }
 
-        return Promise.reject(refreshError);
-      }
+            return Promise.reject(refreshError);
+          }
+
+          // For other errors (network issues, generic 401s), retry with backoff
+          if (refreshRetryCount < MAX_REFRESH_RETRIES) {
+            refreshRetryCount++;
+            const retryDelay = REFRESH_RETRY_DELAY * refreshRetryCount;
+            console.log(`[API Client] Retrying token refresh in ${retryDelay}ms...`);
+            await delay(retryDelay);
+            return attemptRefresh();
+          }
+
+          // Max retries exhausted - but DON'T trigger logout for non-explicit errors
+          // This prevents logout due to temporary network issues
+          console.warn('[API Client] Token refresh failed after max retries - NOT triggering logout (may be temporary network issue)');
+          processQueue(axiosError, null);
+          isRefreshing = false;
+          refreshRetryCount = 0;
+
+          // Return a user-friendly error instead of triggering session revocation
+          const enhancedError = new Error('Session refresh failed. Please try again or refresh the page.') as Error & {
+            response?: unknown;
+            status?: number;
+            isTemporaryFailure?: boolean;
+          };
+          enhancedError.response = axiosError.response;
+          enhancedError.status = httpStatus;
+          enhancedError.isTemporaryFailure = true; // Flag to indicate this is recoverable
+
+          return Promise.reject(enhancedError);
+        }
+      };
+
+      return attemptRefresh();
     }
 
     // Check if session was revoked (can happen on any request)

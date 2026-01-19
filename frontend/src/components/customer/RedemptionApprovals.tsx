@@ -49,6 +49,10 @@ export function RedemptionApprovals() {
   // For showing approved session QR
   const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
 
+  // Check if using embedded wallet (social login: Google, Email, Apple)
+  // Embedded wallets sign automatically without popup, external wallets (MetaMask, Coinbase, etc.) show popup
+  const isEmbeddedWallet = wallet?.id === 'inApp' || wallet?.id === 'embedded' || wallet?.id?.includes('inApp');
+
   const generateQRCode = async () => {
     // Check if suspended
     if (isSuspended) {
@@ -168,7 +172,13 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
         return;
       }
 
-      toast.loading("Please sign the message in your wallet...", { id: "approval-process" });
+      // Show appropriate toast based on wallet type
+      // Embedded wallets (social login) sign automatically, external wallets show popup
+      if (isEmbeddedWallet) {
+        toast.loading("Processing approval...", { id: "approval-process" });
+      } else {
+        toast.loading("Please sign the message in your wallet...", { id: "approval-process" });
+      }
 
       // Create the standardized message for signature verification
       const message = createSignatureMessage(session);
