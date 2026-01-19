@@ -19,6 +19,7 @@ import {
   Star,
   HeartHandshake,
   Flag,
+  QrCode,
 } from "lucide-react";
 import { sanitizeDescription } from "@/utils/sanitize";
 import {
@@ -33,8 +34,11 @@ import {
 } from "@/services/api/services";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
+import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
 
 interface ShopData {
+  shopName?: string;
+  name?: string;
   subscriptionActive?: boolean;
   subscriptionStatus?: string | null;
   subscriptionCancelledAt?: string | null;
@@ -114,6 +118,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingService, setDeletingService] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<ShopService | null>(null);
+  const [qrModalService, setQrModalService] = useState<ShopService | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -515,6 +520,16 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                       <Calendar className="w-4 h-4" />
                       Calendar
                     </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQrModalService(service);
+                      }}
+                      className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#FFCC00] border border-[#FFCC00] text-[#101010] rounded-lg hover:bg-[#e6b800] hover:border-[#e6b800] transition-colors duration-200 font-semibold text-sm"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      Share QR Code
+                    </button>
                   </div>
                 </div>
               </div>
@@ -618,6 +633,17 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
             setSelectedService(null);
             loadServices();
           }}
+        />
+      )}
+
+      {/* QR Code Modal */}
+      {qrModalService && (
+        <ServiceQRModal
+          isOpen={!!qrModalService}
+          onClose={() => setQrModalService(null)}
+          serviceId={qrModalService.serviceId}
+          serviceName={qrModalService.serviceName}
+          shopName={shopData?.shopName || shopData?.name || 'Shop'}
         />
       )}
     </div>
