@@ -7,13 +7,14 @@ import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { formatLocalDate } from '@/utils/dateUtils';
 import { RescheduleModal } from './RescheduleModal';
+import { CancelBookingModal, CancelOrderData } from './CancelBookingModal';
 
 export const AppointmentsTab: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<CalendarBooking[]>([]);
   const [activeView, setActiveView] = useState<'upcoming' | 'past'>('upcoming');
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelAppointment, setCancelAppointment] = useState<CalendarBooking | null>(null);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<CalendarBooking | null>(null);
   const [pendingReschedules, setPendingReschedules] = useState<Map<string, RescheduleRequest>>(new Map());
 
@@ -53,23 +54,18 @@ export const AppointmentsTab: React.FC = () => {
     }
   };
 
-  const handleCancelAppointment = async (orderId: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setCancellingId(orderId);
-      await appointmentsApi.cancelAppointment(orderId);
-      toast.success('Appointment cancelled successfully');
-      loadAppointments();
-    } catch (error) {
-      console.error('Error cancelling appointment:', error);
-      toast.error('Failed to cancel appointment');
-    } finally {
-      setCancellingId(null);
-    }
+  const handleCancelAppointment = (appointment: CalendarBooking) => {
+    // Show the cancel modal instead of browser confirm
+    setCancelAppointment(appointment);
   };
+
+  // Convert CalendarBooking to CancelOrderData for the modal
+  const getCancelOrderData = (appointment: CalendarBooking): CancelOrderData => ({
+    orderId: appointment.orderId,
+    serviceName: appointment.serviceName,
+    shopId: appointment.shopId,
+    totalAmount: appointment.totalAmount,
+  });
 
   const formatTime = (time: string): string => {
     if (!time) return '';
@@ -232,21 +228,11 @@ export const AppointmentsTab: React.FC = () => {
 
           {isUpcoming(appointment) && canCancel(appointment) && (
             <button
-              onClick={() => handleCancelAppointment(appointment.orderId)}
-              disabled={cancellingId === appointment.orderId}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg hover:bg-red-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              onClick={() => handleCancelAppointment(appointment)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg hover:bg-red-600/30 transition-colors text-sm"
             >
-              {cancellingId === appointment.orderId ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Cancelling...
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-4 h-4" />
-                  Cancel
-                </>
-              )}
+              <XCircle className="w-4 h-4" />
+              Cancel
             </button>
           )}
 
@@ -376,6 +362,17 @@ export const AppointmentsTab: React.FC = () => {
           }}
         />
       )}
+
+      {/* Cancel Booking Modal */}
+      <CancelBookingModal
+        order={cancelAppointment ? getCancelOrderData(cancelAppointment) : null}
+        isOpen={!!cancelAppointment}
+        onClose={() => setCancelAppointment(null)}
+        onSuccess={() => {
+          setCancelAppointment(null);
+          loadAppointments();
+        }}
+      />
     </div>
   );
 };

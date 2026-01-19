@@ -14,10 +14,13 @@ This document analyzes the current booking cancellation system and proposes enha
 |---------|----------|-------|
 | Customer cancel with full RCN refund | `PaymentService.cancelOrder()` | Refunds all redeemed RCN tokens |
 | Customer cancel with full Stripe refund | `PaymentService.cancelOrder()` | Full payment refunded to card |
-| **Shop cancel with full RCN refund** | `PaymentService.processShopCancellationRefund()` | **NEW** - Refunds customer RCN |
-| **Shop cancel with full Stripe refund** | `PaymentService.processShopCancellationRefund()` | **NEW** - Refunds customer payment |
+| **Customer cancel refund transaction** | `PaymentService.cancelOrder()` | Records `service_redemption_refund` in transactions table |
+| **Customer cancel email notification** | `PaymentService.cancelOrder()` | Sends confirmation email to customer via `EmailService.sendBookingCancelledByCustomer()` |
+| **Shop cancel with full RCN refund** | `PaymentService.processShopCancellationRefund()` | Refunds customer RCN |
+| **Shop cancel with full Stripe refund** | `PaymentService.processShopCancellationRefund()` | Refunds customer payment |
+| **Shop cancel email notification** | `PaymentService.processShopCancellationRefund()` | Sends email to customer via `EmailService.sendBookingCancelledByShop()` |
 | 24-hour cancellation restriction | `AppointmentRepository.cancelAppointment()` | Blocks cancellation < 24hrs before appointment |
-| Cancellation notifications | `PaymentService.cancelOrder()` | Notifies customer and shop |
+| Cancellation in-app notifications | `PaymentService.cancelOrder()` | Notifies customer and shop |
 | Order status update to 'cancelled' | `OrderRepository.updateCancellationData()` | Records reason and notes |
 
 ### ❌ NOT IMPLEMENTED (Proposed)
@@ -448,11 +451,14 @@ const RefundPreview = ({ order }) => {
 
 ## Summary
 
-### Current State (as of January 15, 2026)
+### Current State (as of January 16, 2026)
 - ✅ Customer cancellation works with full refund (RCN + Stripe)
-- ✅ **Shop cancellation works with full refund (RCN + Stripe)** - FIXED!
+- ✅ Customer cancellation records refund transaction in database
+- ✅ Customer cancellation sends confirmation email
+- ✅ Shop cancellation works with full refund (RCN + Stripe)
+- ✅ Shop cancellation sends email notification to customer
 - ✅ 24-hour cancellation restriction enforced
-- ✅ Notifications sent to customer and shop (with refund details)
+- ✅ In-app notifications sent to customer and shop (with refund details)
 - ❌ No partial refund support
 - ❌ No shop-configurable policies
 - ❌ No tiered refund system
@@ -470,5 +476,5 @@ const RefundPreview = ({ order }) => {
 ---
 
 *Document created: January 2, 2026*
-*Last updated: January 15, 2026*
-*Status: Shop cancellation refund IMPLEMENTED - Both customer and shop cancellations now process full refunds*
+*Last updated: January 16, 2026*
+*Status: COMPLETE - Both customer and shop cancellations process full refunds with email notifications*
