@@ -1,31 +1,30 @@
-import {
-  ShopAvailability,
-  TimeSlotConfig,
-} from "@/interfaces/appointment.interface";
-
-export type ServiceStatusFilter = "all" | "active" | "inactive";
-export type AvailabilityTab = "hours" | "settings";
-
-export interface PendingAvailabilityChanges {
-  availability: ShopAvailability[];
-  timeSlotConfig: TimeSlotConfig | null;
-  hasChanges: boolean;
+export interface TierConfig {
+  color: string;
+  bgColor: string;
+  icon: string;
+  bonus: number;
 }
 
-export interface ServiceFormData {
-  serviceName: string;
-  category: string;
-  description: string;
-  priceUsd: string;
-  imageUrl: string;
-  tags: string;
-  active: boolean;
+export interface TierInfo {
+  tier: string;
+  color: string;
+  bgColor: string;
+  icon: string;
+  bonus: number;
+  tierBonus: number;
 }
 
-export interface SubmitFormParams {
-  isQualified: boolean;
-  isEditMode: boolean;
-  serviceId?: string;
-  onNotQualified: () => void;
-  onSuccess: () => void;
+export interface RewardCalculation {
+  base: number;
+  bonus: number;
+  total: number;
+}
+
+export interface ServiceParams {
+  id: string;
+}
+
+export interface TrendingParams {
+  limit?: number;
+  days?: number;
 }
