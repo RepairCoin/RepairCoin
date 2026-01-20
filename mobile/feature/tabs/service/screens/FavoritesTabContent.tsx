@@ -7,35 +7,21 @@ import {
   RefreshControl,
 } from "react-native";
 import React from "react";
-import { ServiceData } from "@/interfaces/service.interface";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
-import { useFavorite } from "@/hooks/favorite/useFavorite";
+import { ServiceData } from "@/interfaces/service.interface";
+import { useFavoritesTab } from "../hooks";
 
-export default function FavoritesTab() {
-  const { useGetFavorites } = useFavorite();
+export default function FavoritesTabContent() {
   const {
-    data: favoritesData,
+    favorites,
     isLoading,
     error,
-    refetch,
-  } = useGetFavorites();
-
-  const handleServicePress = (item: ServiceData) => {
-    router.push(`/customer/service/${item.serviceId}`);
-  };
-
-  const getCategoryLabel = (category?: string) => {
-    if (!category) return "Other";
-    const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
-    return cat?.label || category;
-  };
-
-  const handleRefresh = async () => {
-    await refetch();
-  };
+    handleServicePress,
+    handleRefresh,
+    getCategoryLabel,
+    navigateToServices,
+  } = useFavoritesTab();
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
     <ServiceCard
@@ -67,7 +53,7 @@ export default function FavoritesTab() {
         <Ionicons name="alert-circle" size={48} color="#EF4444" />
         <Text className="text-red-500 mt-4">Failed to load favorites</Text>
         <TouchableOpacity
-          onPress={() => refetch()}
+          onPress={handleRefresh}
           className="mt-4 px-6 py-3 bg-[#FFCC00] rounded-xl"
         >
           <Text className="text-black font-semibold">Try Again</Text>
@@ -75,8 +61,6 @@ export default function FavoritesTab() {
       </View>
     );
   }
-
-  const favorites = favoritesData || [];
 
   return (
     <React.Fragment>
@@ -110,7 +94,7 @@ export default function FavoritesTab() {
               Tap the heart icon on any service to add it to your favorites
             </Text>
             <TouchableOpacity
-              onPress={() => router.push("/customer/tabs/service")}
+              onPress={navigateToServices}
               className="mt-6 px-6 py-3 bg-[#FFCC00] rounded-xl"
             >
               <Text className="text-black font-semibold">Browse Services</Text>
