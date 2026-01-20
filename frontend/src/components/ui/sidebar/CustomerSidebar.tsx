@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Calendar,
   MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
@@ -98,6 +99,12 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       href: "/customer?tab=gifting",
       icon: <Gift className="w-5 h-5" />,
       tabId: "gifting",
+    },
+    {
+      title: "Staking",
+      href: "/customer?tab=staking",
+      icon: <TrendingUp className="w-5 h-5" />,
+      tabId: "staking",
     },
   ];
 

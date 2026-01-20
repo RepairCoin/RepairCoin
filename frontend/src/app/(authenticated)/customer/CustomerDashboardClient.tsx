@@ -16,6 +16,7 @@ import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketpla
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
 import { MessagesTab } from "@/components/customer/tabs/MessagesTab";
+import { StakingTab } from "@/components/customer/StakingTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 
@@ -32,7 +33,7 @@ export default function CustomerDashboardClient() {
   const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
+    "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "staking" | "settings"
   >("overview");
 
   // Mark auth as initialized once authentication has been attempted
@@ -191,6 +192,9 @@ export default function CustomerDashboardClient() {
 
           {/* Token Gifting Tab */}
           {activeTab === "gifting" && <TokenGiftingTab />}
+
+          {/* Staking Tab */}
+          {activeTab === "staking" && <StakingTab />}
 
           {/* Settings Tab */}
           {activeTab === "settings" && <SettingsTab />}
