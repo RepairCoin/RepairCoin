@@ -45,6 +45,7 @@ export interface Customer {
   referredBy?: string;
   tier: 'BRONZE' | 'SILVER' | 'GOLD';
   lifetimeEarnings: number;
+  lifetime_earnings?: number; // Snake case for backend compatibility
   availableBalance?: number;
   currentBalance?: number;
   homeShopId?: string;
@@ -52,6 +53,7 @@ export interface Customer {
   isActive: boolean;
   joinDate?: string;
   lastEarnedDate?: string;
+  last_transaction_date?: string; // Snake case for backend compatibility
   lastEarnedAmount?: number;
   referralCount?: number;
   suspensionReason?: string;
@@ -59,6 +61,8 @@ export interface Customer {
   dailyEarnings?: number;
   monthlyEarnings?: number;
   totalRedemptions?: number;
+  total_transactions?: number; // For shop customers view
+  totalEarned?: number; // Total earned at specific shop
 }
 
 // Shop Types
