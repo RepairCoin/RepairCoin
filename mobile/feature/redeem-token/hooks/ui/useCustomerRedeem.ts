@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
 import { useRedemptionSignature } from "@/hooks/useSignature";
 import { useCustomerRedeemData, useRedemptionSessions } from "../queries";
@@ -37,50 +38,59 @@ export const useCustomerRedeem = () => {
     refetchSessions,
   } = useRedemptionSessions();
 
-  // Polling for new redemption sessions every 5 seconds
+  // Polling for new redemption sessions every 5 seconds (only when screen is focused)
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-  useEffect(() => {
-    // Start polling when component mounts
-    const startPolling = () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-      pollingIntervalRef.current = setInterval(() => {
-        refetchSessions();
-      }, POLLING_INTERVAL);
-    };
+  // Use focus effect to start/stop polling based on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      // Start polling when screen is focused
+      const startPolling = () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+        pollingIntervalRef.current = setInterval(() => {
+          // Only poll if app is in foreground
+          if (appStateRef.current === "active") {
+            refetchSessions();
+          }
+        }, POLLING_INTERVAL);
+      };
 
-    // Stop polling
-    const stopPolling = () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
+      // Stop polling
+      const stopPolling = () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      };
 
-    // Handle app state changes (pause polling when app is in background)
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === "active") {
-        refetchSessions(); // Immediate refetch when app comes to foreground
-        startPolling();
-      } else {
+      // Handle app state changes (pause polling when app is in background)
+      const handleAppStateChange = (nextAppState: AppStateStatus) => {
+        appStateRef.current = nextAppState;
+        if (nextAppState === "active") {
+          refetchSessions(); // Immediate refetch when app comes to foreground
+          startPolling();
+        } else {
+          stopPolling();
+        }
+      };
+
+      // Start polling immediately when screen is focused
+      refetchSessions(); // Immediate refetch when screen gains focus
+      startPolling();
+
+      // Listen for app state changes
+      const subscription = AppState.addEventListener("change", handleAppStateChange);
+
+      // Cleanup when screen loses focus
+      return () => {
         stopPolling();
-      }
-    };
-
-    // Start polling immediately
-    startPolling();
-
-    // Listen for app state changes
-    const subscription = AppState.addEventListener("change", handleAppStateChange);
-
-    // Cleanup on unmount
-    return () => {
-      stopPolling();
-      subscription.remove();
-    };
-  }, [refetchSessions]);
+        subscription.remove();
+      };
+    }, [refetchSessions])
+  );
 
   const { generateSignature } = useRedemptionSignature();
   const approveSession = useApproveRedemptionSession();
