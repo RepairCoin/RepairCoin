@@ -18,6 +18,9 @@ export const useCustomerRedeem = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [showHowToRedeem, setShowHowToRedeem] = useState(false);
 
+  // Ref to prevent double-tap on accept/reject buttons
+  const isProcessingRef = useRef(false);
+
   // Customer data
   const {
     customerData,
@@ -104,6 +107,11 @@ export const useCustomerRedeem = () => {
   }, [refetchCustomer, refetchTransactions, refetchSessions]);
 
   const handleAccept = useCallback(async (sessionId: string) => {
+    // Prevent double-tap
+    if (isProcessingRef.current) {
+      return;
+    }
+    isProcessingRef.current = true;
     setActionLoading(true);
     try {
       const session = sessions.find(
@@ -111,6 +119,8 @@ export const useCustomerRedeem = () => {
       );
       if (!session) {
         console.error("Session not found:", sessionId);
+        isProcessingRef.current = false;
+        setActionLoading(false);
         return;
       }
 
@@ -131,6 +141,8 @@ export const useCustomerRedeem = () => {
           animationType: "slide-in",
           style: { marginTop: 24 },
         });
+        isProcessingRef.current = false;
+        setActionLoading(false);
         return;
       }
 
@@ -173,10 +185,16 @@ export const useCustomerRedeem = () => {
       });
     } finally {
       setActionLoading(false);
+      isProcessingRef.current = false;
     }
   }, [sessions, generateSignature, approveSession, refetchSessions, refetchCustomer, refetchTransactions, toast]);
 
   const handleReject = useCallback(async (sessionId: string) => {
+    // Prevent double-tap
+    if (isProcessingRef.current) {
+      return;
+    }
+    isProcessingRef.current = true;
     setActionLoading(true);
     try {
       await rejectSession.mutateAsync(sessionId);
@@ -205,6 +223,7 @@ export const useCustomerRedeem = () => {
       });
     } finally {
       setActionLoading(false);
+      isProcessingRef.current = false;
     }
   }, [rejectSession, refetchSessions, toast]);
 
