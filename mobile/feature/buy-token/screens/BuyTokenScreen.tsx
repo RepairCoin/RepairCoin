@@ -71,6 +71,7 @@ export default function BuyTokenScreen() {
     totalTokens,
     effectiveRate,
     isValidAmount,
+    showExceedError,
     selectQuickAmount,
     showHowItWorks,
     openHowItWorks,
@@ -130,10 +131,18 @@ export default function BuyTokenScreen() {
               <Text className="text-gray-500 text-xs">
                 Min: 5 RCN • Max: 100,000 RCN
               </Text>
-              {purchaseAmount < 5 && purchaseAmount > 0 && (
+              {purchaseAmount > 0 && purchaseAmount < 5 && (
                 <Text className="text-red-400 text-xs">Below minimum</Text>
               )}
             </View>
+
+            {showExceedError && (
+              <View className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 mt-3">
+                <Text className="text-red-400 text-center text-sm">
+                  Oops, you are exceeding 100,000 RCN
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 

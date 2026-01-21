@@ -72,7 +72,7 @@ export function usePurchase() {
       totalCost,
       totalTokens,
       effectiveRate,
-      isValidAmount: amount >= 5,
+      isValidAmount: amount >= 5 && amount <= 100000,
     };
   };
 
