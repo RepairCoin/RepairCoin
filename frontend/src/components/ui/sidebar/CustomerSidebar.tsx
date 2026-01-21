@@ -100,12 +100,6 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       icon: <Gift className="w-5 h-5" />,
       tabId: "gifting",
     },
-    {
-      title: "Staking",
-      href: "/customer?tab=staking",
-      icon: <TrendingUp className="w-5 h-5" />,
-      tabId: "staking",
-    },
   ];
 
   const bottomMenuItems: SidebarItem[] = [
