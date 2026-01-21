@@ -1,9 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { useToast } from "react-native-toast-notifications";
 import { useRedemptionSignature } from "@/hooks/useSignature";
 import { useCustomerRedeemData, useRedemptionSessions } from "../queries";
 import { useApproveRedemptionSession, useRejectRedemptionSession } from "../mutations";
 import { RedemptionSession } from "../../types";
+
+const POLLING_INTERVAL = 5000; // 5 seconds
 
 /**
  * Hook for customer redeem screen business logic
@@ -33,6 +36,51 @@ export const useCustomerRedeem = () => {
     isLoadingSessions,
     refetchSessions,
   } = useRedemptionSessions();
+
+  // Polling for new redemption sessions every 5 seconds
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // Start polling when component mounts
+    const startPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+      pollingIntervalRef.current = setInterval(() => {
+        refetchSessions();
+      }, POLLING_INTERVAL);
+    };
+
+    // Stop polling
+    const stopPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+
+    // Handle app state changes (pause polling when app is in background)
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === "active") {
+        refetchSessions(); // Immediate refetch when app comes to foreground
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    // Start polling immediately
+    startPolling();
+
+    // Listen for app state changes
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+
+    // Cleanup on unmount
+    return () => {
+      stopPolling();
+      subscription.remove();
+    };
+  }, [refetchSessions]);
 
   const { generateSignature } = useRedemptionSignature();
   const approveSession = useApproveRedemptionSession();
