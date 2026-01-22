@@ -7,6 +7,7 @@ import { useActiveWallet, useDisconnect } from 'thirdweb/react';
 import { authManager } from '@/utils/auth';
 import { useAuthInitializer } from '@/hooks/useAuthInitializer';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
+import { useAuthStore } from '@/stores/authStore';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -155,6 +156,75 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     return () => {
       window.removeEventListener('auth:login-failed', handleLoginFailed as EventListener);
+    };
+  }, [wallet, disconnect]);
+
+  // Handle wallet mismatch - when Thirdweb auto-connects to a different wallet than expected
+  useEffect(() => {
+    const handleWalletMismatch = async (event: CustomEvent) => {
+      const { sessionWallet, connectedWallet, message } = event.detail || {};
+
+      console.log('[AuthProvider] ⚠️ Wallet mismatch detected', {
+        sessionWallet,
+        connectedWallet
+      });
+
+      // Set flag to prevent logout when we disconnect the mismatched wallet
+      useAuthStore.getState().setWalletMismatchPending(true);
+
+      // Show warning toast
+      toast.error(message || 'Your wallet changed unexpectedly. Please reconnect with your intended wallet.', {
+        duration: 6000,
+        icon: '⚠️',
+        style: {
+          background: '#92400e',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: '14px'
+        }
+      });
+
+      // Clear Thirdweb localStorage to prevent auto-connect to wrong wallet
+      try {
+        if (typeof window !== 'undefined') {
+          const thirdwebKeys = Object.keys(localStorage).filter(key =>
+            key.includes('thirdweb') ||
+            key.includes('walletconnect') ||
+            key.includes('WALLET_')
+          );
+
+          thirdwebKeys.forEach(key => {
+            console.log('[AuthProvider] Clearing localStorage key:', key);
+            localStorage.removeItem(key);
+          });
+          console.log('[AuthProvider] ✅ Cleared Thirdweb localStorage after wallet mismatch');
+        }
+      } catch (error) {
+        console.error('[AuthProvider] Error clearing Thirdweb storage:', error);
+      }
+
+      // Disconnect the wrong wallet (flag prevents this from triggering logout)
+      if (wallet && disconnect) {
+        try {
+          await disconnect(wallet);
+          console.log('[AuthProvider] ✅ Disconnected mismatched wallet');
+        } catch (error) {
+          console.error('[AuthProvider] Error disconnecting wallet:', error);
+        }
+      }
+
+      // Reload page after a delay so user sees the message
+      // The flag will be reset on reload since it's not persisted
+      setTimeout(() => {
+        console.log('[AuthProvider] Reloading page after wallet mismatch');
+        window.location.reload();
+      }, 3000);
+    };
+
+    window.addEventListener('auth:wallet-mismatch', handleWalletMismatch as EventListener);
+
+    return () => {
+      window.removeEventListener('auth:wallet-mismatch', handleWalletMismatch as EventListener);
     };
   }, [wallet, disconnect]);
 

@@ -557,7 +557,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
           <div className="grid grid-cols-4 gap-4">
             <p className="text-sm font-semibold text-white">CUSTOMER</p>
             <p className="text-sm font-semibold text-white">TIER</p>
-            <p className="text-sm font-semibold text-white">LIFETIME RCN</p>
+            <p className="text-sm font-semibold text-white">EARNED AT YOUR SHOP</p>
             <p className="text-sm font-semibold text-white">TRANSACTIONS</p>
           </div>
         </div>
