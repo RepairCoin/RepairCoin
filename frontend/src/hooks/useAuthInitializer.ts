@@ -28,7 +28,7 @@ import { client } from '@/utils/thirdweb';
 export function useAuthInitializer() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
-  const { login, logout, setAccount, setUserProfile, setAuthInitialized } = useAuthStore();
+  const { login, logout, setAccount, setUserProfile, setAuthInitialized, walletMismatchPending, setWalletMismatchPending } = useAuthStore();
   const previousAddressRef = useRef<string | null>(null);
   const isInitializedRef = useRef(false);
   const sessionCheckedRef = useRef(false); // Track if we already checked for session
@@ -106,11 +106,108 @@ export function useAuthInitializer() {
           console.log('[AuthInitializer] Session check result:', session);
 
           if (session.isValid && session.user) {
+            const userData = session.user as any;
+            const sessionAddress = (userData.address || userData.walletAddress || '').toLowerCase();
+            const connectedAddress = currentAddress?.toLowerCase();
+
+            // WALLET MISMATCH CHECK: If the connected wallet doesn't match the session wallet,
+            // this might be Thirdweb auto-connecting to a different cached wallet (e.g., embedded
+            // wallet when user was logged in with MetaMask). Don't auto-switch accounts.
+            if (sessionAddress && connectedAddress && sessionAddress !== connectedAddress) {
+              // BEFORE flagging as mismatch, check if this is a valid email-based login
+              // The connected wallet might be an embedded wallet from Google login
+              // that authenticated to a MetaMask-registered shop via email fallback
+              let connectedWalletEmail: string | undefined;
+              try {
+                connectedWalletEmail = await getUserEmail({ client });
+              } catch (e) {
+                // Not an embedded wallet - no email available
+              }
+
+              // If the connected wallet has an email that matches the session email,
+              // this is a valid email-based login - NOT a mismatch error
+              const sessionEmail = userData.email?.toLowerCase();
+              if (connectedWalletEmail && sessionEmail &&
+                  connectedWalletEmail.toLowerCase() === sessionEmail) {
+                console.log('[AuthInitializer] ✅ Email-based login detected - wallet address mismatch is expected', {
+                  sessionWallet: sessionAddress,
+                  connectedWallet: connectedAddress,
+                  email: sessionEmail
+                });
+
+                // This is a valid email-based login - the session was created via email fallback
+                // Don't trigger mismatch error, just restore the session profile
+                const profile = {
+                  id: userData.id,
+                  address: sessionAddress, // Keep session address (the original MetaMask address)
+                  type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
+                  name: userData.name || userData.shopName,
+                  email: userData.email,
+                  isActive: userData.active !== false,
+                  tier: userData.tier,
+                  shopId: userData.shopId,
+                  registrationDate: userData.createdAt || userData.created_at,
+                  suspended: userData.suspended || false,
+                  suspendedAt: userData.suspendedAt,
+                  suspensionReason: userData.suspensionReason
+                };
+
+                setUserProfile(profile);
+                setAuthInitialized(true);
+                isInitializedRef.current = true;
+                sessionCheckedRef.current = true;
+                return; // Valid email-based login - continue with session
+              }
+
+              // Only trigger mismatch error if emails don't match (or no email available)
+              // This means someone is genuinely trying to connect with a different wallet
+              console.warn('[AuthInitializer] ⚠️ Wallet mismatch detected!', {
+                sessionWallet: sessionAddress,
+                connectedWallet: connectedAddress,
+                sessionEmail: sessionEmail || 'none',
+                connectedEmail: connectedWalletEmail || 'none',
+                reason: 'Thirdweb auto-connected to different wallet than session'
+              });
+
+              // Dispatch event so UI can handle this (show warning, disconnect wrong wallet)
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:wallet-mismatch', {
+                  detail: {
+                    sessionWallet: sessionAddress,
+                    connectedWallet: connectedAddress,
+                    message: 'Your wallet changed unexpectedly. Please reconnect with your intended wallet.'
+                  }
+                }));
+              }
+
+              // Still restore the session profile (with correct session address)
+              // The UI handler will disconnect the wrong wallet and prompt user
+              const profile = {
+                id: userData.id,
+                address: sessionAddress, // Use SESSION address, not connected address
+                type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
+                name: userData.name || userData.shopName,
+                email: userData.email,
+                isActive: userData.active !== false,
+                tier: userData.tier,
+                shopId: userData.shopId,
+                registrationDate: userData.createdAt || userData.created_at,
+                suspended: userData.suspended || false,
+                suspendedAt: userData.suspendedAt,
+                suspensionReason: userData.suspensionReason
+              };
+
+              setUserProfile(profile);
+              setAuthInitialized(true);
+              isInitializedRef.current = true;
+              sessionCheckedRef.current = true;
+              return; // Don't create new session - keep existing one
+            }
+
             console.log('[AuthInitializer] ✅ Valid session found, restoring state without new login');
 
             // Restore user profile from existing session
             // Session user has extended properties beyond the basic User type
-            const userData = session.user as any;
             const profile = {
               id: userData.id,
               address: userData.address || userData.walletAddress || currentAddress,
@@ -164,6 +261,14 @@ export function useAuthInitializer() {
           console.log('[AuthInitializer] No email available (expected for external wallets)');
         }
 
+        // NOTE: We removed the "blocking auto-login on protected route" protection here.
+        // The wallet mismatch check above (lines 116-156) is the correct protection:
+        // - If session IS valid AND wallet doesn't match → Block and show warning
+        // - If session is NOT valid (expired/no session) → Allow login with email fallback
+        //
+        // The removed protection was too aggressive - it blocked legitimate Google logins
+        // even when there was no session to protect.
+
         console.log('[AuthInitializer] 🚀 Creating new session via login()');
         await login(currentAddress, userEmail);
         console.log('[AuthInitializer] ✅ Login completed');
@@ -172,6 +277,15 @@ export function useAuthInitializer() {
         sessionCheckedRef.current = true;
       } else if (previousAddress) {
         // User disconnected wallet (only logout if we were previously connected)
+        // BUT skip logout if this disconnect was due to wallet mismatch handling
+        if (walletMismatchPending) {
+          console.log('[AuthInitializer] Wallet disconnected due to mismatch handling, skipping logout');
+          // Reset the flag - page will reload anyway
+          setWalletMismatchPending(false);
+          // Keep authInitialized true so dashboard doesn't show loading
+          return;
+        }
+
         console.log('[AuthInitializer] Account disconnected:', previousAddress);
         logout();
         setAuthInitialized(false); // Reset on logout

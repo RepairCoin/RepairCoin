@@ -11,6 +11,28 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  isChunkError: boolean;
+  retryCount: number;
+}
+
+// Key for tracking chunk error retries in sessionStorage
+const CHUNK_ERROR_RETRY_KEY = 'chunk_error_retry_count';
+const MAX_CHUNK_RETRIES = 2;
+
+/**
+ * Check if an error is a chunk loading error
+ * These happen when:
+ * - New deployment with different chunk hashes
+ * - User has cached old version
+ * - Network timeout loading chunks
+ */
+function isChunkLoadError(error: Error): boolean {
+  return (
+    error.name === 'ChunkLoadError' ||
+    error.message.includes('Loading chunk') ||
+    error.message.includes('Loading CSS chunk') ||
+    error.message.includes('Failed to fetch dynamically imported module')
+  );
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -19,36 +41,106 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
+      isChunkError: false,
+      retryCount: 0
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    const isChunkError = isChunkLoadError(error);
     return {
       hasError: true,
       error,
-      errorInfo: null
+      errorInfo: null,
+      isChunkError
     };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
+    const isChunkError = isChunkLoadError(error);
+
     this.setState({
       error,
-      errorInfo
+      errorInfo,
+      isChunkError
     });
 
     // Log to error tracking service
     if (typeof window !== 'undefined') {
-      // You can integrate with Sentry, LogRocket, etc. here
       console.error('Error details:', {
         message: error.message,
         stack: error.stack,
-        componentStack: errorInfo.componentStack
+        componentStack: errorInfo.componentStack,
+        isChunkError
       });
+
+      // For chunk errors, try automatic recovery
+      if (isChunkError) {
+        this.handleChunkError();
+      }
     }
   }
+
+  /**
+   * Handle chunk load errors by attempting automatic recovery
+   * This clears caches and reloads the page
+   */
+  handleChunkError = () => {
+    if (typeof window === 'undefined') return;
+
+    // Get current retry count from sessionStorage
+    const retryCountStr = sessionStorage.getItem(CHUNK_ERROR_RETRY_KEY);
+    const retryCount = retryCountStr ? parseInt(retryCountStr, 10) : 0;
+
+    console.log(`[ErrorBoundary] ChunkLoadError detected, retry count: ${retryCount}/${MAX_CHUNK_RETRIES}`);
+
+    if (retryCount < MAX_CHUNK_RETRIES) {
+      // Increment retry count
+      sessionStorage.setItem(CHUNK_ERROR_RETRY_KEY, String(retryCount + 1));
+
+      console.log('[ErrorBoundary] Attempting automatic recovery...');
+
+      // Clear Next.js cache and reload
+      // Adding timestamp to bust any CDN/browser caches
+      const url = new URL(window.location.href);
+      url.searchParams.set('_refresh', Date.now().toString());
+
+      // Small delay to ensure state is saved
+      setTimeout(() => {
+        window.location.href = url.toString();
+      }, 100);
+    } else {
+      // Max retries reached, clear the counter and show error UI
+      console.log('[ErrorBoundary] Max retries reached, showing error UI');
+      sessionStorage.removeItem(CHUNK_ERROR_RETRY_KEY);
+      this.setState({ retryCount });
+    }
+  };
+
+  /**
+   * Manual refresh that clears all caches
+   */
+  handleHardRefresh = () => {
+    if (typeof window === 'undefined') return;
+
+    // Clear sessionStorage retry counter
+    sessionStorage.removeItem(CHUNK_ERROR_RETRY_KEY);
+
+    // Clear caches if available
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          caches.delete(name);
+        });
+      });
+    }
+
+    // Force reload bypassing cache
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
@@ -57,7 +149,60 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      // Default error UI
+      const { isChunkError, error } = this.state;
+
+      // Chunk error specific UI
+      if (isChunkError) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
+              <div className="text-center">
+                <div className="text-6xl mb-4">🔄</div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                  Update Available
+                </h1>
+                <p className="text-gray-600 mb-2">
+                  A new version of the app is available. Please refresh to get the latest updates.
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  This can happen after we deploy improvements to the site.
+                </p>
+
+                <div className="space-y-2">
+                  <button
+                    onClick={this.handleHardRefresh}
+                    className="w-full px-4 py-2 bg-yellow-500 text-gray-900 font-semibold rounded-md hover:bg-yellow-400 transition"
+                  >
+                    Refresh Now
+                  </button>
+                  <button
+                    onClick={() => {
+                      sessionStorage.removeItem(CHUNK_ERROR_RETRY_KEY);
+                      window.location.href = '/';
+                    }}
+                    className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
+                  >
+                    Go to Home Page
+                  </button>
+                </div>
+
+                {process.env.NODE_ENV === 'development' && error && (
+                  <details className="text-left mt-4">
+                    <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                      Technical details
+                    </summary>
+                    <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                      {error.toString()}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Default error UI for non-chunk errors
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
@@ -69,7 +214,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <p className="text-gray-600 mb-6">
                 We're sorry for the inconvenience. Please try refreshing the page.
               </p>
-              
+
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="text-left mb-4">
                   <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
@@ -81,7 +226,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   </pre>
                 </details>
               )}
-              
+
               <div className="space-y-2">
                 <button
                   onClick={() => window.location.reload()}
@@ -91,7 +236,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </button>
                 <button
                   onClick={() => {
-                    this.setState({ hasError: false, error: null, errorInfo: null });
+                    this.setState({ hasError: false, error: null, errorInfo: null, isChunkError: false, retryCount: 0 });
                   }}
                   className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
                 >

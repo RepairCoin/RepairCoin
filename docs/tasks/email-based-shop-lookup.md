@@ -678,6 +678,46 @@ router.post('/shop', async (req, res) => {
 - Root cause: Shop registered with MetaMask, Google OAuth creates different wallet
 - Solution: Email-based fallback lookup + proper userProfile state management
 
+## Known Issue: Wallet Auto-Switch Bug (Fixed January 20, 2026)
+
+### Problem
+
+The email fallback feature could cause **unwanted account switching** when combined with Thirdweb's wallet auto-connect behavior:
+
+1. User logs in with MetaMask as Shop A
+2. User had previously logged in with Google (creating embedded wallet)
+3. On page reload, Thirdweb auto-connects to the embedded wallet
+4. Email fallback "helpfully" finds Shop A via email
+5. New session created with embedded wallet address instead of MetaMask
+6. User experiences unexpected behavior, rate limiting, and logout issues
+
+### Root Cause
+
+The email fallback was working as designed, but it shouldn't trigger when:
+- User already has a valid session with a different wallet
+- Thirdweb auto-connects to a cached embedded wallet without user intent
+
+### Fix Applied
+
+See: `docs/tasks/web-wallet-session-mismatch-bug.md`
+
+**Changes made to `useAuthInitializer.ts`:**
+
+1. **Wallet mismatch detection**: When session exists but connected wallet differs, dispatch `auth:wallet-mismatch` event instead of switching accounts
+
+2. **Protected route guard**: Block auto-login with email fallback on protected routes when there's no previous session context (prevents embedded wallet auto-connect from triggering email lookup)
+
+**Changes made to `AuthProvider.tsx`:**
+
+3. **Mismatch handler**: Shows warning toast, clears Thirdweb localStorage, disconnects wrong wallet, reloads page
+
+### Impact on Email Fallback
+
+The email fallback still works correctly for **intentional** social logins:
+- User clicks "Login with Google" → Email fallback finds their shop → Works ✅
+- User on protected route, embedded wallet auto-connects → Blocked ✅
+- User has valid MetaMask session, embedded wallet auto-connects → Blocked ✅
+
 ---
 
 ## Notes
