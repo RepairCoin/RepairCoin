@@ -1,0 +1,86 @@
+import { View, ScrollView } from "react-native";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { TabButtons } from "@/components/ui/TabButtons";
+import { handleLink } from "@/utilities/linking";
+import { formatDate } from "@/utilities/format";
+import {
+  ProfileLoadingState,
+  ProfileErrorState,
+  ShopProfileHeader,
+  ShopDetailsTab,
+  ShopServicesTab,
+  ShopReviewsTab
+} from "../components";
+import { useShopProfileScreen } from "../hooks/ui";
+import { SHOP_PROFILE_TABS } from "../constants";
+import { useLocalSearchParams } from "expo-router";
+
+interface ShopProfileScreenProps {
+  shopId: string;
+}
+
+export default function ShopProfileScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const {
+    shopData,
+    isLoading,
+    error,
+    activeTab,
+    setActiveTab,
+    handleServicePress,
+    goBack
+  } = useShopProfileScreen(id);
+
+  if (isLoading) {
+    return <ProfileLoadingState message="Loading shop profile..." />;
+  }
+
+  if (error || !shopData) {
+    return (
+      <ProfileErrorState
+        title="Shop not found"
+        message="The shop you're looking for doesn't exist"
+        onBack={goBack}
+      />
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-zinc-950">
+      <AppHeader title="Shop Profile" />
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="h-4" />
+
+        <ShopProfileHeader
+          name={shopData.name}
+          verified={shopData.verified}
+        />
+
+        <TabButtons
+          tabs={SHOP_PROFILE_TABS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+
+        {activeTab === "services" && (
+          <ShopServicesTab
+            shopId={id}
+            onServicePress={handleServicePress}
+          />
+        )}
+
+        {activeTab === "details" && (
+          <ShopDetailsTab
+            shopData={shopData}
+            onLinkPress={handleLink}
+            formatDate={formatDate}
+          />
+        )}
+
+        {activeTab === "reviews" && <ShopReviewsTab />}
+
+        <View className="h-8" />
+      </ScrollView>
+    </View>
+  );
+}

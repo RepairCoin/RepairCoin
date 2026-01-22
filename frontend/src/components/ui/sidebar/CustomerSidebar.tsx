@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Calendar,
   MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";

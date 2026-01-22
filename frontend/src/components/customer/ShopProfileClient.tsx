@@ -32,8 +32,9 @@ import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal"
 import { createService, CreateServiceData, UpdateServiceData } from "@/services/api/services";
 import { useAuthStore } from "@/stores/authStore";
 import * as messagingApi from "@/services/api/messaging";
-import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
+import ServiceAnalyticsTab from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
+import { CustomerGridView } from "@/components/shop/CustomerGridView";
 
 interface ShopInfo {
   shopId: string;
@@ -50,6 +51,7 @@ interface ShopInfo {
   logoUrl?: string;
   bannerUrl?: string;
   aboutText?: string;
+  totalCustomers?: number;
   location?: {
     lat?: number;
     lng?: number;
@@ -71,7 +73,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [selectedService, setSelectedService] = useState<ShopServiceWithShopInfo | null>(null);
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews" | "analytics" | "appointments">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews" | "analytics" | "appointments" | "customers">("services");
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -614,6 +616,19 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
                     )}
                   </button>
+                  <button
+                    onClick={() => setActiveTab("customers")}
+                    className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                      activeTab === "customers"
+                        ? "text-[#FFCC00]"
+                        : "text-gray-400 hover:text-gray-300"
+                    }`}
+                  >
+                    Customers ({shopInfo?.totalCustomers || 0})
+                    {activeTab === "customers" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                    )}
+                  </button>
                 </>
               )}
               {shopInfo?.aboutText && (
@@ -768,6 +783,13 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {activeTab === "appointments" && isPreviewMode && (
           <div>
             <AppointmentCalendar />
+          </div>
+        )}
+
+        {/* Customers Tab */}
+        {activeTab === "customers" && isPreviewMode && (
+          <div>
+            <CustomerGridView shopId={shopId} />
           </div>
         )}
         </div>

@@ -22,6 +22,7 @@ import {
   MessageCircle,
   RefreshCw,
   User,
+  TrendingUp,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -199,6 +200,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
             />
           ),
           tabId: "purchase",
+        },
+        {
+          title: "Stake RCG",
+          href: "/shop?tab=staking",
+          icon: <TrendingUp className="w-5 h-5" />,
+          tabId: "staking",
         },
       ],
     },

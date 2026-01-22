@@ -34,6 +34,7 @@ import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
 import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
 import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequestsTab";
 import { ProfileTab } from "@/components/shop/tabs/ProfileTab";
+import { StakingTab } from "@/components/shop/tabs/StakingTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
@@ -1108,6 +1109,8 @@ export default function ShopDashboardClient() {
               isPaused={!!isPaused}
             />
           )}
+
+          {activeTab === "staking" && <StakingTab />}
 
           {activeTab === "groups" && shopData && (
             <>

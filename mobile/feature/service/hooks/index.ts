@@ -16,4 +16,7 @@ export {
   useServiceDetailUI,
   useServiceNavigation,
   useAvailabilityModal,
+  // Customer-side
+  useServiceDetail,
+  useTrendingServices,
 } from "./ui";

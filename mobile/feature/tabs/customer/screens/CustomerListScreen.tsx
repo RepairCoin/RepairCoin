@@ -38,7 +38,7 @@ export default function CustomerListScreen() {
       lifetimeEarnings={item?.lifetimeEarnings}
       total_transactions={item?.total_transactions}
       onPress={() => {
-        router.push(`/shared/profile/view-profile/${item?.address}` as any);
+        router.push(`/shop/profile/customer-profile/${item?.address}` as any);
       }}
     />
   );
