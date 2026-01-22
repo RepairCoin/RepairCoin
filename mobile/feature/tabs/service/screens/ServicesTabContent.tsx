@@ -126,6 +126,7 @@ export default function ServicesTabContent() {
           keyExtractor={(item, index) => `${item.serviceId}-${index}`}
           renderItem={renderServiceItem}
           numColumns={2}
+          columnWrapperStyle={{ alignItems: "stretch" }}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
             <RefreshControl

@@ -173,12 +173,12 @@ function ServiceCard({
   // Grid View Layout (default)
   return (
     <View className="flex-1 mx-2 my-2">
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} className="flex-1">
         <LinearGradient
           colors={["#27272a", "#18181b"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ borderRadius: 12, overflow: "hidden" }}
+          style={{ borderRadius: 12, overflow: "hidden", flex: 1 }}
         >
           {imageUrl !== undefined && (
             <View className="relative">
@@ -251,37 +251,39 @@ function ServiceCard({
             </View>
           )}
 
-          <View className="p-3">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-xs text-gray-500 uppercase tracking-wide">
-                {category}
+          <View className="p-3 flex-1 justify-between">
+            <View>
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-xs text-gray-500 uppercase tracking-wide">
+                  {category}
+                </Text>
+                {status && statusPosition === "body" && (
+                  <View className={`px-2 py-1 rounded-full ${status.bgColor}`}>
+                    <Text
+                      className={`text-xs font-medium capitalize ${status.textColor}`}
+                    >
+                      {status.label}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <Text
+                className="text-white text-base font-semibold mb-1"
+                numberOfLines={1}
+              >
+                {title}
               </Text>
-              {status && statusPosition === "body" && (
-                <View className={`px-2 py-1 rounded-full ${status.bgColor}`}>
-                  <Text
-                    className={`text-xs font-medium capitalize ${status.textColor}`}
-                  >
-                    {status.label}
-                  </Text>
-                </View>
-              )}
+
+              <Text
+                className="text-gray-400 text-xs leading-4"
+                numberOfLines={2}
+              >
+                {description || "No description"}
+              </Text>
             </View>
 
-            <Text
-              className="text-white text-base font-semibold mb-1"
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-
-            <Text
-              className="text-gray-400 text-xs leading-4 mb-3"
-              numberOfLines={2}
-            >
-              {description || "No description"}
-            </Text>
-
-            <View className="border-t border-gray-800 pt-3 flex-row items-center justify-between">
+            <View className="border-t border-gray-800 pt-3 mt-3 flex-row items-center justify-between">
               <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
             </View>
           </View>
