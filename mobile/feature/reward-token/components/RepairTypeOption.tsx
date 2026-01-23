@@ -21,14 +21,14 @@ export function PresetRepairOption({ option, isSelected, onSelect }: RepairTypeO
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center flex-1">
           <View
-            className={`w-5 h-5 rounded-full border-2 mr-3 ${
+            className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
               isSelected
                 ? "border-[#FFCC00] bg-[#FFCC00]"
                 : "border-gray-500"
             }`}
           >
             {isSelected && (
-              <MaterialIcons name="check" size={20} color="black" />
+              <MaterialIcons name="check" size={12} color="black" />
             )}
           </View>
           <View className="flex-1">
@@ -73,14 +73,14 @@ export function CustomRepairOption({
     >
       <View className="flex-row items-center">
         <View
-          className={`w-5 h-5 rounded-full border-2 mr-3 ${
+          className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
             isSelected
               ? "border-[#FFCC00] bg-[#FFCC00]"
               : "border-gray-500"
           }`}
         >
           {isSelected && (
-            <MaterialIcons name="check" size={20} color="black" />
+            <MaterialIcons name="check" size={12} color="black" />
           )}
         </View>
         <View className="flex-1">
