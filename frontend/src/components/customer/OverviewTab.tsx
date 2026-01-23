@@ -4,19 +4,23 @@ import React, { useEffect, useState } from "react";
 import { useReadContract, useActiveAccount } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { WalletIcon, TrophyIcon, RedeemIcon, IssueRewardsIcon } from "../icon";
+import { Wallet, CircleCheck, TrendingUp, Gift } from "lucide-react";
 import { useCustomer } from "@/hooks/useCustomer";
 import { useCustomerStore } from "@/stores/customerStore";
 import { useAuthStore } from "@/stores/authStore";
-import { StatCard } from "../ui/StatCard";
 import { DataTable, type Column } from "../ui/DataTable";
-import { DashboardHeader } from "../ui/DashboardHeader";
-import { Coins, X, Loader2, AlertTriangle, CheckCircle, ExternalLink } from "lucide-react";
+import { Coins, X, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { toast } from "react-hot-toast";
-import Tooltip from "../ui/tooltip";
-import apiClient from '@/services/api/client';
-import GroupBalancesCard from "./GroupBalancesCard";
+import apiClient from "@/services/api/client";
 import { SuspendedActionModal } from "./SuspendedActionModal";
+import {
+  TrendingServicesList,
+  YourTierLevelCard,
+  MintRCNCard,
+  CampaignsPromosCard,
+} from "./overview";
+import { ShopServiceWithShopInfo } from "@/services/api/services";
+import { useRouter } from "next/navigation";
 
 const client = createThirdwebClient({
   clientId:
@@ -32,19 +36,34 @@ const contract = getContract({
     "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
 
-// Helper function to get next tier information
-const getNextTier = (currentTier: string) => {
-  switch (currentTier) {
-    case "BRONZE":
-      return { tier: "SILVER", requirement: 200 };
-    case "SILVER":
-      return { tier: "GOLD", requirement: 1000 };
-    default:
-      return { tier: "GOLD", requirement: 1000 };
-  }
-};
+// Compact stat card component for the new design
+interface CompactStatCardProps {
+  icon: React.ReactNode;
+  value: string | number;
+  label: string;
+  sublabel?: string;
+}
+
+const CompactStatCard: React.FC<CompactStatCardProps> = ({
+  icon,
+  value,
+  label,
+  sublabel,
+}) => (
+  <div className="bg-[#212121] rounded-xl p-4 sm:p-5 flex items-center gap-4">
+    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
+      {icon}
+    </div>
+    <div className="min-w-0">
+      <div className="text-xs sm:text-sm text-gray-400">{label}</div>
+      <div className="text-xl sm:text-2xl font-bold text-white truncate">{value}</div>
+      {sublabel && <div className="text-xs text-gray-500">{sublabel}</div>}
+    </div>
+  </div>
+);
 
 export const OverviewTab: React.FC = () => {
+  const router = useRouter();
   const account = useActiveAccount();
   const { userProfile } = useAuthStore();
   const {
@@ -74,42 +93,55 @@ export const OverviewTab: React.FC = () => {
   // Use dummy data if no real transactions
   const displayTransactions = transactions.length > 0 ? transactions : [];
 
-  // Define columns for DataTable
+  // Define columns for DataTable - simplified for overview
   const transactionColumns: Column[] = [
     {
       key: "date",
       header: "Date",
       accessor: (transaction: any) => (
         <div>
-          <div className="font-medium text-gray-300">
+          <div className="font-medium text-gray-300 text-xs">
             {new Date(transaction.createdAt).toLocaleDateString("en-US", {
               timeZone: "America/Chicago",
+              month: "2-digit",
+              day: "2-digit",
+              year: "numeric",
             })}
           </div>
           <div className="text-xs text-gray-500">
             {new Date(transaction.createdAt).toLocaleTimeString("en-US", {
               timeZone: "America/Chicago",
+              hour: "2-digit",
+              minute: "2-digit",
             })}
           </div>
         </div>
       ),
-      className: "text-sm",
+      className: "text-xs",
     },
     {
       key: "description",
       header: "Description",
       accessor: (transaction: any) => (
-        <div className="text-gray-200">{transaction.description}</div>
+        <div className="text-gray-200 text-xs truncate max-w-[120px]">
+          {transaction.type === "earned"
+            ? "Service"
+            : transaction.type === "redeemed"
+            ? "Redemption"
+            : transaction.description}
+        </div>
       ),
-      className: "text-sm",
+      className: "text-xs",
     },
     {
       key: "shop",
       header: "Shop",
       accessor: (transaction: any) => (
-        <span className="text-gray-400">{transaction.shopName || "—"}</span>
+        <span className="text-gray-400 text-xs truncate block max-w-[80px]">
+          {transaction.shopName || "—"}
+        </span>
       ),
-      className: "text-sm hidden md:table-cell",
+      className: "text-xs hidden md:table-cell",
       headerClassName: "hidden md:table-cell",
     },
     {
@@ -117,7 +149,7 @@ export const OverviewTab: React.FC = () => {
       header: "Type",
       accessor: (transaction: any) => (
         <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full ${
             transaction.type === "redeemed"
               ? "bg-red-900/30 text-red-400 border border-red-800/50"
               : transaction.type === "rejected_redemption"
@@ -151,30 +183,20 @@ export const OverviewTab: React.FC = () => {
       key: "amount",
       header: "Amount",
       accessor: (transaction: any) => {
-        // Handle rejection and cancellation transactions (amount = 0)
         if (
           transaction.type === "rejected_redemption" ||
           transaction.type === "cancelled_redemption"
         ) {
           return (
-            <span className="text-sm font-medium text-gray-400">
+            <span className="text-xs font-medium text-gray-400">
               {transaction.metadata?.originalRequestAmount || 0} RCN
-              <div className="text-xs text-gray-500 mt-0.5">
-                {transaction.type === "rejected_redemption"
-                  ? "Request rejected"
-                  : "Request cancelled"}
-              </div>
             </span>
           );
         }
-
-        // Handle normal transactions
         return (
           <span
-            className={`text-sm font-bold ${
-              transaction.type === "redeemed"
-                ? "text-red-400"
-                : "text-green-400"
+            className={`text-xs font-bold ${
+              transaction.type === "redeemed" ? "text-red-400" : "text-green-400"
             }`}
           >
             {transaction.type === "redeemed" ? "-" : "+"}
@@ -205,12 +227,11 @@ export const OverviewTab: React.FC = () => {
   useEffect(() => {
     if (tokenBalance !== undefined) {
       const formattedBalance = Number(tokenBalance) / 1e18;
-      // Update the store with the actual blockchain balance
       useCustomerStore.getState().setBlockchainBalance(formattedBalance);
     }
   }, [tokenBalance]);
 
-  // Mint to Wallet functionality - Instant mint to blockchain
+  // Mint to Wallet functionality
   const handleMintToWallet = async () => {
     if (!account?.address) {
       toast.error("Please connect your wallet first");
@@ -237,21 +258,23 @@ export const OverviewTab: React.FC = () => {
     setMintResult(null);
 
     try {
-      const result = await apiClient.post(
+      const result = (await apiClient.post(
         `/customers/balance/${account.address}/instant-mint`,
         { amount }
-      ) as { success: boolean; data?: { transactionHash?: string; amount?: number }; error?: string };
+      )) as {
+        success: boolean;
+        data?: { transactionHash?: string; amount?: number };
+        error?: string;
+      };
 
       if (result.success) {
-        // Show success state with transaction hash
         setMintResult({
           success: true,
           transactionHash: result.data?.transactionHash,
-          amount: result.data?.amount || amount
+          amount: result.data?.amount || amount,
         });
         toast.success(`Successfully minted ${amount} RCN to your wallet!`);
         setMintAmount("");
-        // Refresh customer data to update balances
         fetchCustomerData(true);
       } else {
         toast.error(result.error || "Failed to mint tokens");
@@ -259,8 +282,14 @@ export const OverviewTab: React.FC = () => {
       }
     } catch (error) {
       console.error("Mint error:", error);
-      const axiosError = error as { response?: { data?: { error?: string } }; message?: string };
-      const errorMessage = axiosError?.response?.data?.error || axiosError?.message || "Failed to process mint request";
+      const axiosError = error as {
+        response?: { data?: { error?: string } };
+        message?: string;
+      };
+      const errorMessage =
+        axiosError?.response?.data?.error ||
+        axiosError?.message ||
+        "Failed to process mint request";
       toast.error(errorMessage);
       setMintResult(null);
     } finally {
@@ -268,16 +297,13 @@ export const OverviewTab: React.FC = () => {
     }
   };
 
-  // Close modal and reset state
   const handleCloseMintModal = () => {
     setShowMintModal(false);
     setMintAmount("");
     setMintResult(null);
   };
 
-  // Get block explorer URL for transaction
   const getExplorerUrl = (txHash: string) => {
-    // Base Sepolia explorer
     return `https://sepolia.basescan.org/tx/${txHash}`;
   };
 
@@ -285,22 +311,20 @@ export const OverviewTab: React.FC = () => {
     setMintAmount(balanceData?.availableBalance?.toString() || "0");
   };
 
-  const getNextTier = (
-    currentTier: string
-  ): { tier: string; requirement: number } => {
-    switch (currentTier.toUpperCase()) {
-      case "BRONZE":
-        return { tier: "SILVER", requirement: 200 };
-      case "SILVER":
-        return { tier: "GOLD", requirement: 1000 };
-      case "GOLD":
-        return { tier: "GOLD", requirement: 0 };
-      default:
-        return { tier: "SILVER", requirement: 200 };
+  const handleMintButtonClick = () => {
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+    } else {
+      setShowMintModal(true);
     }
   };
 
-  // Only show loading on initial load, not when switching tabs
+  // Handle service view - navigate to marketplace with service selected
+  const handleViewService = (service: ShopServiceWithShopInfo) => {
+    router.push(`/customer?tab=marketplace&service=${service.serviceId}`);
+  };
+
+  // Loading state
   if (isLoading && !customerData) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -309,10 +333,11 @@ export const OverviewTab: React.FC = () => {
     );
   }
 
+  // Error state
   if (error && !customerData) {
     return (
-      <div className="bg-red-50 rounded-xl p-6 text-center">
-        <p className="text-red-600">{error}</p>
+      <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-center">
+        <p className="text-red-400">{error}</p>
         <button
           onClick={() => fetchCustomerData(true)}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
@@ -323,201 +348,100 @@ export const OverviewTab: React.FC = () => {
     );
   }
 
-  // Display cached data immediately, even if refreshing in background
   return (
     <>
-      {/* Header with gradient background */}
-      <DashboardHeader
-        title={`Hello 👋, ${customerData?.name || "Guest"}`}
-        subtitle="Overview of your account"
-      />
-      {/* Stats Grid - Responsive */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* RCN Balance Card */}
-        <StatCard
-          title="Available Balance"
+      {/* Header Section */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">
+          Hello There!{" "}
+          <span className="text-[#FFCC00]">{customerData?.name || "Guest"}</span>
+        </h1>
+        <p className="text-gray-400 text-sm mt-1">
+          Welcome back! Here&apos;s a quick look at your RepairCoin activity and
+          rewards.
+        </p>
+      </div>
+
+      {/* Stats Grid - 4 compact cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <CompactStatCard
+          icon={<Wallet className="w-5 h-5 text-[#FFCC00]" />}
           value={`${balanceData?.availableBalance || 0} RCN`}
-          subtitle="Off-chain balance"
-          icon={<WalletIcon />}
-          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
-          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
-          subtitleClassName="text-gray-400 text-xs sm:text-sm"
+          label="Available Balance"
+          sublabel="Off-chain balance"
         />
-
-        {/* Wallet Balance Card - On-chain */}
-        <StatCard
-          title="Wallet Balance"
+        <CompactStatCard
+          icon={<CircleCheck className="w-5 h-5 text-green-400" />}
           value={`${blockchainBalance || 0} RCN`}
-          subtitle="On-chain balance"
-          icon={
-            <div className="w-6 h-6 text-green-400">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path d="M9 12l2 2 4-4" />
-              </svg>
-            </div>
-          }
-          titleClassName="text-green-400 text-sm md:text-base font-medium"
-          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
-          subtitleClassName="text-gray-400 text-xs sm:text-sm"
+          label="Wallet Balance"
+          sublabel="On-chain balance"
         />
-
-        {/* Tokens Earned Card */}
-        <StatCard
-          title="Tokens Earned"
+        <CompactStatCard
+          icon={<TrendingUp className="w-5 h-5 text-[#FFCC00]" />}
           value={balanceData?.lifetimeEarned || 0}
-          icon={<IssueRewardsIcon />}
-          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
-          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
+          label="Tokens Earned"
         />
-
-        {/* Tokens Redeemed Card */}
-        <StatCard
-          title="Tokens Redeemed"
+        <CompactStatCard
+          icon={<Gift className="w-5 h-5 text-[#FFCC00]" />}
           value={balanceData?.totalRedeemed || 0}
-          icon={<RedeemIcon />}
-          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
-          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
-        />
-
-        {/* Customer Tier Card */}
-        <StatCard
-          title="Your Tier Level"
-          value={customerData?.tier || "BRONZE"}
-          icon={<TrophyIcon tier={customerData?.tier || "BRONZE"} />}
-          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
-          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
-          subtitleClassName="text-gray-400 text-xs sm:text-sm"
+          label="Tokens Redeemed"
         />
       </div>
 
-      {/* Shop Group Tokens Card */}
-      <GroupBalancesCard />
+      {/* Two-column layout - 3:2 ratio for wider right column */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left Column - Trending Services & Transaction History */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Trending Services */}
+          <TrendingServicesList onViewService={handleViewService} />
 
-      {/* Mint to Wallet Section */}
-      {balanceData && balanceData.availableBalance > 0 && (
-        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl mb-6 sm:mb-8">
-          <div
-            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl flex justify-between items-center overflow-visible relative"
-            style={{
-              backgroundImage: `url('/img/cust-ref-widget3.png')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <p className="text-lg md:text-xl text-gray-900 font-semibold">
-              Mint RCN to Wallet
-            </p>
-            <Tooltip
-              title="How it works"
-              position="bottom"
-              className="right-0"
-              content={
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-blue-400">1</span>
-                    </div>
-                    <span className="text-gray-300">
-                      Choose the amount of RCN you want to convert to blockchain
-                      tokens
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-blue-400">2</span>
-                    </div>
-                    <span className="text-gray-300">
-                      Your offchain RCN balance will be converted to actual
-                      blockchain tokens
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-blue-400">3</span>
-                    </div>
-                    <span className="text-gray-300">
-                      Tokens are minted and transferred to your connected wallet
-                    </span>
-                  </li>
-                </ul>
-              }
-            />
-          </div>
-          <div className="bg-[#212121] p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="bg-[#FFCC00]/20 p-3 rounded-full">
-                  <Coins className="w-6 h-6 text-[#FFCC00]" />
-                </div>
-                <div>
-                  <p className="text-white font-medium text-sm sm:text-base">
-                    Convert your offchain RCN to blockchain tokens
-                  </p>
-                  <p className="text-gray-400 text-xs sm:text-sm">
-                    Available to mint: {balanceData.availableBalance} RCN
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (isSuspended) {
-                    setShowSuspendedModal(true);
-                  } else {
-                    setShowMintModal(true);
-                  }
-                }}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm sm:text-base ${
-                  isSuspended
-                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                    : 'bg-[#FFCC00] text-black hover:bg-yellow-500'
-                }`}
-                disabled={isSuspended}
-              >
-                <Coins className="w-4 h-4" />
-                Mint to Wallet
-              </button>
+          {/* Transaction History */}
+          <div className="bg-[#212121] rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-800">
+              <Coins className="w-5 h-5 text-[#FFCC00]" />
+              <h3 className="text-white font-semibold text-base">Transaction History</h3>
+            </div>
+            <div className="p-4">
+              <DataTable
+                data={displayTransactions.slice(0, 5)}
+                columns={transactionColumns}
+                keyExtractor={(transaction) => transaction.id}
+                emptyMessage="No transactions yet"
+                emptyIcon={
+                  <div className="text-center py-6">
+                    <div className="text-4xl mb-3">📋</div>
+                    <p className="text-gray-400 text-sm">No transactions yet</p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      Start earning RCN by booking services!
+                    </p>
+                  </div>
+                }
+                className="w-full"
+                headerClassName="bg-gray-800/50 text-sm"
+              />
             </div>
           </div>
         </div>
-      )}
 
-      {/* Transaction History - Full view */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden mb-6 sm:mb-8">
-        <div
-          className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl flex justify-between items-center"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-lg md:text-xl text-gray-900 font-semibold">
-            Transaction History
-          </p>
-        </div>
-        <div className="bg-[#212121] p-4">
-          <DataTable
-            data={displayTransactions}
-            columns={transactionColumns}
-            keyExtractor={(transaction) => transaction.id}
-            emptyMessage="No transactions yet"
-            emptyIcon={
-              <div className="text-center">
-                <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
-                <p className="text-gray-500 text-sm sm:text-base mb-2">
-                  No transactions yet
-                </p>
-                <p className="text-xs sm:text-sm text-gray-400">
-                  Start earning RCN by visiting participating repair shops!
-                </p>
-              </div>
-            }
-            className="w-full"
-            headerClassName="bg-gray-800/50"
+        {/* Right Column - Tier, Mint, Campaigns */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Your Tier Level */}
+          <YourTierLevelCard
+            tier={customerData?.tier || "BRONZE"}
+            lifetimeEarned={balanceData?.lifetimeEarned || 0}
           />
+
+          {/* Mint RCN to Wallet */}
+          {balanceData && balanceData.availableBalance > 0 && (
+            <MintRCNCard
+              availableBalance={balanceData.availableBalance}
+              onMintClick={handleMintButtonClick}
+              disabled={isSuspended}
+            />
+          )}
+
+          {/* Campaigns & Promos */}
+          <CampaignsPromosCard />
         </div>
       </div>
 
@@ -538,17 +462,13 @@ export const OverviewTab: React.FC = () => {
             </div>
 
             <div className="p-6">
-              {/* Success State */}
               {mintResult?.success ? (
                 <div className="space-y-4">
-                  {/* Success Icon */}
                   <div className="flex justify-center">
                     <div className="bg-green-500/20 p-4 rounded-full">
                       <CheckCircle className="w-12 h-12 text-green-500" />
                     </div>
                   </div>
-
-                  {/* Success Message */}
                   <div className="text-center">
                     <p className="text-white text-lg font-medium mb-2">
                       {mintResult.amount} RCN Minted!
@@ -557,11 +477,11 @@ export const OverviewTab: React.FC = () => {
                       Your tokens have been successfully minted to your wallet.
                     </p>
                   </div>
-
-                  {/* Transaction Hash */}
                   {mintResult.transactionHash && (
                     <div className="bg-[#2F2F2F] p-4 rounded-lg">
-                      <p className="text-gray-400 text-xs mb-2">Transaction Hash:</p>
+                      <p className="text-gray-400 text-xs mb-2">
+                        Transaction Hash:
+                      </p>
                       <div className="flex items-center gap-2">
                         <code className="text-[#FFCC00] text-xs break-all flex-1">
                           {mintResult.transactionHash}
@@ -578,8 +498,6 @@ export const OverviewTab: React.FC = () => {
                       </div>
                     </div>
                   )}
-
-                  {/* View on Explorer Button */}
                   {mintResult.transactionHash && (
                     <a
                       href={getExplorerUrl(mintResult.transactionHash)}
@@ -591,8 +509,6 @@ export const OverviewTab: React.FC = () => {
                       View on Block Explorer
                     </a>
                   )}
-
-                  {/* Close Button */}
                   <button
                     onClick={handleCloseMintModal}
                     className="w-full px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors font-medium"
@@ -601,9 +517,7 @@ export const OverviewTab: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                /* Mint Form State */
                 <div className="space-y-4">
-                  {/* Balance Info */}
                   <div className="bg-[#2F2F2F] p-4 rounded-lg">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-400">Available Balance:</span>
@@ -612,8 +526,6 @@ export const OverviewTab: React.FC = () => {
                       </span>
                     </div>
                   </div>
-
-                  {/* Amount Input */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Amount to Mint
@@ -642,20 +554,16 @@ export const OverviewTab: React.FC = () => {
                       Max per transaction: 10,000 RCN
                     </p>
                   </div>
-
-                  {/* Info Box */}
                   <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 flex items-start gap-3">
                     <Coins className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-blue-200">
                       <p className="font-medium mb-1">Instant Minting</p>
                       <p>
-                        Your tokens will be minted directly to your wallet. Gas fees
-                        are covered by the platform.
+                        Your tokens will be minted directly to your wallet. Gas
+                        fees are covered by the platform.
                       </p>
                     </div>
                   </div>
-
-                  {/* Action Buttons */}
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={handleCloseMintModal}
