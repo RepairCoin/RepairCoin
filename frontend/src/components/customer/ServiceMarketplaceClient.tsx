@@ -274,7 +274,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb & Subtitle */}
         <div className="border-b border-gray-800 pb-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             {/* Left Column: Breadcrumb & Description */}
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -303,6 +303,9 @@ export const ServiceMarketplaceClient: React.FC = () => {
                 <div className="inline-flex items-center bg-[#1A1A1A] border border-gray-800 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode("grid")}
+                    title="View services in grid layout"
+                    aria-label="Grid view"
+                    aria-pressed={viewMode === "grid"}
                     className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                       viewMode === "grid"
                         ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
@@ -314,6 +317,9 @@ export const ServiceMarketplaceClient: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setViewMode("map")}
+                    title="View shops on map"
+                    aria-label="Map view"
+                    aria-pressed={viewMode === "map"}
                     className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                       viewMode === "map"
                         ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
@@ -331,6 +337,9 @@ export const ServiceMarketplaceClient: React.FC = () => {
                     setShowFavoritesOnly(!showFavoritesOnly);
                     setPage(1);
                   }}
+                  title={showFavoritesOnly ? "Show all services" : "Show favorite services only"}
+                  aria-label={showFavoritesOnly ? "Showing favorites - click to show all" : "Show favorites"}
+                  aria-pressed={showFavoritesOnly}
                   className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                     showFavoritesOnly
                       ? "bg-red-500 text-white hover:bg-red-600"
@@ -338,7 +347,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
                   }`}
                 >
                   <Heart className={`w-4 h-4 flex-shrink-0 ${showFavoritesOnly ? "fill-current" : ""}`} />
-                  <span className="hidden sm:inline">{showFavoritesOnly ? "Favorites" : "Favorites"}</span>
+                  <span className="hidden sm:inline">Favorites</span>
                 </button>
               </div>
             )}
