@@ -40,6 +40,7 @@ export default function RedeemTokenScreen() {
     // Computed values
     isCustomerSelf,
     hasInsufficientBalance,
+    exceedsCrossShopLimit,
     canProcessRedemption,
 
     // Handlers
@@ -85,6 +86,7 @@ export default function RedeemTokenScreen() {
           onAmountChange={setRedemptionAmount}
           customerData={customerData}
           hasInsufficientBalance={hasInsufficientBalance}
+          exceedsCrossShopLimit={exceedsCrossShopLimit}
         />
       </ScrollView>
 

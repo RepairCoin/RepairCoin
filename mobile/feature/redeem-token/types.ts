@@ -1,10 +1,26 @@
 export type CustomerTier = "GOLD" | "SILVER" | "BRONZE";
 
+/**
+ * Cross-shop redemption limits
+ * - Home shop (where customer earned RCN): 100% redemption allowed
+ * - Other shops: max 20% of lifetime earnings
+ */
+export interface CrossShopBalance {
+  totalRedeemableBalance: number;
+  crossShopLimit: number; // 20% of lifetime earnings
+  availableForCrossShop: number;
+  homeShopBalance: number; // 80% that can only be used at earning shops
+}
+
 export interface CustomerRedemptionData {
   address: string;
   tier: CustomerTier;
   balance: number;
   lifetimeEarnings: number;
+  // Cross-shop redemption fields
+  isHomeShop: boolean; // True if customer has earned RCN at this shop
+  maxRedeemable: number; // Maximum amount customer can redeem at this shop
+  crossShopLimit: number; // 20% limit for cross-shop redemptions
 }
 
 export interface RedemptionSession {
