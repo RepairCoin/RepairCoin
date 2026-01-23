@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShoppingBag, Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X } from "lucide-react";
+import { ShoppingBag, Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X, Home } from "lucide-react";
 import { getAllServices, ShopServiceWithShopInfo, servicesApi } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceFilters, FilterState } from "./ServiceFilters";
@@ -272,37 +272,55 @@ export const ServiceMarketplaceClient: React.FC = () => {
   return (
     <div className="text-white">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <ShoppingBag className="w-8 h-8 text-[#FFCC00]" />
-              <h1 className="text-4xl font-bold text-white">Marketplace</h1>
+        {/* Breadcrumb & Subtitle */}
+        <div className="border-b border-gray-800 pb-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Left Column: Breadcrumb & Description */}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Home className="w-5 h-5 text-gray-300" />
+                <span className="text-gray-400">&gt;</span>
+                <ShoppingBag className="w-5 h-5 text-[#FFCC00]" />
+                <span className="text-[#FFCC00] font-semibold">Marketplace</span>
+              </div>
+              <p className="text-gray-400">
+                {activeTab === "shops"
+                  ? "Browse shops by category and location"
+                  : showFavoritesOnly
+                  ? "Your favorited services"
+                  : viewMode === "map"
+                  ? "Find nearby shops on the map"
+                  : filters.shopId
+                  ? `Browsing services from ${services.find(s => s.shopId === filters.shopId)?.shopName || "shop"}`
+                  : "Discover and book services from local businesses"}
+              </p>
             </div>
+
+            {/* Right Column: View Controls */}
             {activeTab === "services" && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 {/* View Mode Toggle */}
-                <div className="flex items-center gap-1 bg-[#1A1A1A] border border-gray-800 rounded-lg p-1">
+                <div className="inline-flex items-center bg-[#1A1A1A] border border-gray-800 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all duration-200 ${
+                    className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                       viewMode === "grid"
-                        ? "bg-[#FFCC00] text-black"
-                        : "text-gray-400 hover:text-white"
+                        ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
-                    <Grid3x3 className="w-4 h-4" />
+                    <Grid3x3 className="w-4 h-4 flex-shrink-0" />
                     <span className="hidden sm:inline">Grid</span>
                   </button>
                   <button
                     onClick={() => setViewMode("map")}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all duration-200 ${
+                    className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                       viewMode === "map"
-                        ? "bg-[#FFCC00] text-black"
-                        : "text-gray-400 hover:text-white"
+                        ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                        : "text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
-                    <MapIcon className="w-4 h-4" />
+                    <MapIcon className="w-4 h-4 flex-shrink-0" />
                     <span className="hidden sm:inline">Map</span>
                   </button>
                 </div>
@@ -313,29 +331,18 @@ export const ServiceMarketplaceClient: React.FC = () => {
                     setShowFavoritesOnly(!showFavoritesOnly);
                     setPage(1);
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                     showFavoritesOnly
                       ? "bg-red-500 text-white hover:bg-red-600"
                       : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-red-500/50 hover:text-red-500"
                   }`}
                 >
-                  <Heart className={`w-5 h-5 ${showFavoritesOnly ? "fill-current" : ""}`} />
-                  <span className="hidden sm:inline">{showFavoritesOnly ? "Showing Favorites" : "Show Favorites"}</span>
+                  <Heart className={`w-4 h-4 flex-shrink-0 ${showFavoritesOnly ? "fill-current" : ""}`} />
+                  <span className="hidden sm:inline">{showFavoritesOnly ? "Favorites" : "Favorites"}</span>
                 </button>
               </div>
             )}
           </div>
-          <p className="text-gray-400 text-lg">
-            {activeTab === "shops"
-              ? "Browse shops by category and location"
-              : showFavoritesOnly
-              ? "Your favorited services"
-              : viewMode === "map"
-              ? "Find nearby shops on the map"
-              : filters.shopId
-              ? `Browsing services from ${services.find(s => s.shopId === filters.shopId)?.shopName || "shop"}`
-              : "Discover and book services from local businesses"}
-          </p>
         </div>
 
         {/* Tabs */}
