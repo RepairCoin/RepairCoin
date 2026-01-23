@@ -15,21 +15,13 @@ import {
   ShoppingBagIcon,
   TagIcon,
   UsersIcon,
-  MegaphoneIcon,
   GlobeIcon,
   MapPinnedIcon,
   Calendar,
-  MessageCircle,
   RefreshCw,
   User,
 } from "lucide-react";
-import {
-  IssueRewardsIcon,
-  RedeemIcon,
-  OverviewIcon,
-  CustomerIcon,
-  BuyRcnIcon,
-} from "@/components/icon";
+import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
 import Image from "next/image";
@@ -336,7 +328,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                     >
                       {React.isValidElement(item.icon)
                         ? React.cloneElement(
-                            item.icon as React.ReactElement<any>,
+                            item.icon as React.ReactElement<
+                              React.HTMLAttributes<HTMLElement>
+                            >,
                             {
                               className: `w-4 h-4 sm:w-5 sm:h-5 ${
                                 isActive ? "text-gray-900" : ""
@@ -399,7 +393,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                   >
                     {React.isValidElement(item.icon)
                       ? React.cloneElement(
-                          item.icon as React.ReactElement<any>,
+                          item.icon as React.ReactElement<
+                            React.HTMLAttributes<HTMLElement>
+                          >,
                           {
                             className: `w-4 h-4 sm:w-5 sm:h-5 ${
                               isActive ? "text-[#101010]" : ""

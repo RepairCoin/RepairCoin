@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Menu, X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import { SidebarItem, SidebarSection } from "./useSidebar";
+import { SidebarItem } from "./useSidebar";
 
 interface BaseSidebarProps {
   isOpen: boolean;
@@ -145,15 +145,20 @@ export const SidebarMenuItem: React.FC<SidebarMenuItemProps> = ({
       >
         <div className={`flex items-center ${isCollapsed ? "" : "space-x-3"}`}>
           {React.isValidElement(item.icon)
-            ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                className: `w-4 h-4 sm:w-5 sm:h-5 ${
-                  isActive
-                    ? "text-gray-900"
-                    : hasActiveSubItem
-                    ? "text-yellow-400"
-                    : ""
-                }`,
-              })
+            ? React.cloneElement(
+                item.icon as React.ReactElement<
+                  React.HTMLAttributes<HTMLElement>
+                >,
+                {
+                  className: `w-4 h-4 sm:w-5 sm:h-5 ${
+                    isActive
+                      ? "text-gray-900"
+                      : hasActiveSubItem
+                      ? "text-yellow-400"
+                      : ""
+                  }`,
+                }
+              )
             : item.icon}
           {!isCollapsed && (
             <span className="text-sm sm:text-base">{item.title}</span>
@@ -267,9 +272,14 @@ export const SectionMenuItem: React.FC<SectionMenuItemProps> = ({
       >
         <div className="w-5 h-5 flex items-center justify-center">
           {React.isValidElement(item.icon)
-            ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                className: `w-5 h-5 ${isActive ? "text-[#101010]" : ""}`,
-              })
+            ? React.cloneElement(
+                item.icon as React.ReactElement<
+                  React.HTMLAttributes<HTMLElement>
+                >,
+                {
+                  className: `w-5 h-5 ${isActive ? "text-[#101010]" : ""}`,
+                }
+              )
             : item.icon}
         </div>
         <span className="text-sm sm:text-base">{item.title}</span>
