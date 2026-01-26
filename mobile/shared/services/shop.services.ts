@@ -136,6 +136,43 @@ class ShopApi {
       throw error;
     }
   }
+
+  // Promo Code Methods
+  async getShopPromoCodes(shopId: string): Promise<{ data: any[] }> {
+    try {
+      return await apiClient.get(`/shops/${shopId}/promo-codes`);
+    } catch (error) {
+      console.error("Failed to get shop promo codes:", error);
+      throw error;
+    }
+  }
+
+  async createPromoCode(shopId: string, data: CreatePromoCodeRequest): Promise<PromoCodeResponse> {
+    try {
+      return await apiClient.post(`/shops/${shopId}/promo-codes`, data);
+    } catch (error) {
+      console.error("Failed to create promo code:", error);
+      throw error;
+    }
+  }
+
+  async validatePromoCode(shopId: string, data: { code: string; customer_address: string }): Promise<PromoCodeValidateResponse> {
+    try {
+      return await apiClient.post(`/shops/${shopId}/promo-codes/validate`, data);
+    } catch (error) {
+      console.error("Failed to validate promo code:", error);
+      throw error;
+    }
+  }
+
+  async updatePromoCodeStatus(shopId: string, promoCodeId: string, isActive: boolean): Promise<PromoCodeResponse> {
+    try {
+      return await apiClient.patch(`/shops/${shopId}/promo-codes/${promoCodeId}`, { is_active: isActive });
+    } catch (error) {
+      console.error("Failed to update promo code status:", error);
+      throw error;
+    }
+  }
 }
 
 export const shopApi = new ShopApi();

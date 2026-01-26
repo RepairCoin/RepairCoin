@@ -1,14 +1,9 @@
 import { View, Text, Switch } from "react-native";
-import { PromoCode } from "@/shared/services/ShopServices";
+import { PromoCode } from "@/feature/reward-token/types";
 import { useState } from "react";
 
 interface PromoCodeCardProps {
-  promoCode: PromoCode & { 
-    valid_from?: string;
-    valid_until?: string; 
-    start_date?: string;
-    end_date?: string;
-  };
+  promoCode: PromoCode;
   onToggleStatus?: (id: string, isActive: boolean) => void;
   isUpdating?: boolean;
 }

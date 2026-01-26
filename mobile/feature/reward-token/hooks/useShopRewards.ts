@@ -31,7 +31,7 @@ export function useCustomerInfo(walletAddress: string) {
     queryKey: queryKeys.customerInfo(walletAddress),
     queryFn: () => customerApi.getCustomerByWalletAddress(walletAddress),
     enabled: !!walletAddress && walletAddress.length === 42,
-    select: (data) => data.data.customer,
+    select: (data) => data.data?.customer,
     retry: false,
     staleTime: 60000, // Cache for 1 minute
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

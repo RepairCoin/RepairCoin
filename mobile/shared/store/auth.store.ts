@@ -38,6 +38,7 @@ interface AuthState {
   setHasHydrated: (state: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
   logout: (navigate?: boolean) => Promise<void>;
+  checkStoredAuth: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -88,6 +89,34 @@ export const useAuthStore = create<AuthState>()(
             false,
             "setUserProfile"
           );
+        },
+
+        checkStoredAuth: async () => {
+          const state = get();
+          if (!state.accessToken || !state.userType) {
+            return;
+          }
+
+          try {
+            set({ isLoading: true }, false, "checkStoredAuth:start");
+
+            // Re-fetch user profile based on user type
+            if (state.userType === "shop" && state.userProfile?.walletAddress) {
+              const response = await apiClient.get(`/shops/wallet/${state.userProfile.walletAddress}`);
+              if (response?.data?.shop) {
+                set({ userProfile: response.data.shop }, false, "checkStoredAuth:updateProfile");
+              }
+            } else if (state.userType === "customer" && state.userProfile?.walletAddress) {
+              const response = await apiClient.get(`/customers/wallet/${state.userProfile.walletAddress}`);
+              if (response?.data?.customer) {
+                set({ userProfile: response.data.customer }, false, "checkStoredAuth:updateProfile");
+              }
+            }
+          } catch (error) {
+            console.error("[Auth] Error checking stored auth:", error);
+          } finally {
+            set({ isLoading: false }, false, "checkStoredAuth:end");
+          }
         },
 
         logout: async (navigate = true) => {
