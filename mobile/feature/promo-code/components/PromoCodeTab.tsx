@@ -5,10 +5,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { ThemedView } from "@/components/ui/ThemedView";
-import { PromoCodeCard } from "@/components/shop/PromoCodeCard";
-import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
-import ActionCard from "@/components/shared/ActionCard";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { PromoCodeCard } from "@/feature/promo-code/components/PromoCodeCard";
+import { LoadingOverlay } from "@/shared/components/ui/LoadingOverlay";
+import ActionCard from "@/shared/components/shared/ActionCard";
 import { usePromoCodeUI } from "../hooks";
 
 export default function PromoCodeTab() {

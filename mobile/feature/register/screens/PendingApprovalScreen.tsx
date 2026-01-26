@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import Screen from "@/components/ui/Screen";
+import Screen from "@/shared/components/ui/Screen";
 import { Ionicons } from "@expo/vector-icons";
 import { usePendingApproval } from "../hooks";
 

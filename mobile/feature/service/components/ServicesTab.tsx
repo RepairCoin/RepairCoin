@@ -14,8 +14,8 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 // Components
-import ServiceCard from "@/components/shared/ServiceCard";
-import { SearchInput } from "@/components/ui/SearchInput";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 
 // Hooks
 import {

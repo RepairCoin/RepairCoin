@@ -8,8 +8,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { CardField } from "@stripe/stripe-react-native";
-import Screen from "@/components/ui/Screen";
-import PrimaryButton from "@/components/ui/PrimaryButton";
+import Screen from "@/shared/components/ui/Screen";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { usePayment } from "../hooks";
 import { PaymentError, PaymentDetails } from "../components";
 

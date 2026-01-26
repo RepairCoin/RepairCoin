@@ -1,5 +1,5 @@
 import { Image, View } from "react-native";
-import Screen from "@/components/ui/Screen";
+import Screen from "@/shared/components/ui/Screen";
 
 export default function ShopSuccessScreen() {
   return (

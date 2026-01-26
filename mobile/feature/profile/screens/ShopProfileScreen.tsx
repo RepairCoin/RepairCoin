@@ -1,6 +1,6 @@
 import { View, ScrollView } from "react-native";
-import { AppHeader } from "@/components/ui/AppHeader";
-import { TabButtons } from "@/components/ui/TabButtons";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { TabButtons } from "@/shared/components/ui/TabButtons";
 import { handleLink } from "@/shared/utilities/linking";
 import { formatDate } from "@/shared/utilities/format";
 import {

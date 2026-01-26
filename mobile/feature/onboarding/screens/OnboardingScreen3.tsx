@@ -5,8 +5,8 @@ import { client } from "@/shared/constants/thirdweb";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 
 import { useAuth } from "@/shared/hooks/auth/useAuth";
-import { ThemedButton } from "@/components/ui/ThemedButton";
-import WalletSelectionModal from "@/components/wallet/WalletSelectionModal";
+import { ThemedButton } from "@/shared/components/ui/ThemedButton";
+import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
 
 const globe = require("@/assets/images/global_spin.png");
 

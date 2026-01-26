@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import ServiceCard from "@/components/shared/ServiceCard";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useFavoritesTab } from "../hooks";
 

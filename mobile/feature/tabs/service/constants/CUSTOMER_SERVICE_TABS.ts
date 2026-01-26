@@ -1,5 +1,5 @@
 import { CustomerServiceTab, BookingFilterTab, BookingStatusFilter } from "../types";
-import { FilterOption } from "@/components/shared/FilterModal";
+import { FilterOption } from "@/shared/components/shared/FilterModal";
 
 export const CUSTOMER_SERVICE_TABS: CustomerServiceTab[] = ["Services", "Favorites", "Bookings"];
 

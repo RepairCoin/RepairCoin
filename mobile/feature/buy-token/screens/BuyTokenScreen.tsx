@@ -10,8 +10,8 @@ import {
   Modal,
 } from "react-native";
 import { AntDesign, Feather, Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ui/ThemedView";
-import SubscriptionModal from "@/components/shop/SubscriptionModal";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import SubscriptionModal from "@/shared/components/shop/SubscriptionModal";
 
 // Hooks
 import {

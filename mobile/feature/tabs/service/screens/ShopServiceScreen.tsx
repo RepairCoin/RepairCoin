@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, Pressable } from "react-native";
 
 // Components
-import { ThemedView } from "@/components/ui/ThemedView";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
 import {
   ServiceActionModal,
   AddServiceFab,

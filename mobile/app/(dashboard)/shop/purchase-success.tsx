@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ui/ThemedView";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from '@react-native-async-storage/async-storage';

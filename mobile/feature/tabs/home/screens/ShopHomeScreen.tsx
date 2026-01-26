@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { ThemedView } from "@/components/ui/ThemedView";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useHomeDataUI } from "../hooks";
 import { ShopTabs } from "../types";
 import { PromoCodeTab } from "@/feature/promo-code/components";

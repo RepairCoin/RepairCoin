@@ -1,7 +1,7 @@
 import { View, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useService } from "@/shared/hooks/service/useService";
-import ServiceCard from "@/components/shared/ServiceCard";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { PROFILE_COLORS } from "../constants";
 

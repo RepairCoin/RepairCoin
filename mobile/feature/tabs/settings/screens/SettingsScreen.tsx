@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider } from "../components";
 import { useCustomerSettings } from "../hooks/ui/useCustomerSettings";
 import { APP_VERSION } from "../constants";

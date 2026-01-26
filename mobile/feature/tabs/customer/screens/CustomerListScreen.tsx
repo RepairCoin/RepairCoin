@@ -10,8 +10,8 @@ import {
 import { router } from "expo-router";
 
 // Components
-import { ThemedView } from "@/components/ui/ThemedView";
-import { SearchInput } from "@/components/ui/SearchInput";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import CustomerCard from "../components/CustomerCard";
 
 // Hooks

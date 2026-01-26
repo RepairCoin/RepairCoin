@@ -18,8 +18,8 @@ import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { useService } from "@/shared/hooks/service/useService";
 import { useAuthStore } from "@/shared/store/auth.store";
 
-import ServiceCard from "@/components/shared/ServiceCard";
-import ActionCard from "@/components/shared/ActionCard";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
+import ActionCard from "@/shared/components/shared/ActionCard";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";

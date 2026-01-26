@@ -1,7 +1,7 @@
 import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import ServiceCard from "@/components/shared/ServiceCard";
-import { AppHeader } from "@/components/ui/AppHeader";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useTrendingServices } from "../hooks";
 

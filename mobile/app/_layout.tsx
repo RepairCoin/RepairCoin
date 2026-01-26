@@ -15,7 +15,7 @@ import { ToastProvider } from "react-native-toast-notifications";
 import { ErrorBoundaryProvider } from "../shared/providers/ErrorBoundaryProvider";
 import { PushNotificationProvider } from "../shared/providers/PushNotificationProvider";
 import { queryClient } from "../shared/config/queryClient";
-import DevTools from "../components/ui/ReactQueryDevtools";
+import DevTools from "../shared/components/ui/ReactQueryDevtools";
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();

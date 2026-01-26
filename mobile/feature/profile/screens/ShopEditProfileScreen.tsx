@@ -1,11 +1,11 @@
 import { View, Text, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import FormInput from "@/components/ui/FormInput";
-import SectionHeader from "@/components/ui/SectionHeader";
-import PrimaryButton from "@/components/ui/PrimaryButton";
-import { ThemedView } from "@/components/ui/ThemedView";
-import LocationPickerModal from "@/components/shared/LocationPickerModal";
+import FormInput from "@/shared/components/ui/FormInput";
+import SectionHeader from "@/shared/components/ui/SectionHeader";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import LocationPickerModal from "@/shared/components/shared/LocationPickerModal";
 import { useShopEditProfile } from "../hooks/ui";
 import { PROFILE_COLORS } from "../constants";
 

@@ -137,9 +137,9 @@ export default function WalletSelectionModal({
 // import { client } from "@/shared/constants/thirdweb";
 // import { createWallet, walletConnect } from "thirdweb/wallets";
 
-// import { ThemedButton } from "@/components/ui/ThemedButton";
+// import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 // import { useConnectWallet } from "@/shared/useAuthQueries";
-// import WalletSelectionModal from "@/components/wallet/WalletSelectionModal";
+// import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
 
 // const globe = require("@/assets/images/global_spin.png");
 

@@ -9,9 +9,9 @@ import {
 } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
 import { Feather } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ui/ThemedView";
-import { FilterButton } from "@/components/shared/FilterButton";
-import { FilterModal, FilterOption } from "@/components/shared/FilterModal";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { FilterButton } from "@/shared/components/shared/FilterButton";
+import { FilterModal, FilterOption } from "@/shared/components/shared/FilterModal";
 import { ChartDataPoint, ChartFilter, TimeRange } from "../types";
 import { useAnalyticsDataUI } from "../hooks";
 

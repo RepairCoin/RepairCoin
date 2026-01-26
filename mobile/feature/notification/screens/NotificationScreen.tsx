@@ -1,6 +1,6 @@
 import { View, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useNotifications } from "../hooks";
 import {
   NotificationCard,

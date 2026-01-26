@@ -1,5 +1,5 @@
 import { Image, Text, View } from "react-native";
-import Screen from "@/components/ui/Screen";
+import Screen from "@/shared/components/ui/Screen";
 import { useEffect } from "react";
 import { useAuth } from "@/shared/hooks/auth/useAuth";
 

@@ -1,5 +1,5 @@
 import { Modal, Pressable, Text, View } from "react-native";
-import PrimaryButton from "@/components/ui/PrimaryButton";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { AntDesign } from "@expo/vector-icons";
 
 type Props = {

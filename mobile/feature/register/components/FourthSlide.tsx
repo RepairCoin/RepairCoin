@@ -1,10 +1,10 @@
 import { View, Text, ScrollView } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
-import { AppHeader } from "@/components/ui/AppHeader";
-import FormInput from "@/components/ui/FormInput";
-import SectionHeader from "@/components/ui/SectionHeader";
-import PrimaryButton from "@/components/ui/PrimaryButton";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
+import FormInput from "@/shared/components/ui/FormInput";
+import SectionHeader from "@/shared/components/ui/SectionHeader";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { FourthSlideProps } from "../types";
 import { TERMS_ITEMS } from "../constants";
 

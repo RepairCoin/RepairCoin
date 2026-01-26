@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ui/ThemedView";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useShopBookingQuery, useCustomerBookingQuery } from "../hooks/queries";
 import {
   useApproveOrderMutation,

@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import ShareQRCodeModal from "@/components/customer/ShareQRCodeModal";
+import ShareQRCodeModal from "@/feature/qrcode/components/ShareQRCodeModal";
 import { useQRCode } from "../hooks";
 import {
   QRCodeHeader,

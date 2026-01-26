@@ -7,11 +7,11 @@ import {
   ScrollView,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { AppHeader } from "@/components/ui/AppHeader";
-import FormInput from "@/components/ui/FormInput";
-import SectionHeader from "@/components/ui/SectionHeader";
-import PrimaryButton from "@/components/ui/PrimaryButton";
-import { ThemedView } from "@/components/ui/ThemedView";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
+import FormInput from "@/shared/components/ui/FormInput";
+import SectionHeader from "@/shared/components/ui/SectionHeader";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useCustomerRegister } from "../hooks";
 
 export default function CustomerRegisterScreen() {
