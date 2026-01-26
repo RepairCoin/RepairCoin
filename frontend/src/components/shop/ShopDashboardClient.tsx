@@ -17,11 +17,9 @@ import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
 import { PurchaseTab } from "@/components/shop/tabs/PurchaseTab";
 import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
-import { RedeemTabV2 } from "@/components/shop/tabs/RedeemTabV2";
-import { IssueRewardsTab } from "@/components/shop/tabs/IssueRewardsTab";
+import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
-import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
@@ -1041,35 +1039,21 @@ export default function ShopDashboardClient() {
             />
           )}
 
-          {activeTab === "redeem" && shopData && (
-            <RedeemTabV2
-              shopId={shopData.shopId}
-              isOperational={isOperational}
-              onRedemptionComplete={loadShopData}
-              setShowOnboardingModal={setShowOnboardingModal}
-              shopData={shopData}
-              isBlocked={isBlocked}
-              blockReason={getBlockReason()}
-              shopRcnBalance={shopData.purchasedRcnBalance || 0}
-            />
-          )}
-
-          {activeTab === "issue-rewards" && shopData && (
-            <IssueRewardsTab
+          {activeTab === "tools" && shopData && (
+            <ToolsTab
               shopId={shopData.shopId}
               shopData={shopData}
               onRewardIssued={loadShopData}
+              onRedemptionComplete={loadShopData}
+              isOperational={isOperational}
               isBlocked={isBlocked}
               blockReason={getBlockReason()}
+              setShowOnboardingModal={setShowOnboardingModal}
             />
           )}
 
           {activeTab === "customers" && shopData && (
             <CustomersTab shopId={shopData.shopId} />
-          )}
-
-          {activeTab === "promo-codes" && shopData && (
-            <PromoCodesTab shopId={shopData.shopId} />
           )}
 
           {activeTab === "shop-location" && shopData && (
