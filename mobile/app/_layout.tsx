@@ -12,9 +12,9 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "react-native-toast-notifications";
 
-import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
-import { PushNotificationProvider } from "../providers/PushNotificationProvider";
-import { queryClient } from "../config/queryClient";
+import { ErrorBoundaryProvider } from "../shared/providers/ErrorBoundaryProvider";
+import { PushNotificationProvider } from "../shared/providers/PushNotificationProvider";
+import { queryClient } from "../shared/config/queryClient";
 import DevTools from "../components/ui/ReactQueryDevtools";
 import "../global.css";
 
