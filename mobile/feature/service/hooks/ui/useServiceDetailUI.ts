@@ -7,7 +7,7 @@ import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
 import { queryKeys } from "@/shared/config/queryClient";
 import { useUpdateServiceMutation } from "../mutations/useServiceMutations";
 import { DAYS } from "../../constants/DAYS";
-import { getCategoryLabel } from "../../../../utilities/getCategoryLabel";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
 interface UseServiceDetailUIProps {
   serviceId: string;
