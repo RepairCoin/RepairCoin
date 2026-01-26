@@ -1,5 +1,5 @@
 // Re-export types from interfaces
-export type { Notification } from "@/interfaces/notification.interface";
+export type { Notification } from "@/shared/interfaces/notification.interface";
 
 export type TabType = "unread" | "all";
 

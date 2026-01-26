@@ -4,7 +4,7 @@ import { serviceApi } from "@/shared/services/service.services";
 import {
   CreateServiceRequest,
   UpdateServiceData,
-} from "@/interfaces/service.interface";
+} from "@/shared/interfaces/service.interface";
 
 export function useCreateServiceMutation() {
   return useMutation({

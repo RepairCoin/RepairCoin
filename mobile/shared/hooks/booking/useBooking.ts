@@ -5,8 +5,8 @@ import {
   BookingFilters,
   BookingFormData,
   BookingResponse,
-} from "@/interfaces/booking.interfaces";
-import { MyAppointment } from "@/interfaces/appointment.interface";
+} from "@/shared/interfaces/booking.interfaces";
+import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { Alert, Linking } from "react-native";
 import { usePaymentStore } from "@/shared/store/payment.store";

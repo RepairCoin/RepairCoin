@@ -12,7 +12,7 @@ import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { Tier } from "@/shared/utilities/GlobalTypes";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { useService } from "@/shared/hooks/service/useService";

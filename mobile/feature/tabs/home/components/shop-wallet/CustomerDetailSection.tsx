@@ -2,7 +2,7 @@ import React from "react";
 import { Text, View, Pressable } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { CustomerGrowthData } from "@/interfaces/shop.interface";
+import { CustomerGrowthData } from "@/shared/interfaces/shop.interface";
 import StatCard from "@/components/ui/StatCard";
 
 function CustomerDetailSection({

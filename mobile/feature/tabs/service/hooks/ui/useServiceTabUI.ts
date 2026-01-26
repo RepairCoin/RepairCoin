@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 import { ServiceTab } from "../../constants";
 
 export function useServiceTabUI() {

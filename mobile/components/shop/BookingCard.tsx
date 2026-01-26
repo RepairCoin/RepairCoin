@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { BookingStatus } from "@/interfaces/booking.interfaces";
+import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 
 interface BookingCardProps {
   serviceName: string;

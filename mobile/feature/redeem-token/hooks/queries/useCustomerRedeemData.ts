@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
-import { TransactionData } from "@/interfaces/customer.interface";
+import { TransactionData } from "@/shared/interfaces/customer.interface";
 
 /**
  * Hook for fetching customer data for redeem screen

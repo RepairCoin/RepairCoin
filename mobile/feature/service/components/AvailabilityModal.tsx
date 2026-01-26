@@ -10,7 +10,7 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { TimeSlotConfig } from "@/interfaces/appointment.interface";
+import { TimeSlotConfig } from "@/shared/interfaces/appointment.interface";
 import { PendingAvailabilityChanges } from "../types";
 import {
   useAvailabilityModal,

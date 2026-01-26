@@ -1,5 +1,5 @@
 import apiClient from "@/shared/utilities/axios";
-import { PurchaseHistoryResponse } from "@/interfaces/purchase.interface";
+import { PurchaseHistoryResponse } from "@/shared/interfaces/purchase.interface";
 
 class PurchaseApi {
   async createTokenPurchasePaymentIntent(amount: number): Promise<any> {

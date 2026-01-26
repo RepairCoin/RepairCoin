@@ -7,7 +7,7 @@ import {
   TransferHistoryResponse,
   ValidateTransferRequest,
   ValidateTransferResponse,
-} from "@/interfaces/token.interface";
+} from "@/shared/interfaces/token.interface";
 
 export const useToken = () => {
   /**

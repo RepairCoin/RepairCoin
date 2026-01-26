@@ -9,7 +9,7 @@ import {
   TransferHistoryResponse,
   ValidateTransferRequest,
   ValidateTransferResponse,
-} from "@/interfaces/token.interface";
+} from "@/shared/interfaces/token.interface";
 
 class TokenApi {
   async createRedemptionSession(request: {

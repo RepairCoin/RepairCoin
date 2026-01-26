@@ -20,7 +20,7 @@ import {
   useCancelOrderMutation,
 } from "../hooks/mutations";
 import { getStatusColor } from "../utils";
-import { BookingStatus } from "@/interfaces/booking.interfaces";
+import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/shared/store/auth.store";
 
 const formatDate = (dateString: string) => {

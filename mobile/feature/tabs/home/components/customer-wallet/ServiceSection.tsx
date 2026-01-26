@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 import ServiceCard from "@/components/shared/ServiceCard";
 
 interface ServiceSectionProps {

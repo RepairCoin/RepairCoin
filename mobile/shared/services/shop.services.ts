@@ -15,7 +15,7 @@ import {
   RewardResponse,
   TransactionsResponse,
   PurchasesResponse,
-} from "@/interfaces/shop.interface";
+} from "@/shared/interfaces/shop.interface";
 
 class ShopApi {
   async register(payload: ShopFormData) {

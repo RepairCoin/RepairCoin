@@ -18,7 +18,7 @@ import CustomerCard from "../components/CustomerCard";
 import { useCustomerListUI } from "../hooks";
 
 // Others
-import { CustomerData } from "@/interfaces/customer.interface";
+import { CustomerData } from "@/shared/interfaces/customer.interface";
 
 export default function CustomerListScreen() {
   const {

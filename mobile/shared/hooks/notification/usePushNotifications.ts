@@ -9,7 +9,7 @@ import { notificationApi } from "@/shared/services/notification.services";
 import {
   PushNotificationState,
   NotificationData,
-} from "@/interfaces/notification.interface";
+} from "@/shared/interfaces/notification.interface";
 
 // Configure notification behavior when app is in foreground
 Notifications.setNotificationHandler({

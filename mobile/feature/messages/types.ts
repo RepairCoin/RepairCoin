@@ -12,4 +12,4 @@ export type {
   GetUnreadCountResponse,
   MarkAsReadResponse,
   StartConversationResponse,
-} from "@/interfaces/message.interface";
+} from "@/shared/interfaces/message.interface";

@@ -9,7 +9,7 @@ import {
   SendMessageRequest,
   SendMessageResponse,
   StartConversationResponse,
-} from "@/interfaces/message.interface";
+} from "@/shared/interfaces/message.interface";
 
 class MessageApi {
   /**

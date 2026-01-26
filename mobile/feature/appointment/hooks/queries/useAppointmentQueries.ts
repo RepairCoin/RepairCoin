@@ -6,7 +6,7 @@ import {
   TimeSlotConfig,
   DateOverride,
   CalendarBooking,
-} from "@/interfaces/appointment.interface";
+} from "@/shared/interfaces/appointment.interface";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 
 export function useAvailableTimeSlotsQuery(

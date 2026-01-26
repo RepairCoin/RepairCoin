@@ -4,7 +4,7 @@ import { AppHeader } from "@/components/ui/AppHeader";
 import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
 import { useMemo } from "react";
-import { ShopFormData } from "@/interfaces/shop.interface";
+import { ShopFormData } from "@/shared/interfaces/shop.interface";
 import FormInput from "@/components/ui/FormInput";
 import SectionHeader from "@/components/ui/SectionHeader";
 import PrimaryButton from "@/components/ui/PrimaryButton";

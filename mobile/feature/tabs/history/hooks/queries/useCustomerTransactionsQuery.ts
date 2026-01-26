@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/shared/store/auth.store";
-import { TransactionResponse } from "@/interfaces/customer.interface";
+import { TransactionResponse } from "@/shared/interfaces/customer.interface";
 
 export function useCustomerTransactionsQuery(limit: number = 50) {
   const { account } = useAuthStore();

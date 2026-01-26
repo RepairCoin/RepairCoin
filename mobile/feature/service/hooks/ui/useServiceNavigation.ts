@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 
 export function useServiceNavigation() {
   const navigateBack = useCallback(() => {

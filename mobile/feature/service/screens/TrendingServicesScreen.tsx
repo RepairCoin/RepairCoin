@@ -2,7 +2,7 @@ import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-n
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/components/shared/ServiceCard";
 import { AppHeader } from "@/components/ui/AppHeader";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useTrendingServices } from "../hooks";
 
 export default function TrendingServicesScreen() {

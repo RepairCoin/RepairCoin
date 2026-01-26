@@ -14,7 +14,7 @@ import {
   formatDuration,
 } from "@/providers/RouteProvider";
 import { WebViewMapRef } from "@/components/maps/WebViewMap";
-import { ShopData } from "@/interfaces/shop.interface";
+import { ShopData } from "@/shared/interfaces/shop.interface";
 import { ViewMode, ShopWithLocation, GeocodedCoords } from "../../types";
 import {
   DEFAULT_RADIUS_MILES,

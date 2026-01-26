@@ -5,7 +5,7 @@ import { useAuthStore } from "@/shared/store/auth.store";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
 import { shopApi } from "@/shared/services/shop.services";
-import { CreatePromoCodeRequest } from "@/interfaces/shop.interface";
+import { CreatePromoCodeRequest } from "@/shared/interfaces/shop.interface";
 
 export function useUpdatePromoCodeStatusMutation() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";

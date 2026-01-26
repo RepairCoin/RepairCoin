@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, Alert } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { ShopFormData } from "@/interfaces/shop.interface";
+import { ShopFormData } from "@/shared/interfaces/shop.interface";
 import { AppHeader } from "@/components/ui/AppHeader";
 import FormInput from "@/components/ui/FormInput";
 import SectionHeader from "@/components/ui/SectionHeader";

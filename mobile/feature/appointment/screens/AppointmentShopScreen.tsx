@@ -9,7 +9,7 @@ import {
 import { goBack } from "expo-router/build/global-state/routing";
 import HorizontalCard from "@/components/ui/HorizontalCard";
 import { useShopBookingQuery } from "../hooks/queries";
-import { BookingData } from "@/interfaces/booking.interfaces";
+import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { AppointmentCard } from "../components";
 
 export default function AppointmentShopScreen() {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/shared/services/service.services";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 
 export function useFavorite() {
   const useGetFavorites = (options?: { page?: number; limit?: number }) => {

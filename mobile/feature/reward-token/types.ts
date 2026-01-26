@@ -1,5 +1,5 @@
 import { RepairType } from "./hooks/useShopRewards";
-import { CustomerData } from "@/interfaces/customer.interface";
+import { CustomerData } from "@/shared/interfaces/customer.interface";
 
 export type { RepairType, CustomerData };
 

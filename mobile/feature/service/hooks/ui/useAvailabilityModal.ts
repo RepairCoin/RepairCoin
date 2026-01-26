@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import {
   ShopAvailability,
   TimeSlotConfig,
-} from "@/interfaces/appointment.interface";
+} from "@/shared/interfaces/appointment.interface";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../types";
 import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";

@@ -13,7 +13,7 @@ import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
 import ActionCard from "@/components/shared/ActionCard";
-import { CustomerGrowthData, ShopData } from "@/interfaces/shop.interface";
+import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface";
 import WalletDetailSection from "./WalletDetailSection";
 import CustomerDetailSection from "./CustomerDetailSection";
 

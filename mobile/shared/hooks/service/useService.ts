@@ -8,7 +8,7 @@ import {
   ServiceResponse,
   UpdateServiceData,
   ServiceDetailResponse
-} from "@/interfaces/service.interface";
+} from "@/shared/interfaces/service.interface";
 
 export function useService() {
   const useGetAllServicesQuery = (filters?: ServiceFilters) => {

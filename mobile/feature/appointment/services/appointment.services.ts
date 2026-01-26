@@ -13,7 +13,7 @@ import {
   UpdateAvailabilityRequest,
   CreateDateOverrideRequest,
   TimeSlotConfig,
-} from "@/interfaces/appointment.interface";
+} from "@/shared/interfaces/appointment.interface";
 
 class AppointmentApi {
   async getAvailableTimeSlots(

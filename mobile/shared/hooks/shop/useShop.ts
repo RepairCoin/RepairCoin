@@ -5,10 +5,10 @@ import {
   ShopCustomersResponse,
   ShopFormData,
   ShopResponse,
-} from "@/interfaces/shop.interface";
+} from "@/shared/interfaces/shop.interface";
 import { shopApi } from "@/shared/services/shop.services";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
-import { ShopByWalletAddressResponse } from "@/interfaces/shop.interface";
+import { ShopByWalletAddressResponse } from "@/shared/interfaces/shop.interface";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
 
 export function useShop() {

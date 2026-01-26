@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { TransactionData } from "@/interfaces/customer.interface";
+import { TransactionData } from "@/shared/interfaces/customer.interface";
 import { useCustomerTransactionsQuery } from "../queries/useCustomerTransactionsQuery";
 import { useHistorySearch } from "./useHistorySearch";
 import { useCustomerHistoryFilters } from "./useCustomerHistoryFilters";

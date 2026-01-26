@@ -1,4 +1,4 @@
-import { ShopData } from "@/interfaces/shop.interface";
+import { ShopData } from "@/shared/interfaces/shop.interface";
 import { Region, LatLng } from "react-native-maps";
 
 export type ViewMode = "map" | "list";

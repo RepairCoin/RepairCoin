@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { BookingData } from "@/interfaces/booking.interfaces";
+import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { router } from "expo-router";
 
 // Hooks

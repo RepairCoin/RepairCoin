@@ -1,6 +1,6 @@
-import { BookingStatus } from "@/interfaces/booking.interfaces";
-import { ServiceData } from "@/interfaces/service.interface";
-import { MyAppointment } from "@/interfaces/appointment.interface";
+import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 
 // Shop types
 export type BookingFilterStatus = "all" | BookingStatus;

@@ -8,7 +8,7 @@ import {
   GetUnreadCountResponse,
   MarkAsReadResponse,
   Notification,
-} from "@/interfaces/notification.interface";
+} from "@/shared/interfaces/notification.interface";
 
 class NotificationApi {
   /**
