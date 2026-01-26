@@ -25,3 +25,5 @@ export const REWARD_RATE = 10; // 1 RCN per $10 spent
 export const COPY_FEEDBACK_DURATION = 1500;
 export const DEFAULT_TRENDING_LIMIT = 6;
 export const DEFAULT_TRENDING_DAYS = 7;
+
+export { SERVICE_STATUS_OPTIONS } from "./SERVICE_STATUS_OPTIONS";
