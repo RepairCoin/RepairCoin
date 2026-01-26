@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { usePurchase } from "@/hooks/purchase/usePurchase";
+import { usePurchase } from "./usePurchase";
 
 export function useBuyTokenUI() {
   const { usePurchaseAmount } = usePurchase();

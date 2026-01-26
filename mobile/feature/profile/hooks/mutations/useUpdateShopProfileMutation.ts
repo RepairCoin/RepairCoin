@@ -1,4 +1,4 @@
-import { useShop } from "@/hooks/shop/useShop";
+import { useShop } from "@/shared/shop/useShop";
 
 /**
  * Hook for updating shop profile

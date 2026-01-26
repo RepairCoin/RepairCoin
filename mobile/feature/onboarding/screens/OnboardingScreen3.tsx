@@ -4,7 +4,7 @@ import { useConnect } from "thirdweb/react";
 import { client } from "@/constants/thirdweb";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 
-import { useAuth } from "@/hooks/auth/useAuth";
+import { useAuth } from "@/shared/auth/useAuth";
 import { ThemedButton } from "@/components/ui/ThemedButton";
 import WalletSelectionModal from "@/components/wallet/WalletSelectionModal";
 

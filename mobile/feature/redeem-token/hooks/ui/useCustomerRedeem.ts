@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
-import { useRedemptionSignature } from "@/hooks/useSignature";
+import { useRedemptionSignature } from "../useSignature";
 import { useCustomerRedeemData, useRedemptionSessions } from "../queries";
 import { useApproveRedemptionSession, useRejectRedemptionSession } from "../mutations";
 import { RedemptionSession } from "../../types";

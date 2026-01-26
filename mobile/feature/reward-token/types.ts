@@ -1,4 +1,4 @@
-import { RepairType } from "@/hooks/useShopRewards";
+import { RepairType } from "./hooks/useShopRewards";
 import { CustomerData } from "@/interfaces/customer.interface";
 
 export type { RepairType, CustomerData };

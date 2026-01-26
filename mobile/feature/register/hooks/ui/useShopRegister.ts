@@ -3,7 +3,7 @@ import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions, Alert } 
 import { goBack } from "expo-router/build/global-state/routing";
 import { CountryCode } from "react-native-country-picker-modal";
 import { useAuthStore } from "@/store/auth.store";
-import { useShop } from "@/hooks/shop/useShop";
+import { useShop } from "@/shared/shop/useShop";
 import { ShopFormData, Slide } from "../../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
 

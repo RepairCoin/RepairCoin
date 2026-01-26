@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
-import { useCustomer } from "@/hooks/customer/useCustomer";
+import { useCustomer } from "@/shared/customer/useCustomer";
 import { CustomerFormData } from "../../types";
 import { INITIAL_CUSTOMER_FORM_DATA } from "../../constants";
 import { validateCustomerForm, isValidEmail, hasMinLength } from "../../utils";

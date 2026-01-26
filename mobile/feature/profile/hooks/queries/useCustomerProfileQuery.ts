@@ -1,4 +1,4 @@
-import { useCustomer } from "@/hooks/customer/useCustomer";
+import { useCustomer } from "@/shared/customer/useCustomer";
 
 /**
  * Hook for fetching customer profile by wallet address

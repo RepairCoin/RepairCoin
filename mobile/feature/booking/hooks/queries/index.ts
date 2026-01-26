@@ -1,8 +1,6 @@
-// Appointment queries
-export { useMyAppointmentsQuery } from "./useAppointmentQueries";
-
-// Booking queries
+// Re-export from global hooks (single source of truth)
 export {
   useShopBookingQuery,
   useCustomerBookingQuery,
-} from "./useBookingQueries";
+  useMyAppointmentsQuery,
+} from "@/shared/booking/useBooking";

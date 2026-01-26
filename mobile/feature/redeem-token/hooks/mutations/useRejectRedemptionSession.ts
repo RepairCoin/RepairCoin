@@ -1,4 +1,4 @@
-import { useRejectRedemptionSession as useRejectSession } from "@/hooks/useTokenQueries";
+import { useRejectRedemptionSession as useRejectSession } from "../useTokenQueries";
 
 /**
  * Hook for rejecting a redemption session

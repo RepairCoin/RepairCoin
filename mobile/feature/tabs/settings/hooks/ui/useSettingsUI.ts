@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/store/auth.store";
-import { useTheme } from "@/hooks/theme/useTheme";
+import { useTheme } from "@/shared/theme/useTheme";
 
 export function useSettingsUI() {
   const { account } = useAuthStore();

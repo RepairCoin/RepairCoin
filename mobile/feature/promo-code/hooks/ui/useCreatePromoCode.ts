@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useCreatePromoCode as useCreatePromoCodeMutation } from "@/hooks/useShopRewards";
+import { useCreatePromoCodeMutation } from "../mutations/usePromoCodeMutations";
 import { PromoCodeFormData, BonusType } from "../../types";
 import {
   CODE_MIN_LENGTH,

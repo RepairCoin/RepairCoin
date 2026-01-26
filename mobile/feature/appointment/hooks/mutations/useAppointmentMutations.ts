@@ -83,15 +83,5 @@ export function useUpdateServiceDurationMutation() {
   });
 }
 
-export function useCancelAppointmentMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (orderId: string) => {
-      return await appointmentApi.cancelAppointment(orderId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
-    },
-  });
-}
+// Re-export from global hooks (single source of truth)
+export { useCancelAppointmentMutation } from "@/shared/booking/useBooking";

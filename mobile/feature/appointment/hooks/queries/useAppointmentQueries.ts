@@ -6,7 +6,6 @@ import {
   TimeSlotConfig,
   DateOverride,
   CalendarBooking,
-  MyAppointment,
 } from "@/interfaces/appointment.interface";
 import { appointmentApi } from "@/services/appointment.services";
 
@@ -76,14 +75,4 @@ export function useShopCalendarQuery(startDate: string, endDate: string) {
   });
 }
 
-export function useMyAppointmentsQuery(startDate: string, endDate: string) {
-  return useQuery({
-    queryKey: queryKeys.myAppointments(startDate, endDate),
-    queryFn: async () => {
-      const response = await appointmentApi.getMyAppointments(startDate, endDate);
-      return response.data as MyAppointment[];
-    },
-    enabled: !!startDate && !!endDate,
-    staleTime: 2 * 60 * 1000,
-  });
-}
+// Note: useMyAppointmentsQuery is now in @/shared/booking/useBooking.ts (global hook)
