@@ -1,4 +1,4 @@
-import { useService } from "@/shared/service/useService";
+import { useService } from "@/shared/hooks/service/useService";
 
 /**
  * Hook for fetching shop services

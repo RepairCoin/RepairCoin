@@ -75,4 +75,4 @@ export function useShopCalendarQuery(startDate: string, endDate: string) {
   });
 }
 
-// Note: useMyAppointmentsQuery is now in @/shared/booking/useBooking.ts (global hook)
+// Note: useMyAppointmentsQuery is now in @/shared/hooks/booking/useBooking.ts (global hook)

@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ThemedView } from "./ThemedView";
-import { useTheme } from "@/shared/theme/useTheme";
+import { useTheme } from "@/shared/hooks/theme/useTheme";
 
 export type ThemedInputProps = {
   onSubmit?: (value: string) => void;

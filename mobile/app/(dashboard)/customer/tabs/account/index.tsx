@@ -16,8 +16,8 @@ import {
 import React, { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
-import { useCustomer } from "@/shared/customer/useCustomer";
-import { useAuth } from "@/shared/auth/useAuth";
+import { useCustomer } from "@/shared/hooks/customer/useCustomer";
+import { useAuth } from "@/shared/hooks/auth/useAuth";
 
 type CopyableFieldProps = {
   value: string;

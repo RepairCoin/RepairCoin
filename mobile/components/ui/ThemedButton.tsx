@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
-import { useTheme } from "@/shared/theme/useTheme";
+import { useTheme } from "@/shared/hooks/theme/useTheme";
 
 export type ThemedButtonProps = {
   onPress?: PressableProps["onPress"];

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFavorite } from "@/shared/favorite/useFavorite";
+import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 
 interface ServiceCardProps {
   imageUrl?: string | null;

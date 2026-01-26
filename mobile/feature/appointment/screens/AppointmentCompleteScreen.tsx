@@ -13,7 +13,7 @@ import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams } from "expo-router";
 import { DateData } from "react-native-calendars";
-import { useService } from "@/shared/service/useService";
+import { useService } from "@/shared/hooks/service/useService";
 import { useBalance } from "../hooks/queries/useBalance";
 import {
   useAvailableTimeSlotsQuery,

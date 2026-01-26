@@ -3,4 +3,4 @@ export {
   useShopBookingQuery,
   useCustomerBookingQuery,
   useMyAppointmentsQuery,
-} from "@/shared/booking/useBooking";
+} from "@/shared/hooks/booking/useBooking";

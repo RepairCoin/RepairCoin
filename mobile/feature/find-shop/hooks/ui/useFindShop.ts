@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Alert, Linking, Platform } from "react-native";
 import MapView, { Region, LatLng } from "react-native-maps";
-import { useShop } from "@/shared/shop/useShop";
+import { useShop } from "@/shared/hooks/shop/useShop";
 import {
   getCurrentLocation,
   geocodeAddress,

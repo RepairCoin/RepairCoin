@@ -14,13 +14,13 @@ import { router } from "expo-router";
 import { Tier } from "@/utilities/GlobalTypes";
 import { ServiceData } from "@/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
-import { useCustomer } from "@/shared/customer/useCustomer";
-import { useService } from "@/shared/service/useService";
+import { useCustomer } from "@/shared/hooks/customer/useCustomer";
+import { useService } from "@/shared/hooks/service/useService";
 import { useAuthStore } from "@/store/auth.store";
 
 import ServiceCard from "@/components/shared/ServiceCard";
 import ActionCard from "@/components/shared/ActionCard";
-import { useFavorite } from "@/shared/favorite/useFavorite";
+import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 

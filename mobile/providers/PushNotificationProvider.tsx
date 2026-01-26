@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import {
   usePushNotifications,
-} from "@/shared/notification/usePushNotifications";
+} from "@/shared/hooks/notification/usePushNotifications";
 import { PushNotificationState } from "@/interfaces/notification.interface";
 
 interface PushNotificationContextType extends PushNotificationState {

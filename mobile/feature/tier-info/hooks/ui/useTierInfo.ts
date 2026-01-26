@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/store/auth.store";
-import { useCustomer } from "@/shared/customer/useCustomer";
+import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { Tier } from "@/utilities/GlobalTypes";
 import { TIER_CONFIG, TIER_ORDER } from "../../constants";
 import { TierProgress } from "../../types";
