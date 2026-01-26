@@ -6,7 +6,7 @@ import {
   getCurrentLocation,
   geocodeAddress,
   Coordinates,
-} from "@/services/geocoding.service";
+} from "@/shared/services/geocoding.service";
 import {
   fetchRoute,
   metersToMiles,

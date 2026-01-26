@@ -1,5 +1,5 @@
 import { View, Text, Switch } from "react-native";
-import { PromoCode } from "@/services/ShopServices";
+import { PromoCode } from "@/shared/services/ShopServices";
 import { useState } from "react";
 
 interface PromoCodeCardProps {

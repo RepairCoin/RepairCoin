@@ -3,7 +3,7 @@ import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import apiClient from "@/utilities/axios";
 import { router } from "expo-router";
-import { notificationApi } from "@/services/notification.services";
+import { notificationApi } from "@/shared/services/notification.services";
 
 const secureStorage = {
   getItem: async (name: string) => {

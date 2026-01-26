@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
-import { serviceApi } from "@/services/service.services";
+import { serviceApi } from "@/shared/services/service.services";
 import {
   ServiceResponse,
   ServiceDetailResponse,

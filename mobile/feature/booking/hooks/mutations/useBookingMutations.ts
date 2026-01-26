@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
-import { bookingApi } from "@/services/booking.services";
+import { bookingApi } from "@/shared/services/booking.services";
 
 export function useApproveOrderMutation() {
   const queryClient = useQueryClient();

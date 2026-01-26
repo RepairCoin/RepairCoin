@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { queryClient, queryKeys } from "@/config/queryClient";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
-import { shopApi } from "@/services/shop.services";
+import { shopApi } from "@/shared/services/shop.services";
 import { CreatePromoCodeRequest } from "@/interfaces/shop.interface";
 
 export function useUpdatePromoCodeStatusMutation() {

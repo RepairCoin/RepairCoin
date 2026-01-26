@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { authApi } from '@/services/auth.services';
+import { authApi } from '@/shared/services/auth.services';
 import { useAuthStore } from '@/store/auth.store';
 
 interface DecodedToken {

@@ -6,7 +6,7 @@ import {
   ShopFormData,
   ShopResponse,
 } from "@/interfaces/shop.interface";
-import { shopApi } from "@/services/shop.services";
+import { shopApi } from "@/shared/services/shop.services";
 import { queryClient, queryKeys } from "@/config/queryClient";
 import { ShopByWalletAddressResponse } from "@/interfaces/shop.interface";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";

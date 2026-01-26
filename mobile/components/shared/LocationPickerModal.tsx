@@ -12,7 +12,7 @@ import { AntDesign, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import WebViewMap, { WebViewMapRef, Region } from "@/components/maps/WebViewMap";
 import PrimaryButton from "@/components/ui/PrimaryButton";
-import { getCurrentLocation } from "@/services/geocoding.service";
+import { getCurrentLocation } from "@/shared/services/geocoding.service";
 
 export interface SelectedLocation {
   lat: number;

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/config/queryClient";
-import { customerApi } from "@/services/customer.services";
+import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/store/auth.store";
 import { TransactionResponse } from "@/interfaces/customer.interface";
 

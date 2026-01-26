@@ -1,6 +1,6 @@
 import { queryClient, queryKeys } from "@/config/queryClient";
 import { CustomerFormData, TransactionResponse } from "@/interfaces/customer.interface";
-import { customerApi } from "@/services/customer.services";
+import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/store/auth.store";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";

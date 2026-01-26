@@ -5,8 +5,8 @@ import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { Alert } from "react-native";
 import { router } from "expo-router";
-import { shopApi } from "@/services/shop.services";
-import { customerApi } from "@/services/customer.services";
+import { shopApi } from "@/shared/services/shop.services";
+import { customerApi } from "@/shared/services/customer.services";
 
 // Tier bonuses constants
 const TIER_BONUSES = {
