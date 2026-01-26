@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { useTheme } from "@/shared/hooks/theme/useTheme";
 
 export function useSettingsUI() {

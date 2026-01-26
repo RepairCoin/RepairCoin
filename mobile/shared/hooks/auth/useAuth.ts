@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/shared/services/auth.services";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { router } from "expo-router";
 import apiClient from "@/utilities/axios";
 import { useCallback, useState } from "react";

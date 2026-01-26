@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { TransactionData } from "@/interfaces/customer.interface";
 

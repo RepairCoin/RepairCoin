@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert, Linking } from "react-native";
 import { BookingFormData, BookingResponse } from "@/interfaces/booking.interfaces";
-import { usePaymentStore } from "@/store/payment.store";
+import { usePaymentStore } from "@/shared/store/payment.store";
 import { bookingApi } from "@/shared/services/booking.services";
 import { queryKeys } from "@/config/queryClient";
 

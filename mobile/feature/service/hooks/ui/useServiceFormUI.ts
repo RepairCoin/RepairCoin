@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useQueryClient } from "@tanstack/react-query";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { UpdateServiceData } from "@/interfaces/service.interface";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import {

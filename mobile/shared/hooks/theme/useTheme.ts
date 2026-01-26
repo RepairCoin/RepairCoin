@@ -1,5 +1,5 @@
 import { Colors } from "@/constants/Colors";
-import { useThemeStore } from "@/store/theme.store";
+import { useThemeStore } from "@/shared/store/theme.store";
 
 export function useTheme() {
   const useThemeColor = () => {

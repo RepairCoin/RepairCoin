@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { authApi } from '@/shared/services/auth.services';
-import { useAuthStore } from '@/store/auth.store';
+import { useAuthStore } from '@/shared/store/auth.store';
 
 interface DecodedToken {
   exp: number;

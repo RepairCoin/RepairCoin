@@ -2,7 +2,7 @@ import { purchaseApi } from "@/feature/buy-token/services/purchase.services";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, Linking } from "react-native";
-import { usePaymentStore } from "@/store/payment.store";
+import { usePaymentStore } from "@/shared/store/payment.store";
 
 export function usePurchase() {
   // Hook for creating PaymentIntent (mobile - native card payment)

@@ -9,7 +9,7 @@ import {
 import { MyAppointment } from "@/interfaces/appointment.interface";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { Alert, Linking } from "react-native";
-import { usePaymentStore } from "@/store/payment.store";
+import { usePaymentStore } from "@/shared/store/payment.store";
 
 interface QueryOptions {
   enabled?: boolean;

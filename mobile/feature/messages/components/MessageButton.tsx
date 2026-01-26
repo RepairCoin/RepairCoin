@@ -2,7 +2,7 @@ import { View, Pressable, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
 
 interface MessageButtonProps {

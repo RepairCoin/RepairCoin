@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { formatDistanceToNow } from "date-fns";
 import { Notification } from "../types";
 import { getNotificationStyle, getNavigationRoute } from "../utils";

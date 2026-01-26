@@ -21,7 +21,7 @@ import {
 } from "../hooks/mutations";
 import { getStatusColor } from "../utils";
 import { BookingStatus } from "@/interfaces/booking.interfaces";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 const formatDate = (dateString: string) => {
   if (!dateString) return "N/A";

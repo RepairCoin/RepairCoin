@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 export const usePendingApproval = () => {
   const logout = useAuthStore((state) => state.logout);

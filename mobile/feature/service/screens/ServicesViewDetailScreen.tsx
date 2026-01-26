@@ -10,7 +10,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 
 // Feature imports
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import {
   useServiceDetailQuery,
   useShopAvailabilityWithConfigQuery,

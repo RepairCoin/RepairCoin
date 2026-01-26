@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { apiClient } from "@/utilities/axios";
 import { SubscriptionFormData, SubscriptionResponse } from "../../types";

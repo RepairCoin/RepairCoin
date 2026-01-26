@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useService } from "@/shared/hooks/service/useService";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION } from "../../constants";

@@ -20,7 +20,7 @@ import {
   useShopAvailabilityQuery,
 } from "../hooks/queries";
 import { useCreateStripeCheckoutMutation } from "../hooks/mutations";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { StepIndicator } from "../components";
 import AppointmentScheduleScreen from "./AppointmentScheduleScreen";
 import AppointmentDiscountScreen from "./AppointmentDiscountScreen";

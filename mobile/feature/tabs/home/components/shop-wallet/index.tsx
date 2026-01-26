@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import ActionCard from "@/components/shared/ActionCard";
 import { CustomerGrowthData, ShopData } from "@/interfaces/shop.interface";
 import WalletDetailSection from "./WalletDetailSection";
