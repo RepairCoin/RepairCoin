@@ -3,7 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { useAuthStore } from "@/store/auth.store";
-import { messageApi } from "@/services/message.services";
+import { messageApi } from "@/feature/messages/services/message.services";
 
 interface MessageButtonProps {
   userType?: "customer" | "shop";

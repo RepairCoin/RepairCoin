@@ -1,4 +1,4 @@
-import { purchaseApi } from "@/services/purchase.services";
+import { purchaseApi } from "@/feature/buy-token/services/purchase.services";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, Linking } from "react-native";

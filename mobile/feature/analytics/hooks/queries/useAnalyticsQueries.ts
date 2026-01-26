@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/config/queryClient";
 import { TransactionsResponse, PurchasesResponse } from "@/interfaces/shop.interface";
 import { TimeRange } from "../../types";
-import { analyticsApi } from "@/services/analytics.services";
+import { analyticsApi } from "@/feature/analytics/services/analytics.services";
 
 export function useShopAnalyticsQuery(shopId: string, timeRange: TimeRange) {
   const { startDate, endDate } = useMemo(() => {

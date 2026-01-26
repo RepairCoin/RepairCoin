@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { balanceApi } from "@/services/balance.services";
+import { balanceApi } from "@/feature/redeem-token/services/balance.services";
 import { customerApi } from "@/services/customer.services";
 import { useAuthStore } from "@/store/auth.store";
 import { CustomerRedemptionData, CustomerTier } from "../../types";

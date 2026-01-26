@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { messageApi } from "@/services/message.services";
+import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/store/auth.store";
 import { Conversation } from "../../types";
 

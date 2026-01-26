@@ -9,7 +9,7 @@ import {
 import { shopApi } from "@/services/shop.services";
 import { queryClient, queryKeys } from "@/config/queryClient";
 import { ShopByWalletAddressResponse } from "@/interfaces/shop.interface";
-import { promoCodeApi } from "@/services/promocode.services";
+import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
 
 export function useShop() {
   const useGetShops = () => {

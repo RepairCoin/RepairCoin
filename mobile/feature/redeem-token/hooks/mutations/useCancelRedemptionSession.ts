@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { tokenApi } from "@/services/token.services";
+import { tokenApi } from "@/feature/redeem-token/services/token.services";
 import { RedemptionCallbacks } from "../../types";
 
 /**

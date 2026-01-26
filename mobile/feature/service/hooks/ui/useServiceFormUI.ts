@@ -6,7 +6,7 @@ import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { UpdateServiceData } from "@/interfaces/service.interface";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
-import { appointmentApi } from "@/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import {
   PendingAvailabilityChanges,
   ServiceFormData,

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
-import { promoCodeApi } from "@/services/promocode.services";
+import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
 import { PromoCodesListResponse } from "@/interfaces/shop.interface";
 
 export function useShopPromoCodesQuery() {

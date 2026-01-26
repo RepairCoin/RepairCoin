@@ -7,7 +7,7 @@ import {
   BookingResponse,
 } from "@/interfaces/booking.interfaces";
 import { MyAppointment } from "@/interfaces/appointment.interface";
-import { appointmentApi } from "@/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { Alert, Linking } from "react-native";
 import { usePaymentStore } from "@/store/payment.store";
 

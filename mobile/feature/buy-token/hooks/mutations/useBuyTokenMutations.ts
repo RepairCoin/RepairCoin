@@ -2,7 +2,7 @@ import { Alert, Linking } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { usePaymentStore } from "@/store/payment.store";
-import { purchaseApi } from "@/services/purchase.services";
+import { purchaseApi } from "@/feature/buy-token/services/purchase.services";
 
 export function useCreateStripeCheckoutMutation() {
   const { userProfile } = useAuthStore();

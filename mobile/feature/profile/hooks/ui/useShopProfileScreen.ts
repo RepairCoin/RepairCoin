@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { messageApi } from "@/services/message.services";
+import { messageApi } from "@/feature/messages/services/message.services";
 import { useShopProfileQuery } from "../queries";
 import { INITIAL_CHAT_MESSAGE } from "../../constants";
 

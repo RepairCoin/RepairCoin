@@ -4,7 +4,7 @@ import {
   ShopAvailability,
   TimeSlotConfig,
 } from "@/interfaces/appointment.interface";
-import { appointmentApi } from "@/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../types";
 import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";
 
