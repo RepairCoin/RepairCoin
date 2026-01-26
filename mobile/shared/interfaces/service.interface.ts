@@ -1,4 +1,4 @@
-import { ServiceCategory } from "@/constants/service-categories";
+import { ServiceCategory } from "@/shared/constants/service-categories";
 import { BaseResponse } from "./base.interface";
 
 export interface ServiceFilters {

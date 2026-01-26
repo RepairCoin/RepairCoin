@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useService } from "@/shared/hooks/service/useService";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { ServiceStatusFilter } from "../../types";
 
 export function useServicesTab() {

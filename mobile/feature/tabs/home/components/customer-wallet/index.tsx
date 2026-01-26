@@ -13,7 +13,7 @@ import { router } from "expo-router";
 
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { useService } from "@/shared/hooks/service/useService";
 import { useAuthStore } from "@/shared/store/auth.store";

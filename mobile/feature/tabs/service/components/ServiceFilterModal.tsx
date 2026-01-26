@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceStatusFilter } from "../types";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 
 interface ServiceFilterModalProps {
   visible: boolean;

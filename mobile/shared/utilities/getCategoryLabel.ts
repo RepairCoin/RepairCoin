@@ -1,4 +1,4 @@
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 
 export const getCategoryLabel = (category?: string): string => {
   if (!category) return "Other";

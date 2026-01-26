@@ -7,7 +7,7 @@ import { useService } from "@/shared/hooks/service/useService";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION } from "../../constants";
 import { TierInfo, RewardCalculation } from "../../types";
 

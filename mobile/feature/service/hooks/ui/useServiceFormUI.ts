@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useQueryClient } from "@tanstack/react-query";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { UpdateServiceData } from "@/shared/interfaces/service.interface";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";

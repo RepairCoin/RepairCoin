@@ -134,7 +134,7 @@ export default function WalletSelectionModal({
 // import React, { useState } from "react";
 // import { Text, View, ImageBackground } from "react-native";
 // import { useConnect } from "thirdweb/react";
-// import { client } from "@/constants/thirdweb";
+// import { client } from "@/shared/constants/thirdweb";
 // import { createWallet, walletConnect } from "thirdweb/wallets";
 
 // import { ThemedButton } from "@/components/ui/ThemedButton";
