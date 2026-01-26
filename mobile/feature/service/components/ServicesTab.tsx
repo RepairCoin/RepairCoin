@@ -21,7 +21,7 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import {
   useServicesTabUI,
 } from "../hooks";
-import { getCategoryLabel } from "@/utilities/getCategoryLabel";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
 // Others
 import { ServiceData } from "@/interfaces/service.interface";

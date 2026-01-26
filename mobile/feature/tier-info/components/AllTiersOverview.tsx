@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
 import { Ionicons, SimpleLineIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tier } from "@/utilities/GlobalTypes";
+import { Tier } from "@/shared/utilities/GlobalTypes";
 import { TierConfig } from "../types";
 
 interface AllTiersOverviewProps {

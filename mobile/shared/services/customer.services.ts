@@ -1,5 +1,5 @@
 import { CustomerFormData, CustomerData, CustomerResponse } from "@/interfaces/customer.interface";
-import apiClient from "@/utilities/axios";
+import apiClient from "@/shared/utilities/axios";
 
 // Cross-shop balance response type
 export interface CrossShopBalanceResponse {

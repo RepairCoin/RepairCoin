@@ -1,4 +1,4 @@
-import apiClient from "@/utilities/axios";
+import apiClient from "@/shared/utilities/axios";
 import { CustomerBalanceResponse } from "@/interfaces/balance.interface";
 
 class BalanceAppi {

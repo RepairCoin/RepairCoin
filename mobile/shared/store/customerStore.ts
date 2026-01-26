@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { Tier } from "@/utilities/GlobalTypes";
+import { Tier } from "@/shared/utilities/GlobalTypes";
 
 export interface RCNBalanceData {
   earnedBalance: number;

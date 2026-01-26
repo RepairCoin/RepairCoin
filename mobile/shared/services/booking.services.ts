@@ -1,5 +1,5 @@
-import { apiClient } from "@/utilities/axios";
-import { buildQueryString } from "@/utilities/buildQueryString";
+import { apiClient } from "@/shared/utilities/axios";
+import { buildQueryString } from "@/shared/utilities/buildQueryString";
 import { BookingFilters, BookingFormData, BookingResponse } from "@/interfaces/booking.interfaces";
 
 class BookingApi {

@@ -1,4 +1,4 @@
-import apiClient from "@/utilities/axios";
+import apiClient from "@/shared/utilities/axios";
 import { PurchaseHistoryResponse } from "@/interfaces/purchase.interface";
 
 class PurchaseApi {

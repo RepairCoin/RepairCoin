@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
-import apiClient from "@/utilities/axios";
+import apiClient from "@/shared/utilities/axios";
 import { router } from "expo-router";
 import { notificationApi } from "@/shared/services/notification.services";
 

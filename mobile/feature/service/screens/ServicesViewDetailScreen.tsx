@@ -18,7 +18,7 @@ import {
   useServiceDetailUI,
 } from "../hooks";
 import { ShareModal } from "../components/ShareModal";
-import { getCategoryLabel } from "@/utilities/getCategoryLabel";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { FULL_DAYS } from "../constants";
 
 export default function ServicesViewDetailScreen() {

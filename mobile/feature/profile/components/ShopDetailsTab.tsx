@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinkType } from "@/utilities/linking";
+import { LinkType } from "@/shared/utilities/linking";
 import { PROFILE_COLORS } from "../constants";
 
 interface ShopData {

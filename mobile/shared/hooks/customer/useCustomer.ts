@@ -4,7 +4,7 @@ import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
-import apiClient from "@/utilities/axios";
+import apiClient from "@/shared/utilities/axios";
 import { router } from "expo-router";
 
 export const useCustomer = () => {

@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useShop } from "@/shared/hooks/shop/useShop";
-import { apiClient } from "@/utilities/axios";
+import { apiClient } from "@/shared/utilities/axios";
 import { SubscriptionFormData, SubscriptionResponse } from "../../types";
 
 export function useSubscriptionForm() {

@@ -1,4 +1,4 @@
-import { buildQueryString } from "@/utilities/buildQueryString";
+import { buildQueryString } from "@/shared/utilities/buildQueryString";
 import {
   CreateServiceRequest,
   ServiceResponse,
@@ -7,7 +7,7 @@ import {
   ServiceFilters,
   ServiceDetailResponse,
 } from "../interfaces/service.interface";
-import { apiClient } from "@/utilities/axios";
+import { apiClient } from "@/shared/utilities/axios";
 
 class ServiceApi {
   async getAll(filters?: ServiceFilters): Promise<ServiceResponse> {

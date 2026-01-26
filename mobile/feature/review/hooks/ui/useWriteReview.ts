@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "@/utilities/axios";
+import apiClient from "@/shared/utilities/axios";
 import { queryKeys } from "@/config/queryClient";
 import { ReviewParams, SubmitReviewData, RatingLevel } from "../../types";
 import { RATING_LABELS } from "../../constants";
