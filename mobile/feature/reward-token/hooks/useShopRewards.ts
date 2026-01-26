@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreatePromoCodeRequest, RewardRequest } from "@/interfaces/shop.interface";
 import { useAuthStore } from "@/shared/store/auth.store";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { shopApi } from "@/shared/services/shop.services";

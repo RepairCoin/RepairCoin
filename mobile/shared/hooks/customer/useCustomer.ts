@@ -1,4 +1,4 @@
-import { queryClient, queryKeys } from "@/config/queryClient";
+import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { CustomerFormData, TransactionResponse } from "@/interfaces/customer.interface";
 import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/shared/store/auth.store";

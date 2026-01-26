@@ -4,7 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import { useQueryClient } from "@tanstack/react-query";
 import { ServiceData } from "@/interfaces/service.interface";
 import { ShopAvailability } from "@/interfaces/appointment.interface";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { useUpdateServiceMutation } from "../mutations/useServiceMutations";
 import { DAYS } from "../../constants/DAYS";
 import { getCategoryLabel } from "../../../../utilities/getCategoryLabel";

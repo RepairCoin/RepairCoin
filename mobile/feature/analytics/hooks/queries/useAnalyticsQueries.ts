@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { TransactionsResponse, PurchasesResponse } from "@/interfaces/shop.interface";
 import { TimeRange } from "../../types";
 import { analyticsApi } from "@/feature/analytics/services/analytics.services";

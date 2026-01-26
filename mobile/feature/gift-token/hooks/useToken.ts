@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, queryKeys } from "@/config/queryClient";
+import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { tokenApi } from "@/feature/redeem-token/services/token.services";
 import {
   GiftTokenRequest,

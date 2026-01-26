@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/shared/utilities/axios";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { ReviewParams, SubmitReviewData, RatingLevel } from "../../types";
 import { RATING_LABELS } from "../../constants";
 

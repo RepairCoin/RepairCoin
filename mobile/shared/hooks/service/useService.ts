@@ -1,6 +1,6 @@
 import { Alert } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/shared/services/service.services";
 import {
   CreateServiceRequest,

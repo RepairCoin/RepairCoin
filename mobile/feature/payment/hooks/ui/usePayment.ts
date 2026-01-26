@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useModalStore } from "@/shared/store/common.store";
 import { PaymentParams } from "../../types";

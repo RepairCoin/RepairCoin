@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/shared/store/auth.store";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import { tokenApi } from "@/feature/redeem-token/services/token.services";
 import { MyRedemptionSessionsResponse } from "@/interfaces/token.interface";
 
