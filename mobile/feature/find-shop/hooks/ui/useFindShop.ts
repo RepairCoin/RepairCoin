@@ -12,7 +12,7 @@ import {
   metersToMiles,
   milesToMeters,
   formatDuration,
-} from "@/providers/RouteProvider";
+} from "@/shared/providers/RouteProvider";
 import { WebViewMapRef } from "@/components/maps/WebViewMap";
 import { ShopData } from "@/shared/interfaces/shop.interface";
 import { ViewMode, ShopWithLocation, GeocodedCoords } from "../../types";
