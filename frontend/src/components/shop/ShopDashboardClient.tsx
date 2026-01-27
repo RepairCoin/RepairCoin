@@ -969,7 +969,7 @@ export default function ShopDashboardClient() {
                       Manage Subscription
                     </button>
                     <span className="text-xs text-gray-400">
-                      {Math.ceil((new Date(shopData?.subscriptionEndsAt!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
+                      {Math.floor((new Date(shopData?.subscriptionEndsAt!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
                     </span>
                   </div>
                 </div>

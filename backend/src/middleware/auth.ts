@@ -2,9 +2,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
-import { customerRepository, shopRepository, adminRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
 import { AdminService } from '../domains/admin/services/AdminService';
-import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 import { getSubscriptionEnforcementService } from '../services/SubscriptionEnforcementService';
 
 interface BaseJWTPayload {
@@ -132,9 +131,8 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           // Verify refresh token signature
           jwt.verify(refreshToken, jwtSecret);
 
-          // Validate refresh token in database
-          const refreshTokenRepo = new RefreshTokenRepository();
-          const validRefreshToken = await refreshTokenRepo.validateRefreshToken(
+          // Validate refresh token in database (using singleton to avoid connection pool exhaustion)
+          const validRefreshToken = await refreshTokenRepository.validateRefreshToken(
             refreshDecoded.tokenId,
             refreshToken
           );
@@ -178,7 +176,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           res.cookie('auth_token', newAccessToken, cookieOptions);
 
           // Update last used timestamp
-          await refreshTokenRepo.updateLastUsed(refreshDecoded.tokenId);
+          await refreshTokenRepository.updateLastUsed(refreshDecoded.tokenId);
 
           logger.info('Access token auto-refreshed successfully', {
             address: refreshDecoded.address,
@@ -647,6 +645,25 @@ export const requireActiveSubscription = (options: { strict?: boolean } = {}) =>
       // Only applies to shop users
       if (!req.user || req.user.role !== 'shop' || !req.user.shopId) {
         return next();
+      }
+
+      // First, check for admin-paused status (blocks all operations immediately)
+      const shop = await shopRepository.getShop(req.user.shopId);
+      if (shop?.operational_status === 'paused') {
+        logger.security('Shop access blocked - subscription paused by admin', {
+          shopId: req.user.shopId,
+          path: req.path
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Your subscription is paused by the administrator',
+          code: 'SUBSCRIPTION_PAUSED',
+          details: {
+            status: 'paused',
+            message: 'Your subscription is paused by the administrator. Operations are temporarily disabled until the subscription is resumed.'
+          }
+        });
       }
 
       const enforcementService = getSubscriptionEnforcementService();

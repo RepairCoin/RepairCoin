@@ -117,12 +117,24 @@ export class SubscriptionService extends BaseRepository {
       `;
 
       // Extract dates from Stripe subscription
-      const currentPeriodStart = (stripeSubscription as any).current_period_start || 
-                                 (stripeSubscription as any).currentPeriodStart ||
-                                 Math.floor(Date.now() / 1000);
-      const currentPeriodEnd = (stripeSubscription as any).current_period_end || 
-                               (stripeSubscription as any).currentPeriodEnd ||
-                               Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60); // 30 days
+      // NOTE: In newer Stripe API versions, current_period_start/end may be in items.data[0]
+      let currentPeriodStart = (stripeSubscription as any).current_period_start ||
+                               (stripeSubscription as any).currentPeriodStart;
+      let currentPeriodEnd = (stripeSubscription as any).current_period_end ||
+                             (stripeSubscription as any).currentPeriodEnd;
+
+      // If not on subscription directly, check items.data[0] (newer Stripe API)
+      if (!currentPeriodStart || !currentPeriodEnd) {
+        const firstItem = stripeSubscription.items?.data?.[0];
+        if (firstItem) {
+          currentPeriodStart = currentPeriodStart || (firstItem as any).current_period_start;
+          currentPeriodEnd = currentPeriodEnd || (firstItem as any).current_period_end;
+        }
+      }
+
+      // Fallback to current time + 30 days if still not available
+      currentPeriodStart = currentPeriodStart || Math.floor(Date.now() / 1000);
+      currentPeriodEnd = currentPeriodEnd || Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
       
       const subscriptionResult = await client.query(subscriptionQuery, [
         shopId,
@@ -493,8 +505,20 @@ export class SubscriptionService extends BaseRepository {
       }
 
       // Safely extract timestamps from Stripe subscription
-      const currentPeriodStart = (stripeSubscription as any).current_period_start;
-      const currentPeriodEnd = (stripeSubscription as any).current_period_end;
+      // NOTE: In newer Stripe API versions, current_period_start/end may be in items.data[0]
+      // instead of directly on the subscription object
+      let currentPeriodStart = (stripeSubscription as any).current_period_start;
+      let currentPeriodEnd = (stripeSubscription as any).current_period_end;
+
+      // If not on subscription directly, check items.data[0] (newer Stripe API)
+      if (!currentPeriodStart || !currentPeriodEnd) {
+        const firstItem = stripeSubscription.items?.data?.[0];
+        if (firstItem) {
+          currentPeriodStart = currentPeriodStart || (firstItem as any).current_period_start;
+          currentPeriodEnd = currentPeriodEnd || (firstItem as any).current_period_end;
+        }
+      }
+
       const canceledAt = stripeSubscription.canceled_at;
 
       // Log the subscription data for debugging
@@ -506,7 +530,8 @@ export class SubscriptionService extends BaseRepository {
         hasPeriodEnd: !!currentPeriodEnd,
         periodStart: currentPeriodStart,
         periodEnd: currentPeriodEnd,
-        canceledAt: canceledAt
+        canceledAt: canceledAt,
+        sourceLocation: (stripeSubscription as any).current_period_end ? 'subscription' : 'items.data[0]'
       });
 
       // For canceled subscriptions, use fallback dates if period dates are missing

@@ -41,7 +41,7 @@ interface ShopData {
   rcg_tier?: string;
   rcg_balance?: number;
   tier_updated_at?: string;
-  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
+  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' | 'paused';
   subscriptionActive?: boolean;
   subscriptionId?: string;
   facebook?: string;
