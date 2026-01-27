@@ -362,11 +362,24 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
 
     if (existingResult.rows.length === 0) {
       // Create the subscription record
-      const currentPeriodStart = latestSubscription.current_period_start
-        ? new Date(latestSubscription.current_period_start * 1000)
+      // NOTE: In newer Stripe API versions, current_period_start/end may be in items.data[0]
+      let periodStartTs = (latestSubscription as any).current_period_start;
+      let periodEndTs = (latestSubscription as any).current_period_end;
+
+      // If not on subscription directly, check items.data[0] (newer Stripe API)
+      if (!periodStartTs || !periodEndTs) {
+        const firstItem = latestSubscription.items?.data?.[0];
+        if (firstItem) {
+          periodStartTs = periodStartTs || (firstItem as any).current_period_start;
+          periodEndTs = periodEndTs || (firstItem as any).current_period_end;
+        }
+      }
+
+      const currentPeriodStart = periodStartTs
+        ? new Date(periodStartTs * 1000)
         : new Date();
-      const currentPeriodEnd = latestSubscription.current_period_end
-        ? new Date(latestSubscription.current_period_end * 1000)
+      const currentPeriodEnd = periodEndTs
+        ? new Date(periodEndTs * 1000)
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
 
       await subscriptionService.createSubscriptionRecord({

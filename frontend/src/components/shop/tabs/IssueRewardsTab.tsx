@@ -959,8 +959,13 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   </div>
                   <button
                     onClick={startQRScanner}
-                    className="px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-semibold rounded-lg transition-all flex items-center gap-2"
-                    title="Scan customer's QR code"
+                    disabled={isBlocked}
+                    className={`px-4 py-3 font-semibold rounded-lg transition-all flex items-center gap-2 ${
+                      isBlocked
+                        ? "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                        : "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                    }`}
+                    title={isBlocked ? blockReason : "Scan customer's QR code"}
                   >
                     <Camera className="w-5 h-5" />
                     <span>Scan QR</span>
@@ -990,7 +995,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       setTimeout(() => setShowPromoDropdown(false), 200)
                     }
                     placeholder="Enter or Select Promo Code.."
+                    disabled={isBlocked}
                     className={`w-full px-4 py-3 bg-white border text-black rounded-lg focus:ring-2 focus:border-transparent transition-all placeholder:text-gray-600 ${
+                      isBlocked ? "opacity-50 cursor-not-allowed" :
                       promoBonus > 0
                         ? "border-[#FFCC00] focus:ring-[#FFCC00]"
                         : "border-gray-700 focus:ring-[#FFCC00]"
@@ -1593,6 +1600,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 <button
                   onClick={issueReward}
                   disabled={
+                    isBlocked ||
                     processing ||
                     !customerAddress ||
                     !customerInfo ||
