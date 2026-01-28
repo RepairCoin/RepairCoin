@@ -104,15 +104,18 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
             </div>
           </div>
 
-          {/* Countdown Badge - Only show for upcoming future appointments */}
-          {isUpcoming && isFuture && (
-            <div className="flex-shrink-0">
+          {/* Countdown Badge + Status Badge */}
+          <div className="flex-shrink-0 flex flex-col items-end gap-2">
+            {isUpcoming && isFuture && (
               <CountdownBadge
                 bookingDate={appointment.bookingDate}
                 bookingTime={appointment.bookingTimeSlot}
               />
-            </div>
-          )}
+            )}
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              {statusStyle.label}
+            </span>
+          </div>
         </div>
 
         {/* Pending Reschedule Banner */}
