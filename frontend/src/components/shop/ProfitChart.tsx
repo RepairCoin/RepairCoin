@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   XAxis,
   YAxis,
@@ -12,8 +12,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
-import apiClient from '@/services/api/client';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw } from 'lucide-react';
+import { useShopProfitStore } from '@/stores/shopProfitStore';
 
 interface ProfitData {
   date: string;
@@ -37,82 +37,34 @@ interface ProfitChartProps {
   shopId: string;
 }
 
-interface CachedData {
-  transactions: any[];
-  purchases: any[];
-  timestamp: number;
-}
-
-// Cache duration: 2 minutes
-const CACHE_DURATION = 2 * 60 * 1000;
-
 /**
  * ProfitChart Component - Full featured profit analysis
+ * Uses Zustand store with localStorage persistence and 5-minute polling
  */
 export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
-  const [profitData, setProfitData] = useState<ProfitData[]>([]);
-  const [metrics, setMetrics] = useState<ProfitMetrics | null>(null);
   const [timeRange, setTimeRange] = useState<'day' | 'month' | 'year'>('month');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Cache for API responses
-  const dataCache = useRef<Map<string, CachedData>>(new Map());
-  const [rawTransactions, setRawTransactions] = useState<any[]>([]);
-  const [rawPurchases, setRawPurchases] = useState<any[]>([]);
+  // Get store state and actions
+  const {
+    dataByShop,
+    isRefreshing,
+    error,
+    fetchProfitData,
+    startPolling,
+    stopPolling,
+  } = useShopProfitStore();
 
-  // Fetch data from API with caching
-  const fetchProfitData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Get shop-specific data
+  const shopData = dataByShop[shopId];
+  const rawTransactions = shopData?.transactions || [];
+  const rawPurchases = shopData?.purchases || [];
 
-      const cacheKey = shopId;
-      const cached = dataCache.current.get(cacheKey);
-      const now = Date.now();
-
-      let transactionsArray: any[];
-      let purchasesArray: any[];
-
-      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-        transactionsArray = cached.transactions;
-        purchasesArray = cached.purchases;
-      } else {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setFullYear(endDate.getFullYear() - 5);
-
-        const [transactions, purchases] = await Promise.all([
-          apiClient.get(`/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).catch(() => ({ data: [] })),
-          apiClient.get(`/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).catch(() => ({ data: { items: [] } }))
-        ]);
-
-        transactionsArray = Array.isArray(transactions.data) ? transactions.data :
-          Array.isArray(transactions.data?.transactions) ? transactions.data.transactions :
-          Array.isArray(transactions) ? transactions : [];
-
-        purchasesArray = Array.isArray(purchases.data?.items) ? purchases.data.items :
-          Array.isArray(purchases.data?.purchases) ? purchases.data.purchases :
-          Array.isArray(purchases.data) ? purchases.data :
-          Array.isArray(purchases) ? purchases : [];
-
-        dataCache.current.set(cacheKey, {
-          transactions: transactionsArray,
-          purchases: purchasesArray,
-          timestamp: now
-        });
-      }
-
-      setRawTransactions(transactionsArray);
-      setRawPurchases(purchasesArray);
-
-    } catch (err) {
-      console.error('Error fetching profit data:', err);
-      setError('Failed to load profit data');
-    } finally {
-      setLoading(false);
-    }
-  }, [shopId]);
+  // Initial fetch + start polling
+  useEffect(() => {
+    fetchProfitData(shopId);
+    startPolling(shopId);
+    return () => stopPolling();
+  }, [shopId, fetchProfitData, startPolling, stopPolling]);
 
   const formatDateByRange = useCallback((date: Date, range: 'day' | 'month' | 'year'): string => {
     switch (range) {
@@ -229,12 +181,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (shopId) {
-      fetchProfitData();
-    }
-  }, [shopId, fetchProfitData]);
-
+  // Compute filtered profit data based on time range
   const filteredProfitData = useMemo(() => {
     if (rawTransactions.length === 0 && rawPurchases.length === 0) {
       return [];
@@ -268,14 +215,10 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     return processRawDataToProfit(filteredTransactions, filteredPurchases, timeRange);
   }, [rawTransactions, rawPurchases, timeRange, processRawDataToProfit]);
 
-  const calculatedMetrics = useMemo(() => {
+  // Compute metrics from filtered data
+  const metrics = useMemo(() => {
     return filteredProfitData.length > 0 ? calculateMetrics(filteredProfitData) : null;
   }, [filteredProfitData, calculateMetrics]);
-
-  useEffect(() => {
-    setProfitData(filteredProfitData);
-    setMetrics(calculatedMetrics);
-  }, [filteredProfitData, calculatedMetrics]);
 
   const formatCurrency = useCallback((value: number) => `$${value.toFixed(2)}`, []);
 
@@ -308,7 +251,10 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     return null;
   }, [formatXAxisLabel, formatCurrency]);
 
-  if (loading) {
+  // Only show skeleton on first load (no cached data exists)
+  const isFirstLoad = !shopData && isRefreshing;
+
+  if (isFirstLoad) {
     return (
       <div className="bg-[#101010] rounded-[20px] p-6">
         <div className="animate-pulse">
@@ -324,14 +270,14 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     );
   }
 
-  if (error) {
+  if (error && !shopData) {
     return (
       <div className="bg-[#101010] rounded-[20px] p-6">
         <div className="text-center text-red-400">
           <p className="text-lg font-semibold mb-2">Error Loading Profit Data</p>
           <p className="text-sm">{error}</p>
           <button
-            onClick={fetchProfitData}
+            onClick={() => fetchProfitData(shopId, true)}
             className="mt-4 px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600"
           >
             Retry
@@ -348,6 +294,10 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-[#FFCC00]" />
           <h3 className="text-[#FFCC00] text-base font-medium">Profit Analysis</h3>
+          {/* Subtle refresh indicator */}
+          {isRefreshing && (
+            <RefreshCw className="w-4 h-4 text-gray-400 animate-spin" />
+          )}
         </div>
 
         {/* Time Range Selector */}
@@ -416,7 +366,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
 
       {/* Charts */}
       <div className="px-4 sm:px-6 pb-6">
-        {profitData.length > 0 ? (
+        {filteredProfitData.length > 0 ? (
           <div className="space-y-4 sm:space-y-6">
             {/* Main Area Chart - Profit & Loss Over Time */}
             <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
@@ -434,7 +384,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={profitData}>
+                <LineChart data={filteredProfitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis
                     dataKey="date"
@@ -483,7 +433,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
             <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
               <h4 className="text-white text-sm sm:text-base font-medium mb-4">Revenue vs Costs</h4>
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={profitData}>
+                <LineChart data={filteredProfitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis
                     dataKey="date"
@@ -527,7 +477,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
             <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
               <h4 className="text-white text-sm sm:text-base font-medium mb-4">Profit Margin Trend</h4>
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={profitData}>
+                <LineChart data={filteredProfitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis
                     dataKey="date"
