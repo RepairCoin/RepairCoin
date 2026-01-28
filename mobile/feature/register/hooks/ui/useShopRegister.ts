@@ -15,7 +15,10 @@ export const useShopRegister = () => {
   const { mutate: registerShop, isPending } = useRegisterShop();
 
   const [index, setIndex] = useState(0);
-  const [formData, setFormData] = useState<ShopFormData>(INITIAL_SHOP_FORM_DATA);
+  const [formData, setFormData] = useState<ShopFormData>({
+    ...INITIAL_SHOP_FORM_DATA,
+    email: account?.email || "",
+  });
   const [countryCode, setCountryCode] = useState<CountryCode>("US");
 
   const flatRef = useRef<FlatList<Slide>>(null);
