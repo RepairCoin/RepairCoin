@@ -15,7 +15,7 @@ export default function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
-      className={`w-full items-center justify-center rounded-2xl py-4 ${disabled || loading ? 'bg-[#FFCC00]/70' : 'bg-[#FFCC00]'} ${className}`}
+      className={`w-full items-center justify-center rounded-2xl py-4 ${disabled || loading ? 'bg-[#FFCC00]/20' : 'bg-[#FFCC00]'} ${className}`}
       style={{ minHeight: 50 }}
       android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: false }}
     >
