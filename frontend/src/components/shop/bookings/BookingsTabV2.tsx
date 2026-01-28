@@ -16,9 +16,11 @@ import { RescheduleModal } from "../modals/RescheduleModal";
 
 interface BookingsTabV2Props {
   shopId: string;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
-export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
+export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked = false, blockReason = "Action blocked" }) => {
   const searchParams = useSearchParams();
 
   // State
@@ -416,6 +418,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
                   onSchedule={() => handleSchedule(booking.bookingId)}
                   onComplete={() => handleComplete(booking.bookingId)}
                   onCancel={() => handleCancel(booking.bookingId)}
+                  isBlocked={isBlocked}
+                  blockReason={blockReason}
                 />
               ))
             )}
@@ -427,6 +431,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
               booking={selectedBooking}
               onClose={() => setSelectedBookingId(null)}
               onSendMessage={handleSendMessage}
+              isBlocked={isBlocked}
+              blockReason={blockReason}
             />
           </div>
         </div>

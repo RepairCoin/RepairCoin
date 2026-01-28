@@ -12,6 +12,10 @@ interface ShopData {
   subscriptionEndsAt?: string | null;
   subscriptionCancelledAt?: string | null;
   rcg_balance?: string | number;
+  // Suspended shop fields
+  active?: boolean;
+  suspendedAt?: string | null;
+  suspended_at?: string | null;
 }
 
 export interface SubscriptionStatus {
@@ -19,6 +23,7 @@ export interface SubscriptionStatus {
   isPaused: boolean;
   isExpired: boolean;
   isCancelled: boolean;
+  isSuspended: boolean;
   isRcgQualified: boolean;
   canPerformOperations: boolean;
   statusMessage: string | null;
@@ -39,12 +44,16 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
         isPaused: false,
         isExpired: false,
         isCancelled: false,
+        isSuspended: false,
         isRcgQualified: false,
         canPerformOperations: false,
         statusMessage: 'Loading shop data...',
         operationalStatus: null
       };
     }
+
+    // Check if shop is suspended (shop-level block)
+    const isSuspended = shopData.active === false || !!(shopData.suspendedAt || shopData.suspended_at);
 
     const isPaused = shopData.operational_status === 'paused';
     const isNotQualified = shopData.operational_status === 'not_qualified';
@@ -66,12 +75,14 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
       shopData.operational_status === 'subscription_qualified';
 
     // Can perform operations if:
-    // 1. RCG qualified (10K+ tokens)
-    // 2. Or has active subscription and not paused/expired
-    const canPerformOperations = isRcgQualified || (isOperational && !isExpired && !isPaused);
+    // 1. NOT suspended (suspended blocks everything, even RCG qualified)
+    // 2. AND (RCG qualified OR has active subscription and not paused/expired)
+    const canPerformOperations = !isSuspended && (isRcgQualified || (isOperational && !isExpired && !isPaused));
 
     let statusMessage: string | null = null;
-    if (isPaused) {
+    if (isSuspended) {
+      statusMessage = 'Your shop account has been suspended by the administrator. Please contact support or submit an unsuspend request.';
+    } else if (isPaused) {
       statusMessage = 'Your subscription is paused by the administrator. Operations are temporarily disabled until the subscription is resumed.';
     } else if (isExpired) {
       statusMessage = 'Your subscription has expired. Please renew your subscription to continue operations.';
@@ -93,6 +104,7 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
       isPaused,
       isExpired,
       isCancelled,
+      isSuspended,
       isRcgQualified,
       canPerformOperations,
       statusMessage,

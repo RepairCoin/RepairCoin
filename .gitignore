@@ -140,3 +140,7 @@ dist
 /mobile/android/
 
 backend/.env.test
+
+# Claude Code temporary files
+tmpclaude-*
+**/tmpclaude-*

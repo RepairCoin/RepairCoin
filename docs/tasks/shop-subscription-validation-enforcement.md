@@ -15,6 +15,7 @@ Prevent shops from performing operations (creating services, issuing rewards, pr
 
 1. **Created `backend/src/middleware/subscriptionGuard.ts`**
    - New middleware that checks `operational_status` for blocked states: `'paused'`, `'not_qualified'`, `'pending'`
+   - **Direct expiration check**: Queries `stripe_subscriptions.current_period_end` to check if subscription has expired
    - RCG qualification bypass (10K+ tokens)
    - Configurable via options object
    - User-friendly error messages with status codes
@@ -92,12 +93,16 @@ import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
 router.post('/your-endpoint', authMiddleware, requireRole(['shop']), requireActiveSubscription(), yourController.handler);
 ```
 
-The middleware checks:
-- `operational_status === 'paused'` - Blocked
-- `operational_status === 'not_qualified'` - Blocked (unless RCG qualified)
-- `operational_status === 'pending'` - Blocked
-- `operational_status === 'subscription_qualified'` - Allowed
-- `operational_status === 'rcg_qualified'` - Allowed (bypasses subscription)
+The middleware checks (in order):
+1. **RCG Qualified** - If `rcg_balance >= 10000` or `operational_status === 'rcg_qualified'` → Allowed (bypasses all other checks)
+2. **Shop Suspended** - If `shop.active === false` or `shop.suspendedAt` is set → Blocked with `SHOP_SUSPENDED`
+3. **Subscription Expired** - If `stripe_subscriptions.current_period_end < now` → Blocked with `SUBSCRIPTION_EXPIRED`
+4. **Operational Status**:
+   - `'paused'` → Blocked
+   - `'not_qualified'` → Blocked
+   - `'pending'` → Blocked
+   - `'subscription_qualified'` → Allowed
+   - `'rcg_qualified'` → Allowed
 
 ### Frontend: Using Props Pattern (Recommended)
 
@@ -204,15 +209,16 @@ import { GuardedButton } from "@/components/shop/SubscriptionGuard";
 
 ## Blocked States Reference
 
-| Status | `operational_status` Value | Blocked? | Color Theme |
-|--------|---------------------------|----------|-------------|
-| Paused | `'paused'` | Yes | Orange |
-| Expired | Subscription past end date | Yes | Red |
-| Not Qualified | `'not_qualified'` | Yes | Red |
-| Pending | `'pending'` | Yes | Yellow |
+| Status | Field/Check | Blocked? | Color Theme |
+|--------|-------------|----------|-------------|
+| Suspended | `shop.active === false` or `shop.suspendedAt` set | Yes | Red |
+| Paused | `operational_status === 'paused'` | Yes | Orange |
+| Expired | `stripe_subscriptions.current_period_end < now` | Yes | Red |
+| Not Qualified | `operational_status === 'not_qualified'` | Yes | Red |
+| Pending | `operational_status === 'pending'` | Yes | Yellow |
 | Cancelled (in period) | Has `subscriptionCancelledAt` but before `subscriptionEndsAt` | No | Orange warning |
-| RCG Qualified | `'rcg_qualified'` | No | - |
-| Subscription Qualified | `'subscription_qualified'` | No | - |
+| RCG Qualified | `operational_status === 'rcg_qualified'` or `rcg_balance >= 10000` | No | - |
+| Subscription Qualified | `operational_status === 'subscription_qualified'` | No | - |
 
 ---
 
@@ -234,16 +240,17 @@ import { GuardedButton } from "@/components/shop/SubscriptionGuard";
 |---------|-----------|-------------------|
 | Services | ServicesTab | Add, Edit, Delete, Toggle Active buttons |
 | Issue Rewards | IssueRewardsTab | Wallet input, Scan QR button, Issue RCN button, Promo code input |
-| Redeem | RedeemTabV2 | (Props passed, needs implementation) |
+| Redeem | RedeemTabV2 | Wallet input, Scan QR button, Amount input, Quick select buttons, Request Customer Approval button |
 | Promo Codes | PromoCodesTab | (Needs implementation) |
 
 ---
 
 ## Testing Checklist
 
+- [x] Backend middleware blocks operations for suspended shops
 - [x] Backend middleware blocks operations for paused subscriptions
 - [x] Backend middleware blocks operations for expired subscriptions
-- [x] Backend returns proper error codes (SUBSCRIPTION_INACTIVE, SUBSCRIPTION_EXPIRED, SUBSCRIPTION_PAUSED)
+- [x] Backend returns proper error codes (SHOP_SUSPENDED, SUBSCRIPTION_INACTIVE, SUBSCRIPTION_EXPIRED, SUBSCRIPTION_PAUSED)
 - [x] Admin pause action updates `shops.operational_status` to 'paused'
 - [x] Admin resume action updates `shops.operational_status` to 'subscription_qualified'
 - [x] Frontend ServicesTab disables buttons when blocked
@@ -251,7 +258,7 @@ import { GuardedButton } from "@/components/shop/SubscriptionGuard";
 - [x] Frontend shows clear messaging about why actions are blocked
 - [x] Edge case: Cancelled but still in billing period (should allow operations)
 - [x] Edge case: RCG qualified shops bypass subscription check
-- [ ] Frontend RedeemTabV2 disables elements when blocked
+- [x] Frontend RedeemTabV2 disables elements when blocked
 - [ ] Frontend PromoCodesTab disables elements when blocked
 - [ ] Add integration tests
 
@@ -272,6 +279,7 @@ import { GuardedButton } from "@/components/shop/SubscriptionGuard";
 - `frontend/src/components/shop/SubscriptionGuard.tsx` - Reusable guard components
 - `frontend/src/components/shop/tabs/ServicesTab.tsx` - Services protection
 - `frontend/src/components/shop/tabs/IssueRewardsTab.tsx` - Issue rewards protection
+- `frontend/src/components/shop/tabs/RedeemTabV2.tsx` - Redeem protection
 - `frontend/src/components/shop/tabs/ToolsTab.tsx` - Props passing
 - `frontend/src/components/shop/ShopDashboardClient.tsx` - isBlocked calculation
 
@@ -279,8 +287,10 @@ import { GuardedButton } from "@/components/shop/SubscriptionGuard";
 
 ## Notes
 
-- RCG-qualified shops (10K+ RCG tokens) bypass subscription check
+- **Suspended shops** are blocked from ALL operations (even RCG qualified)
+- RCG-qualified shops (10K+ RCG tokens) bypass subscription check (but NOT suspension)
 - Cancelled subscriptions work until the billing period ends
 - Paused subscriptions block ALL operations immediately
 - Backend enforcement is the primary security layer; frontend provides UX feedback
 - When adding new protected features, always apply both backend middleware AND frontend blocking
+- The `useSubscriptionStatus` hook now returns `isSuspended` and blocks `canPerformOperations` for suspended shops
