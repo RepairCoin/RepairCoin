@@ -12,8 +12,8 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 
 // Country data with dial codes
 const COUNTRIES = [
-  { code: "PH", name: "Philippines", dialCode: "+63", flag: "🇵🇭" },
   { code: "US", name: "United States", dialCode: "+1", flag: "🇺🇸" },
+  { code: "PH", name: "Philippines", dialCode: "+63", flag: "🇵🇭" },
   { code: "GB", name: "United Kingdom", dialCode: "+44", flag: "🇬🇧" },
   { code: "AU", name: "Australia", dialCode: "+61", flag: "🇦🇺" },
   { code: "CA", name: "Canada", dialCode: "+1", flag: "🇨🇦" },
@@ -88,7 +88,7 @@ export default function PhoneInput({
   value,
   onChangePhone,
   placeholder = "Enter phone number",
-  defaultCountryCode = "PH",
+  defaultCountryCode = "US",
   error,
 }: PhoneInputProps) {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
