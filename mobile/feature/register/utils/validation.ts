@@ -80,16 +80,11 @@ export const validateShopFirstSlide = (
 
 // Shop second slide validation (business info)
 export const validateShopSecondSlide = (
-  shopId: string,
   name: string,
   companySize: string,
   monthlyRevenue: string
 ): string[] => {
   const errors: string[] = [];
-
-  if (!hasMinLength(shopId, 3)) {
-    errors.push("Shop ID must be at least 3 characters");
-  }
 
   if (!hasMinLength(name, 2)) {
     errors.push("Company name must be at least 2 characters");
