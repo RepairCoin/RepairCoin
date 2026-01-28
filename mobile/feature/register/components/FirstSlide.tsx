@@ -1,8 +1,6 @@
-import { View, Text, ScrollView, Alert } from "react-native";
+import { View, Text, ScrollView, Alert, TextInput } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
-import CountryPicker from "react-native-country-picker-modal";
-import { MaskedTextInput } from "react-native-mask-text";
 import { useMemo } from "react";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
@@ -16,8 +14,6 @@ export default function FirstSlide({
   handleGoNext,
   formData,
   updateFormData,
-  countryCode,
-  setCountryCode,
 }: FirstSlideProps) {
   const validateAndProceed = () => {
     const errors = validateShopFirstSlide(
@@ -105,29 +101,15 @@ export default function FirstSlide({
           <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
             Phone Number
           </Text>
-          <View className="flex-row items-center rounded-xl px-4 bg-[#2A2A2C]">
+          <View className="flex-row items-center rounded-xl px-4 bg-[#2A2A2C] gap-2">
             <Feather name="phone" size={20} color="#FFCC00" />
-            <View className="ml-3 border-r border-gray-600 pr-2">
-              <CountryPicker
-                countryCode={countryCode}
-                withFilter
-                withFlag
-                withCallingCode
-                withEmoji
-                onSelect={(country) => setCountryCode(country.cca2)}
-                containerButtonStyle={{
-                  paddingVertical: 12,
-                }}
-              />
-            </View>
-            <MaskedTextInput
-              mask="(999) 999-9999"
+            <TextInput
               className="flex-1 h-12 text-white text-base ml-2"
-              placeholder="(000) 000-0000"
+              placeholder="Enter phone number"
               placeholderTextColor="#666"
               keyboardType="phone-pad"
               value={formData.phone}
-              onChangeText={(masked) => updateFormData("phone", masked)}
+              onChangeText={(value) => updateFormData("phone", value)}
             />
           </View>
         </View>

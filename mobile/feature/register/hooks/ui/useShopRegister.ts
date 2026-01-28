@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions, Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { CountryCode } from "react-native-country-picker-modal";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { ShopFormData, Slide } from "../../types";
@@ -19,7 +18,6 @@ export const useShopRegister = () => {
     ...INITIAL_SHOP_FORM_DATA,
     email: account?.email || "",
   });
-  const [countryCode, setCountryCode] = useState<CountryCode>("US");
 
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides = useMemo(() => SHOP_REGISTER_SLIDES, []);
@@ -74,7 +72,6 @@ export const useShopRegister = () => {
     // State
     formData,
     index,
-    countryCode,
     slides,
     isPending,
     account,
@@ -83,7 +80,6 @@ export const useShopRegister = () => {
 
     // Actions
     updateFormData,
-    setCountryCode,
     onScroll,
     handleGoBack,
     handleGoNext,
