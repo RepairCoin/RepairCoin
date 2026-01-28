@@ -80,6 +80,12 @@ export interface CalendarBooking {
   totalAmount: number;
   notes: string | null;
   createdAt: string;
+  // Additional fields returned by backend for customer appointments
+  shopName?: string;
+  shopAddress?: string;
+  shopPhone?: string;
+  serviceImage?: string;
+  rcnEarned?: number;
 }
 
 export interface ServiceDuration {
