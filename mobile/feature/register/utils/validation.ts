@@ -4,9 +4,10 @@ export const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email.trim());
 };
 
-// Phone validation (10 digits)
+// Phone validation (minimum 7 digits for international numbers)
 export const isValidPhone = (phone: string): boolean => {
-  return phone.replace(/\D/g, "").length === 10;
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 7;
 };
 
 // Ethereum address validation
