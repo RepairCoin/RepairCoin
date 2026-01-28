@@ -80,6 +80,9 @@ const toE164 = (dialCode: string, localNumber: string): string => {
   return `${dialCode}${digits}`;
 };
 
+const MIN_DIGITS = 7;
+const MAX_DIGITS = 15;
+
 export default function PhoneInput({
   label,
   value,
@@ -93,6 +96,19 @@ export default function PhoneInput({
     COUNTRIES.find((c) => c.code === defaultCountryCode) || COUNTRIES[0]
   );
   const [localNumber, setLocalNumber] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Validate phone number length
+  const validatePhone = (digits: string): string | null => {
+    if (!digits) return null;
+    if (digits.length < MIN_DIGITS) {
+      return `Phone number is too short (min ${MIN_DIGITS} digits)`;
+    }
+    if (digits.length > MAX_DIGITS) {
+      return `Phone number is too long (max ${MAX_DIGITS} digits)`;
+    }
+    return null;
+  };
 
   // Parse incoming E.164 value when it changes
   useEffect(() => {
@@ -119,9 +135,10 @@ export default function PhoneInput({
 
   const handleNumberChange = useCallback(
     (text: string) => {
-      // Only allow digits
-      const digits = text.replace(/\D/g, "");
+      // Only allow digits, limit to max digits
+      const digits = text.replace(/\D/g, "").slice(0, MAX_DIGITS);
       setLocalNumber(digits);
+      setValidationError(validatePhone(digits));
       onChangePhone(toE164(selectedCountry.dialCode, digits));
     },
     [selectedCountry, onChangePhone]
@@ -176,12 +193,15 @@ export default function PhoneInput({
             keyboardType="phone-pad"
             value={localNumber}
             onChangeText={handleNumberChange}
+            maxLength={MAX_DIGITS}
           />
         </View>
       </View>
 
-      {error && (
-        <Text className="text-red-500 text-sm mt-1 ml-1">{error}</Text>
+      {(validationError || error) && (
+        <Text className="text-red-500 text-sm mt-1 ml-1">
+          {validationError || error}
+        </Text>
       )}
 
       {/* Country Picker Modal */}
