@@ -300,7 +300,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
             {/* Universal Redemption Notice */}
             <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
               <p className="text-sm text-green-400">
-                ✅ Universal Redemption Active
+                Universal Redemption Active
               </p>
               <p className="text-xs text-green-400 mt-1">
                 All RepairCoin customers can redeem 100% of their earned RCN at

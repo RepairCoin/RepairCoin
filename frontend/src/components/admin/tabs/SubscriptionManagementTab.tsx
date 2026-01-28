@@ -198,7 +198,7 @@ export default function SubscriptionManagementTab() {
     const handleSubscriptionStatusChange = (event: Event) => {
       const customEvent = event as CustomEvent;
       const { shopAddress, action } = customEvent.detail || {};
-      console.log(`📋 Admin: Subscription status changed - ${action} for ${shopAddress}`);
+      console.log(`Admin: Subscription status changed - ${action} for ${shopAddress}`);
       // Refresh subscriptions list to reflect the change
       loadSubscriptions();
     };
@@ -258,7 +258,7 @@ export default function SubscriptionManagementTab() {
 
       // Check if the subscription was cleaned up from the database
       if (responseData?.cleaned) {
-        toast(errorMessage, { icon: '⚠️' });
+        toast.error(errorMessage);
       } else {
         toast.error(errorMessage);
       }
@@ -287,7 +287,7 @@ export default function SubscriptionManagementTab() {
 
       // Check if the subscription was cleaned up from the database
       if (responseData?.cleaned) {
-        toast(errorMessage, { icon: '⚠️' });
+        toast.error(errorMessage);
       } else {
         toast.error(errorMessage);
       }
@@ -315,7 +315,7 @@ export default function SubscriptionManagementTab() {
           await loadSubscriptions();
           setShowResumeModal(false);
           setSelectedSubscription(null);
-          toast((syncData as any).message || "Subscription no longer exists in Stripe and has been removed from the system.", { icon: '⚠️' });
+          toast.error((syncData as any).message || "Subscription no longer exists in Stripe and has been removed from the system.");
           return;
         }
 
@@ -344,7 +344,7 @@ export default function SubscriptionManagementTab() {
 
       // Check if the subscription was cleaned up from the database
       if (responseData?.cleaned) {
-        toast(errorMessage, { icon: '⚠️' });
+        toast.error(errorMessage);
       } else {
         toast.error(errorMessage);
       }
@@ -373,7 +373,7 @@ export default function SubscriptionManagementTab() {
 
       // Check if the subscription was cleaned up from the database
       if (responseData?.cleaned) {
-        toast(errorMessage, { icon: '⚠️' });
+        toast.error(errorMessage);
       } else {
         toast.error(errorMessage);
       }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle, DollarSign } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle, DollarSign, Gem, Store, Coins, Gift, Banknote, RefreshCcw } from 'lucide-react';
 import { AutoCompletePurchases } from '../AutoCompletePurchases';
 import { TreasurySyncProvider } from '@/hooks/useTreasurySync';
 import { WorkingChart, WorkingLineChart, WorkingPieChart } from '@/components/admin/charts/WorkingChart';
@@ -201,7 +201,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         
         // Show warning if using fallback data
         if (result.warning) {
-          toast.error(`⚠️ ${result.warning}`, { duration: 5000 });
+          toast.error(result.warning, { duration: 5000 });
         }
       } else {
         const errorData = await response.json();
@@ -389,35 +389,35 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
-            <div className="text-3xl mb-2">💎</div>
+            <Gem className="w-8 h-8 text-blue-400 mb-2" />
             <p className="text-sm text-gray-400 mb-1">Off-Chain Supply</p>
             <p className="text-2xl font-bold text-white">Unlimited</p>
             <p className="text-sm text-blue-400 mt-1">Virtual token supply</p>
           </div>
 
           <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-            <div className="text-3xl mb-2">🏪</div>
+            <Store className="w-8 h-8 text-green-400 mb-2" />
             <p className="text-sm text-gray-400 mb-1">Shops Total Balance</p>
             <p className="text-2xl font-bold text-white">{formatNumber(treasuryData.totalSold)} RCN</p>
             <p className="text-sm text-green-400 mt-1">Available for rewards</p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
-            <div className="text-3xl mb-2">💰</div>
+            <Coins className="w-8 h-8 text-purple-400 mb-2" />
             <p className="text-sm text-gray-400 mb-1">Total Purchased by Shops</p>
             <p className="text-2xl font-bold text-white">{formatNumber(treasuryData.totalSold)} RCN</p>
             <p className="text-sm text-purple-400 mt-1">Paid via Stripe @ $0.10/RCN</p>
           </div>
 
           <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-6 border border-orange-700">
-            <div className="text-3xl mb-2">🎁</div>
+            <Gift className="w-8 h-8 text-orange-400 mb-2" />
             <p className="text-sm text-gray-400 mb-1">Customer Rewards Issued</p>
             <p className="text-2xl font-bold text-white">{formatNumber(treasuryData.totalMinted || 0)} RCN</p>
             <p className="text-sm text-orange-400 mt-1">Off-chain tracking</p>
           </div>
 
           <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 border border-yellow-700">
-            <div className="text-3xl mb-2">💵</div>
+            <Banknote className="w-8 h-8 text-yellow-400 mb-2" />
             <p className="text-sm text-gray-400 mb-1">Total Revenue</p>
             <p className="text-2xl font-bold text-white">{formatCurrency(treasuryData.totalRevenue)}</p>
           </div>
@@ -482,7 +482,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
           {/* Emergency Controls */}
           <button
             onClick={() => {
-              if (confirm('⚠️ Are you sure you want to access emergency controls? This should only be used in critical situations.')) {
+              if (confirm('Are you sure you want to access emergency controls? This should only be used in critical situations.')) {
                 toast.error('Emergency controls logged - contact technical team for implementation');
               }
             }}
@@ -685,21 +685,21 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
-                    <div className="text-3xl mb-2">💜</div>
+                    <Gem className="w-8 h-8 text-purple-400 mb-2" />
                     <p className="text-sm text-gray-400 mb-1">Total Supply</p>
                     <p className="text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.totalSupply))} RCG</p>
                     <p className="text-xs text-purple-400 mt-1">Fixed supply</p>
                   </div>
                   
                   <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-xl p-6 border border-indigo-700">
-                    <div className="text-3xl mb-2">🔄</div>
+                    <RefreshCcw className="w-8 h-8 text-indigo-400 mb-2" />
                     <p className="text-sm text-gray-400 mb-1">Circulating Supply</p>
                     <p className="text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.circulatingSupply))} RCG</p>
                     <p className="text-xs text-indigo-400 mt-1">Available for trading</p>
                   </div>
                   
                   <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-6 border border-pink-700">
-                    <div className="text-3xl mb-2">🏪</div>
+                    <Store className="w-8 h-8 text-pink-400 mb-2" />
                     <p className="text-sm text-gray-400 mb-1">Total Shops</p>
                     <p className="text-2xl font-bold text-white">{rcgMetrics?.shopTierDistribution?.total || 0}</p>
                     <p className="text-xs text-pink-400 mt-1">Active partners</p>
@@ -769,7 +769,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
                             )}
                             {holder.isShop && (
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-blue-200 mt-2">
-                                🏪 Shop Partner
+                                Shop Partner
                               </span>
                             )}
                           </div>

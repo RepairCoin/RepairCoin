@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 // Helper function to format large numbers compactly for Y-axis labels
 const formatCompact = (value: number): string => {
@@ -282,10 +283,10 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
         </div>
         <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-[#4F9EF8]/20 to-[#4F9EF8]/30 rounded-xl border border-[#4F9EF8]/40 shadow-sm">
           <p className="text-[#4F9EF8]/80 text-xs sm:text-sm font-medium mb-1">Trend</p>
-          <p className="text-lg sm:text-2xl font-bold text-[#4F9EF8]">
-            {values.length > 1 && values[values.length - 1] > values[0] ? '📈' :
-             values.length > 1 && values[values.length - 1] < values[0] ? '📉' : '➖'}
-          </p>
+          <div className="flex justify-center">
+            {values.length > 1 && values[values.length - 1] > values[0] ? <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-[#22C55E]" /> :
+             values.length > 1 && values[values.length - 1] < values[0] ? <TrendingDown className="w-6 h-6 sm:w-8 sm:h-8 text-[#EF4444]" /> : <Minus className="w-6 h-6 sm:w-8 sm:h-8 text-[#4F9EF8]" />}
+          </div>
         </div>
       </div>
     </div>

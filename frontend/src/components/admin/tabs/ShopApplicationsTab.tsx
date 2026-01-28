@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { FileText, XCircle } from 'lucide-react';
 
 interface Shop {
   shopId: string;
@@ -114,7 +115,7 @@ export const ShopApplicationsTab: React.FC<ShopApplicationsTabProps> = ({
             {displayedShops.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                  <div className="text-4xl mb-2">{activeTab === 'pending' ? '📝' : '❌'}</div>
+                  <div className="mb-2">{activeTab === 'pending' ? <FileText className="w-10 h-10 text-gray-400 mx-auto" /> : <XCircle className="w-10 h-10 text-gray-400 mx-auto" />}</div>
                   <p>{activeTab === 'pending' ? 'No pending shop applications' : 'No rejected shop applications'}</p>
                 </td>
               </tr>
