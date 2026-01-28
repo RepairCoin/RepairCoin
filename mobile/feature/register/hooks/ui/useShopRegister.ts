@@ -8,6 +8,13 @@ import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
 
 const { width } = Dimensions.get("window");
 
+// Generate unique shop ID: SHOP-{timestamp}-{random}
+const generateShopId = () => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `SHOP-${timestamp}-${random}`;
+};
+
 export const useShopRegister = () => {
   const account = useAuthStore((state) => state.account);
   const { useRegisterShop } = useShop();
@@ -16,6 +23,7 @@ export const useShopRegister = () => {
   const [index, setIndex] = useState(0);
   const [formData, setFormData] = useState<ShopFormData>({
     ...INITIAL_SHOP_FORM_DATA,
+    shopId: generateShopId(),
     email: account?.email || "",
   });
 

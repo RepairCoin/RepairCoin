@@ -18,7 +18,6 @@ export default function SecondSlide({
 }: NavigableSlideProps) {
   const validateAndProceed = () => {
     const errors = validateShopSecondSlide(
-      formData.shopId,
       formData.name,
       formData.companySize,
       formData.monthlyRevenue
@@ -34,12 +33,11 @@ export default function SecondSlide({
 
   const isFormValid = useMemo(() => {
     return (
-      hasMinLength(formData.shopId, 3) &&
       hasMinLength(formData.name, 2) &&
       formData.companySize !== "" &&
       formData.monthlyRevenue !== ""
     );
-  }, [formData.shopId, formData.name, formData.companySize, formData.monthlyRevenue]);
+  }, [formData.name, formData.companySize, formData.monthlyRevenue]);
 
   return (
     <View className="w-full h-full">
@@ -53,15 +51,6 @@ export default function SecondSlide({
         <SectionHeader
           icon={<Feather name="briefcase" size={16} color="#000" />}
           title="Business Information"
-        />
-
-        <FormInput
-          label="Shop ID"
-          icon={<Feather name="hash" size={20} color="#FFCC00" />}
-          value={formData.shopId}
-          onChangeText={(value) => updateFormData("shopId", value)}
-          placeholder="Enter a unique shop ID"
-          autoCapitalize="none"
         />
 
         <FormInput
