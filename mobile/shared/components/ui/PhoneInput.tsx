@@ -9,32 +9,13 @@ import {
   Platform,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-
-// Country data with dial codes
-const COUNTRIES = [
-  { code: "US", name: "United States", dialCode: "+1", flag: "🇺🇸" },
-  { code: "PH", name: "Philippines", dialCode: "+63", flag: "🇵🇭" },
-  { code: "GB", name: "United Kingdom", dialCode: "+44", flag: "🇬🇧" },
-  { code: "AU", name: "Australia", dialCode: "+61", flag: "🇦🇺" },
-  { code: "CA", name: "Canada", dialCode: "+1", flag: "🇨🇦" },
-  { code: "SG", name: "Singapore", dialCode: "+65", flag: "🇸🇬" },
-  { code: "MY", name: "Malaysia", dialCode: "+60", flag: "🇲🇾" },
-  { code: "JP", name: "Japan", dialCode: "+81", flag: "🇯🇵" },
-  { code: "KR", name: "South Korea", dialCode: "+82", flag: "🇰🇷" },
-  { code: "CN", name: "China", dialCode: "+86", flag: "🇨🇳" },
-  { code: "IN", name: "India", dialCode: "+91", flag: "🇮🇳" },
-  { code: "AE", name: "UAE", dialCode: "+971", flag: "🇦🇪" },
-  { code: "SA", name: "Saudi Arabia", dialCode: "+966", flag: "🇸🇦" },
-  { code: "DE", name: "Germany", dialCode: "+49", flag: "🇩🇪" },
-  { code: "FR", name: "France", dialCode: "+33", flag: "🇫🇷" },
-];
-
-interface Country {
-  code: string;
-  name: string;
-  dialCode: string;
-  flag: string;
-}
+import {
+  COUNTRIES,
+  PHONE_VALIDATION,
+  DEFAULT_COUNTRY_CODE,
+  type Country,
+} from "@/shared/constants/phone";
+import { parseE164, toE164, validatePhoneLength } from "@/shared/utilities/phone";
 
 interface PhoneInputProps {
   label?: string;
@@ -45,50 +26,12 @@ interface PhoneInputProps {
   error?: string;
 }
 
-/**
- * Parse E.164 phone number to extract country and local number
- */
-const parseE164 = (e164: string): { country: Country; localNumber: string } => {
-  const defaultCountry = COUNTRIES[0]; // Philippines
-
-  if (!e164 || !e164.startsWith("+")) {
-    return { country: defaultCountry, localNumber: e164 || "" };
-  }
-
-  // Find matching country by dial code (longest match first)
-  const sortedCountries = [...COUNTRIES].sort(
-    (a, b) => b.dialCode.length - a.dialCode.length
-  );
-
-  for (const country of sortedCountries) {
-    if (e164.startsWith(country.dialCode)) {
-      const localNumber = e164.slice(country.dialCode.length);
-      return { country, localNumber };
-    }
-  }
-
-  return { country: defaultCountry, localNumber: e164.replace(/^\+/, "") };
-};
-
-/**
- * Format to E.164
- */
-const toE164 = (dialCode: string, localNumber: string): string => {
-  // Remove all non-digit characters from local number
-  const digits = localNumber.replace(/\D/g, "");
-  if (!digits) return "";
-  return `${dialCode}${digits}`;
-};
-
-const MIN_DIGITS = 7;
-const MAX_DIGITS = 15;
-
 export default function PhoneInput({
   label,
   value,
   onChangePhone,
   placeholder = "Enter phone number",
-  defaultCountryCode = "US",
+  defaultCountryCode = DEFAULT_COUNTRY_CODE,
   error,
 }: PhoneInputProps) {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -97,18 +40,6 @@ export default function PhoneInput({
   );
   const [localNumber, setLocalNumber] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  // Validate phone number length
-  const validatePhone = (digits: string): string | null => {
-    if (!digits) return null;
-    if (digits.length < MIN_DIGITS) {
-      return `Phone number is too short (min ${MIN_DIGITS} digits)`;
-    }
-    if (digits.length > MAX_DIGITS) {
-      return `Phone number is too long (max ${MAX_DIGITS} digits)`;
-    }
-    return null;
-  };
 
   // Parse incoming E.164 value when it changes
   useEffect(() => {
@@ -125,7 +56,6 @@ export default function PhoneInput({
     (country: Country) => {
       setSelectedCountry(country);
       setShowCountryPicker(false);
-      // Update E.164 with new country code
       if (localNumber) {
         onChangePhone(toE164(country.dialCode, localNumber));
       }
@@ -135,10 +65,9 @@ export default function PhoneInput({
 
   const handleNumberChange = useCallback(
     (text: string) => {
-      // Only allow digits, limit to max digits
-      const digits = text.replace(/\D/g, "").slice(0, MAX_DIGITS);
+      const digits = text.replace(/\D/g, "").slice(0, PHONE_VALIDATION.MAX_DIGITS);
       setLocalNumber(digits);
-      setValidationError(validatePhone(digits));
+      setValidationError(validatePhoneLength(digits));
       onChangePhone(toE164(selectedCountry.dialCode, digits));
     },
     [selectedCountry, onChangePhone]
@@ -193,7 +122,7 @@ export default function PhoneInput({
             keyboardType="phone-pad"
             value={localNumber}
             onChangeText={handleNumberChange}
-            maxLength={MAX_DIGITS}
+            maxLength={PHONE_VALIDATION.MAX_DIGITS}
           />
         </View>
       </View>
