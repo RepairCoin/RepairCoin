@@ -20,8 +20,10 @@ import {
   HeartHandshake,
   Flag,
   QrCode,
+  AlertTriangle,
 } from "lucide-react";
 import { sanitizeDescription } from "@/utils/sanitize";
+import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import {
   getShopServices,
   createService,
@@ -215,32 +217,21 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
     return cat?.label || category;
   };
 
+  // Use the subscription status hook for comprehensive status checking
+  const subscriptionStatus = useSubscriptionStatus(shopData);
+
   // Check if shop meets requirements to create services
-  // Check if subscription is active OR if it's cancelled but still within the billing period
-  const isCancelledButActive = shopData?.subscriptionStatus === 'cancelled' &&
-    shopData?.subscriptionCancelledAt &&
-    shopData?.subscriptionEndsAt &&
-    new Date(shopData.subscriptionEndsAt) > new Date();
-
-  // Check operational_status first (most reliable), then fall back to subscriptionActive
-  const isOperational = shopData?.operational_status === 'rcg_qualified' ||
-    shopData?.operational_status === 'subscription_qualified' ||
-    // Fallback: If operational_status is missing but shop is active and verified, check subscriptionActive
-    (!shopData?.operational_status && shopData?.active && shopData?.verified && shopData?.subscriptionActive);
-
-  const hasSubscription = isOperational || shopData?.subscriptionActive === true || isCancelledButActive;
-  const hasRCG = (shopData?.rcg_balance ?? 0) >= 10000;
-  const canCreateServices = hasSubscription || hasRCG;
+  // This now includes proper handling of 'paused' status
+  const canCreateServices = subscriptionStatus.canPerformOperations;
 
   // Debug log for subscription status
   console.log('[ServicesTab] Subscription check:', {
     operational_status: shopData?.operational_status,
     subscriptionActive: shopData?.subscriptionActive,
-    isOperational,
-    hasSubscription,
-    hasRCG,
-    canCreateServices,
-    isCancelledButActive
+    isPaused: subscriptionStatus.isPaused,
+    isRcgQualified: subscriptionStatus.isRcgQualified,
+    canPerformOperations: subscriptionStatus.canPerformOperations,
+    statusMessage: subscriptionStatus.statusMessage
   });
 
   if (loading) {
@@ -256,26 +247,48 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
   return (
     <div className="bg-[#101010] rounded-xl p-6 space-y-6">
-      {/* Requirement Warning Banner */}
-      {!canCreateServices && (
-        <div className="bg-red-900/20 border-2 border-red-500/50 rounded-xl p-4">
+      {/* Subscription Status Warning Banner */}
+      {!canCreateServices && subscriptionStatus.statusMessage && (
+        <div className={`border-2 rounded-xl p-4 ${
+          subscriptionStatus.isPaused
+            ? 'bg-orange-900/20 border-orange-500/50'
+            : 'bg-red-900/20 border-red-500/50'
+        }`}>
           <div className="flex items-start gap-3">
-            <div className="text-2xl text-red-400">⚠️</div>
+            <AlertTriangle className={`w-6 h-6 flex-shrink-0 ${
+              subscriptionStatus.isPaused ? 'text-orange-400' : 'text-red-400'
+            }`} />
             <div className="flex-1">
-              <h3 className="text-lg font-bold mb-1 text-red-400">
-                Subscription or RCG Holdings Required
+              <h3 className={`text-lg font-bold mb-1 ${
+                subscriptionStatus.isPaused ? 'text-orange-400' : 'text-red-400'
+              }`}>
+                {subscriptionStatus.isPaused
+                  ? 'Subscription Paused'
+                  : subscriptionStatus.isExpired
+                    ? 'Subscription Expired'
+                    : 'Subscription or RCG Holdings Required'}
               </h3>
               <p className="text-gray-300 text-sm mb-3">
-                To create and manage services in the marketplace, you need either:
+                {subscriptionStatus.statusMessage}
               </p>
-              <ul className="text-gray-300 text-sm space-y-1 mb-3 ml-4">
-                <li>• An active RepairCoin subscription ($500/month), OR</li>
-                <li>• Hold at least 10,000 RCG tokens</li>
-              </ul>
+              {!subscriptionStatus.isPaused && !subscriptionStatus.isExpired && (
+                <>
+                  <p className="text-gray-300 text-sm mb-2">
+                    To create and manage services in the marketplace, you need either:
+                  </p>
+                  <ul className="text-gray-300 text-sm space-y-1 mb-3 ml-4">
+                    <li>• An active RepairCoin subscription ($500/month), OR</li>
+                    <li>• Hold at least 10,000 RCG tokens</li>
+                  </ul>
+                </>
+              )}
               <p className="text-gray-400 text-xs">
-                Current Status: {hasSubscription ? '✅ Active Subscription' : '❌ No Subscription'} | {hasRCG ? `✅ ${shopData?.rcg_balance?.toFixed(2)} RCG` : `❌ ${(shopData?.rcg_balance ?? 0).toFixed(2)} RCG (need 10,000)`}
-                {shopData?.operational_status && (
-                  <span className="ml-2">(Status: {shopData.operational_status})</span>
+                Current Status: {subscriptionStatus.operationalStatus || 'unknown'}
+                {shopData?.rcg_balance !== undefined && (
+                  <span className="ml-2">
+                    | RCG Balance: {Number(shopData.rcg_balance).toFixed(2)}
+                    {subscriptionStatus.isRcgQualified ? ' ✅' : ' (need 10,000)'}
+                  </span>
                 )}
               </p>
             </div>
@@ -417,7 +430,13 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     </h3>
                     <ToggleSwitch
                       checked={service.active}
-                      onChange={() => handleToggleActive(service)}
+                      onChange={() => {
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
+                        handleToggleActive(service);
+                      }}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
@@ -484,9 +503,18 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
                         router.push(`/shop/services/${service.serviceId}`);
                       }}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 text-sm"
+                      disabled={!canCreateServices}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
+                        canCreateServices
+                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
                     >
                       <Edit className="w-4 h-4" />
                       Edit
@@ -494,10 +522,18 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
                         handleDeleteService(service.serviceId);
                       }}
-                      disabled={deletingService === service.serviceId}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      disabled={deletingService === service.serviceId || !canCreateServices}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
+                        canCreateServices && deletingService !== service.serviceId
+                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
                     >
                       <Trash2 className="w-4 h-4" />
                       {deletingService === service.serviceId ? "..." : "Delete"}

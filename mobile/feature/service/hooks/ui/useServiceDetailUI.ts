@@ -2,12 +2,12 @@ import { useState, useCallback } from "react";
 import { Alert, Linking, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useQueryClient } from "@tanstack/react-query";
-import { ServiceData } from "@/interfaces/service.interface";
-import { ShopAvailability } from "@/interfaces/appointment.interface";
-import { queryKeys } from "@/config/queryClient";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
+import { queryKeys } from "@/shared/config/queryClient";
 import { useUpdateServiceMutation } from "../mutations/useServiceMutations";
 import { DAYS } from "../../constants/DAYS";
-import { getCategoryLabel } from "../../../../utilities/getCategoryLabel";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
 interface UseServiceDetailUIProps {
   serviceId: string;

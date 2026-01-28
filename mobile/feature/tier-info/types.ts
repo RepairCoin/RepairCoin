@@ -1,4 +1,4 @@
-import { Tier } from "@/utilities/GlobalTypes";
+import { Tier } from "@/shared/utilities/GlobalTypes";
 
 export interface TierConfig {
   color: [string, string];

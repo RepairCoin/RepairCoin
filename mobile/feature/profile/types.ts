@@ -1,5 +1,5 @@
-import { LinkType } from "@/utilities/linking";
-import { CustomerData as CustomerDataInterface } from "@/interfaces/customer.interface";
+import { LinkType } from "@/shared/utilities/linking";
+import { CustomerData as CustomerDataInterface } from "@/shared/interfaces/customer.interface";
 
 // Re-export CustomerData from interfaces
 export type CustomerData = CustomerDataInterface;

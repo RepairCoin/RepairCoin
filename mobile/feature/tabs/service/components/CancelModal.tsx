@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { MyAppointment } from "@/interfaces/appointment.interface";
+import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { formatDate, formatTime } from "./AppointmentCard";
 
 interface CancelModalProps {

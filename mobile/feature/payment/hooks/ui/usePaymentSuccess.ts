@@ -3,7 +3,7 @@ import { Animated, Easing } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { PaymentSuccessParams } from "../../types";
 import { SUBSCRIPTION_PERIOD_DAYS } from "../../constants";
 

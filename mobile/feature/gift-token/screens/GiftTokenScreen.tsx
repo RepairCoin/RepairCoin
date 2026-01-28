@@ -4,8 +4,8 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { AppHeader } from "@/components/ui/AppHeader";
-import { QRScanner } from "@/components/shop/QRScanner";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { QRScanner } from "@/shared/components/shop/QRScanner";
 import { useGiftToken } from "../hooks";
 import {
   GiftHeader,

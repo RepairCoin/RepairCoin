@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/auth.store";
-import { queryKeys } from "@/config/queryClient";
-import { promoCodeApi } from "@/services/promocode.services";
-import { PromoCodesListResponse } from "@/interfaces/shop.interface";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { queryKeys } from "@/shared/config/queryClient";
+import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
+import { PromoCodesListResponse } from "@/shared/interfaces/shop.interface";
 
 export function useShopPromoCodesQuery() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";

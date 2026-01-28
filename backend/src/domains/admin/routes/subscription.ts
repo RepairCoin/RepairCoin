@@ -472,6 +472,15 @@ router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Re
       [subscriptionId]
     );
 
+    // Update shops.operational_status to 'paused' so middleware blocks operations
+    await db.query(
+      `UPDATE shops
+       SET operational_status = 'paused', updated_at = CURRENT_TIMESTAMP
+       WHERE shop_id = $1`,
+      [shopId]
+    );
+    logger.info('Shop operational_status set to paused', { shopId });
+
     // Get shop details for notifications
     const shopQuery = await db.query(
       'SELECT wallet_address, email, name FROM shops WHERE shop_id = $1',
@@ -659,6 +668,15 @@ router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: R
          WHERE id = $1`,
         [subscriptionId]
       );
+
+      // Update shops.operational_status back to 'subscription_qualified'
+      await db.query(
+        `UPDATE shops
+         SET operational_status = 'subscription_qualified', updated_at = CURRENT_TIMESTAMP
+         WHERE shop_id = $1`,
+        [shopId]
+      );
+      logger.info('Shop operational_status set to subscription_qualified', { shopId });
 
       // Get shop details for notifications
       const shopQuery = await db.query(

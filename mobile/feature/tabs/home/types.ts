@@ -1,4 +1,4 @@
-import { CustomerGrowthData, ShopData } from "@/interfaces/shop.interface";
+import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface";
 
 export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 

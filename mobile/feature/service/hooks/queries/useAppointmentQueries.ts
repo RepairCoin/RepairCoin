@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/auth.store";
-import { appointmentApi } from "@/services/appointment.services";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 
 export function useShopAvailabilityWithConfigQuery(shopId?: string) {
   const { userProfile } = useAuthStore();

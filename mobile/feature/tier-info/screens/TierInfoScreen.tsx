@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useTierInfo } from "../hooks";
 import { CurrentTierCard, TierBenefits, AllTiersOverview } from "../components";
 

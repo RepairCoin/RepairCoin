@@ -1,4 +1,4 @@
-import { useApproveRedemptionSession as useApproveSession } from "@/hooks/useTokenQueries";
+import { useApproveRedemptionSession as useApproveSession } from "../useTokenQueries";
 
 /**
  * Hook for approving a redemption session

@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
 import { router } from "expo-router";
-import { useService } from "@/hooks/service/useService";
-import { useFavorite } from "@/hooks/favorite/useFavorite";
-import { ServiceData } from "@/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { useService } from "@/shared/hooks/service/useService";
+import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { ServiceStatusFilter } from "../../types";
 
 export function useServicesTab() {

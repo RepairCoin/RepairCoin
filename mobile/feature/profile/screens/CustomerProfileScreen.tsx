@@ -1,5 +1,5 @@
 import { View, ScrollView } from "react-native";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import {
   ProfileLoadingState,
   ProfileErrorState,

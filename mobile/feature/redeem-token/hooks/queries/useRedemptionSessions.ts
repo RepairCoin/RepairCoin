@@ -1,4 +1,4 @@
-import { useRedemptionSessions as useRedemptionSessionsQuery } from "@/hooks/useTokenQueries";
+import { useRedemptionSessions as useRedemptionSessionsQuery } from "../useTokenQueries";
 import { RedemptionSession } from "../../types";
 
 /**

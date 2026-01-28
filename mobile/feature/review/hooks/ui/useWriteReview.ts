@@ -3,14 +3,17 @@ import { Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "@/utilities/axios";
-import { queryKeys } from "@/config/queryClient";
-import { ReviewParams, SubmitReviewData, RatingLevel } from "../../types";
+import apiClient from "@/shared/utilities/axios";
+import { queryKeys } from "@/shared/config/queryClient";
+import { SubmitReviewData, RatingLevel } from "../../types";
 import { RATING_LABELS } from "../../constants";
 
 export function useWriteReview() {
-  const { orderId, serviceId, serviceName, shopName } =
-    useLocalSearchParams<ReviewParams>();
+  const params = useLocalSearchParams();
+  const orderId = params.orderId as string;
+  const serviceId = params.serviceId as string | undefined;
+  const serviceName = params.serviceName as string | undefined;
+  const shopName = params.shopName as string | undefined;
 
   const [rating, setRating] = useState<RatingLevel>(0);
   const [comment, setComment] = useState("");

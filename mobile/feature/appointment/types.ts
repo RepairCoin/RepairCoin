@@ -1,5 +1,5 @@
-import { TimeSlot, ShopAvailability } from "@/interfaces/appointment.interface";
-import { BookingStatus } from "@/interfaces/booking.interfaces";
+import { TimeSlot, ShopAvailability } from "@/shared/interfaces/appointment.interface";
+import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { DateData } from "react-native-calendars";
 
 // ============================================

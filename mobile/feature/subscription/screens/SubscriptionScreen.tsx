@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { ThemedView } from "@/components/ui/ThemedView";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useSubscription } from "../hooks";
 import {
   SubscriptionHeader,

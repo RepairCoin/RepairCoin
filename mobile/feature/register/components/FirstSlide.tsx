@@ -1,12 +1,12 @@
 import { View, Text, ScrollView, Alert } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import CountryPicker from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
 import { useMemo } from "react";
-import FormInput from "@/components/ui/FormInput";
-import SectionHeader from "@/components/ui/SectionHeader";
-import PrimaryButton from "@/components/ui/PrimaryButton";
+import FormInput from "@/shared/components/ui/FormInput";
+import SectionHeader from "@/shared/components/ui/SectionHeader";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { FirstSlideProps } from "../types";
 import { validateShopFirstSlide, isValidEmail, isValidPhone, hasMinLength } from "../utils";
 

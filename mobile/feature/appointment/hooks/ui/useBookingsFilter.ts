@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { BookingFilterStatus } from "../../types";
+import { AppointmentFilterStatus } from "../../types";
 
 export function useBookingsFilter() {
-  const [statusFilter, setStatusFilter] = useState<BookingFilterStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<AppointmentFilterStatus>("all");
 
   return {
     statusFilter,

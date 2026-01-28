@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 export function useBuyTokenQueries() {
   const { userProfile } = useAuthStore();

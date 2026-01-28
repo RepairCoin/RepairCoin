@@ -4,7 +4,7 @@ import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 // Components
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider } from "../components";
 
 // Hooks

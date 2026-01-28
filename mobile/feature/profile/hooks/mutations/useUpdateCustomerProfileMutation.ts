@@ -1,4 +1,4 @@
-import { useCustomer } from "@/hooks/customer/useCustomer";
+import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 
 /**
  * Hook for updating customer profile

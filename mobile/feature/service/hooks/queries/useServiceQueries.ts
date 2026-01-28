@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/auth.store";
-import { queryKeys } from "@/config/queryClient";
-import { serviceApi } from "@/services/service.services";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { queryKeys } from "@/shared/config/queryClient";
+import { serviceApi } from "@/shared/services/service.services";
 import {
   ServiceResponse,
   ServiceDetailResponse,
-} from "@/interfaces/service.interface";
+} from "@/shared/interfaces/service.interface";
 
 export function useServicesTabQuery() {
   const { userProfile } = useAuthStore();

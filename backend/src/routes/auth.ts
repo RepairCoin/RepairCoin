@@ -412,14 +412,36 @@ router.post('/check-user', async (req, res) => {
           exists: true,
           type: 'customer',
           user: {
-            id: customer.address, // Use address as ID since that's the primary identifier
+            id: customer.address,
             address: customer.address,
             walletAddress: customer.address,
             name: customer.name || 'Customer',
+            firstName: customer.first_name,
+            lastName: customer.last_name,
             email: customer.email,
+            phone: customer.phone,
             tier: customer.tier,
             active: customer.isActive,
-            createdAt: customer.joinDate
+            isActive: customer.isActive,
+            createdAt: customer.joinDate,
+            joinDate: customer.joinDate,
+            // Balance and earnings data
+            lifetimeEarnings: customer.lifetimeEarnings || 0,
+            currentBalance: customer.currentBalance || 0,
+            currentRcnBalance: customer.currentRcnBalance || 0,
+            pendingMintBalance: customer.pendingMintBalance || 0,
+            totalRedemptions: customer.totalRedemptions || 0,
+            lastEarnedDate: customer.lastEarnedDate,
+            lastBlockchainSync: customer.lastBlockchainSync,
+            // Referral data
+            referralCode: customer.referralCode,
+            referredBy: customer.referredBy,
+            referralCount: customer.referralCount || 0,
+            // Suspension data
+            suspendedAt: customer.suspendedAt,
+            suspensionReason: customer.suspensionReason,
+            // External ID
+            fixflowCustomerId: customer.fixflowCustomerId
           }
         });
       }
@@ -441,16 +463,60 @@ router.post('/check-user', async (req, res) => {
             shopId: shop.shopId,
             address: shop.walletAddress,
             walletAddress: shop.walletAddress,
+            reimbursementAddress: shop.reimbursementAddress,
             name: shop.name,
             companyName: shop.name,
             shopName: shop.name,
             email: shop.email,
             phone: shop.phone,
+            businessAddress: shop.address,
             active: shop.active,
             isActive: shop.active,
             verified: shop.verified,
             isVerified: shop.verified,
-            createdAt: shop.joinDate
+            createdAt: shop.joinDate,
+            joinDate: shop.joinDate,
+            lastActivity: shop.lastActivity,
+            // Operational and subscription status
+            operational_status: shop.operational_status,
+            subscriptionActive: shop.subscriptionActive,
+            subscriptionId: shop.subscriptionId,
+            // RCG and token data
+            rcg_balance: shop.rcg_balance || 0,
+            rcg_tier: shop.rcg_tier,
+            tier_updated_at: shop.tier_updated_at,
+            purchasedRcnBalance: shop.purchasedRcnBalance || 0,
+            totalRcnPurchased: shop.totalRcnPurchased || 0,
+            // Token stats
+            totalTokensIssued: shop.totalTokensIssued || 0,
+            totalRedemptions: shop.totalRedemptions || 0,
+            totalReimbursements: shop.totalReimbursements || 0,
+            crossShopEnabled: shop.crossShopEnabled,
+            // Location
+            location: shop.location,
+            city: shop.city,
+            country: shop.country,
+            // Social and branding
+            facebook: shop.facebook,
+            twitter: shop.twitter,
+            instagram: shop.instagram,
+            website: shop.website,
+            logoUrl: shop.logoUrl,
+            bannerUrl: shop.bannerUrl,
+            aboutText: shop.aboutText,
+            category: shop.category,
+            // Additional info
+            firstName: shop.firstName,
+            lastName: shop.lastName,
+            companySize: shop.companySize,
+            monthlyRevenue: shop.monthlyRevenue,
+            // Verification and suspension
+            verifiedAt: shop.verifiedAt,
+            verifiedBy: shop.verifiedBy,
+            suspendedAt: shop.suspendedAt,
+            suspensionReason: shop.suspensionReason,
+            // External ID
+            fixflowShopId: shop.fixflowShopId
           }
         });
       }
@@ -490,17 +556,61 @@ router.post('/check-user', async (req, res) => {
               shopId: shopByEmail.shopId,
               address: shopByEmail.walletAddress, // Original wallet (has RCG tokens)
               walletAddress: shopByEmail.walletAddress, // Original wallet for blockchain ops
+              reimbursementAddress: shopByEmail.reimbursementAddress,
               connectedWallet: normalizedAddress, // The embedded wallet they're connecting with
               name: shopByEmail.name,
               companyName: shopByEmail.name,
               shopName: shopByEmail.name,
               email: shopByEmail.email,
               phone: shopByEmail.phone,
+              businessAddress: shopByEmail.address,
               active: shopByEmail.active,
               isActive: shopByEmail.active,
               verified: shopByEmail.verified,
               isVerified: shopByEmail.verified,
-              createdAt: shopByEmail.joinDate
+              createdAt: shopByEmail.joinDate,
+              joinDate: shopByEmail.joinDate,
+              lastActivity: shopByEmail.lastActivity,
+              // Operational and subscription status
+              operational_status: shopByEmail.operational_status,
+              subscriptionActive: shopByEmail.subscriptionActive,
+              subscriptionId: shopByEmail.subscriptionId,
+              // RCG and token data
+              rcg_balance: shopByEmail.rcg_balance || 0,
+              rcg_tier: shopByEmail.rcg_tier,
+              tier_updated_at: shopByEmail.tier_updated_at,
+              purchasedRcnBalance: shopByEmail.purchasedRcnBalance || 0,
+              totalRcnPurchased: shopByEmail.totalRcnPurchased || 0,
+              // Token stats
+              totalTokensIssued: shopByEmail.totalTokensIssued || 0,
+              totalRedemptions: shopByEmail.totalRedemptions || 0,
+              totalReimbursements: shopByEmail.totalReimbursements || 0,
+              crossShopEnabled: shopByEmail.crossShopEnabled,
+              // Location
+              location: shopByEmail.location,
+              city: shopByEmail.city,
+              country: shopByEmail.country,
+              // Social and branding
+              facebook: shopByEmail.facebook,
+              twitter: shopByEmail.twitter,
+              instagram: shopByEmail.instagram,
+              website: shopByEmail.website,
+              logoUrl: shopByEmail.logoUrl,
+              bannerUrl: shopByEmail.bannerUrl,
+              aboutText: shopByEmail.aboutText,
+              category: shopByEmail.category,
+              // Additional info
+              firstName: shopByEmail.firstName,
+              lastName: shopByEmail.lastName,
+              companySize: shopByEmail.companySize,
+              monthlyRevenue: shopByEmail.monthlyRevenue,
+              // Verification and suspension
+              verifiedAt: shopByEmail.verifiedAt,
+              verifiedBy: shopByEmail.verifiedBy,
+              suspendedAt: shopByEmail.suspendedAt,
+              suspensionReason: shopByEmail.suspensionReason,
+              // External ID
+              fixflowShopId: shopByEmail.fixflowShopId
             }
           });
         }

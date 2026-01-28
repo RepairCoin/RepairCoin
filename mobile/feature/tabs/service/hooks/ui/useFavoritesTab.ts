@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
-import { useFavorite } from "@/hooks/favorite/useFavorite";
-import { ServiceData } from "@/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 
 export function useFavoritesTab() {
   const { useGetFavorites } = useFavorite();

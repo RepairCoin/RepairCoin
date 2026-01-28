@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
-import { customerApi } from "@/services/customer.services";
+import { customerApi } from "@/shared/services/customer.services";
 import { CustomerData } from "../../types";
 
 /**

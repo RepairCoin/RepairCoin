@@ -14,6 +14,30 @@ import Stripe from 'stripe';
 const router = Router();
 
 /**
+ * Helper function to extract period dates from Stripe subscription.
+ * In newer Stripe API versions, current_period_start/end may be in items.data[0]
+ * instead of directly on the subscription object.
+ */
+function extractSubscriptionPeriodDates(subscription: Stripe.Subscription): {
+  currentPeriodStart: number | undefined;
+  currentPeriodEnd: number | undefined;
+} {
+  let currentPeriodStart = (subscription as any).current_period_start;
+  let currentPeriodEnd = (subscription as any).current_period_end;
+
+  // If not on subscription directly, check items.data[0] (newer Stripe API)
+  if (!currentPeriodStart || !currentPeriodEnd) {
+    const firstItem = subscription.items?.data?.[0];
+    if (firstItem) {
+      currentPeriodStart = currentPeriodStart || (firstItem as any).current_period_start;
+      currentPeriodEnd = currentPeriodEnd || (firstItem as any).current_period_end;
+    }
+  }
+
+  return { currentPeriodStart, currentPeriodEnd };
+}
+
+/**
  * Handle successful service payment
  */
 async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: PaymentService) {
@@ -214,7 +238,10 @@ async function handleMobileSubscriptionPaymentSuccess(paymentIntent: Stripe.Paym
       // If subscription is now active, create/update shop_subscriptions record
       if (subscription.status === 'active') {
         const shopSubRepo = new ShopSubscriptionRepository();
-        const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+        const { currentPeriodEnd: periodEndTimestamp } = extractSubscriptionPeriodDates(subscription);
+        const currentPeriodEnd = periodEndTimestamp
+          ? new Date(periodEndTimestamp * 1000)
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Fallback to 30 days
 
         // Check if shop_subscriptions record exists
         const existingShopSub = await db.query(
@@ -643,10 +670,11 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
         // Fetch the latest subscription data from Stripe
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
+        const { currentPeriodEnd: periodEndTs } = extractSubscriptionPeriodDates(subscription);
         logger.info('Fetched subscription from Stripe for date sync', {
           subscriptionId: subscription.id,
           status: subscription.status,
-          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString()
+          currentPeriodEnd: periodEndTs ? new Date(periodEndTs * 1000).toISOString() : 'undefined'
         });
 
         // Update subscription in database (this will also sync next_payment_date)
@@ -888,6 +916,26 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
   try {
     const db = DatabaseService.getInstance();
 
+    // Extract period dates - check items.data[0] if not directly on subscription (newer Stripe API)
+    let currentPeriodStart = (subscription as any).current_period_start;
+    let currentPeriodEnd = (subscription as any).current_period_end;
+
+    if (!currentPeriodStart || !currentPeriodEnd) {
+      const firstItem = subscription.items?.data?.[0];
+      if (firstItem) {
+        currentPeriodStart = currentPeriodStart || (firstItem as any).current_period_start;
+        currentPeriodEnd = currentPeriodEnd || (firstItem as any).current_period_end;
+      }
+    }
+
+    logger.info('Updating subscription in database', {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      currentPeriodStart,
+      currentPeriodEnd,
+      sourceLocation: (subscription as any).current_period_end ? 'subscription' : 'items.data[0]'
+    });
+
     // Update stripe_subscriptions table
     const query = `
       UPDATE stripe_subscriptions
@@ -905,8 +953,8 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
 
     const values = [
       subscription.status,
-      new Date((subscription as any).current_period_start * 1000),
-      new Date((subscription as any).current_period_end * 1000),
+      currentPeriodStart ? new Date(currentPeriodStart * 1000) : new Date(),
+      currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       subscription.cancel_at_period_end,
       subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
       subscription.ended_at ? new Date(subscription.ended_at * 1000) : null,
@@ -956,12 +1004,12 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       }
 
       // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
-      const currentPeriodEnd = (subscription as any).current_period_end;
-      if (currentPeriodEnd) {
+      const { currentPeriodEnd: periodEndTs } = extractSubscriptionPeriodDates(subscription);
+      if (periodEndTs) {
         const shopSubRepo = new ShopSubscriptionRepository();
         await shopSubRepo.syncNextPaymentDateFromStripe(
           shopId,
-          new Date(currentPeriodEnd * 1000)
+          new Date(periodEndTs * 1000)
         );
       }
     }
@@ -1125,14 +1173,18 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
           return;
         }
 
+        const { currentPeriodStart: periodStartTs, currentPeriodEnd: periodEndTs } = extractSubscriptionPeriodDates(subscription);
+        const periodStartDate = periodStartTs ? new Date(periodStartTs * 1000) : new Date();
+        const periodEndDate = periodEndTs ? new Date(periodEndTs * 1000) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
         await subscriptionService.createSubscriptionRecord({
           shopId: shopId,
           stripeCustomerId: stripeCustomerId,
           stripeSubscriptionId: subscription.id,
           stripePriceId: subscription.items.data[0]?.price.id || process.env.STRIPE_MONTHLY_PRICE_ID || '',
           status: subscription.status as any,
-          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+          currentPeriodStart: periodStartDate,
+          currentPeriodEnd: periodEndDate,
           metadata: {
             checkoutSessionId: session.id,
             webhookCreated: true
@@ -1148,7 +1200,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
         // Also create shop_subscriptions record for admin panel visibility
         try {
           const shopSubRepo = new ShopSubscriptionRepository();
-          const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+          const currentPeriodEnd = periodEndDate;
 
           await shopSubRepo.createSubscription({
             shopId: shopId,

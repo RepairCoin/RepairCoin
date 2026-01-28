@@ -1,20 +1,20 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Alert, Linking, Platform } from "react-native";
 import MapView, { Region, LatLng } from "react-native-maps";
-import { useShop } from "@/hooks/shop/useShop";
+import { useShop } from "@/shared/hooks/shop/useShop";
 import {
   getCurrentLocation,
   geocodeAddress,
   Coordinates,
-} from "@/services/geocoding.service";
+} from "@/shared/services/geocoding.service";
 import {
   fetchRoute,
   metersToMiles,
   milesToMeters,
   formatDuration,
-} from "@/providers/RouteProvider";
-import { WebViewMapRef } from "@/components/maps/WebViewMap";
-import { ShopData } from "@/interfaces/shop.interface";
+} from "@/shared/providers/RouteProvider";
+import { WebViewMapRef } from "@/shared/components/maps/WebViewMap";
+import { ShopData } from "@/shared/interfaces/shop.interface";
 import { ViewMode, ShopWithLocation, GeocodedCoords } from "../../types";
 import {
   DEFAULT_RADIUS_MILES,

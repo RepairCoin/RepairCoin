@@ -1,8 +1,8 @@
 import { View, Text, ActivityIndicator, FlatList } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, PROVIDER_DEFAULT, Polyline, Circle } from "react-native-maps";
-import WebViewMap, { MarkerData } from "@/components/maps/WebViewMap";
-import { SearchInput } from "@/components/ui/SearchInput";
+import WebViewMap, { MarkerData } from "@/shared/components/maps/WebViewMap";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { useFindShop } from "../hooks";
 import { ShopWithLocation } from "../types";
 import {

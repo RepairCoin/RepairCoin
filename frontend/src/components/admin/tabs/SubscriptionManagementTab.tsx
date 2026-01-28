@@ -560,9 +560,11 @@ export default function SubscriptionManagementTab() {
         }
 
         const now = new Date();
-        const daysRemaining = Math.ceil(
-          (subscribedTillDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        );
+        // Use Math.floor for days remaining, Math.ceil for expired days
+        const diffMs = subscribedTillDate.getTime() - now.getTime();
+        const daysRemaining = diffMs >= 0
+          ? Math.floor(diffMs / (1000 * 60 * 60 * 24))
+          : Math.ceil(diffMs / (1000 * 60 * 60 * 24));
         const hasExpired = daysRemaining < 0;
 
         return (

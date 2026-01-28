@@ -1,5 +1,5 @@
 import { View, FlatList, RefreshControl, ActivityIndicator } from "react-native";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useMessages } from "../hooks";
 import { EmptyConversations, ConversationItem } from "../components";
 import { Conversation } from "../types";

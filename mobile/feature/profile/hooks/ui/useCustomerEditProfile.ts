@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { useCustomerProfileQuery } from "../queries";
 import { useUpdateCustomerProfileMutation } from "../mutations";
 import { CustomerEditFormData } from "../../types";

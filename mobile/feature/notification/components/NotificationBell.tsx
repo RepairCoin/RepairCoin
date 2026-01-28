@@ -2,8 +2,8 @@ import { View, Pressable, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { notificationApi } from "@/services/notification.services";
-import { useAuthStore } from "@/store/auth.store";
+import { notificationApi } from "@/shared/services/notification.services";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 interface NotificationBellProps {
   userType?: "customer" | "shop";

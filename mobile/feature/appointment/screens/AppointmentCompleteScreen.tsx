@@ -13,14 +13,14 @@ import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams } from "expo-router";
 import { DateData } from "react-native-calendars";
-import { useService } from "@/hooks/service/useService";
-import { useBalance } from "@/hooks/balance/useBalance";
+import { useService } from "@/shared/hooks/service/useService";
+import { useBalance } from "../hooks/queries/useBalance";
 import {
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
 } from "../hooks/queries";
 import { useCreateStripeCheckoutMutation } from "../hooks/mutations";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { StepIndicator } from "../components";
 import AppointmentScheduleScreen from "./AppointmentScheduleScreen";
 import AppointmentDiscountScreen from "./AppointmentDiscountScreen";

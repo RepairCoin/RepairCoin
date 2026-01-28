@@ -1,5 +1,5 @@
-import { useAuthStore } from "@/store/auth.store";
-import { useShop } from "@/hooks/shop/useShop";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { useShop } from "@/shared/hooks/shop/useShop";
 import { goBack } from "expo-router/build/global-state/routing";
 
 export function useSubscription() {

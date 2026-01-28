@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import {
   RedemptionSession,
   SessionStatus,

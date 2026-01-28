@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Alert } from "react-native";
 import { router } from "expo-router";
-import { useMyAppointmentsQuery } from "@/feature/booking/hooks/queries";
-import { useCancelAppointmentMutation } from "@/feature/booking/hooks/mutations";
-import { MyAppointment } from "@/interfaces/appointment.interface";
+import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/shared/hooks/booking/useBooking";
+import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { BookingFilterTab, BookingStatusFilter } from "../../types";
 import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "../../constants";
 

@@ -15,7 +15,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import OnboardingOne from "./onboarding1";
 import OnboardingTwo from "./onboarding2";
 import OnboardingThree from "./onboarding3";

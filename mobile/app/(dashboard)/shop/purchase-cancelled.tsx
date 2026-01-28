@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ui/ThemedView";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
 
 export default function PurchaseCancelled() {
   const router = useRouter();

@@ -7,8 +7,8 @@ import {
   Pressable,
   ActivityIndicator,
 } from "react-native";
-import Screen from "@/components/ui/Screen";
-import PrimaryButton from "@/components/ui/PrimaryButton";
+import Screen from "@/shared/components/ui/Screen";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { useSubscriptionForm } from "../hooks";
 import { FormField, TermsCheckbox, ErrorMessage } from "../components";
 

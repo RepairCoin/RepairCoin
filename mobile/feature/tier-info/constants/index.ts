@@ -1,4 +1,4 @@
-import { Tier } from "@/utilities/GlobalTypes";
+import { Tier } from "@/shared/utilities/GlobalTypes";
 import { TierConfig } from "../types";
 
 export const TIER_CONFIG: Record<Tier, TierConfig> = {

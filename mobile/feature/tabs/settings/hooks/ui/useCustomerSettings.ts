@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useAuthStore } from "@/store/auth.store";
-import { useAuth } from "@/hooks/auth/useAuth";
-import { useTheme } from "@/hooks/theme/useTheme";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuth } from "@/shared/hooks/auth/useAuth";
+import { useTheme } from "@/shared/hooks/theme/useTheme";
 
 export function useCustomerSettings() {
   const { account } = useAuthStore();

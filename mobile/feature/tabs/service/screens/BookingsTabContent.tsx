@@ -8,9 +8,9 @@ import {
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { MyAppointment } from "@/interfaces/appointment.interface";
-import { FilterButton } from "@/components/shared/FilterButton";
-import { FilterModal } from "@/components/shared/FilterModal";
+import { MyAppointment } from "@/shared/interfaces/appointment.interface";
+import { FilterButton } from "@/shared/components/shared/FilterButton";
+import { FilterModal } from "@/shared/components/shared/FilterModal";
 import { useBookingsTab } from "../hooks";
 import { TIME_FILTERS, STATUS_FILTERS } from "../constants";
 import { BookingFilterTab, BookingStatusFilter } from "../types";

@@ -14,18 +14,18 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 // Components
-import ServiceCard from "@/components/shared/ServiceCard";
-import { SearchInput } from "@/components/ui/SearchInput";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 
 // Hooks
 import {
   useServicesTabUI,
 } from "../hooks";
-import { getCategoryLabel } from "@/utilities/getCategoryLabel";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
 // Others
-import { ServiceData } from "@/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { SERVICE_STATUS_OPTIONS } from "../constants";
 
 interface ServicesTabProps {

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopRewards, RepairType } from "@/hooks/useShopRewards";
-import { useAuthStore } from "@/store/auth.store";
+import { useShopRewards, RepairType } from "../useShopRewards";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 export function useRewardToken() {
   const shopData = useAuthStore((state) => state.userProfile);

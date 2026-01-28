@@ -2,8 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions, Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { CountryCode } from "react-native-country-picker-modal";
-import { useAuthStore } from "@/store/auth.store";
-import { useShop } from "@/hooks/shop/useShop";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { useShop } from "@/shared/hooks/shop/useShop";
 import { ShopFormData, Slide } from "../../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
 

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Alert } from "react-native";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useServiceMutations } from "../mutations";
 
 export function useServiceStatusUI() {

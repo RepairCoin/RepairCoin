@@ -9,9 +9,9 @@ import {
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import ServiceCard from "@/components/shared/ServiceCard";
-import { SearchInput } from "@/components/ui/SearchInput";
-import { ServiceData } from "@/interfaces/service.interface";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useServicesTab } from "../hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../components";
 
@@ -126,6 +126,7 @@ export default function ServicesTabContent() {
           keyExtractor={(item, index) => `${item.serviceId}-${index}`}
           renderItem={renderServiceItem}
           numColumns={2}
+          columnWrapperStyle={{ alignItems: "stretch" }}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
             <RefreshControl

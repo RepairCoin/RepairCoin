@@ -10,7 +10,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 
 // Feature imports
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import {
   useServiceDetailQuery,
   useShopAvailabilityWithConfigQuery,
@@ -18,7 +18,7 @@ import {
   useServiceDetailUI,
 } from "../hooks";
 import { ShareModal } from "../components/ShareModal";
-import { getCategoryLabel } from "@/utilities/getCategoryLabel";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { FULL_DAYS } from "../constants";
 
 export default function ServicesViewDetailScreen() {

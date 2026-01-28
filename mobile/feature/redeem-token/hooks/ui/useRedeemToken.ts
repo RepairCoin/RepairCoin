@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { useRedemption } from "./useRedemption";
 
 /**
@@ -51,6 +51,14 @@ export const useRedeemToken = () => {
     parseFloat(redemptionAmount) > customerData.balance
   );
 
+  // Check if amount exceeds cross-shop limit (20% for non-home shops)
+  const exceedsCrossShopLimit = Boolean(
+    customerData &&
+    redemptionAmount &&
+    !customerData.isHomeShop &&
+    parseFloat(redemptionAmount) > customerData.maxRedeemable
+  );
+
   const canProcessRedemption = Boolean(
     !isCreatingSession &&
     customerAddress &&
@@ -58,6 +66,7 @@ export const useRedeemToken = () => {
     redemptionAmount &&
     parseFloat(redemptionAmount) > 0 &&
     !hasInsufficientBalance &&
+    !exceedsCrossShopLimit &&
     !isCustomerSelf
   );
 
@@ -96,6 +105,15 @@ export const useRedeemToken = () => {
       Alert.alert(
         "Error",
         `Insufficient balance. Customer has ${customerData.balance} RCN, but ${amount} RCN requested.`
+      );
+      return;
+    }
+
+    // Check cross-shop redemption limit (20% for non-home shops)
+    if (!customerData.isHomeShop && amount > customerData.maxRedeemable) {
+      Alert.alert(
+        "Cross-Shop Limit Exceeded",
+        `This customer can only redeem up to ${customerData.maxRedeemable.toFixed(2)} RCN at your shop (20% cross-shop limit).\n\nCustomer can redeem 100% at shops where they earned their RCN.`
       );
       return;
     }
@@ -171,6 +189,7 @@ export const useRedeemToken = () => {
     // Computed values
     isCustomerSelf,
     hasInsufficientBalance,
+    exceedsCrossShopLimit,
     canProcessRedemption,
     
     // Handlers
