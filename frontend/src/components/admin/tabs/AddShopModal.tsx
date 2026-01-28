@@ -478,7 +478,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
                 <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                   <p className="text-sm text-green-400">
-                    ✅ Universal redemption is automatically enabled for all shops - 
+                    Universal redemption is automatically enabled for all shops - 
                     customers can redeem 100% of earned RCN at any participating shop.
                   </p>
                 </div>

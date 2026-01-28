@@ -5,7 +5,8 @@ import {
   Users,
   Building2,
   ClipboardList,
-  DollarSign
+  DollarSign,
+  Banknote
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -346,7 +347,7 @@ const TransactionsTable: React.FC<{
       loading={loading}
       loadingRows={5}
       emptyMessage="No transactions found. Transactions will appear here once shops start purchasing RCN."
-      emptyIcon={<div className="text-4xl mb-2">💸</div>}
+      emptyIcon={<Banknote className="w-10 h-10 text-gray-400 mb-2" />}
       headerClassName="bg-gray-900/30"
       className="text-gray-300"
       showPagination={true}

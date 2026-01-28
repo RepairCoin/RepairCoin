@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { 
-  CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle, 
+import {
+  CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle,
   DollarSign, Users, TrendingUp, Settings, History, Send, Shield,
-  BarChart3, PieChart, ArrowUpRight, ArrowDownRight, Eye, Edit
+  BarChart3, PieChart, ArrowUpRight, ArrowDownRight, Eye, Edit,
+  Gem, Store, Gift, CircleAlert, RefreshCcw, Medal, Award, Crown, XCircle, Coins
 } from 'lucide-react';
 import { 
   getRCGMetrics, 
@@ -156,7 +157,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
         const rcgResult = await getRCGMetrics();
         setRcgMetrics(rcgResult.data);
         if (rcgResult.warning) {
-          toast.warning(`⚠️ ${rcgResult.warning}`, { duration: 5000 });
+          toast.warning(rcgResult.warning, { duration: 5000 });
         }
       } catch (error) {
         console.error('Error loading RCG metrics:', error);
@@ -372,10 +373,10 @@ export const AdvancedTreasuryTab: React.FC = () => {
       const response = await emergencyFreeze(freezeReason);
 
       if (response.success) {
-        toast.error('🚨 Emergency freeze executed successfully');
+        toast.error('Emergency freeze executed successfully');
         await loadFreezeStatus(); // Refresh freeze status
       } else {
-        toast.error('❌ Emergency freeze partially failed');
+        toast.error('Emergency freeze partially failed');
       }
 
       setShowEmergencyFreeze(false);
@@ -396,10 +397,10 @@ export const AdvancedTreasuryTab: React.FC = () => {
       const response = await emergencyUnfreeze(freezeReason);
 
       if (response.success) {
-        toast.success('✅ Emergency freeze lifted successfully');
+        toast.success('Emergency freeze lifted successfully');
         await loadFreezeStatus(); // Refresh freeze status
       } else {
-        toast.error('❌ Emergency unfreeze partially failed');
+        toast.error('Emergency unfreeze partially failed');
       }
 
       setShowEmergencyUnfreeze(false);
@@ -499,7 +500,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
           <div className="flex items-start gap-3">
             <Shield className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-red-300 mb-1">🚨 EMERGENCY FREEZE ACTIVE</h3>
+              <h3 className="text-lg font-bold text-red-300 mb-1 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> EMERGENCY FREEZE ACTIVE</h3>
               <p className="text-red-200 mb-2">
                 Critical treasury operations are currently frozen. 
                 Frozen components: {freezeStatus.frozenComponents?.join(', ') || 'All systems'}
@@ -557,28 +558,28 @@ export const AdvancedTreasuryTab: React.FC = () => {
           {/* Treasury Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 sm:p-6 border border-blue-700">
-              <div className="text-2xl sm:text-3xl mb-2">💎</div>
+              <Gem className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 mb-2" />
               <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Revenue</p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatCurrency(treasuryStats.totalRevenue)}</p>
               <p className="text-xs sm:text-sm text-blue-400 mt-1">From shop purchases</p>
             </div>
 
             <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 sm:p-6 border border-green-700">
-              <div className="text-2xl sm:text-3xl mb-2">🏪</div>
+              <Store className="w-6 h-6 sm:w-8 sm:h-8 text-green-400 mb-2" />
               <p className="text-xs sm:text-sm text-gray-400 mb-1">RCN Sold to Shops</p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(treasuryStats.totalSold)} RCN</p>
               <p className="text-xs sm:text-sm text-green-400 mt-1">Available for rewards</p>
             </div>
 
             <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 sm:p-6 border border-purple-700">
-              <div className="text-2xl sm:text-3xl mb-2">🎁</div>
+              <Gift className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 mb-2" />
               <p className="text-xs sm:text-sm text-gray-400 mb-1">Circulating Supply</p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(treasuryStats.circulatingSupply || 0)} RCN</p>
               <p className="text-xs sm:text-sm text-purple-400 mt-1">In customer wallets</p>
             </div>
 
             <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-4 sm:p-6 border border-orange-700">
-              <div className="text-2xl sm:text-3xl mb-2">⚠️</div>
+              <CircleAlert className="w-6 h-6 sm:w-8 sm:h-8 text-orange-400 mb-2" />
               <p className="text-xs sm:text-sm text-gray-400 mb-1">Discrepancies</p>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{treasuryStats.warnings?.customersWithMissingTokens || 0}</p>
               <p className="text-xs sm:text-sm text-orange-400 mt-1">Customers affected</p>
@@ -595,21 +596,21 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
               <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 sm:p-6 border border-purple-700">
-                <div className="text-2xl sm:text-3xl mb-2">💜</div>
+                <Gem className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Supply</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(parseInt(rcgMetrics.totalSupply))} RCG</p>
                 <p className="text-xs text-purple-400 mt-1">Fixed supply</p>
               </div>
 
               <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-xl p-4 sm:p-6 border border-indigo-700">
-                <div className="text-2xl sm:text-3xl mb-2">🔄</div>
+                <RefreshCcw className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">Circulating Supply</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(parseInt(rcgMetrics.circulatingSupply))} RCG</p>
                 <p className="text-xs text-indigo-400 mt-1">Available for trading</p>
               </div>
 
               <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-4 sm:p-6 border border-pink-700 sm:col-span-2 lg:col-span-1">
-                <div className="text-2xl sm:text-3xl mb-2">🏪</div>
+                <Store className="w-6 h-6 sm:w-8 sm:h-8 text-pink-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Shops</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{rcgMetrics.shopTierDistribution.total}</p>
                 <p className="text-xs text-pink-400 mt-1">Active partners</p>
@@ -623,28 +624,28 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 sm:p-6 border border-green-700">
-                <div className="text-xl sm:text-2xl mb-2">🥉</div>
+                <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-green-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">Standard Tier</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.standard}</p>
                 <p className="text-xs text-gray-500">10K-49K RCG</p>
               </div>
 
               <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 sm:p-6 border border-blue-700">
-                <div className="text-xl sm:text-2xl mb-2">🥈</div>
+                <Award className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">Premium Tier</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.premium}</p>
                 <p className="text-xs text-blue-400">50K-199K RCG</p>
               </div>
 
               <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-4 sm:p-6 border border-yellow-700">
-                <div className="text-xl sm:text-2xl mb-2">🥇</div>
+                <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">Elite Tier</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.elite}</p>
                 <p className="text-xs text-yellow-400">200K+ RCG</p>
               </div>
 
               <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-xl p-4 sm:p-6 border border-red-700">
-                <div className="text-xl sm:text-2xl mb-2">❌</div>
+                <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 mb-2" />
                 <p className="text-xs sm:text-sm text-gray-400 mb-1">No Tier</p>
                 <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.none}</p>
                 <p className="text-xs text-red-400">&lt;10K RCG</p>
@@ -842,7 +843,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
           ) : (
             <div className="bg-gray-800 rounded-xl p-8 border border-gray-700">
               <div className="text-center">
-                <div className="text-6xl mb-4">📊</div>
+                <BarChart3 className="w-16 h-16 text-gray-400 mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">No Analytics Data Available</h3>
                 <p className="text-gray-400 mb-4">
                   Analytics data is not available for the selected period. This could be due to:
@@ -976,7 +977,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
               ) : (
                 <div className="bg-gray-800 rounded-xl p-8 border border-gray-700">
                   <div className="text-center">
-                    <div className="text-6xl mb-4">💰</div>
+                    <Coins className="w-16 h-16 text-gray-400 mb-4" />
                     <h3 className="text-xl font-bold text-white mb-2">No Pricing Data Available</h3>
                     <p className="text-gray-400 mb-4">
                       Unable to load pricing information. This could be due to:
@@ -1236,7 +1237,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
       {showEmergencyFreeze && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-            <h3 className="text-xl font-bold text-red-400 mb-4">🚨 Emergency Treasury Freeze</h3>
+            <h3 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Emergency Treasury Freeze</h3>
             
             <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-4">
               <p className="text-red-300 text-sm">
@@ -1270,7 +1271,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
                 className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmittingFreeze && <RefreshCw className="w-4 h-4 animate-spin" />}
-                {isSubmittingFreeze ? 'Freezing...' : '🚨 Emergency Freeze'}
+                {isSubmittingFreeze ? 'Freezing...' : 'Emergency Freeze'}
               </button>
             </div>
           </div>
@@ -1281,7 +1282,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
       {showEmergencyUnfreeze && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-green-400 mb-4">✅ Lift Emergency Freeze</h3>
+            <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2"><CheckCircle className="w-5 h-5" /> Lift Emergency Freeze</h3>
             <p className="text-gray-300 mb-4">
               This will restore normal treasury operations. Please provide a reason for lifting the emergency freeze.
             </p>
@@ -1313,7 +1314,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
                 className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSubmittingUnfreeze && <RefreshCw className="w-4 h-4 animate-spin" />}
-                {isSubmittingUnfreeze ? 'Unfreezing...' : '✅ Lift Emergency Freeze'}
+                {isSubmittingUnfreeze ? 'Unfreezing...' : 'Lift Emergency Freeze'}
               </button>
             </div>
           </div>

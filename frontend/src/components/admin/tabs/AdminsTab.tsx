@@ -12,6 +12,8 @@ import {
   UserPlus,
   Search,
   User,
+  CheckCircle,
+  Eye,
 } from "lucide-react";
 import apiClient from "@/services/api/client";
 import { showToast } from "@/utils/toast";
@@ -459,10 +461,10 @@ export default function AdminsTab() {
                   <option value="moderator">Moderator - Read-only access</option>
                 </select>
                 <div className="mt-2 p-3 bg-gray-800/50 rounded-lg">
-                  <p className="text-xs text-gray-400">
-                    {formData.role === 'admin' 
-                      ? "✅ Can manage customers, shops, treasury, and all operations except creating/deleting admins"
-                      : "👁️ Can only view data across all sections (read-only access)"
+                  <p className="text-xs text-gray-400 flex items-center gap-1">
+                    {formData.role === 'admin'
+                      ? <><CheckCircle className="w-3 h-3 text-green-400" /> Can manage customers, shops, treasury, and all operations except creating/deleting admins</>
+                      : <><Eye className="w-3 h-3 text-blue-400" /> Can only view data across all sections (read-only access)</>
                     }
                   </p>
                 </div>

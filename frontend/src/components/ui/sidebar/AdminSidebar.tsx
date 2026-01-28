@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -83,7 +83,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     adminItems.push({
       title: "Overview",
       href: "/admin?tab=overview",
-      icon: <span className="text-xl">📊</span>,
+      icon: <LayoutDashboard className="w-5 h-5" />,
       tabId: "overview",
     });
 
@@ -95,7 +95,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       adminItems.push({
         title: "Admins",
         href: "/admin?tab=admins",
-        icon: <span className="text-xl">🛡️</span>,
+        icon: <Shield className="w-5 h-5" />,
         tabId: "admins",
       });
     }
@@ -105,25 +105,25 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {
         title: "Customers",
         href: "/admin?tab=customers",
-        icon: <span className="text-xl">👥</span>,
+        icon: <Users className="w-5 h-5" />,
         tabId: "customers",
         subItems: [
           {
             title: "Grouped by Shop",
             href: "/admin?tab=customers&view=grouped",
-            icon: <span className="text-sm">🏪</span>,
+            icon: <Store className="w-4 h-4" />,
             tabId: "customers-grouped",
           },
           {
             title: "All Customers",
             href: "/admin?tab=customers&view=all",
-            icon: <span className="text-sm">👤</span>,
+            icon: <User className="w-4 h-4" />,
             tabId: "customers-all",
           },
           {
             title: "Unsuspend Requests",
             href: "/admin?tab=customers&view=unsuspend",
-            icon: <span className="text-sm">🔓</span>,
+            icon: <Unlock className="w-4 h-4" />,
             tabId: "customers-unsuspend",
           },
         ],
@@ -131,19 +131,19 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {
         title: "Shops",
         href: "/admin?tab=shops-management",
-        icon: <span className="text-xl">🏪</span>,
+        icon: <Store className="w-5 h-5" />,
         tabId: "shops-management",
         subItems: [
           {
             title: "All Shops",
             href: "/admin?tab=shops-management&view=all",
-            icon: <span className="text-sm">📋</span>,
+            icon: <ClipboardList className="w-4 h-4" />,
             tabId: "shops-all",
           },
           {
             title: "Unsuspend Requests",
             href: "/admin?tab=shops-management&view=unsuspend",
-            icon: <span className="text-sm">🔓</span>,
+            icon: <Unlock className="w-4 h-4" />,
             tabId: "shops-unsuspend",
           },
         ],
@@ -151,31 +151,31 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {
         title: "Subscriptions",
         href: "/admin?tab=subscriptions",
-        icon: <span className="text-xl">💳</span>,
+        icon: <CreditCard className="w-5 h-5" />,
         tabId: "subscriptions",
       },
       {
         title: "Analytics",
         href: "/admin?tab=analytics",
-        icon: <span className="text-xl">📊</span>,
+        icon: <BarChart3 className="w-5 h-5" />,
         tabId: "analytics",
       },
       {
         title: "Treasury",
         href: "/admin?tab=treasury",
-        icon: <span className="text-xl">💰</span>,
+        icon: <Coins className="w-5 h-5" />,
         tabId: "treasury",
       },
       {
         title: "Promo Codes",
         href: "/admin?tab=promo-codes",
-        icon: <span className="text-xl">🏷️</span>,
+        icon: <Tag className="w-5 h-5" />,
         tabId: "promo-codes",
       },
       {
         title: "Sessions",
         href: "/admin?tab=sessions",
-        icon: <span className="text-xl">🔐</span>,
+        icon: <Lock className="w-5 h-5" />,
         tabId: "sessions",
       }
     );

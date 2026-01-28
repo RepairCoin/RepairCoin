@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, Store, Users, Coins, ArrowRight, Gift, ShoppingCart, UserPlus, CheckCircle, XCircle, Clock, Building2, DollarSign, UserCheck } from 'lucide-react';
+import { Activity, Store, Users, Coins, ArrowRight, Gift, ShoppingCart, UserPlus, CheckCircle, XCircle, Clock, Building2, DollarSign, UserCheck, MapPin, User, CreditCard, Target, Globe, ClipboardList } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 
 interface ActivityItem {
@@ -241,16 +241,16 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
                 </span>
               )}
               {activity.metadata.location && (
-                <span className="text-xs text-gray-500">📍 {activity.metadata.location}</span>
+                <span className="text-xs text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {activity.metadata.location}</span>
               )}
               {activity.metadata.owner && (
-                <span className="text-xs text-gray-500">👤 {activity.metadata.owner}</span>
+                <span className="text-xs text-gray-500 flex items-center gap-1"><User className="w-3 h-3" /> {activity.metadata.owner}</span>
               )}
               {activity.metadata.paymentMethod && (
-                <span className="text-xs text-gray-500">💳 {activity.metadata.paymentMethod}</span>
+                <span className="text-xs text-gray-500 flex items-center gap-1"><CreditCard className="w-3 h-3" /> {activity.metadata.paymentMethod}</span>
               )}
               {activity.metadata.referredBy && (
-                <span className="text-xs text-purple-400">🎯 Referred</span>
+                <span className="text-xs text-purple-400 flex items-center gap-1"><Target className="w-3 h-3" /> Referred</span>
               )}
             </div>
           )}
@@ -304,11 +304,11 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           >
-            <option value="all">🌐 All Activities</option>
-            <option value="shop_registration">🏢 Shop Applications</option>
-            <option value="shop_approval">✅ Shop Approvals</option>
-            <option value="rcn_purchase">💰 RCN Purchases</option>
-            <option value="new_customer">👥 New Customers</option>
+            <option value="all">All Activities</option>
+            <option value="shop_registration">Shop Applications</option>
+            <option value="shop_approval">Shop Approvals</option>
+            <option value="rcn_purchase">RCN Purchases</option>
+            <option value="new_customer">New Customers</option>
           </select>
         </div>
       </div>
@@ -320,7 +320,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
         loading={loading}
         loadingRows={5}
         emptyMessage="No recent activities"
-        emptyIcon={<div className="text-4xl mb-2">📋</div>}
+        emptyIcon={<ClipboardList className="w-10 h-10 text-gray-400 mb-2" />}
         headerClassName="bg-gray-900/30"
         className="text-gray-300"
       />

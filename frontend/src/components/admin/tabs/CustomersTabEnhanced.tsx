@@ -1355,7 +1355,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               </div>
               <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <p className="text-sm text-yellow-400">
-                  ⚠️ This action will prevent the customer from earning or redeeming tokens.
+                  Warning: This action will prevent the customer from earning or redeeming tokens.
                 </p>
               </div>
             </div>
@@ -1585,7 +1585,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               {customerBalance && customerBalance.remainingMintable === 0 && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                   <p className="text-sm text-red-400">
-                    ⚠️ This customer has already minted all their lifetime earnings.
+                    Warning: This customer has already minted all their lifetime earnings.
                   </p>
                 </div>
               )}
