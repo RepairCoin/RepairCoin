@@ -140,7 +140,7 @@ export default function ShopEditProfileScreen() {
             label="Phone Number"
             value={formData.phone}
             onChangePhone={updateField("phone")}
-            defaultCountryCode="PH"
+            defaultCountryCode="US"
           />
 
           <FormInput
