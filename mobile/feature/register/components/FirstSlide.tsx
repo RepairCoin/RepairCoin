@@ -9,6 +9,7 @@ import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { FirstSlideProps } from "../types";
 import { validateShopFirstSlide, isValidEmail, isValidPhone, hasMinLength } from "../utils";
+import { THEME_COLORS } from "@/shared/constants/Colors";
 
 export default function FirstSlide({
   handleGoBack,
@@ -143,7 +144,7 @@ export default function FirstSlide({
       <View
         className="absolute bottom-0 left-0 right-0 px-4 pb-8 pt-4"
         style={{
-          backgroundColor: "#121212",
+          backgroundColor: THEME_COLORS.background,
           borderTopWidth: 1,
           borderTopColor: "#2A2A2C",
         }}

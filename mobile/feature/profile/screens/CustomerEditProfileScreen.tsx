@@ -6,7 +6,7 @@ import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useCustomerEditProfile } from "../hooks/ui";
-import { PROFILE_COLORS } from "../constants";
+import { THEME_COLORS } from "@/shared/constants/Colors";
 
 export default function CustomerEditProfileScreen() {
   const {
@@ -35,7 +35,7 @@ export default function CustomerEditProfileScreen() {
 
           <FormInput
             label="Full Name"
-            icon={<Ionicons name="person-outline" size={20} color={PROFILE_COLORS.primary} />}
+            icon={<Ionicons name="person-outline" size={20} color={THEME_COLORS.primary} />}
             value={formData.name}
             onChangeText={updateField("name")}
             placeholder="Enter your full name"
@@ -43,7 +43,7 @@ export default function CustomerEditProfileScreen() {
 
           <FormInput
             label="Email Address"
-            icon={<Ionicons name="mail-outline" size={20} color={PROFILE_COLORS.primary} />}
+            icon={<Ionicons name="mail-outline" size={20} color={THEME_COLORS.primary} />}
             value={formData.email}
             onChangeText={updateField("email")}
             placeholder="Enter your email address"
@@ -53,7 +53,7 @@ export default function CustomerEditProfileScreen() {
 
           <FormInput
             label="Phone Number"
-            icon={<Feather name="phone" size={20} color={PROFILE_COLORS.primary} />}
+            icon={<Feather name="phone" size={20} color={THEME_COLORS.primary} />}
             value={formData.phone}
             onChangeText={updateField("phone")}
             placeholder="Enter your phone number"
@@ -76,7 +76,7 @@ export default function CustomerEditProfileScreen() {
           />
 
           <View className="bg-[#2A2A2C] rounded-xl p-4 mt-4 flex-row">
-            <Ionicons name="information-circle" size={20} color={PROFILE_COLORS.primary} />
+            <Ionicons name="information-circle" size={20} color={THEME_COLORS.primary} />
             <Text className="text-gray-400 text-sm ml-3 flex-1">
               Your profile information helps shops identify you when processing
               rewards and redemptions.
@@ -87,7 +87,7 @@ export default function CustomerEditProfileScreen() {
         <View
           className="absolute bottom-0 left-0 right-0 px-4 pb-8 pt-4"
           style={{
-            backgroundColor: PROFILE_COLORS.background,
+            backgroundColor: THEME_COLORS.background,
             borderTopWidth: 1,
             borderTopColor: "#2A2A2C"
           }}
