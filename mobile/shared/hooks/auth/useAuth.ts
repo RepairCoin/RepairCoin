@@ -39,16 +39,18 @@ export function useAuth() {
     const getTokenMutation = useGetToken();
 
     return useMutation({
-      mutationFn: async (address: string) => {
+      mutationFn: async (params: { address: string; email?: string }) => {
+        const { address, email } = params;
         if (!address) {
           throw new Error("No wallet address provided");
         }
         setIsLoading(true);
-        setAccount({ address });
+        setAccount({ address, email });
 
         return await authApi.checkUserExists(address);
       },
-      onSuccess: async (result, address) => {
+      onSuccess: async (result, params) => {
+        const { address } = params;
         if (result.exists) {
           const getTokenResult = await getTokenMutation.mutateAsync(address);
           if (getTokenResult.success) {
