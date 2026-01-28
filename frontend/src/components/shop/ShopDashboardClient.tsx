@@ -995,7 +995,11 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "bookings" && shopData && (
-            <BookingsTabV2 shopId={shopData.shopId} />
+            <BookingsTabV2
+              shopId={shopData.shopId}
+              isBlocked={isBlocked}
+              blockReason={getBlockReason()}
+            />
           )}
 
           {activeTab === "service-analytics" && shopData && (

@@ -23,9 +23,7 @@ import { showToast } from "@/utils/toast";
 import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
 import apiClient from "@/services/api/client";
-import ToggleDisableWrapper from "@/components/status/ToggleDisableWrapper";
 import { ShopData as ShopDataImport } from "../ShopDashboardClient";
-import { DISABLE_CONTENT } from "@/constants/shop";
 interface ShopData extends Omit<ShopDataImport, "walletAddress">{
   walletAddress?: string;
 }
@@ -877,17 +875,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   };
 
-  const maskState = useMemo(() => {
-    if (!shopData) return;
-    const { verified, active, operational_status: os } = shopData;
-    const isOp = os === "rcg_qualified" || os === "subscription_qualified" || (!os && active && verified);
-    const msgs = [
-      !verified && DISABLE_CONTENT["VERIFY_ACCOUNT"],
-      !active && DISABLE_CONTENT["INACTIVE_ACCOUNT"],
-      !isOp && DISABLE_CONTENT["UNSUBSCRIBE"],
-    ].filter(Boolean) as string[];
-    return { disable: msgs.length > 0, content: msgs, variant: "restricted" as const, title: "Action Required" };
-  }, [shopData]);
 
   return (
     <div className=" ">
@@ -981,7 +968,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
                   <div className="px-6 py-5">
                     <p className="text-sm font-medium text-gray-400 mb-2">Customer Name or Wallet Address</p>
-                    <ToggleDisableWrapper {...maskState} onClick={() => setShowOnboardingModal(true)}>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <input
@@ -1002,7 +988,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             }
                           }}
                           placeholder="Enter Customer Wallet Address..."
-                          className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all pl-4 pr-4 focus:ring-2 focus:ring-[#FFCC00] focus:outline-none placeholder:text-gray-500"
+                          disabled={isBlocked}
+                          className={`w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all pl-4 pr-4 focus:ring-2 focus:ring-[#FFCC00] focus:outline-none placeholder:text-gray-500 ${
+                            isBlocked ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                         />
                         {loadingCustomers && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -1031,15 +1020,18 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
                       <button
                         onClick={startQRScanner}
-                        disabled={loadingCustomers}
-                        className="px-4 py-2.5 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-[#FFCC00] text-black hover:bg-[#FFD700] flex items-center justify-center gap-2 whitespace-nowrap"
-                        title="Scan customer's QR code"
+                        disabled={isBlocked || loadingCustomers}
+                        className={`px-4 py-2.5 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+                          isBlocked
+                            ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                            : "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                        }`}
+                        title={isBlocked ? blockReason : "Scan customer's QR code"}
                       >
                         <Camera className="w-4 h-4" />
                         <span>Scan QR</span>
                       </button>
                     </div>
-                    </ToggleDisableWrapper>
                     {/* Search Results */}
                     {customerSearch && !selectedCustomer && (
                       <div className="bg-[#0D0D0D] rounded-xl border border-gray-700 max-h-64 overflow-y-auto">
@@ -1324,7 +1316,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </h2>
                 </div>
                 <div className="px-6 py-5 space-y-4">
-                  <ToggleDisableWrapper {...maskState} onClick={() => setShowOnboardingModal(true)}>
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                       Customer wants to redeem (RCN)
@@ -1339,7 +1330,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         setRedeemAmount(amount);
                       }}
                       placeholder="0"
-                      className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all text-xl font-bold focus:ring-2 focus:ring-[#FFCC00] focus:outline-none"
+                      disabled={isBlocked}
+                      className={`w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all text-xl font-bold focus:ring-2 focus:ring-[#FFCC00] focus:outline-none ${
+                        isBlocked ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     />
                   </div>
 
@@ -1356,8 +1350,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             console.log("Quick amount button clicked:", amount);
                             setRedeemAmount(amount);
                           }}
+                          disabled={isBlocked}
                           className={`px-3 py-2 border rounded-lg font-medium transition-colors ${
-                            redeemAmount === amount
+                            isBlocked
+                              ? "opacity-50 cursor-not-allowed border-gray-700 text-gray-500"
+                              : redeemAmount === amount
                               ? "bg-[#FFCC00] text-black border-[#FFCC00]"
                               : "bg-transparent text-white border-gray-600 hover:border-gray-500"
                           }`}
@@ -1367,7 +1364,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       ))}
                     </div>
                   </div>
-                  </ToggleDisableWrapper>
                 </div>
               </div>
             </>
@@ -1704,6 +1700,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     (selectedCustomer.isActive === false ||
                       selectedCustomer.suspended);
                   const isDisabled =
+                    isBlocked ||
                     sessionStatus !== "idle" ||
                     !selectedCustomer ||
                     !redeemAmount ||
@@ -1719,9 +1716,15 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     <button
                       onClick={createRedemptionSession}
                       disabled={isDisabled}
-                      className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 disabled:transform-none"
+                      className={`w-full font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+                        isBlocked
+                          ? "bg-gray-700 text-gray-500"
+                          : "bg-[#FFCC00] text-black hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 disabled:transform-none"
+                      }`}
                       title={
-                        sessionStatus !== "idle"
+                        isBlocked
+                          ? blockReason
+                          : sessionStatus !== "idle"
                           ? `Session in progress (${sessionStatus})`
                           : !selectedCustomer
                           ? "Please select a customer"

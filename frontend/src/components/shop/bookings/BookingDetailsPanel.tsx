@@ -11,6 +11,8 @@ interface BookingDetailsPanelProps {
   booking: MockBooking | null;
   onClose: () => void;
   onSendMessage: (bookingId: string, message: string) => void;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 type TabType = 'overview' | 'message' | 'timeline';
@@ -18,7 +20,9 @@ type TabType = 'overview' | 'message' | 'timeline';
 export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
   booking,
   onClose,
-  onSendMessage
+  onSendMessage,
+  isBlocked = false,
+  blockReason = "Action blocked"
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
@@ -91,7 +95,12 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'overview' && <BookingOverviewTab booking={booking} />}
         {activeTab === 'message' && (
-          <BookingMessageTab booking={booking} onSendMessage={handleSendMessage} />
+          <BookingMessageTab
+            booking={booking}
+            onSendMessage={handleSendMessage}
+            isBlocked={isBlocked}
+            blockReason={blockReason}
+          />
         )}
         {activeTab === 'timeline' && <BookingTimelineTab booking={booking} />}
       </div>

@@ -8,6 +8,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
+import { getSharedPool } from '../utils/database-pool';
 
 export interface SubscriptionGuardOptions {
   allowRcgQualified?: boolean;  // Allow RCG-qualified shops (default: true)
@@ -24,6 +25,8 @@ const DEFAULT_OPTIONS: SubscriptionGuardOptions = {
  */
 function getBlockedMessage(status: string): string {
   switch (status) {
+    case 'suspended':
+      return 'Your shop account has been suspended by the administrator. Please contact support or submit an unsuspend request.';
     case 'paused':
       return 'Your subscription is paused by the administrator. Operations are temporarily disabled until the subscription is resumed.';
     case 'not_qualified':
@@ -84,6 +87,78 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
           });
           return next();
         }
+      }
+
+      // Check if shop is suspended (shop-level block, separate from subscription status)
+      if (shop.active === false || shop.suspendedAt) {
+        logger.warn('Subscription guard: Shop suspended', {
+          shopId,
+          active: shop.active,
+          suspendedAt: shop.suspendedAt,
+          suspensionReason: shop.suspensionReason,
+          endpoint: req.path,
+          method: req.method
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Shop account suspended',
+          code: 'SHOP_SUSPENDED',
+          details: {
+            status: 'suspended',
+            suspendedAt: shop.suspendedAt,
+            reason: shop.suspensionReason,
+            message: getBlockedMessage('suspended')
+          }
+        });
+      }
+
+      // Check subscription expiration date directly from stripe_subscriptions table
+      try {
+        const pool = getSharedPool();
+        const subscriptionResult = await pool.query(
+          `SELECT current_period_end, status, cancel_at_period_end
+           FROM stripe_subscriptions
+           WHERE shop_id = $1
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [shopId]
+        );
+
+        if (subscriptionResult.rows.length > 0) {
+          const subscription = subscriptionResult.rows[0];
+          const periodEnd = subscription.current_period_end;
+
+          // Check if subscription has expired (period end date has passed)
+          if (periodEnd && new Date(periodEnd) < new Date()) {
+            // Only block if not in an active state that might still be valid
+            if (subscription.status !== 'active' || !subscription.cancel_at_period_end) {
+              logger.warn('Subscription guard: Subscription expired', {
+                shopId,
+                periodEnd,
+                status: subscription.status,
+                operationalStatus: shop.operational_status
+              });
+
+              return res.status(403).json({
+                success: false,
+                error: 'Subscription expired',
+                code: 'SUBSCRIPTION_EXPIRED',
+                details: {
+                  status: 'expired',
+                  expiredAt: periodEnd,
+                  message: getBlockedMessage('expired')
+                }
+              });
+            }
+          }
+        }
+      } catch (dbError) {
+        logger.warn('Subscription guard: Failed to check subscription expiration', {
+          shopId,
+          error: dbError instanceof Error ? dbError.message : 'Unknown error'
+        });
+        // Continue with other checks if this query fails
       }
 
       // Check operational status for blocked states

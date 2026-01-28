@@ -30,6 +30,10 @@ interface ShopData {
   subscriptionEndsAt?: string | null;
   subscriptionCancelledAt?: string | null;
   rcg_balance?: string | number;
+  // Suspended shop fields
+  active?: boolean;
+  suspendedAt?: string | null;
+  suspended_at?: string | null;
 }
 
 interface SubscriptionGuardProps {
@@ -86,6 +90,7 @@ const BlockedOverlay: React.FC<{
   customMessage?: string;
 }> = ({ status, customMessage }) => {
   const getTitle = () => {
+    if (status.isSuspended) return "Shop Suspended";
     if (status.isPaused) return "Subscription Paused";
     if (status.isExpired) return "Subscription Expired";
     if (status.isCancelled) return "Subscription Cancelled";
@@ -97,18 +102,21 @@ const BlockedOverlay: React.FC<{
     return status.statusMessage || "You cannot perform this operation with your current subscription status.";
   };
 
+  // Suspended uses red, paused uses orange
+  const isRedTheme = status.isSuspended || status.isExpired || status.isCancelled;
+
   return (
     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-20 rounded-lg">
       <div className="text-center p-6 max-w-md">
         <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-          status.isPaused ? 'bg-orange-500/20' : 'bg-red-500/20'
+          isRedTheme ? 'bg-red-500/20' : 'bg-orange-500/20'
         }`}>
           <AlertTriangle className={`w-8 h-8 ${
-            status.isPaused ? 'text-orange-400' : 'text-red-400'
+            isRedTheme ? 'text-red-400' : 'text-orange-400'
           }`} />
         </div>
         <h3 className={`text-lg font-bold mb-2 ${
-          status.isPaused ? 'text-orange-400' : 'text-red-400'
+          isRedTheme ? 'text-red-400' : 'text-orange-400'
         }`}>
           {getTitle()}
         </h3>
@@ -131,23 +139,31 @@ export const SubscriptionWarningBanner: React.FC<{
     return null;
   }
 
+  // Suspended uses red, paused uses orange
+  const isRedTheme = status.isSuspended || status.isExpired || status.isCancelled;
+
+  const getTitle = () => {
+    if (status.isSuspended) return 'Shop Suspended';
+    if (status.isPaused) return 'Subscription Paused';
+    if (status.isExpired) return 'Subscription Expired';
+    return 'Subscription Required';
+  };
+
   return (
     <div className={`border-2 rounded-xl p-4 ${
-      status.isPaused
-        ? 'bg-orange-900/20 border-orange-500/50'
-        : 'bg-red-900/20 border-red-500/50'
+      isRedTheme
+        ? 'bg-red-900/20 border-red-500/50'
+        : 'bg-orange-900/20 border-orange-500/50'
     } ${className}`}>
       <div className="flex items-start gap-3">
         <AlertTriangle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-          status.isPaused ? 'text-orange-400' : 'text-red-400'
+          isRedTheme ? 'text-red-400' : 'text-orange-400'
         }`} />
         <div className="flex-1">
           <h4 className={`font-semibold ${
-            status.isPaused ? 'text-orange-400' : 'text-red-400'
+            isRedTheme ? 'text-red-400' : 'text-orange-400'
           }`}>
-            {status.isPaused ? 'Subscription Paused' :
-             status.isExpired ? 'Subscription Expired' :
-             'Subscription Required'}
+            {getTitle()}
           </h4>
           <p className="text-gray-300 text-sm mt-1">
             {status.statusMessage}

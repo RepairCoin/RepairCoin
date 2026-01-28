@@ -7,6 +7,8 @@ import { MockBooking, Message, MessageChannel, formatDateTime, quickReplies } fr
 interface BookingMessageTabProps {
   booking: MockBooking;
   onSendMessage: (message: string) => void;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 const ChannelIcon: React.FC<{ channel?: MessageChannel }> = ({ channel }) => {
@@ -26,7 +28,12 @@ const ChannelIcon: React.FC<{ channel?: MessageChannel }> = ({ channel }) => {
   }
 };
 
-export const BookingMessageTab: React.FC<BookingMessageTabProps> = ({ booking, onSendMessage }) => {
+export const BookingMessageTab: React.FC<BookingMessageTabProps> = ({
+  booking,
+  onSendMessage,
+  isBlocked = false,
+  blockReason = "Action blocked"
+}) => {
   const [newMessage, setNewMessage] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(true);
 
@@ -129,7 +136,11 @@ export const BookingMessageTab: React.FC<BookingMessageTabProps> = ({ booking, o
             <button
               key={index}
               onClick={() => handleQuickReply(reply)}
-              className="w-full p-2 text-left text-sm text-gray-300 bg-[#1A1A1A] rounded-lg hover:bg-[#2A2A2A] transition-colors truncate"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : undefined}
+              className={`w-full p-2 text-left text-sm text-gray-300 bg-[#1A1A1A] rounded-lg transition-colors truncate ${
+                isBlocked ? "opacity-50 cursor-not-allowed" : "hover:bg-[#2A2A2A]"
+              }`}
             >
               {reply}
             </button>
@@ -143,14 +154,22 @@ export const BookingMessageTab: React.FC<BookingMessageTabProps> = ({ booking, o
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Type a message..."
-          className="flex-1 px-4 py-3 bg-[#1A1A1A] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00]/50 transition-colors"
+          onKeyPress={(e) => e.key === 'Enter' && !isBlocked && handleSend()}
+          placeholder={isBlocked ? blockReason : "Type a message..."}
+          disabled={isBlocked}
+          className={`flex-1 px-4 py-3 bg-[#1A1A1A] border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00]/50 transition-colors ${
+            isBlocked ? "opacity-50 cursor-not-allowed" : ""
+          }`}
         />
         <button
           onClick={handleSend}
-          disabled={!newMessage.trim()}
-          className="px-4 py-3 bg-[#FFCC00] text-black rounded-xl hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!newMessage.trim() || isBlocked}
+          title={isBlocked ? blockReason : "Send message"}
+          className={`px-4 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            isBlocked
+              ? "bg-gray-700 text-gray-500"
+              : "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+          }`}
         >
           <Send className="w-5 h-5" />
         </button>

@@ -13,6 +13,8 @@ interface BookingCardProps {
   onSchedule: () => void;
   onComplete: () => void;
   onCancel: () => void;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 // Progress steps for the booking flow
@@ -26,7 +28,9 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onReschedule,
   onSchedule,
   onComplete,
-  onCancel
+  onCancel,
+  isBlocked = false,
+  blockReason = "Action blocked"
 }) => {
   const getStepStatus = (step: string, currentStatus: string): 'completed' | 'current' | 'pending' => {
     const currentIndex = progressSteps.indexOf(currentStatus);
@@ -51,13 +55,34 @@ export const BookingCard: React.FC<BookingCardProps> = ({
 
   // Render action buttons based on booking status
   const renderActionButtons = () => {
+    // Common disabled styles
+    const disabledClass = isBlocked ? "opacity-50 cursor-not-allowed" : "";
+
     // Cancel button for all actionable statuses
     const cancelButton = (
       <button
         onClick={onCancel}
-        className="px-3 py-1.5 text-sm font-medium text-red-400 bg-[#0D0D0D] border border-red-700/50 rounded-lg hover:border-red-500 hover:bg-red-900/20 transition-colors"
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Cancel booking"}
+        className={`px-3 py-1.5 text-sm font-medium text-red-400 bg-[#0D0D0D] border border-red-700/50 rounded-lg transition-colors ${
+          isBlocked ? disabledClass : "hover:border-red-500 hover:bg-red-900/20"
+        }`}
       >
         Cancel
+      </button>
+    );
+
+    // Reschedule button
+    const rescheduleButton = (
+      <button
+        onClick={onReschedule}
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Reschedule booking"}
+        className={`px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg transition-colors ${
+          isBlocked ? disabledClass : "hover:border-gray-500"
+        }`}
+      >
+        Reschedule
       </button>
     );
 
@@ -72,15 +97,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
-            <button
-              onClick={onReschedule}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
-            >
-              Reschedule
-            </button>
+            {rescheduleButton}
             <button
               onClick={onApprove}
-              className="px-3 py-1.5 text-sm font-medium text-black bg-[#FFCC00] rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-1"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Approve booking"}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked
+                  ? "bg-gray-700 text-gray-500 " + disabledClass
+                  : "text-black bg-[#FFCC00] hover:bg-[#FFD700]"
+              }`}
             >
               <CheckCircle className="w-4 h-4" />
               Approve
@@ -91,15 +117,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
-            <button
-              onClick={onReschedule}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
-            >
-              Reschedule
-            </button>
+            {rescheduleButton}
             <button
               onClick={onSchedule}
-              className="px-3 py-1.5 text-sm font-medium text-black bg-cyan-400 rounded-lg hover:bg-cyan-500 transition-colors flex items-center gap-1"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as scheduled"}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked
+                  ? "bg-gray-700 text-gray-500 " + disabledClass
+                  : "text-black bg-cyan-400 hover:bg-cyan-500"
+              }`}
             >
               <Calendar className="w-4 h-4" />
               Mark Scheduled
@@ -110,15 +137,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
-            <button
-              onClick={onReschedule}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
-            >
-              Reschedule
-            </button>
+            {rescheduleButton}
             <button
               onClick={onComplete}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as complete"}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked
+                  ? "bg-gray-700 text-gray-500 " + disabledClass
+                  : "text-white bg-green-600 hover:bg-green-700"
+              }`}
             >
               <CheckCircle className="w-4 h-4" />
               Mark Complete
