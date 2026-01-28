@@ -30,27 +30,6 @@ export default function FourthSlide({
         />
 
         <FormInput
-          label="State / Province"
-          icon={<Ionicons name="map-outline" size={20} color="#FFCC00" />}
-          value={formData.location.state}
-          onChangeText={(value) =>
-            updateFormData("location", { ...formData.location, state: value })
-          }
-          placeholder="Enter state or province"
-        />
-
-        <FormInput
-          label="Zip / Postal Code"
-          icon={<Ionicons name="pin-outline" size={20} color="#FFCC00" />}
-          value={formData.location.zipCode}
-          onChangeText={(value) =>
-            updateFormData("location", { ...formData.location, zipCode: value })
-          }
-          placeholder="Enter zip or postal code"
-          keyboardType="default"
-        />
-
-        <FormInput
           label="FixFlow Shop ID"
           icon={<Feather name="link" size={20} color="#FFCC00" />}
           value={formData.fixflowShopId}
