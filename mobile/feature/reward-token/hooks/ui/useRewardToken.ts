@@ -38,11 +38,17 @@ export function useRewardToken() {
     isIssuingReward,
   } = useShopRewards();
 
+  // Get shop's available RCN balance
+  const availableBalance = shopData?.purchasedRcnBalance ?? 0;
+
   const isSelfReward = Boolean(
     shopData?.address &&
     customerAddress &&
     customerAddress.toLowerCase() === shopData.address.toLowerCase()
   );
+
+  // Check if reward amount exceeds available balance
+  const hasInsufficientBalance = totalReward > 0 && totalReward > availableBalance;
 
   const isCustomerNotFound = Boolean(
     !isLoadingCustomer &&
@@ -57,6 +63,7 @@ export function useRewardToken() {
     !customerAddress ||
     !customerInfo ||
     totalReward <= 0 ||
+    hasInsufficientBalance ||
     (repairType === "custom" &&
       (!customAmount || !customRcn || parseFloat(customAmount) <= 0));
 
@@ -145,6 +152,7 @@ export function useRewardToken() {
     if (!customerAddress) return "Enter Customer Address";
     if (!customerInfo) return "Customer Not Found";
     if (totalReward <= 0) return "Select Repair Type";
+    if (hasInsufficientBalance) return "Insufficient Balance";
     return `Issue ${totalReward} RCN`;
   };
 
@@ -195,6 +203,10 @@ export function useRewardToken() {
     baseReward,
     tierBonus,
     totalReward,
+
+    // Balance
+    availableBalance,
+    hasInsufficientBalance,
 
     // Actions
     isIssuingReward,

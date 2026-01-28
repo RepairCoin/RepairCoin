@@ -12,6 +12,8 @@ interface RewardSummaryProps {
   isDisabled: boolean;
   buttonText: string;
   onIssue: () => void;
+  availableBalance: number;
+  hasInsufficientBalance: boolean;
 }
 
 export default function RewardSummary({
@@ -24,10 +26,30 @@ export default function RewardSummary({
   isDisabled,
   buttonText,
   onIssue,
+  availableBalance,
+  hasInsufficientBalance,
 }: RewardSummaryProps) {
   return (
     <View className="absolute bottom-0 left-0 right-0 bg-black border-t border-gray-800">
       <View className="px-5 py-4">
+        {/* Available Balance Display */}
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className="text-gray-400">Available Balance</Text>
+          <Text className={`font-bold text-lg ${hasInsufficientBalance ? "text-red-500" : "text-[#FFCC00]"}`}>
+            {availableBalance.toLocaleString()} RCN
+          </Text>
+        </View>
+
+        {/* Insufficient Balance Warning */}
+        {hasInsufficientBalance && totalReward > 0 && (
+          <View className="bg-red-500/20 border border-red-500/50 rounded-xl p-3 mb-3 flex-row items-center">
+            <MaterialIcons name="error-outline" size={20} color="#EF4444" />
+            <Text className="text-red-400 text-sm ml-2 flex-1">
+              Insufficient balance. You need {(totalReward - availableBalance).toLocaleString()} more RCN.
+            </Text>
+          </View>
+        )}
+
         <View className="bg-[#1A1A1A] rounded-xl p-4 mb-4">
           <Text className="text-white font-bold text-lg mb-3">
             Reward Summary

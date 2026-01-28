@@ -55,6 +55,10 @@ export default function RewardTokenScreen() {
     tierBonus,
     totalReward,
 
+    // Balance
+    availableBalance,
+    hasInsufficientBalance,
+
     // Actions
     isIssuingReward,
     isIssueDisabled,
@@ -124,6 +128,8 @@ export default function RewardTokenScreen() {
         isDisabled={isIssueDisabled}
         buttonText={getButtonText()}
         onIssue={handleIssueReward}
+        availableBalance={availableBalance}
+        hasInsufficientBalance={hasInsufficientBalance}
       />
 
       <HowItWorksModal
