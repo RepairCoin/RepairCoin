@@ -60,9 +60,14 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
     const isPending = shopData.operational_status === 'pending';
 
     const isCancelled = !!shopData.subscriptionCancelledAt;
-    const isExpired = shopData.subscriptionEndsAt
+    // Only consider expired if operational_status is NOT already qualified
+    // The backend validates operational_status on every fetch, so it's the source of truth
+    const subscriptionEndedByDate = shopData.subscriptionEndsAt
       ? new Date(shopData.subscriptionEndsAt) < new Date()
       : false;
+    const isExpired = subscriptionEndedByDate &&
+      shopData.operational_status !== 'subscription_qualified' &&
+      shopData.operational_status !== 'rcg_qualified';
 
     // Check RCG qualification (10K+ tokens bypass subscription)
     const rcgBalance = typeof shopData.rcg_balance === 'string'

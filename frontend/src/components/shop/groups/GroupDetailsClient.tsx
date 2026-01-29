@@ -17,6 +17,7 @@ import AnalyticsDashboard from "./AnalyticsDashboard";
 import MemberActivityStats from "./MemberActivityStats";
 import ImprovedRcnAllocationCard from "./ImprovedRcnAllocationCard";
 import { useAuthStore } from "../../../stores/authStore";
+import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 
 interface GroupDetailsClientProps {
   groupId: string;
@@ -34,6 +35,8 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [currentShopId, setCurrentShopId] = useState<string | undefined>(undefined);
   const [shopRcnBalance, setShopRcnBalance] = useState<number>(0);
+  const [shopData, setShopData] = useState<any>(null);
+  const [shopDataLoading, setShopDataLoading] = useState(true);
   const [transactionsRefreshKey, setTransactionsRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   }, [userProfile]);
 
   const fetchShopData = async (shopId: string) => {
+    setShopDataLoading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}`, {
         credentials: 'include', // Include cookies for authentication
@@ -58,10 +62,34 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
         const result = await response.json();
         if (result.success && result.data) {
           setShopRcnBalance(result.data.purchasedRcnBalance || 0);
+
+          // Enhance shopData with subscription details for accurate SubscriptionGuard messaging
+          let enhancedShopData = result.data;
+          try {
+            const subResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
+              credentials: 'include',
+            });
+            if (subResponse.ok) {
+              const subResult = await subResponse.json();
+              if (subResult.success && subResult.data?.currentSubscription) {
+                const sub = subResult.data.currentSubscription;
+                enhancedShopData = {
+                  ...enhancedShopData,
+                  subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
+                  subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt,
+                };
+              }
+            }
+          } catch (subErr) {
+            console.error("Error loading subscription details:", subErr);
+          }
+          setShopData(enhancedShopData);
         }
       }
     } catch (error) {
       console.error("Error fetching shop data:", error);
+    } finally {
+      setShopDataLoading(false);
     }
   };
 
@@ -135,7 +163,11 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
   return (
     <DashboardLayout userRole="shop">
-      <div className="px-12 py-8">
+      {shopDataLoading ? (
+      <div className="px-12 py-8 " />
+      ) : (
+      <SubscriptionGuard shopData={shopData}>
+      <div className="px-12 py-8 min-h-screen">
         {/* Breadcrumb and Header */}
         <div className="mb-8">
           {/* Breadcrumb */}
@@ -473,6 +505,8 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
           )}
         </div>
       </div>
+      </SubscriptionGuard>
+      )}
     </DashboardLayout>
   );
 }

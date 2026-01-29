@@ -985,16 +985,23 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
           operationalStatus = 'not_qualified';
         }
 
-        // Update shop operational status
-        const updateShopQuery = `
-          UPDATE shops
-          SET operational_status = $1,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE shop_id = $2
-        `;
-        await db.query(updateShopQuery, [operationalStatus, shopId]);
+        // Don't override 'paused' status (admin manually paused)
+        const currentStatusCheck = await db.query(
+          'SELECT operational_status FROM shops WHERE shop_id = $1', [shopId]
+        );
+        const currentOpStatus = currentStatusCheck.rows[0]?.operational_status;
 
-        logger.info('Shop operational status updated based on subscription change', {
+        if (currentOpStatus !== 'paused') {
+          const updateShopQuery = `
+            UPDATE shops
+            SET operational_status = $1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE shop_id = $2
+          `;
+          await db.query(updateShopQuery, [operationalStatus, shopId]);
+        }
+
+        logger.info('Shop operational status update from subscription change', {
           shopId,
           subscriptionId: subscription.id,
           subscriptionStatus: subscription.status,
