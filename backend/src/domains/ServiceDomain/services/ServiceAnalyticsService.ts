@@ -6,7 +6,8 @@ import {
   OrderTrend,
   CategoryPerformance,
   PlatformServiceMetrics,
-  TopPerformingShop
+  TopPerformingShop,
+  BookingAnalytics
 } from '../../../repositories/ServiceAnalyticsRepository';
 import { logger } from '../../../utils/logger';
 
@@ -301,6 +302,18 @@ export class ServiceAnalyticsService {
     } catch (error) {
       logger.error('Error getting group performance analytics:', error);
       throw new Error('Failed to get group performance analytics');
+    }
+  }
+
+  /**
+   * Get booking analytics for a shop
+   */
+  async getBookingAnalytics(shopId: string, trendDays: number = 30): Promise<BookingAnalytics> {
+    try {
+      return await this.analyticsRepository.getBookingAnalytics(shopId, trendDays);
+    } catch (error) {
+      logger.error('Error getting booking analytics:', error);
+      throw new Error('Failed to get booking analytics');
     }
   }
 }

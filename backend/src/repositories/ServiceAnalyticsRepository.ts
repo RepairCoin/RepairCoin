@@ -70,6 +70,26 @@ export interface TopPerformingShop {
   averageRating: number;
 }
 
+export interface BookingAnalytics {
+  summary: {
+    totalBookings: number;
+    completed: number;
+    noShows: number;
+    cancelled: number;
+    completionRate: number;
+    noShowRate: number;
+    cancellationRate: number;
+    avgLeadTimeDays: number;
+    rescheduledCount: number;
+    avgRescheduleCount: number;
+  };
+  statusBreakdown: Array<{ status: string; count: number }>;
+  busiestDays: Array<{ dayOfWeek: number; count: number }>;
+  peakHours: Array<{ hour: number; count: number }>;
+  cancellationReasons: Array<{ reason: string; count: number }>;
+  bookingTrends: Array<{ date: string; count: number }>;
+}
+
 export class ServiceAnalyticsRepository extends BaseRepository {
 
   /**
@@ -589,6 +609,98 @@ export class ServiceAnalyticsRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting group performance analytics:', error);
       throw new Error('Failed to get group performance analytics');
+    }
+  }
+
+  /**
+   * Get booking analytics for a shop
+   */
+  async getBookingAnalytics(shopId: string, trendDays: number): Promise<BookingAnalytics> {
+    try {
+      const safeTrendDays = Math.max(1, Math.min(Math.floor(Number(trendDays) || 30), 365));
+
+      // Run all queries in parallel
+      const [statusResult, busiestDaysResult, peakHoursResult, cancellationResult, trendsResult, summaryResult] = await Promise.all([
+        // a) Status breakdown
+        this.pool.query(
+          `SELECT status, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL GROUP BY status`,
+          [shopId]
+        ),
+        // b) Busiest days
+        this.pool.query(
+          `SELECT EXTRACT(DOW FROM booking_date)::int as day_of_week, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL GROUP BY day_of_week ORDER BY day_of_week`,
+          [shopId]
+        ),
+        // c) Peak hours
+        this.pool.query(
+          `SELECT EXTRACT(HOUR FROM booking_time_slot::time)::int as hour, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_time_slot IS NOT NULL GROUP BY hour ORDER BY hour`,
+          [shopId]
+        ),
+        // d) Cancellation reasons
+        this.pool.query(
+          `SELECT COALESCE(cancellation_reason, 'Not specified') as reason, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND status = 'cancelled' AND booking_date IS NOT NULL GROUP BY reason ORDER BY count DESC LIMIT 10`,
+          [shopId]
+        ),
+        // e) Booking trends
+        this.pool.query(
+          `SELECT booking_date::date as date, COUNT(*)::int as count FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL AND booking_date >= NOW() - INTERVAL '${safeTrendDays} days' GROUP BY date ORDER BY date`,
+          [shopId]
+        ),
+        // f) Summary stats
+        this.pool.query(
+          `SELECT
+            COUNT(*)::int as total_bookings,
+            COUNT(*) FILTER (WHERE status = 'completed')::int as completed,
+            COUNT(*) FILTER (WHERE status = 'no_show')::int as no_shows,
+            COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled,
+            AVG(EXTRACT(EPOCH FROM (booking_date - created_at)) / 86400)::float as avg_lead_time_days,
+            COUNT(*) FILTER (WHERE reschedule_count > 0)::int as rescheduled_count,
+            AVG(reschedule_count) FILTER (WHERE reschedule_count > 0)::float as avg_reschedule_count
+          FROM service_orders WHERE shop_id = $1 AND booking_date IS NOT NULL`,
+          [shopId]
+        )
+      ]);
+
+      const s = summaryResult.rows[0];
+      const totalBookings = s.total_bookings || 0;
+
+      return {
+        summary: {
+          totalBookings,
+          completed: s.completed || 0,
+          noShows: s.no_shows || 0,
+          cancelled: s.cancelled || 0,
+          completionRate: totalBookings > 0 ? parseFloat(((s.completed / totalBookings) * 100).toFixed(2)) : 0,
+          noShowRate: totalBookings > 0 ? parseFloat(((s.no_shows / totalBookings) * 100).toFixed(2)) : 0,
+          cancellationRate: totalBookings > 0 ? parseFloat(((s.cancelled / totalBookings) * 100).toFixed(2)) : 0,
+          avgLeadTimeDays: parseFloat((s.avg_lead_time_days || 0).toFixed(2)),
+          rescheduledCount: s.rescheduled_count || 0,
+          avgRescheduleCount: parseFloat((s.avg_reschedule_count || 0).toFixed(2))
+        },
+        statusBreakdown: statusResult.rows.map(row => ({
+          status: row.status,
+          count: row.count
+        })),
+        busiestDays: busiestDaysResult.rows.map(row => ({
+          dayOfWeek: row.day_of_week,
+          count: row.count
+        })),
+        peakHours: peakHoursResult.rows.map(row => ({
+          hour: row.hour,
+          count: row.count
+        })),
+        cancellationReasons: cancellationResult.rows.map(row => ({
+          reason: row.reason,
+          count: row.count
+        })),
+        bookingTrends: trendsResult.rows.map(row => ({
+          date: row.date,
+          count: row.count
+        }))
+      };
+    } catch (error) {
+      logger.error('Error getting booking analytics:', error);
+      throw new Error('Failed to get booking analytics');
     }
   }
 }
