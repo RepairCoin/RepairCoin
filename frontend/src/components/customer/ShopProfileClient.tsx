@@ -32,7 +32,7 @@ import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal"
 import { createService, CreateServiceData, UpdateServiceData } from "@/services/api/services";
 import { useAuthStore } from "@/stores/authStore";
 import * as messagingApi from "@/services/api/messaging";
-import ServiceAnalyticsTab from "@/components/shop/tabs/ServiceAnalyticsTab";
+import BookingAnalyticsTab from "@/components/shop/tabs/BookingAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
 import { CustomerGridView } from "@/components/shop/CustomerGridView";
 
@@ -775,7 +775,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {/* Booking Analytics Tab */}
         {activeTab === "analytics" && isPreviewMode && (
           <div>
-            <ServiceAnalyticsTab />
+            <BookingAnalyticsTab />
           </div>
         )}
 

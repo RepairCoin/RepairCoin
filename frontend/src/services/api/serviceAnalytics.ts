@@ -129,6 +129,26 @@ export interface GroupPerformanceAnalytics {
   }>;
 }
 
+export interface BookingAnalytics {
+  summary: {
+    totalBookings: number;
+    completed: number;
+    noShows: number;
+    cancelled: number;
+    completionRate: number;
+    noShowRate: number;
+    cancellationRate: number;
+    avgLeadTimeDays: number;
+    rescheduledCount: number;
+    avgRescheduleCount: number;
+  };
+  statusBreakdown: Array<{ status: string; count: number }>;
+  busiestDays: Array<{ dayOfWeek: number; count: number }>;
+  peakHours: Array<{ hour: number; count: number }>;
+  cancellationReasons: Array<{ reason: string; count: number }>;
+  bookingTrends: Array<{ date: string; count: number }>;
+}
+
 // Shop Analytics API
 export const serviceAnalyticsApi = {
   // Shop endpoints
@@ -179,6 +199,14 @@ export const serviceAnalyticsApi = {
   async getGroupPerformanceAnalytics(): Promise<GroupPerformanceAnalytics> {
     const response = await axios.get<{ success: boolean; data: GroupPerformanceAnalytics }>(
       `${API_URL}/services/analytics/shop/group-performance`,
+      { withCredentials: true }
+    );
+    return response.data.data;
+  },
+
+  async getBookingAnalytics(trendDays: number = 30): Promise<BookingAnalytics> {
+    const response = await axios.get<{ success: boolean; data: BookingAnalytics }>(
+      `${API_URL}/services/analytics/shop/bookings?trendDays=${trendDays}`,
       { withCredentials: true }
     );
     return response.data.data;
