@@ -61,6 +61,7 @@ export default function TierInfoScreen() {
             tier={tierProgress.currentTier}
             hideBalance
             tierInfoScreen
+            backgroundImage={require("@/assets/images/man_with_beard.png")}
           />
         </View>
 

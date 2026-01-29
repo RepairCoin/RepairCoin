@@ -77,7 +77,7 @@ export default function TierCard({
   const isBalanceMode = balance !== undefined;
 
   // Use taller height for info mode with inline action
-  const headerHeight = customHeaderHeight ?? (!isBalanceMode && inlineAction ? "h-48" : "h-40");
+  const headerHeight = customHeaderHeight ?? (!isBalanceMode && inlineAction ? "h-48" : tierInfoScreen ? "h-44" : "h-40");
 
   return (
     <View
