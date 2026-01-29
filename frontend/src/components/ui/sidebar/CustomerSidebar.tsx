@@ -15,6 +15,7 @@ import {
   Calendar,
   MessageSquare,
   TrendingUp,
+  HelpCircle,
 } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
@@ -108,6 +109,12 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       href: "/customer?tab=settings",
       icon: <SettingsIcon width={24} height={24} />,
       tabId: "settings",
+    },
+    {
+      title: "FAQ & Help",
+      href: "/customer?tab=faq",
+      icon: <HelpCircle className="w-5 h-5" />,
+      tabId: "faq",
     },
     {
       title: "Logout",
