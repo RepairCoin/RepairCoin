@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X, Check, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Clock, QrCode, Download, X, Check, Loader2, RefreshCw, ShieldCheck, Home, ChevronRight, Wallet, Hourglass } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
-import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
 import QRCode from "qrcode";
 import Tooltip from "../ui/tooltip";
@@ -17,11 +16,14 @@ import { SuspendedActionModal } from "./SuspendedActionModal";
 interface RedemptionSession {
   sessionId: string;
   shopId: string;
+  shopName?: string;
+  shopLocation?: string;
   maxAmount: number;
   customerAddress?: string;
   status: string;
   createdAt: string;
   expiresAt: string;
+  method?: string;
 }
 
 export function RedemptionApprovals() {
@@ -36,25 +38,28 @@ export function RedemptionApprovals() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeData, setQrCodeData] = useState("");
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Check if user is suspended
   const isSuspended = userProfile?.suspended || false;
-  
+
   // Shop list for dropdown
   const [shops, setShops] = useState<Array<{shopId: string; name: string; verified: boolean}>>([]);
   const [loadingShops, setLoadingShops] = useState(true);
-  
+
   // For showing approved session QR
   const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
 
   // Check if using embedded wallet (social login: Google, Email, Apple)
-  // Embedded wallets sign automatically without popup, external wallets (MetaMask, Coinbase, etc.) show popup
   const isEmbeddedWallet = wallet?.id === 'inApp' || wallet?.id === 'embedded' || wallet?.id?.includes('inApp');
 
+  // Derived data
+  const pendingSessions = sessions.filter(s => s.status === "pending");
+  const completedSessions = sessions.filter(s => s.status === "used" || s.status === "approved" || s.status === "rejected");
+
   const generateQRCode = async () => {
-    // Check if suspended
     if (isSuspended) {
       setShowSuspendedModal(true);
       return;
@@ -84,7 +89,7 @@ export function RedemptionApprovals() {
 
   const downloadQRCode = () => {
     if (!qrCodeData) return;
-    
+
     const link = document.createElement('a');
     link.download = `wallet-qr-${account?.address?.slice(0, 6)}.png`;
     link.href = qrCodeData;
@@ -97,7 +102,6 @@ export function RedemptionApprovals() {
     toast.success(`${label} copied to clipboard!`);
   };
 
-  // Create the signature message that matches the backend format exactly
   const createSignatureMessage = (session: RedemptionSession): string => {
     return `RepairCoin Redemption Request
 
@@ -124,7 +128,6 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/shops`);
       if (response.ok) {
         const result = await response.json();
-        // Filter for active and verified shops only
         const activeShops = result.data.shops.filter(
           (shop: any) => shop.active && shop.verified
         );
@@ -142,8 +145,6 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
 
     try {
       const result = await apiClient.get('/tokens/redemption-session/my-sessions');
-      console.log('Sessions loaded:', result); // Debug log
-      // apiClient already returns response.data
       setSessions(result.sessions || []);
       setPendingCount(result.pendingCount || 0);
     } catch (error) {
@@ -155,6 +156,13 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadSessions();
+    await fetchCustomerData(true);
+    setRefreshing(false);
+    toast.success("Data refreshed");
+  };
 
   const approveSession = async (sessionId: string) => {
     if (!wallet || !account?.address) {
@@ -165,33 +173,25 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
     setProcessing(sessionId);
 
     try {
-      // Find the session to get the amount
       const session = sessions.find(s => s.sessionId === sessionId);
       if (!session) {
         toast.error("Session not found");
         return;
       }
 
-      // Show appropriate toast based on wallet type
-      // Embedded wallets (social login) sign automatically, external wallets show popup
       if (isEmbeddedWallet) {
         toast.loading("Processing approval...", { id: "approval-process" });
       } else {
         toast.loading("Please sign the message in your wallet...", { id: "approval-process" });
       }
 
-      // Create the standardized message for signature verification
       const message = createSignatureMessage(session);
 
-      // Sign the message using connected account
       let signature: string;
       try {
         if (!account) {
           throw new Error("No account connected");
         }
-
-        // In Thirdweb v5, signMessage expects a string message, not bytes
-        // The SDK will handle the encoding internally
         signature = await account.signMessage({ message });
       } catch (signError) {
         console.error("Signature error:", signError);
@@ -216,17 +216,14 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
 
       await loadSessions();
 
-      // Poll for balance update - shop processes redemption after approval
-      // Keep checking until balance changes or max attempts reached
       const initialBalance = balanceData?.availableBalance || 0;
       let attempts = 0;
-      const maxAttempts = 10; // 10 attempts over ~10 seconds
+      const maxAttempts = 10;
 
       const pollForBalanceUpdate = async () => {
         attempts++;
         await fetchCustomerData(true);
 
-        // Check if balance changed
         const newBalance = useCustomerStore.getState().balanceData?.availableBalance || 0;
         if (newBalance !== initialBalance || attempts >= maxAttempts) {
           if (newBalance !== initialBalance) {
@@ -235,11 +232,9 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
           return;
         }
 
-        // Keep polling
         setTimeout(pollForBalanceUpdate, 1000);
       };
 
-      // Start polling after a short delay (give shop time to process)
       setTimeout(pollForBalanceUpdate, 1500);
     } catch (error) {
       console.error("Approval process error:", error);
@@ -267,7 +262,6 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
     }
   };
 
-
   const getTimeRemaining = (expiresAt: string) => {
     const now = new Date().getTime();
     const expiry = new Date(expiresAt).getTime();
@@ -281,41 +275,52 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Define columns for the DataTable
-  const redemptionColumns: Column<RedemptionSession>[] = [
+  // Columns for Redemption Requests table
+  const requestColumns: Column<RedemptionSession>[] = [
     {
       key: "amount",
-      header: "Amount",
+      header: "AMOUNT",
       accessor: (item) => (
-        <span className="text-[#FFCC00] font-semibold">{item.maxAmount} RCN</span>
+        <span className="text-[#FFCC00] font-bold">{item.maxAmount} RCN</span>
       ),
       sortable: true,
     },
     {
       key: "shop",
-      header: "Shop",
-      accessor: (item) => <span className="text-gray-100">{item.shopId}</span>,
+      header: "SHOP NAME",
+      accessor: (item) => <span className="text-gray-100">{item.shopName || item.shopId}</span>,
     },
     {
       key: "requested",
-      header: "Requested",
+      header: "REQUESTED",
       accessor: (item) => (
-        <span className="text-gray-400 text-xs">
-          {new Date(item.createdAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
+        <span className="text-gray-400 text-sm">
+          {new Date(item.createdAt).toLocaleString('en-US', {
+            timeZone: 'America/Chicago',
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })}
         </span>
       ),
       sortable: true,
     },
     {
       key: "status",
-      header: "Status",
+      header: "STATUS",
       accessor: (item) => {
         if (item.status === "pending") {
           return (
-            <div className="flex flex-col">
-              <span className="text-yellow-400 text-xs font-semibold">Pending</span>
-              <span className="text-yellow-400 text-xs">
-                Expires in: {getTimeRemaining(item.expiresAt)}
+            <div className="flex flex-col gap-0.5">
+              <span className="inline-flex items-center gap-1 bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2 py-0.5 rounded">
+                <Hourglass className="w-3 h-3" />
+                PENDING
+              </span>
+              <span className="text-yellow-500 text-xs font-medium">
+                Expires In: {getTimeRemaining(item.expiresAt)}
               </span>
             </div>
           );
@@ -323,66 +328,107 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
           return (
             <div className="flex items-center gap-1">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span className="text-green-500 text-xs">Approved</span>
+              <span className="text-green-500 text-xs font-semibold">Approved</span>
             </div>
           );
         } else if (item.status === "rejected") {
           return (
             <div className="flex items-center gap-1">
               <XCircle className="w-4 h-4 text-red-500" />
-              <span className="text-red-500 text-xs">Rejected</span>
+              <span className="text-red-500 text-xs font-semibold">Rejected</span>
             </div>
           );
         } else if (item.status === "used") {
-          return     <div className="flex items-center gap-1">
+          return (
+            <div className="flex items-center gap-1">
               <Check className="w-4 h-4 text-green-500" />
-              <span className="text-green-500 text-xs">Completed</span>
+              <span className="text-green-500 text-xs font-semibold">Completed</span>
             </div>
+          );
         }
         return <span className="text-gray-500 text-xs">{item.status}</span>;
       },
     },
     {
       key: "actions",
-      header: "Actions",
+      header: "ACTION",
       accessor: (item) => {
         const isPending = item.status === "pending";
-        
+
         return (
-          <div className="flex gap-2 items-center flex-wrap">
-            {/* Approve Button */}
+          <div className="flex gap-2 items-center">
             <button
               onClick={() => isPending && approveSession(item.sessionId)}
               disabled={!isPending || processing === item.sessionId}
-              className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 isPending
                   ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-700 text-gray-500 cursor-not-allowed"
               } disabled:opacity-50`}
-              title="Approve redemption for shop to process"
             >
-              <CheckCircle className="w-4 h-4 inline mr-1" />
+              <CheckCircle className="w-3.5 h-3.5" />
               Approve
             </button>
 
-            {/* Reject Button */}
             <button
               onClick={() => isPending && rejectSession(item.sessionId)}
               disabled={!isPending || processing === item.sessionId}
-              className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 isPending
                   ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-700 text-gray-500 cursor-not-allowed"
               } disabled:opacity-50`}
-              title="Decline this redemption request"
             >
-              <XCircle className="w-4 h-4 inline mr-1" />
+              <XCircle className="w-3.5 h-3.5" />
               Reject
             </button>
-            
           </div>
         );
       },
+    },
+  ];
+
+  // Columns for Redemption History table
+  const historyColumns: Column<RedemptionSession>[] = [
+    {
+      key: "date",
+      header: "DATE",
+      accessor: (item) => (
+        <span className="text-gray-300 text-sm">
+          {new Date(item.createdAt).toLocaleString('en-US', {
+            timeZone: 'America/Chicago',
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })}
+        </span>
+      ),
+      sortable: true,
+    },
+    {
+      key: "shop",
+      header: "SHOP NAME",
+      accessor: (item) => <span className="text-gray-100 font-medium">{item.shopName || item.shopId}</span>,
+    },
+    {
+      key: "location",
+      header: "LOCATION",
+      accessor: (item) => <span className="text-gray-400 text-sm">{item.shopLocation || "—"}</span>,
+    },
+    {
+      key: "method",
+      header: "METHOD",
+      accessor: (item) => <span className="text-gray-300 text-sm uppercase">{item.method || "QR"}</span>,
+    },
+    {
+      key: "amount",
+      header: "AMOUNT",
+      accessor: (item) => (
+        <span className="text-green-400 font-bold">{item.maxAmount} RCN</span>
+      ),
     },
   ];
 
@@ -397,157 +443,162 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
 
   return (
     <div className="space-y-6">
-      {/* Header with gradient background */}
-      <DashboardHeader
-        title="Redemption Approvals"
-        subtitle="Approve or reject redemption requests"
-      />
-
-      {/* Info Alert About Off-Chain Tokens */}
-      <div className="bg-blue-900/20 border border-blue-500 rounded-xl p-4">
-        <div className="flex items-start">
-          <div className="text-blue-400 mr-3">ℹ️</div>
-          <div className="flex-1">
-            <p className="text-sm text-blue-300">
-              <strong className="text-blue-200">How RepairCoin Works:</strong> Your RCN tokens are tracked securely in our system.
-              When you approve a redemption, the shop can process your request and provide the service.
-              Tokens are not stored in your crypto wallet.
-            </p>
+      {/* Breadcrumb Header */}
+      <div>
+        <div className="flex items-center gap-2 text-sm mb-1">
+          <Home className="w-4 h-4 text-gray-400" />
+          <ChevronRight className="w-3 h-3 text-gray-600" />
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-[#FFCC00]" />
+            <span className="text-[#FFCC00] font-semibold">Approvals</span>
           </div>
         </div>
+        <p className="text-gray-400 text-sm mt-1">
+          Approve or reject redemption requests from partner shops and manage how your RCN tokens are used.
+        </p>
       </div>
-      {/* Pending Approvals Alert */}
-      {pendingCount > 0 && (
-        <div className="bg-yellow-900/20 border border-yellow-500 rounded-xl p-4">
-          <div className="flex items-center">
-            <Clock className="w-5 h-5 text-yellow-500 mr-3" />
-            <p className="text-sm md:text-base text-yellow-400 font-medium">
-              You have {pendingCount} pending redemption request
-              {pendingCount > 1 ? "s" : ""}
-            </p>
-          </div>
-        </div>
-      )}
 
-      {/* Balance Info */}
-      {balanceData && (
-        <div className="bg-[#212121] border border-gray-700 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-gray-300">
-              <p className="font-semibold text-white mb-1">Available Balance: {balanceData.availableBalance} RCN</p>
-              <p>You can redeem your full RCN balance at any participating shop (earned from repairs or received from others).</p>
+      {/* Top Cards Row: QR Code + Available Balance */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Generate QR Code Card */}
+        <div className="lg:col-span-2 bg-[#1a1a1a] border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-[#FFCC00]" />
+              <h3 className="text-[#FFCC00] font-semibold text-lg">Generate QR Code</h3>
             </div>
+            <Tooltip
+              title="How it works"
+              position="bottom"
+              className="right-0"
+              content={
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">1</span>
+                    </div>
+                    <span className="text-gray-300">Generate your personal QR code containing your wallet address</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">2</span>
+                    </div>
+                    <span className="text-gray-300">Show the QR code to the shop cashier when you want to redeem</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">3</span>
+                    </div>
+                    <span className="text-gray-300">Shop scans your QR code for instant wallet address lookup</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">4</span>
+                    </div>
+                    <span className="text-gray-300">Approve the redemption request on your device to complete</span>
+                  </li>
+                </ul>
+              }
+            />
           </div>
-        </div>
-      )}
-
-      {/* QR Code for Shop Scanning */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl">
-        <div
-          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl overflow-visible relative"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            QR Code for Shop Redemption
+          <p className="text-gray-400 text-sm mb-6 text-center">
+            Show this QR code to the shop for faster redemption.
+            <br />
+            It contains your wallet address for easy lookup.
           </p>
-          <Tooltip
-            title="How it works"
-            position="bottom"
-            className="right-0"
-            content={
-              <ul className="space-y-3 text-sm">
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs font-bold text-blue-400">
-                      1
-                    </span>
-                  </div>
-                  <span className="text-gray-300">
-                    Generate your personal QR code containing your wallet address
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs font-bold text-blue-400">
-                      2
-                    </span>
-                  </div>
-                  <span className="text-gray-300">
-                    Show the QR code to the shop cashier when you want to redeem
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs font-bold text-blue-400">
-                      3
-                    </span>
-                  </div>
-                  <span className="text-gray-300">
-                    Shop scans your QR code for instant wallet address lookup
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs font-bold text-blue-400">
-                      4
-                    </span>
-                  </div>
-                  <span className="text-gray-300">
-                    Approve the redemption request on your device to complete
-                  </span>
-                </li>
-              </ul>
-            }
-          />
-        </div>
-        <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
           <div className="text-center">
-            <QrCode className="w-16 h-16 mx-auto mb-4 text-[#FFCC00]" />
-            <p className="text-gray-300 text-sm sm:text-base mb-6">
-              Show this QR code to the shop for faster redemption. It contains your wallet address for easy lookup.
-            </p>
             <button
               onClick={generateQRCode}
-              className="px-6 py-3 bg-[#FFCC00] text-black rounded-3xl font-medium hover:bg-yellow-500 transition-colors"
+              className="px-8 py-3 bg-[#FFCC00] text-black rounded-full font-semibold hover:bg-yellow-500 transition-colors"
             >
-              Generate QR Code
+              Generate Your QR Code
             </button>
           </div>
         </div>
+
+        {/* Available Balance Card */}
+        <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl overflow-hidden">
+          <div className="bg-[#FFCC00]/10 border-b border-[#FFCC00]/20 px-6 py-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-[#FFCC00]" />
+              <span className="text-[#FFCC00] font-semibold text-sm">Available Balance</span>
+            </div>
+          </div>
+          <div className="p-6 text-center">
+            <p className="text-4xl font-bold text-white mb-3">
+              {balanceData?.availableBalance || 0} RCN
+            </p>
+            <p className="text-gray-500 text-xs leading-relaxed">
+              Your can redeem your full RCN balance at any participating shop.
+              <br />
+              (Earned from repairs or received from others)
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Redemption Sessions Table */}
-      <div className="bg-[#212121] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
-        <div
-          className="w-full px-4 md:px-6 lg:px-8 py-3 md:py-4 text-white rounded-t-xl md:rounded-t-2xl lg:rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "right",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Redemption Requests
-          </p>
+      {/* Redemption Requests Section */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-[#FFCC00]" />
+            <h3 className="text-[#FFCC00] font-semibold text-lg">Redemption Requests</h3>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-[#212121] border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-[#2a2a2a] transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
-        <div className="bg-[#212121] py-4 md:py-8">
+        <div className="py-2">
           <DataTable
-            data={sessions}
-            columns={redemptionColumns}
+            data={pendingSessions}
+            columns={requestColumns}
             keyExtractor={(item) => item.sessionId}
             emptyMessage="No redemption requests"
             emptyIcon={
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🔄</div>
             }
-            headerClassName="bg-gray-900/60 border-gray-800"
+            headerClassName="bg-[#161616] border-gray-800"
+            rowClassName={(item) =>
+              item.status === "pending"
+                ? "border-l-2 border-l-[#FFCC00] bg-[#FFCC00]/5"
+                : ""
+            }
+            showPagination={true}
+            itemsPerPage={10}
+            loading={loading}
+            className="text-white"
+          />
+        </div>
+      </div>
+
+      {/* Redemption History Section */}
+      <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="w-5 h-5 text-[#FFCC00]" />
+            <h3 className="text-[#FFCC00] font-semibold text-lg">Redemption History</h3>
+          </div>
+          <p className="text-gray-500 text-sm">
+            See your past redemptions across all RepairCoin partner shops.
+          </p>
+        </div>
+
+        <div className="py-2">
+          <DataTable
+            data={completedSessions}
+            columns={historyColumns}
+            keyExtractor={(item) => item.sessionId}
+            emptyMessage="No redemption history yet"
+            emptyIcon={
+              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
+            }
+            headerClassName="bg-[#161616] border-gray-800"
             showPagination={true}
             itemsPerPage={10}
             loading={loading}
@@ -569,20 +620,20 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6 text-center">
               {qrCodeData && (
                 <div className="space-y-4">
-                  <img 
-                    src={qrCodeData} 
-                    alt="Wallet Address QR Code" 
+                  <img
+                    src={qrCodeData}
+                    alt="Wallet Address QR Code"
                     className="mx-auto bg-white p-4 rounded-lg"
                   />
-                  
+
                   <div className="text-sm text-gray-300 break-all bg-[#2F2F2F] p-3 rounded-lg">
                     {account?.address}
                   </div>
-                  
+
                   <div className="flex gap-3 justify-center">
                     <button
                       onClick={() => copyToClipboard(account?.address || "", "Wallet address")}
@@ -598,7 +649,7 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
                       Download QR
                     </button>
                   </div>
-                  
+
                   <p className="text-xs text-gray-400 mt-4">
                     Show this QR code to shops for instant wallet address lookup during redemption
                   </p>
