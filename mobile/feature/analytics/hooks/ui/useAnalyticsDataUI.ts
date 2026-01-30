@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { useAuthStore } from "@/store/auth.store";
-import { Transaction, Purchase } from "@/interfaces/shop.interface";
+import { useAuthStore } from "@/shared/store/auth.store";
+import { Transaction, Purchase } from "@/shared/interfaces/shop.interface";
 import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../../types";
 import { useShopAnalyticsQuery } from "../queries/useAnalyticsQueries";
 import { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";

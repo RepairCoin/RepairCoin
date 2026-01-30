@@ -5,8 +5,20 @@ import { X, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { servicesApi, ServiceOrderWithDetails } from "@/services/api/services";
 
+// Simplified order data for cancellation - works with both ServiceOrderWithDetails and CalendarBooking
+export interface CancelOrderData {
+  orderId: string;
+  serviceName: string;
+  shopName?: string;
+  shopId?: string;
+  totalAmount: number;
+  rcnRedeemed?: number;
+  finalAmountUsd?: number;
+  serviceImageUrl?: string;
+}
+
 interface CancelBookingModalProps {
-  order: ServiceOrderWithDetails | null;
+  order: ServiceOrderWithDetails | CancelOrderData | null;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -126,7 +138,7 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
                 )}
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-white mb-1">{order.serviceName}</h3>
-                  <p className="text-sm text-gray-400">{order.shopName}</p>
+                  <p className="text-sm text-gray-400">{order.shopName || order.shopId || 'Shop'}</p>
                   <p className="text-sm text-green-400 font-semibold mt-1">
                     ${order.totalAmount.toFixed(2)}
                   </p>

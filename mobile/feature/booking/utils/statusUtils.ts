@@ -1,4 +1,4 @@
-import { BookingStatus } from "@/interfaces/booking.interfaces";
+import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 
 export function getStatusColor(status: BookingStatus | "approved"): string {
   switch (status) {

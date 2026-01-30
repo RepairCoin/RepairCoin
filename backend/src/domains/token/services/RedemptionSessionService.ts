@@ -155,8 +155,8 @@ export class RedemptionSessionService {
       logger.error('Failed to emit redemption_approval_requested event:', eventError);
     }
 
-    // TODO: Send notification to customer app/email
-    this.notifyCustomer(session);
+    // Note: Notification is handled by NotificationDomain via the event above
+    // The notifyCustomer call was removed to prevent duplicate notifications
 
     return session;
   }

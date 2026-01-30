@@ -1,0 +1,1 @@
+export { CustomerProfileScreen as default } from "@/feature/profile/screens";

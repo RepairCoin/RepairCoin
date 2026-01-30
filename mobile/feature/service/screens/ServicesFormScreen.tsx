@@ -12,12 +12,12 @@ import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 // Components
-import { ThemedView } from "@/components/ui/ThemedView";
-import { AppHeader } from "@/components/ui/AppHeader";
-import FormInput from "@/components/ui/FormInput";
-import SectionHeader from "@/components/ui/SectionHeader";
-import PrimaryButton from "@/components/ui/PrimaryButton";
-import SubscriptionModal from "@/components/shop/SubscriptionModal";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
+import FormInput from "@/shared/components/ui/FormInput";
+import SectionHeader from "@/shared/components/ui/SectionHeader";
+import PrimaryButton from "@/shared/components/ui/PrimaryButton";
+import SubscriptionModal from "@/shared/components/shop/SubscriptionModal";
 import { AvailabilityModal } from "../components/AvailabilityModal";
 
 // Feature imports

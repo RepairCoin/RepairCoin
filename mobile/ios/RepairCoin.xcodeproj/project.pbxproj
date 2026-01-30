@@ -8,10 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		25C2D8E789C28C55639D637A /* libPods-RepairCoin.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 776FF824E28E0ADE5321A182 /* libPods-RepairCoin.a */; };
+		34BC5D2FD2B51C05D29C8EEA /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E1B96F742DB48667035B197 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		6419CA50491ADC9AFC24CAD2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FC6F95F09D94E0D3EB461 /* ExpoModulesProvider.swift */; };
-		AF324AEA258C403E743DE1A8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6C0670BB21FE1C9CE5E3E0FE /* PrivacyInfo.xcprivacy */; };
+		9D081BA2CDEDDB25EC8E36F8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 50FC4DF832B7A19B4642FAEE /* PrivacyInfo.xcprivacy */; };
+		A85DB7EED9571F8FE4216755 /* libPods-RepairCoin.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 648704AF62A6DB63D3184699 /* libPods-RepairCoin.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
@@ -20,13 +20,13 @@
 		13B07F961A680F5B00A75B9A /* RepairCoin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RepairCoin.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = RepairCoin/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = RepairCoin/Info.plist; sourceTree = "<group>"; };
-		4A77880EA4EE01B04D11A7A8 /* Pods-RepairCoin.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.debug.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.debug.xcconfig"; sourceTree = "<group>"; };
-		6C0670BB21FE1C9CE5E3E0FE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = RepairCoin/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		776FF824E28E0ADE5321A182 /* libPods-RepairCoin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RepairCoin.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D244818FEDEE32B03B83D88 /* Pods-RepairCoin.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.release.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.release.xcconfig"; sourceTree = "<group>"; };
+		50FC4DF832B7A19B4642FAEE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = RepairCoin/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		631B65E9EAC4A89B94A5DA89 /* Pods-RepairCoin.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.debug.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.debug.xcconfig"; sourceTree = "<group>"; };
+		648704AF62A6DB63D3184699 /* libPods-RepairCoin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RepairCoin.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9E1B96F742DB48667035B197 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-RepairCoin/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = RepairCoin/SplashScreen.storyboard; sourceTree = "<group>"; };
-		B2A172EAD35D2816345BF1C6 /* Pods-RepairCoin.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.release.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.release.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		E76FC6F95F09D94E0D3EB461 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-RepairCoin/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = RepairCoin/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* RepairCoin-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "RepairCoin-Bridging-Header.h"; path = "RepairCoin/RepairCoin-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,13 +37,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				25C2D8E789C28C55639D637A /* libPods-RepairCoin.a in Frameworks */,
+				A85DB7EED9571F8FE4216755 /* libPods-RepairCoin.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0791907E509EA35A0AAE08D3 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				D95388F2991AE8BBC82E3E5D /* RepairCoin */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* RepairCoin */ = {
 			isa = PBXGroup;
 			children = (
@@ -53,15 +61,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				6C0670BB21FE1C9CE5E3E0FE /* PrivacyInfo.xcprivacy */,
-			);
-			name = RepairCoin;
-			sourceTree = "<group>";
-		};
-		1B01B454E1EAA176766BC070 /* RepairCoin */ = {
-			isa = PBXGroup;
-			children = (
-				E76FC6F95F09D94E0D3EB461 /* ExpoModulesProvider.swift */,
+				50FC4DF832B7A19B4642FAEE /* PrivacyInfo.xcprivacy */,
 			);
 			name = RepairCoin;
 			sourceTree = "<group>";
@@ -70,25 +70,18 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				776FF824E28E0ADE5321A182 /* libPods-RepairCoin.a */,
+				648704AF62A6DB63D3184699 /* libPods-RepairCoin.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		31F49D9825F024040B80E5ED /* ExpoModulesProviders */ = {
+		6E9EB2E026E21E6D3612C7BC /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				1B01B454E1EAA176766BC070 /* RepairCoin */,
+				631B65E9EAC4A89B94A5DA89 /* Pods-RepairCoin.debug.xcconfig */,
+				1D244818FEDEE32B03B83D88 /* Pods-RepairCoin.release.xcconfig */,
 			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		3A01C3E5C281D4442AFAF687 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				4A77880EA4EE01B04D11A7A8 /* Pods-RepairCoin.debug.xcconfig */,
-				B2A172EAD35D2816345BF1C6 /* Pods-RepairCoin.release.xcconfig */,
-			);
+			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -106,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				3A01C3E5C281D4442AFAF687 /* Pods */,
-				31F49D9825F024040B80E5ED /* ExpoModulesProviders */,
+				6E9EB2E026E21E6D3612C7BC /* Pods */,
+				0791907E509EA35A0AAE08D3 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -131,6 +124,14 @@
 			path = RepairCoin/Supporting;
 			sourceTree = "<group>";
 		};
+		D95388F2991AE8BBC82E3E5D /* RepairCoin */ = {
+			isa = PBXGroup;
+			children = (
+				9E1B96F742DB48667035B197 /* ExpoModulesProvider.swift */,
+			);
+			name = RepairCoin;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -139,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "RepairCoin" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				9C4A0FAC5AEBFD4652EC2256 /* [Expo] Configure project */,
+				D2AE4C5A761C5603E11E840A /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				214353B4659C78AC521C5E96 /* [CP] Embed Pods Frameworks */,
+				B2C432446BC0622DE32ACDE4 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -195,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				AF324AEA258C403E743DE1A8 /* PrivacyInfo.xcprivacy in Resources */,
+				9D081BA2CDEDDB25EC8E36F8 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,26 +240,6 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		214353B4659C78AC521C5E96 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -266,9 +247,12 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXUpdates/EXUpdates.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoDevice/ExpoDevice_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
@@ -294,9 +278,12 @@
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXUpdates.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoDevice_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
@@ -325,7 +312,27 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		9C4A0FAC5AEBFD4652EC2256 /* [Expo] Configure project */ = {
+		B2C432446BC0622DE32ACDE4 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D2AE4C5A761C5603E11E840A /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -352,7 +359,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				6419CA50491ADC9AFC24CAD2 /* ExpoModulesProvider.swift in Sources */,
+				34BC5D2FD2B51C05D29C8EEA /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -361,13 +368,13 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4A77880EA4EE01B04D11A7A8 /* Pods-RepairCoin.debug.xcconfig */;
+			baseConfigurationReference = 631B65E9EAC4A89B94A5DA89 /* Pods-RepairCoin.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = RepairCoin/RepairCoin.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = KRANX9YJ69;
+				DEVELOPMENT_TEAM = BAN25WZ5LK;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -398,13 +405,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B2A172EAD35D2816345BF1C6 /* Pods-RepairCoin.release.xcconfig */;
+			baseConfigurationReference = 1D244818FEDEE32B03B83D88 /* Pods-RepairCoin.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = RepairCoin/RepairCoin.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = KRANX9YJ69;
+				DEVELOPMENT_TEAM = BAN25WZ5LK;
 				INFOPLIST_FILE = RepairCoin/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -482,7 +489,10 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -537,7 +547,10 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

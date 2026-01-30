@@ -34,6 +34,7 @@ export interface AuthState {
   loginInProgress: boolean; // Global flag to prevent duplicate logins
   authError: AuthError | null; // Structured error for better handling
   authInitialized: boolean; // Flag to track if initial auth check is complete
+  walletMismatchPending: boolean; // Flag to prevent logout when disconnecting mismatched wallet
 
   // Computed values
   userType: 'customer' | 'shop' | 'admin' | null;
@@ -49,6 +50,7 @@ export interface AuthState {
   setAuthError: (error: AuthError | null) => void;
   setLoginInProgress: (inProgress: boolean) => void;
   setAuthInitialized: (initialized: boolean) => void;
+  setWalletMismatchPending: (pending: boolean) => void;
   resetAuth: () => void;
 
   // Centralized authentication actions
@@ -68,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
       loginInProgress: false,
       authError: null,
       authInitialized: false, // Initially false, set to true after first auth check
+      walletMismatchPending: false, // Flag to prevent logout when disconnecting mismatched wallet
 
       // Computed values (derived from userProfile)
       userType: null,
@@ -116,6 +119,11 @@ export const useAuthStore = create<AuthState>()(
       // Set auth initialized
       setAuthInitialized: (initialized) => {
         set({ authInitialized: initialized }, false, 'setAuthInitialized');
+      },
+
+      // Set wallet mismatch pending (to prevent logout when disconnecting mismatched wallet)
+      setWalletMismatchPending: (pending) => {
+        set({ walletMismatchPending: pending }, false, 'setWalletMismatchPending');
       },
 
       // Reset all auth state

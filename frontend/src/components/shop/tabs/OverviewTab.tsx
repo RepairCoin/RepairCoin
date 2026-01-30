@@ -14,7 +14,9 @@ import {
   CreditCard,
   Info,
   HelpCircle,
+  Plus,
 } from "lucide-react";
+import Link from "next/link";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { ProfitChart } from "@/components/shop/ProfitChart";
@@ -182,6 +184,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
             icon={<Wallet className="w-6 h-6 text-[#101010]" />}
             tooltip="Your current available RCN balance that can be used to issue rewards to customers. This is your purchased RCN minus any tokens already issued."
+            actionLink="/shop?tab=purchase"
           />
           <OverviewStatCard
             title="Total Purchased"
@@ -233,7 +236,9 @@ const OverviewStatCard: React.FC<{
   value: string;
   icon: React.ReactNode;
   tooltip?: string;
-}> = ({ title, value, icon, tooltip }) => {
+  actionLink?: string;
+  actionIcon?: React.ReactNode;
+}> = ({ title, value, icon, tooltip, actionLink, actionIcon }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
@@ -257,8 +262,17 @@ const OverviewStatCard: React.FC<{
           </p>
         </div>
       </div>
-      {/* Help icon with tooltip */}
-      <div className="absolute top-3 right-3">
+      {/* Action button and help icon */}
+      <div className="absolute top-3 right-3 flex items-center gap-2">
+        {/* Optional action button */}
+        {actionLink && (
+          <Link href={actionLink}>
+            <button className="w-6 h-6 bg-gradient-to-br from-[#FFCC00] to-[#FFD633] rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-yellow-500/20">
+              {actionIcon || <Plus className="w-4 h-4 text-[#101010]" />}
+            </button>
+          </Link>
+        )}
+        {/* Help icon with tooltip */}
         <button
           className="text-[#505050] hover:text-gray-400 transition-colors relative"
           onMouseEnter={() => setShowTooltip(true)}

@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Clock, CheckCircle, Calendar, Package, Info } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Clock, CheckCircle, Calendar, Package, Info, MoreVertical, XCircle, RefreshCw } from "lucide-react";
 import { MockBooking, getStatusLabel, getStatusColor, formatDate, formatTime12Hour, truncateAddress } from "./mockData";
 
 interface BookingCardProps {
@@ -13,6 +13,8 @@ interface BookingCardProps {
   onSchedule: () => void;
   onComplete: () => void;
   onCancel: () => void;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 // Progress steps for the booking flow
@@ -26,8 +28,26 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onReschedule,
   onSchedule,
   onComplete,
-  onCancel
+  onCancel,
+  isBlocked = false,
+  blockReason = "Action blocked"
 }) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
+
   const getStepStatus = (step: string, currentStatus: string): 'completed' | 'current' | 'pending' => {
     const currentIndex = progressSteps.indexOf(currentStatus);
     const stepIndex = progressSteps.indexOf(step);
@@ -51,13 +71,34 @@ export const BookingCard: React.FC<BookingCardProps> = ({
 
   // Render action buttons based on booking status
   const renderActionButtons = () => {
+    // Common disabled styles
+    const disabledClass = isBlocked ? "opacity-50 cursor-not-allowed" : "";
+
     // Cancel button for all actionable statuses
     const cancelButton = (
       <button
         onClick={onCancel}
-        className="px-3 py-1.5 text-sm font-medium text-red-400 bg-[#0D0D0D] border border-red-700/50 rounded-lg hover:border-red-500 hover:bg-red-900/20 transition-colors"
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Cancel booking"}
+        className={`px-3 py-1.5 text-sm font-medium text-red-400 bg-[#0D0D0D] border border-red-700/50 rounded-lg transition-colors ${
+          isBlocked ? disabledClass : "hover:border-red-500 hover:bg-red-900/20"
+        }`}
       >
         Cancel
+      </button>
+    );
+
+    // Reschedule button
+    const rescheduleButton = (
+      <button
+        onClick={onReschedule}
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Reschedule booking"}
+        className={`px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg transition-colors ${
+          isBlocked ? disabledClass : "hover:border-gray-500"
+        }`}
+      >
+        Reschedule
       </button>
     );
 
@@ -72,15 +113,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
-            <button
-              onClick={onReschedule}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
-            >
-              Reschedule
-            </button>
+            {rescheduleButton}
             <button
               onClick={onApprove}
-              className="px-3 py-1.5 text-sm font-medium text-black bg-[#FFCC00] rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-1"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Approve booking"}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked
+                  ? "bg-gray-700 text-gray-500 " + disabledClass
+                  : "text-black bg-[#FFCC00] hover:bg-[#FFD700]"
+              }`}
             >
               <CheckCircle className="w-4 h-4" />
               Approve
@@ -91,15 +133,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
-            <button
-              onClick={onReschedule}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
-            >
-              Reschedule
-            </button>
+            {rescheduleButton}
             <button
               onClick={onSchedule}
-              className="px-3 py-1.5 text-sm font-medium text-black bg-cyan-400 rounded-lg hover:bg-cyan-500 transition-colors flex items-center gap-1"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as scheduled"}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked
+                  ? "bg-gray-700 text-gray-500 " + disabledClass
+                  : "text-black bg-cyan-400 hover:bg-cyan-500"
+              }`}
             >
               <Calendar className="w-4 h-4" />
               Mark Scheduled
@@ -110,15 +153,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
-            <button
-              onClick={onReschedule}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
-            >
-              Reschedule
-            </button>
+            {rescheduleButton}
             <button
               onClick={onComplete}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as complete"}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked
+                  ? "bg-gray-700 text-gray-500 " + disabledClass
+                  : "text-white bg-green-600 hover:bg-green-700"
+              }`}
             >
               <CheckCircle className="w-4 h-4" />
               Mark Complete
@@ -128,6 +172,29 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       default:
         return null;
     }
+  };
+
+  // Get action items for mobile dropdown
+  const getDropdownActions = (): { label: string; icon: React.ReactNode; onClick: () => void; variant: 'primary' | 'secondary' | 'danger' }[] => {
+    const actions: { label: string; icon: React.ReactNode; onClick: () => void; variant: 'primary' | 'secondary' | 'danger' }[] = [];
+
+    switch (booking.status) {
+      case 'paid':
+        actions.push({ label: 'Approve', icon: <CheckCircle className="w-4 h-4" />, onClick: onApprove, variant: 'primary' });
+        actions.push({ label: 'Reschedule', icon: <RefreshCw className="w-4 h-4" />, onClick: onReschedule, variant: 'secondary' });
+        break;
+      case 'approved':
+        actions.push({ label: 'Mark Scheduled', icon: <Calendar className="w-4 h-4" />, onClick: onSchedule, variant: 'primary' });
+        actions.push({ label: 'Reschedule', icon: <RefreshCw className="w-4 h-4" />, onClick: onReschedule, variant: 'secondary' });
+        break;
+      case 'scheduled':
+        actions.push({ label: 'Mark Complete', icon: <CheckCircle className="w-4 h-4" />, onClick: onComplete, variant: 'primary' });
+        actions.push({ label: 'Reschedule', icon: <RefreshCw className="w-4 h-4" />, onClick: onReschedule, variant: 'secondary' });
+        break;
+    }
+
+    actions.push({ label: 'Cancel', icon: <XCircle className="w-4 h-4" />, onClick: onCancel, variant: 'danger' });
+    return actions;
   };
 
   const hasActions = ['requested', 'paid', 'approved', 'scheduled'].includes(booking.status);
@@ -158,7 +225,43 @@ export const BookingCard: React.FC<BookingCardProps> = ({
 
         {/* Title and Customer */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-semibold truncate">{booking.serviceName}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-white font-semibold truncate">{booking.serviceName}</h3>
+            {hasActions && (
+              <div className="relative flex-shrink-0" ref={dropdownRef} onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="p-1.5 rounded-lg bg-[#0D0D0D] border border-gray-700 text-gray-300 hover:border-gray-500 transition-colors"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    {getDropdownActions().map((action, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          action.onClick();
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors ${
+                          action.variant === 'danger'
+                            ? 'text-red-400 hover:bg-red-900/20'
+                            : action.variant === 'primary'
+                            ? 'text-[#FFCC00] hover:bg-[#FFCC00]/10'
+                            : 'text-gray-300 hover:bg-gray-800'
+                        } ${index > 0 ? 'border-t border-gray-800' : ''}`}
+                      >
+                        {action.icon}
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <p className="text-gray-400 text-sm truncate">
             {booking.customerName} • {truncateAddress(booking.customerAddress)}
           </p>
@@ -179,7 +282,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       </div>
 
       {/* Info Grid */}
-      <div className="grid grid-cols-4 gap-2 mb-4 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 text-sm">
         <div className="bg-[#0D0D0D] rounded-lg p-2">
           <p className="text-gray-500 text-xs">Booked</p>
           <p className="text-white font-medium">{formatDate(booking.bookedAt)}</p>
@@ -264,16 +367,10 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-800">
+      <div className="pt-3 border-t border-gray-800">
         <span className="text-sm text-gray-500">
           Booking ID: <span className="text-white font-medium">{booking.bookingId}</span>
         </span>
-
-        {hasActions && (
-          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-            {renderActionButtons()}
-          </div>
-        )}
       </div>
     </div>
   );

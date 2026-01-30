@@ -1,15 +1,15 @@
-// Appointment queries
+// Appointment-specific queries
 export {
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
   useTimeSlotConfigQuery,
   useDateOverridesQuery,
   useShopCalendarQuery,
-  useMyAppointmentsQuery,
 } from "./useAppointmentQueries";
 
-// Booking queries
+// Re-export from global hooks (single source of truth)
 export {
   useShopBookingQuery,
   useCustomerBookingQuery,
-} from "./useBookingQueries";
+  useMyAppointmentsQuery,
+} from "@/shared/hooks/booking/useBooking";

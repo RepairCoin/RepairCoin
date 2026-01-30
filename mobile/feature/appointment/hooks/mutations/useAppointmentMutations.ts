@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/config/queryClient";
+import { queryKeys } from "@/shared/config/queryClient";
 import {
   ShopAvailability,
   UpdateAvailabilityRequest,
   TimeSlotConfig,
   DateOverride,
   CreateDateOverrideRequest,
-} from "@/interfaces/appointment.interface";
-import { appointmentApi } from "@/services/appointment.services";
+} from "@/shared/interfaces/appointment.interface";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 
 export function useUpdateShopAvailabilityMutation() {
   const queryClient = useQueryClient();
@@ -83,15 +83,5 @@ export function useUpdateServiceDurationMutation() {
   });
 }
 
-export function useCancelAppointmentMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (orderId: string) => {
-      return await appointmentApi.cancelAppointment(orderId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
-    },
-  });
-}
+// Re-export from global hooks (single source of truth)
+export { useCancelAppointmentMutation } from "@/shared/hooks/booking/useBooking";

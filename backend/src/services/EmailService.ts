@@ -62,6 +62,18 @@ export interface BookingCancelledByShopData {
   stripeRefunded: number;
 }
 
+export interface BookingCancelledByCustomerData {
+  customerEmail: string;
+  customerName: string;
+  shopName: string;
+  serviceName: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  cancellationReason?: string;
+  rcnRefunded: number;
+  stripeRefunded: number;
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private config: EmailConfig;
@@ -788,6 +800,66 @@ export class EmailService {
           </div>
 
           <p>We apologize for any inconvenience this may have caused. Feel free to browse other services on RepairCoin or rebook with this shop at a different time.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for using RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin. For support, contact support@repaircoin.com</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send booking cancelled by customer confirmation email
+   */
+  async sendBookingCancelledByCustomer(data: BookingCancelledByCustomerData): Promise<boolean> {
+    const subject = `Booking Cancellation Confirmed - ${data.serviceName}`;
+
+    // Build refund details string
+    const refundParts: string[] = [];
+    if (data.rcnRefunded > 0) {
+      refundParts.push(`${data.rcnRefunded} RCN tokens`);
+    }
+    if (data.stripeRefunded > 0) {
+      refundParts.push(`$${data.stripeRefunded.toFixed(2)}`);
+    }
+    const refundText = refundParts.length > 0
+      ? refundParts.join(' and ') + ' will be refunded to your account'
+      : 'No refund was required for this booking';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Cancellation Confirmed</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>Your booking has been successfully cancelled as requested.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+            ${data.bookingDate ? `<p style="margin: 5px 0;"><strong>Date:</strong> ${data.bookingDate}</p>` : ''}
+            ${data.bookingTime ? `<p style="margin: 5px 0;"><strong>Time:</strong> ${data.bookingTime}</p>` : ''}
+            ${data.cancellationReason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${data.cancellationReason}</p>` : ''}
+          </div>
+
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <p style="margin: 0; color: #155724;"><strong>Refund Information:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #155724;">${refundText}</p>
+            ${data.stripeRefunded > 0 ? '<p style="margin: 5px 0 0 0; color: #155724; font-size: 12px;">Card refunds typically take 5-10 business days to appear.</p>' : ''}
+          </div>
+
+          <p>Need to book again? Browse services on RepairCoin anytime!</p>
 
           <p style="color: #666; font-size: 12px; margin-top: 30px;">
             Thank you for using RepairCoin!<br>

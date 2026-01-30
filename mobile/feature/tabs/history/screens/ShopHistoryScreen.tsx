@@ -8,9 +8,9 @@ import {
   ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ui/ThemedView";
-import { SearchInput } from "@/components/ui/SearchInput";
-import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
+import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
 import { useHistoryListUI } from "../hooks";
 import { STATUS_FILTERS, DATE_FILTERS } from "../constants";
 import { TransactionHistoryCard, FilterChip } from "../components";

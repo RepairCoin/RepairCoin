@@ -113,8 +113,9 @@ export const getShops = async (params?: FilterParams & {
 export const getShopCustomers = async (shopId: string, params?: FilterParams): Promise<Customer[]> => {
   try {
     const queryString = params ? buildQueryString(params) : '';
-    const response = await apiClient.get<Customer[]>(`/shops/${shopId}/customers${queryString}`);
-    return response.data || [];
+    const response = await apiClient.get<{ customers: Customer[]; totalItems: number; totalPages: number; currentPage: number }>(`/shops/${shopId}/customers${queryString}`);
+    // Backend returns paginated data with customers array
+    return response.data?.customers || [];
   } catch (error) {
     console.error('Error getting shop customers:', error);
     return [];

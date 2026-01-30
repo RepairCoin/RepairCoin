@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { usePurchase } from "@/hooks/purchase/usePurchase";
+import { usePurchase } from "./usePurchase";
 
 export function useBuyTokenUI() {
   const { usePurchaseAmount } = usePurchase();
@@ -16,18 +16,33 @@ export function useBuyTokenUI() {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [inputValue, setInputValue] = useState(purchaseAmount.toString());
+  const [showExceedError, setShowExceedError] = useState(false);
 
   // Sync input value with purchase amount
   useEffect(() => {
     setInputValue(purchaseAmount > 0 ? purchaseAmount.toString() : "");
   }, [purchaseAmount]);
 
+  const MAX_AMOUNT = 100000;
+
   // Handle input change
   const handleInputChange = useCallback(
     (text: string) => {
-      setInputValue(text);
       const value = parseInt(text) || 0;
-      setPurchaseAmount(Math.max(0, value));
+      const clampedValue = Math.min(Math.max(0, value), MAX_AMOUNT);
+
+      // If value exceeds max, show clamped value in input and error message
+      if (value > MAX_AMOUNT) {
+        setInputValue(MAX_AMOUNT.toString());
+        setShowExceedError(true);
+        // Auto-dismiss error after 3 seconds
+        setTimeout(() => setShowExceedError(false), 3000);
+      } else {
+        setInputValue(text);
+        setShowExceedError(false);
+      }
+
+      setPurchaseAmount(clampedValue);
     },
     [setPurchaseAmount]
   );
@@ -63,6 +78,8 @@ export function useBuyTokenUI() {
     totalTokens,
     effectiveRate,
     isValidAmount,
+    // Exceed error
+    showExceedError,
     // Quick amounts
     selectQuickAmount,
     // How It Works modal

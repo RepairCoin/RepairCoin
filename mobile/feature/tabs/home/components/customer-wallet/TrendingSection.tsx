@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ServiceData } from "@/interfaces/service.interface";
-import ServiceCard from "@/components/shared/ServiceCard";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import ServiceCard from "@/shared/components/shared/ServiceCard";
 
 interface TrendingSectionProps {
   handleViewAllTrendingServices: () => void;

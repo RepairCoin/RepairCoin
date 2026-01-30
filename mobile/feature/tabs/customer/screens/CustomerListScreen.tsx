@@ -10,15 +10,15 @@ import {
 import { router } from "expo-router";
 
 // Components
-import { ThemedView } from "@/components/ui/ThemedView";
-import { SearchInput } from "@/components/ui/SearchInput";
+import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import CustomerCard from "../components/CustomerCard";
 
 // Hooks
 import { useCustomerListUI } from "../hooks";
 
 // Others
-import { CustomerData } from "@/interfaces/customer.interface";
+import { CustomerData } from "@/shared/interfaces/customer.interface";
 
 export default function CustomerListScreen() {
   const {
@@ -38,7 +38,7 @@ export default function CustomerListScreen() {
       lifetimeEarnings={item?.lifetimeEarnings}
       total_transactions={item?.total_transactions}
       onPress={() => {
-        router.push(`/shared/profile/view-profile/${item?.address}` as any);
+        router.push(`/shop/profile/customer-profile/${item?.address}` as any);
       }}
     />
   );

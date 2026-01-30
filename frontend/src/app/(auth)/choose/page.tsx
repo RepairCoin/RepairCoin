@@ -131,7 +131,7 @@ export default function ChoosePage() {
         shopApplicationStatus.status === "verified"
       ) {
         console.log("Shop already verified, redirecting to shop dashboard");
-        router.push("/shop");
+        router.push("/shop?tab=profile");
       }
     }
   }, [
@@ -310,7 +310,7 @@ export default function ChoosePage() {
                   </div>
                   <div className="mt-auto">
                     <button
-                      onClick={() => router.push("/shop")}
+                      onClick={() => router.push("/shop?tab=profile")}
                       className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
                     >
                       View Shop Application
@@ -530,7 +530,7 @@ export default function ChoosePage() {
                   </div>
                   <div className="mt-auto">
                     <button
-                      onClick={() => router.push("/shop")}
+                      onClick={() => router.push("/shop?tab=profile")}
                       className={`w-full font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer ${
                         shopApplicationStatus.status === "pending"
                           ? "bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"

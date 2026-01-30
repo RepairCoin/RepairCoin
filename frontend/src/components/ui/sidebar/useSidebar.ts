@@ -12,6 +12,11 @@ export interface SidebarItem {
   icon: React.ReactNode;
   tabId?: string;
   subItems?: SidebarItem[];
+  actionButton?: {
+    icon: React.ReactNode;
+    onClick: () => void;
+    tooltip?: string;
+  };
 }
 
 export interface SidebarSection {
@@ -155,7 +160,8 @@ export function useSidebar({
   );
 
   const navigateToHome = useCallback(() => {
-    const destination = `/${userRole}?tab=overview`;
+    const defaultTab = userRole === 'shop' ? 'profile' : 'overview';
+    const destination = `/${userRole}?tab=${defaultTab}`;
     router.push(destination);
   }, [userRole, router]);
 

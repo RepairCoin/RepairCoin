@@ -20,6 +20,8 @@ import {
   Calendar,
   RefreshCw,
   User,
+  TrendingUp,
+  Wrench,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
@@ -71,6 +73,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <HouseIcon width={24} height={24} />,
           tabId: "overview",
         },
+        {
+          title: "Profile",
+          href: "/shop?tab=profile",
+          icon: <User className="w-5 h-5" />,
+          tabId: "profile",
+        },
       ],
     },
     {
@@ -114,22 +122,10 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       title: "REWARDS MANAGEMENT",
       items: [
         {
-          title: "Issue Rewards",
-          href: "/shop?tab=issue-rewards",
-          icon: <GemIcon className="w-5 h-5" />,
-          tabId: "issue-rewards",
-        },
-        {
-          title: "Redeem",
-          href: "/shop?tab=redeem",
-          icon: <ShoppingBagIcon className="w-5 h-5" />,
-          tabId: "redeem",
-        },
-        {
-          title: "Promo Codes",
-          href: "/shop?tab=promo-codes",
-          icon: <TagIcon className="w-5 h-5" />,
-          tabId: "promo-codes",
+          title: "Tools",
+          href: "/shop?tab=tools",
+          icon: <Wrench className="w-5 h-5" />,
+          tabId: "tools",
         },
       ],
     },
@@ -149,12 +145,6 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       id: "shop-tools",
       title: "SHOP MANAGEMENT",
       items: [
-        {
-          title: "Profile",
-          href: "/shop?tab=profile",
-          icon: <User className="w-5 h-5" />,
-          tabId: "profile",
-        },
         {
           title: "Marketing",
           href: "/shop?tab=marketing",
@@ -191,6 +181,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
             />
           ),
           tabId: "purchase",
+        },
+        {
+          title: "Stake RCG",
+          href: "/shop?tab=staking",
+          icon: <TrendingUp className="w-5 h-5" />,
+          tabId: "staking",
         },
       ],
     },

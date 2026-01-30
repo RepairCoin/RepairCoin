@@ -383,12 +383,20 @@ export class SubscriptionEnforcementService extends BaseRepository {
       const rcgBalance = shopResult.rows[0]?.rcg_balance || 0;
       const newStatus = rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified';
 
-      await client.query(`
-        UPDATE shops
-        SET operational_status = $1,
-            updated_at = NOW()
-        WHERE shop_id = $2
-      `, [newStatus, shopId]);
+      // Don't override 'paused' status (admin manually paused)
+      const currentStatusResult = await client.query(
+        'SELECT operational_status FROM shops WHERE shop_id = $1', [shopId]
+      );
+      const currentOpStatus = currentStatusResult.rows[0]?.operational_status;
+
+      if (currentOpStatus !== 'paused') {
+        await client.query(`
+          UPDATE shops
+          SET operational_status = $1,
+              updated_at = NOW()
+          WHERE shop_id = $2
+        `, [newStatus, shopId]);
+      }
 
       // Log the enforcement action
       await this.logEnforcementActionWithClient(client, stripeSubscriptionId, 'cancelled', {

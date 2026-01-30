@@ -22,7 +22,8 @@ export const CancelledSubscriptionModal: React.FC<CancelledSubscriptionModalProp
 
   const endDate = new Date(endsAt);
   const now = new Date();
-  const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  // Use Math.floor to get complete days remaining (not rounding up partial days)
+  const daysRemaining = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">

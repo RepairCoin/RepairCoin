@@ -1,10 +1,10 @@
 import { Alert } from "react-native";
 import { useMutation } from "@tanstack/react-query";
-import { serviceApi } from "@/services/service.services";
+import { serviceApi } from "@/shared/services/service.services";
 import {
   CreateServiceRequest,
   UpdateServiceData,
-} from "@/interfaces/service.interface";
+} from "@/shared/interfaces/service.interface";
 
 export function useCreateServiceMutation() {
   return useMutation({

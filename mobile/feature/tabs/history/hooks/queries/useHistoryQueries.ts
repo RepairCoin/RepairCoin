@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/hooks";
-import { purchaseApi } from "@/services/purchase.services";
-import { useAuthStore } from "@/store/auth.store";
+import { queryKeys } from "@/shared/config/queryClient";
+import { purchaseApi } from "@/feature/buy-token/services/purchase.services";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 export function useShopTransactionsQuery() {
   const { userProfile } = useAuthStore();

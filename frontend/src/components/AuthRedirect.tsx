@@ -31,7 +31,7 @@ export default function AuthRedirect() {
             router.push("/admin");
             break;
           case "shop":
-            router.push("/shop");
+            router.push("/shop?tab=profile");
             break;
           case "customer":
             router.push("/customer");

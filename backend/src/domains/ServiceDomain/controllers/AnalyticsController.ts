@@ -507,4 +507,34 @@ export class AnalyticsController {
       });
     }
   };
+
+  /**
+   * Get booking analytics for shop
+   * GET /api/services/analytics/shop/bookings
+   */
+  getBookingAnalytics = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const trendDays = req.query.trendDays
+        ? parseInt(req.query.trendDays as string)
+        : 30;
+
+      const result = await this.analyticsService.getBookingAnalytics(shopId, trendDays);
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getBookingAnalytics controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get booking analytics'
+      });
+    }
+  };
 }

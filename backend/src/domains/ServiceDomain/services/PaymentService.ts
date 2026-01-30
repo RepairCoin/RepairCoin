@@ -6,6 +6,7 @@ import { NotificationService } from '../../notification/services/NotificationSer
 import { EmailService } from '../../../services/EmailService';
 import { RcnRedemptionService } from './RcnRedemptionService';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
+import { TransactionRepository } from '../../../repositories/TransactionRepository';
 import { customerRepository, shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
@@ -96,6 +97,7 @@ export class PaymentService {
   private emailService: EmailService;
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
+  private transactionRepository: TransactionRepository;
 
   constructor(stripeService: StripeService) {
     this.orderRepository = new OrderRepository();
@@ -105,6 +107,7 @@ export class PaymentService {
     this.emailService = new EmailService();
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
+    this.transactionRepository = new TransactionRepository();
   }
 
   /**
@@ -726,6 +729,24 @@ export class PaymentService {
             order.customerAddress,
             order.rcnRedeemed
           );
+
+          // Record the refund transaction so balance calculation reflects the refund
+          await this.transactionRepository.recordTransaction({
+            type: 'service_redemption_refund',
+            customerAddress: order.customerAddress,
+            shopId: order.shopId,
+            amount: order.rcnRedeemed,
+            reason: `RCN refund for cancelled order ${orderId}`,
+            timestamp: new Date().toISOString(),
+            status: 'completed',
+            metadata: {
+              orderId,
+              cancellationReason,
+              originalRedemptionAmount: order.rcnRedeemed,
+              source: 'customer_cancellation'
+            }
+          });
+
           refundDetails.push(`${order.rcnRedeemed} RCN refunded`);
           logger.info('RCN refunded for cancelled order', {
             orderId,
@@ -822,6 +843,57 @@ export class PaymentService {
         logger.error('Failed to send shop cancellation notification:', shopNotifError);
       }
 
+      // 7. Send email notification to customer
+      try {
+        const customer = await customerRepository.getCustomer(order.customerAddress);
+        if (customer?.email && service && shop) {
+          // Format booking date and time if available
+          let bookingDateStr: string | undefined;
+          let bookingTimeStr: string | undefined;
+          if (order.bookingDate) {
+            const bookingDateTime = new Date(order.bookingDate);
+            bookingDateStr = bookingDateTime.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+          }
+          if (order.bookingTime) {
+            // bookingTime is stored as HH:MM or HH:MM:SS string
+            const [hours, minutes] = order.bookingTime.split(':').map(Number);
+            const tempDate = new Date();
+            tempDate.setHours(hours, minutes, 0, 0);
+            bookingTimeStr = tempDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+          }
+
+          const rcnRefunded = order.rcnRedeemed || 0;
+          const stripeRefunded = order.finalAmountUsd || 0;
+
+          await this.emailService.sendBookingCancelledByCustomer({
+            customerEmail: customer.email,
+            customerName: customer.name || customer.first_name || 'Customer',
+            shopName: shop.name,
+            serviceName: service.serviceName,
+            bookingDate: bookingDateStr,
+            bookingTime: bookingTimeStr,
+            cancellationReason,
+            rcnRefunded,
+            stripeRefunded
+          });
+          logger.info('Booking cancellation confirmation email sent to customer', {
+            orderId,
+            customerEmail: customer.email
+          });
+        }
+      } catch (emailError) {
+        logger.error('Failed to send customer cancellation email:', emailError);
+      }
+
       logger.info('Order cancelled successfully', {
         orderId,
         cancellationReason,
@@ -873,6 +945,24 @@ export class PaymentService {
             order.customerAddress,
             order.rcnRedeemed
           );
+
+          // Record the refund transaction so balance calculation reflects the refund
+          await this.transactionRepository.recordTransaction({
+            type: 'service_redemption_refund',
+            customerAddress: order.customerAddress,
+            shopId: order.shopId,
+            amount: order.rcnRedeemed,
+            reason: `RCN refund for cancelled order ${orderId}`,
+            timestamp: new Date().toISOString(),
+            status: 'completed',
+            metadata: {
+              orderId,
+              cancellationReason,
+              originalRedemptionAmount: order.rcnRedeemed,
+              source: 'shop_cancellation'
+            }
+          });
+
           rcnRefunded = order.rcnRedeemed;
           refundDetails.push(`${order.rcnRedeemed} RCN refunded`);
           logger.info('RCN refunded for shop-cancelled order', {

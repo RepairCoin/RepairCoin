@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { 
-  getTokenCirculationMetrics, 
-  getShopPerformanceRankings, 
+import {
+  getTokenCirculationMetrics,
+  getShopPerformanceRankings,
   getAdminAlerts,
   markAlertAsRead,
   resolveAlert,
@@ -12,6 +12,7 @@ import {
 } from '@/services/api/admin';
 import { toast } from 'react-hot-toast';
 import { WorkingChart, WorkingLineChart, WorkingPieChart } from '@/components/admin/charts/WorkingChart';
+import { BarChart3, Coins, Trophy, AlertTriangle, Search, RefreshCcw, Users, Store } from 'lucide-react';
 
 interface TokenCirculationMetrics {
   totalSupply: number;
@@ -230,7 +231,7 @@ export function AnalyticsTab() {
               {monitoringLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
-                '🔍'
+                <Search className="w-4 h-4" />
               )}
               <span className="hidden xs:inline">Run</span> Monitoring Checks
             </button>
@@ -239,10 +240,10 @@ export function AnalyticsTab() {
           <div className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 sm:gap-4 min-w-max pb-2 sm:pb-0">
               {[
-                { id: 'overview', label: 'Overview', icon: '📊' },
-                { id: 'circulation', label: 'Circulation', icon: '🪙' },
-                { id: 'rankings', label: 'Rankings', icon: '🏆' },
-                { id: 'alerts', label: 'Alerts', icon: '🚨', badge: alerts.filter(a => !a.acknowledged).length }
+                { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
+                { id: 'circulation', label: 'Circulation', icon: <Coins className="w-4 h-4" /> },
+                { id: 'rankings', label: 'Rankings', icon: <Trophy className="w-4 h-4" /> },
+                { id: 'alerts', label: 'Alerts', icon: <AlertTriangle className="w-4 h-4" />, badge: alerts.filter(a => !a.acknowledged).length }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -253,7 +254,7 @@ export function AnalyticsTab() {
                       : 'text-[#FFCC00]/70 hover:bg-[#FFCC00]/10 hover:text-[#FFCC00]'
                   }`}
                 >
-                  <span>{tab.icon}</span>
+                  {tab.icon}
                   {tab.label}
                   {tab.badge !== undefined && tab.badge > 0 && (
                     <span className="bg-red-500 text-white text-xs rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1">
@@ -281,7 +282,7 @@ export function AnalyticsTab() {
                   </p>
                   <p className="text-[10px] sm:text-xs text-[#FFCC00]/60 mt-1">RCN tokens</p>
                 </div>
-                <div className="text-xl sm:text-3xl flex-shrink-0">🪙</div>
+                <Coins className="w-6 h-6 sm:w-8 sm:h-8 text-[#FFCC00] flex-shrink-0" />
               </div>
             </div>
 
@@ -294,7 +295,7 @@ export function AnalyticsTab() {
                   </p>
                   <p className="text-[10px] sm:text-xs text-[#22C55E]/60 mt-1">Active tokens</p>
                 </div>
-                <div className="text-xl sm:text-3xl flex-shrink-0">🔄</div>
+                <RefreshCcw className="w-6 h-6 sm:w-8 sm:h-8 text-[#22C55E] flex-shrink-0" />
               </div>
             </div>
 
@@ -307,7 +308,7 @@ export function AnalyticsTab() {
                   </p>
                   <p className="text-[10px] sm:text-xs text-[#A855F7]/60 mt-1">With tokens</p>
                 </div>
-                <div className="text-xl sm:text-3xl flex-shrink-0">👥</div>
+                <Users className="w-6 h-6 sm:w-8 sm:h-8 text-[#A855F7] flex-shrink-0" />
               </div>
             </div>
 
@@ -320,7 +321,7 @@ export function AnalyticsTab() {
                   </p>
                   <p className="text-[10px] sm:text-xs text-[#FB923C]/60 mt-1">Issuing tokens</p>
                 </div>
-                <div className="text-xl sm:text-3xl flex-shrink-0">🏪</div>
+                <Store className="w-6 h-6 sm:w-8 sm:h-8 text-[#FB923C] flex-shrink-0" />
               </div>
             </div>
           </div>

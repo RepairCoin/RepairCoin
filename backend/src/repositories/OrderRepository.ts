@@ -369,10 +369,12 @@ export class OrderRepository extends BaseRepository {
           s.category as service_category,
           c.name as customer_name,
           c.tier as customer_tier,
-          c.phone as customer_phone
+          c.phone as customer_phone,
+          COALESCE(t.amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         LEFT JOIN customers c ON o.customer_address = c.address
+        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
         ${whereClause}
         ORDER BY o.created_at DESC
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}

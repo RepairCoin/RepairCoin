@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { SearchInput } from "@/components/ui/SearchInput";
+import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { useCustomerHistoryListUI } from "../hooks";
 import { TRANSACTION_FILTERS, DATE_FILTERS } from "../constants";
 import { TransactionHistoryCard, FilterChip } from "../components";

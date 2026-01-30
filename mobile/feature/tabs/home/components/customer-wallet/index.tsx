@@ -3,24 +3,21 @@ import {
   View,
   Text,
   Pressable,
-  ActivityIndicator,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
 } from "react-native";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
-import { Tier } from "@/utilities/GlobalTypes";
-import { ServiceData } from "@/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
-import { useCustomer } from "@/hooks/customer/useCustomer";
-import { useService } from "@/hooks/service/useService";
-import { useAuthStore } from "@/store/auth.store";
+import { Tier } from "@/shared/utilities/GlobalTypes";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
+import { useCustomer } from "@/shared/hooks/customer/useCustomer";
+import { useService } from "@/shared/hooks/service/useService";
+import { useAuthStore } from "@/shared/store/auth.store";
 
-import ServiceCard from "@/components/shared/ServiceCard";
-import ActionCard from "@/components/shared/ActionCard";
-import { useFavorite } from "@/hooks/favorite/useFavorite";
+import ActionCard from "@/shared/components/shared/ActionCard";
+import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 

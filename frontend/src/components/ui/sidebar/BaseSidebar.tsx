@@ -257,33 +257,49 @@ export const SectionMenuItem: React.FC<SectionMenuItemProps> = ({
 }) => {
   return (
     <li>
-      <Link
-        href={item.href}
-        onClick={onClick}
-        className={`
-          flex items-center space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg
-          transition-colors duration-200
-          ${
-            isActive
-              ? "bg-[#FFCC00] text-[#101010] font-medium"
-              : "text-white hover:bg-gray-800 hover:text-white"
-          }
-        `}
-      >
-        <div className="w-5 h-5 flex items-center justify-center">
-          {React.isValidElement(item.icon)
-            ? React.cloneElement(
-                item.icon as React.ReactElement<
-                  React.HTMLAttributes<HTMLElement>
-                >,
-                {
-                  className: `w-5 h-5 ${isActive ? "text-[#101010]" : ""}`,
-                }
-              )
-            : item.icon}
-        </div>
-        <span className="text-sm sm:text-base">{item.title}</span>
-      </Link>
+      <div className="flex items-center gap-1">
+        <Link
+          href={item.href}
+          onClick={onClick}
+          className={`
+            flex items-center space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex-1
+            transition-colors duration-200
+            ${
+              isActive
+                ? "bg-[#FFCC00] text-[#101010] font-medium"
+                : "text-white hover:bg-gray-800 hover:text-white"
+            }
+          `}
+        >
+          <div className="w-5 h-5 flex items-center justify-center">
+            {React.isValidElement(item.icon)
+              ? React.cloneElement(
+                  item.icon as React.ReactElement<
+                    React.HTMLAttributes<HTMLElement>
+                  >,
+                  {
+                    className: `w-5 h-5 ${isActive ? "text-[#101010]" : ""}`,
+                  }
+                )
+              : item.icon}
+          </div>
+          <span className="text-sm sm:text-base">{item.title}</span>
+        </Link>
+
+        {/* Action Button */}
+        {item.actionButton && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              item.actionButton?.onClick();
+            }}
+            title={item.actionButton.tooltip}
+            className="p-2 rounded-lg bg-[#FFCC00] hover:bg-[#e6b800] text-[#101010] transition-colors"
+          >
+            {item.actionButton.icon}
+          </button>
+        )}
+      </div>
     </li>
   );
 };

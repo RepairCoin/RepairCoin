@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface DataPoint {
   date: string;
@@ -228,10 +229,10 @@ export const SimpleChart: React.FC<SimpleChartProps> = ({
         </div>
         <div className="text-center p-3 bg-gradient-to-br from-orange-600 to-orange-700 rounded-lg border border-orange-500">
           <p className="text-orange-200 text-xs">Trend</p>
-          <p className="font-bold text-white">
-            {data.length > 1 && data[data.length - 1].value > data[0].value ? '📈' : 
-             data.length > 1 && data[data.length - 1].value < data[0].value ? '📉' : '➖'}
-          </p>
+          <div className="flex justify-center">
+            {data.length > 1 && data[data.length - 1].value > data[0].value ? <TrendingUp className="w-6 h-6 text-green-400" /> :
+             data.length > 1 && data[data.length - 1].value < data[0].value ? <TrendingDown className="w-6 h-6 text-red-400" /> : <Minus className="w-6 h-6 text-gray-400" />}
+          </div>
         </div>
       </div>
     </div>

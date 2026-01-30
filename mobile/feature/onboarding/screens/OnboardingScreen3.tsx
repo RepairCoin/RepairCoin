@@ -1,12 +1,13 @@
 import React, { useState, useRef, useCallback } from "react";
 import { Text, View, ImageBackground } from "react-native";
 import { useConnect } from "thirdweb/react";
-import { client } from "@/constants/thirdweb";
+import { client } from "@/shared/constants/thirdweb";
 import { createWallet, walletConnect } from "thirdweb/wallets";
+import { getUserEmail } from "thirdweb/wallets/in-app";
 
-import { useAuth } from "@/hooks/auth/useAuth";
-import { ThemedButton } from "@/components/ui/ThemedButton";
-import WalletSelectionModal from "@/components/wallet/WalletSelectionModal";
+import { useAuth } from "@/shared/hooks/auth/useAuth";
+import { ThemedButton } from "@/shared/components/ui/ThemedButton";
+import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
 
 const globe = require("@/assets/images/global_spin.png");
 
@@ -127,13 +128,25 @@ const ConnectWithMetaMask = () => {
         const account = w.getAccount();
         if (account) {
           const address = account.address;
+
+          // Get email for Google sign-in
+          let email: string | undefined;
+          if (walletId === "google") {
+            try {
+              email = await getUserEmail({ client });
+              console.log("[ConnectWallet] Google email:", email);
+            } catch (err) {
+              console.log("[ConnectWallet] Could not get email:", err);
+            }
+          }
+
           console.log(
             `[ConnectWallet] ${walletId} connected successfully:`,
             address
           );
 
-          // Check customer data with the connected address
-          connectWalletMutation.mutate(address);
+          // Check customer data with the connected address (pass email for registration)
+          connectWalletMutation.mutate({ address, email });
           setShowWalletModal(false);
         }
 

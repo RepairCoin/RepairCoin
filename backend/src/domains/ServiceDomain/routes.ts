@@ -10,6 +10,7 @@ import { DiscoveryController } from './controllers/DiscoveryController';
 import { ServiceGroupController } from './controllers/ServiceGroupController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
+import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
 import { StripeService } from '../../services/StripeService';
 import { paymentLimiter, orderLimiter } from '../../middleware/rateLimiter';
 
@@ -78,6 +79,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/',
     authMiddleware,
     requireRole(['shop']),
+    requireActiveSubscription(),
     serviceController.createService
   );
 
@@ -371,6 +373,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:id',
     authMiddleware,
     requireRole(['shop']),
+    requireActiveSubscription(),
     serviceController.updateService
   );
 
@@ -399,6 +402,7 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/:id',
     authMiddleware,
     requireRole(['shop']),
+    requireActiveSubscription(),
     serviceController.deleteService
   );
 
@@ -1425,6 +1429,13 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     analyticsController.getGroupPerformance
+  );
+
+  router.get(
+    '/analytics/shop/bookings',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getBookingAnalytics
   );
 
   /**

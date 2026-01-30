@@ -87,7 +87,12 @@
       "Bash(gh api:*)",
       "Bash(DATABASE_URL=\"postgresql://doadmin:AVNS_lW7Pis3I_phB6sDplys@db-postgresql-repaircoin-staging-do-user-24273652-0.i.db.ondigitalocean.com:25060/defaultdb?sslmode=require\" npx ts-node:*)",
       "Bash(npx eslint:*)",
-      "Bash(rd /s /q \"C:\\\\dev\\\\RepairCoin\\\\frontend\\\\.next\")"
+      "Bash(rd /s /q \"C:\\\\dev\\\\RepairCoin\\\\frontend\\\\.next\")",
+      "mcp__ide__getDiagnostics",
+      "Bash(xargs:*)",
+      "Bash(git status:*)",
+      "Bash(npm run test:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []

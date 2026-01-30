@@ -19,8 +19,10 @@ import {
   Star,
   HeartHandshake,
   Flag,
+  QrCode,
 } from "lucide-react";
 import { sanitizeDescription } from "@/utils/sanitize";
+import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import {
   getShopServices,
   createService,
@@ -33,8 +35,11 @@ import {
 } from "@/services/api/services";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
+import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
 
 interface ShopData {
+  shopName?: string;
+  name?: string;
   subscriptionActive?: boolean;
   subscriptionStatus?: string | null;
   subscriptionCancelledAt?: string | null;
@@ -44,6 +49,9 @@ interface ShopData {
   operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' | 'paused';
   active?: boolean;
   verified?: boolean;
+  // Suspended shop fields
+  suspendedAt?: string | null;
+  suspended_at?: string | null;
 }
 
 interface ServicesTabProps {
@@ -114,6 +122,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingService, setDeletingService] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<ShopService | null>(null);
+  const [qrModalService, setQrModalService] = useState<ShopService | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -210,32 +219,21 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
     return cat?.label || category;
   };
 
+  // Use the subscription status hook for comprehensive status checking
+  const subscriptionStatus = useSubscriptionStatus(shopData);
+
   // Check if shop meets requirements to create services
-  // Check if subscription is active OR if it's cancelled but still within the billing period
-  const isCancelledButActive = shopData?.subscriptionStatus === 'cancelled' &&
-    shopData?.subscriptionCancelledAt &&
-    shopData?.subscriptionEndsAt &&
-    new Date(shopData.subscriptionEndsAt) > new Date();
-
-  // Check operational_status first (most reliable), then fall back to subscriptionActive
-  const isOperational = shopData?.operational_status === 'rcg_qualified' ||
-    shopData?.operational_status === 'subscription_qualified' ||
-    // Fallback: If operational_status is missing but shop is active and verified, check subscriptionActive
-    (!shopData?.operational_status && shopData?.active && shopData?.verified && shopData?.subscriptionActive);
-
-  const hasSubscription = isOperational || shopData?.subscriptionActive === true || isCancelledButActive;
-  const hasRCG = (shopData?.rcg_balance ?? 0) >= 10000;
-  const canCreateServices = hasSubscription || hasRCG;
+  // This now includes proper handling of 'paused' status
+  const canCreateServices = subscriptionStatus.canPerformOperations;
 
   // Debug log for subscription status
   console.log('[ServicesTab] Subscription check:', {
     operational_status: shopData?.operational_status,
     subscriptionActive: shopData?.subscriptionActive,
-    isOperational,
-    hasSubscription,
-    hasRCG,
-    canCreateServices,
-    isCancelledButActive
+    isPaused: subscriptionStatus.isPaused,
+    isRcgQualified: subscriptionStatus.isRcgQualified,
+    canPerformOperations: subscriptionStatus.canPerformOperations,
+    statusMessage: subscriptionStatus.statusMessage
   });
 
   if (loading) {
@@ -251,60 +249,35 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
   return (
     <div className="bg-[#101010] rounded-xl p-6 space-y-6">
-      {/* Requirement Warning Banner */}
-      {!canCreateServices && (
-        <div className="bg-red-900/20 border-2 border-red-500/50 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl text-red-400">⚠️</div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold mb-1 text-red-400">
-                Subscription or RCG Holdings Required
-              </h3>
-              <p className="text-gray-300 text-sm mb-3">
-                To create and manage services in the marketplace, you need either:
-              </p>
-              <ul className="text-gray-300 text-sm space-y-1 mb-3 ml-4">
-                <li>• An active RepairCoin subscription ($500/month), OR</li>
-                <li>• Hold at least 10,000 RCG tokens</li>
-              </ul>
-              <p className="text-gray-400 text-xs">
-                Current Status: {hasSubscription ? '✅ Active Subscription' : '❌ No Subscription'} | {hasRCG ? `✅ ${shopData?.rcg_balance?.toFixed(2)} RCG` : `❌ ${(shopData?.rcg_balance ?? 0).toFixed(2)} RCG (need 10,000)`}
-                {shopData?.operational_status && (
-                  <span className="ml-2">(Status: {shopData.operational_status})</span>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header Section - Figma Design */}
       <div className="flex items-center justify-between pb-4 border-b border-gray-800">
         <div className="flex items-center gap-3">
           <HeartHandshake className="w-6 h-6 text-[#FFCC00]" />
-          <h2 className="text-xl font-semibold text-[#FFCC00]">Your Shop&apos;s Current Services</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Services ({services.length})
+          </h2>
+          <button
+            onClick={() => {
+              if (!canCreateServices) {
+                toast.error("You need an active subscription or 10,000+ RCG to create services", {
+                  duration: 5000,
+                  position: 'top-right'
+                });
+                return;
+              }
+              setShowCreateModal(true);
+            }}
+            disabled={!canCreateServices}
+            title={canCreateServices ? "Create New Service" : "Subscription or 10,000+ RCG required"}
+            className={`p-2 rounded-lg transition-all duration-200 ${
+              canCreateServices
+                ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                : "bg-gray-800 text-gray-500 cursor-not-allowed opacity-50"
+            }`}
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
-        <button
-          onClick={() => {
-            if (!canCreateServices) {
-              toast.error("You need an active subscription or 10,000+ RCG to create services", {
-                duration: 5000,
-                position: 'top-right'
-              });
-              return;
-            }
-            setShowCreateModal(true);
-          }}
-          disabled={!canCreateServices}
-          className={`flex items-center gap-2 font-semibold px-5 py-2 rounded-lg transition-all duration-200 ${
-            canCreateServices
-              ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
-              : "bg-gray-800 text-gray-500 cursor-not-allowed opacity-50"
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          Create Service
-        </button>
       </div>
 
       {/* Services Grid */}
@@ -410,7 +383,13 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     </h3>
                     <ToggleSwitch
                       checked={service.active}
-                      onChange={() => handleToggleActive(service)}
+                      onChange={() => {
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
+                        handleToggleActive(service);
+                      }}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
@@ -477,9 +456,18 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
                         router.push(`/shop/services/${service.serviceId}`);
                       }}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 text-sm"
+                      disabled={!canCreateServices}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
+                        canCreateServices
+                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
                     >
                       <Edit className="w-4 h-4" />
                       Edit
@@ -487,10 +475,18 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
                         handleDeleteService(service.serviceId);
                       }}
-                      disabled={deletingService === service.serviceId}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      disabled={deletingService === service.serviceId || !canCreateServices}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
+                        canCreateServices && deletingService !== service.serviceId
+                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
                     >
                       <Trash2 className="w-4 h-4" />
                       {deletingService === service.serviceId ? "..." : "Delete"}
@@ -498,9 +494,18 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
                         router.push(`/shop/services/${service.serviceId}?tab=availability`);
                       }}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 text-sm"
+                      disabled={!canCreateServices}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
+                        canCreateServices
+                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
                     >
                       <Settings className="w-4 h-4" />
                       Availability
@@ -508,12 +513,40 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
                         router.push(`/shop/services/${service.serviceId}?tab=calendar`);
                       }}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00] transition-colors duration-200 text-sm"
+                      disabled={!canCreateServices}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 bg-transparent border border-gray-600 text-gray-300 rounded-lg transition-colors duration-200 text-sm ${
+                        canCreateServices
+                          ? "hover:bg-[#FFCC00] hover:text-black hover:border-[#FFCC00]"
+                          : "opacity-50 cursor-not-allowed"
+                      }`}
                     >
                       <Calendar className="w-4 h-4" />
                       Calendar
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!canCreateServices) {
+                          toast.error(subscriptionStatus.statusMessage || "Operations are blocked", { duration: 4000 });
+                          return;
+                        }
+                        setQrModalService(service);
+                      }}
+                      disabled={!canCreateServices}
+                      className={`col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 border rounded-lg transition-colors duration-200 font-semibold text-sm ${
+                        canCreateServices
+                          ? "bg-[#FFCC00] border-[#FFCC00] text-[#101010] hover:bg-[#e6b800] hover:border-[#e6b800]"
+                          : "bg-gray-700 border-gray-700 text-gray-500 opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <QrCode className="w-4 h-4" />
+                      Share QR Code
                     </button>
                   </div>
                 </div>
@@ -618,6 +651,17 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
             setSelectedService(null);
             loadServices();
           }}
+        />
+      )}
+
+      {/* QR Code Modal */}
+      {qrModalService && (
+        <ServiceQRModal
+          isOpen={!!qrModalService}
+          onClose={() => setQrModalService(null)}
+          serviceId={qrModalService.serviceId}
+          serviceName={qrModalService.serviceName}
+          shopName={shopData?.shopName || shopData?.name || 'Shop'}
         />
       )}
     </div>

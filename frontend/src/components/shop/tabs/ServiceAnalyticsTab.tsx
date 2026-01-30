@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, TrendingUp, DollarSign, Package, Star, ShoppingCart, Gift, Percent } from 'lucide-react';
 import { GroupPerformanceSection } from '../GroupPerformanceSection';
 
-export default function ServiceAnalyticsTab() {
+export function ServiceAnalyticsTab() {
   const [analytics, setAnalytics] = useState<ShopAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [trendDays, setTrendDays] = useState(30);

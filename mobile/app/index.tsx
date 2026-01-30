@@ -1,7 +1,7 @@
 import { Image, Text, View } from "react-native";
-import Screen from "@/components/ui/Screen";
+import Screen from "@/shared/components/ui/Screen";
 import { useEffect } from "react";
-import { useAuth } from "@/hooks/auth/useAuth";
+import { useAuth } from "@/shared/hooks/auth/useAuth";
 
 const logo = require("@/assets/images/logo.png");
 

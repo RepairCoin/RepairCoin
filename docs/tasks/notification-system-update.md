@@ -31,6 +31,7 @@ This document outlines the current state of subscription-related notifications, 
 | Jan 09, 2026 | Shop Unsuspend In-App + WebSocket | In-App | `NotificationService.ts`, `NotificationDomain.ts`, `ShopManagementService.ts` |
 | Jan 09, 2026 | Shop Unsuspend Email | Email | `EmailService.ts`, `ShopManagementService.ts` |
 | Jan 16, 2026 | Booking Cancelled by Shop Email | Email | `EmailService.ts`, `PaymentService.ts` |
+| Jan 16, 2026 | Booking Cancelled by Customer Email | Email | `EmailService.ts`, `PaymentService.ts` |
 
 ### In Progress 🔄
 
@@ -64,6 +65,7 @@ This document outlines the current state of subscription-related notifications, 
 | Admin Suspend Shop | ✅ Yes | Admin action | `ShopManagementService.ts` |
 | Admin Unsuspend Shop | ✅ Yes | Admin action | `ShopManagementService.ts` |
 | Booking Cancelled by Shop | ✅ Yes | Shop action | `PaymentService.ts` |
+| Booking Cancelled by Customer | ✅ Yes | Customer action | `PaymentService.ts` |
 
 ### Email Notifications (EmailService)
 
@@ -82,6 +84,7 @@ This document outlines the current state of subscription-related notifications, 
 | Admin Suspend Shop | ✅ Yes | `sendShopSuspendedByAdmin()` | **Added Jan 09, 2026** |
 | Admin Unsuspend Shop | ✅ Yes | `sendShopUnsuspendedByAdmin()` | **Added Jan 09, 2026** |
 | Booking Cancelled by Shop | ✅ Yes | `sendBookingCancelledByShop()` | **Added Jan 16, 2026** |
+| Booking Cancelled by Customer | ✅ Yes | `sendBookingCancelledByCustomer()` | **Added Jan 16, 2026** |
 | Subscription Activated | ❌ No | - | Only in-app (no email) |
 
 ### SMS Notifications
@@ -467,6 +470,115 @@ export interface BookingCancelledByShopData {
 
 - `docs/tasks/shop-cancellation-refund-integration.md` - Full implementation details
 - `docs/tasks/shop-cancellation-refund-fix.md` - Bug fix for Stripe refund reason
+
+---
+
+## Booking Cancelled by Customer Email (Added Jan 16, 2026)
+
+### Overview
+
+When a customer cancels their own booking, they now receive a confirmation email with refund details.
+
+### Trigger
+
+- **Endpoint**: `POST /api/services/orders/:id/cancel`
+- **Handler**: `PaymentService.cancelOrder()`
+- **Condition**: Customer must have an email address on file
+
+### Email Data Interface
+
+```typescript
+// backend/src/services/EmailService.ts
+export interface BookingCancelledByCustomerData {
+  customerEmail: string;
+  customerName: string;
+  shopName: string;
+  serviceName: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  cancellationReason?: string;
+  rcnRefunded: number;
+  stripeRefunded: number;
+}
+```
+
+### Email Template
+
+**Subject**: `Booking Cancellation Confirmed - [Service Name]`
+
+**Content**:
+- Greeting with customer name
+- Confirmation that booking was cancelled as requested
+- Service name and shop name
+- Booking date and time (if available)
+- Cancellation reason (if provided)
+- Refund information box showing:
+  - RCN tokens refunded (if any)
+  - USD amount refunded to card (if any)
+  - Note about 5-10 business days for card refunds
+
+### Implementation Details
+
+**Files Modified**:
+
+| File | Changes |
+|------|---------|
+| `backend/src/services/EmailService.ts` | Added `BookingCancelledByCustomerData` interface, added `sendBookingCancelledByCustomer()` method |
+| `backend/src/domains/ServiceDomain/services/PaymentService.ts` | Added email call after in-app and shop notifications in `cancelOrder()` |
+
+**Code Flow**:
+
+```
+1. Customer clicks "Cancel" on their booking
+2. Frontend calls POST /api/services/orders/:id/cancel
+3. OrderController.cancelOrder() validates and calls PaymentService
+4. PaymentService.cancelOrder():
+   a. Refunds RCN tokens (if any)
+   b. Records refund transaction
+   c. Processes Stripe refund (if paid)
+   d. Updates order status to 'cancelled'
+   e. Creates in-app notification to customer
+   f. Creates in-app notification to shop
+   g. Sends confirmation email to customer (NEW)
+5. Customer receives both in-app and email confirmation
+```
+
+### Email Preview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Cancellation Confirmed                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Hi [Customer Name],                                         │
+│                                                              │
+│  Your booking has been successfully cancelled as requested.  │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Service: [Service Name]                              │    │
+│  │ Shop: [Shop Name]                                    │    │
+│  │ Date: [Booking Date]                                 │    │
+│  │ Time: [Booking Time]                                 │    │
+│  │ Reason: [Cancellation Reason]                        │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ ✓ Refund Information:                                │    │
+│  │   [X] RCN tokens and $[Y.YY] will be refunded       │    │
+│  │   Card refunds typically take 5-10 business days.   │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+│  Need to book again? Browse services on RepairCoin anytime! │
+│                                                              │
+│  Thank you for using RepairCoin!                            │
+│  The RepairCoin Team                                        │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Related Documentation
+
+- `docs/tasks/customer-cancellation-refund-feature.md` - Full implementation details
 
 ---
 

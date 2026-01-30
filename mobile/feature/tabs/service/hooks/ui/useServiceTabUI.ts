@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { ServiceData } from "@/interfaces/service.interface";
-import { ServiceTab } from "../constants";
+import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceTab } from "../../constants";
 
 export function useServiceTabUI() {
   const [activeTab, setActiveTab] = useState<ServiceTab>("Services");

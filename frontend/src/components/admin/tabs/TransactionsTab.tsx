@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Coins, BarChart3, CheckCircle } from 'lucide-react';
 
 interface Transaction {
   id: number;
@@ -149,7 +150,7 @@ export function TransactionsTab({ generateAdminToken, onError }: TransactionsTab
               <p className="text-sm font-medium text-gray-500">Total Transactions</p>
               <p className="text-3xl font-bold text-gray-900">{transactions.length}</p>
             </div>
-            <div className="text-3xl">💰</div>
+            <Coins className="w-8 h-8 text-yellow-500" />
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
@@ -160,7 +161,7 @@ export function TransactionsTab({ generateAdminToken, onError }: TransactionsTab
                 {transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0).toFixed(2)} RCN
               </p>
             </div>
-            <div className="text-3xl">📊</div>
+            <BarChart3 className="w-8 h-8 text-green-500" />
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
@@ -173,7 +174,7 @@ export function TransactionsTab({ generateAdminToken, onError }: TransactionsTab
                   : '100%'}
               </p>
             </div>
-            <div className="text-3xl">✅</div>
+            <CheckCircle className="w-8 h-8 text-blue-500" />
           </div>
         </div>
       </div>

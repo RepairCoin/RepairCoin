@@ -15,6 +15,8 @@ import {
   Search,
   ChevronDown,
   Settings,
+  MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";

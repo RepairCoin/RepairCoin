@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
-import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceData } from "@/shared/interfaces/service.interface";
 
 export function useServiceNavigation() {
   const handleEdit = useCallback(
