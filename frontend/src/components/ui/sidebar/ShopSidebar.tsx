@@ -24,6 +24,7 @@ import {
   User,
   TrendingUp,
   Wrench,
+  LifeBuoy,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -201,6 +202,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
   ];
 
   const bottomMenuItems: SidebarItem[] = [
+    {
+      title: "Support",
+      href: "/shop?tab=support",
+      icon: <LifeBuoy className="w-5 h-5" />,
+      tabId: "support",
+    },
     {
       title: "Settings",
       href: "/shop?tab=settings",

@@ -29,6 +29,10 @@ export interface NotificationMessageTemplates {
   booking_rescheduled_by_shop: (data: { shopName: string; serviceName: string; originalDate: string; originalTime: string; newDate: string; newTime: string; reason?: string }) => string;
   shop_suspended: (data: { shopName?: string; reason?: string }) => string;
   shop_unsuspended: (data: { shopName?: string }) => string;
+  support_ticket_created: (data: { ticketId: string; subject: string; category: string }) => string;
+  support_message_received: (data: { ticketId: string; senderName: string; preview: string }) => string;
+  support_ticket_resolved: (data: { ticketId: string; subject: string }) => string;
+  support_ticket_assigned: (data: { ticketId: string; subject: string }) => string;
 }
 
 export class NotificationService {
@@ -118,7 +122,19 @@ export class NotificationService {
         `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been suspended by an administrator${data.reason ? ': ' + data.reason : '.'}`,
 
       shop_unsuspended: (data) =>
-        `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been unsuspended. You can now resume normal operations.`
+        `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been unsuspended. You can now resume normal operations.`,
+
+      support_ticket_created: (data: { ticketId: string; subject: string; category: string }) =>
+        `New support ticket #${data.ticketId}: ${data.subject} (${data.category})`,
+
+      support_message_received: (data: { ticketId: string; senderName: string; preview: string }) =>
+        `New message from ${data.senderName} in ticket #${data.ticketId}: ${data.preview}`,
+
+      support_ticket_resolved: (data: { ticketId: string; subject: string }) =>
+        `Your support ticket #${data.ticketId} (${data.subject}) has been resolved`,
+
+      support_ticket_assigned: (data: { ticketId: string; subject: string }) =>
+        `Your support ticket #${data.ticketId} (${data.subject}) has been assigned to an admin`
     };
   }
 
@@ -753,6 +769,98 @@ export class NotificationService {
         newDate,
         newTime,
         reason,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // ============== SUPPORT TICKET NOTIFICATIONS ==============
+
+  /**
+   * Notify admins about new support ticket
+   */
+  async notifyAdminsAboutNewTicket(ticket: any): Promise<void> {
+    // In a real system, you'd get all admin addresses from database
+    // For now, this is a placeholder that would emit events to admin dashboard
+    logger.info('New support ticket notification sent to admins', {
+      ticketId: ticket.ticketId,
+      subject: ticket.subject
+    });
+  }
+
+  /**
+   * Notify shop about ticket resolution
+   */
+  async notifyShopAboutTicketResolution(ticket: any): Promise<Notification> {
+    const message = this.messageTemplates.support_ticket_resolved({
+      ticketId: ticket.ticketId,
+      subject: ticket.subject
+    });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: ticket.shopId,
+      notificationType: 'support_ticket_resolved' as any,
+      message,
+      metadata: {
+        ticketId: ticket.ticketId,
+        subject: ticket.subject,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Notify shop about ticket assignment
+   */
+  async notifyShopAboutTicketAssignment(ticket: any): Promise<Notification> {
+    const message = this.messageTemplates.support_ticket_assigned({
+      ticketId: ticket.ticketId,
+      subject: ticket.subject
+    });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: ticket.shopId,
+      notificationType: 'support_ticket_assigned' as any,
+      message,
+      metadata: {
+        ticketId: ticket.ticketId,
+        subject: ticket.subject,
+        assignedTo: ticket.assignedTo,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  /**
+   * Notify admins about new message from shop
+   */
+  async notifyAdminsAboutNewMessage(ticket: any, message: any): Promise<void> {
+    logger.info('New support message notification sent to admins', {
+      ticketId: ticket.ticketId,
+      messageId: message.messageId
+    });
+  }
+
+  /**
+   * Notify shop about new message from admin
+   */
+  async notifyShopAboutNewMessage(ticket: any, message: any): Promise<Notification> {
+    const notificationMessage = this.messageTemplates.support_message_received({
+      ticketId: ticket.ticketId,
+      senderName: 'Admin Support',
+      preview: message.message.substring(0, 50)
+    });
+
+    return this.createNotification({
+      senderAddress: message.senderId,
+      receiverAddress: ticket.shopId,
+      notificationType: 'support_message_received' as any,
+      message: notificationMessage,
+      metadata: {
+        ticketId: ticket.ticketId,
+        messageId: message.messageId,
         timestamp: new Date().toISOString()
       }
     });

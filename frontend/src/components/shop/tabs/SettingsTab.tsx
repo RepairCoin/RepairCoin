@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
+import { FAQSection } from "../FAQSection";
 import {
   Store,
   Mail,
@@ -20,6 +21,7 @@ import {
   Lock,
   MessageSquare,
   Shield,
+  HelpCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -77,6 +79,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "password"
     | "social-media"
     | "moderation"
+    | "faq"
   >("shop-profile");
   // crossShopEnabled state removed - universal redemption is now always enabled
   const [error] = useState<string | null>(null);
@@ -295,6 +298,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     },
     { id: "social-media" as const, label: "Social Media", icon: MessageSquare },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
+    { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
   ];
 
   return (
@@ -837,6 +841,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   Moderation settings coming soon...
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* FAQ Tab Content */}
+          {activeTab === "faq" && (
+            <div>
+              <FAQSection />
             </div>
           )}
 
