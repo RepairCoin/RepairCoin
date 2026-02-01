@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions, Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { CountryCode } from "react-native-country-picker-modal";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { ShopFormData, Slide } from "../../types";
@@ -9,14 +8,24 @@ import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
 
 const { width } = Dimensions.get("window");
 
+// Generate unique shop ID: SHOP-{timestamp}-{random}
+const generateShopId = () => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `SHOP-${timestamp}-${random}`;
+};
+
 export const useShopRegister = () => {
   const account = useAuthStore((state) => state.account);
   const { useRegisterShop } = useShop();
   const { mutate: registerShop, isPending } = useRegisterShop();
 
   const [index, setIndex] = useState(0);
-  const [formData, setFormData] = useState<ShopFormData>(INITIAL_SHOP_FORM_DATA);
-  const [countryCode, setCountryCode] = useState<CountryCode>("US");
+  const [formData, setFormData] = useState<ShopFormData>({
+    ...INITIAL_SHOP_FORM_DATA,
+    shopId: generateShopId(),
+    email: account?.email || "",
+  });
 
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides = useMemo(() => SHOP_REGISTER_SLIDES, []);
@@ -71,7 +80,6 @@ export const useShopRegister = () => {
     // State
     formData,
     index,
-    countryCode,
     slides,
     isPending,
     account,
@@ -80,7 +88,6 @@ export const useShopRegister = () => {
 
     // Actions
     updateFormData,
-    setCountryCode,
     onScroll,
     handleGoBack,
     handleGoNext,

@@ -489,10 +489,10 @@ export const ServiceOrdersTab: React.FC = () => {
                     ) : undefined
                   }
                   actionButtons={
-                    <div className="flex flex-wrap gap-2 justify-end">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:justify-end">
                       <button
                         onClick={() => setViewingOrder(order)}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-[#FFCC00] text-black font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-[#FFD700] transition-colors text-sm"
+                        className="flex items-center justify-center gap-1.5 bg-[#FFCC00] text-black font-semibold px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg hover:bg-[#FFD700] transition-colors text-sm"
                       >
                         <Eye className="w-4 h-4" />
                         <span className="hidden sm:inline">View Details</span>
@@ -501,7 +501,7 @@ export const ServiceOrdersTab: React.FC = () => {
                       {order.status === "pending" && (
                         <button
                           onClick={() => setCancellingOrder(order)}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-red-600 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          className="flex items-center justify-center gap-1.5 bg-red-600 text-white font-semibold px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
                         >
                           <XCircle className="w-4 h-4" />
                           Cancel
@@ -510,7 +510,7 @@ export const ServiceOrdersTab: React.FC = () => {
                       {order.status === "completed" && reviewEligibility.get(order.orderId) === true && (
                         <button
                           onClick={() => handleWriteReview(order)}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg hover:from-green-500 hover:to-green-400 transition-all text-sm"
+                          className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg hover:from-green-500 hover:to-green-400 transition-all text-sm"
                         >
                           <Star className="w-4 h-4" />
                           Review
@@ -519,7 +519,7 @@ export const ServiceOrdersTab: React.FC = () => {
                       {(order.status === "completed" || order.status === "cancelled") && (
                         <button
                           onClick={() => handleBookAgain(order)}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-blue-600 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                          className="flex items-center justify-center gap-1.5 bg-blue-600 text-white font-semibold px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                         >
                           <RotateCcw className="w-4 h-4" />
                           <span className="hidden sm:inline">Book Again</span>

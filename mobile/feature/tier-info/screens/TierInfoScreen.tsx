@@ -1,8 +1,9 @@
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import TierCard from "@/shared/components/ui/TierCard";
 import { useTierInfo } from "../hooks";
-import { CurrentTierCard, TierBenefits, AllTiersOverview } from "../components";
+import { TierBenefits, AllTiersOverview } from "../components";
 
 export default function TierInfoScreen() {
   const {
@@ -53,10 +54,16 @@ export default function TierInfoScreen() {
       <AppHeader title="Tier Benefits" />
 
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
-        <CurrentTierCard
-          tierProgress={tierProgress}
-          currentTierConfig={currentTierConfig}
-        />
+        <View className="mt-2">
+          <TierCard
+            balance={tierProgress.lifetimeEarnings}
+            balanceLabel="Your Current Tier"
+            tier={tierProgress.currentTier}
+            hideBalance
+            tierInfoScreen
+            backgroundImage={require("@/assets/images/man_with_beard.png")}
+          />
+        </View>
 
         <TierBenefits tierConfig={currentTierConfig} />
 

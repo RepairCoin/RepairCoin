@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Platform } from "react-native
 import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import FormInput from "@/shared/components/ui/FormInput";
+import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -89,22 +90,6 @@ export default function ShopEditProfileScreen() {
             placeholder="Enter your street address"
           />
 
-          <FormInput
-            label="City"
-            icon={<Ionicons name="business-outline" size={20} color={PROFILE_COLORS.primary} />}
-            value={formData.city}
-            onChangeText={updateField("city")}
-            placeholder="Enter your city"
-          />
-
-          <FormInput
-            label="Country"
-            icon={<Feather name="flag" size={20} color={PROFILE_COLORS.primary} />}
-            value={formData.country}
-            onChangeText={updateField("country")}
-            placeholder="Enter your country"
-          />
-
           {/* Pin Location on Map */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
@@ -151,13 +136,11 @@ export default function ShopEditProfileScreen() {
             autoCapitalize="none"
           />
 
-          <FormInput
+          <PhoneInput
             label="Phone Number"
-            icon={<Feather name="phone" size={20} color={PROFILE_COLORS.primary} />}
             value={formData.phone}
-            onChangeText={updateField("phone")}
-            placeholder="Enter your phone number"
-            keyboardType="phone-pad"
+            onChangePhone={updateField("phone")}
+            defaultCountryCode="US"
           />
 
           <FormInput

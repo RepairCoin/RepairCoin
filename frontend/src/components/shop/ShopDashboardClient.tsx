@@ -38,6 +38,7 @@ import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
+import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
@@ -992,15 +993,19 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "services" && shopData && (
-            <ServicesTab shopId={shopData.shopId} shopData={shopData} />
+            <SubscriptionGuard shopData={shopData}>
+              <ServicesTab shopId={shopData.shopId} shopData={shopData} />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "bookings" && shopData && (
-            <BookingsTabV2
-              shopId={shopData.shopId}
-              isBlocked={isBlocked}
-              blockReason={getBlockReason()}
-            />
+            <SubscriptionGuard shopData={shopData}>
+              <BookingsTabV2
+                shopId={shopData.shopId}
+                isBlocked={isBlocked}
+                blockReason={getBlockReason()}
+              />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "service-analytics" && shopData && (
@@ -1008,28 +1013,36 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "appointments" && shopData && (
-            <AppointmentsTab />
+            <SubscriptionGuard shopData={shopData}>
+              <AppointmentsTab />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "messages" && shopData && (
-            <MessagesTab shopId={shopData.shopId} />
+            <SubscriptionGuard shopData={shopData}>
+              <MessagesTab shopId={shopData.shopId} />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "reschedules" && shopData && (
-            <RescheduleRequestsTab />
+            <SubscriptionGuard shopData={shopData}>
+              <RescheduleRequestsTab />
+            </SubscriptionGuard>
           )}
 
-          {activeTab === "purchase" && (
-            <PurchaseTab
-              purchaseAmount={purchaseAmount}
-              setPurchaseAmount={setPurchaseAmount}
-              purchasing={purchasing}
-              purchases={purchases}
-              onInitiatePurchase={initiatePurchase}
-              onCheckPurchaseStatus={checkPurchaseStatus}
-              isBlocked={isBlocked}
-              blockReason={getBlockReason()}
-            />
+          {activeTab === "purchase" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <PurchaseTab
+                purchaseAmount={purchaseAmount}
+                setPurchaseAmount={setPurchaseAmount}
+                purchasing={purchasing}
+                purchases={purchases}
+                onInitiatePurchase={initiatePurchase}
+                onCheckPurchaseStatus={checkPurchaseStatus}
+                isBlocked={isBlocked}
+                blockReason={getBlockReason()}
+              />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "bonuses" && (
@@ -1045,16 +1058,18 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "tools" && shopData && (
-            <ToolsTab
-              shopId={shopData.shopId}
-              shopData={shopData}
-              onRewardIssued={loadShopData}
-              onRedemptionComplete={loadShopData}
-              isOperational={isOperational}
-              isBlocked={isBlocked}
-              blockReason={getBlockReason()}
-              setShowOnboardingModal={setShowOnboardingModal}
-            />
+            <SubscriptionGuard shopData={shopData}>
+              <ToolsTab
+                shopId={shopData.shopId}
+                shopData={shopData}
+                onRewardIssued={loadShopData}
+                onRedemptionComplete={loadShopData}
+                isOperational={isOperational}
+                isBlocked={isBlocked}
+                blockReason={getBlockReason()}
+                setShowOnboardingModal={setShowOnboardingModal}
+              />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "customers" && shopData && (
@@ -1062,11 +1077,13 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "shop-location" && shopData && (
-            <ShopLocationTab
-              shopId={shopData.shopId}
-              shopData={shopData}
-              onLocationUpdate={loadShopData}
-            />
+            <SubscriptionGuard shopData={shopData}>
+              <ShopLocationTab
+                shopId={shopData.shopId}
+                shopData={shopData}
+                onLocationUpdate={loadShopData}
+              />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "subscription" && shopData && (
@@ -1078,7 +1095,9 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "marketing" && shopData && (
-            <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+            <SubscriptionGuard shopData={shopData}>
+              <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
+            </SubscriptionGuard>
           )}
 
           {activeTab === "profile" && shopData && (
@@ -1103,23 +1122,19 @@ export default function ShopDashboardClient() {
             <SupportTab shopId={shopData.shopId} />
           )}
 
-          {activeTab === "staking" && <StakingTab />}
+          {activeTab === "staking" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <StakingTab />
+            </SubscriptionGuard>
+          )}
 
           {activeTab === "groups" && shopData && (
-            <>
-              {console.log('🔐 [ShopDashboard] Passing to GroupsTab:', {
-                shopId: shopData.shopId,
-                subscriptionActive: shopData.subscriptionActive,
-                isOperational: isOperational,
-                operationalStatus: shopData.operational_status,
-                subscriptionActiveType: typeof shopData.subscriptionActive,
-                shopDataKeys: Object.keys(shopData)
-              })}
+            <SubscriptionGuard shopData={shopData}>
               <GroupsTab
                 shopId={shopData.shopId}
                 subscriptionActive={isOperational || isCancelledButActive || false}
               />
-            </>
+            </SubscriptionGuard>
           )}
 
           {/* Error Display */}

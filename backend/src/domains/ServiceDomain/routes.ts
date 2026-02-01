@@ -1431,6 +1431,13 @@ export function initializeRoutes(stripe: StripeService): Router {
     analyticsController.getGroupPerformance
   );
 
+  router.get(
+    '/analytics/shop/bookings',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getBookingAnalytics
+  );
+
   /**
    * @swagger
    * /api/services/analytics/platform:

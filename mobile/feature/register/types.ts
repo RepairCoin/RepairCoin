@@ -1,5 +1,3 @@
-import { CountryCode } from "react-native-country-picker-modal";
-
 // Customer Registration Types
 export interface CustomerFormData {
   fullName: string;
@@ -72,10 +70,7 @@ export interface NavigableSlideProps extends BaseSlideProps {
   handleGoNext: () => void;
 }
 
-export interface FirstSlideProps extends NavigableSlideProps {
-  countryCode: CountryCode;
-  setCountryCode: (code: CountryCode) => void;
-}
+export interface FirstSlideProps extends NavigableSlideProps {}
 
 export interface ThirdSlideProps extends NavigableSlideProps {
   address: string;

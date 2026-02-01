@@ -12,7 +12,10 @@ export const useCustomerRegister = () => {
   const { mutate: registerCustomer, isPending: isLoading } = useRegisterCustomer();
   const account = useAuthStore((state) => state.account);
 
-  const [formData, setFormData] = useState<CustomerFormData>(INITIAL_CUSTOMER_FORM_DATA);
+  const [formData, setFormData] = useState<CustomerFormData>({
+    ...INITIAL_CUSTOMER_FORM_DATA,
+    email: account?.email || "",
+  });
 
   const updateFormData = useCallback(
     (field: keyof CustomerFormData, value: string) => {

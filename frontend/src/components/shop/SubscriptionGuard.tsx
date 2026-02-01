@@ -106,23 +106,25 @@ const BlockedOverlay: React.FC<{
   const isRedTheme = status.isSuspended || status.isExpired || status.isCancelled;
 
   return (
-    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-20 rounded-lg">
-      <div className="text-center p-6 max-w-md">
-        <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-          isRedTheme ? 'bg-red-500/20' : 'bg-orange-500/20'
-        }`}>
-          <AlertTriangle className={`w-8 h-8 ${
+    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 rounded-lg">
+      <div className="sticky top-1/2 -translate-y-1/2 flex items-center justify-center">
+        <div className="text-center p-6 max-w-md">
+          <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+            isRedTheme ? 'bg-red-500/20' : 'bg-orange-500/20'
+          }`}>
+            <AlertTriangle className={`w-8 h-8 ${
+              isRedTheme ? 'text-red-400' : 'text-orange-400'
+            }`} />
+          </div>
+          <h3 className={`text-lg font-bold mb-2 ${
             isRedTheme ? 'text-red-400' : 'text-orange-400'
-          }`} />
+          }`}>
+            {getTitle()}
+          </h3>
+          <p className="text-gray-300 text-sm">
+            {getMessage()}
+          </p>
         </div>
-        <h3 className={`text-lg font-bold mb-2 ${
-          isRedTheme ? 'text-red-400' : 'text-orange-400'
-        }`}>
-          {getTitle()}
-        </h3>
-        <p className="text-gray-300 text-sm">
-          {getMessage()}
-        </p>
       </div>
     </div>
   );

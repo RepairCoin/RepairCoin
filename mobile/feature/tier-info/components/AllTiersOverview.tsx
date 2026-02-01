@@ -36,8 +36,17 @@ export function AllTiersOverview({
               colors={isUnlocked ? config.color : ["#3f3f46", "#52525b"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              className="p-4"
+              className="p-4 relative overflow-hidden"
             >
+              {/* Decorative Circle */}
+              <View
+                className="w-[150px] h-[150px] border-[24px] rounded-full absolute"
+                style={{
+                  borderColor: isUnlocked ? "rgba(102,83,7,0.13)" : "rgba(255,255,255,0.08)",
+                  right: -40,
+                  top: -10,
+                }}
+              />
               <View className="flex-row items-center m-2 justify-between">
                 <View className="flex-row items-center">
                   <SimpleLineIcons

@@ -4,9 +4,10 @@ export const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email.trim());
 };
 
-// Phone validation (10 digits)
+// Phone validation (minimum 7 digits for international numbers)
 export const isValidPhone = (phone: string): boolean => {
-  return phone.replace(/\D/g, "").length === 10;
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 7;
 };
 
 // Ethereum address validation
@@ -79,16 +80,11 @@ export const validateShopFirstSlide = (
 
 // Shop second slide validation (business info)
 export const validateShopSecondSlide = (
-  shopId: string,
   name: string,
   companySize: string,
   monthlyRevenue: string
 ): string[] => {
   const errors: string[] = [];
-
-  if (!hasMinLength(shopId, 3)) {
-    errors.push("Shop ID must be at least 3 characters");
-  }
 
   if (!hasMinLength(name, 2)) {
     errors.push("Company name must be at least 2 characters");

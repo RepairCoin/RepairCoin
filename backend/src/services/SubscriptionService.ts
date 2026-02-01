@@ -587,22 +587,37 @@ export class SubscriptionService extends BaseRepository {
           operationalStatus = 'not_qualified';
         }
 
-        // Update shop operational status
-        const updateShopQuery = `
-          UPDATE shops
-          SET operational_status = $1,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE shop_id = $2
-        `;
-        await client.query(updateShopQuery, [operationalStatus, shopId]);
+        // Don't override 'paused' status (admin manually paused)
+        const currentStatusQuery = await client.query(
+          'SELECT operational_status FROM shops WHERE shop_id = $1',
+          [shopId]
+        );
+        const currentStatus = currentStatusQuery.rows[0]?.operational_status;
 
-        logger.info('Shop operational status updated during subscription sync', {
-          shopId,
-          subscriptionId: stripeSubscriptionId,
-          subscriptionStatus: actualStatus,
-          operationalStatus,
-          rcgBalance
-        });
+        if (currentStatus === 'paused') {
+          logger.info('Skipping operational_status update during sync - shop is admin-paused', {
+            shopId,
+            currentStatus,
+            wouldHaveSet: operationalStatus
+          });
+        } else {
+          // Update shop operational status
+          const updateShopQuery = `
+            UPDATE shops
+            SET operational_status = $1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE shop_id = $2
+          `;
+          await client.query(updateShopQuery, [operationalStatus, shopId]);
+
+          logger.info('Shop operational status updated during subscription sync', {
+            shopId,
+            subscriptionId: stripeSubscriptionId,
+            subscriptionStatus: actualStatus,
+            operationalStatus,
+            rcgBalance
+          });
+        }
       }
 
       // Sync shop_subscriptions.next_payment_date with stripe's current_period_end

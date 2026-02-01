@@ -14,14 +14,12 @@ import { Slide } from "../types";
 export default function ShopRegisterScreen() {
   const {
     formData,
-    countryCode,
     slides,
     isPending,
     account,
     flatRef,
     width,
     updateFormData,
-    setCountryCode,
     onScroll,
     handleGoBack,
     handleGoNext,
@@ -39,13 +37,7 @@ export default function ShopRegisterScreen() {
 
       return (
         <View style={{ width }}>
-          {item.key === "1" && (
-            <FirstSlide
-              {...slideProps}
-              countryCode={countryCode}
-              setCountryCode={setCountryCode}
-            />
-          )}
+          {item.key === "1" && <FirstSlide {...slideProps} />}
           {item.key === "2" && <SecondSlide {...slideProps} />}
           {item.key === "3" && (
             <ThirdSlide {...slideProps} address={account?.address} />
@@ -68,8 +60,6 @@ export default function ShopRegisterScreen() {
       handleGoNext,
       formData,
       updateFormData,
-      countryCode,
-      setCountryCode,
       account?.address,
       handleSubmit,
       isPending,

@@ -14,6 +14,7 @@ import JoinGroupModal from "./JoinGroupModal";
 import apiClient from "@/services/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { client } from "@/utils/thirdweb";
+import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 
 type SortOption = "members" | "name" | "recent";
 
@@ -32,6 +33,7 @@ export default function AffiliateShopGroupsClient() {
   const [subscriptionActive, setSubscriptionActive] = useState<boolean>(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
   const [shopId, setShopId] = useState<string>("");
+  const [shopData, setShopData] = useState<any>(null);
   const [sortBy, setSortBy] = useState<SortOption>("members");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
@@ -76,6 +78,23 @@ export default function AffiliateShopGroupsClient() {
 
         setSubscriptionActive(isActive);
         setShopId(result.data.shopId || "");
+
+        // Enhance shopData with subscription details for accurate SubscriptionGuard messaging
+        let enhancedShopData = result.data;
+        try {
+          const subResult = await apiClient.get(`/shops/subscription/status`) as { success: boolean; data?: { currentSubscription?: any } };
+          if (subResult.success && subResult.data?.currentSubscription) {
+            const sub = subResult.data.currentSubscription;
+            enhancedShopData = {
+              ...enhancedShopData,
+              subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
+              subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt,
+            };
+          }
+        } catch (subErr) {
+          console.error("Error loading subscription details:", subErr);
+        }
+        setShopData(enhancedShopData);
       } else {
         setSubscriptionActive(false);
       }
@@ -223,7 +242,13 @@ export default function AffiliateShopGroupsClient() {
   return (
     <>
       <DashboardLayout userRole="shop">
-        <div className="px-12 py-8">
+        {checkingSubscription ? (
+        <div className="px-12 py-8 ">
+          {/* Show content without guard while subscription is loading */}
+        </div>
+        ) : (
+        <SubscriptionGuard shopData={shopData}>
+        <div className="px-12 py-8 min-h-screen">
           {/* Breadcrumb and Header */}
           <div className="mb-8">
             {/* Breadcrumb */}
@@ -455,6 +480,8 @@ export default function AffiliateShopGroupsClient() {
           </div>
         )}
         </div>
+        </SubscriptionGuard>
+        )}
       </DashboardLayout>
 
       {/* Modals */}
