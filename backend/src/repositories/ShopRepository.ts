@@ -632,7 +632,8 @@ export class ShopRepository extends BaseRepository {
         twitter: row.twitter,
         instagram: row.instagram,
         website: row.website,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        bannerUrl: row.banner_url
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);
@@ -693,7 +694,8 @@ export class ShopRepository extends BaseRepository {
         twitter: row.twitter,
         instagram: row.instagram,
         website: row.website,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        bannerUrl: row.banner_url
       };
     } catch (error) {
       logger.error('Error fetching shop by email:', error);

@@ -576,12 +576,15 @@ router.put('/:shopId/details',
         firstName,
         lastName,
         logoUrl,
+        bannerUrl,
       } = req.body;
 
       logger.info('Shop details update request received:', {
         shopId,
         requestBody: req.body,
-        userId: req.user?.address
+        userId: req.user?.address,
+        logoUrl: logoUrl,
+        bannerUrl: bannerUrl
       });
 
       const shop = await shopRepository.getShop(shopId);
@@ -608,6 +611,7 @@ router.put('/:shopId/details',
         firstName?: string;
         lastName?: string;
         logoUrl?: string;
+        bannerUrl?: string;
      }> = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
@@ -622,6 +626,7 @@ router.put('/:shopId/details',
       if (firstName !== undefined) updates.firstName = firstName;
       if (lastName !== undefined) updates.lastName = lastName;
       if (logoUrl !== undefined) updates.logoUrl = logoUrl;
+      if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl;
 
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {

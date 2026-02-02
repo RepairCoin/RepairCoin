@@ -32,6 +32,7 @@ export function useShop() {
         return response.data;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnMount: 'always', // Always refetch when component mounts
     });
   };
 
