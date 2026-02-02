@@ -17,7 +17,7 @@ import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManag
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
 import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
 import { SessionManagementTab } from "@/components/admin/tabs/SessionManagementTab";
-import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
+// import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab"; // TODO: component not yet created
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -392,12 +392,12 @@ export default function AdminDashboardClient() {
               </LazyTabWrapper>
             )}
 
-          {/* Support Tab */}
-          {activeTab === "support" && (
+          {/* Support Tab - TODO: AdminSupportTab component not yet created */}
+          {/* {activeTab === "support" && (
             <LazyTabWrapper isActive={activeTab === "support"}>
               <AdminSupportTab />
             </LazyTabWrapper>
-          )}
+          )} */}
 
           {/* Session Management Tab */}
           {activeTab === "sessions" &&

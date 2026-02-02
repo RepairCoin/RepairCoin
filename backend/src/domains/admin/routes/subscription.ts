@@ -69,7 +69,8 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
       // Use Stripe's current_period_end as the authoritative next payment date when available
       // This ensures consistency with shop view which uses Stripe data directly
       // Fallback to shop_subscriptions.next_payment_date if Stripe data not available
-      const nextPaymentDate = row.stripe_period_end || row.next_payment_date;
+      const nextPaymentDateRaw = row.stripe_period_end || row.next_payment_date;
+      const nextPaymentDate = nextPaymentDateRaw ? new Date(nextPaymentDateRaw).toISOString() : null;
 
       return {
         id: row.id,
@@ -84,8 +85,8 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
         paymentsMade: row.payments_made || 0,
         totalPaid: parseFloat(row.total_paid || 0),
         nextPaymentDate: nextPaymentDate,
-        lastPaymentDate: row.last_payment_date,
-        stripePeriodEnd: row.stripe_period_end, // Stripe's current_period_end for accurate subscription end date
+        lastPaymentDate: row.last_payment_date ? new Date(row.last_payment_date).toISOString() : null,
+        stripePeriodEnd: row.stripe_period_end ? new Date(row.stripe_period_end).toISOString() : null, // Stripe's current_period_end for accurate subscription end date
         cancelAtPeriodEnd: row.cancel_at_period_end || false,
         isActive: row.is_active,
         enrolledAt: row.enrolled_at,

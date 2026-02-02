@@ -16,7 +16,7 @@ import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketpla
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
 import { MessagesTab } from "@/components/customer/tabs/MessagesTab";
-import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection";
+// import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection"; // TODO: component not yet created
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 
@@ -196,8 +196,8 @@ export default function CustomerDashboardClient() {
           {/* Settings Tab */}
           {activeTab === "settings" && <SettingsTab />}
 
-          {/* FAQ Tab */}
-          {activeTab === "faq" && <CustomerFAQSection />}
+          {/* FAQ Tab - TODO: CustomerFAQSection component not yet created */}
+          {/* {activeTab === "faq" && <CustomerFAQSection />} */}
         </div>
       </div>
     </DashboardLayout>
