@@ -1,8 +1,9 @@
-import { View, Text, ScrollView, Alert, TextInput } from "react-native";
+import { View, Text, ScrollView, Alert } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useMemo } from "react";
 import FormInput from "@/shared/components/ui/FormInput";
+import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { FirstSlideProps } from "../types";
@@ -97,22 +98,12 @@ export default function FirstSlide({
           autoCapitalize="none"
         />
 
-        <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
-            Phone Number
-          </Text>
-          <View className="flex-row items-center rounded-xl px-4 bg-[#2A2A2C] gap-2">
-            <Feather name="phone" size={20} color="#FFCC00" />
-            <TextInput
-              className="flex-1 h-12 text-white text-base ml-2"
-              placeholder="Enter phone number"
-              placeholderTextColor="#666"
-              keyboardType="phone-pad"
-              value={formData.phone}
-              onChangeText={(value) => updateFormData("phone", value)}
-            />
-          </View>
-        </View>
+        <PhoneInput
+          label="Phone Number"
+          value={formData.phone}
+          onChangePhone={(value) => updateFormData("phone", value)}
+          defaultCountryCode="US"
+        />
 
         <View className="bg-[#2A2A2C] rounded-xl p-4 mt-2 flex-row">
           <Ionicons name="information-circle" size={20} color="#FFCC00" />

@@ -1,7 +1,8 @@
 import { View, Text, ScrollView } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
+import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -51,13 +52,11 @@ export default function CustomerEditProfileScreen() {
             autoCapitalize="none"
           />
 
-          <FormInput
+          <PhoneInput
             label="Phone Number"
-            icon={<Feather name="phone" size={20} color={THEME_COLORS.primary} />}
             value={formData.phone}
-            onChangeText={updateField("phone")}
-            placeholder="Enter your phone number"
-            keyboardType="phone-pad"
+            onChangePhone={updateField("phone")}
+            defaultCountryCode="US"
           />
 
           <SectionHeader
