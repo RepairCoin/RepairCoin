@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
-import { FAQSection } from "../FAQSection";
+// import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
   Mail,
@@ -844,12 +844,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           )}
 
-          {/* FAQ Tab Content */}
-          {activeTab === "faq" && (
+          {/* FAQ Tab Content - TODO: FAQSection component not yet created */}
+          {/* {activeTab === "faq" && (
             <div>
               <FAQSection />
             </div>
-          )}
+          )} */}
 
           {/* Status Messages */}
           {error && (
