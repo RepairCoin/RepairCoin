@@ -32,12 +32,13 @@ class ShopApi {
     shopData: ShopFormData
   ): Promise<{ message: string; success: boolean }> {
     try {
-      return await apiClient.put<{ message: string; success: boolean }>(
+      const response = await apiClient.put<{ message: string; success: boolean }>(
         `/shops/${shopId}/details`,
         shopData
       );
+      return response;
     } catch (error: any) {
-      console.error("Failed to update shop details:", error.message);
+      console.error("Failed to update shop details:", error.message, error);
       throw error;
     }
   }
