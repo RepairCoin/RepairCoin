@@ -61,6 +61,8 @@ export interface ShopData {
   joinDate: string;
   lastName: string;
   location: LocationData;
+  logoUrl?: string;
+  bannerUrl?: string;
   monthlyRevenue: string;
   name: string;
   operational_status: string;
