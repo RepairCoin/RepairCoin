@@ -187,6 +187,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const bottomMenuItems: SidebarItem[] = [
     {
+      title: "Waitlist",
+      href: "/admin?tab=waitlist",
+      icon: <ClipboardList className="w-5 h-5" />,
+      tabId: "waitlist",
+    },
+    {
       title: "Support",
       href: "/admin?tab=support",
       icon: <LifeBuoy className="w-5 h-5" />,

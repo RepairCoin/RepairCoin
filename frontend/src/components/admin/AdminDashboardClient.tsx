@@ -18,6 +18,7 @@ import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsT
 import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
 import { SessionManagementTab } from "@/components/admin/tabs/SessionManagementTab";
 import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
+import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -396,6 +397,13 @@ export default function AdminDashboardClient() {
           {activeTab === "support" && (
             <LazyTabWrapper isActive={activeTab === "support"}>
               <AdminSupportTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Waitlist Tab */}
+          {activeTab === "waitlist" && (
+            <LazyTabWrapper isActive={activeTab === "waitlist"}>
+              <AdminWaitlistTab />
             </LazyTabWrapper>
           )}
 

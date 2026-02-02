@@ -92,7 +92,8 @@
       "Bash(xargs:*)",
       "Bash(git status:*)",
       "Bash(npm run test:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npm run db:check:*)"
     ],
     "deny": [],
     "ask": []

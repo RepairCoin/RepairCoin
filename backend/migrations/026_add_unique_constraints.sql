@@ -64,19 +64,19 @@ WHERE wallet_address IN (
 
 -- Add unique constraints
 -- For customers table
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS unique_customers_email 
-ON customers (LOWER(email)) 
+CREATE UNIQUE INDEX IF NOT EXISTS unique_customers_email
+ON customers (LOWER(email))
 WHERE email IS NOT NULL AND email != '';
 
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS unique_customers_wallet 
+CREATE UNIQUE INDEX IF NOT EXISTS unique_customers_wallet
 ON customers (wallet_address);
 
 -- For shops table
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS unique_shops_email 
-ON shops (LOWER(email)) 
+CREATE UNIQUE INDEX IF NOT EXISTS unique_shops_email
+ON shops (LOWER(email))
 WHERE email IS NOT NULL AND email != '';
 
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS unique_shops_wallet 
+CREATE UNIQUE INDEX IF NOT EXISTS unique_shops_wallet
 ON shops (wallet_address);
 
 -- Create a function to check cross-table email uniqueness

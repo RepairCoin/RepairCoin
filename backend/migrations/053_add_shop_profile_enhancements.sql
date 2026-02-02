@@ -25,17 +25,36 @@ CREATE TABLE IF NOT EXISTS shop_gallery_photos (
 CREATE INDEX IF NOT EXISTS idx_shop_gallery_photos_shop_id ON shop_gallery_photos(shop_id);
 CREATE INDEX IF NOT EXISTS idx_shop_gallery_photos_order ON shop_gallery_photos(shop_id, display_order);
 
--- Add constraints
-ALTER TABLE shop_gallery_photos
-ADD CONSTRAINT shop_gallery_photos_max_20 CHECK (
-  (SELECT COUNT(*) FROM shop_gallery_photos WHERE shop_id = shop_gallery_photos.shop_id) <= 20
-);
-
 -- Add comments
 COMMENT ON TABLE shop_gallery_photos IS 'Photo gallery for shop profiles (max 20 photos per shop)';
 COMMENT ON COLUMN shop_gallery_photos.photo_url IS 'URL to photo stored in DigitalOcean Spaces';
 COMMENT ON COLUMN shop_gallery_photos.caption IS 'Optional caption for the photo (max 200 characters)';
 COMMENT ON COLUMN shop_gallery_photos.display_order IS 'Display order (0 = first, higher numbers shown later)';
+
+-- Create trigger to enforce 20 photo limit
+CREATE OR REPLACE FUNCTION check_shop_gallery_photos_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  photo_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO photo_count
+  FROM shop_gallery_photos
+  WHERE shop_id = NEW.shop_id;
+
+  IF photo_count >= 20 THEN
+    RAISE EXCEPTION 'Shop can have a maximum of 20 gallery photos'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_check_shop_gallery_photos_limit ON shop_gallery_photos;
+CREATE TRIGGER trigger_check_shop_gallery_photos_limit
+BEFORE INSERT ON shop_gallery_photos
+FOR EACH ROW
+EXECUTE FUNCTION check_shop_gallery_photos_limit();
 
 -- Create trigger to update updated_at
 CREATE OR REPLACE FUNCTION update_shop_gallery_photos_updated_at()
@@ -46,6 +65,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_shop_gallery_photos_updated_at ON shop_gallery_photos;
 CREATE TRIGGER trigger_update_shop_gallery_photos_updated_at
 BEFORE UPDATE ON shop_gallery_photos
 FOR EACH ROW

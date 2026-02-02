@@ -28,7 +28,7 @@ import { AffiliateShopGroupDomain } from './domains/AffiliateShopGroupDomain';
 import { ServiceDomain } from './domains/ServiceDomain';
 import { MarketingDomain } from './domains/MarketingDomain';
 import { MessagingDomain } from './domains/messaging';
-import { SupportDomain } from './domains/support';
+// import { SupportDomain } from './domains/support'; // TODO: Support domain not yet implemented
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
@@ -49,6 +49,7 @@ import authRoutes from './routes/auth';
 import referralRoutes from './routes/referral';
 import setupRoutes from './routes/setup';
 import uploadRoutes from './routes/upload';
+import waitlistRoutes from './routes/waitlist';
 
 // Middleware imports
 import { metricsMiddleware } from './utils/metrics';
@@ -247,7 +248,7 @@ class RepairCoinApp {
     domainRegistry.register(new ServiceDomain());
     domainRegistry.register(new MarketingDomain());
     domainRegistry.register(new MessagingDomain());
-    domainRegistry.register(new SupportDomain());
+    // domainRegistry.register(new SupportDomain()); // TODO: Support domain not yet implemented
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();
@@ -319,6 +320,9 @@ class RepairCoinApp {
 
     // Upload routes
     this.app.use('/api/upload', uploadRoutes);
+
+    // Waitlist routes
+    this.app.use('/api/waitlist', waitlistRoutes);
 
     // Domain public routes (no auth) - MUST BE MOUNTED FIRST
     domainRegistry.getAllDomains().forEach(domain => {

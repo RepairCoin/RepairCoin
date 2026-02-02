@@ -80,19 +80,19 @@ SELECT
   -- Metadata
   NOW() as last_updated;
 
--- Create index for faster refresh
-CREATE UNIQUE INDEX idx_platform_statistics_singleton ON platform_statistics ((1));
+-- Step 3: Perform initial refresh (non-concurrent for first time)
+REFRESH MATERIALIZED VIEW platform_statistics;
 
--- Step 3: Create refresh function
+-- Create index for faster refresh (AFTER initial refresh)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_statistics_singleton ON platform_statistics ((1));
+
+-- Step 4: Create refresh function for future updates
 CREATE OR REPLACE FUNCTION refresh_platform_statistics()
 RETURNS void AS $$
 BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY platform_statistics;
 END;
 $$ LANGUAGE plpgsql;
-
--- Step 4: Perform initial refresh
-SELECT refresh_platform_statistics();
 
 -- Step 5: Record this migration
 INSERT INTO schema_migrations (version, name, applied_at)

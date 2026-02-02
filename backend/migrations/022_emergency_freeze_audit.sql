@@ -50,6 +50,15 @@ CREATE TABLE IF NOT EXISTS admin_alerts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Add alert_type column if it doesn't exist (for existing tables)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='admin_alerts' AND column_name='alert_type') THEN
+        ALTER TABLE admin_alerts ADD COLUMN alert_type VARCHAR(50) NOT NULL DEFAULT 'system';
+    END IF;
+END $$;
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_emergency_freeze_audit_timestamp ON emergency_freeze_audit(timestamp);
 CREATE INDEX IF NOT EXISTS idx_emergency_freeze_audit_admin ON emergency_freeze_audit(admin_address);

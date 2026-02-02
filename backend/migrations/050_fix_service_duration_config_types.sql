@@ -11,14 +11,22 @@ ALTER TABLE service_duration_config
 DROP CONSTRAINT IF EXISTS service_duration_config_service_id_fkey;
 
 -- =====================================================
--- Step 2: Widen columns to accommodate full service IDs
--- shop_services.service_id is VARCHAR(50), so we use VARCHAR(255) for safety
+-- Step 2: Change column types to match shop_services (UUID)
+-- shop_services.service_id is UUID, so we need to convert
 -- =====================================================
+-- First, widen duration_id to accommodate UUID strings
 ALTER TABLE service_duration_config
 ALTER COLUMN duration_id TYPE VARCHAR(255);
 
+-- Convert service_id from VARCHAR to UUID
+-- Clean up any invalid data first
+DELETE FROM service_duration_config
+WHERE service_id IS NULL OR service_id = ''
+   OR service_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+
+-- Now convert to UUID
 ALTER TABLE service_duration_config
-ALTER COLUMN service_id TYPE VARCHAR(255);
+ALTER COLUMN service_id TYPE UUID USING service_id::uuid;
 
 -- =====================================================
 -- Step 3: Clean up any orphaned records before adding FK constraint

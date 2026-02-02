@@ -112,21 +112,27 @@ ORDER BY o.booking_date, o.booking_time_slot;
 -- =====================================================
 INSERT INTO shop_availability (shop_id, day_of_week, is_open, open_time, close_time)
 SELECT
-  shop_id,
+  s.shop_id,
   day,
   CASE WHEN day BETWEEN 1 AND 5 THEN true ELSE false END, -- Mon-Fri open
   CASE WHEN day BETWEEN 1 AND 5 THEN '09:00:00'::TIME ELSE NULL END,
   CASE WHEN day BETWEEN 1 AND 5 THEN '17:00:00'::TIME ELSE NULL END
-FROM shops
+FROM shops s
 CROSS JOIN generate_series(0, 6) as day
-ON CONFLICT (shop_id, day_of_week) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM shop_availability sa
+  WHERE sa.shop_id = s.shop_id AND sa.day_of_week = day
+);
 
 -- =====================================================
 -- Insert default time slot config for existing shops
 -- =====================================================
 INSERT INTO shop_time_slot_config (shop_id)
-SELECT shop_id FROM shops
-ON CONFLICT (shop_id) DO NOTHING;
+SELECT s.shop_id FROM shops s
+WHERE NOT EXISTS (
+  SELECT 1 FROM shop_time_slot_config sc
+  WHERE sc.shop_id = s.shop_id
+);
 
 COMMENT ON TABLE shop_availability IS 'Shop operating hours by day of week';
 COMMENT ON TABLE shop_time_slot_config IS 'Shop time slot booking configuration';
