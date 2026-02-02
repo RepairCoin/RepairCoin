@@ -32,6 +32,7 @@ interface ShopData {
   rcg_balance?: string | number;
   // Suspended shop fields
   active?: boolean;
+  verified?: boolean;
   suspendedAt?: string | null;
   suspended_at?: string | null;
 }
@@ -90,6 +91,7 @@ const BlockedOverlay: React.FC<{
   customMessage?: string;
 }> = ({ status, customMessage }) => {
   const getTitle = () => {
+    if (status.isPending) return "Application Pending Approval";
     if (status.isSuspended) return "Shop Suspended";
     if (status.isPaused) return "Subscription Paused";
     if (status.isExpired) return "Subscription Expired";
@@ -102,22 +104,23 @@ const BlockedOverlay: React.FC<{
     return status.statusMessage || "You cannot perform this operation with your current subscription status.";
   };
 
-  // Suspended uses red, paused uses orange
-  const isRedTheme = status.isSuspended || status.isExpired || status.isCancelled;
+  // Pending uses yellow, suspended/expired/cancelled uses red, paused uses orange
+  const isYellowTheme = status.isPending;
+  const isRedTheme = !isYellowTheme && (status.isSuspended || status.isExpired || status.isCancelled);
 
   return (
     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 rounded-lg">
       <div className="sticky top-1/2 -translate-y-1/2 flex items-center justify-center">
         <div className="text-center p-6 max-w-md">
           <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-            isRedTheme ? 'bg-red-500/20' : 'bg-orange-500/20'
+            isYellowTheme ? 'bg-yellow-500/20' : isRedTheme ? 'bg-red-500/20' : 'bg-orange-500/20'
           }`}>
             <AlertTriangle className={`w-8 h-8 ${
-              isRedTheme ? 'text-red-400' : 'text-orange-400'
+              isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
             }`} />
           </div>
           <h3 className={`text-lg font-bold mb-2 ${
-            isRedTheme ? 'text-red-400' : 'text-orange-400'
+            isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
           }`}>
             {getTitle()}
           </h3>
@@ -141,10 +144,12 @@ export const SubscriptionWarningBanner: React.FC<{
     return null;
   }
 
-  // Suspended uses red, paused uses orange
-  const isRedTheme = status.isSuspended || status.isExpired || status.isCancelled;
+  // Pending uses yellow, suspended/expired/cancelled uses red, paused uses orange
+  const isYellowTheme = status.isPending;
+  const isRedTheme = !isYellowTheme && (status.isSuspended || status.isExpired || status.isCancelled);
 
   const getTitle = () => {
+    if (status.isPending) return 'Application Pending Approval';
     if (status.isSuspended) return 'Shop Suspended';
     if (status.isPaused) return 'Subscription Paused';
     if (status.isExpired) return 'Subscription Expired';
@@ -153,17 +158,19 @@ export const SubscriptionWarningBanner: React.FC<{
 
   return (
     <div className={`border-2 rounded-xl p-4 ${
-      isRedTheme
-        ? 'bg-red-900/20 border-red-500/50'
-        : 'bg-orange-900/20 border-orange-500/50'
+      isYellowTheme
+        ? 'bg-yellow-900/20 border-yellow-500/50'
+        : isRedTheme
+          ? 'bg-red-900/20 border-red-500/50'
+          : 'bg-orange-900/20 border-orange-500/50'
     } ${className}`}>
       <div className="flex items-start gap-3">
         <AlertTriangle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-          isRedTheme ? 'text-red-400' : 'text-orange-400'
+          isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
         }`} />
         <div className="flex-1">
           <h4 className={`font-semibold ${
-            isRedTheme ? 'text-red-400' : 'text-orange-400'
+            isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
           }`}>
             {getTitle()}
           </h4>

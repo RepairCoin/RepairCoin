@@ -413,7 +413,7 @@ export default function SubscriptionManagementTab() {
     const date = new Date(dateStr);
     return isNaN(date.getTime())
       ? "-"
-      : date.toLocaleDateString("en-US", { timeZone: "America/Chicago" });
+      : date.toLocaleDateString();
   };
 
   // Status badge component
