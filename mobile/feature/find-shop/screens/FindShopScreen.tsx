@@ -1,5 +1,5 @@
-import { View, Text, ActivityIndicator, FlatList } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { View, Text, ActivityIndicator, FlatList, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, PROVIDER_DEFAULT, Polyline, Circle } from "react-native-maps";
 import WebViewMap, { MarkerData } from "@/shared/components/maps/WebViewMap";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
@@ -49,7 +49,7 @@ export default function FindShopScreen() {
     centerOnUserLocation,
     openDirections,
     closeDirections,
-    openPhoneDialer,
+    viewShop,
     increaseRadius,
     decreaseRadius,
     clearSelectedShop,
@@ -58,12 +58,18 @@ export default function FindShopScreen() {
     formatDuration,
   } = useFindShop();
 
+
   return (
     <View className="flex-1 bg-zinc-950">
       {/* Header */}
-      <View className="pt-16 px-4 pb-4 bg-zinc-950 z-10">
+      <View className="pt-14 px-4 pb-4 bg-zinc-950 border-b border-zinc-900">
         <View className="flex-row justify-between items-center">
-          <Text className="text-white text-xl font-semibold">Find Shop</Text>
+          <View>
+            <Text className="text-white text-2xl font-bold">Find Shop</Text>
+            <Text className="text-zinc-500 text-sm mt-0.5">
+              Discover repair shops near you
+            </Text>
+          </View>
           <ViewModeToggle
             viewMode={viewMode}
             onMapPress={() => setViewMode("map")}
@@ -74,31 +80,48 @@ export default function FindShopScreen() {
 
       {/* Geocoding Overlay */}
       {isGeocoding && (
-        <View className="absolute inset-0 bg-black/50 z-50 items-center justify-center">
-          <View className="bg-zinc-900 rounded-2xl p-6 items-center">
-            <ActivityIndicator size="large" color="#FFCC00" />
-            <Text className="text-white mt-3">Finding location...</Text>
+        <View className="absolute inset-0 bg-black/60 z-50 items-center justify-center">
+          <View className="bg-zinc-900 rounded-3xl p-8 items-center mx-8 border border-zinc-800">
+            <View className="w-16 h-16 rounded-full bg-[#FFCC00]/20 items-center justify-center mb-4">
+              <ActivityIndicator size="large" color="#FFCC00" />
+            </View>
+            <Text className="text-white text-lg font-semibold">Finding Location</Text>
+            <Text className="text-zinc-500 text-sm mt-2 text-center">
+              Looking up the shop address...
+            </Text>
           </View>
         </View>
       )}
 
       {/* Loading State */}
       {isLoading || locationLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FFCC00" />
-          <Text className="text-gray-400 mt-4">
-            {locationLoading ? "Getting your location..." : "Loading shops..."}
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="w-20 h-20 rounded-full bg-[#FFCC00]/10 items-center justify-center mb-6">
+            <ActivityIndicator size="large" color="#FFCC00" />
+          </View>
+          <Text className="text-white text-lg font-semibold">
+            {locationLoading ? "Getting Your Location" : "Loading Shops"}
+          </Text>
+          <Text className="text-zinc-500 text-sm text-center mt-2">
+            {locationLoading
+              ? "Please wait while we find your location..."
+              : "Fetching nearby repair shops..."}
           </Text>
         </View>
       ) : !initialMapRegion ? (
-        <View className="flex-1 items-center justify-center">
-          <Ionicons name="location-outline" size={64} color="#666" />
-          <Text className="text-gray-400 text-center mt-4">
-            Location permission required
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="w-24 h-24 rounded-full bg-zinc-900 items-center justify-center mb-6">
+            <Ionicons name="location-outline" size={48} color="#FFCC00" />
+          </View>
+          <Text className="text-white text-xl font-semibold text-center">
+            Location Access Required
           </Text>
-          <Text className="text-gray-500 text-sm text-center mt-2">
-            Please enable location access to find shops near you
+          <Text className="text-zinc-500 text-sm text-center mt-3 leading-5">
+            Please enable location access in your device settings to discover repair shops near you.
           </Text>
+          <Pressable className="mt-6 bg-[#FFCC00] px-6 py-3 rounded-xl">
+            <Text className="text-black font-semibold">Open Settings</Text>
+          </Pressable>
         </View>
       ) : viewMode === "map" ? (
         /* Map View */
@@ -182,15 +205,22 @@ export default function FindShopScreen() {
                     onPress={() => handleMarkerPress(shop)}
                   >
                     <View
-                      className={`w-10 h-10 rounded-full items-center justify-center ${
+                      className={`w-11 h-11 rounded-full items-center justify-center ${
                         selectedShop?.shopId === shop.shopId
                           ? "bg-[#FFCC00]"
-                          : "bg-zinc-800 border-2 border-[#FFCC00]"
+                          : "bg-zinc-900 border-2 border-[#FFCC00]"
                       }`}
+                      style={{
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 4,
+                        elevation: 5,
+                      }}
                     >
-                      <Feather
-                        name="tool"
-                        size={18}
+                      <Ionicons
+                        name="storefront"
+                        size={20}
                         color={selectedShop?.shopId === shop.shopId ? "#000" : "#FFCC00"}
                       />
                     </View>
@@ -243,7 +273,7 @@ export default function FindShopScreen() {
                 shop={selectedShop}
                 onMinimize={() => setIsShopPopupMinimized(true)}
                 onClose={clearSelectedShop}
-                onCall={() => openPhoneDialer(selectedShop)}
+                onViewShop={() => viewShop(selectedShop)}
                 onDirections={() => openDirections(selectedShop)}
               />
             )
@@ -267,29 +297,57 @@ export default function FindShopScreen() {
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListHeaderComponent={
             <View className="mb-4">
+              {/* Search Input */}
               <SearchInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search shops..."
+                placeholder="Search by name or address..."
               />
+
+              {/* Search Results Count */}
               {searchQuery.length > 0 && (
-                <Text className="text-gray-400 text-sm mt-2">
-                  {filteredShops.length} shop{filteredShops.length !== 1 ? "s" : ""} found
-                </Text>
+                <View className="flex-row items-center mt-4 bg-zinc-900/50 rounded-xl px-3 py-2">
+                  <Ionicons name="search" size={16} color="#71717a" />
+                  <Text className="text-zinc-400 text-sm ml-2">
+                    {filteredShops.length} result{filteredShops.length !== 1 ? "s" : ""} for "{searchQuery}"
+                  </Text>
+                  <Pressable onPress={() => setSearchQuery("")} className="ml-auto">
+                    <Ionicons name="close-circle" size={18} color="#71717a" />
+                  </Pressable>
+                </View>
               )}
+
+              {/* Section Title */}
+              <Text className="text-zinc-500 text-xs font-semibold mt-4 mb-2">
+                {searchQuery ? "SEARCH RESULTS" : "ALL SHOPS"}
+              </Text>
             </View>
           }
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center pt-20">
-              <Ionicons name="storefront-outline" size={64} color="#666" />
-              <Text className="text-gray-400 text-center mt-4">
-                {searchQuery.length > 0 ? "No shops match your search" : "No shops available"}
+            <View className="flex-1 items-center justify-center pt-12 px-8">
+              <View className="w-20 h-20 rounded-full bg-zinc-900 items-center justify-center mb-4">
+                <Ionicons
+                  name={searchQuery.length > 0 ? "search" : "storefront-outline"}
+                  size={36}
+                  color="#71717a"
+                />
+              </View>
+              <Text className="text-white text-lg font-semibold text-center">
+                {searchQuery.length > 0 ? "No Shops Found" : "No Shops Available"}
               </Text>
-              <Text className="text-gray-500 text-sm text-center mt-2">
+              <Text className="text-zinc-500 text-sm text-center mt-2 leading-5">
                 {searchQuery.length > 0
-                  ? "Try a different search term"
-                  : "Check back later for new shops"}
+                  ? `We couldn't find any shops matching "${searchQuery}". Try a different search term.`
+                  : "There are no repair shops available at the moment. Check back later for new listings."}
               </Text>
+              {searchQuery.length > 0 && (
+                <Pressable
+                  onPress={() => setSearchQuery("")}
+                  className="mt-4 bg-zinc-800 px-5 py-2.5 rounded-xl"
+                >
+                  <Text className="text-white font-medium">Clear Search</Text>
+                </Pressable>
+              )}
             </View>
           }
         />
