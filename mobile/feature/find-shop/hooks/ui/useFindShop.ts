@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Alert, Linking, Platform } from "react-native";
+import { Alert, Platform } from "react-native";
+import { router } from "expo-router";
 import MapView, { Region, LatLng } from "react-native-maps";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import {
@@ -329,21 +330,12 @@ export function useFindShop() {
     setIsDirectionsPanelMinimized(false);
   };
 
-  const openPhoneDialer = (shop: ShopWithLocation) => {
-    const phoneNumber = shop.phone;
-    if (!phoneNumber) {
-      Alert.alert("Phone Unavailable", "This shop doesn't have a phone number listed.");
+  const viewShop = (shop: ShopWithLocation) => {
+    if (!shop.shopId) {
+      Alert.alert("Error", "Shop information is not available.");
       return;
     }
-
-    const url = "tel:" + phoneNumber;
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
-      } else {
-        Alert.alert("Cannot Make Call", "Your device doesn't support phone calls.");
-      }
-    });
+    router.push(`/customer/profile/shop-profile/${shop.shopId}`);
   };
 
   const increaseRadius = () => {
@@ -401,7 +393,7 @@ export function useFindShop() {
     centerOnUserLocation,
     openDirections,
     closeDirections,
-    openPhoneDialer,
+    viewShop,
     increaseRadius,
     decreaseRadius,
     clearSelectedShop,

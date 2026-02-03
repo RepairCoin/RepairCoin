@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ShopWithLocation } from "../types";
 
@@ -8,46 +8,93 @@ interface ShopCardProps {
 }
 
 export function ShopCard({ shop, onPress }: ShopCardProps) {
+  const getTierColor = (tier: string) => {
+    switch (tier?.toLowerCase()) {
+      case "elite":
+        return { bg: "bg-purple-500/20", text: "text-purple-400" };
+      case "premium":
+        return { bg: "bg-blue-500/20", text: "text-blue-400" };
+      default:
+        return { bg: "bg-[#FFCC00]/20", text: "text-[#FFCC00]" };
+    }
+  };
+
+  const tierColors = getTierColor(shop.rcg_tier);
+
   return (
-    <Pressable onPress={onPress} className="bg-zinc-800 rounded-2xl p-4 mb-3">
-      <View className="flex-row justify-between items-start">
-        <View className="flex-1">
+    <Pressable
+      onPress={onPress}
+      className="bg-zinc-900 rounded-2xl mb-3 overflow-hidden border border-zinc-800 active:border-[#FFCC00]/50"
+    >
+      <View className="p-4 flex-row">
+        {/* Shop Logo */}
+        <View className="w-14 h-14 rounded-full overflow-hidden bg-zinc-800">
+          {shop.logoUrl ? (
+            <Image
+              source={{ uri: shop.logoUrl }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-full h-full items-center justify-center bg-[#FFCC00]/10">
+              <Ionicons name="storefront" size={24} color="#FFCC00" />
+            </View>
+          )}
+        </View>
+
+        {/* Shop Info */}
+        <View className="flex-1 ml-3 overflow-hidden">
+          {/* Name Row */}
           <View className="flex-row items-center">
-            <Text className="text-white text-lg font-semibold flex-1" numberOfLines={1}>
+            <Text
+              className="text-white text-base font-semibold flex-1"
+              numberOfLines={1}
+            >
               {shop.name || "Unknown Shop"}
             </Text>
-            {!shop.hasValidLocation && (
-              <View className="bg-zinc-700 px-2 py-0.5 rounded-full ml-2">
-                <Text className="text-gray-400 text-xs">No location</Text>
+            {shop.verified && (
+              <Ionicons name="checkmark-circle" size={14} color="#22C55E" style={{ marginLeft: 4 }} />
+            )}
+            {shop.distance !== undefined && shop.hasValidLocation && (
+              <View className="bg-[#FFCC00] px-2 py-0.5 rounded-full ml-2">
+                <Text className="text-black text-xs font-bold">
+                  {shop.distance.toFixed(1)} mi
+                </Text>
               </View>
             )}
           </View>
-          <Text className="text-gray-400 text-sm mt-1" numberOfLines={2}>
-            {shop.address || "No address available"}
-          </Text>
-        </View>
-        {shop.distance && shop.hasValidLocation && (
-          <View className="bg-[#FFCC00]/20 px-3 py-1 rounded-full ml-2">
-            <Text className="text-[#FFCC00] text-sm font-medium">
-              {shop.distance.toFixed(1)} mi
+
+          {/* Address */}
+          <View className="flex-row items-center mt-1">
+            <Ionicons name="location-outline" size={12} color="#71717a" />
+            <Text className="text-zinc-500 text-xs ml-1 flex-1" numberOfLines={1}>
+              {shop.address || "No address available"}
             </Text>
           </View>
-        )}
-      </View>
 
-      <View className="flex-row items-center mt-3 gap-4">
-        {shop.verified && (
-          <View className="flex-row items-center">
-            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
-            <Text className="text-green-500 text-xs ml-1">Verified</Text>
+          {/* Tags Row */}
+          <View className="flex-row items-center mt-2 gap-2 flex-wrap">
+            {shop.rcg_tier && (
+              <View className={`${tierColors.bg} px-2 py-0.5 rounded-full`}>
+                <Text className={`${tierColors.text} text-[10px] font-medium capitalize`}>
+                  {shop.rcg_tier}
+                </Text>
+              </View>
+            )}
+            {shop.crossShopEnabled && (
+              <View className="bg-blue-500/20 px-2 py-0.5 rounded-full flex-row items-center">
+                <Ionicons name="swap-horizontal" size={10} color="#60A5FA" />
+                <Text className="text-blue-400 text-[10px] ml-1">Cross-shop</Text>
+              </View>
+            )}
+            {shop.phone && (
+              <View className="flex-row items-center">
+                <Ionicons name="call-outline" size={10} color="#71717a" />
+                <Text className="text-zinc-500 text-[10px] ml-1">{shop.phone}</Text>
+              </View>
+            )}
           </View>
-        )}
-        {shop.crossShopEnabled && (
-          <View className="flex-row items-center">
-            <Ionicons name="swap-horizontal" size={16} color="#60A5FA" />
-            <Text className="text-blue-400 text-xs ml-1">Cross-shop</Text>
-          </View>
-        )}
+        </View>
       </View>
     </Pressable>
   );
