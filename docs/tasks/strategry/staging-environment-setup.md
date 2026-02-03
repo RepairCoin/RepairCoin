@@ -238,7 +238,7 @@ git push -u origin prod
 3. Configure:
    - **Engine**: PostgreSQL 15
    - **Name**: `db-postgresql-repaircoin-prod`
-   - **Region**: SGP1 (Singapore) - same as staging
+   - **Region**: NYC1 (New York) - US region for production
    - **Plan**: Basic ($15/mo)
 4. Click **Create Database Cluster**
 5. Wait for provisioning (~5-10 min)
@@ -253,7 +253,7 @@ git push -u origin prod
    - **Branch**: `prod` ← **IMPORTANT: Use prod branch, not main!**
    - **Source Directory**: `/backend`
    - **Name**: `repaircoin-prod`
-   - **Region**: Singapore (sgp1)
+   - **Region**: NYC (nyc1) - US region for production
    - **Plan**: Basic ($12/mo)
 
 #### Step 2.3: Set Production Backend Environment Variables

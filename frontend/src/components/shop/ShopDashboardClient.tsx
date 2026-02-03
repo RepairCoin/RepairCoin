@@ -1024,9 +1024,10 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {/* Reschedules tab is now a sub-tab inside Appointments */}
           {activeTab === "reschedules" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <RescheduleRequestsTab />
+              <AppointmentsTab defaultSubTab="reschedules" />
             </SubscriptionGuard>
           )}
 
