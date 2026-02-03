@@ -13,11 +13,14 @@ import {
   CalendarCheck2,
   CalendarX,
   ClockAlert,
-  X
+  X,
+  Calendar,
+  RefreshCw
 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { RescheduleRequestsTab } from './RescheduleRequestsTab';
 
 interface DayBookings {
   date: string;
@@ -25,8 +28,13 @@ interface DayBookings {
 }
 
 
-export const AppointmentsTab: React.FC = () => {
+interface AppointmentsTabProps {
+  defaultSubTab?: 'appointments' | 'reschedules';
+}
+
+export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab = 'appointments' }) => {
   const router = useRouter();
+  const [activeSubTab, setActiveSubTab] = useState<'appointments' | 'reschedules'>(defaultSubTab);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -411,6 +419,37 @@ export const AppointmentsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Sub-tab Navigation */}
+      <div className="flex gap-6 border-b border-gray-700">
+        <button
+          onClick={() => setActiveSubTab('appointments')}
+          className={`pb-3 px-1 flex items-center gap-2 text-sm font-medium transition-colors ${
+            activeSubTab === 'appointments'
+              ? 'text-[#FFCC00] border-b-2 border-[#FFCC00]'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Calendar className="w-4 h-4" /> Appointments
+        </button>
+        <button
+          onClick={() => setActiveSubTab('reschedules')}
+          className={`pb-3 px-1 flex items-center gap-2 text-sm font-medium transition-colors ${
+            activeSubTab === 'reschedules'
+              ? 'text-[#FFCC00] border-b-2 border-[#FFCC00]'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <RefreshCw className="w-4 h-4" /> Reschedules
+        </button>
+      </div>
+
+      {/* Reschedules Sub-tab */}
+      {activeSubTab === 'reschedules' && (
+        <RescheduleRequestsTab />
+      )}
+
+      {/* Appointments Sub-tab */}
+      {activeSubTab === 'appointments' && (<>
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Pending Booking */}
@@ -730,6 +769,7 @@ export const AppointmentsTab: React.FC = () => {
           </div>
         </div>
       </div>
+      </>)}
     </div>
   );
 };
