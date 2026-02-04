@@ -48,7 +48,8 @@ const publicRouter = Router();
 router.get('/subscription/status', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    
+    const forceSync = req.query.sync === 'true'; // Optional: force sync with Stripe
+
     if (!shopId) {
       return res.status(401).json({
         success: false,
@@ -56,7 +57,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       });
     }
 
-    logger.debug('Checking subscription status for shop', { shopId });
+    logger.debug('Checking subscription status for shop', { shopId, forceSync });
 
     const db = DatabaseService.getInstance();
 
