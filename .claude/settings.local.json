@@ -93,7 +93,10 @@
       "Bash(git status:*)",
       "Bash(npm run test:*)",
       "Bash(cd:*)",
-      "Bash(npm run db:check:*)"
+      "Bash(npm run db:check:*)",
+      "Bash(ping:*)",
+      "Bash(lsof:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

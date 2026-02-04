@@ -83,8 +83,8 @@ export default function WaitlistPage() {
           </h2>
 
           <p className="text-lg text-gray-600 mb-8">
-            Thank you for your interest in RepairCoin's RCG Staking feature. We'll notify you
-            at <span className="font-semibold text-gray-900">{email}</span> when it launches.
+            Thank you for your interest in RepairCoin. We'll notify you
+            at <span className="font-semibold text-gray-900">{email}</span> when we launch new features and updates.
           </p>
 
           <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 mb-8">
@@ -92,15 +92,15 @@ export default function WaitlistPage() {
             <ul className="text-left text-gray-700 space-y-2">
               <li className="flex items-start">
                 <span className="text-yellow-500 mr-2">•</span>
-                <span>We'll send you updates as we prepare for launch</span>
+                <span>Receive updates on new features and platform improvements</span>
               </li>
               <li className="flex items-start">
                 <span className="text-yellow-500 mr-2">•</span>
-                <span>Early access to staking features</span>
+                <span>Early access to upcoming features and beta programs</span>
               </li>
               <li className="flex items-start">
                 <span className="text-yellow-500 mr-2">•</span>
-                <span>Exclusive updates on platform revenue growth</span>
+                <span>Exclusive announcements about the RepairCoin ecosystem</span>
               </li>
             </ul>
           </div>
@@ -117,82 +117,222 @@ export default function WaitlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#1e1f22] to-gray-900 flex items-center justify-center px-4 py-12">
-      <div className="max-w-4xl w-full">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-[#1e1f22] to-gray-900 px-4 py-12">
+      <div className="max-w-6xl mx-auto">
         {/* Header Section */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            Join the <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">RCG Staking</span> Waitlist
+            Join the <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">RepairCoin</span> Revolution
           </h1>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Be among the first to earn passive income from platform revenue when staking launches.
+          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+            Be among the first to experience the future of repair services with blockchain-powered rewards
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="grid md:grid-cols-2 gap-8 mb-8">
-          {/* Left: Benefits */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-8 border border-gray-700">
-            <h2 className="text-2xl font-bold text-white mb-6">Why Stake RCG?</h2>
+        {/* For Customers Section */}
+        <div className="mb-12">
+          <div className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 rounded-3xl p-8 border border-blue-700/50 mb-8">
+            <div className="flex items-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-600 rounded-xl flex items-center justify-center mr-4">
+                <span className="text-white text-2xl">👤</span>
+              </div>
+              <h2 className="text-3xl font-bold text-white">For Customers</h2>
+            </div>
 
-            <div className="space-y-4">
-              <div className="flex items-start">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
-                  <span className="text-white text-xl">💰</span>
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">Earn Revenue Share</h3>
-                  <p className="text-gray-400 text-sm">
-                    Receive 10% of all platform RCN sales revenue distributed to stakers
-                  </p>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🎁</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Earn RCN Tokens</h3>
+                    <p className="text-gray-400 text-sm">
+                      Get rewarded with RCN tokens for every repair service you complete at participating shops
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
-                  <span className="text-white text-xl">🔒</span>
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">Flexible Lock Periods</h3>
-                  <p className="text-gray-400 text-sm">
-                    Choose your commitment level with rewards scaling by lock duration
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
-                  <span className="text-white text-xl">📊</span>
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">Transparent Returns</h3>
-                  <p className="text-gray-400 text-sm">
-                    Real-time dashboard showing your share of revenue distribution
-                  </p>
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">💰</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Redeem Rewards</h3>
+                    <p className="text-gray-400 text-sm">
+                      Use your earned tokens to get discounts on future repairs at any shop in the network
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start">
-                <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
-                  <span className="text-white text-xl">🚀</span>
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🏆</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Tier System</h3>
+                    <p className="text-gray-400 text-sm">
+                      Progress through Bronze, Silver, and Gold tiers to unlock bonus rewards and exclusive perks
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">Early Access</h3>
-                  <p className="text-gray-400 text-sm">
-                    Waitlist members get priority access when staking goes live
-                  </p>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">👥</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Referral Bonuses</h3>
+                    <p className="text-gray-400 text-sm">
+                      Earn 25 RCN when you refer a friend who completes their first repair (they get 10 RCN too!)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🛍️</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Service Marketplace</h3>
+                    <p className="text-gray-400 text-sm">
+                      Browse verified repair services, book appointments, and read reviews - all in one place
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🔐</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Blockchain Security</h3>
+                    <p className="text-gray-400 text-sm">
+                      Every transaction is secured and verified on the Base blockchain for complete transparency
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: Form */}
+        {/* For Shops Section */}
+        <div className="mb-12">
+          <div className="bg-gradient-to-br from-orange-900/50 to-yellow-900/50 rounded-3xl p-8 border border-orange-700/50 mb-8">
+            <div className="flex items-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-600 rounded-xl flex items-center justify-center mr-4">
+                <span className="text-white text-2xl">🏪</span>
+              </div>
+              <h2 className="text-3xl font-bold text-white">For Shop Owners</h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">📈</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Increase Revenue</h3>
+                    <p className="text-gray-400 text-sm">
+                      Attract more customers with blockchain rewards and boost repeat business by up to 40%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🪙</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Purchase RCN Tokens</h3>
+                    <p className="text-gray-400 text-sm">
+                      Buy RCN at tiered pricing based on your RCG holdings - more RCG means better rates
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🎯</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Issue Rewards</h3>
+                    <p className="text-gray-400 text-sm">
+                      Reward customers instantly after repairs with RCN tokens to drive loyalty and referrals
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🏅</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Shop Tiers</h3>
+                    <p className="text-gray-400 text-sm">
+                      Hold RCG tokens to unlock Standard, Premium, or Elite tier benefits and better pricing
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">📊</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Analytics Dashboard</h3>
+                    <p className="text-gray-400 text-sm">
+                      Track rewards issued, redemptions, customer activity, and marketplace performance
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700">
+                <div className="flex items-start">
+                  <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white text-xl">🌐</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Marketplace Listing</h3>
+                    <p className="text-gray-400 text-sm">
+                      List your services on the RepairCoin marketplace and reach customers across the network
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Join Form */}
+        <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-3xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">
               Reserve Your Spot
             </h2>
-            <p className="text-gray-600 mb-6">
-              Enter your details to join the waitlist
+            <p className="text-gray-600 mb-8 text-center">
+              Join the waitlist to get early access and exclusive updates
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -219,27 +359,29 @@ export default function WaitlistPage() {
                   <button
                     type="button"
                     onClick={() => setUserType("customer")}
-                    className={`p-4 rounded-xl border-2 transition-all ${
+                    className={`p-6 rounded-xl border-2 transition-all ${
                       userType === "customer"
-                        ? "border-yellow-500 bg-yellow-50 text-yellow-700"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
                         : "border-gray-300 hover:border-gray-400 text-gray-700"
                     }`}
                   >
-                    <div className="text-3xl mb-2">👤</div>
-                    <div className="font-semibold">Customer</div>
+                    <div className="text-4xl mb-2">👤</div>
+                    <div className="font-bold text-lg">Customer</div>
+                    <div className="text-xs text-gray-500 mt-1">Earn & redeem rewards</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setUserType("shop")}
-                    className={`p-4 rounded-xl border-2 transition-all ${
+                    className={`p-6 rounded-xl border-2 transition-all ${
                       userType === "shop"
-                        ? "border-yellow-500 bg-yellow-50 text-yellow-700"
+                        ? "border-orange-500 bg-orange-50 text-orange-700"
                         : "border-gray-300 hover:border-gray-400 text-gray-700"
                     }`}
                   >
-                    <div className="text-3xl mb-2">🏪</div>
-                    <div className="font-semibold">Shop Owner</div>
+                    <div className="text-4xl mb-2">🏪</div>
+                    <div className="font-bold text-lg">Shop Owner</div>
+                    <div className="text-xs text-gray-500 mt-1">Issue rewards & grow</div>
                   </button>
                 </div>
               </div>
@@ -278,18 +420,18 @@ export default function WaitlistPage() {
               </button>
 
               <p className="text-xs text-center text-gray-500">
-                By joining, you'll receive updates about RCG staking launch and platform news.
+                By joining, you'll receive updates about RepairCoin platform launches and new features.
               </p>
             </form>
           </div>
         </div>
 
         {/* Footer Info */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
+        <div className="mt-8 bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
           <div className="flex items-center justify-center text-gray-400 text-sm">
-            <span className="mr-2">📅</span>
+            <span className="mr-2">🚀</span>
             <span>
-              Staking launch date will be announced to waitlist members first
+              Early access and exclusive launch updates will be announced to waitlist members first
             </span>
           </div>
         </div>

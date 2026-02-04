@@ -19,7 +19,7 @@ import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
-// import { SupportTab } from "@/components/shop/tabs/SupportTab"; // TODO: component not yet created
+import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
@@ -1119,10 +1119,10 @@ export default function ShopDashboardClient() {
             />
           )}
 
-          {/* Support Tab - TODO: SupportTab component not yet created */}
-          {/* {activeTab === "support" && shopData && (
-            <SupportTab shopId={shopData.shopId} />
-          )} */}
+          {/* Support Tab */}
+          {activeTab === "support" && shopData && (
+            <SupportTab />
+          )}
 
           {activeTab === "staking" && shopData && (
             <SubscriptionGuard shopData={shopData}>
