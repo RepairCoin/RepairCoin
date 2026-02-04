@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Conversation } from "../types";
 import { formatTimestamp } from "../utils";
@@ -25,13 +25,27 @@ export default function ConversationItem({
       className="flex-row items-center px-4 py-3 border-b border-zinc-800"
       onPress={onPress}
     >
-      <View className="w-12 h-12 rounded-full bg-zinc-800 items-center justify-center mr-3">
-        <Ionicons
-          name={isCustomer ? "storefront-outline" : "person-outline"}
-          size={24}
-          color="#FFCC00"
+      {isCustomer && conversation.shopImageUrl ? (
+        <Image
+          source={{ uri: conversation.shopImageUrl }}
+          className="w-12 h-12 rounded-full mr-3 bg-zinc-800"
+          resizeMode="cover"
         />
-      </View>
+      ) : !isCustomer && conversation.customerImageUrl ? (
+        <Image
+          source={{ uri: conversation.customerImageUrl }}
+          className="w-12 h-12 rounded-full mr-3 bg-zinc-800"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-12 h-12 rounded-full bg-zinc-800 items-center justify-center mr-3">
+          <Ionicons
+            name={isCustomer ? "storefront-outline" : "person-outline"}
+            size={24}
+            color="#FFCC00"
+          />
+        </View>
+      )}
       <View className="flex-1">
         <View className="flex-row justify-between items-center">
           <Text
