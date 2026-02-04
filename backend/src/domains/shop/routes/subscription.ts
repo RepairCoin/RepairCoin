@@ -48,7 +48,8 @@ const publicRouter = Router();
 router.get('/subscription/status', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    
+    const forceSync = req.query.sync === 'true'; // Optional: force sync with Stripe
+
     if (!shopId) {
       return res.status(401).json({
         success: false,
@@ -56,7 +57,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       });
     }
 
-    logger.debug('Checking subscription status for shop', { shopId });
+    logger.debug('Checking subscription status for shop', { shopId, forceSync });
 
     const db = DatabaseService.getInstance();
 
@@ -145,51 +146,61 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
     let stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
 
     if (stripeSubscription) {
-      // Sync with Stripe to ensure database is up-to-date
-      try {
-        logger.info('🔄 Syncing subscription status with Stripe', {
-          shopId,
-          subscriptionId: stripeSubscription.stripeSubscriptionId,
-          currentStatus: stripeSubscription.status
-        });
+      // Only sync with Stripe if explicitly requested (forceSync=true)
+      // This makes the endpoint faster by default - sync happens via webhooks or /sync endpoint
+      if (forceSync) {
+        try {
+          logger.info('🔄 Syncing subscription status with Stripe (forced)', {
+            shopId,
+            subscriptionId: stripeSubscription.stripeSubscriptionId,
+            currentStatus: stripeSubscription.status
+          });
 
-        const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(
-          stripeSubscription.stripeSubscriptionId
-        );
+          const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(
+            stripeSubscription.stripeSubscriptionId
+          );
 
-        logger.info('✅ Subscription synced with Stripe', {
-          shopId,
-          subscriptionId: syncedSubscription.stripeSubscriptionId,
-          syncedStatus: syncedSubscription.status
-        });
-
-        // Check if subscription is still active after sync
-        // Active statuses: 'active', 'past_due', 'unpaid'
-        const activeStatuses = ['active', 'past_due', 'unpaid'];
-        if (!activeStatuses.includes(syncedSubscription.status)) {
-          logger.warn('⚠️ Subscription is no longer active after sync', {
+          logger.info('✅ Subscription synced with Stripe', {
             shopId,
             subscriptionId: syncedSubscription.stripeSubscriptionId,
-            status: syncedSubscription.status
+            syncedStatus: syncedSubscription.status
           });
 
-          // Return no active subscription
-          return res.json({
-            success: true,
-            data: {
-              currentSubscription: null,
-              hasActiveSubscription: false
-            }
+          // Check if subscription is still active after sync
+          // Active statuses: 'active', 'past_due', 'unpaid'
+          const activeStatuses = ['active', 'past_due', 'unpaid'];
+          if (!activeStatuses.includes(syncedSubscription.status)) {
+            logger.warn('⚠️ Subscription is no longer active after sync', {
+              shopId,
+              subscriptionId: syncedSubscription.stripeSubscriptionId,
+              status: syncedSubscription.status
+            });
+
+            // Return no active subscription
+            return res.json({
+              success: true,
+              data: {
+                currentSubscription: null,
+                hasActiveSubscription: false
+              }
+            });
+          }
+
+          stripeSubscription = syncedSubscription;
+        } catch (syncError) {
+          // Log sync error but continue with cached data
+          logger.error('⚠️ Failed to sync subscription with Stripe, using cached data', {
+            shopId,
+            subscriptionId: stripeSubscription.stripeSubscriptionId,
+            error: syncError instanceof Error ? syncError.message : 'Unknown error'
           });
         }
-
-        stripeSubscription = syncedSubscription;
-      } catch (syncError) {
-        // Log sync error but continue with cached data
-        logger.error('⚠️ Failed to sync subscription with Stripe, using cached data', {
+      } else {
+        logger.debug('📋 Using cached subscription data (sync skipped)', {
           shopId,
           subscriptionId: stripeSubscription.stripeSubscriptionId,
-          error: syncError instanceof Error ? syncError.message : 'Unknown error'
+          status: stripeSubscription.status,
+          cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd
         });
       }
 

@@ -1010,12 +1010,14 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         });
       }
 
-      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      // Sync shop_subscriptions with stripe subscription (creates or updates record)
       const { currentPeriodEnd: periodEndTs } = extractSubscriptionPeriodDates(subscription);
       if (periodEndTs) {
         const shopSubRepo = new ShopSubscriptionRepository();
-        await shopSubRepo.syncNextPaymentDateFromStripe(
+        await shopSubRepo.syncFromStripeSubscription(
           shopId,
+          subscription.id,
+          subscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
           new Date(periodEndTs * 1000)
         );
       }
