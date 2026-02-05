@@ -989,6 +989,8 @@ export default function ShopDashboardClient() {
               purchases={purchases}
               onRefreshData={loadShopData}
               authToken={authToken ?? undefined}
+              loading={loading}
+              error={error}
             />
           )}
 
