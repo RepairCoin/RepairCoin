@@ -39,7 +39,7 @@ export function ShopInfoSection({
             <Ionicons name="storefront-outline" size={20} color="#FFCC00" />
           </View>
           <View className="flex-1">
-            <Text className="text-gray-500 text-xs">Shop Name</Text>
+            <Text className="text-gray-500 text-sm">Shop Name</Text>
             <Text className="text-white text-base">{shopName}</Text>
           </View>
         </View>
@@ -52,7 +52,7 @@ export function ShopInfoSection({
             <Ionicons name="location-outline" size={20} color="#FFCC00" />
           </View>
           <View className="flex-1">
-            <Text className="text-gray-500 text-xs">Address</Text>
+            <Text className="text-gray-500 text-sm">Address</Text>
             <Text className="text-white text-base">{shopAddress}</Text>
           </View>
         </View>
@@ -65,7 +65,7 @@ export function ShopInfoSection({
             <Ionicons name="call-outline" size={20} color="#FFCC00" />
           </View>
           <View className="flex-1">
-            <Text className="text-gray-500 text-xs">Phone</Text>
+            <Text className="text-gray-500 text-sm">Phone</Text>
             <Text className="text-[#FFCC00] text-base">{shopPhone}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />
@@ -79,7 +79,7 @@ export function ShopInfoSection({
             <Ionicons name="mail-outline" size={20} color="#FFCC00" />
           </View>
           <View className="flex-1">
-            <Text className="text-gray-500 text-xs">Email</Text>
+            <Text className="text-gray-500 text-sm">Email</Text>
             <Text className="text-[#FFCC00] text-base">{shopEmail}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#666" />

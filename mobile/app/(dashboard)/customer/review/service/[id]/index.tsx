@@ -1,0 +1,1 @@
+export { ServiceReviewsScreen as default } from "@/feature/review/screens";

@@ -3,11 +3,14 @@ import { Linking, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
+import { useQuery } from "@tanstack/react-query";
 import { useService } from "@/shared/hooks/service/useService";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
+import { serviceApi } from "@/shared/services/service.services";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
+import { queryKeys } from "@/shared/config/queryClient";
 import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION } from "../../constants";
 import { TierInfo, RewardCalculation } from "../../types";
 
@@ -24,6 +27,19 @@ export function useServiceDetail() {
   const isCustomer = userType === "customer";
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { data: customerData } = useGetCustomerByWalletAddress(account?.address || "");
+
+  // Fetch reviews for this service (limited to 2 for preview)
+  const {
+    data: reviewsData,
+    isLoading: isLoadingReviews,
+  } = useQuery({
+    queryKey: queryKeys.serviceReviews(id!),
+    queryFn: () => serviceApi.getServiceReviews(id!, { limit: 2 }),
+    enabled: !!id,
+  });
+
+  const reviews = reviewsData?.data || [];
+  const reviewStats = reviewsData?.stats || null;
 
   const getTierInfo = (): TierInfo => {
     const tier = customerData?.customer?.tier || "bronze";
@@ -208,6 +224,10 @@ export function useServiceDetail() {
     goBack();
   };
 
+  const handleViewAllReviews = () => {
+    router.push(`/customer/review/service/${id}` as any);
+  };
+
   return {
     id,
     serviceData,
@@ -233,5 +253,10 @@ export function useServiceDetail() {
     handleGoBack,
     getCategoryLabel,
     formatDate,
+    // Reviews
+    reviews,
+    reviewStats,
+    isLoadingReviews,
+    handleViewAllReviews,
   };
 }

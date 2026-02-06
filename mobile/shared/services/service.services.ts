@@ -7,6 +7,10 @@ import {
   ServiceFilters,
   ServiceDetailResponse,
 } from "../interfaces/service.interface";
+import {
+  ServiceReviewsResponse,
+  ReviewFilters,
+} from "../interfaces/review.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
 class ServiceApi {
@@ -138,6 +142,19 @@ class ServiceApi {
       return await apiClient.get(`/services/favorites/check/${serviceId}`);
     } catch (error: any) {
       console.error("Failed to check favorite:", error.message);
+      throw error;
+    }
+  }
+
+  async getServiceReviews(
+    serviceId: string,
+    filters?: ReviewFilters
+  ): Promise<ServiceReviewsResponse> {
+    try {
+      const queryString = filters ? buildQueryString(filters) : "";
+      return await apiClient.get(`/services/${serviceId}/reviews${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get service reviews:", error.message);
       throw error;
     }
   }
