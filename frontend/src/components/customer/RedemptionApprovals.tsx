@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, QrCode, Download, X, Check, Loader2, RefreshCw, ShieldCheck, Home, ChevronRight, Wallet, Hourglass } from "lucide-react";
+import { CheckCircle, XCircle, Clock, QrCode, Download, X, Check, Loader2, RefreshCw, ShieldCheck, Wallet, Hourglass } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
 import { useCustomer } from "@/hooks/useCustomer";
@@ -443,21 +443,6 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Header */}
-      <div>
-        <div className="flex items-center gap-2 text-sm mb-1">
-          <Home className="w-4 h-4 text-gray-400" />
-          <ChevronRight className="w-3 h-3 text-gray-600" />
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-[#FFCC00]" />
-            <span className="text-[#FFCC00] font-semibold">Approvals</span>
-          </div>
-        </div>
-        <p className="text-gray-400 text-sm mt-1">
-          Approve or reject redemption requests from partner shops and manage how your RCN tokens are used.
-        </p>
-      </div>
-
       {/* Top Cards Row: QR Code + Available Balance */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Generate QR Code Card */}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Loader2, Home } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking, RescheduleRequest } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -10,14 +10,6 @@ import { RescheduleModal } from './RescheduleModal';
 import { CancelBookingModal, CancelOrderData } from './CancelBookingModal';
 import { AppointmentCard } from './AppointmentCard';
 import { AppointmentCalendarWidget } from './AppointmentCalendarWidget';
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage
-} from '@/components/ui/breadcrumb';
 import {
   Select,
   SelectContent,
@@ -196,36 +188,6 @@ export const AppointmentsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              href="/customer"
-              className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
-            >
-              <Home className="w-4 h-4" />
-              <span>Home</span>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator className="text-gray-600" />
-          <BreadcrumbItem>
-            <BreadcrumbPage className="flex items-center gap-1.5 text-[#FFCC00]">
-              <Calendar className="w-4 h-4" />
-              <span>My Appointments</span>
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">My Appointments</h1>
-        <p className="text-gray-400">
-          View all upcoming appointments you booked with RepairCoin partner shops.
-        </p>
-      </div>
-
       {/* Main Content */}
       <div className="flex gap-6">
         {/* Left: Filters + Cards */}
