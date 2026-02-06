@@ -17,6 +17,7 @@ import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
 import { MessagesTab } from "@/components/customer/tabs/MessagesTab";
 // import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection"; // TODO: component not yet created
+import { CustomerBreadcrumb } from "@/components/customer/CustomerBreadcrumb";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 
@@ -155,7 +156,7 @@ export default function CustomerDashboardClient() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Suspension Banner - Show if account is suspended */}
           {userProfile?.suspended && (
             <SuspensionBanner
@@ -163,6 +164,9 @@ export default function CustomerDashboardClient() {
               suspendedAt={userProfile.suspendedAt}
             />
           )}
+
+          {/* Breadcrumb */}
+          <CustomerBreadcrumb activeTab={activeTab} />
 
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}

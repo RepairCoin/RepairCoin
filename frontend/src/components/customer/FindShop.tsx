@@ -9,8 +9,6 @@ import {
   Phone,
   Globe,
   CheckCircle,
-  Home,
-  ChevronRight,
   Store,
   Star,
   Clock,
@@ -364,21 +362,6 @@ export function FindShop() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Header */}
-      <div>
-        <div className="flex items-center gap-2 text-sm mb-1">
-          <Home className="w-4 h-4 text-gray-400" />
-          <ChevronRight className="w-3 h-3 text-gray-600" />
-          <div className="flex items-center gap-1.5">
-            <Store className="w-4 h-4 text-[#FFCC00]" />
-            <span className="text-[#FFCC00] font-semibold">Find Shop</span>
-          </div>
-        </div>
-        <p className="text-gray-400 text-sm mt-1">
-          Find trusted partner shops, book services, and earn RepairCoin every time you visit.
-        </p>
-      </div>
-
       {/* Main Content Card */}
       <div className="bg-[#1a1a1a] border border-gray-800 rounded-xl overflow-hidden">
         {/* Section Header */}
