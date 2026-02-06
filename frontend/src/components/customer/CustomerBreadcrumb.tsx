@@ -53,7 +53,8 @@ const TAB_META: Record<string, TabMeta> = {
   },
   referrals: {
     title: "Referrals",
-    description: "Invite friends and earn RCN rewards.",
+    description:
+      "Share your link, grow the community, and earn rewards effortlessly.",
     icon: <UserPlus className="w-5 h-5 text-[#FFCC00]" />,
   },
   gifting: {
