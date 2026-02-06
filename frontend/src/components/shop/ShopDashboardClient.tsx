@@ -523,7 +523,7 @@ export default function ShopDashboardClient() {
       setShowOnboardingModal(true);
     } else {
       if (!shopData || !account?.address) {
-        setError("Shop data not loaded or wallet not connected");
+        toast.error("Shop data not loaded or wallet not connected");
         return;
       }
 
@@ -566,7 +566,7 @@ export default function ShopDashboardClient() {
         setShowPaymentWaitingModal(true);
       } catch (err) {
         console.error("Error initiating purchase:", err);
-        setError(
+        toast.error(
           err instanceof Error ? err.message : "Purchase initiation failed"
         );
       } finally {
@@ -592,7 +592,7 @@ export default function ShopDashboardClient() {
   };
 
   const handlePaymentError = (error: string) => {
-    setError(`Payment failed: ${error}`);
+    toast.error(`Payment failed: ${error}`);
   };
 
   const cancelPayment = () => {
@@ -670,15 +670,15 @@ export default function ShopDashboardClient() {
         // Reload data to reflect the failed status
         await loadShopData();
       } else if (result.success === false && result.data?.stripeStatus) {
-        setError(
+        toast.error(
           `Payment status: ${result.data.stripeStatus}. Please wait a moment and try again.`
         );
       } else {
-        setError(result.message || "Could not verify payment status");
+        toast.error(result.message || "Could not verify payment status");
       }
     } catch (error) {
       console.error("Error checking purchase status:", error);
-      setError("Failed to check payment status");
+      toast.error("Failed to check payment status");
     }
   };
 
@@ -1139,19 +1139,6 @@ export default function ShopDashboardClient() {
                 subscriptionActive={isOperational || isCancelledButActive || false}
               />
             </SubscriptionGuard>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="bg-red-900 bg-opacity-90 border border-red-700 rounded-lg p-4 mt-6">
-              <div className="flex">
-                <div className="text-red-400 text-2xl mr-3">⚠️</div>
-                <div>
-                  <h3 className="text-sm font-medium text-red-300">Error</h3>
-                  <div className="mt-2 text-sm text-red-200">{error}</div>
-                </div>
-              </div>
-            </div>
           )}
 
           {/* Payment Modal */}
