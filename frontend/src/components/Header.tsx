@@ -79,6 +79,12 @@ const Header: React.FC = () => {
           const userData = session.user as any;
           setHasValidSession(true);
           setSessionUserType(userData.type || userData.role);
+
+          // Refresh the auth_token cookie so the Next.js middleware
+          // won't block navigation to protected routes (the access
+          // token cookie has a short 15-min maxAge and may be expired
+          // even though the refresh token is still valid).
+          await authApi.refreshToken();
         }
       } catch (error) {
         // No valid session - this is normal for logged out users
