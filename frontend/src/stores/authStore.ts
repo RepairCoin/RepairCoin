@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { authApi } from '@/services/api/auth';
+import { clearAllAuthCaches } from '@/hooks/useAuthInitializer';
 
 export interface UserProfile {
   id: string;
@@ -32,6 +33,7 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   loginInProgress: boolean; // Global flag to prevent duplicate logins
+  authLockId: string | null; // Unique ID for current auth operation (prevents race conditions)
   authError: AuthError | null; // Structured error for better handling
   authInitialized: boolean; // Flag to track if initial auth check is complete
   walletMismatchPending: boolean; // Flag to prevent logout when disconnecting mismatched wallet
@@ -54,7 +56,7 @@ export interface AuthState {
   resetAuth: () => void;
 
   // Centralized authentication actions
-  login: (address: string) => Promise<void>;
+  login: (address: string, email?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -68,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       loginInProgress: false,
+      authLockId: null, // Unique ID for current auth operation
       authError: null,
       authInitialized: false, // Initially false, set to true after first auth check
       walletMismatchPending: false, // Flag to prevent logout when disconnecting mismatched wallet
@@ -139,12 +142,13 @@ export const useAuthStore = create<AuthState>()(
           error: null,
           authError: null,
           authInitialized: false,
-          loginInProgress: false
+          loginInProgress: false,
+          authLockId: null
         }, false, 'resetAuth');
 
-        // Clear any stored data
+        // Clear all auth-related caches
         if (typeof window !== 'undefined') {
-          sessionStorage.clear();
+          clearAllAuthCaches();
         }
       },
 
@@ -155,14 +159,26 @@ export const useAuthStore = create<AuthState>()(
         console.log('[authStore] 🎯 Login function called with address:', address, email ? `email: ${email}` : '');
         const state = get();
 
-        // Prevent duplicate login attempts - GLOBAL LOCK
+        // Generate unique lock ID for this login attempt
+        const lockId = `login_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Prevent duplicate login attempts - GLOBAL LOCK with ID
         if (state.loginInProgress) {
-          console.log('[authStore] Login already in progress, skipping duplicate call');
+          console.log('[authStore] Login already in progress (lockId:', state.authLockId, '), skipping duplicate call');
           return;
         }
 
-        console.log('[authStore] Starting login process...');
-        set({ loginInProgress: true, isLoading: true, error: null }, false, 'login:start');
+        console.log('[authStore] Starting login process with lockId:', lockId);
+        set({ loginInProgress: true, authLockId: lockId, isLoading: true, error: null }, false, 'login:start');
+
+        // Safety timeout - auto-release lock after 15 seconds to prevent deadlock
+        const lockTimeout = setTimeout(() => {
+          const currentState = get();
+          if (currentState.authLockId === lockId && currentState.loginInProgress) {
+            console.warn('[authStore] Login timeout reached, releasing lock:', lockId);
+            set({ loginInProgress: false, authLockId: null, isLoading: false }, false, 'login:timeout');
+          }
+        }, 15000);
 
         try {
           // Check user type (with email fallback for social login)
@@ -326,13 +342,33 @@ export const useAuthStore = create<AuthState>()(
             }));
           }
         } finally {
-          set({ isLoading: false, loginInProgress: false }, false, 'login:complete');
+          // Clear the safety timeout
+          clearTimeout(lockTimeout);
+
+          // Only release lock if we still own it (prevents race condition)
+          const currentState = get();
+          if (currentState.authLockId === lockId) {
+            set({ isLoading: false, loginInProgress: false, authLockId: null }, false, 'login:complete');
+            console.log('[authStore] Login complete, released lock:', lockId);
+          } else {
+            console.log('[authStore] Lock already released or taken by another operation, lockId:', lockId, 'current:', currentState.authLockId);
+          }
         }
       },
 
       // Centralized logout function
       logout: async () => {
-        set({ loginInProgress: false }, false, 'logout:start');
+        const state = get();
+
+        // If login is in progress, wait for it to complete or timeout
+        if (state.loginInProgress) {
+          console.log('[authStore] Login in progress during logout request, waiting...');
+          // Wait up to 2 seconds for login to complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        console.log('[authStore] Starting logout process...');
+        set({ loginInProgress: true, authLockId: 'logout' }, false, 'logout:start');
 
         try {
           await authApi.logout();

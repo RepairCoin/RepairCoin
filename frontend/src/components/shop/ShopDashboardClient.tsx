@@ -52,6 +52,84 @@ const client = createThirdwebClient({
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
+// SessionStorage cache for shop data (survives page refresh)
+const SHOP_DATA_CACHE_KEY = 'rc_shop_data_cache';
+const SHOP_ID_CACHE_KEY = 'rc_shop_id';
+const SHOP_DATA_CACHE_TTL_MS = 60000; // 1 minute cache TTL
+
+interface CachedShopData {
+  timestamp: number;
+  shopId: string;
+  data: ShopData;
+}
+
+// Shop ID cache - persists across page refreshes
+function getShopIdFromCache(): string | null {
+  try {
+    return sessionStorage.getItem(SHOP_ID_CACHE_KEY);
+  } catch { return null; }
+}
+
+function setShopIdCache(shopId: string): void {
+  try {
+    sessionStorage.setItem(SHOP_ID_CACHE_KEY, shopId);
+    console.log('[ShopDashboard] 📦 Shop ID cached:', shopId);
+  } catch {}
+}
+
+// Get cached shop data - now can work without shopId parameter
+function getCachedShopData(shopId?: string): ShopData | null {
+  try {
+    const cached = sessionStorage.getItem(SHOP_DATA_CACHE_KEY);
+    if (!cached) return null;
+
+    const data: CachedShopData = JSON.parse(cached);
+    const age = Date.now() - data.timestamp;
+
+    // Check if cache is not expired
+    if (age > SHOP_DATA_CACHE_TTL_MS) {
+      console.log('[ShopDashboard] 📦 Shop data cache expired (age: ' + age + 'ms)');
+      sessionStorage.removeItem(SHOP_DATA_CACHE_KEY);
+      return null;
+    }
+
+    // If shopId provided, verify it matches
+    if (shopId && data.shopId !== shopId) {
+      console.log('[ShopDashboard] 📦 Shop data cache mismatch');
+      return null;
+    }
+
+    console.log('[ShopDashboard] 📦 Using cached shop data (age: ' + age + 'ms)');
+    return data.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCachedShopData(shopId: string, data: ShopData): void {
+  try {
+    const cacheData: CachedShopData = {
+      timestamp: Date.now(),
+      shopId,
+      data
+    };
+    sessionStorage.setItem(SHOP_DATA_CACHE_KEY, JSON.stringify(cacheData));
+    setShopIdCache(shopId); // Also cache the shopId separately
+    console.log('[ShopDashboard] 📦 Shop data cached');
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
+function clearCachedShopData(): void {
+  try {
+    sessionStorage.removeItem(SHOP_DATA_CACHE_KEY);
+    sessionStorage.removeItem(SHOP_ID_CACHE_KEY);
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
 export interface ShopData {
   shopId: string;
   name: string;
@@ -170,6 +248,19 @@ export default function ShopDashboardClient() {
     setAuthToken(null);
   }, []);
 
+  // CRITICAL: Load from cache IMMEDIATELY on mount - don't wait for auth/Thirdweb
+  // This is the key fix for rapid refresh - we load cached data before anything else
+  useEffect(() => {
+    const cachedShopId = getShopIdFromCache();
+    if (cachedShopId) {
+      const cached = getCachedShopData(cachedShopId);
+      if (cached) {
+        console.log('[ShopDashboard] ⚡ IMMEDIATE cache load on mount - no waiting for auth');
+        setShopData(cached);
+      }
+    }
+  }, []); // Empty deps - run ONCE on mount, before auth completes
+
   // Note: authInitialized is now managed by useAuthInitializer hook in the auth store
   // No need for local state or useEffect - it's set when session check completes
 
@@ -263,11 +354,26 @@ export default function ShopDashboardClient() {
   }, [searchParams, account?.address]);
 
   useEffect(() => {
-    if (account?.address) {
+    // Load shop data when we have any identifier available
+    // Priority: shopId from session > shopId from cache > wallet address
+    const walletAddress = account?.address || userProfile?.address;
+    const shopIdFromSession = userProfile?.shopId;
+    const shopIdFromCache = getShopIdFromCache();
+    const hasIdentifier = walletAddress || shopIdFromSession || shopIdFromCache;
+
+    // Only load if we don't already have shop data (cache might have set it)
+    if (hasIdentifier && !shopData) {
+      console.log('[ShopDashboard] Triggering loadShopData:', {
+        walletAddress,
+        shopIdFromSession,
+        shopIdFromCache,
+        hasAccount: !!account,
+        hasProfile: !!userProfile,
+        hasShopData: !!shopData
+      });
       loadShopData();
     }
-    // Also re-load when userProfile.shopId becomes available (for social login)
-  }, [account?.address, userProfile?.shopId]);
+  }, [account?.address, userProfile?.address, userProfile?.shopId, shopData]);
 
   // Listen for subscription-related notifications and refresh data
   const { notifications } = useNotificationStore();
@@ -300,12 +406,13 @@ export default function ShopDashboardClient() {
       // Add small delay to let modal animations complete and prevent flicker
       setTimeout(() => {
         // Refresh shop data to update the warning banner
-        if (account?.address) {
+        const walletAddress = account?.address || userProfile?.address;
+        if (walletAddress) {
           loadShopData();
         }
       }, 500);
     }
-  }, [notifications, account?.address]);
+  }, [notifications, account?.address, userProfile?.address]);
 
   // Check if shop is suspended or rejected
   const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
@@ -436,7 +543,33 @@ export default function ShopDashboardClient() {
     }
   }, [shopData?.shopId]);
 
-  const loadShopData = async () => {
+  const loadShopData = async (forceRefresh = false) => {
+    // Get shopId from multiple sources (priority order)
+    const shopIdFromSession = userProfile?.shopId;
+    const shopIdFromCache = getShopIdFromCache();
+    const shopId = shopIdFromSession || shopIdFromCache;
+    const walletAddress = account?.address || userProfile?.address;
+
+    console.log('[ShopDashboard] loadShopData called:', { shopId, shopIdFromSession, shopIdFromCache, walletAddress, forceRefresh });
+
+    // Try to use cached data first (instant load)
+    if (!forceRefresh && shopId) {
+      const cached = getCachedShopData(shopId);
+      if (cached) {
+        console.log('[ShopDashboard] ⚡ Cache hit in loadShopData');
+        setShopData(cached);
+        // Still refresh in background, but don't show loading spinner
+        refreshShopDataInBackground(shopId, walletAddress);
+        return;
+      }
+    }
+
+    // If we don't have any identifier yet, wait for auth to provide it
+    if (!shopId && !walletAddress) {
+      console.log('[ShopDashboard] No identifier available yet, waiting...');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -444,14 +577,13 @@ export default function ShopDashboardClient() {
       // NOTE: Authentication is now handled globally by useAuthInitializer
       // No need to call /auth/shop here - cookies are already set
 
-      // Load shop data - prefer shopId from session (for social login where wallet differs)
+      // Load shop data - prefer shopId (from session or cache) for faster lookup
       // Fall back to wallet address for backwards compatibility
-      const shopIdFromSession = userProfile?.shopId;
-      const shopEndpoint = shopIdFromSession
-        ? `/shops/${shopIdFromSession}`
-        : `/shops/wallet/${account?.address}`;
+      const shopEndpoint = shopId
+        ? `/shops/${shopId}`
+        : `/shops/wallet/${walletAddress}`;
 
-      console.log('[ShopDashboard] Loading shop data from:', shopEndpoint, { shopIdFromSession, walletAddress: account?.address });
+      console.log('[ShopDashboard] Loading shop data from:', shopEndpoint, { shopIdFromSession, walletAddress });
       const shopResult = await apiClient.get(shopEndpoint);
 
       if (shopResult.success && shopResult.data) {
@@ -501,6 +633,10 @@ export default function ShopDashboardClient() {
         }
 
         setShopData(enhancedShopData);
+        // Cache the shop data for rapid refresh resilience
+        if (enhancedShopData.shopId) {
+          setCachedShopData(enhancedShopData.shopId, enhancedShopData);
+        }
       } else {
         setError("Invalid shop data received");
       }
@@ -509,6 +645,58 @@ export default function ShopDashboardClient() {
       setError("Failed to load shop data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Background refresh - doesn't show loading spinner
+  const refreshShopDataInBackground = async (shopId: string, walletAddress?: string) => {
+    try {
+      const shopEndpoint = shopId ? `/shops/${shopId}` : `/shops/wallet/${walletAddress}`;
+      console.log('[ShopDashboard] 🔄 Background refresh from:', shopEndpoint);
+      const shopResult = await apiClient.get(shopEndpoint);
+
+      if (shopResult.success && shopResult.data) {
+        let enhancedShopData = shopResult.data;
+
+        // Load subscription details
+        if (shopResult.data.shopId) {
+          try {
+            const subResult = await apiClient.get(`/shops/subscription/status`);
+            if (subResult.success && subResult.data?.currentSubscription) {
+              const sub = subResult.data.currentSubscription;
+              const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
+              enhancedShopData = {
+                ...enhancedShopData,
+                subscriptionStatus: actualStatus,
+                subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
+                subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt,
+              };
+            }
+          } catch (subErr) {
+            console.error("Error loading subscription details:", subErr);
+          }
+
+          // Load purchase history
+          const purchaseResult = await apiClient.get(`/shops/purchase/history/${shopResult.data.shopId}`);
+          if (purchaseResult.success) {
+            setPurchases(purchaseResult.data.purchases || []);
+          }
+
+          // Load tier bonus stats
+          const tierResult = await apiClient.get(`/shops/tier-bonus/stats/${shopResult.data.shopId}`);
+          if (tierResult.success) {
+            setTierStats(tierResult.data);
+          }
+        }
+
+        setShopData(enhancedShopData);
+        if (enhancedShopData.shopId) {
+          setCachedShopData(enhancedShopData.shopId, enhancedShopData);
+        }
+      }
+    } catch (err) {
+      console.error("[ShopDashboard] Background refresh failed:", err);
+      // Don't set error - we already have cached data showing
     }
   };
 
@@ -731,8 +919,8 @@ export default function ShopDashboardClient() {
     );
   }
 
-  // Not connected state
-  if (!account) {
+  // Not connected state - show connect button if no wallet AND no profile
+  if (!account && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -981,6 +1169,16 @@ export default function ShopDashboardClient() {
 
           {/* Breadcrumb Navigation */}
           <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
+
+          {/* Loading state for tabs that require shopData */}
+          {!shopData && activeTab !== "overview" && (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading dashboard data...</p>
+              </div>
+            </div>
+          )}
 
           {/* Tab Content */}
           {activeTab === "overview" && (

@@ -4,7 +4,7 @@
 
 Complete 3-tier environment with **separate backend instances** for staging and production running in parallel.
 
-**Last Updated**: January 5, 2026
+**Last Updated**: February 4, 2026
 
 ---
 
@@ -12,21 +12,21 @@ Complete 3-tier environment with **separate backend instances** for staging and 
 
 ### Why This Won't Cause Downtime
 
-| Phase | What Happens | Live Site Impact |
-|-------|--------------|------------------|
-| 1-2 | Create new infrastructure | ✅ NONE - New resources, nothing touched |
-| 3-6 | Configure DNS, Vercel, Stripe | ✅ NONE - Adding new records, not modifying |
-| 7 | Full testing | ✅ NONE - Testing on new infrastructure |
-| 8 | DNS Switch | ⚠️ 0-5 min propagation (backend already running!) |
-| 9 | Cleanup | ✅ NONE - Post-migration tasks |
+| Phase | What Happens                  | Live Site Impact                                  |
+| ----- | ----------------------------- | ------------------------------------------------- |
+| 1-2   | Create new infrastructure     | ✅ NONE - New resources, nothing touched          |
+| 3-6   | Configure DNS, Vercel, Stripe | ✅ NONE - Adding new records, not modifying       |
+| 7     | Full testing                  | ✅ NONE - Testing on new infrastructure           |
+| 8     | DNS Switch                    | ⚠️ 0-5 min propagation (backend already running!) |
+| 9     | Cleanup                       | ✅ NONE - Post-migration tasks                    |
 
 ### Why Other Devs Won't Be Affected
 
-| Their Action | During Migration | After Migration |
-|--------------|------------------|-----------------|
+| Their Action    | During Migration                         | After Migration      |
+| --------------- | ---------------------------------------- | -------------------- |
 | Merge to `main` | → Deploys to current backend (unchanged) | → Deploys to STAGING |
-| Create PRs | → Works normally | → Works normally |
-| Test locally | → Works normally | → Works normally |
+| Create PRs      | → Works normally                         | → Works normally     |
+| Test locally    | → Works normally                         | → Works normally     |
 
 **Key Protection**: Production deploys from `prod` branch, not `main`. Other devs can merge to `main` anytime without affecting production.
 
@@ -50,7 +50,7 @@ Complete 3-tier environment with **separate backend instances** for staging and 
 │                           STAGING (EXISTING - NO CHANGE)                  │
 │  Frontend: staging.repaircoin.ai (Vercel, main branch)                   │
 │  Backend:  api-staging.repaircoin.ai (repaircoin-staging-s7743)          │
-│  Database: db-postgresql-repaircoin-staging (EXISTING)                   │
+│  Database: db-postgresql-repaircoin-staging-sg (EXISTING)                   │
 │  Stripe:   TEST keys                                                     │
 │  Branch:   main (devs continue merging here as usual)                    │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -61,7 +61,7 @@ Complete 3-tier environment with **separate backend instances** for staging and 
 │                           LOCAL DEV                                       │
 │  Frontend: localhost:3001                                                │
 │  Backend:  localhost:4000                                                │
-│  Database: db-postgresql-repaircoin-staging (or local Docker)            │
+│  Database: db-postgresql-repaircoin-staging-sg (or local Docker)            │
 │  Stripe:   TEST keys                                                     │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -88,17 +88,19 @@ Key Points:
 ## Current State vs Target State
 
 ### Current State
-| Component | URL/Name | Branch | Points To |
-|-----------|----------|--------|-----------|
-| Frontend (prod) | repaircoin.ai | main | Vercel |
-| Backend | api.repaircoin.ai | main | `repaircoin-staging-s7743` (staging!) |
-| Database | - | - | `db-postgresql-repaircoin-staging` |
+
+| Component       | URL/Name          | Branch | Points To                             |
+| --------------- | ----------------- | ------ | ------------------------------------- |
+| Frontend (prod) | repaircoin.ai     | main   | Vercel                                |
+| Backend         | api.repaircoin.ai | main   | `repaircoin-staging-s7743` (staging!) |
+| Database        | -                 | -      | `db-postgresql-repaircoin-staging-sg` |
 
 ### Target State (After Migration)
-| Environment | Frontend | Backend | Database | Branch |
-|-------------|----------|---------|----------|--------|
-| **Production** | repaircoin.ai | api.repaircoin.ai → `repaircoin-prod` | `db-repaircoin-prod` | `prod` |
-| **Staging** | staging.repaircoin.ai | api-staging.repaircoin.ai → `repaircoin-staging-s7743` | `db-repaircoin-staging` | `main` |
+
+| Environment    | Frontend              | Backend                                                | Database                | Branch |
+| -------------- | --------------------- | ------------------------------------------------------ | ----------------------- | ------ |
+| **Production** | repaircoin.ai         | api.repaircoin.ai → `repaircoin-prod`                  | `db-repaircoin-prod`    | `prod` |
+| **Staging**    | staging.repaircoin.ai | api-staging.repaircoin.ai → `repaircoin-staging-s7743` | `db-repaircoin-staging` | `main` |
 
 ---
 
@@ -158,6 +160,7 @@ Phase 9: Verify & Cleanup
 ### Why main → staging, prod → production?
 
 **Other devs won't be affected because:**
+
 1. They keep merging PRs to `main` as usual
 2. `main` branch auto-deploys to staging (current behavior, unchanged!)
 3. Production only updates when YOU merge `main → prod`
@@ -172,33 +175,33 @@ Phase 9: Verify & Cleanup
 > **Risk Level: NONE** - Code changes deploy to existing backend, no behavior change
 > **Priority: CRITICAL** - Must be done FIRST before any infrastructure changes
 
-#### Step 1.1: Update CORS Configuration
+#### Step 1.1: Update CORS Configuration ✅ Done
 
 Edit `backend/src/app.ts` to include all future domains:
 
 ```typescript
 const allowedOrigins = [
   // Local development
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3003",
 
   // Production
-  'https://repaircoin.ai',
-  'https://www.repaircoin.ai',
-  'https://api.repaircoin.ai',
+  "https://repaircoin.ai",
+  "https://www.repaircoin.ai",
+  "https://api.repaircoin.ai",
 
   // Staging
-  'https://staging.repaircoin.ai',
-  'https://api-staging.repaircoin.ai',
+  "https://staging.repaircoin.ai",
+  "https://api-staging.repaircoin.ai",
 
   // Vercel previews
   /\.vercel\.app$/,
 ];
 ```
 
-#### Step 1.2: Commit and Deploy CORS Update
+#### Step 1.2: Commit and Deploy CORS Update ✅ Done
 
 ```bash
 # Commit to main (deploys to current backend, other devs unaffected)
@@ -209,7 +212,7 @@ git commit -m "feat: add staging and production domains to CORS"
 git push origin main
 ```
 
-#### Step 1.3: Create Production Branch
+#### Step 1.3: Create Production Branch ✅ Done
 
 ```bash
 # Create prod branch from main (after CORS is merged)
@@ -231,7 +234,7 @@ git push -u origin prod
 
 > **Risk Level: NONE** - Creating new resources, nothing existing is touched
 
-#### Step 2.1: Create Production Database
+#### Step 2.1: Create Production Database ✅ Done
 
 1. Go to [DigitalOcean Databases](https://cloud.digitalocean.com/databases)
 2. Click **Create Database Cluster**
@@ -240,11 +243,12 @@ git push -u origin prod
    - **Name**: `db-postgresql-repaircoin-prod`
    - **Region**: NYC1 (New York) - US region for production
    - **Plan**: Basic ($15/mo)
+   - **Autoscale storage**: ✅ Enable (prevents read-only mode if storage fills up)
 4. Click **Create Database Cluster**
 5. Wait for provisioning (~5-10 min)
 6. Copy connection string for later
 
-#### Step 2.2: Create Production Backend App
+#### Step 2.2: Create Production Backend App ✅ Done
 
 1. Go to [DigitalOcean Apps](https://cloud.digitalocean.com/apps)
 2. Click **Create App**
@@ -256,42 +260,154 @@ git push -u origin prod
    - **Region**: NYC (nyc1) - US region for production
    - **Plan**: Basic ($12/mo)
 
-#### Step 2.3: Set Production Backend Environment Variables
+#### Step 2.3: Set Production Backend Environment Variables ⚠️ Partial (waiting for owner)
 
 In DigitalOcean → `repaircoin-prod` app → **Settings** → **Environment Variables**:
 
-| Variable | Value |
-|----------|-------|
-| `NODE_ENV` | `production` |
-| `PORT` | `4000` |
-| `DATABASE_URL` | `postgresql://...repaircoin-prod...?sslmode=require` |
-| `DB_SSL` | `true` |
-| `JWT_SECRET` | `<generate-NEW-secure-32+-char-secret>` |
-| `FRONTEND_URL` | `https://repaircoin.ai` |
-| `COOKIE_DOMAIN` | `.repaircoin.ai` |
-| `STRIPE_SECRET_KEY` | `sk_live_...` (LIVE key) |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_...` (will create later) |
-| `THIRDWEB_CLIENT_ID` | `<your-client-id>` |
-| `THIRDWEB_SECRET_KEY` | `<your-secret-key>` |
-| `PRIVATE_KEY` | `<production-wallet-private-key>` |
-| `ADMIN_ADDRESSES` | `0x761E5E59485ec6feb263320f5d636042bD9EBc8c` |
-| `ENABLE_SWAGGER` | `false` |
+**Core Settings:**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `NODE_ENV` | `production` | |
+| `JWT_SECRET` | `<generate-NEW-64-char-secret>` | Must be unique, not same as staging |
+| `CORS_ORIGIN` | `https://repaircoin.ai,https://www.repaircoin.ai` | Production domains only |
+| `FRONTEND_URL` | `https://repaircoin.ai` | |
+| `COOKIE_DOMAIN` | `.repaircoin.ai` | |
+| `ADMIN_ADDRESSES` | (same as staging) | |
+| `ADMIN_NAME` | `Jeff,Khalid,Ian,deo` | |
+| `ENABLE_SWAGGER` | `false` | Disabled in production |
+| `LOG_LEVEL` | `info` | Not debug |
 
-#### Step 2.4: Run Migrations on Production Database
+**Database (from new prod database connection):**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `DATABASE_URL` | `postgresql://doadmin:PASSWORD@db-postgresql-repaircoin-prod-xxx:25060/defaultdb?sslmode=require` | Full connection string |
+| `DB_HOST` | (from prod database) | |
+| `DB_PORT` | `25060` | |
+| `DB_USER` | `doadmin` | |
+| `DB_PASSWORD` | (from prod database) | |
+| `DB_NAME` | `defaultdb` | |
+| `DB_POOL_MAX` | `1` | |
+| `DB_IDLE_TIMEOUT_MS` | `10000` | |
+| `DB_CONNECTION_TIMEOUT_MS` | `5000` | |
+| `NODE_TLS_REJECT_UNAUTHORIZED` | `0` | |
+
+**Blockchain/Thirdweb (same as staging):**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `RCN_CONTRACT_ADDRESS` | `0xBFE793d78B6B83859b528F191bd6F2b8555D951C` | Same contract |
+| `RCN_THIRDWEB_CLIENT_ID` | (same as staging) | |
+| `RCN_THIRDWEB_SECRET_KEY` | (same as staging) | |
+| `RCG_CONTRACT_ADDRESS` | `0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D` | Same contract |
+| `RCG_THIRDWEB_CLIENT_ID` | (same as staging) | |
+| `RCG_THIRDWEB_SECRET_KEY` | (same as staging) | |
+| `PRIVATE_KEY` | (same as staging or new prod wallet) | Wallet for token minting |
+| `CHAIN_ID` | `84532` | Base Sepolia |
+| `NETWORK` | `base-sepolia` | |
+| `BLOCKCHAIN_NETWORK` | `base-sepolia` | |
+| `ENABLE_BLOCKCHAIN_MINTING` | `false` | |
+
+**Token Settings (same as staging):**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `RCN_PRICE_USD` | `0.10` | |
+| `RCN_PURCHASE_PRICE` | `0.10` | |
+| `ENABLE_PUBLIC_TRADING` | `false` | |
+| `ENABLE_TRANSFERS` | `true` | |
+| `MAX_SUPPLY` | `unlimited` | |
+
+**Stripe (⚠️ USE LIVE KEYS):**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `STRIPE_SECRET_KEY` | `sk_live_...` | **LIVE key from Stripe Dashboard** |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Will create in Phase 5 |
+| `STRIPE_MONTHLY_PRICE_ID` | `price_...` | **Create new LIVE price in Stripe** |
+| `STRIPE_MODE` | `live` | **Not test** |
+
+**DigitalOcean Spaces (same as staging):**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `DO_SPACES_KEY` | (same as staging) | |
+| `DO_SPACES_SECRET` | (same as staging) | |
+| `DO_SPACES_BUCKET` | `repaircoinstorage` | |
+| `DO_SPACES_REGION` | `sfo3` | |
+| `DO_SPACES_CDN_ENDPOINT` | `https://repaircoinstorage.sfo3.cdn.digitaloceanspaces.com` | |
+
+**Email (same as staging):**
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `EMAIL_HOST` | `smtp.gmail.com` | |
+| `EMAIL_PORT` | `587` | |
+| `EMAIL_USER` | `itpahilgadev@gmail.com` | |
+| `EMAIL_PASS` | (same as staging) | |
+| `EMAIL_FROM` | `RepairCoin (noreply@repaircoin.com)` | |
+
+**⚠️ Key Differences from Staging:**
+
+1. `STRIPE_SECRET_KEY` → Use `sk_live_...` (LIVE key, not test)
+2. `STRIPE_MODE` → `live` (not test)
+3. `STRIPE_MONTHLY_PRICE_ID` → Create new price in Stripe LIVE mode
+4. `LOG_LEVEL` → `info` (not debug)
+5. `ENABLE_SWAGGER` → `false`
+6. `JWT_SECRET` → Generate new unique secret
+7. `DATABASE_URL` / `DB_*` → New production database credentials
+8. `CORS_ORIGIN` → Production domains only
+
+#### Step 2.4: Add Production Backend to Database Trusted Sources ✅ Done
+
+> ⚠️ **IMPORTANT**: Do this BEFORE running migrations!
+
+1. Go to **DigitalOcean** → **Databases** → `db-postgresql-repaircoin-prod`
+2. Click **Settings** tab
+3. Scroll to **Trusted Sources**
+4. Click **Add Trusted Source**
+5. Add: `repaircoin-prod` (your backend app) - select from dropdown
+
+**For running migrations locally**, also add your IP address:
+
+1. Click **Add Trusted Source** again
+2. Select **IP Address**
+3. Enter your current public IP (or "Allow all" temporarily, then remove after)
+
+#### Step 2.5: Run Migrations on Production Database ✅ Done
+
+> ⚠️ **NOTE**: Your local `.env` points to staging (correct for development). Use the DigitalOcean Console to run migrations on production.
+
+**Using DigitalOcean Console (Recommended):**
+
+1. Go to [DigitalOcean Apps](https://cloud.digitalocean.com/apps)
+2. Click on `repaircoin-prod` app
+3. Click the **Console** tab
+4. Wait for the console to connect to your running app
+5. Run the migration command:
+   ```bash
+   npm run db:migrate
+   ```
+6. Verify migrations completed successfully (should see ✅ for each migration)
+
+**Why this works**: The production app already has `DATABASE_URL` pointing to the production database, so migrations run against the correct database.
+
+**Alternative (if Console doesn't work):**
+
+Temporarily swap your local `.env`:
 
 ```bash
-# Set production DATABASE_URL temporarily
-export DATABASE_URL="postgresql://doadmin:PASSWORD@db-postgresql-repaircoin-prod-xxx:25060/defaultdb?sslmode=require"
+# Backup local .env
+cp .env .env.backup
 
-cd backend
+# Edit .env - change DB_HOST to production database host
+# Run migrations
 npm run db:migrate
+
+# Restore local .env
+cp .env.backup .env
 ```
 
-#### Step 2.5: Migrate Data from Staging to Production Database
+#### Step 2.6: Migrate Data from Staging to Production Database ✅ Skipped (Fresh Start)
 
-> ⚠️ **CRITICAL**: Production database is NEW and EMPTY. You must migrate existing data!
+> **Decision**: Staging has mostly test data, so we're starting fresh with an empty production database. No data migration needed.
 
 **Option A: Full Data Migration (Recommended for live sites with real users)**
+
 ```bash
 # Export from staging database
 pg_dump -h staging-db-host -U doadmin -d defaultdb --data-only > staging_data.sql
@@ -301,26 +417,24 @@ psql -h prod-db-host -U doadmin -d defaultdb < staging_data.sql
 ```
 
 **Option B: Selective Migration (If you want fresh start with some data)**
+
 - Export only essential tables: users, shops, admins
 - Skip transaction history, logs, etc.
 
 **Option C: Fresh Start (Only if no real user data exists)**
+
 - Skip data migration
 - Production starts with empty database
 - Only use if staging has only test data
 
 **✅ Verify**: After migration, check row counts match between staging and production for critical tables.
 
-#### Step 2.6: Add Production Backend to Database Trusted Sources
-
-1. Go to **Database** → `db-postgresql-repaircoin-prod` → **Settings** → **Trusted Sources**
-2. Add: `repaircoin-prod` app
-
-#### Step 2.6: Deploy and Test Production Backend
+#### Step 2.7: Deploy and Test Production Backend ✅ Done
 
 1. Deploy the `repaircoin-prod` app
 2. Get the DigitalOcean app URL (e.g., `repaircoin-prod-xxxxx.ondigitalocean.app`)
 3. Test directly:
+
    ```bash
    # Test health endpoint
    curl https://repaircoin-prod-xxxxx.ondigitalocean.app/api/health
@@ -336,28 +450,41 @@ psql -h prod-db-host -U doadmin -d defaultdb < staging_data.sql
 
 > **Risk Level: NONE** - Adding a new DNS record, existing `api.repaircoin.ai` unchanged
 
-#### Step 3.1: Add api-staging DNS Record
+#### Step 3.1: Add api-staging DNS Record ✅ Done
 
 1. Go to GoDaddy → **DNS Management** for repaircoin.ai
 2. **Add** new CNAME record:
 
-| Type | Name | Value | TTL |
-|------|------|-------|-----|
+| Type  | Name          | Value                                         | TTL |
+| ----- | ------------- | --------------------------------------------- | --- |
 | CNAME | `api-staging` | `repaircoin-staging-s7743.ondigitalocean.app` | 600 |
 
 3. **DO NOT** modify the existing `api` record yet!
 
-#### Step 3.2: Add staging Frontend DNS Record
+#### Step 3.2: Add staging Frontend DNS Record ✅ Done
 
-| Type | Name | Value | TTL |
-|------|------|-------|-----|
+| Type  | Name      | Value                  | TTL |
+| ----- | --------- | ---------------------- | --- |
 | CNAME | `staging` | `cname.vercel-dns.com` | 600 |
 
-#### Step 3.3: Wait for DNS Propagation
+#### Step 3.3: Add Custom Domain in DigitalOcean ✅ Done
+
+> **IMPORTANT**: After adding DNS records, you must also add the domain in DigitalOcean App Platform.
+
+1. Go to **DigitalOcean** → **Apps** → `repaircoin-staging`
+2. Click **Networking** tab (not Settings!)
+3. Scroll to **Domains** section
+4. Click **Add domain**
+5. Enter: `api-staging.repaircoin.ai`
+6. Select **"You manage your domain"** (keep GoDaddy as DNS provider)
+7. Wait for status to change from "Pending" to "Active"
+
+#### Step 3.4: Wait for DNS Propagation ✅ Done
 
 ```bash
 # Check DNS (wait until it resolves)
 nslookup api-staging.repaircoin.ai
+nslookup staging.repaircoin.ai
 
 # Test staging backend via new URL
 curl https://api-staging.repaircoin.ai/api/health
@@ -370,47 +497,74 @@ curl https://api-staging.repaircoin.ai/api/health
 ### Phase 4: Configure Vercel (No Impact to Live Site)
 
 > **Risk Level: NONE** - Only affects staging deployment, not production
+>
+> **IMPORTANT**: Do NOT change the Production branch from `main` to `prod` yet! That happens in Phase 8.
+> Both `api.repaircoin.ai` and `api-staging.repaircoin.ai` currently point to the same staging backend,
+> so both frontends will work correctly until we do the DNS switch.
 
-#### Step 4.1: Add Staging Domain in Vercel
+#### Step 4.1: Add Staging Domain in Vercel ✅ Done
 
 1. Go to [Vercel Dashboard](https://vercel.com) → repair-coin project
 2. **Settings** → **Domains** → **Add Domain**
 3. Enter: `staging.repaircoin.ai`
-4. Select branch: `main` ← **Staging uses main branch (no change for devs!)**
+4. Select environment: **Production** ← (Yes, Production for now - see note above)
+5. Click **Save**
 
-#### Step 4.2: Configure Vercel Environment Variables - Staging
+**Why Production environment?**
 
-**For Preview/Staging Environment** (select "Preview"):
+- Vercel's Preview environment only works with non-production branches
+- Since `main` is currently the Production branch, we can't use Preview for `main`
+- Changing the Production branch to `prod` NOW would affect your team's workflow
+- This is safe because both backends (`api.repaircoin.ai` and `api-staging.repaircoin.ai`) point to the same staging backend anyway
+- We'll do the proper branch separation in Phase 8 (DNS switch)
 
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://api-staging.repaircoin.ai/api` |
-| `NEXT_PUBLIC_APP_URL` | `https://staging.repaircoin.ai` |
-| `NEXT_PUBLIC_THIRDWEB_CLIENT_ID` | `<your-client-id>` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` (TEST key) |
+#### Step 4.2: Verify Staging Frontend Works ✅ Done
 
-#### Step 4.3: Configure Vercel Environment Variables - Production
+After adding the domain, test:
 
-**For Production Environment** (select "Production"):
+```bash
+# Wait for Vercel to provision SSL (1-2 min)
+curl -I https://staging.repaircoin.ai
+```
 
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://api.repaircoin.ai/api` |
-| `NEXT_PUBLIC_APP_URL` | `https://repaircoin.ai` |
-| `NEXT_PUBLIC_THIRDWEB_CLIENT_ID` | `<your-client-id>` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...` (LIVE key) |
+#### Step 4.3: Configure Vercel Environment Variables (Phase 8)
 
-**Note**: We will change `repaircoin.ai` to use `prod` branch in Phase 8, right before DNS switch. This minimizes the "freeze" window where production frontend doesn't get updates from main.
+> **Skip this step for now** - Environment variables will be configured in Phase 8 when we do the branch separation.
+> Currently both domains use the same Production environment with the same env vars, which is fine
+> because both backends point to the same place.
 
-**✅ Checkpoint**: Vercel staging configured. Production domain still on main (will change in Phase 8).
+**In Phase 8, we will:**
+
+1. Change Production branch from `main` to `prod`
+2. Set Production env vars to point to `api.repaircoin.ai` (prod backend)
+3. Set Preview env vars to point to `api-staging.repaircoin.ai` (staging backend)
+4. Move `staging.repaircoin.ai` from Production to Preview environment
+
+**Environment Variables (for reference - configure in Phase 8):**
+
+| Environment | Variable              | Value                                   |
+| ----------- | --------------------- | --------------------------------------- |
+| Preview     | `NEXT_PUBLIC_API_URL` | `https://api-staging.repaircoin.ai/api` |
+| Preview     | `NEXT_PUBLIC_APP_URL` | `https://staging.repaircoin.ai`         |
+| Production  | `NEXT_PUBLIC_API_URL` | `https://api.repaircoin.ai/api`         |
+| Production  | `NEXT_PUBLIC_APP_URL` | `https://repaircoin.ai`                 |
+
+**✅ Checkpoint**: Vercel staging domain added. Team workflow unaffected. Full separation happens in Phase 8.
 
 ---
 
-### Phase 5: Configure Stripe Webhooks (No Impact to Live Site)
+### Phase 5: Configure Stripe Webhooks (No Impact to Live Site) ⏸️ DEFERRED
 
 > **Risk Level: NONE** - Adding new webhooks
+>
+> **STATUS: DEFERRED** - Stripe account requires business verification before LIVE mode access.
+> The account owner must complete "Verify your business" in Stripe Dashboard.
+> Staging TEST webhook already exists and works. LIVE webhook will be created before Phase 8.
 
-#### Step 5.1: Create Production Webhook
+#### Step 5.1: Create Production Webhook ⏸️ Deferred
+
+> **BLOCKED**: Stripe account not verified for LIVE mode yet.
+> Complete this step before Phase 8 (DNS switch) once account is verified.
 
 1. Go to [Stripe Dashboard](https://dashboard.stripe.com) → **LIVE Mode**
 2. **Developers** → **Webhooks** → **Add endpoint**
@@ -420,30 +574,33 @@ curl https://api-staging.repaircoin.ai/api/health
    - **Events**: Select all `customer.subscription.*`, `invoice.*`, `checkout.session.completed`
 4. Copy signing secret → Update `repaircoin-prod` env: `STRIPE_WEBHOOK_SECRET`
 
-#### Step 5.2: Create Staging Webhook
+#### Step 5.2: Staging Webhook ✅ Already Exists
 
-1. Go to [Stripe Dashboard](https://dashboard.stripe.com) → **TEST Mode**
-2. **Developers** → **Webhooks** → **Add endpoint**
-3. Configure:
-   - **URL**: `https://api-staging.repaircoin.ai/api/shops/webhooks/stripe`
-   - **Events**: Same as above
-4. Copy signing secret → Update `repaircoin-staging-s7743` env
+Existing TEST webhook is working:
 
-**✅ Checkpoint**: Webhooks configured. Live site unaffected.
+- **URL**: `https://repaircoin-staging-s7743.ondigitalocean.app/api/shops/webhooks/stripe`
+- **Status**: Active, 0% error rate
+- **Events**: 4 events configured
+
+No changes needed for staging webhook.
+
+**⏸️ Checkpoint**: Staging webhook working. LIVE webhook deferred until account verification.
 
 ---
 
-### Phase 6: Update Staging Backend (Staging Only)
+### Phase 6: Update Staging Backend ✅ Done
 
-> **Risk Level: LOW** - Only affects staging backend
+> **Risk Level: LOW** - Affects email links and redirects
+>
+> **Note**: Team was notified before making this change. Email links will now point to `staging.repaircoin.ai`.
 > **Note**: Staging backend KEEPS main branch - no branch change needed!
 
 #### Step 6.1: Update Staging Backend Environment
 
 In DigitalOcean → `repaircoin-staging-s7743` → **Settings** → **Environment Variables**:
 
-| Variable | Change To |
-|----------|-----------|
+| Variable       | Change To                       |
+| -------------- | ------------------------------- |
 | `FRONTEND_URL` | `https://staging.repaircoin.ai` |
 
 #### Step 6.2: Redeploy Staging Backend
@@ -480,22 +637,61 @@ curl https://repaircoin-prod-xxxxx.ondigitalocean.app/api/health
 
 ---
 
-### Phase 8: The DNS Switch (Brief Propagation Period)
+### Phase 8: The DNS Switch (Brief Propagation Period) ✅ Complete
 
 > **Risk Level: LOW-MEDIUM** - This is the only step that affects the live site
 > **Downtime**: Usually 0-5 minutes during DNS propagation
+>
+> **Production Backend URL**: `https://urchin-app-dy2ak.ondigitalocean.app`
 
-#### Pre-Switch Checklist
+#### Pre-Switch Checklist ✅ Complete
 
 Before proceeding, verify:
-- [ ] `repaircoin-prod` backend is healthy: `curl https://repaircoin-prod-xxxxx.ondigitalocean.app/api/health`
-- [ ] Production database has all migrations AND data
-- [ ] Production Stripe webhook is configured
-- [ ] Staging environment is fully working on `api-staging.repaircoin.ai`
 
-#### Step 8.1: Sync prod Branch with Latest main
+- [x] `repaircoin-prod` backend is healthy ✅ (verified: 79 tables, healthy)
+- [x] Production database has all migrations ✅
+- [ ] Production Stripe webhook is configured - **SKIPPED** (using TEST keys for now, will update later)
+- [x] Staging environment is fully working on `api-staging.repaircoin.ai` ✅
 
-> ⚠️ **IMPORTANT**: Do this RIGHT BEFORE the DNS switch to get latest code!
+#### Step 8.1: Update Production FRONTEND_URL ✅ Already Done
+
+`FRONTEND_URL` was already set to `https://repaircoin.ai` when creating the environment variables.
+
+#### Step 8.2: Sync prod Branch with Latest main ✅ Already Done
+
+Both `main` and `prod` branches are at the same commit (`fa3058fd`). Already in sync.
+
+#### Step 8.3: Switch Frontend to prod Branch ⏸️ Skipped for Now
+
+> **Note**: We decided to keep both frontends on Production environment (main branch) for now.
+> This will be done later when we do the full environment separation.
+
+#### Step 8.4: Switch Production DNS ✅ Done
+
+**Changed in GoDaddy:**
+| Name | Old Value | New Value |
+|------|-----------|-----------|
+| `api` | `repaircoin-staging-s7743.ondigitalocean.app` | `urchin-app-dy2ak.ondigitalocean.app` |
+
+#### Step 8.5: Configure Domain in DigitalOcean ✅ Done
+
+**Important discovery**: Just changing DNS wasn't enough. We also needed to:
+1. Remove `api.repaircoin.ai` from staging backend (it was set as PRIMARY there)
+2. Add `api.repaircoin.ai` to production backend
+3. Make `api-staging.repaircoin.ai` the PRIMARY for staging
+
+**Final domain configuration:**
+| Backend | Domain | Status |
+|---------|--------|--------|
+| Production (urchin-app-dy2ak) | `api.repaircoin.ai` | ✅ Active (PRIMARY) |
+| Staging (repaircoin-staging-s7743) | `api-staging.repaircoin.ai` | ✅ Active (PRIMARY) |
+
+#### Step 8.6: Verification ✅ Done
+
+**Confirmed working:**
+- Production: 79 tables, 11 MB (fresh database)
+- Staging: 85 tables, 17 MB (test data)
+- Login on production creates new account ✅
 
 ```bash
 # Get latest changes from other devs
@@ -535,8 +731,8 @@ git push origin prod
 1. In GoDaddy DNS Management
 2. **Edit** the existing `api` CNAME record:
 
-| Type | Name | Old Value | New Value |
-|------|------|-----------|-----------|
+| Type  | Name  | Old Value                                     | New Value                                  |
+| ----- | ----- | --------------------------------------------- | ------------------------------------------ |
 | CNAME | `api` | `repaircoin-staging-s7743.ondigitalocean.app` | `repaircoin-prod-xxxxx.ondigitalocean.app` |
 
 3. Save changes
@@ -575,6 +771,7 @@ curl https://api.repaircoin.ai/api/health
 #### Step 9.1: Increase DNS TTL
 
 After confirming everything works (wait 24 hours):
+
 1. Go to GoDaddy → DNS Management
 2. Change `api` TTL back to `3600` (1 hour)
 
@@ -585,19 +782,19 @@ Ensure `backend/src/app.ts` includes all domains:
 ```typescript
 const allowedOrigins = [
   // Local development
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3003",
 
   // Production
-  'https://repaircoin.ai',
-  'https://www.repaircoin.ai',
-  'https://api.repaircoin.ai',
+  "https://repaircoin.ai",
+  "https://www.repaircoin.ai",
+  "https://api.repaircoin.ai",
 
   // Staging
-  'https://staging.repaircoin.ai',
-  'https://api-staging.repaircoin.ai',
+  "https://staging.repaircoin.ai",
+  "https://api-staging.repaircoin.ai",
 
   // Vercel previews
   /\.vercel\.app$/,
@@ -628,11 +825,11 @@ If issues occur after DNS switch:
 
 ## Environment Summary (Final State)
 
-| Environment | Frontend URL | Backend URL | Backend App | Database | Branch | Stripe |
-|-------------|--------------|-------------|-------------|----------|--------|--------|
-| **Production** | repaircoin.ai | api.repaircoin.ai | `repaircoin-prod` | `db-repaircoin-prod` | `prod` | LIVE |
-| **Staging** | staging.repaircoin.ai | api-staging.repaircoin.ai | `repaircoin-staging-s7743` | `db-repaircoin-staging` | `main` | TEST |
-| **Local** | localhost:3001 | localhost:4000 | - | staging DB | any | TEST |
+| Environment    | Frontend URL          | Backend URL               | Backend App                | Database                | Branch | Stripe |
+| -------------- | --------------------- | ------------------------- | -------------------------- | ----------------------- | ------ | ------ |
+| **Production** | repaircoin.ai         | api.repaircoin.ai         | `repaircoin-prod`          | `db-repaircoin-prod`    | `prod` | LIVE   |
+| **Staging**    | staging.repaircoin.ai | api-staging.repaircoin.ai | `repaircoin-staging-s7743` | `db-repaircoin-staging` | `main` | TEST   |
+| **Local**      | localhost:3001        | localhost:4000            | -                          | staging DB              | any    | TEST   |
 
 ---
 
@@ -691,6 +888,7 @@ If issues occur after DNS switch:
 ## Database Migration Workflow
 
 ### For Staging
+
 ```bash
 # Migrations auto-run on staging deploy if configured
 # Or manually:
@@ -699,6 +897,7 @@ cd backend && npm run db:migrate
 ```
 
 ### For Production
+
 ```bash
 # IMPORTANT: Test migrations on staging FIRST
 # Then run on production:
@@ -710,71 +909,204 @@ cd backend && npm run db:migrate
 
 ## Implementation Checklist
 
-### Phase 1: Prepare Codebase
-- [ ] Update CORS configuration to include staging/production domains
-- [ ] Commit and push CORS update to main
-- [ ] Create `prod` branch from main
-- [ ] Verify deploy to existing backend succeeds
+### Phase 1: Prepare Codebase ✅ Complete
 
-### Phase 2: Create Production Infrastructure
-- [ ] Create `db-postgresql-repaircoin-prod` database
-- [ ] Create `repaircoin-prod` backend app (using `prod` branch!)
-- [ ] Set production environment variables
-- [ ] Run migrations on production database
-- [ ] **Migrate data from staging to production database** ⚠️
-- [ ] Add backend to database trusted sources
-- [ ] Deploy and test via DO URL directly
-- [ ] Verify health endpoint returns healthy
+- [x] Update CORS configuration to include staging/production domains
+- [x] Commit and push CORS update to main
+- [x] Create `prod` branch from main
+- [x] Verify deploy to existing backend succeeds
 
-### Phase 3: Add DNS Records
-- [ ] Add CNAME: `api-staging` → `repaircoin-staging-s7743.ondigitalocean.app`
-- [ ] Add CNAME: `staging` → `cname.vercel-dns.com`
-- [ ] Wait for DNS propagation
-- [ ] Test: `curl https://api-staging.repaircoin.ai/api/health`
+### Phase 2: Create Production Infrastructure ✅ Complete (env vars pending owner)
 
-### Phase 4: Configure Vercel
-- [ ] Add `staging.repaircoin.ai` domain (linked to `main` branch)
-- [ ] Set Preview environment variables (pointing to api-staging)
-- [ ] Set Production environment variables (pointing to api.repaircoin.ai)
-- [ ] ~~Change repaircoin.ai to prod branch~~ (moved to Phase 8)
+- [x] Create `db-postgresql-repaircoin-prod` database
+- [x] Create `repaircoin-prod` backend app (using `prod` branch!)
+- [ ] Set production environment variables ⚠️ (waiting for owner - using staging values)
+- [x] **Add backend to database trusted sources**
+- [x] Run migrations on production database
+- [x] **Migrate data from staging to production database** ✅ Skipped (Fresh Start - staging has test data only)
+- [x] Deploy and test via DO URL directly
+- [x] Verify health endpoint returns healthy
 
-### Phase 5: Configure Stripe Webhooks
-- [ ] Create production webhook (LIVE mode) - use DO URL initially
-- [ ] Create staging webhook (TEST mode)
-- [ ] Update backend env variables with webhook secrets
+### Phase 3: Add DNS Records ✅ Complete
 
-### Phase 6: Update Staging Backend
-- [ ] Update `FRONTEND_URL` to `https://staging.repaircoin.ai`
-- [ ] Redeploy staging backend (keeps `main` branch - no change!)
+- [x] Add CNAME: `api-staging` → `repaircoin-staging-s7743.ondigitalocean.app` ✅
+- [x] Add CNAME: `staging` → `cname.vercel-dns.com` ✅
+- [x] Add `api-staging.repaircoin.ai` domain in DigitalOcean App Platform ✅
+- [x] Wait for DNS propagation ✅
+- [x] Test: `curl https://api-staging.repaircoin.ai/api/health` ✅
 
-### Phase 7: Full Testing
-- [ ] Test staging frontend connects to api-staging backend
-- [ ] Test login and basic functionality on staging
-- [ ] Test production backend health via DO URL directly
-- [ ] Verify both backends are healthy and ready
+### Phase 4: Configure Vercel ✅ Complete
 
-### Phase 8: DNS Switch (The Big Moment)
-- [ ] Lower DNS TTL to 300 (**do this 1 hour before next steps!**)
-- [ ] **Sync prod branch with latest main** (get other devs' changes)
-- [ ] **Switch Vercel repaircoin.ai to prod branch**
-- [ ] Wait for Vercel and DO to redeploy
-- [ ] Verify production backend is still healthy
-- [ ] Switch `api` CNAME to production backend
-- [ ] Monitor DNS propagation
-- [ ] Update Stripe webhook URL to `api.repaircoin.ai`
-- [ ] Verify production site works
+- [x] Add `staging.repaircoin.ai` domain ✅
+- [x] Verify staging frontend loads ✅
+- [x] Set Preview environment variables ✅
+- [x] Set Production environment variables ✅
+- [x] Change Production branch from `main` to `prod` ✅
+- [x] Move `staging.repaircoin.ai` domain from Production to Preview (main branch) ✅
+- [x] Disable Vercel Deployment Protection for Preview ✅
+- [x] Promote `prod` branch deployment to Production ✅
 
-### Phase 9: Cleanup
+### Phase 5: Configure Stripe Webhooks ⏸️ Deferred
+
+> **Note**: LIVE mode requires Stripe account verification (owner must complete).
+> Staging TEST webhook already exists and works. LIVE webhook will be created before Phase 8 (DNS switch).
+
+- [ ] Create production webhook (LIVE mode) - **DEFERRED** (account not verified yet)
+- [x] Staging webhook (TEST mode) - Already exists and working ✅
+- [ ] Update backend env variables with webhook secrets (will do with LIVE webhook)
+
+### Phase 6: Update Staging Backend ✅ Complete
+
+- [x] Update `FRONTEND_URL` to `https://staging.repaircoin.ai` ✅
+- [x] Redeploy staging backend ✅ (auto-deployed after env var change)
+
+### Phase 7: Full Testing ✅ Complete
+
+- [x] Test staging frontend connects to api-staging backend ✅ (200 OK)
+- [x] Test staging backend health ✅ (Healthy, 85 tables, uptime confirmed)
+- [ ] Test login and basic functionality on staging (manual)
+- [ ] Test production backend health via DO URL directly (deferred - using staging values)
+
+### Phase 8: DNS Switch & Full Environment Separation ✅ Complete
+
+- [x] Pre-switch checklist verified ✅
+- [x] Production FRONTEND_URL already set to `https://repaircoin.ai` ✅
+- [x] Sync prod branch with latest main ✅
+- [x] Verify production backend is healthy ✅ (`urchin-app-dy2ak.ondigitalocean.app`)
+- [x] **Switch `api` CNAME to production backend** ✅ Done (`urchin-app-dy2ak.ondigitalocean.app`)
+- [x] DNS propagation verified ✅ (Google DNS confirms new value)
+- [ ] ~~Update Stripe webhook URL~~ (deferred - using TEST keys for now)
+- [x] Verify production site works ✅ (backends have different uptimes)
+
+**Vercel Environment Separation (Feb 4, 2026):**
+- [x] Changed Production branch from `main` to `prod` ✅
+- [x] Configured environment-specific variables:
+  - Production: `NEXT_PUBLIC_API_URL=https://api.repaircoin.ai/api`
+  - Preview: `NEXT_PUBLIC_API_URL=https://api-staging.repaircoin.ai/api`
+- [x] Moved `staging.repaircoin.ai` from Production to Preview environment (main branch) ✅
+- [x] Disabled Vercel Deployment Protection for Preview deployments ✅
+- [x] Promoted `prod` branch deployment to Production ✅
+- [x] Triggered new Preview deployment for `main` branch ✅
+- [x] Verified staging recognizes existing test accounts ✅
+
+### Phase 9: Cleanup (In Progress)
+
 - [ ] Increase DNS TTL back to 3600 (after 24 hours)
-- [ ] Verify CORS configuration is correct
-- [ ] Document final configuration
+- [x] Verify CORS configuration is correct ✅
+- [x] Document final configuration ✅
 - [ ] Notify team of new workflow (main → prod for releases)
+- [ ] Configure LIVE Stripe webhook for production (requires account verification)
+- [ ] Deploy new smart contracts for production (see Phase 10)
+
+---
+
+### Phase 10: Deploy Production Smart Contracts (Pending)
+
+> **Why New Contracts?**
+> Currently, both staging and production share the same RCN/RCG contracts. These contracts have test balances and transaction history from staging testing. For a clean production environment with zero balances and no test history, new contracts should be deployed.
+
+> **⚠️ Contact Required**: Contract deployment requires access to the Thirdweb account used for staging.
+> - **Contact Zeff** (or whoever deployed the original contracts) to deploy new production contracts
+> - They will need to log into [thirdweb.com/dashboard](https://thirdweb.com/dashboard)
+> - Ask them:
+>   1. Does he have access to the Thirdweb account used for staging?
+>   2. Should production use the same Thirdweb project or a separate one?
+>   3. Should production contracts be on Base Sepolia (testnet) or Base mainnet?
+
+#### Current Shared Contracts (Staging & Production)
+| Token | Contract Address | Network |
+|-------|-----------------|---------|
+| RCN | `0xBFE793d78B6B83859b528F191bd6F2b8555D951C` | Base Sepolia |
+| RCG | `0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D` | Base Sepolia |
+
+#### Step 10.1: Deploy New RCN Contract for Production
+
+1. Go to [Thirdweb Dashboard](https://thirdweb.com/dashboard)
+2. Click **Deploy** → Select the same contract type used for RCN (ERC-20)
+3. Configure:
+   - **Name**: `RepairCoin` (or `RepairCoin Production`)
+   - **Symbol**: `RCN`
+   - **Network**: Base Sepolia (or mainnet when ready)
+   - **Initial Supply**: 0 (minted on demand)
+4. Deploy and copy the new contract address
+
+#### Step 10.2: Deploy New RCG Contract for Production
+
+1. Go to [Thirdweb Dashboard](https://thirdweb.com/dashboard)
+2. Click **Deploy** → Select the same contract type used for RCG (ERC-20)
+3. Configure:
+   - **Name**: `RepairCoin Governance` (or `RepairCoin Governance Production`)
+   - **Symbol**: `RCG`
+   - **Network**: Base Sepolia (or mainnet when ready)
+   - **Initial Supply**: 100,000,000 (fixed supply)
+4. Deploy and copy the new contract address
+
+#### Step 10.3: Update Production Backend Environment Variables
+
+In DigitalOcean → `repaircoin-prod` → **Settings** → **Environment Variables**:
+
+| Variable | Old Value | New Value |
+|----------|-----------|-----------|
+| `RCN_CONTRACT_ADDRESS` | `0xBFE793d78B6B83859b528F191bd6F2b8555D951C` | `<new-rcn-contract-address>` |
+| `RCG_CONTRACT_ADDRESS` | `0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D` | `<new-rcg-contract-address>` |
+
+**Optional - If using separate Thirdweb project for production:**
+| Variable | Action |
+|----------|--------|
+| `RCN_THIRDWEB_CLIENT_ID` | Update if using new Thirdweb project |
+| `RCN_THIRDWEB_SECRET_KEY` | Update if using new Thirdweb project |
+| `RCG_THIRDWEB_CLIENT_ID` | Update if using new Thirdweb project |
+| `RCG_THIRDWEB_SECRET_KEY` | Update if using new Thirdweb project |
+
+#### Step 10.4: Update Production Frontend Environment Variables
+
+In Vercel → **Settings** → **Environment Variables**:
+
+For **Production** environment only:
+| Variable | New Value |
+|----------|-----------|
+| `NEXT_PUBLIC_RCN_CONTRACT_ADDRESS` | `<new-rcn-contract-address>` |
+| `NEXT_PUBLIC_RCG_CONTRACT_ADDRESS` | `<new-rcg-contract-address>` |
+
+**Note**: Keep staging (Preview) pointing to the old contracts so test data remains accessible.
+
+#### Step 10.5: Redeploy Production
+
+1. **Backend**: DigitalOcean will auto-redeploy after env var changes, or manually trigger deploy
+2. **Frontend**: Go to Vercel → Deployments → Find `prod` branch → Redeploy
+
+#### Step 10.6: Verify New Contracts
+
+```bash
+# Test production API with new contracts
+curl https://api.repaircoin.ai/api/system/info
+
+# Verify contract addresses in response match new ones
+```
+
+#### Step 10.7: Grant Minting Permissions (If Required)
+
+If the contracts require minter roles:
+1. Go to Thirdweb Dashboard → Select new RCN contract
+2. Go to **Permissions** tab
+3. Add the production wallet address (`PRIVATE_KEY` wallet) as a minter
+4. Repeat for RCG contract if needed
+
+#### Final Contract Configuration
+
+| Environment | RCN Contract | RCG Contract |
+|-------------|--------------|--------------|
+| **Staging** | `0xBFE793d78B6B83859b528F191bd6F2b8555D951C` | `0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D` |
+| **Production** | `<new-rcn-contract-address>` | `<new-rcg-contract-address>` |
+
+**✅ Checkpoint**: Production has fresh contracts with zero balances, completely isolated from staging test data.
 
 ---
 
 ## Troubleshooting
 
 ### DNS not resolving
+
 ```bash
 # Check DNS propagation
 nslookup api.repaircoin.ai
@@ -785,16 +1117,19 @@ ipconfig /flushdns
 ```
 
 ### CORS errors after switch
+
 - Verify `FRONTEND_URL` matches the frontend domain
 - Check `allowedOrigins` in `app.ts`
 - Ensure `COOKIE_DOMAIN=.repaircoin.ai`
 
 ### Cookie issues
+
 - Verify `COOKIE_DOMAIN=.repaircoin.ai` on both backends
 - Check `sameSite` is `lax`
 - Ensure `secure: true` in production
 
 ### Quick Rollback
+
 ```bash
 # If production breaks, switch DNS back immediately:
 # GoDaddy → api CNAME → repaircoin-staging-s7743.ondigitalocean.app
@@ -804,14 +1139,14 @@ ipconfig /flushdns
 
 ## Cost Estimate
 
-| Resource | Monthly Cost |
-|----------|--------------|
-| Production Database (Basic) | ~$15 |
+| Resource                    | Monthly Cost   |
+| --------------------------- | -------------- |
+| Production Database (Basic) | ~$15           |
 | Staging Database (existing) | (already paid) |
-| Production Backend (Basic) | ~$12 |
-| Staging Backend (existing) | (already paid) |
-| Vercel (Pro) | $20 |
-| **Additional Cost** | **~$27/month** |
+| Production Backend (Basic)  | ~$12           |
+| Staging Backend (existing)  | (already paid) |
+| Vercel (Pro)                | $20            |
+| **Additional Cost**         | **~$27/month** |
 
 ---
 
