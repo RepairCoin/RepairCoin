@@ -14,6 +14,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 
+// Components
+import { TierProgressCard } from "../components";
+
 // Constants
 const COLORS = {
   primary: "#FFCC00",
@@ -211,6 +214,12 @@ export default function CustomerAccountScreen() {
             <Text className="text-white font-semibold ml-2">My QR</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Tier Progress Card */}
+        <TierProgressCard
+          currentTier={customer?.tier || "bronze"}
+          lifetimeEarnings={customer?.lifetimeEarnings || 0}
+        />
 
         {/* Account Details Section */}
         <View className="mx-4 mt-4 bg-zinc-900 rounded-2xl overflow-hidden">
