@@ -14,6 +14,17 @@ import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useServicesTab } from "../hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../components";
+import { ServiceSortOption } from "../types";
+
+// Sort option labels for display
+const SORT_LABELS: Record<ServiceSortOption, string> = {
+  default: "Default",
+  price_low: "Price: Low to High",
+  price_high: "Price: High to Low",
+  duration_short: "Shortest Duration",
+  duration_long: "Longest Duration",
+  newest: "Newest First",
+};
 
 export default function ServicesTabContent() {
   const {
@@ -37,6 +48,10 @@ export default function ServicesTabContent() {
     handleServicePress,
     handleRefresh,
     getCategoryLabel,
+    sortOption,
+    setSortOption,
+    priceRange,
+    setPriceRange,
   } = useServicesTab();
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
@@ -56,7 +71,7 @@ export default function ServicesTabContent() {
 
   return (
     <React.Fragment>
-      {/* Search Input with Filter Button */}
+      {/* Search Input with Sort and Filter Buttons */}
       <View className="flex-row items-center gap-2">
         <View className="flex-1">
           <SearchInput
@@ -74,7 +89,7 @@ export default function ServicesTabContent() {
           }`}
         >
           <Ionicons
-            name="filter"
+            name="options-outline"
             size={20}
             color={hasActiveFilters ? "#000" : "#9CA3AF"}
           />
@@ -84,12 +99,34 @@ export default function ServicesTabContent() {
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <View className="flex-row flex-wrap gap-2 mb-4">
+          {/* Sort chip */}
+          {sortOption !== "default" && (
+            <FilterChip
+              label={SORT_LABELS[sortOption]}
+              onRemove={() => setSortOption("default")}
+            />
+          )}
+          {/* Price range chip */}
+          {(priceRange.min !== null || priceRange.max !== null) && (
+            <FilterChip
+              label={
+                priceRange.min !== null && priceRange.max !== null
+                  ? `$${priceRange.min} - $${priceRange.max}`
+                  : priceRange.min !== null
+                  ? `$${priceRange.min}+`
+                  : `Up to $${priceRange.max}`
+              }
+              onRemove={() => setPriceRange({ min: null, max: null })}
+            />
+          )}
+          {/* Status chip */}
           {statusFilter !== "all" && (
             <FilterChip
               label={statusFilter}
               onRemove={() => setStatusFilter("all")}
             />
           )}
+          {/* Category chips */}
           {selectedCategories.map((cat) => (
             <FilterChip
               key={cat}
@@ -162,6 +199,10 @@ export default function ServicesTabContent() {
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategory}
         onClearFilters={clearFilters}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        priceRange={priceRange}
+        onPriceRangeChange={setPriceRange}
       />
     </React.Fragment>
   );

@@ -4,7 +4,7 @@ import { useService } from "@/shared/hooks/service/useService";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
-import { ServiceStatusFilter } from "../../types";
+import { ServiceStatusFilter, ServiceSortOption, PriceRange } from "../../types";
 
 export function useServicesTab() {
   const { useGetAllServicesQuery } = useService();
@@ -31,6 +31,8 @@ export function useServicesTab() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ServiceStatusFilter>("all");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [sortOption, setSortOption] = useState<ServiceSortOption>("default");
+  const [priceRange, setPriceRange] = useState<PriceRange>({ min: null, max: null });
 
   const toggleCategory = useCallback((category: string) => {
     setSelectedCategories((prev) =>
@@ -43,9 +45,16 @@ export function useServicesTab() {
   const clearFilters = useCallback(() => {
     setStatusFilter("all");
     setSelectedCategories([]);
+    setSortOption("default");
+    setPriceRange({ min: null, max: null });
   }, []);
 
-  const hasActiveFilters = statusFilter !== "all" || selectedCategories.length > 0;
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    selectedCategories.length > 0 ||
+    sortOption !== "default" ||
+    priceRange.min !== null ||
+    priceRange.max !== null;
 
   const filteredServices = useMemo(() => {
     let services = servicesData || [];
@@ -64,6 +73,18 @@ export function useServicesTab() {
       );
     }
 
+    // Apply price range filter
+    if (priceRange.min !== null) {
+      services = services.filter(
+        (service: ServiceData) => service.priceUsd >= priceRange.min!
+      );
+    }
+    if (priceRange.max !== null) {
+      services = services.filter(
+        (service: ServiceData) => service.priceUsd <= priceRange.max!
+      );
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -72,8 +93,28 @@ export function useServicesTab() {
       );
     }
 
+    // Apply sorting
+    if (sortOption !== "default") {
+      services = [...services].sort((a: ServiceData, b: ServiceData) => {
+        switch (sortOption) {
+          case "price_low":
+            return a.priceUsd - b.priceUsd;
+          case "price_high":
+            return b.priceUsd - a.priceUsd;
+          case "duration_short":
+            return (a.durationMinutes || 0) - (b.durationMinutes || 0);
+          case "duration_long":
+            return (b.durationMinutes || 0) - (a.durationMinutes || 0);
+          case "newest":
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          default:
+            return 0;
+        }
+      });
+    }
+
     return services;
-  }, [servicesData, statusFilter, selectedCategories, searchQuery]);
+  }, [servicesData, statusFilter, selectedCategories, searchQuery, sortOption, priceRange]);
 
   const handleServicePress = useCallback((item: ServiceData) => {
     router.push(`/customer/service/${item.serviceId}`);
@@ -118,6 +159,14 @@ export function useServicesTab() {
     filterModalVisible,
     openFilterModal,
     closeFilterModal,
+
+    // Sorting
+    sortOption,
+    setSortOption,
+
+    // Price range
+    priceRange,
+    setPriceRange,
 
     // Actions
     handleServicePress,

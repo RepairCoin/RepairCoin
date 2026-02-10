@@ -11,6 +11,21 @@ export type ServiceStatusFilter = "all" | "available" | "unavailable";
 export type BookingFilterTab = "upcoming" | "past" | "all";
 export type BookingStatusFilter = "all" | "pending" | "paid" | "approved" | "completed" | "cancelled";
 
+// Sorting options
+export type ServiceSortOption =
+  | "default"
+  | "price_low"
+  | "price_high"
+  | "duration_short"
+  | "duration_long"
+  | "newest";
+
+// Price range filter
+export interface PriceRange {
+  min: number | null;
+  max: number | null;
+}
+
 // Customer component props
 export interface CustomerServiceTabContainerProps {
   activeTab: CustomerServiceTab;

@@ -49,6 +49,35 @@ class ServiceApi {
     }
   }
 
+  async getRecentlyViewed(options?: { limit?: number }): Promise<any> {
+    try {
+      const queryString = options ? buildQueryString(options) : "";
+      return await apiClient.get<any>(`/services/discovery/recently-viewed${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get recently viewed services:", error.message);
+      throw error;
+    }
+  }
+
+  async trackRecentlyViewed(serviceId: string): Promise<any> {
+    try {
+      return await apiClient.post(`/services/discovery/recently-viewed`, { serviceId });
+    } catch (error: any) {
+      console.error("Failed to track recently viewed:", error.message);
+      throw error;
+    }
+  }
+
+  async getSimilarServices(serviceId: string, options?: { limit?: number }): Promise<any> {
+    try {
+      const queryString = options ? buildQueryString(options) : "";
+      return await apiClient.get<any>(`/services/discovery/similar/${serviceId}${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get similar services:", error.message);
+      throw error;
+    }
+  }
+
   async getService(serviceId: string): Promise<ServiceDetailResponse> {
     try {
       return await apiClient.get<ServiceDetailResponse>(`/services/${serviceId}`);

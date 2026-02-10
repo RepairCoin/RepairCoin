@@ -114,11 +114,52 @@ export function useService() {
     });
   };
 
+  const useGetRecentlyViewed = (options?: { limit?: number }) => {
+    return useQuery({
+      queryKey: queryKeys.serviceRecentlyViewed(options),
+      queryFn: async () => {
+        const response: any = await serviceApi.getRecentlyViewed(options);
+        return response.data;
+      },
+      staleTime: 2 * 60 * 1000, // 2 minutes
+    });
+  };
+
+  const useTrackRecentlyViewed = () => {
+    return useMutation({
+      mutationFn: async (serviceId: string) => {
+        const response: any = await serviceApi.trackRecentlyViewed(serviceId);
+        return response;
+      },
+    });
+  };
+
+  const useGetSimilarServices = (
+    serviceId: string,
+    options?: { limit?: number }
+  ) => {
+    return useQuery({
+      queryKey: queryKeys.serviceSimilar(serviceId, options),
+      queryFn: async () => {
+        const response: any = await serviceApi.getSimilarServices(
+          serviceId,
+          options
+        );
+        return response.data;
+      },
+      enabled: !!serviceId,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+  };
+
   return {
     useGetAllServicesQuery,
     useShopServicesQuery,
     useGetService,
     useGetTrendingServices,
+    useGetRecentlyViewed,
+    useTrackRecentlyViewed,
+    useGetSimilarServices,
     useCreateService,
     useUpdateService,
     useDeleteService,

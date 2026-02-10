@@ -101,6 +101,10 @@ export const queryKeys = {
     [...queryKeys.services(), 'favorites', 'check', serviceId] as const,
   serviceReviews: (serviceId: string) =>
     [...queryKeys.services(), 'reviews', serviceId] as const,
+  serviceRecentlyViewed: (options?: { limit?: number }) =>
+    [...queryKeys.services(), 'recently-viewed', options] as const,
+  serviceSimilar: (serviceId: string, options?: { limit?: number }) =>
+    [...queryKeys.services(), 'similar', serviceId, options] as const,
 
   // Booking related
   bookings: () => [...queryKeys.all, 'bookings'] as const,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Linking, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, router } from "expo-router";
@@ -16,8 +16,9 @@ import { TierInfo, RewardCalculation } from "../../types";
 
 export function useServiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { useGetService } = useService();
+  const { useGetService, useTrackRecentlyViewed } = useService();
   const { data: serviceData, isLoading, error } = useGetService(id!);
+  const { mutate: trackView } = useTrackRecentlyViewed();
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -27,6 +28,13 @@ export function useServiceDetail() {
   const isCustomer = userType === "customer";
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { data: customerData } = useGetCustomerByWalletAddress(account?.address || "");
+
+  // Track recently viewed for customers
+  useEffect(() => {
+    if (id && isCustomer && serviceData && !isLoading) {
+      trackView(id);
+    }
+  }, [id, isCustomer, serviceData, isLoading]);
 
   // Fetch reviews for this service (limited to 2 for preview)
   const {
