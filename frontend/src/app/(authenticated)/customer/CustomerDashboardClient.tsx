@@ -117,8 +117,8 @@ export default function CustomerDashboardClient() {
     );
   }
 
-  // Not connected state
-  if (!account) {
+  // Not connected state - show connect button if no wallet AND no profile
+  if (!account && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">

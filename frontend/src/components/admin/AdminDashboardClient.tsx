@@ -31,7 +31,7 @@ const client = createThirdwebClient({
 export default function AdminDashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
 
   // Connect to Thirdweb and populate auth store
@@ -258,7 +258,8 @@ export default function AdminDashboardClient() {
     );
   }
 
-  if (!account) {
+  // Not connected state - show connect button if no wallet AND no profile
+  if (!account && !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div

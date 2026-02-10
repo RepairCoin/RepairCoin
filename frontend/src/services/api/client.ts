@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { recordAuthFailure } from "@/utils/authRecovery";
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api",
@@ -172,6 +173,9 @@ apiClient.interceptors.response.use(
             isRefreshing = false;
             refreshRetryCount = 0;
 
+            // Record failure for auto-recovery mechanism
+            recordAuthFailure('Session revoked: ' + errorCode);
+
             // Trigger logout for explicit revocations
             if (typeof window !== 'undefined') {
               console.log('[API Client] Triggering logout due to explicit revocation:', errorCode);
@@ -195,14 +199,34 @@ apiClient.interceptors.response.use(
             return attemptRefresh();
           }
 
-          // Max retries exhausted - but DON'T trigger logout for non-explicit errors
-          // This prevents logout due to temporary network issues
-          console.warn('[API Client] Token refresh failed after max retries - NOT triggering logout (may be temporary network issue)');
+          // Max retries exhausted
+          console.warn('[API Client] Token refresh failed after max retries');
           processQueue(axiosError, null);
           isRefreshing = false;
           refreshRetryCount = 0;
 
-          // Return a user-friendly error instead of triggering session revocation
+          // Record failure for auto-recovery mechanism
+          recordAuthFailure('Token refresh failed after max retries');
+
+          // Check if on protected route - if so, clear caches and redirect to home
+          // This prevents users from being stuck on a protected route with invalid session
+          const isProtectedRoute = typeof window !== 'undefined' &&
+            (window.location.pathname.startsWith('/shop') ||
+             window.location.pathname.startsWith('/customer') ||
+             window.location.pathname.startsWith('/admin'));
+
+          if (isProtectedRoute) {
+            console.warn('[API Client] On protected route with failed auth - clearing caches and redirecting to home');
+            // Clear all session caches to prevent stale data on next visit
+            try {
+              sessionStorage.clear();
+            } catch (e) {}
+            // Redirect to home page
+            window.location.href = '/';
+            return Promise.reject(new Error('Session expired. Redirecting to login.'));
+          }
+
+          // Not on protected route - return recoverable error
           const enhancedError = new Error('Session refresh failed. Please try again or refresh the page.') as Error & {
             response?: unknown;
             status?: number;
@@ -222,6 +246,9 @@ apiClient.interceptors.response.use(
     // Check if session was revoked (can happen on any request)
     if (errorCode === 'SESSION_REVOKED') {
       console.log('[API Client] Session revoked - triggering logout');
+
+      // Record failure for auto-recovery mechanism
+      recordAuthFailure('Session revoked during request');
 
       // Trigger wallet disconnect event to prevent auto-login
       if (typeof window !== 'undefined') {
