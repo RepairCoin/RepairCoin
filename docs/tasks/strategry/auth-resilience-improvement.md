@@ -5,8 +5,8 @@
 Improve authentication flow resilience to prevent corrupted browser state when users rapid-refresh or experience network issues.
 
 **Created**: February 9, 2026
-**Last Updated**: February 10, 2026
-**Status**: Phase 1-6 COMPLETE
+**Last Updated**: February 11, 2026
+**Status**: Phase 1-7 COMPLETE
 **Priority**: High
 **Affected Users**: All (customers, shops, admins)
 
@@ -22,6 +22,7 @@ Improve authentication flow resilience to prevent corrupted browser state when u
 | 4 | Shop Data Caching | ✅ Complete |
 | 5 | Logout Fix | ✅ Complete |
 | 6 | Auto-Recovery Mechanism | ✅ Complete |
+| 7 | Wallet Mismatch Debounce | ✅ Complete |
 
 ---
 
@@ -209,6 +210,53 @@ Auth Failure #3 → Threshold reached → TRIGGER RECOVERY
 [AuthRecovery] Redirecting to home...
 [AuthRecovery] ✅ Auth success - resetting failure count
 ```
+
+---
+
+### Phase 7: Wallet Mismatch Debounce ✅ COMPLETE
+
+**Completed:** February 11, 2026
+
+**Goal:** Add stability checks before triggering wallet mismatch warnings to prevent false positives during rapid wallet switches or Thirdweb initialization.
+
+**How It Works:**
+```
+Wallet Switch Detected → Start 500ms debounce timer
+                              ↓
+                    Wait for wallet to stabilize
+                              ↓
+                    Re-check: Is mismatch still present?
+                              ↓
+                    YES → Dispatch mismatch warning
+                    NO  → Mismatch resolved, no warning
+```
+
+**Implementation:**
+- Added `WALLET_MISMATCH_DEBOUNCE_MS = 500` constant
+- Added `mismatchTimeoutRef` to track debounce timer
+- Wrapped mismatch event dispatch in setTimeout
+- Re-validates addresses after debounce period
+- Clears pending timeout on rapid wallet switches
+- Added cleanup in useEffect return
+
+**Files Modified:**
+- `frontend/src/hooks/useAuthInitializer.ts`
+
+**Console Logs:**
+```
+[AuthInitializer] 🔄 Wallet mismatch detected, waiting for stability...
+[AuthInitializer] ⚠️ Wallet mismatch confirmed after stability check!
+[AuthInitializer] ✅ Wallet mismatch resolved during stability check
+```
+
+**Test Results (7/7 passed):**
+- ✅ Mismatch NOT triggered immediately
+- ✅ Mismatch triggered after 500ms stability period
+- ✅ Rapid wallet switches cancel pending checks
+- ✅ Mismatch resolved if wallet switches back
+- ✅ No false positives when addresses match
+- ✅ Only last wallet in rapid sequence triggers mismatch
+- ✅ Debounce timing is accurate (500ms threshold)
 
 ---
 
