@@ -29,7 +29,7 @@ export default function LandingPageNew() {
   const router = useRouter();
   const account = useActiveAccount();
   const { isAuthenticated } = useAuthStore();
-  const { walletType, isRegistered, isDetecting } = useWalletDetection();
+  const { walletType, isRegistered, isDetecting, isRateLimited, rateLimitMessage } = useWalletDetection();
   const redirectAttemptedRef = React.useRef(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
 
@@ -56,6 +56,12 @@ export default function LandingPageNew() {
       return;
     }
 
+    // Don't redirect if rate limited - show error instead
+    if (isRateLimited) {
+      alert(rateLimitMessage || 'Too many requests. Please wait a few minutes and try again.');
+      return;
+    }
+
     setIsRedirecting(true);
 
     if (isRegistered) {
@@ -73,7 +79,7 @@ export default function LandingPageNew() {
     } else {
       router.push("/choose");
     }
-  }, [account, isRegistered, walletType, router]);
+  }, [account, isRegistered, isRateLimited, rateLimitMessage, walletType, router]);
 
   return (
     <main className="bg-[#191919] min-h-screen overflow-x-clip">
