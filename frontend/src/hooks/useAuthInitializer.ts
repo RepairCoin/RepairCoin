@@ -13,6 +13,7 @@ const AUTH_LOCK_KEY = 'rc_auth_lock';
 const AUTH_SESSION_CACHE_KEY = 'rc_session_cache';
 const AUTH_LOCK_TIMEOUT_MS = 5000; // 5 second lock timeout
 const SESSION_CACHE_TTL_MS = 30000; // 30 second cache TTL
+const WALLET_MISMATCH_DEBOUNCE_MS = 500; // 500ms debounce for wallet mismatch detection
 
 interface CachedSession {
   timestamp: number;
@@ -160,6 +161,7 @@ export function useAuthInitializer() {
   const authInProgressRef = useRef(false);
   const hasAcquiredLockRef = useRef(false);
   const immediateCheckDoneRef = useRef(false);
+  const mismatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // CRITICAL: Run session check IMMEDIATELY on mount for protected routes
   // This runs BEFORE waiting for Thirdweb to restore wallet connection
@@ -337,7 +339,7 @@ export function useAuthInitializer() {
             const sessionAddress = (userData.address || userData.walletAddress || '').toLowerCase();
             const connectedAddress = currentAddress?.toLowerCase();
 
-            // Check for wallet mismatch
+            // Check for wallet mismatch with debounce for stability
             if (sessionAddress && connectedAddress && sessionAddress !== connectedAddress) {
               let connectedWalletEmail: string | undefined;
               try {
@@ -348,12 +350,28 @@ export function useAuthInitializer() {
 
               // Allow if emails match (social login)
               if (!(connectedWalletEmail && sessionEmail && connectedWalletEmail.toLowerCase() === sessionEmail)) {
-                console.warn('[AuthInitializer] ⚠️ Wallet mismatch!');
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('auth:wallet-mismatch', {
-                    detail: { sessionWallet: sessionAddress, connectedWallet: connectedAddress }
-                  }));
+                // Clear any existing mismatch timeout
+                if (mismatchTimeoutRef.current) {
+                  clearTimeout(mismatchTimeoutRef.current);
                 }
+
+                console.log('[AuthInitializer] 🔄 Wallet mismatch detected, waiting for stability...');
+
+                // Debounce: Wait 500ms and confirm mismatch still exists
+                mismatchTimeoutRef.current = setTimeout(() => {
+                  // Re-check that addresses still mismatch after debounce period
+                  const currentConnectedAddress = account?.address?.toLowerCase();
+                  if (currentConnectedAddress && sessionAddress !== currentConnectedAddress) {
+                    console.warn('[AuthInitializer] ⚠️ Wallet mismatch confirmed after stability check!');
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('auth:wallet-mismatch', {
+                        detail: { sessionWallet: sessionAddress, connectedWallet: currentConnectedAddress }
+                      }));
+                    }
+                  } else {
+                    console.log('[AuthInitializer] ✅ Wallet mismatch resolved during stability check');
+                  }
+                }, WALLET_MISMATCH_DEBOUNCE_MS);
               }
             }
 
@@ -406,11 +424,15 @@ export function useAuthInitializer() {
     initializeAuth();
     previousAddressRef.current = currentAddress || null;
 
-    // Cleanup: release lock if component unmounts during auth
+    // Cleanup: release lock and clear mismatch timeout if component unmounts
     return () => {
       if (hasAcquiredLockRef.current) {
         releaseAuthLock();
         hasAcquiredLockRef.current = false;
+      }
+      if (mismatchTimeoutRef.current) {
+        clearTimeout(mismatchTimeoutRef.current);
+        mismatchTimeoutRef.current = null;
       }
     };
   }, [account?.address]);

@@ -13,13 +13,14 @@ const router = Router();
  * Prevents brute force attacks and account enumeration
  *
  * Updated to be more permissive for legitimate usage while still preventing abuse:
- * - Allows 20 requests per 5 minutes (increased from 5 per 15 minutes)
+ * - Production: 50 requests per 15 minutes (increased from 5 - was too restrictive)
+ * - Development: 100 requests per 15 minutes
  * - Better balance between security and user experience
- * - Supports multiple wallet connections/tab refreshes during development
+ * - Supports multiple wallet connections/tab refreshes
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 5 : 100, // 5 in production, 100 in development
+  max: process.env.NODE_ENV === 'production' ? 50 : 100, // 50 in production, 100 in development
   message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers

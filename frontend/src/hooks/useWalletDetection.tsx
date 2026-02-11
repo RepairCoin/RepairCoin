@@ -9,6 +9,8 @@ interface UseWalletDetectionResult {
   walletType: WalletType;
   isDetecting: boolean;
   isRegistered: boolean;
+  isRateLimited: boolean;
+  rateLimitMessage?: string;
   detectionData?: any;
   refetch: () => Promise<void>;
 }
@@ -20,6 +22,8 @@ export function useWalletDetection(autoRoute: boolean = false): UseWalletDetecti
   const [walletType, setWalletType] = useState<WalletType>('unknown');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [rateLimitMessage, setRateLimitMessage] = useState<string | undefined>(undefined);
   const [detectionData, setDetectionData] = useState<any>(null);
   const previousAddressRef = useRef<string | undefined>(undefined);
   const hasCheckedRef = useRef(false);
@@ -67,6 +71,21 @@ export function useWalletDetection(autoRoute: boolean = false): UseWalletDetecti
       const result = await detector.detectWalletType(account.address, userEmail);
 
       console.log('🔍 [useWalletDetection] Detection result:', result);
+
+      // Check for rate limiting
+      if (result.route === '/rate-limited') {
+        console.warn('⚠️ [useWalletDetection] Rate limited!');
+        setIsRateLimited(true);
+        setRateLimitMessage(result.data?.message || 'Too many requests. Please wait a few minutes and try again.');
+        setWalletType('unknown');
+        setIsRegistered(false);
+        setDetectionData(null);
+        return;
+      }
+
+      // Clear rate limit state on successful detection
+      setIsRateLimited(false);
+      setRateLimitMessage(undefined);
 
       setWalletType(result.type);
       setIsRegistered(result.isRegistered);
@@ -123,6 +142,8 @@ export function useWalletDetection(autoRoute: boolean = false): UseWalletDetecti
     walletType,
     isDetecting,
     isRegistered,
+    isRateLimited,
+    rateLimitMessage,
     detectionData,
     refetch: detectWallet
   };

@@ -51,6 +51,13 @@ export class WalletDetectionService {
           credentials: 'include',
           body: JSON.stringify({ address, email }) // Include email for fallback
         });
+
+        // Handle rate limiting - throw error to show proper message
+        if (adminCheckResponse.status === 429) {
+          console.error(`⚠️ Rate limited when checking user ${address}`);
+          throw new Error('RATE_LIMITED');
+        }
+
         if (adminCheckResponse.ok) {
           const userData = await adminCheckResponse.json();
           if (userData.type === 'admin') {
@@ -68,7 +75,11 @@ export class WalletDetectionService {
             return { type: 'customer', isRegistered: true, route: '/customer', data: userData.user };
           }
         }
-      } catch (adminError) {
+      } catch (adminError: any) {
+        // Re-throw rate limit error to be handled by outer catch
+        if (adminError?.message === 'RATE_LIMITED') {
+          throw adminError;
+        }
         console.log(`ℹ️ Could not check user status from backend for ${address}`);
       }
 
@@ -114,7 +125,17 @@ export class WalletDetectionService {
       console.log(`ℹ️ Wallet ${address} is not registered yet - showing registration options`);
       return { type: 'unknown', isRegistered: false, route: '/choose' };
 
-    } catch (error) {
+    } catch (error: any) {
+      // Handle rate limiting specially - don't redirect to /choose
+      if (error?.message === 'RATE_LIMITED') {
+        console.error('❌ Rate limited - please wait before trying again');
+        return {
+          type: 'unknown',
+          isRegistered: false,
+          route: '/rate-limited',
+          data: { error: 'RATE_LIMITED', message: 'Too many requests. Please wait a few minutes and try again.' }
+        };
+      }
       console.error('❌ Unexpected error detecting wallet type:', error);
       return { type: 'unknown', isRegistered: false, route: '/choose' };
     }
