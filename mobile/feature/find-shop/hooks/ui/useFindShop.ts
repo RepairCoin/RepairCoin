@@ -2,7 +2,10 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import { router } from "expo-router";
 import MapView, { Region, LatLng } from "react-native-maps";
+import { useQuery } from "@tanstack/react-query";
 import { useShop } from "@/shared/hooks/shop/useShop";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { serviceApi } from "@/shared/services/service.services";
 import {
   getCurrentLocation,
   geocodeAddress,
@@ -16,6 +19,8 @@ import {
 } from "@/shared/providers/RouteProvider";
 import { WebViewMapRef } from "@/shared/components/maps/WebViewMap";
 import { ShopData } from "@/shared/interfaces/shop.interface";
+import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
+import { ServiceCategory } from "@/shared/constants/service-categories";
 import { ViewMode, ShopWithLocation, GeocodedCoords } from "../../types";
 import {
   DEFAULT_RADIUS_MILES,
@@ -52,6 +57,57 @@ export function useFindShop() {
   const [isDirectionsPanelMinimized, setIsDirectionsPanelMinimized] = useState(false);
   const [isShopPopupMinimized, setIsShopPopupMinimized] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS_MILES);
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
+  const [shopAvailabilities, setShopAvailabilities] = useState<Record<string, ShopAvailability[]>>({});
+
+  // Fetch services to map shops to categories
+  const { data: servicesData } = useQuery({
+    queryKey: ["allServices"],
+    queryFn: () => serviceApi.getAll(),
+  });
+
+  // Map shop IDs to their service categories
+  const shopCategories = useMemo(() => {
+    const map: Record<string, Set<ServiceCategory>> = {};
+    if (servicesData?.data) {
+      servicesData.data.forEach((service: any) => {
+        if (service.shopId && service.category) {
+          if (!map[service.shopId]) {
+            map[service.shopId] = new Set();
+          }
+          map[service.shopId].add(service.category);
+        }
+      });
+    }
+    return map;
+  }, [servicesData]);
+
+  // Fetch availability for shops (batch load when shops are available)
+  useEffect(() => {
+    const loadAvailabilities = async () => {
+      if (!shops?.shops) return;
+
+      const shopIds = shops.shops.map((s: ShopData) => s.shopId);
+      const newAvailabilities: Record<string, ShopAvailability[]> = {};
+
+      // Load availability for each shop (in parallel with limit)
+      const batchSize = 5;
+      for (let i = 0; i < shopIds.length; i += batchSize) {
+        const batch = shopIds.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map((shopId: string) => appointmentApi.getShopAvailability(shopId))
+        );
+        results.forEach((result, index) => {
+          if (result.status === "fulfilled" && result.value?.data) {
+            newAvailabilities[batch[index]] = result.value.data;
+          }
+        });
+      }
+      setShopAvailabilities(newAvailabilities);
+    };
+
+    loadAvailabilities();
+  }, [shops]);
 
   // Request location permission and get user's location
   useEffect(() => {
@@ -75,7 +131,7 @@ export function useFindShop() {
     })();
   }, []);
 
-  // Process shops with location data and distances
+  // Process shops with location data, distances, availability, and favorites
   const shopsWithLocation = useMemo(() => {
     if (!shops?.shops) return [];
 
@@ -110,6 +166,7 @@ export function useFindShop() {
           lng,
           distance,
           hasValidLocation,
+          availability: shopAvailabilities[shop.shopId] || [],
         } as ShopWithLocation;
       })
       .sort((a: ShopWithLocation, b: ShopWithLocation) => {
@@ -118,19 +175,32 @@ export function useFindShop() {
         if (a.distance && b.distance) return a.distance - b.distance;
         return 0;
       });
-  }, [shops, userLocation, geocodedShops]);
+  }, [shops, userLocation, geocodedShops, shopAvailabilities]);
 
-  // Filter shops based on search query
+  // Filter shops based on search query and category
   const filteredShops = useMemo(() => {
-    if (!searchQuery.trim()) return shopsWithLocation;
+    let result = shopsWithLocation;
 
-    const query = searchQuery.toLowerCase();
-    return shopsWithLocation.filter(
-      (shop: ShopWithLocation) =>
-        shop.name?.toLowerCase().includes(query) ||
-        shop.address?.toLowerCase().includes(query)
-    );
-  }, [shopsWithLocation, searchQuery]);
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (shop: ShopWithLocation) =>
+          shop.name?.toLowerCase().includes(query) ||
+          shop.address?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by service category
+    if (selectedCategory) {
+      result = result.filter((shop: ShopWithLocation) => {
+        const categories = shopCategories[shop.shopId];
+        return categories && categories.has(selectedCategory);
+      });
+    }
+
+    return result;
+  }, [shopsWithLocation, searchQuery, selectedCategory, shopCategories]);
 
   // Center map on first shop with valid location if user location is not available
   useEffect(() => {
@@ -366,6 +436,7 @@ export function useFindShop() {
     locationLoading,
     filteredShops,
     shopsInRadius,
+    shopCategories,
     // State
     viewMode,
     setViewMode,
@@ -386,6 +457,8 @@ export function useFindShop() {
     isShopPopupMinimized,
     setIsShopPopupMinimized,
     radiusMiles,
+    selectedCategory,
+    setSelectedCategory,
     // Handlers
     handleMarkerPress,
     handleWebViewMarkerPress,

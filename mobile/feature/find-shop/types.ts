@@ -1,4 +1,5 @@
 import { ShopData } from "@/shared/interfaces/shop.interface";
+import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
 import { Region, LatLng } from "react-native-maps";
 
 export type ViewMode = "map" | "list";
@@ -8,6 +9,7 @@ export interface ShopWithLocation extends ShopData {
   lng?: number;
   distance?: number;
   hasValidLocation: boolean;
+  availability?: ShopAvailability[];
 }
 
 export interface RouteInfo {

@@ -1,6 +1,11 @@
 import { View, Text, Pressable, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ShopWithLocation } from "../types";
+import {
+  getTodayAvailability,
+  formatShopHours,
+  getShopStatus,
+} from "../utils";
 
 interface ShopCardProps {
   shop: ShopWithLocation;
@@ -20,6 +25,11 @@ export function ShopCard({ shop, onPress }: ShopCardProps) {
   };
 
   const tierColors = getTierColor(shop.rcg_tier);
+  const todayAvailability = shop.availability
+    ? getTodayAvailability(shop.availability)
+    : null;
+  const shopStatus = getShopStatus(todayAvailability);
+  const hoursText = formatShopHours(todayAvailability);
 
   return (
     <Pressable
@@ -72,6 +82,23 @@ export function ShopCard({ shop, onPress }: ShopCardProps) {
             </Text>
           </View>
 
+          {/* Hours Row */}
+          <View className="flex-row items-center mt-1">
+            <Ionicons name="time-outline" size={12} color="#71717a" />
+            <Text className="text-zinc-500 text-xs ml-1">{hoursText}</Text>
+            <View
+              className="ml-2 px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: shopStatus.isOpen ? "#22C55E20" : "#EF444420" }}
+            >
+              <Text
+                className="text-[10px] font-medium"
+                style={{ color: shopStatus.color }}
+              >
+                {shopStatus.text}
+              </Text>
+            </View>
+          </View>
+
           {/* Tags Row */}
           <View className="flex-row items-center mt-2 gap-2 flex-wrap">
             {shop.rcg_tier && (
@@ -85,12 +112,6 @@ export function ShopCard({ shop, onPress }: ShopCardProps) {
               <View className="bg-blue-500/20 px-2 py-0.5 rounded-full flex-row items-center">
                 <Ionicons name="swap-horizontal" size={10} color="#60A5FA" />
                 <Text className="text-blue-400 text-[10px] ml-1">Cross-shop</Text>
-              </View>
-            )}
-            {shop.phone && (
-              <View className="flex-row items-center">
-                <Ionicons name="call-outline" size={10} color="#71717a" />
-                <Text className="text-zinc-500 text-[10px] ml-1">{shop.phone}</Text>
               </View>
             )}
           </View>

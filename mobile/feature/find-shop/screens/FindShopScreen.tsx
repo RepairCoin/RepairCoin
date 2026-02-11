@@ -14,6 +14,7 @@ import {
   RadiusControl,
   CenterLocationButton,
   ViewModeToggle,
+  CategoryFilter,
 } from "../components";
 
 export default function FindShopScreen() {
@@ -25,6 +26,7 @@ export default function FindShopScreen() {
     locationLoading,
     filteredShops,
     shopsInRadius,
+    shopCategories,
     viewMode,
     setViewMode,
     searchQuery,
@@ -43,6 +45,8 @@ export default function FindShopScreen() {
     isShopPopupMinimized,
     setIsShopPopupMinimized,
     radiusMiles,
+    selectedCategory,
+    setSelectedCategory,
     handleMarkerPress,
     handleWebViewMarkerPress,
     handleShopCardPress,
@@ -292,7 +296,10 @@ export default function FindShopScreen() {
           data={filteredShops}
           keyExtractor={(item) => item.shopId}
           renderItem={({ item }) => (
-            <ShopCard shop={item} onPress={() => handleShopCardPress(item)} />
+            <ShopCard
+              shop={item}
+              onPress={() => handleShopCardPress(item)}
+            />
           )}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           ListHeaderComponent={
@@ -304,22 +311,39 @@ export default function FindShopScreen() {
                 placeholder="Search by name or address..."
               />
 
+              {/* Category Filter */}
+              <View className="mt-4">
+                <CategoryFilter
+                  selectedCategory={selectedCategory}
+                  onSelect={setSelectedCategory}
+                  shopCategories={shopCategories}
+                />
+              </View>
+
               {/* Search Results Count */}
-              {searchQuery.length > 0 && (
-                <View className="flex-row items-center mt-4 bg-zinc-900/50 rounded-xl px-3 py-2">
-                  <Ionicons name="search" size={16} color="#71717a" />
-                  <Text className="text-zinc-400 text-sm ml-2">
-                    {filteredShops.length} result{filteredShops.length !== 1 ? "s" : ""} for "{searchQuery}"
+              {(searchQuery.length > 0 || selectedCategory) && (
+                <View className="flex-row items-center bg-zinc-900/50 rounded-xl px-3 py-2">
+                  <Ionicons name="filter" size={16} color="#71717a" />
+                  <Text className="text-zinc-400 text-sm ml-2 flex-1">
+                    {filteredShops.length} shop{filteredShops.length !== 1 ? "s" : ""} found
                   </Text>
-                  <Pressable onPress={() => setSearchQuery("")} className="ml-auto">
-                    <Ionicons name="close-circle" size={18} color="#71717a" />
-                  </Pressable>
+                  {(searchQuery.length > 0 || selectedCategory) && (
+                    <Pressable
+                      onPress={() => {
+                        setSearchQuery("");
+                        setSelectedCategory(null);
+                      }}
+                      className="ml-auto"
+                    >
+                      <Text className="text-[#FFCC00] text-sm font-medium">Clear</Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
 
               {/* Section Title */}
-              <Text className="text-zinc-500 text-xs font-semibold mt-4 mb-2">
-                {searchQuery ? "SEARCH RESULTS" : "ALL SHOPS"}
+              <Text className="text-zinc-500 text-xs font-semibold">
+                {searchQuery || selectedCategory ? "FILTERED RESULTS" : "ALL SHOPS"}
               </Text>
             </View>
           }
@@ -327,25 +351,28 @@ export default function FindShopScreen() {
             <View className="flex-1 items-center justify-center pt-12 px-8">
               <View className="w-20 h-20 rounded-full bg-zinc-900 items-center justify-center mb-4">
                 <Ionicons
-                  name={searchQuery.length > 0 ? "search" : "storefront-outline"}
+                  name={searchQuery.length > 0 || selectedCategory ? "search" : "storefront-outline"}
                   size={36}
                   color="#71717a"
                 />
               </View>
               <Text className="text-white text-lg font-semibold text-center">
-                {searchQuery.length > 0 ? "No Shops Found" : "No Shops Available"}
+                {searchQuery.length > 0 || selectedCategory ? "No Shops Found" : "No Shops Available"}
               </Text>
               <Text className="text-zinc-500 text-sm text-center mt-2 leading-5">
-                {searchQuery.length > 0
-                  ? `We couldn't find any shops matching "${searchQuery}". Try a different search term.`
+                {searchQuery.length > 0 || selectedCategory
+                  ? "We couldn't find any shops matching your filters. Try different criteria."
                   : "There are no repair shops available at the moment. Check back later for new listings."}
               </Text>
-              {searchQuery.length > 0 && (
+              {(searchQuery.length > 0 || selectedCategory) && (
                 <Pressable
-                  onPress={() => setSearchQuery("")}
+                  onPress={() => {
+                    setSearchQuery("");
+                    setSelectedCategory(null);
+                  }}
                   className="mt-4 bg-zinc-800 px-5 py-2.5 rounded-xl"
                 >
-                  <Text className="text-white font-medium">Clear Search</Text>
+                  <Text className="text-white font-medium">Clear Filters</Text>
                 </Pressable>
               )}
             </View>
