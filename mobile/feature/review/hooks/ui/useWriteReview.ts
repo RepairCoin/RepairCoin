@@ -17,6 +17,7 @@ export function useWriteReview() {
 
   const [rating, setRating] = useState<RatingLevel>(0);
   const [comment, setComment] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const queryClient = useQueryClient();
 
@@ -53,6 +54,7 @@ export function useWriteReview() {
       orderId: orderId!,
       rating,
       comment: comment.trim(),
+      images: images.length > 0 ? images : undefined,
     });
   };
 
@@ -82,6 +84,8 @@ export function useWriteReview() {
     rating,
     comment,
     setComment,
+    images,
+    setImages,
     isSubmitted,
 
     // Handlers

@@ -21,6 +21,7 @@ export default function ServiceReviewsScreen() {
   const {
     reviews,
     stats,
+    hasReviews,
     ratingFilter,
     refreshing,
     isLoading,
@@ -72,12 +73,16 @@ export default function ServiceReviewsScreen() {
           )}
 
           {/* Rating Filter */}
-          {stats && stats.totalReviews > 0 && (
-            <RatingFilter
-              selectedRating={ratingFilter}
-              onSelect={handleFilterChange}
-              stats={stats}
-            />
+          {hasReviews && (
+            <View className="px-4 gap-4 mb-4">
+              <RatingFilter
+                selectedRating={ratingFilter}
+                onSelect={handleFilterChange}
+              />
+              <Text className="text-gray-400 text-sm">
+                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
           )}
 
           {/* Reviews List */}

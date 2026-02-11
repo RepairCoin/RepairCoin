@@ -5,6 +5,7 @@ export { default as StarRating } from "./StarRating";
 export { default as CommentInput } from "./CommentInput";
 export { default as ReviewTips } from "./ReviewTips";
 export { default as SubmitButton } from "./SubmitButton";
+export { default as ImagePicker } from "./ImagePicker";
 
 // Service Reviews List components
 export { default as ReviewsHeader } from "./ReviewsHeader";
