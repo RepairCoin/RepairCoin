@@ -7,6 +7,7 @@ const apiClient = axios.create({
     "Content-Type": "application/json",
   },
   withCredentials: true, // Send cookies with requests (critical for httpOnly cookies)
+  timeout: 30000, // 30 second timeout to prevent hanging requests
 });
 
 // Request interceptor - Add request metadata
