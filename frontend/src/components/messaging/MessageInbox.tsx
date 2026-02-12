@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Search,
   MessageCircle,
@@ -43,6 +43,11 @@ export const MessageInbox: React.FC<MessageInboxProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "resolved">("all");
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  const handleImageError = useCallback((conversationId: string) => {
+    setFailedImages(prev => new Set(prev).add(conversationId));
+  }, []);
 
   const filteredConversations = conversations.filter((conv) => {
     const matchesSearch =
@@ -148,13 +153,22 @@ export const MessageInbox: React.FC<MessageInboxProps> = ({
                 }`}
               >
                 <div className="flex gap-3">
-                  {/* Avatar */}
+                  {/* Avatar - Show shop logo if available, otherwise show initial */}
                   <div className="relative flex-shrink-0">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center">
-                      <span className="text-black font-bold text-lg">
-                        {conversation.participantName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    {conversation.participantAvatar && !failedImages.has(conversation.id) ? (
+                      <img
+                        src={conversation.participantAvatar}
+                        alt={conversation.participantName}
+                        className="w-12 h-12 rounded-full object-cover bg-[#0A0A0A]"
+                        onError={() => handleImageError(conversation.id)}
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center">
+                        <span className="text-black font-bold text-lg">
+                          {conversation.participantName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                     {conversation.isOnline && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1A]"></div>
                     )}

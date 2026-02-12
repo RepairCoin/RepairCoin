@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send,
   Paperclip,
@@ -64,7 +64,13 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset avatar error when participant changes
+  useEffect(() => {
+    setAvatarError(false);
+  }, [participantAvatar]);
 
   const handleSend = async () => {
     if (!messageInput.trim() && selectedFiles.length === 0) return;
@@ -155,13 +161,22 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-[#1A1A1A]">
         <div className="flex items-center gap-3">
-          {/* Avatar */}
+          {/* Avatar - Show shop logo if available, otherwise show initial */}
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center">
-              <span className="text-black font-bold">
-                {participantName.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            {participantAvatar && !avatarError ? (
+              <img
+                src={participantAvatar}
+                alt={participantName}
+                className="w-10 h-10 rounded-full object-cover bg-[#0A0A0A]"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center">
+                <span className="text-black font-bold">
+                  {participantName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
             {isOnline && (
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1A]"></div>
             )}
@@ -225,13 +240,22 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                     className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                   >
                     <div className={`flex gap-2 max-w-[70%] ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}>
-                      {/* Avatar (only for received messages) */}
+                      {/* Avatar (only for received messages) - Show shop logo if available */}
                       {!isOwnMessage && (
-                        <div className="w-8 h-8 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-xs font-bold">
-                            {message.senderName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        participantAvatar && !avatarError ? (
+                          <img
+                            src={participantAvatar}
+                            alt={message.senderName}
+                            className="w-8 h-8 rounded-full object-cover bg-[#0A0A0A] flex-shrink-0"
+                            onError={() => setAvatarError(true)}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-white text-xs font-bold">
+                              {message.senderName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )
                       )}
 
                       {/* Message Bubble */}
@@ -349,11 +373,20 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
         {isTyping && (
           <div className="flex justify-start">
             <div className="flex gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">
-                  {participantName.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              {participantAvatar && !avatarError ? (
+                <img
+                  src={participantAvatar}
+                  alt={participantName}
+                  className="w-8 h-8 rounded-full object-cover bg-[#0A0A0A]"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <div className="w-8 h-8 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">
+                    {participantName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
               <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-3 flex items-center gap-1">
                 <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                 <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
