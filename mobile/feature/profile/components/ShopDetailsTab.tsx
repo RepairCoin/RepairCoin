@@ -40,7 +40,7 @@ export function ShopDetailsTab({
 
         {/* Address */}
         {shopData.address && (
-          <View className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3">
+          <View className="flex-row items-start bg-zinc-900 rounded-xl p-4 mb-3">
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
               <Ionicons name="location-outline" size={20} color={PROFILE_COLORS.primary} />
             </View>
