@@ -8,7 +8,8 @@ import { authApi } from '@/services/api/auth';
 import { client } from '@/utils/thirdweb';
 import { recordAuthFailure, resetAuthFailures } from '@/utils/authRecovery';
 
-// SessionStorage keys for cross-refresh mutex and cached session
+// Auth lock uses localStorage for CROSS-TAB mutex (prevents multiple tabs from racing)
+// Session cache uses sessionStorage (per-tab caching)
 const AUTH_LOCK_KEY = 'rc_auth_lock';
 const AUTH_SESSION_CACHE_KEY = 'rc_session_cache';
 const AUTH_LOCK_TIMEOUT_MS = 5000; // 5 second lock timeout
@@ -79,7 +80,7 @@ function setCachedSession(profile: CachedSession['profile']): void {
 function clearCachedSession(): void {
   try {
     sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
-    sessionStorage.removeItem(AUTH_LOCK_KEY);
+    localStorage.removeItem(AUTH_LOCK_KEY); // Lock is in localStorage for cross-tab
   } catch (e) {
     // Ignore errors
   }
@@ -91,7 +92,7 @@ function clearCachedSession(): void {
 export function clearAllAuthCaches(): void {
   try {
     sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
-    sessionStorage.removeItem(AUTH_LOCK_KEY);
+    localStorage.removeItem(AUTH_LOCK_KEY); // Lock is in localStorage for cross-tab
     // Also clear shop-related caches
     sessionStorage.removeItem('rc_shop_data_cache');
     sessionStorage.removeItem('rc_shop_id');
@@ -102,19 +103,21 @@ export function clearAllAuthCaches(): void {
 }
 
 /**
- * Acquire a mutex lock that survives page refreshes.
- * Returns true if lock acquired, false if another refresh already has the lock.
+ * Acquire a mutex lock that works ACROSS TABS using localStorage.
+ * This prevents multiple tabs from making concurrent auth requests.
+ * Returns true if lock acquired, false if another tab already has the lock.
  */
 function acquireAuthLock(): boolean {
   try {
     const now = Date.now();
-    const existingLock = sessionStorage.getItem(AUTH_LOCK_KEY);
+    // Use localStorage for cross-tab mutex (shared across all tabs)
+    const existingLock = localStorage.getItem(AUTH_LOCK_KEY);
 
     if (existingLock) {
       const lockTime = parseInt(existingLock, 10);
       // If lock is still valid (within timeout), deny new lock
       if (now - lockTime < AUTH_LOCK_TIMEOUT_MS) {
-        console.log('[AuthInitializer] 🔒 Lock denied - another auth in progress (age: ' + (now - lockTime) + 'ms)');
+        console.log('[AuthInitializer] 🔒 Lock denied - another tab has auth in progress (age: ' + (now - lockTime) + 'ms)');
         return false;
       }
       // Lock expired, we can take over
@@ -122,12 +125,12 @@ function acquireAuthLock(): boolean {
     }
 
     // Acquire the lock
-    sessionStorage.setItem(AUTH_LOCK_KEY, now.toString());
-    console.log('[AuthInitializer] 🔒 Lock acquired');
+    localStorage.setItem(AUTH_LOCK_KEY, now.toString());
+    console.log('[AuthInitializer] 🔒 Lock acquired (cross-tab)');
     return true;
   } catch (e) {
-    // sessionStorage might not be available (SSR, private mode)
-    console.log('[AuthInitializer] ⚠️ sessionStorage not available, proceeding without lock');
+    // localStorage might not be available (SSR, private mode)
+    console.log('[AuthInitializer] ⚠️ localStorage not available, proceeding without lock');
     return true;
   }
 }
@@ -137,7 +140,7 @@ function acquireAuthLock(): boolean {
  */
 function releaseAuthLock(): void {
   try {
-    sessionStorage.removeItem(AUTH_LOCK_KEY);
+    localStorage.removeItem(AUTH_LOCK_KEY);
     console.log('[AuthInitializer] 🔓 Lock released');
   } catch (e) {
     // Ignore errors
