@@ -255,39 +255,19 @@ export function useAuthInitializer() {
         return;
       }
 
-      // Cross-refresh mutex using sessionStorage
+      // Cross-tab mutex - NON-BLOCKING approach
+      // If another tab has the lock, use cached session and proceed without waiting
       if (!acquireAuthLock()) {
-        // Another refresh has the lock - try to use cached session
         const cachedProfile = getCachedSession();
         if (cachedProfile) {
-          console.log('[AuthInitializer] ⏭️ Using cached session while lock is held');
+          console.log('[AuthInitializer] ⏭️ Lock held by another tab - using cached session');
           setUserProfile(cachedProfile);
-          setAuthInitialized(true);
-          return;
+        } else {
+          console.log('[AuthInitializer] ⏭️ Lock held by another tab - no cache, proceeding without blocking');
         }
-
-        // No cache yet - wait for the other refresh to complete and cache the session
-        console.log('[AuthInitializer] ⏳ Waiting for session cache...');
-        const pollForCache = (attempts: number) => {
-          if (attempts <= 0) {
-            // Timeout - force release lock and retry
-            console.log('[AuthInitializer] ⚠️ Cache wait timeout, forcing retry');
-            releaseAuthLock();
-            initializeAuth();
-            return;
-          }
-
-          const cached = getCachedSession();
-          if (cached) {
-            console.log('[AuthInitializer] ✅ Got cached session');
-            setUserProfile(cached);
-            setAuthInitialized(true);
-          } else {
-            setTimeout(() => pollForCache(attempts - 1), 200);
-          }
-        };
-        // Poll for up to 3 seconds (15 attempts * 200ms)
-        pollForCache(15);
+        // Always set authInitialized to true - don't block rendering
+        // The other tab will complete auth and cache will be available on next refresh
+        setAuthInitialized(true);
         return;
       }
 

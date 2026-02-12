@@ -34,6 +34,17 @@ export default function AdminDashboardClient() {
   const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
 
+  // Delayed loading modal - prevents flash when cache loads quickly
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  useEffect(() => {
+    if (!authInitialized || authLoading) {
+      const timer = setTimeout(() => setShowLoadingModal(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingModal(false);
+    }
+  }, [authInitialized, authLoading]);
+
   // Connect to Thirdweb and populate auth store
   useAuth();
 
@@ -231,8 +242,11 @@ export default function AdminDashboardClient() {
     window.history.pushState({}, "", url);
   };
 
-  // Loading state - while auth is initializing
-  if (!authInitialized || authLoading) {
+  // NEVER return null - always show something visible
+  const isInitializing = !authInitialized || authLoading;
+
+  // During initialization with no profile, show loading state (not blank)
+  if (isInitializing && !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div
@@ -244,22 +258,17 @@ export default function AdminDashboardClient() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <div className="text-center rounded-lg p-8 border-gray-800 border-2 bg-[#212121]">
+          <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h3 className="text-xl font-semibold text-[#FFCC00] mb-4">
-              Initializing...
-            </h3>
-            <p className="text-gray-300">
-              Checking your authentication status
-            </p>
+            <p className="text-gray-400">Loading...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Not connected state - show connect button if no wallet AND no profile
-  if (!account && !userProfile) {
+  // Not connected state - only show AFTER initialization is complete
+  if (!isInitializing && !account && !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div

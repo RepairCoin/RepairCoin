@@ -37,6 +37,17 @@ export default function CustomerDashboardClient() {
     "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
   >("overview");
 
+  // Delayed loading modal - prevents flash when cache loads quickly
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  useEffect(() => {
+    if (!authInitialized || authLoading) {
+      const timer = setTimeout(() => setShowLoadingModal(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingModal(false);
+    }
+  }, [authInitialized, authLoading]);
+
   // Mark auth as initialized once authentication has been attempted
   useEffect(() => {
     // Auth is initialized when we have a definitive state:
@@ -98,27 +109,23 @@ export default function CustomerDashboardClient() {
     window.history.pushState({}, "", url);
   };
 
-  // Loading state - while auth is initializing
-  if (!authInitialized || authLoading) {
+  // NEVER return null - always show something visible
+  const isInitializing = !authInitialized || authLoading;
+
+  // During initialization with no profile, show loading state (not blank)
+  if (isInitializing && !userProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Initializing...
-            </h3>
-            <p className="text-gray-600">
-              Checking your authentication status
-            </p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Not connected state - show connect button if no wallet AND no profile
-  if (!account && !userProfile) {
+  // Not connected state - only show AFTER initialization is complete
+  if (!isInitializing && !account && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">

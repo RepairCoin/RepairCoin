@@ -197,7 +197,15 @@ export default function ShopDashboardClient() {
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, authInitialized, userProfile } = useAuthStore();
   const { existingApplication } = useShopRegistration();
+
+  // shopData starts null - loaded via useEffect to avoid SSR hydration mismatch
   const [shopData, setShopData] = useState<ShopData | null>(null);
+
+  // Track if we've attempted to load from cache (client-side only)
+  const [cacheChecked, setCacheChecked] = useState(false);
+
+  // Prevent multiple concurrent background refreshes (thundering herd prevention)
+  const backgroundRefreshInProgressRef = useRef(false);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -220,6 +228,21 @@ export default function ShopDashboardClient() {
 
   // Suspended/Rejected modal state
   const [showSuspendedModal, setShowSuspendedModal] = useState(true);
+
+  // Delayed loading state - prevents flash when cache loads quickly
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  useEffect(() => {
+    // Only show loading modal after 150ms delay if still not initialized
+    // This gives cache check time to complete without showing the modal
+    if (!authInitialized || authLoading) {
+      const timer = setTimeout(() => {
+        setShowLoadingModal(true);
+      }, 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingModal(false);
+    }
+  }, [authInitialized, authLoading]);
 
   // Cancelled subscription modal state
   const [showCancelledModal, setShowCancelledModal] = useState(false);
@@ -248,21 +271,23 @@ export default function ShopDashboardClient() {
     setAuthToken(null);
   }, []);
 
-  // CRITICAL: Load from cache IMMEDIATELY on mount - don't wait for auth/Thirdweb
-  // This is the key fix for rapid refresh - we load cached data before anything else
+  // Load from cache IMMEDIATELY on mount - runs only on client
+  // This is useLayoutEffect to ensure it runs synchronously before paint
   useEffect(() => {
+    if (cacheChecked) return;
+    setCacheChecked(true);
+
     const cachedShopId = getShopIdFromCache();
     if (cachedShopId) {
       const cached = getCachedShopData(cachedShopId);
       if (cached) {
-        console.log('[ShopDashboard] ⚡ IMMEDIATE cache load on mount - no waiting for auth');
+        console.log('[ShopDashboard] ⚡ Cache hit on mount');
         setShopData(cached);
       }
     }
-  }, []); // Empty deps - run ONCE on mount, before auth completes
+  }, [cacheChecked]);
 
-  // Note: authInitialized is now managed by useAuthInitializer hook in the auth store
-  // No need for local state or useEffect - it's set when session check completes
+  // authInitialized is managed by useAuthInitializer hook in the auth store
 
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
@@ -558,8 +583,11 @@ export default function ShopDashboardClient() {
       if (cached) {
         console.log('[ShopDashboard] ⚡ Cache hit in loadShopData');
         setShopData(cached);
-        // Still refresh in background, but don't show loading spinner
-        refreshShopDataInBackground(shopId, walletAddress);
+        // Delay background refresh by 5 seconds to avoid thundering herd
+        // when multiple tabs refresh simultaneously
+        setTimeout(() => {
+          refreshShopDataInBackground(shopId, walletAddress);
+        }, 5000);
         return;
       }
     }
@@ -649,7 +677,16 @@ export default function ShopDashboardClient() {
   };
 
   // Background refresh - doesn't show loading spinner
+  // Uses ref to prevent multiple concurrent refreshes (thundering herd prevention)
   const refreshShopDataInBackground = async (shopId: string, walletAddress?: string) => {
+    // Prevent concurrent background refreshes
+    if (backgroundRefreshInProgressRef.current) {
+      console.log('[ShopDashboard] ⏭️ Background refresh already in progress, skipping');
+      return;
+    }
+
+    backgroundRefreshInProgressRef.current = true;
+
     try {
       const shopEndpoint = shopId ? `/shops/${shopId}` : `/shops/wallet/${walletAddress}`;
       console.log('[ShopDashboard] 🔄 Background refresh from:', shopEndpoint);
@@ -697,6 +734,8 @@ export default function ShopDashboardClient() {
     } catch (err) {
       console.error("[ShopDashboard] Background refresh failed:", err);
       // Don't set error - we already have cached data showing
+    } finally {
+      backgroundRefreshInProgressRef.current = false;
     }
   };
 
@@ -900,27 +939,24 @@ export default function ShopDashboardClient() {
     );
   }
 
-  // Loading state - while auth is initializing
-  if (!authInitialized || authLoading) {
+  // NEVER return null or blank screen - always render something visible
+  const isInitializing = !authInitialized || authLoading;
+
+  // During initialization with no cached data, show a loading state
+  // This prevents white screen while auth is being verified
+  if (isInitializing && !shopData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Initializing...
-            </h3>
-            <p className="text-gray-600">
-              Checking your authentication status
-            </p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Not connected state - show connect button if no wallet AND no profile
-  if (!account && !userProfile) {
+  // Not connected state - only show AFTER initialization is complete
+  if (!isInitializing && !account && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
