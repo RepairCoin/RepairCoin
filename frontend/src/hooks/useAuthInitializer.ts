@@ -8,8 +8,8 @@ import { authApi } from '@/services/api/auth';
 import { client } from '@/utils/thirdweb';
 import { recordAuthFailure, resetAuthFailures } from '@/utils/authRecovery';
 
-// Auth lock uses localStorage for CROSS-TAB mutex (prevents multiple tabs from racing)
-// Session cache uses sessionStorage (per-tab caching)
+// Both lock and session cache use localStorage for CROSS-TAB sharing
+// This prevents multiple tabs from racing AND allows tabs to share cached sessions
 const AUTH_LOCK_KEY = 'rc_auth_lock';
 const AUTH_SESSION_CACHE_KEY = 'rc_session_cache';
 const AUTH_LOCK_TIMEOUT_MS = 5000; // 5 second lock timeout
@@ -35,11 +35,12 @@ interface CachedSession {
 }
 
 /**
- * Get cached session from sessionStorage if still valid.
+ * Get cached session from localStorage if still valid.
+ * Uses localStorage (not sessionStorage) so cache is shared across tabs.
  */
 function getCachedSession(): CachedSession['profile'] | null {
   try {
-    const cached = sessionStorage.getItem(AUTH_SESSION_CACHE_KEY);
+    const cached = localStorage.getItem(AUTH_SESSION_CACHE_KEY);
     if (!cached) return null;
 
     const data: CachedSession = JSON.parse(cached);
@@ -47,7 +48,7 @@ function getCachedSession(): CachedSession['profile'] | null {
 
     if (age > SESSION_CACHE_TTL_MS) {
       console.log('[AuthInitializer] 📦 Session cache expired (age: ' + age + 'ms)');
-      sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
+      localStorage.removeItem(AUTH_SESSION_CACHE_KEY);
       return null;
     }
 
@@ -59,7 +60,7 @@ function getCachedSession(): CachedSession['profile'] | null {
 }
 
 /**
- * Cache session in sessionStorage.
+ * Cache session in localStorage (shared across tabs).
  */
 function setCachedSession(profile: CachedSession['profile']): void {
   try {
@@ -67,8 +68,8 @@ function setCachedSession(profile: CachedSession['profile']): void {
       timestamp: Date.now(),
       profile
     };
-    sessionStorage.setItem(AUTH_SESSION_CACHE_KEY, JSON.stringify(data));
-    console.log('[AuthInitializer] 📦 Session cached');
+    localStorage.setItem(AUTH_SESSION_CACHE_KEY, JSON.stringify(data));
+    console.log('[AuthInitializer] 📦 Session cached (cross-tab)');
   } catch (e) {
     // Ignore errors
   }
@@ -79,7 +80,7 @@ function setCachedSession(profile: CachedSession['profile']): void {
  */
 function clearCachedSession(): void {
   try {
-    sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
+    localStorage.removeItem(AUTH_SESSION_CACHE_KEY);
     localStorage.removeItem(AUTH_LOCK_KEY); // Lock is in localStorage for cross-tab
   } catch (e) {
     // Ignore errors
@@ -91,9 +92,9 @@ function clearCachedSession(): void {
  */
 export function clearAllAuthCaches(): void {
   try {
-    sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
-    localStorage.removeItem(AUTH_LOCK_KEY); // Lock is in localStorage for cross-tab
-    // Also clear shop-related caches
+    localStorage.removeItem(AUTH_SESSION_CACHE_KEY); // Session cache in localStorage
+    localStorage.removeItem(AUTH_LOCK_KEY); // Lock in localStorage
+    // Also clear shop-related caches (these stay in sessionStorage per-tab)
     sessionStorage.removeItem('rc_shop_data_cache');
     sessionStorage.removeItem('rc_shop_id');
     console.log('[AuthInitializer] 🧹 All auth caches cleared');
