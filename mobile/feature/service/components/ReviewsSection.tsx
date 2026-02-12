@@ -172,7 +172,6 @@ export function ReviewsSection({
       {/* Header */}
       <View className="flex-row items-center justify-between mb-4">
         <View className="flex-row items-center">
-          <Ionicons name="star" size={22} color="#FFCC00" />
           <Text className="text-white text-lg font-semibold ml-2">
             Reviews
           </Text>

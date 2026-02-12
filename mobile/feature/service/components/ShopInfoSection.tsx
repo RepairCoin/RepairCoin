@@ -21,12 +21,6 @@ export function ShopInfoSection({
   return (
     <View className="mb-6">
       <View className="flex-row items-center mb-4">
-        <Ionicons
-          name="storefront-outline"
-          size={22}
-          color="#FFCC00"
-          style={{ marginRight: 8 }}
-        />
         <Text className="text-white text-lg font-semibold">
           Shop Information
         </Text>

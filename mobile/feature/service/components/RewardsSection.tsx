@@ -11,7 +11,6 @@ export function RewardsSection({ tierInfo, reward }: RewardsSectionProps) {
   return (
     <View className="mb-6">
       <View className="flex-row items-center mb-4">
-        <Ionicons name="gift-outline" size={22} color="#FFCC00" />
         <Text className="text-white text-lg font-semibold ml-2">
           RCN Rewards
         </Text>
