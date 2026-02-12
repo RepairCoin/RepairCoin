@@ -116,6 +116,7 @@ export default function HeroSection({
                 loop
                 muted
                 playsInline
+                disablePictureInPicture
                 className="absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom"
                 onError={(e) => {
                   // Fallback to PNG if video fails to load
