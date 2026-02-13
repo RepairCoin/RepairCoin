@@ -75,7 +75,9 @@ export interface AssignTicketRequest {
  */
 export const createTicket = async (request: CreateTicketRequest): Promise<CreateTicketResponse> => {
   const response = await apiClient.post('/support/tickets', request);
-  return response.data?.data || { ticket: {} as SupportTicket, message: {} as SupportMessage };
+  console.log('Create ticket response:', response.data);
+  // Response is already unwrapped by axios interceptor, so response.data contains {ticket, message} directly
+  return response.data || { ticket: {} as SupportTicket, message: {} as SupportMessage };
 };
 
 /**
@@ -84,7 +86,9 @@ export const createTicket = async (request: CreateTicketRequest): Promise<Create
 export const getShopTickets = async (status?: string): Promise<SupportTicket[]> => {
   const params = status ? `?status=${status}` : '';
   const response = await apiClient.get(`/support/tickets${params}`);
-  return response.data?.data || [];
+  console.log('Get shop tickets response:', response.data);
+  // Response is already unwrapped by axios interceptor, so response.data is the array directly
+  return response.data || [];
 };
 
 /**
@@ -92,7 +96,7 @@ export const getShopTickets = async (status?: string): Promise<SupportTicket[]> 
  */
 export const getTicketById = async (ticketId: string): Promise<SupportTicket> => {
   const response = await apiClient.get(`/support/tickets/${ticketId}`);
-  return response.data?.data || {} as SupportTicket;
+  return response.data || {} as SupportTicket;
 };
 
 /**
@@ -100,7 +104,7 @@ export const getTicketById = async (ticketId: string): Promise<SupportTicket> =>
  */
 export const getTicketMessages = async (ticketId: string): Promise<SupportMessage[]> => {
   const response = await apiClient.get(`/support/tickets/${ticketId}/messages`);
-  return response.data?.data || [];
+  return response.data || [];
 };
 
 /**
@@ -108,7 +112,7 @@ export const getTicketMessages = async (ticketId: string): Promise<SupportMessag
  */
 export const addMessage = async (ticketId: string, request: AddMessageRequest): Promise<SupportMessage> => {
   const response = await apiClient.post(`/support/tickets/${ticketId}/messages`, request);
-  return response.data?.data || {} as SupportMessage;
+  return response.data || {} as SupportMessage;
 };
 
 /**
@@ -124,7 +128,7 @@ export const markMessagesAsRead = async (ticketId: string): Promise<void> => {
 export const getUnreadCount = async (): Promise<number> => {
   try {
     const response = await apiClient.get('/support/unread-count');
-    return response.data?.data?.count ?? 0;
+    return response.data?.count ?? 0;
   } catch (error) {
     console.error('Error fetching unread count:', error);
     return 0;
@@ -151,7 +155,7 @@ export const getAllTickets = async (filters?: {
   if (filters?.offset) params.append('offset', filters.offset.toString());
 
   const response = await apiClient.get(`/support/admin/tickets?${params.toString()}`);
-  return response.data?.data || { tickets: [], total: 0 };
+  return response.data || { tickets: [], total: 0 };
 };
 
 /**
@@ -159,7 +163,7 @@ export const getAllTickets = async (filters?: {
  */
 export const getAdminStats = async (): Promise<AdminStats> => {
   const response = await apiClient.get('/support/admin/stats');
-  return response.data?.data || { total: 0, open: 0, inProgress: 0, waitingShop: 0, resolved: 0, unassigned: 0 };
+  return response.data || { total: 0, open: 0, inProgress: 0, waitingShop: 0, resolved: 0, unassigned: 0 };
 };
 
 /**
@@ -170,7 +174,7 @@ export const updateTicketStatus = async (
   request: UpdateTicketStatusRequest
 ): Promise<SupportTicket> => {
   const response = await apiClient.put(`/support/admin/tickets/${ticketId}/status`, request);
-  return response.data?.data || {} as SupportTicket;
+  return response.data || {} as SupportTicket;
 };
 
 /**
@@ -181,5 +185,5 @@ export const assignTicket = async (
   request: AssignTicketRequest
 ): Promise<SupportTicket> => {
   const response = await apiClient.put(`/support/admin/tickets/${ticketId}/assign`, request);
-  return response.data?.data || {} as SupportTicket;
+  return response.data || {} as SupportTicket;
 };

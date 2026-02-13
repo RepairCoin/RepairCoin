@@ -2,54 +2,81 @@
 
 ## 🎯 High Priority Features
 
-### No-Show Tracking System
-**Status**: Not Started
+### No-Show Penalty & Policy System
+**Status**: 100% Complete ✅
 **Priority**: High
-**Description**: Comprehensive system to track and manage customer no-shows for appointments
+**Description**: Comprehensive system to track, manage, and enforce penalties for customer no-shows
+**Documentation**: See `/docs/features/NO_SHOW_TRACKING_STATUS.md` and `/docs/features/NO_SHOW_IMPLEMENTATION_SUMMARY.md` for detailed status
 
-#### Backend Implementation
-- [ ] Add `no_show` status to `service_orders` table
-- [ ] Add `no_show_count` column to `customers` table
-- [ ] Create `no_show_history` table to track all no-show incidents
-  - customer_id
-  - order_id
-  - service_id
-  - shop_id
-  - scheduled_time
-  - marked_no_show_at
-  - marked_by (shop admin)
-  - notes
-- [ ] Add API endpoint: `PUT /api/orders/:orderId/mark-no-show`
-- [ ] Add API endpoint: `GET /api/customers/:customerId/no-show-history`
-- [ ] Add API endpoint: `GET /api/shops/:shopId/no-show-analytics`
-- [ ] Implement automated no-show detection (e.g., 2 hours after appointment time)
-- [ ] Add email notification when customer is marked as no-show
+#### Backend Implementation ✅ 100% COMPLETE
+- [x] Add `no_show` status to `service_orders` table
+- [x] Add columns to `service_orders`: `no_show`, `marked_no_show_at`, `no_show_notes`
+- [x] Update status enum to include 'no_show'
+- [x] Add API endpoint: `POST /api/services/orders/:id/mark-no-show` ✅
+- [x] Add notification system for no-shows ✅
+- [x] Include no-show metrics in analytics ✅
+- [x] Add `no_show_count` column to `customers` table ✅
+- [x] Create `customer_no_show_status` table to track penalty tiers ✅
+- [x] Create `customer_no_show_history` table to track all incidents ✅
+- [x] Add API endpoint: `GET /api/customers/:customerId/no-show-history` ✅
+- [x] Add API endpoint: `GET /api/customers/:customerId/no-show-status` ✅
+- [x] Add API endpoint: `GET /api/customers/:customerId/overall-no-show-status` ✅
+- [x] Implement NoShowPolicyService with 4-tier penalty system ✅
+- [x] Add email notifications when customer is marked as no-show ✅
+- [x] Add shop policy configuration API endpoints ✅
 
-#### Frontend Implementation
-- [ ] Shop Dashboard: Add "Mark as No-Show" button in appointment calendar
-- [ ] Shop Dashboard: Add no-show analytics card showing:
-  - Total no-shows this month
-  - No-show rate percentage
-  - Top no-show customers (with privacy considerations)
-- [ ] Customer Dashboard: Display no-show count in profile/settings
-- [ ] Customer Dashboard: Show warning banner if no-show count is high
-- [ ] Booking Modal: Show deposit requirement for customers with 3+ no-shows
-- [ ] Add filter in appointment calendar to show only no-shows
+#### Frontend Implementation ✅ 100% COMPLETE
+- [x] Shop Dashboard: Add "Mark as No-Show" button in appointment calendar ✅
+- [x] Shop Dashboard: MarkNoShowModal component with notes ✅
+- [x] Shop Dashboard: No-show rate in analytics dashboard ✅
+- [x] Shop Dashboard: NoShowPolicySettings component (842 lines) ✅
+- [x] Shop Dashboard: Policy configuration accessible via Settings → No-Show Policy ✅
+- [x] Customer Dashboard: NoShowWarningBanner component ✅
+- [x] Customer Dashboard: CustomerNoShowBadge component ✅
+- [x] Customer Dashboard: Display tier status (Warning/Caution/Deposit Required/Suspended) ✅
+- [x] Customer Dashboard: Show no-show history in Settings tab ✅
+- [x] Booking Modal: Block booking for suspended customers ✅
+- [x] Test page: `/test-noshow` for testing all penalty tiers ✅
 
-#### Business Logic
-- [ ] Implement penalty system:
-  - 1st no-show: Warning email
-  - 2nd no-show: Warning banner in dashboard
-  - 3rd+ no-show: Require deposit for future bookings
-- [ ] Add grace period configuration (default: 15 minutes late = no-show)
-- [ ] Allow shops to configure their own no-show policies
-- [ ] Add ability for customers to dispute no-show marks
+#### Business Logic ✅ 100% COMPLETE
+- [x] Implement 4-tier penalty system:
+  - Tier 0 (Normal): 0 no-shows - no restrictions ✅
+  - Tier 1 (Warning): 2 no-shows - warning email + banner ✅
+  - Tier 2 (Caution): 3 no-shows - 24hr advance booking required ✅
+  - Tier 3 (Deposit Required): 4 no-shows - $25 deposit + 48hr advance booking ✅
+  - Tier 4 (Suspended): 5+ no-shows - 30-day booking suspension ✅
+- [x] Add grace period configuration (default: 15 minutes) ✅
+- [x] Allow shops to configure their own no-show policies ✅
+- [x] Add dispute system (enabled by default, 7-day window) ✅
+- [x] Recovery system: 3 successful appointments to downgrade from Tier 3 ✅
+- [x] Automatic tier calculation based on no-show count ✅
 
-#### Analytics & Reporting
+#### Analytics & Reporting - PARTIALLY COMPLETE
+- [x] Shop analytics: No-show rate percentage ✅
 - [ ] Admin dashboard: Platform-wide no-show statistics
-- [ ] Shop analytics: No-show trends over time
+- [ ] Shop analytics: No-show trends over time (time series)
 - [ ] Identify services with highest no-show rates
 - [ ] Generate monthly no-show reports for shops
+
+**What Works Now (100% Complete)**:
+- ✅ Shops can manually mark paid appointments as no-show
+- ✅ Customer receives notification
+- ✅ No-show rate displayed in shop analytics
+- ✅ Status tracked in order history
+- ✅ Customer no-show counter and history
+- ✅ 4-tier penalty system with progressive restrictions
+- ✅ Email notifications on tier changes
+- ✅ Dispute system framework
+- ✅ Shop policy configuration via Settings → No-Show Policy
+- ✅ Customer dashboard shows tier status and warnings
+- ✅ Recovery system for good behavior
+- ✅ **Automated no-show detection** (runs every 30 minutes) ✨ NEW!
+
+**Future Enhancements (Optional)**:
+- Platform-wide admin analytics
+- Time series no-show trends
+- SMS notifications for critical tiers
+- Shop email notifications for auto-detected no-shows
 
 ---
 
@@ -114,4 +141,4 @@
 
 ---
 
-**Last Updated**: 2026-01-02
+**Last Updated**: 2026-02-12

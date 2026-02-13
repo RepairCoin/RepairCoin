@@ -250,4 +250,98 @@ export class CustomerController {
       }
     }
   }
+
+  /**
+   * Get customer's no-show status
+   * GET /api/customers/:address/no-show-status?shopId=xxx
+   */
+  async getNoShowStatus(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+      const { shopId } = req.query;
+
+      if (!shopId) {
+        return ResponseHelper.badRequest(res, 'shopId query parameter is required');
+      }
+
+      const noShowPolicyService = require('../../../services/NoShowPolicyService').default;
+      const status = await noShowPolicyService.getCustomerStatus(address, shopId as string);
+
+      ResponseHelper.success(res, {
+        customerAddress: status.customerAddress,
+        noShowCount: status.noShowCount,
+        tier: status.tier,
+        depositRequired: status.depositRequired,
+        lastNoShowAt: status.lastNoShowAt,
+        bookingSuspendedUntil: status.bookingSuspendedUntil,
+        successfulAppointmentsSinceTier3: status.successfulAppointmentsSinceTier3,
+        canBook: status.canBook,
+        requiresDeposit: status.requiresDeposit,
+        minimumAdvanceHours: status.minimumAdvanceHours,
+        restrictions: status.restrictions
+      });
+    } catch (error: any) {
+      if (error.message === 'Customer not found') {
+        ResponseHelper.notFound(res, error.message);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
+
+  /**
+   * Get customer's no-show history
+   * GET /api/customers/:address/no-show-history?limit=10
+   */
+  async getNoShowHistory(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+
+      const noShowPolicyService = require('../../../services/NoShowPolicyService').default;
+      const history = await noShowPolicyService.getCustomerHistory(address, limit);
+
+      ResponseHelper.success(res, {
+        history,
+        count: history.length
+      });
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
+  /**
+   * Get customer's overall no-show status (shop-agnostic)
+   * GET /api/customers/:address/overall-no-show-status
+   * This endpoint returns the customer's global no-show tier without requiring a shopId
+   * Useful for dashboard and settings pages
+   */
+  async getOverallNoShowStatus(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+
+      const noShowPolicyService = require('../../../services/NoShowPolicyService').default;
+      const status = await noShowPolicyService.getOverallCustomerStatus(address);
+
+      ResponseHelper.success(res, {
+        customerAddress: status.customerAddress,
+        noShowCount: status.noShowCount,
+        tier: status.tier,
+        depositRequired: status.depositRequired,
+        lastNoShowAt: status.lastNoShowAt,
+        bookingSuspendedUntil: status.bookingSuspendedUntil,
+        successfulAppointmentsSinceTier3: status.successfulAppointmentsSinceTier3,
+        canBook: status.canBook,
+        requiresDeposit: status.requiresDeposit,
+        minimumAdvanceHours: status.minimumAdvanceHours,
+        restrictions: status.restrictions
+      });
+    } catch (error: any) {
+      if (error.message === 'Customer not found') {
+        ResponseHelper.notFound(res, error.message);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
 }

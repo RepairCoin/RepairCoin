@@ -44,6 +44,7 @@ export function SupportTab() {
       setIsLoading(true);
       setError(null);
       const data = await getShopTickets(statusFilter);
+      console.log('Loaded tickets:', data);
       setTickets(data || []);
       const count = await getUnreadCount();
       setUnreadCount(count || 0);
@@ -83,10 +84,14 @@ export function SupportTab() {
 
   // Load messages when ticket is selected
   useEffect(() => {
-    if (selectedTicket) {
+    if (selectedTicket?.id) {
       loadMessages(selectedTicket.id);
+    } else {
+      // Clear messages when no ticket is selected
+      setMessages([]);
     }
-  }, [selectedTicket, loadMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTicket?.id]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -125,6 +130,7 @@ export function SupportTab() {
 
       // Refresh tickets and select the new one
       await loadTickets();
+      console.log('Created ticket:', result.ticket);
       setSelectedTicket(result.ticket);
     } catch (error) {
       console.error('Error creating ticket:', error);
