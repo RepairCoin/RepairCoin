@@ -23,6 +23,7 @@ export interface CustomerData {
   joinDate: string;
   notificationsEnabled?: boolean;
   twoFactorEnabled?: boolean;
+  profile_image_url?: string;
 }
 
 export interface BalanceData {

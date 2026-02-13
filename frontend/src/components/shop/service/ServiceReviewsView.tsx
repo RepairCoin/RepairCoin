@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Star, Loader2, MessageCircle, ThumbsUp } from 'lucide-react';
+import { Star, Loader2, MessageCircle, ThumbsUp, User } from 'lucide-react';
 import { servicesApi, ServiceReview, ShopService } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
 
@@ -204,20 +204,35 @@ export const ServiceReviewsView: React.FC<ServiceReviewsViewProps> = ({ serviceI
             >
               {/* Review Header */}
               <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="font-semibold text-white">
-                      {review.customerName || 'Anonymous Customer'}
-                    </span>
-                    {renderStars(review.rating)}
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-800">
+                    {review.customerProfileImageUrl ? (
+                      <img
+                        src={review.customerProfileImageUrl}
+                        alt={review.customerName || 'Customer'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <User className="w-5 h-5" />
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-400">
-                    {new Date(review.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="font-semibold text-white">
+                        {review.customerName || 'Anonymous Customer'}
+                      </span>
+                      {renderStars(review.rating)}
+                    </div>
+                    <p className="text-sm text-gray-400">
+                      {new Date(review.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
                 </div>
               </div>
 

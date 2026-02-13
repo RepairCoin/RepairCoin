@@ -1432,6 +1432,7 @@ export class ShopRepository extends BaseRepository {
     customers: Array<{
       address: string;
       name?: string;
+      profile_image_url?: string;
       tier: string;
       lifetime_earnings: number;
       last_transaction_date?: string;
@@ -1492,6 +1493,7 @@ export class ShopRepository extends BaseRepository {
         SELECT
           t.customer_address as address,
           MAX(c.name) as name,
+          MAX(c.profile_image_url) as profile_image_url,
           COALESCE(MAX(c.tier), 'BRONZE') as tier,
           SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
@@ -1512,6 +1514,7 @@ export class ShopRepository extends BaseRepository {
       const customers = result.rows.map(row => ({
         address: row.address,
         name: row.name,
+        profile_image_url: row.profile_image_url,
         tier: row.tier,
         lifetime_earnings: parseFloat(row.lifetime_earnings || 0),
         last_transaction_date: row.last_transaction_date,

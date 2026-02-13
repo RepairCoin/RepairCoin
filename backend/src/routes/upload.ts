@@ -4,6 +4,7 @@ import multer from 'multer';
 import { imageStorageService } from '../services/ImageStorageService';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { CustomerRepository } from '../repositories/CustomerRepository';
 
 const router = express.Router();
 
@@ -146,6 +147,66 @@ router.post('/shop-banner', authMiddleware, requireRole(['shop']), upload.single
     res.status(500).json({
       success: false,
       error: 'Failed to upload shop banner',
+    });
+  }
+});
+
+/**
+ * Upload customer avatar
+ * POST /api/upload/customer-avatar
+ * Requires: Customer role
+ */
+router.post('/customer-avatar', authMiddleware, requireRole(['customer']), upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const file = req.file;
+    const customerAddress = req.user?.address;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image file provided',
+      });
+    }
+
+    if (!customerAddress) {
+      return res.status(403).json({
+        success: false,
+        error: 'Customer address not found in authentication token',
+      });
+    }
+
+    // Get current avatar URL so we can delete the old one after upload
+    const customerRepository = new CustomerRepository();
+    const existingCustomer = await customerRepository.getCustomer(customerAddress);
+    const oldImageUrl = existingCustomer?.profile_image_url;
+
+    const result = await imageStorageService.uploadCustomerAvatar(file, customerAddress);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    // Update profile_image_url in customers table
+    await customerRepository.updateCustomer(customerAddress, { profile_image_url: result.url });
+
+    // Delete old avatar from bucket to prevent clutter
+    if (oldImageUrl) {
+      const oldKey = imageStorageService.extractKeyFromUrl(oldImageUrl);
+      if (oldKey) {
+        imageStorageService.deleteImage(oldKey).catch((err) => {
+          logger.warn('Failed to delete old avatar (non-blocking)', { oldKey, error: err });
+        });
+      }
+    }
+
+    logger.info('Customer avatar uploaded successfully', { customerAddress, url: result.url });
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Error uploading customer avatar:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload customer avatar',
     });
   }
 });

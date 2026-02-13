@@ -600,9 +600,12 @@ export interface ServiceReview {
   updatedAt: string;
   // With details
   customerName?: string;
+  customerProfileImageUrl?: string;
   serviceName?: string;
   shopName?: string;
 }
+
+export type ServiceReviewWithDetails = ServiceReview;
 
 export interface CreateReviewData {
   orderId: string;

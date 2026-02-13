@@ -19,6 +19,7 @@ interface CustomerDetails {
   address: string;
   name?: string;
   email?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   currentBalance: number;
   lifetimeEarnings: number;
@@ -195,8 +196,18 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center text-2xl">
-              {getTierIcon(customerDetails.tier)}
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+              {customerDetails.profile_image_url ? (
+                <img
+                  src={customerDetails.profile_image_url}
+                  alt={customerDetails.name || "Customer"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#FFCC00] to-[#FFD700] flex items-center justify-center">
+                  {getTierIcon(customerDetails.tier)}
+                </div>
+              )}
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white">

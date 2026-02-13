@@ -24,7 +24,7 @@ import {
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
-import { getGalleryPhotos, type GalleryPhoto } from "@/services/api/shop";
+import { getGalleryPhotos, getShopCustomers, type GalleryPhoto } from "@/services/api/shop";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
@@ -81,6 +81,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [isMessaging, setIsMessaging] = useState(false);
   const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
+  const [customerCount, setCustomerCount] = useState<number | null>(null);
   const { userProfile } = useAuthStore();
 
   useEffect(() => {
@@ -92,11 +93,12 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
     try {
       console.log("🔍 [ShopProfile] Loading data for shopId:", shopId);
 
-      // Fetch shop info, services, and gallery in parallel
-      const [shopData, servicesData, gallery] = await Promise.all([
+      // Fetch shop info, services, gallery, and customer count in parallel
+      const [shopData, servicesData, gallery, customersData] = await Promise.all([
         ShopService.getShopById(shopId),
         getShopServices(shopId),
         getGalleryPhotos(shopId),
+        isPreviewMode ? getShopCustomers(shopId) : Promise.resolve([]),
       ]);
 
       console.log("🔍 [ShopProfile] Shop data:", shopData);
@@ -125,6 +127,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
       // Set gallery photos
       if (gallery) {
         setGalleryPhotos(gallery);
+      }
+
+      // Set customer count
+      if (customersData) {
+        setCustomerCount(customersData.length);
       }
 
       // Note: Operating hours would need to be fetched from shop availability API
@@ -624,7 +631,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                         : "text-gray-400 hover:text-gray-300"
                     }`}
                   >
-                    Customers ({shopInfo?.totalCustomers || 0})
+                    Customers ({customerCount ?? 0})
                     {activeTab === "customers" && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
                     )}
@@ -789,7 +796,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {/* Customers Tab */}
         {activeTab === "customers" && isPreviewMode && (
           <div>
-            <CustomerGridView shopId={shopId} />
+            <CustomerGridView shopId={shopId} onCustomersLoaded={setCustomerCount} />
           </div>
         )}
         </div>

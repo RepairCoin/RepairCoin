@@ -13,6 +13,7 @@ import {
   Camera,
   X,
   Loader2,
+  User,
 } from "lucide-react";
 import {
   Select,
@@ -28,6 +29,7 @@ import { CustomerDetailsModal } from "@/components/shop/customers/CustomerDetail
 interface Customer {
   address: string;
   name?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
   lastTransactionDate?: string;
@@ -56,6 +58,7 @@ interface GrowthStats {
 interface CustomerSearchResult {
   address: string;
   name?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetime_earnings: number;
   last_transaction_date?: string;
@@ -168,6 +171,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
       const transformedCustomers = customerData.map((c: any) => ({
         address: c.address || c.customer_address,
         name: c.name || c.customer_name,
+        profile_image_url: c.profile_image_url,
         tier: c.tier || "BRONZE",
         lifetimeEarnings: c.lifetime_earnings || c.lifetimeEarnings || 0,
         lastTransactionDate:
@@ -239,6 +243,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
       const customers = (data.data.customers || []).map((c: {
         address: string;
         name?: string;
+        profile_image_url?: string;
         tier?: string;
         lifetimeEarnings?: number;
         currentBalance?: number;
@@ -247,6 +252,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
       }) => ({
         address: c.address,
         name: c.name,
+        profile_image_url: c.profile_image_url,
         tier: c.tier || "BRONZE",
         lifetime_earnings: c.lifetimeEarnings || 0,
         last_transaction_date: c.lastEarnedDate,
@@ -595,13 +601,28 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
               >
                 <div className="grid grid-cols-4 gap-4 items-center">
                   {/* Customer Info */}
-                  <div className="flex flex-col">
-                    <p className="text-sm font-semibold text-white">
-                      {customer.name || "John Doe"}
-                    </p>
-                    <p className="text-sm font-medium text-white/55">
-                      {formatAddress(customer.address)}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
+                      {customer.profile_image_url ? (
+                        <img
+                          src={customer.profile_image_url}
+                          alt={customer.name || "Customer"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <User className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <p className="text-sm font-semibold text-white">
+                        {customer.name || "Anonymous Customer"}
+                      </p>
+                      <p className="text-sm font-medium text-white/55">
+                        {formatAddress(customer.address)}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Tier Badge */}

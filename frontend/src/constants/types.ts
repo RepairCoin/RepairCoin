@@ -63,6 +63,7 @@ export interface Customer {
   totalRedemptions?: number;
   total_transactions?: number; // For shop customers view
   totalEarned?: number; // Total earned at specific shop
+  profile_image_url?: string;
 }
 
 // Shop Types

@@ -6,6 +6,7 @@ import { Search, X, User, Loader2 } from "lucide-react";
 interface CustomerSearchResult {
   address: string;
   name?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetime_earnings: number;
   last_transaction_date?: string;
@@ -235,8 +236,18 @@ export default function CustomerSearchModal({
                   >
                     <div className="flex items-center gap-3">
                       {/* Avatar */}
-                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {customerInitial}
+                      <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                        {customer.profile_image_url ? (
+                          <img
+                            src={customer.profile_image_url}
+                            alt={customerName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+                            {customerInitial}
+                          </div>
+                        )}
                       </div>
 
                       {/* Customer details */}

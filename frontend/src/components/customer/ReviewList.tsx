@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ThumbsUp, MessageSquare, ChevronDown } from "lucide-react";
+import { ThumbsUp, MessageSquare, ChevronDown, User } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { servicesApi, ServiceReview } from "@/services/api/services";
 import { StarRating } from "./StarRating";
@@ -240,16 +240,31 @@ export const ReviewList: React.FC<ReviewListProps> = ({
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-semibold text-gray-200">
-                        {review.customerName || "Anonymous"}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {formatDate(review.createdAt)}
-                      </span>
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
+                      {review.customerProfileImageUrl ? (
+                        <img
+                          src={review.customerProfileImageUrl}
+                          alt={review.customerName || "Customer"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <User className="w-5 h-5" />
+                        </div>
+                      )}
                     </div>
-                    <StarRating value={review.rating} size="sm" />
+                    <div>
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-semibold text-gray-200">
+                          {review.customerName || "Anonymous"}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {formatDate(review.createdAt)}
+                        </span>
+                      </div>
+                      <StarRating value={review.rating} size="sm" />
+                    </div>
                   </div>
                 </div>
 

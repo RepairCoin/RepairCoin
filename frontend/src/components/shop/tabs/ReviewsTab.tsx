@@ -263,8 +263,18 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({ shopId }) => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-gray-800 rounded-full">
-                      <User className="w-4 h-4 text-gray-400" />
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-800">
+                      {review.customerProfileImageUrl ? (
+                        <img
+                          src={review.customerProfileImageUrl}
+                          alt="Customer"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <User className="w-5 h-5" />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <code className="text-sm text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded">
