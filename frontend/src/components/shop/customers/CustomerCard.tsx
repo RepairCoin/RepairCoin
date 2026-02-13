@@ -6,6 +6,7 @@ import { Copy, ExternalLink } from "lucide-react";
 interface CustomerSearchResult {
   address: string;
   name?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetime_earnings: number;
   last_transaction_date?: string;
@@ -98,8 +99,18 @@ export default function CustomerCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-4">
             {/* Avatar */}
-            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden">
-              {customerInitial}
+            <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+              {customer.profile_image_url ? (
+                <img
+                  src={customer.profile_image_url}
+                  alt={customerName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                  {customerInitial}
+                </div>
+              )}
             </div>
 
             {/* Customer details */}

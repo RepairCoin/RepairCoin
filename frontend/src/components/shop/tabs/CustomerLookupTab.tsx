@@ -12,6 +12,7 @@ import { CustomerDetailsModal } from "@/components/shop/customers/CustomerDetail
 interface CustomerSearchResult {
   address: string;
   name?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetime_earnings: number;
   last_transaction_date?: string;
@@ -88,6 +89,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       const customers = (data.data.customers || []).map((c: {
         address: string;
         name?: string;
+        profile_image_url?: string;
         tier?: string;
         lifetimeEarnings?: number;
         currentBalance?: number;
@@ -96,6 +98,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       }) => ({
         address: c.address,
         name: c.name,
+        profile_image_url: c.profile_image_url,
         tier: c.tier || "BRONZE",
         lifetime_earnings: c.lifetimeEarnings || 0,
         last_transaction_date: c.lastEarnedDate,

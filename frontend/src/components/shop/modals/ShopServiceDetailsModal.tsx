@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, DollarSign, Clock, Tag, Star, MessageSquare, Users } from "lucide-react";
+import { X, DollarSign, Clock, Tag, Star, MessageSquare, Users, User } from "lucide-react";
 import { ShopService, SERVICE_CATEGORIES } from "@/services/api/services";
 import { servicesApi, ServiceReview } from "@/services/api/services";
 import { toast } from "react-hot-toast";
@@ -305,17 +305,30 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
                         key={review.reviewId}
                         className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5"
                       >
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-800">
+                            {review.customerProfileImageUrl ? (
+                              <img
+                                src={review.customerProfileImageUrl}
+                                alt={review.customerName || "Customer"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <User className="w-5 h-5" />
+                              </div>
+                            )}
+                          </div>
                           <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              {renderStars(review.rating)}
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-white text-sm">
+                                {review.customerName || truncateAddress(review.customerAddress)}
+                              </span>
                               <span className="text-xs text-gray-500">
                                 {formatDate(review.createdAt)}
                               </span>
                             </div>
-                            <code className="text-sm text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded">
-                              {truncateAddress(review.customerAddress)}
-                            </code>
+                            {renderStars(review.rating)}
                           </div>
                         </div>
 

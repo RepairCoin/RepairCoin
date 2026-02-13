@@ -9,9 +9,10 @@ import { toast } from "react-hot-toast";
 
 interface CustomerGridViewProps {
   shopId: string;
+  onCustomersLoaded?: (count: number) => void;
 }
 
-export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId }) => {
+export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCustomersLoaded }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,8 +26,8 @@ export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId }) =>
       setLoading(true);
       const data = await getShopCustomers(shopId);
 
-      console.log('Loaded customers:', data);
       setCustomers(data);
+      onCustomersLoaded?.(data.length);
     } catch (error) {
       console.error("Error loading customers:", error);
       toast.error("Failed to load customers");
@@ -167,13 +168,19 @@ export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId }) =>
               {/* Circular Avatar */}
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-24 h-24 rounded-full bg-gradient-to-br ${getAvatarColor(
-                    customer.address
-                  )} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-200`}
+                  className={`w-24 h-24 rounded-full ${customer.profile_image_url ? '' : `bg-gradient-to-br ${getAvatarColor(customer.address)}`} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-200 overflow-hidden`}
                 >
-                  <span className="text-2xl font-bold text-white">
-                    {getInitials(customer)}
-                  </span>
+                  {customer.profile_image_url ? (
+                    <img
+                      src={customer.profile_image_url}
+                      alt={getDisplayName(customer)}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl font-bold text-white">
+                      {getInitials(customer)}
+                    </span>
+                  )}
                 </div>
 
                 {/* Customer Name */}
