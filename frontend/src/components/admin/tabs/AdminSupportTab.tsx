@@ -92,10 +92,14 @@ export function AdminSupportTab() {
 
   // Load messages when ticket is selected
   useEffect(() => {
-    if (selectedTicket) {
+    if (selectedTicket?.id) {
       loadMessages(selectedTicket.id);
+    } else {
+      // Clear messages when no ticket is selected
+      setMessages([]);
     }
-  }, [selectedTicket, loadMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTicket?.id]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -347,13 +351,17 @@ export function AdminSupportTab() {
                     </div>
                   ) : (
                     <>
-                      {messages.map((message) => (
-                        <ChatMessage
-                          key={message.id}
-                          message={message}
-                          isOwnMessage={message.senderType === 'admin' && message.senderId === account?.address}
-                        />
-                      ))}
+                      {messages.map((message) => {
+                        const isOwn = message.senderType === 'admin' &&
+                          message.senderId?.toLowerCase() === account?.address?.toLowerCase();
+                        return (
+                          <ChatMessage
+                            key={message.id}
+                            message={message}
+                            isOwnMessage={isOwn}
+                          />
+                        );
+                      })}
                       <div ref={messagesEndRef} />
                     </>
                   )}

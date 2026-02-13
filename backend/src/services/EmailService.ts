@@ -877,6 +877,303 @@ export class EmailService {
   }
 
   /**
+   * Send no-show tier 1 warning email (1st offense)
+   */
+  async sendNoShowTier1Warning(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+  }): Promise<boolean> {
+    const subject = 'Missed Appointment Notice - Please Read';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #fff3cd; padding: 20px; text-align: center; border-left: 4px solid #ffc107;">
+          <h2 style="color: #856404; margin: 0;">Missed Appointment Notice</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>We noticed that you missed your scheduled appointment at <strong>${data.shopName}</strong>.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <p><strong>We understand that unexpected things happen!</strong> This is just a friendly reminder that missed appointments impact local businesses.</p>
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Your Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0;">Current Tier: Warning (No Restrictions)</p>
+          </div>
+
+          <p><strong>Tips for Future Bookings:</strong></p>
+          <ul>
+            <li>Cancel at least 4 hours in advance if you can't make it</li>
+            <li>Set reminders on your phone for appointments</li>
+            <li>Contact the shop directly if you're running late</li>
+          </ul>
+
+          <p>You can continue booking services normally. Thank you for being a valued RepairCoin customer!</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 2 caution email (2nd offense)
+   */
+  async sendNoShowTier2Caution(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+    minimumAdvanceHours: number;
+  }): Promise<boolean> {
+    const subject = '⚠️ Important: Account Restrictions Applied - Multiple No-Shows';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #fff3cd; padding: 20px; text-align: center; border-left: 4px solid #ff9800;">
+          <h2 style="color: #e65100; margin: 0;">⚠️ Account Restrictions Applied</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>You were marked as no-show for another appointment at <strong>${data.shopName}</strong>.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff9800;">
+            <p style="margin: 0; color: #e65100;"><strong>⚠️ Your Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #e65100;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0; color: #e65100;">Current Tier: Caution</p>
+          </div>
+
+          <p><strong>Due to multiple no-shows, the following restriction now applies:</strong></p>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #c62828;"><strong>📅 Advance Booking Required:</strong></p>
+            <p style="margin: 5px 0 0 0;">You must book at least <strong>${data.minimumAdvanceHours} hours in advance</strong></p>
+          </div>
+
+          <p><strong>Why This Matters:</strong></p>
+          <p>No-shows hurt local repair businesses and prevent other customers from getting appointments. We appreciate your understanding.</p>
+
+          <p><strong>How to Avoid Further Restrictions:</strong></p>
+          <ul>
+            <li>Always cancel at least 4 hours before your appointment</li>
+            <li>Show up on time (or call if you'll be late)</li>
+            <li>Set calendar reminders for your bookings</li>
+          </ul>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions? Contact support@repaircoin.com<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 3 deposit required email (3rd offense)
+   */
+  async sendNoShowTier3DepositRequired(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+    depositAmount: number;
+    minimumAdvanceHours: number;
+    maxRcnRedemptionPercent: number;
+    resetAfterSuccessful: number;
+  }): Promise<boolean> {
+    const subject = '🚨 Critical: Deposit Now Required - Multiple No-Shows';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #ffebee; padding: 20px; text-align: center; border-left: 4px solid #d32f2f;">
+          <h2 style="color: #c62828; margin: 0;">🚨 Deposit Required</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p><strong>You were marked as no-show for another appointment.</strong> Due to repeated missed appointments, we must now require a refundable deposit for future bookings.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Latest Missed Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d32f2f;">
+            <p style="margin: 0; color: #c62828;"><strong>🚨 Your Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #c62828;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0; color: #c62828;">Current Tier: Deposit Required</p>
+          </div>
+
+          <p><strong>New Booking Requirements:</strong></p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>💰 Refundable Deposit:</strong> $${data.depositAmount.toFixed(2)}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Fully refunded when you show up for your appointment</p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>📅 Advance Booking:</strong> ${data.minimumAdvanceHours} hours minimum</p>
+            <p style="margin: 5px 0 0 0;"><strong>🪙 RCN Redemption:</strong> Limited to ${data.maxRcnRedemptionPercent}% of service cost</p>
+          </div>
+
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50;">
+            <p style="margin: 0; color: #2e7d32;"><strong>✨ Good News - You Can Restore Your Account!</strong></p>
+            <p style="margin: 5px 0 0 0;">Show up for <strong>${data.resetAfterSuccessful} successful appointments</strong> and we'll remove these restrictions.</p>
+          </div>
+
+          <p><strong>Important Information:</strong></p>
+          <ul>
+            <li>Deposits are charged when you book and fully refunded when you show up</li>
+            <li>If you no-show again, the deposit is forfeited</li>
+            <li>Always cancel at least 4 hours in advance to get your deposit back</li>
+          </ul>
+
+          <p style="color: #666; font-size: 14px;">We understand life happens, but repeated no-shows significantly impact small businesses. Thank you for your cooperation.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions? Contact support@repaircoin.com<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 4 suspended email (5th offense)
+   */
+  async sendNoShowTier4Suspended(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+    suspensionEndDate: string;
+    suspensionDays: number;
+  }): Promise<boolean> {
+    const subject = '🛑 Account Suspended - Multiple No-Shows';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f44336; padding: 20px; text-align: center;">
+          <h2 style="color: #ffffff; margin: 0;">🛑 Account Suspended</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p><strong style="color: #d32f2f;">Your RepairCoin account has been temporarily suspended due to repeated no-shows.</strong></p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Latest Missed Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f44336;">
+            <p style="margin: 0; color: #b71c1c;"><strong>🛑 Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #b71c1c;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0; color: #b71c1c;">Current Tier: Suspended</p>
+            <p style="margin: 5px 0 0 0; color: #b71c1c;"><strong>Suspension Until: ${data.suspensionEndDate}</strong></p>
+          </div>
+
+          <p><strong>What This Means:</strong></p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>❌ You cannot book any services for ${data.suspensionDays} days</strong></p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Suspension automatically lifts on ${data.suspensionEndDate}</p>
+          </div>
+
+          <p><strong>Why This Happened:</strong></p>
+          <p>Repeated no-shows cause significant harm to local businesses by preventing other customers from booking and wasting business resources. We take this seriously to protect our shop partners.</p>
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>📅 After Suspension Ends:</strong></p>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+              <li>You'll be able to book again with a refundable deposit</li>
+              <li>48-hour advance booking will be required</li>
+              <li>RCN redemption will be limited to 80%</li>
+              <li>Complete successful appointments to restore your account</li>
+            </ul>
+          </div>
+
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>💡 Tips to Rebuild Trust:</strong></p>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+              <li>Always cancel at least 4 hours in advance</li>
+              <li>Set multiple reminders for appointments</li>
+              <li>Only book when you're confident you can attend</li>
+              <li>Contact shops directly if you're running late</li>
+            </ul>
+          </div>
+
+          <p style="color: #666; font-size: 14px;">We value all our customers and look forward to serving you again after the suspension period. Please use this time to reflect on the importance of honoring appointments.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions about your suspension? Contact support@repaircoin.com<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
    * Core email sending method
    */
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {

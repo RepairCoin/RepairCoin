@@ -5,10 +5,13 @@ import { OrderRepository } from '../../../repositories/OrderRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { shopRepository } from '../../../repositories';
+import { customerRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupService';
 import { getExpoPushService } from '../../../services/ExpoPushService';
+import noShowPolicyService from '../../../services/NoShowPolicyService';
+import { EmailService } from '../../../services/EmailService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -16,6 +19,7 @@ export class OrderController {
   private notificationService: NotificationService;
   private serviceRepository: ServiceRepository;
   private groupService: AffiliateShopGroupService;
+  private emailService: EmailService;
 
   constructor(paymentService: PaymentService) {
     this.paymentService = paymentService;
@@ -23,6 +27,7 @@ export class OrderController {
     this.notificationService = new NotificationService();
     this.serviceRepository = new ServiceRepository();
     this.groupService = new AffiliateShopGroupService();
+    this.emailService = new EmailService();
   }
 
   /**
@@ -722,8 +727,33 @@ export class OrderController {
         });
       }
 
-      // Mark as no-show
+      // Mark as no-show in orders table
       await this.orderRepository.markAsNoShow(id, notes);
+
+      // Record in no-show history and update customer tier
+      try {
+        await noShowPolicyService.recordNoShowHistory({
+          customerAddress: order.customerAddress,
+          orderId: id,
+          serviceId: order.serviceId,
+          shopId: shopId,
+          scheduledTime: order.bookingDate || new Date(),
+          markedBy: req.user?.address || 'SYSTEM',
+          notes: notes
+        });
+        logger.info(`No-show recorded in history for customer ${order.customerAddress}`);
+      } catch (historyError) {
+        logger.error('Failed to record no-show history:', historyError);
+        // Continue - don't fail the entire operation if history recording fails
+      }
+
+      // Get updated customer status to include in notification
+      let customerStatus;
+      try {
+        customerStatus = await noShowPolicyService.getCustomerStatus(order.customerAddress, shopId);
+      } catch (statusError) {
+        logger.error('Failed to get customer status:', statusError);
+      }
 
       // Send notification to customer
       try {
@@ -731,16 +761,23 @@ export class OrderController {
         const shop = await shopRepository.getShop(shopId);
 
         if (service && shop) {
+          const notificationMessage = customerStatus
+            ? `You were marked as no-show for: ${service.serviceName} at ${shop.name}. Your account is now at tier ${customerStatus.tier.toUpperCase()} with ${customerStatus.noShowCount} total no-shows.`
+            : `You were marked as no-show for: ${service.serviceName} at ${shop.name}`;
+
           await this.notificationService.createNotification({
             senderAddress: 'SYSTEM',
             receiverAddress: order.customerAddress,
             notificationType: 'service_no_show',
-            message: `You were marked as no-show for: ${service.serviceName} at ${shop.name}`,
+            message: notificationMessage,
             metadata: {
               orderId: id,
               serviceName: service.serviceName,
               shopName: shop.name,
               notes,
+              tier: customerStatus?.tier,
+              noShowCount: customerStatus?.noShowCount,
+              restrictions: customerStatus?.restrictions,
               timestamp: new Date().toISOString()
             }
           });
@@ -749,9 +786,112 @@ export class OrderController {
         logger.error('Failed to send no-show notification:', notifError);
       }
 
+      // Send tier-based email notification
+      try {
+        if (customerStatus) {
+          const service = await this.serviceRepository.getServiceById(order.serviceId);
+          const shop = await shopRepository.getShop(shopId);
+          const customer = await customerRepository.getCustomer(order.customerAddress);
+          const policy = await noShowPolicyService.getShopPolicy(shopId);
+
+          if (service && shop && customer?.email) {
+            const appointmentDate = order.bookingDate
+              ? new Date(order.bookingDate).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              : 'Unknown date';
+
+            // Send tier-specific email based on current tier
+            switch (customerStatus.tier) {
+              case 'warning':
+                if (policy.sendEmailTier1) {
+                  await this.emailService.sendNoShowTier1Warning({
+                    customerEmail: customer.email,
+                    customerName: customer.name || 'Customer',
+                    shopName: shop.name,
+                    serviceName: service.serviceName,
+                    appointmentDate,
+                    noShowCount: customerStatus.noShowCount
+                  });
+                  logger.info(`Sent Tier 1 warning email to ${customer.email}`);
+                }
+                break;
+
+              case 'caution':
+                if (policy.sendEmailTier2) {
+                  await this.emailService.sendNoShowTier2Caution({
+                    customerEmail: customer.email,
+                    customerName: customer.name || 'Customer',
+                    shopName: shop.name,
+                    serviceName: service.serviceName,
+                    appointmentDate,
+                    noShowCount: customerStatus.noShowCount,
+                    minimumAdvanceHours: policy.cautionAdvanceBookingHours
+                  });
+                  logger.info(`Sent Tier 2 caution email to ${customer.email}`);
+                }
+                break;
+
+              case 'deposit_required':
+                if (policy.sendEmailTier3) {
+                  await this.emailService.sendNoShowTier3DepositRequired({
+                    customerEmail: customer.email,
+                    customerName: customer.name || 'Customer',
+                    shopName: shop.name,
+                    serviceName: service.serviceName,
+                    appointmentDate,
+                    noShowCount: customerStatus.noShowCount,
+                    depositAmount: policy.depositAmount,
+                    minimumAdvanceHours: policy.depositAdvanceBookingHours,
+                    maxRcnRedemptionPercent: policy.maxRcnRedemptionPercent,
+                    resetAfterSuccessful: policy.depositResetAfterSuccessful
+                  });
+                  logger.info(`Sent Tier 3 deposit required email to ${customer.email}`);
+                }
+                break;
+
+              case 'suspended':
+                if (policy.sendEmailTier4 && customerStatus.bookingSuspendedUntil) {
+                  await this.emailService.sendNoShowTier4Suspended({
+                    customerEmail: customer.email,
+                    customerName: customer.name || 'Customer',
+                    shopName: shop.name,
+                    serviceName: service.serviceName,
+                    appointmentDate,
+                    noShowCount: customerStatus.noShowCount,
+                    suspensionEndDate: new Date(customerStatus.bookingSuspendedUntil).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    }),
+                    suspensionDays: policy.suspensionDurationDays
+                  });
+                  logger.info(`Sent Tier 4 suspension email to ${customer.email}`);
+                }
+                break;
+            }
+          }
+        }
+      } catch (emailError) {
+        logger.error('Failed to send tier-based email notification:', emailError);
+        // Don't fail the entire operation if email fails
+      }
+
       res.json({
         success: true,
-        message: 'Order marked as no-show'
+        message: 'Order marked as no-show',
+        customerStatus: customerStatus ? {
+          tier: customerStatus.tier,
+          noShowCount: customerStatus.noShowCount,
+          canBook: customerStatus.canBook,
+          restrictions: customerStatus.restrictions
+        } : undefined
       });
     } catch (error: unknown) {
       logger.error('Error in markNoShow controller:', error);

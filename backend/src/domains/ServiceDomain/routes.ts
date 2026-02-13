@@ -8,6 +8,7 @@ import { AnalyticsController } from './controllers/AnalyticsController';
 import { AppointmentController } from './controllers/AppointmentController';
 import { DiscoveryController } from './controllers/DiscoveryController';
 import { ServiceGroupController } from './controllers/ServiceGroupController';
+import NoShowPolicyController from './controllers/NoShowPolicyController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
@@ -2804,6 +2805,231 @@ export function initializeRoutes(stripe: StripeService): Router {
     optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     discoveryController.getTrendingServices
   );
+
+  // ==================== NO-SHOW POLICY ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/no-show-policy:
+   *   get:
+   *     summary: Get shop's no-show policy configuration
+   *     description: Retrieve the current no-show policy settings for a shop (Shop owner or Admin only)
+   *     tags: [No-Show Policy]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Shop ID
+   *     responses:
+   *       200:
+   *         description: Policy retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     shopId:
+   *                       type: string
+   *                     enabled:
+   *                       type: boolean
+   *                     gracePeriodMinutes:
+   *                       type: integer
+   *                     cautionThreshold:
+   *                       type: integer
+   *                     depositThreshold:
+   *                       type: integer
+   *                     suspensionThreshold:
+   *                       type: integer
+   *                     depositAmount:
+   *                       type: number
+   *       403:
+   *         description: Unauthorized
+   *       404:
+   *         description: Shop not found
+   */
+  router.get(
+    '/shops/:shopId/no-show-policy',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    NoShowPolicyController.getShopPolicy.bind(NoShowPolicyController)
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/no-show-policy:
+   *   put:
+   *     summary: Update shop's no-show policy configuration
+   *     description: Update no-show policy settings for a shop (Shop owner or Admin only)
+   *     tags: [No-Show Policy]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               enabled:
+   *                 type: boolean
+   *               gracePeriodMinutes:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 120
+   *               cautionThreshold:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 10
+   *               cautionAdvanceBookingHours:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 168
+   *               depositThreshold:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 20
+   *               depositAmount:
+   *                 type: number
+   *                 minimum: 0
+   *                 maximum: 500
+   *               depositAdvanceBookingHours:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 168
+   *               depositResetAfterSuccessful:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 20
+   *               maxRcnRedemptionPercent:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 100
+   *               suspensionThreshold:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 50
+   *               suspensionDurationDays:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 365
+   *               sendEmailTier1:
+   *                 type: boolean
+   *               sendEmailTier2:
+   *                 type: boolean
+   *               sendEmailTier3:
+   *                 type: boolean
+   *               sendEmailTier4:
+   *                 type: boolean
+   *               allowDisputes:
+   *                 type: boolean
+   *               disputeWindowDays:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 30
+   *     responses:
+   *       200:
+   *         description: Policy updated successfully
+   *       400:
+   *         description: Invalid request
+   *       403:
+   *         description: Unauthorized
+   *       404:
+   *         description: Shop not found
+   */
+  router.put(
+    '/shops/:shopId/no-show-policy',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    NoShowPolicyController.updateShopPolicy.bind(NoShowPolicyController)
+  );
+
+  // ==================== TESTING ENDPOINTS (DEVELOPMENT ONLY) ====================
+
+  /**
+   * @swagger
+   * /api/services/test/auto-no-show-detection:
+   *   post:
+   *     summary: Manually trigger auto no-show detection (Development/Testing only)
+   *     description: Runs the auto-detection service immediately for testing purposes
+   *     tags: [Testing]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Detection completed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 report:
+   *                   type: object
+   *                   properties:
+   *                     timestamp:
+   *                       type: string
+   *                     ordersChecked:
+   *                       type: number
+   *                     ordersMarked:
+   *                       type: number
+   *                     customerNotificationsSent:
+   *                       type: number
+   *                     shopNotificationsSent:
+   *                       type: number
+   *                     emailsSent:
+   *                       type: number
+   *                     errors:
+   *                       type: array
+   *                     shopsProcessed:
+   *                       type: array
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Admin access required
+   */
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
+    router.post(
+      '/test/auto-no-show-detection',
+      authMiddleware,
+      requireRole(['admin']),
+      async (req, res) => {
+        try {
+          const { getAutoNoShowDetectionService } = await import('../../services/AutoNoShowDetectionService');
+          const service = getAutoNoShowDetectionService();
+          const report = await service.runDetection();
+
+          res.json({
+            success: true,
+            message: 'Auto no-show detection triggered manually',
+            report: report
+          });
+        } catch (error) {
+          res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Detection failed'
+          });
+        }
+      }
+    );
+  }
 
   return router;
 }

@@ -24,6 +24,8 @@ import { useAuthStore } from "@/stores/authStore";
 import { SuspendedActionModal } from "./SuspendedActionModal";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
+import CustomerNoShowBadge from "./CustomerNoShowBadge";
+import { CustomerNoShowStatus, getOverallCustomerNoShowStatus } from "@/services/api/noShow";
 
 export function SettingsTab() {
   const account = useActiveAccount();
@@ -40,6 +42,8 @@ export function SettingsTab() {
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
+  const [loadingNoShowStatus, setLoadingNoShowStatus] = useState(false);
 
   // Check if user is suspended
   const isSuspended = userProfile?.suspended || false;
@@ -64,6 +68,26 @@ export function SettingsTab() {
       setProfileImageUrl(customerData.profile_image_url || null);
     }
   }, [customerData]);
+
+  // Fetch no-show status (shop-agnostic)
+  useEffect(() => {
+    const fetchNoShowStatus = async () => {
+      if (!account?.address) return;
+
+      setLoadingNoShowStatus(true);
+      try {
+        const status = await getOverallCustomerNoShowStatus(account.address);
+        setNoShowStatus(status);
+      } catch (error) {
+        console.error('Error fetching no-show status:', error);
+        // Silent fail - don't show error to user
+      } finally {
+        setLoadingNoShowStatus(false);
+      }
+    };
+
+    fetchNoShowStatus();
+  }, [account?.address]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -439,6 +463,34 @@ export function SettingsTab() {
           </div>
         </div>
       </div>
+
+      {/* Account Status - No-Show Tier */}
+      {/* TODO: Uncomment when shop-agnostic endpoint is ready */}
+      {/* {noShowStatus && noShowStatus.tier !== 'normal' && (
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+          <div
+            className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+            style={{
+              backgroundImage: `url('/img/cust-ref-widget3.png')`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+              Account Status
+            </p>
+          </div>
+          <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+            <div className="flex flex-col items-center text-center gap-4">
+              <CustomerNoShowBadge status={noShowStatus} size="lg" showDetails={true} />
+              <p className="text-gray-300 text-sm">
+                Your current account standing based on appointment history.
+              </p>
+            </div>
+          </div>
+        </div>
+      )} */}
 
       {/* QR Code for Redemption */}
       <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">

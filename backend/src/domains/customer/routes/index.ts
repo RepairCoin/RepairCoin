@@ -184,4 +184,29 @@ router.post('/:address/request-unsuspend',
   asyncHandler(customerController.requestUnsuspend.bind(customerController))
 );
 
+// Get customer's no-show status
+router.get('/:address/no-show-status',
+  authMiddleware,
+  requireRole(['admin', 'customer', 'shop']),
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getNoShowStatus.bind(customerController))
+);
+
+// Get customer's no-show history
+router.get('/:address/no-show-history',
+  authMiddleware,
+  requireRole(['admin', 'customer', 'shop']),
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getNoShowHistory.bind(customerController))
+);
+
+// Get customer's overall no-show status (shop-agnostic)
+// This endpoint does not require a shopId and returns the customer's global tier
+router.get('/:address/overall-no-show-status',
+  authMiddleware,
+  requireRole(['admin', 'customer', 'shop']),
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getOverallNoShowStatus.bind(customerController))
+);
+
 export default router;

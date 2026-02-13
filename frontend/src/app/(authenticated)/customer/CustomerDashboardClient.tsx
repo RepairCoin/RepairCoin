@@ -12,6 +12,7 @@ import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
+import NoShowWarningBanner from "@/components/customer/NoShowWarningBanner";
 import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
@@ -20,6 +21,7 @@ import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection";
 import { CustomerBreadcrumb } from "@/components/customer/CustomerBreadcrumb";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
+import { CustomerNoShowStatus, getOverallCustomerNoShowStatus } from "@/services/api/noShow";
 
 const client = createThirdwebClient({
   clientId:
@@ -36,6 +38,8 @@ export default function CustomerDashboardClient() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
   >("overview");
+  const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
+  const [loadingNoShowStatus, setLoadingNoShowStatus] = useState(false);
 
   // Delayed loading modal - prevents flash when cache loads quickly
   const [showLoadingModal, setShowLoadingModal] = useState(false);
@@ -99,6 +103,26 @@ export default function CustomerDashboardClient() {
       setActiveTab(tab as any);
     }
   }, [searchParams]);
+
+  // Fetch no-show status (shop-agnostic)
+  useEffect(() => {
+    const fetchNoShowStatus = async () => {
+      if (!account?.address || !isAuthenticated) return;
+
+      setLoadingNoShowStatus(true);
+      try {
+        const status = await getOverallCustomerNoShowStatus(account.address);
+        setNoShowStatus(status);
+      } catch (error) {
+        console.error('Error fetching no-show status:', error);
+        // Silent fail - don't show error to user
+      } finally {
+        setLoadingNoShowStatus(false);
+      }
+    };
+
+    fetchNoShowStatus();
+  }, [account?.address, isAuthenticated]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
@@ -174,6 +198,9 @@ export default function CustomerDashboardClient() {
 
           {/* Breadcrumb */}
           <CustomerBreadcrumb activeTab={activeTab} />
+
+          {/* No-Show Warning Banner - Show tier restrictions */}
+          <NoShowWarningBanner status={noShowStatus} />
 
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}

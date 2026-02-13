@@ -55,13 +55,13 @@ export function AdminWaitlistTab() {
       });
 
       if (entriesResponse.data?.success) {
-        setEntries(entriesResponse.data.data.entries);
+        setEntries(entriesResponse.data.entries || []);
       }
 
       // Load stats
       const statsResponse = await apiClient.get("/waitlist/stats");
       if (statsResponse.data?.success) {
-        setStats(statsResponse.data.data);
+        setStats(statsResponse.data);
       }
     } catch (error) {
       console.error("Error loading waitlist data:", error);
