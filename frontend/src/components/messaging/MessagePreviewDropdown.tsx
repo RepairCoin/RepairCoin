@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageCircle, ChevronRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -114,6 +114,21 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
     return 'Unknown';
   };
 
+  // Get avatar URL for the other party (shop logo for customers, none for shops viewing customers)
+  const getOtherPartyAvatar = (conv: Conversation) => {
+    if (userType === 'customer') {
+      return conv.shopImageUrl;
+    }
+    return undefined;
+  };
+
+  // Track failed image loads to fall back to initials
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  const handleImageError = useCallback((conversationId: string) => {
+    setFailedImages(prev => new Set(prev).add(conversationId));
+  }, []);
+
   if (!isOpen) return null;
 
   return (
@@ -152,6 +167,8 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
             {conversations.map((conv) => {
               const unread = getUnreadCount(conv);
               const otherPartyName = getOtherPartyName(conv);
+              const avatarUrl = getOtherPartyAvatar(conv);
+              const showImage = avatarUrl && !failedImages.has(conv.conversationId);
 
               return (
                 <button
@@ -159,10 +176,19 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
                   onClick={() => handleConversationClick(conv.conversationId)}
                   className="w-full px-4 py-3 hover:bg-[#1a1a1a] transition-colors text-left flex items-start gap-3 group"
                 >
-                  {/* Avatar */}
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FFCC00] flex items-center justify-center text-[#101010] font-bold text-sm">
-                    {otherPartyName.charAt(0).toUpperCase()}
-                  </div>
+                  {/* Avatar - Show shop logo if available, otherwise show initial */}
+                  {showImage ? (
+                    <img
+                      src={avatarUrl}
+                      alt={otherPartyName}
+                      className="flex-shrink-0 w-10 h-10 rounded-full object-cover bg-[#1a1a1a]"
+                      onError={() => handleImageError(conv.conversationId)}
+                    />
+                  ) : (
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FFCC00] flex items-center justify-center text-[#101010] font-bold text-sm">
+                      {otherPartyName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
