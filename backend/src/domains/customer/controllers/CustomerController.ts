@@ -77,11 +77,11 @@ export class CustomerController {
   async updateCustomer(req: Request, res: Response) {
     try {
       const { address } = req.params;
-      const { name, first_name, last_name, email, phone } = req.body;
+      const { name, first_name, last_name, email, phone, profile_image_url } = req.body;
 
       const result = await this.customerService.updateCustomer(
         address,
-        { name, first_name, last_name, email, phone },
+        { name, first_name, last_name, email, phone, profile_image_url },
         req.user?.address,
         req.user?.role
       );

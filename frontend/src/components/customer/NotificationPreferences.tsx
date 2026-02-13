@@ -191,19 +191,11 @@ export function NotificationPreferences() {
 
   if (loading) {
     return (
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-        <div
-          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+      <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-800/50">
+          <h3 className="text-lg font-semibold text-white">
             Appointment Reminders
-          </p>
+          </h3>
         </div>
         <div className="flex items-center justify-center h-40">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-400 border-t-transparent"></div>
@@ -213,29 +205,21 @@ export function NotificationPreferences() {
   }
 
   return (
-    <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-      <div
-        className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white"
-        style={{
-          backgroundImage: `url('/img/cust-ref-widget3.png')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+    <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">
+      <div className="flex justify-between items-center px-6 py-4 border-b border-gray-800/50">
+        <h3 className="text-lg font-semibold text-white">
           Appointment Reminders
-        </p>
+        </h3>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
+          className="text-sm px-5 py-2 bg-[#FFCC00] text-black rounded-full font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <div className="px-6 py-6 space-y-6">
         {/* Info Banner */}
         <div className="flex items-start gap-3 p-4 bg-[#2F2F2F] rounded-xl">
           <Info className="w-5 h-5 text-[#FFCC00] flex-shrink-0 mt-0.5" />

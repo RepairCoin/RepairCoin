@@ -309,6 +309,23 @@ export const rejectRedemption = async (
   }
 };
 
+// Profile Image Upload
+export const uploadProfileImage = async (
+  file: File
+): Promise<{ success: boolean; url?: string; error?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await apiClient.post('/upload/customer-avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response as { success: boolean; url?: string; error?: string };
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    return { success: false, error: 'Failed to upload profile image' };
+  }
+};
+
 // Settings & Preferences
 export const updateNotificationPreferences = async (
   address: string,
@@ -470,6 +487,9 @@ export const customerApi = {
   approveRedemption,
   rejectRedemption,
   
+  // Profile Image
+  uploadProfileImage,
+
   // Settings
   updateNotificationPreferences,
   getAppointmentNotificationPreferences,
