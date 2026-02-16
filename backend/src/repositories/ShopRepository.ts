@@ -60,6 +60,8 @@ interface ShopData {
   logoUrl?: string; // URL to shop logo stored in DigitalOcean Spaces
   bannerUrl?: string; // URL to shop banner image stored in DigitalOcean Spaces
   aboutText?: string; // Rich text about section (max 2000 characters)
+  avgRating?: number;
+  totalReviews?: number;
 }
 
 export interface ShopFilters {
@@ -484,7 +486,21 @@ export class ShopRepository extends BaseRepository {
 
   async getActiveShops(): Promise<ShopData[]> {
     try {
-      const query = 'SELECT * FROM shops WHERE active = true AND verified = true';
+      const query = `
+        SELECT s.*,
+          COALESCE(r.avg_rating, 0) as shop_avg_rating,
+          COALESCE(r.total_reviews, 0) as shop_total_reviews
+        FROM shops s
+        LEFT JOIN (
+          SELECT ss.shop_id,
+            AVG(sr.rating)::numeric(3,2) as avg_rating,
+            COUNT(sr.review_id) as total_reviews
+          FROM shop_services ss
+          INNER JOIN service_reviews sr ON ss.service_id = sr.service_id
+          GROUP BY ss.shop_id
+        ) r ON s.shop_id = r.shop_id
+        WHERE s.active = true AND s.verified = true
+      `;
       const result = await this.pool.query(query);
 
       return result.rows.map(row => ({
@@ -533,7 +549,9 @@ export class ShopRepository extends BaseRepository {
         country: row.country,
         city: row.location_city, // Map location_city to city for convenience
         category: row.category,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        avgRating: parseFloat(row.shop_avg_rating || 0),
+        totalReviews: parseInt(row.shop_total_reviews || 0),
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);

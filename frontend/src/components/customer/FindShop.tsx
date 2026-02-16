@@ -10,7 +10,6 @@ import {
   Globe,
   CheckCircle,
   Store,
-  Star,
   Clock,
   ExternalLink,
   Share2,
@@ -20,6 +19,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import { ShopService } from "@/services/shopService";
 import { getShopServices } from "@/services/api/services";
 import type { ShopService as ShopServiceType } from "@/services/api/services";
+import { StarRating } from "./StarRating";
 import toast from "react-hot-toast";
 import "leaflet/dist/leaflet.css";
 
@@ -144,6 +144,7 @@ interface Shop {
   instagram?: string;
   linkedin?: string;
   avgRating?: number;
+  totalReviews?: number;
   reviewCount?: number;
   distance?: number;
   estimatedTime?: number;
@@ -174,28 +175,6 @@ function getTierBadgeColor(tier?: string): string {
   return "bg-gray-600/20 text-gray-300 border border-gray-500/30";
 }
 
-// Render star rating
-function StarRating({ rating, reviewCount }: { rating?: number; reviewCount?: number }) {
-  const r = rating || 0;
-  return (
-    <div className="flex items-center gap-1">
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Star
-            key={i}
-            className={`w-3 h-3 ${i <= Math.round(r) ? "text-[#FFCC00] fill-[#FFCC00]" : "text-gray-600"}`}
-          />
-        ))}
-      </div>
-      <span className="text-gray-400 text-xs">
-        {r > 0 ? r.toFixed(1) : "0"}
-      </span>
-      <span className="text-gray-500 text-xs">
-        ({reviewCount && reviewCount > 0 ? `${reviewCount} reviews` : "no reviews yet"})
-      </span>
-    </div>
-  );
-}
 
 export function FindShop() {
   const router = useRouter();
@@ -209,8 +188,6 @@ export function FindShop() {
   const [activeDetailTab, setActiveDetailTab] = useState<"services" | "rewards">("services");
   const [shopServices, setShopServices] = useState<ShopServiceType[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
-  // Map of shopId -> { avgRating, totalReviews }
-  const [shopRatings, setShopRatings] = useState<Record<string, { avgRating: number; totalReviews: number }>>({});
 
   useEffect(() => {
     const fetchShops = async () => {
@@ -229,30 +206,6 @@ export function FindShop() {
           ]);
         }
 
-        // Fetch services for all shops to compute ratings
-        const ratingsMap: Record<string, { avgRating: number; totalReviews: number }> = {};
-        await Promise.all(
-          shopsData.map(async (shop: Shop) => {
-            try {
-              const result = await getShopServices(shop.shopId);
-              const services = result?.data || [];
-              const rated = services.filter((s: ShopServiceType) => s.avgRating && s.avgRating > 0);
-              if (rated.length > 0) {
-                const totalRating = rated.reduce((sum: number, s: ShopServiceType) => sum + (s.avgRating || 0), 0);
-                const totalReviews = services.reduce((sum: number, s: ShopServiceType) => sum + (s.reviewCount || 0), 0);
-                ratingsMap[shop.shopId] = {
-                  avgRating: totalRating / rated.length,
-                  totalReviews,
-                };
-              } else {
-                ratingsMap[shop.shopId] = { avgRating: 0, totalReviews: 0 };
-              }
-            } catch {
-              ratingsMap[shop.shopId] = { avgRating: 0, totalReviews: 0 };
-            }
-          })
-        );
-        setShopRatings(ratingsMap);
       } catch (error) {
         console.error("Error fetching shops:", error);
         toast.error("Failed to load shops. Please try again.");
@@ -322,16 +275,16 @@ export function FindShop() {
 
     // Sort by rating descending (highest first)
     result = [...result].sort((a, b) => {
-      const ratingA = shopRatings[a.shopId]?.avgRating || 0;
-      const ratingB = shopRatings[b.shopId]?.avgRating || 0;
+      const ratingA = a.avgRating || 0;
+      const ratingB = b.avgRating || 0;
       if (ratingB !== ratingA) return ratingB - ratingA;
-      const reviewsA = shopRatings[a.shopId]?.totalReviews || 0;
-      const reviewsB = shopRatings[b.shopId]?.totalReviews || 0;
+      const reviewsA = a.totalReviews || 0;
+      const reviewsB = b.totalReviews || 0;
       return reviewsB - reviewsA;
     });
 
     return result;
-  }, [searchQuery, filterCategory, shops, shopRatings]);
+  }, [searchQuery, filterCategory, shops]);
 
   const handleShopSelect = (shop: Shop) => {
     setSelectedShop(shop);
@@ -438,7 +391,7 @@ export function FindShop() {
                         <h4 className="text-white font-bold text-sm truncate">{shop.name}</h4>
                         {/* Rating + Distance + Time */}
                         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                          <StarRating rating={shopRatings[shop.shopId]?.avgRating} reviewCount={shopRatings[shop.shopId]?.totalReviews} />
+                          <StarRating value={shop.avgRating || 0} size="sm" showNumber showCount totalCount={shop.totalReviews || 0} />
                           {shop.distance !== undefined && (
                             <span className="flex items-center gap-0.5 text-gray-500 text-xs">
                               <MapPin className="w-3 h-3" />
@@ -568,7 +521,7 @@ export function FindShop() {
 
                   {/* Rating + Distance + Time */}
                   <div className="flex items-center gap-4 mb-4 flex-wrap">
-                    <StarRating rating={shopRatings[selectedShop.shopId]?.avgRating} reviewCount={shopRatings[selectedShop.shopId]?.totalReviews} />
+                    <StarRating value={selectedShop.avgRating || 0} size="sm" showNumber showCount totalCount={selectedShop.totalReviews || 0} />
                     {selectedShop.distance !== undefined && (
                       <span className="flex items-center gap-1 text-gray-500 text-xs">
                         <MapPin className="w-3 h-3" />
@@ -722,23 +675,7 @@ export function FindShop() {
                                 <h5 className="text-white text-sm font-medium truncate">
                                   {service.serviceName}
                                 </h5>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <div className="flex">
-                                    {[1, 2, 3, 4, 5].map((i) => (
-                                      <Star
-                                        key={i}
-                                        className={`w-2.5 h-2.5 ${
-                                          i <= Math.round(service.avgRating || 0)
-                                            ? "text-[#FFCC00] fill-[#FFCC00]"
-                                            : "text-gray-600"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-gray-500 text-xs">
-                                    {service.avgRating?.toFixed(1) || "0"} ({service.reviewCount || 0} reviews)
-                                  </span>
-                                </div>
+                                <StarRating value={service.avgRating || 0} size="sm" showNumber showCount totalCount={service.reviewCount || 0} className="mt-0.5" />
                               </div>
                               {/* View Button */}
                               <button
