@@ -51,6 +51,8 @@ interface ShopInfo {
   logoUrl?: string;
   bannerUrl?: string;
   aboutText?: string;
+  avgRating?: number;
+  totalReviews?: number;
   totalCustomers?: number;
   location?: {
     lat?: number;
@@ -242,11 +244,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
     }
   };
 
-  const calculateAverageRating = () => {
-    if (services.length === 0) return 0;
-    const totalRating = services.reduce((sum, service) => sum + (service.avgRating || 0), 0);
-    return totalRating / services.length;
-  };
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -272,7 +269,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
     return `https://www.google.com/maps/dir/?api=1&destination=${shopInfo.location.lat},${shopInfo.location.lng}`;
   };
 
-  const averageRating = calculateAverageRating();
+  const averageRating = shopInfo?.avgRating || 0;
+  const totalReviews = shopInfo?.totalReviews || 0;
 
   if (loading) {
     return (
@@ -392,7 +390,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                     ))}
                   </div>
                   <span className="text-white font-semibold">{averageRating.toFixed(1)}</span>
-                  <span className="text-gray-400">({services.length} services)</span>
+                  <span className="text-gray-400">({totalReviews} reviews)</span>
                 </div>
               )}
 

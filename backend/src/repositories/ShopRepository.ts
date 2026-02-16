@@ -73,13 +73,27 @@ export interface ShopFilters {
 export class ShopRepository extends BaseRepository {
   async getShop(shopId: string): Promise<ShopData | null> {
     try {
-      const query = 'SELECT * FROM shops WHERE shop_id = $1';
+      const query = `
+        SELECT s.*,
+          COALESCE(r.avg_rating, 0) as shop_avg_rating,
+          COALESCE(r.total_reviews, 0) as shop_total_reviews
+        FROM shops s
+        LEFT JOIN (
+          SELECT ss.shop_id,
+            AVG(sr.rating)::numeric(3,2) as avg_rating,
+            COUNT(sr.review_id) as total_reviews
+          FROM shop_services ss
+          INNER JOIN service_reviews sr ON ss.service_id = sr.service_id
+          GROUP BY ss.shop_id
+        ) r ON s.shop_id = r.shop_id
+        WHERE s.shop_id = $1
+      `;
       const result = await this.pool.query(query, [shopId]);
-      
+
       if (result.rows.length === 0) {
         return null;
       }
-      
+
       const row = result.rows[0];
       return {
         shopId: row.shop_id,
@@ -126,7 +140,9 @@ export class ShopRepository extends BaseRepository {
         city: row.location_city, // Map location_city to city
         logoUrl: row.logo_url,
         bannerUrl: row.banner_url,
-        aboutText: row.about_text
+        aboutText: row.about_text,
+        avgRating: parseFloat(row.shop_avg_rating || 0),
+        totalReviews: parseInt(row.shop_total_reviews || 0),
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);

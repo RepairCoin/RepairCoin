@@ -213,7 +213,9 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         category: shop.category,
         logoUrl: shop.logoUrl,
         bannerUrl: shop.bannerUrl,
-        aboutText: shop.aboutText
+        aboutText: shop.aboutText,
+        avgRating: shop.avgRating || 0,
+        totalReviews: shop.totalReviews || 0,
       };
     }
 
