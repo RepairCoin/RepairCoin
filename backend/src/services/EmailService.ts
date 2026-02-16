@@ -694,6 +694,80 @@ export class EmailService {
   }
 
   /**
+   * Send appointment confirmation for manual booking
+   */
+  async sendAppointmentConfirmation(
+    customerEmail: string,
+    customerName: string,
+    shopName: string,
+    serviceName: string,
+    bookingDate: Date,
+    bookingTime: string,
+    paymentStatus: string
+  ): Promise<boolean> {
+    const subject = `Appointment Confirmed at ${shopName}`;
+
+    const dateFormatted = bookingDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const paymentStatusText = paymentStatus === 'paid'
+      ? 'Payment collected'
+      : paymentStatus === 'pending'
+      ? 'Payment pending'
+      : 'Payment not yet collected';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Appointment Confirmed</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${customerName || 'there'},</p>
+
+          <p>Your appointment at <strong>${shopName}</strong> has been successfully booked!</p>
+
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <p style="margin: 5px 0; color: #155724;"><strong>📅 Date & Time:</strong></p>
+            <p style="margin: 5px 0; font-size: 18px; color: #155724;">
+              <strong>${dateFormatted}</strong><br>
+              <strong>${bookingTime}</strong>
+            </p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${shopName}</p>
+            <p style="margin: 5px 0;"><strong>Payment Status:</strong> ${paymentStatusText}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="margin: 5px 0; color: #856404;"><strong>⏰ Please arrive on time</strong></p>
+            <p style="margin: 5px 0; color: #856404;">
+              If you need to cancel or reschedule, please contact the shop as soon as possible.
+            </p>
+          </div>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for booking with RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(customerEmail, subject, html);
+  }
+
+  /**
    * Send appointment reschedule notification to customer
    */
   async sendAppointmentRescheduledByShop(data: {

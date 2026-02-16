@@ -2404,6 +2404,133 @@ export function initializeRoutes(stripe: StripeService): Router {
     appointmentController.rejectRescheduleRequest
   );
 
+  // ==================== MANUAL BOOKING ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/appointments/manual:
+   *   post:
+   *     summary: Create manual appointment booking (Shop only)
+   *     description: Allow shop to manually book appointments for customers from calendar view
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - customerAddress
+   *               - serviceId
+   *               - bookingDate
+   *               - bookingTimeSlot
+   *               - paymentStatus
+   *             properties:
+   *               customerAddress:
+   *                 type: string
+   *                 example: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+   *               customerEmail:
+   *                 type: string
+   *                 example: "customer@example.com"
+   *               customerName:
+   *                 type: string
+   *                 example: "John Doe"
+   *               customerPhone:
+   *                 type: string
+   *                 example: "+1234567890"
+   *               serviceId:
+   *                 type: string
+   *                 example: "abc-123-def"
+   *               bookingDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2026-02-20"
+   *               bookingTimeSlot:
+   *                 type: string
+   *                 example: "14:00:00"
+   *               bookingEndTime:
+   *                 type: string
+   *                 example: "15:00:00"
+   *               paymentStatus:
+   *                 type: string
+   *                 enum: [paid, pending, unpaid]
+   *                 example: "paid"
+   *               notes:
+   *                 type: string
+   *                 example: "Walk-in customer"
+   *               createNewCustomer:
+   *                 type: boolean
+   *                 example: false
+   *     responses:
+   *       201:
+   *         description: Appointment booked successfully
+   *       400:
+   *         description: Invalid request or missing fields
+   *       403:
+   *         description: Not authorized for this shop
+   *       404:
+   *         description: Service or customer not found
+   *       409:
+   *         description: Time slot conflict
+   */
+  router.post(
+    '/shops/:shopId/appointments/manual',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { createManualBooking } = await import('./controllers/ManualBookingController');
+      return createManualBooking(req, res);
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/customers/search:
+   *   get:
+   *     summary: Search customers for booking (Shop only)
+   *     description: Search customers by name, email, phone, or wallet address
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: q
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Search query
+   *         example: "john"
+   *     responses:
+   *       200:
+   *         description: Customer search results
+   *       400:
+   *         description: Missing search query
+   *       403:
+   *         description: Not authorized for this shop
+   */
+  router.get(
+    '/shops/:shopId/customers/search',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { searchCustomers } = await import('./controllers/ManualBookingController');
+      return searchCustomers(req, res);
+    }
+  );
+
   /**
    * @swagger
    * /api/services/bookings/{orderId}/direct-reschedule:

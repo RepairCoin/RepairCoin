@@ -2,10 +2,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2, Clock, MapPin, User, DollarSign } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2, Clock, MapPin, User, DollarSign, Plus } from 'lucide-react';
 import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { ManualBookingModal } from './ManualBookingModal';
+import { useAuthStore } from '@/stores/authStore';
 
 interface DayBookings {
   date: string;
@@ -29,10 +31,12 @@ interface AppointmentCalendarProps {
 
 export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ serviceId, serviceName }) => {
   const router = useRouter();
+  const { userProfile } = useAuthStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<CalendarBooking | null>(null);
+  const [showManualBookingModal, setShowManualBookingModal] = useState(false);
 
   useEffect(() => {
     loadBookings();
@@ -194,6 +198,15 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+          <button
+            onClick={() => setShowManualBookingModal(true)}
+            className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-black text-sm sm:text-base font-semibold rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Book Appointment</span>
+            <span className="sm:hidden">Book</span>
+          </button>
+
           <button
             onClick={goToToday}
             className="px-3 sm:px-4 py-2 bg-[#1A1A1A] text-white text-sm sm:text-base border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
@@ -443,6 +456,21 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
           </div>
         </div>
       )}
+
+      {/* Manual Booking Modal */}
+      <ManualBookingModal
+        shopId={userProfile?.id || ''}
+        isOpen={showManualBookingModal}
+        onClose={() => setShowManualBookingModal(false)}
+        onSuccess={() => {
+          loadBookings(); // Reload calendar after successful booking
+        }}
+        preSelectedService={
+          serviceId && serviceName
+            ? { serviceId, serviceName }
+            : undefined
+        }
+      />
     </div>
   );
 };
