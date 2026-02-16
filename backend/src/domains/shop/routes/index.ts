@@ -51,6 +51,8 @@ interface ShopData {
   };
   purchasedRcnBalance?: number;
   totalRcnPurchased?: number;
+  avgRating?: number;
+  totalReviews?: number;
 }
 
 // Import new route modules
@@ -146,7 +148,9 @@ router.get('/', async (req: Request, res: Response) => {
       category: shop.category,
       logoUrl: shop.logoUrl,
       bannerUrl: shop.bannerUrl,
-      aboutText: shop.aboutText
+      aboutText: shop.aboutText,
+      avgRating: shop.avgRating || 0,
+      totalReviews: shop.totalReviews || 0
     }));
 
     res.json({
@@ -209,7 +213,9 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         category: shop.category,
         logoUrl: shop.logoUrl,
         bannerUrl: shop.bannerUrl,
-        aboutText: shop.aboutText
+        aboutText: shop.aboutText,
+        avgRating: shop.avgRating || 0,
+        totalReviews: shop.totalReviews || 0,
       };
     }
 
