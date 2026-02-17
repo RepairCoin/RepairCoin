@@ -56,11 +56,12 @@ export interface CustomerStore {
   balanceData: BalanceData | null;
   transactions: TransactionHistory[];
   blockchainBalance: number;
-  
+
   // Loading states
   isLoading: boolean;
+  fetchingAddress: string | null;  // Track which address is being fetched
   error: string | null;
-  
+
   // Actions
   setCustomerData: (data: CustomerData | null) => void;
   setBalanceData: (data: BalanceData | null) => void;
@@ -68,10 +69,10 @@ export interface CustomerStore {
   setBlockchainBalance: (balance: number) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
+
   // Fetch action
   fetchCustomerData: (address: string, force?: boolean) => Promise<void>;
-  
+
   // Clear cache
   clearCache: () => void;
 }
@@ -85,6 +86,7 @@ export const useCustomerStore = create<CustomerStore>()(
       transactions: [],
       blockchainBalance: 0,
       isLoading: false,
+      fetchingAddress: null,
       error: null,
 
       // Setters
@@ -115,23 +117,43 @@ export const useCustomerStore = create<CustomerStore>()(
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
 
-      // Clear cache
+      // Clear cache - IMPORTANT: Reset isLoading to prevent stuck state
       clearCache: () => set({
         customerData: null,
         balanceData: null,
         transactions: [],
         blockchainBalance: 0,
         error: null,
+        isLoading: false,       // Reset loading state to allow subsequent fetches
+        fetchingAddress: null,  // Reset address tracking
       }),
 
       // Fetch customer data
       fetchCustomerData: async (address: string, force: boolean = false) => {
         const state = get();
+        const newAddress = address.toLowerCase();
 
-        // Prevent duplicate fetches
-        if (!force && state.isLoading) return;
+        // Only skip if we're already fetching for the SAME address
+        // This allows fetching a different address even if another fetch is in progress
+        if (!force && state.isLoading && state.fetchingAddress === newAddress) {
+          console.log('[customerStore] Already fetching for this address, skipping');
+          return;
+        }
 
-        set({ isLoading: true, error: null });
+        // Clear old data if fetching for a different address
+        const currentAddress = state.customerData?.address?.toLowerCase();
+        if (currentAddress && currentAddress !== newAddress) {
+          console.log('[customerStore] Address changed, clearing old data');
+          set({
+            customerData: null,
+            balanceData: null,
+            transactions: [],
+            blockchainBalance: 0,
+          });
+        }
+
+        console.log('[customerStore] Fetching data for address:', newAddress);
+        set({ isLoading: true, fetchingAddress: newAddress, error: null });
 
         try {
           // Fetch all data in PARALLEL for better performance
@@ -151,7 +173,13 @@ export const useCustomerStore = create<CustomerStore>()(
               set({ blockchainBalance: Math.round(customerResponse.data.blockchainBalance * 100) / 100 });
             }
           } else if (customerResponse.code === 'NOT_FOUND') {
-            set({ error: 'Address not associated with a customer account.' });
+            set({
+              error: 'Address not associated with a customer account.',
+              customerData: null,
+              balanceData: null,
+              transactions: [],
+              isLoading: false
+            });
             return;
           }
 
@@ -176,10 +204,10 @@ export const useCustomerStore = create<CustomerStore>()(
             set({ transactions: transactionsResponse.data?.transactions || [] });
           }
         } catch (err) {
-          console.log("Error fetching customer data:", err);
+          console.log("[customerStore] Error fetching customer data:", err);
           set({ error: "Failed to load customer data" });
         } finally {
-          set({ isLoading: false });
+          set({ isLoading: false, fetchingAddress: null });
         }
       },
     }),

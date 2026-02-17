@@ -10,9 +10,11 @@ interface CustomerTransaction {
   amount: number;
   shopId?: string;
   shopName?: string;
-  timestamp: string;
+  timestamp?: string;
+  createdAt?: string;
   transactionHash?: string;
-  status: string;
+  status?: string;
+  description?: string;
 }
 
 interface CustomerDetails {
@@ -31,11 +33,20 @@ interface CustomerDetails {
 }
 
 interface CustomerAnalytics {
-  totalTransactions: number;
-  totalEarnings: number;
-  totalRedemptions: number;
-  averageTransactionValue: number;
-  monthlyActivity: {
+  // Fields from backend
+  totalEarned?: number;
+  totalSpent?: number;
+  transactionCount?: number;
+  favoriteShop?: string | null;
+  successfulReferrals?: number;
+  earningsTrend?: { date: string; amount: number }[];
+  redemptionHistory?: { date: string; amount: number; shopId: string; shopName: string }[];
+  // Legacy fields for backwards compatibility
+  totalTransactions?: number;
+  totalEarnings?: number;
+  totalRedemptions?: number;
+  averageTransactionValue?: number;
+  monthlyActivity?: {
     month: string;
     earnings: number;
     redemptions: number;
@@ -86,7 +97,7 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 
       const detailsData = await detailsRes.json();
       const balanceData = balanceRes.ok ? await balanceRes.json() : { data: null };
-      const transactionsData = transactionsRes.ok ? await transactionsRes.json() : { data: [] };
+      const transactionsData = transactionsRes.ok ? await transactionsRes.json() : { data: { transactions: [] } };
       const analyticsData = analyticsRes.ok ? await analyticsRes.json() : { data: null };
 
       // API returns { data: { customer, tierBenefits, ... } }, extract customer object
@@ -100,7 +111,9 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       }
 
       setCustomerDetails(customerData);
-      setTransactions(transactionsData.data || []);
+      // Transactions API returns { data: { transactions: [...], count, customer } }
+      const txArray = transactionsData.data?.transactions || transactionsData.data || [];
+      setTransactions(Array.isArray(txArray) ? txArray : []);
       setAnalytics(analyticsData.data);
     } catch (error) {
       console.error("Error loading customer data:", error);
@@ -359,19 +372,19 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Total Transactions</p>
-                      <p className="text-2xl font-bold text-white">{analytics.totalTransactions ?? 0}</p>
+                      <p className="text-2xl font-bold text-white">{analytics.transactionCount ?? analytics.totalTransactions ?? 0}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 text-sm mb-1">Avg Transaction</p>
-                      <p className="text-2xl font-bold text-white">{(analytics.averageTransactionValue ?? 0).toFixed(1)} RCN</p>
+                      <p className="text-gray-400 text-sm mb-1">Referrals</p>
+                      <p className="text-2xl font-bold text-white">{analytics.successfulReferrals ?? 0}</p>
                     </div>
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Total Earned</p>
-                      <p className="text-2xl font-bold text-green-400">{(analytics.totalEarnings ?? 0).toFixed(1)} RCN</p>
+                      <p className="text-2xl font-bold text-green-400">{(analytics.totalEarned ?? analytics.totalEarnings ?? 0).toFixed(1)} RCN</p>
                     </div>
                     <div>
                       <p className="text-gray-400 text-sm mb-1">Total Redeemed</p>
-                      <p className="text-2xl font-bold text-blue-400">{(analytics.totalRedemptions ?? 0).toFixed(1)} RCN</p>
+                      <p className="text-2xl font-bold text-blue-400">{(analytics.totalSpent ?? analytics.totalRedemptions ?? 0).toFixed(1)} RCN</p>
                     </div>
                   </div>
                 </div>
@@ -393,80 +406,143 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   </p>
                 </div>
               ) : (
-                transactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="bg-[#0A0A0A] rounded-xl p-4 border border-gray-800 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        tx.type === "earn" || tx.type === "gift_received"
-                          ? "bg-green-900/20"
-                          : "bg-blue-900/20"
-                      }`}>
-                        {tx.type === "earn" || tx.type === "gift_received" ? (
-                          <ArrowDownRight className="w-5 h-5 text-green-400" />
-                        ) : (
-                          <ArrowUpRight className="w-5 h-5 text-blue-400" />
+                transactions.map((tx) => {
+                  // Handle both "earn"/"earned" naming conventions
+                  const isEarning = tx.type === "earn" || tx.type === "earned" || tx.type === "gift_received" || tx.type === "referral" || tx.type === "tier_bonus";
+                  const txDate = tx.timestamp || tx.createdAt;
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className="bg-[#0A0A0A] rounded-xl p-4 border border-gray-800 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          isEarning ? "bg-green-900/20" : "bg-blue-900/20"
+                        }`}>
+                          {isEarning ? (
+                            <ArrowDownRight className="w-5 h-5 text-green-400" />
+                          ) : (
+                            <ArrowUpRight className="w-5 h-5 text-blue-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-white font-semibold capitalize">{tx.type.replace("_", " ")}</p>
+                          <p className="text-gray-400 text-sm">{tx.shopName || tx.shopId || "RepairCoin"}</p>
+                          <p className="text-gray-500 text-xs">{formatDate(txDate)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-lg font-bold ${isEarning ? "text-green-400" : "text-blue-400"}`}>
+                          {isEarning ? "+" : "-"}{(tx.amount || 0).toFixed(2)} RCN
+                        </p>
+                        {tx.status && (
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            tx.status === "confirmed" || tx.status === "completed"
+                              ? "bg-green-900/20 text-green-400"
+                              : "bg-yellow-900/20 text-yellow-400"
+                          }`}>
+                            {tx.status}
+                          </span>
                         )}
                       </div>
-                      <div>
-                        <p className="text-white font-semibold capitalize">{tx.type.replace("_", " ")}</p>
-                        <p className="text-gray-400 text-sm">{tx.shopName || tx.shopId || "Unknown"}</p>
-                        <p className="text-gray-500 text-xs">{formatDate(tx.timestamp)}</p>
-                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-bold ${
-                        tx.type === "earn" || tx.type === "gift_received"
-                          ? "text-green-400"
-                          : "text-blue-400"
-                      }`}>
-                        {tx.type === "earn" || tx.type === "gift_received" ? "+" : "-"}{tx.amount.toFixed(2)} RCN
-                      </p>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        tx.status === "confirmed"
-                          ? "bg-green-900/20 text-green-400"
-                          : "bg-yellow-900/20 text-yellow-400"
-                      }`}>
-                        {tx.status}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
 
-          {/* History Tab */}
-          {activeTab === "history" && analytics && analytics.monthlyActivity && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">Monthly Activity</h3>
-              {analytics.monthlyActivity.length === 0 ? (
+          {/* History Tab - Uses loaded transactions data */}
+          {activeTab === "history" && (
+            <div className="space-y-6">
+              {transactions.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-400">No monthly activity data available</p>
+                  <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Clock className="w-8 h-8 text-gray-600" />
+                  </div>
+                  <h3 className="text-white text-lg font-medium mb-2">No History Yet</h3>
+                  <p className="text-gray-400 text-sm">
+                    Transaction history will appear here once the customer has activity.
+                  </p>
                 </div>
               ) : (
-                analytics.monthlyActivity.map((month) => (
-                  <div
-                    key={month.month}
-                    className="bg-[#0A0A0A] rounded-xl p-4 border border-gray-800"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-white font-semibold">{month.month}</h4>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-gray-400 text-sm mb-1">Earned</p>
-                        <p className="text-lg font-bold text-green-400">+{month.earnings.toFixed(2)} RCN</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-sm mb-1">Redeemed</p>
-                        <p className="text-lg font-bold text-blue-400">-{month.redemptions.toFixed(2)} RCN</p>
-                      </div>
-                    </div>
+                <>
+                  {/* Earnings History */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <ArrowDownRight className="w-5 h-5 text-green-400" />
+                      Earnings History
+                    </h3>
+                    {(() => {
+                      const earnings = transactions.filter(tx =>
+                        tx.type === "earn" || tx.type === "earned" || tx.type === "gift_received" ||
+                        tx.type === "referral" || tx.type === "tier_bonus"
+                      );
+                      if (earnings.length === 0) {
+                        return (
+                          <div className="text-center py-6 bg-[#0A0A0A] rounded-xl border border-gray-800">
+                            <p className="text-gray-400">No earnings recorded</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-2">
+                          {earnings.map((tx) => (
+                            <div
+                              key={tx.id}
+                              className="bg-[#0A0A0A] rounded-xl p-3 border border-gray-800 flex items-center justify-between"
+                            >
+                              <div>
+                                <p className="text-white text-sm font-medium capitalize">{tx.type.replace("_", " ")}</p>
+                                <p className="text-gray-500 text-xs">{tx.shopName || tx.shopId || "RepairCoin"}</p>
+                                <p className="text-gray-600 text-xs">{formatDate(tx.timestamp || tx.createdAt)}</p>
+                              </div>
+                              <span className="text-lg font-bold text-green-400">+{(tx.amount || 0).toFixed(2)} RCN</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
-                ))
+
+                  {/* Redemptions History */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                      <ArrowUpRight className="w-5 h-5 text-blue-400" />
+                      Redemptions History
+                    </h3>
+                    {(() => {
+                      const redemptions = transactions.filter(tx =>
+                        tx.type === "redeem" || tx.type === "redeemed" || tx.type === "gift_sent"
+                      );
+                      if (redemptions.length === 0) {
+                        return (
+                          <div className="text-center py-6 bg-[#0A0A0A] rounded-xl border border-gray-800">
+                            <p className="text-gray-400">No redemptions recorded</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-2">
+                          {redemptions.map((tx) => (
+                            <div
+                              key={tx.id}
+                              className="bg-[#0A0A0A] rounded-xl p-3 border border-gray-800 flex items-center justify-between"
+                            >
+                              <div>
+                                <p className="text-white text-sm font-medium capitalize">{tx.type.replace("_", " ")}</p>
+                                <p className="text-gray-500 text-xs">{tx.shopName || tx.shopId || "Unknown Shop"}</p>
+                                <p className="text-gray-600 text-xs">{formatDate(tx.timestamp || tx.createdAt)}</p>
+                              </div>
+                              <span className="text-lg font-bold text-blue-400">-{(tx.amount || 0).toFixed(2)} RCN</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </>
               )}
             </div>
           )}

@@ -608,8 +608,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
             {filteredCustomers.map((customer) => (
               <div
                 key={customer.address}
-                onClick={() => setSelectedCustomer(customer.address)}
                 className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+                onClick={() => handleViewProfile(customer.address)}
               >
                 <div className="grid grid-cols-4 gap-4 items-center">
                   {/* Customer Info */}

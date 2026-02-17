@@ -124,6 +124,27 @@ export default function CustomerDashboardClient() {
     fetchNoShowStatus();
   }, [account?.address, isAuthenticated]);
 
+  // Get login function to refresh profile when page becomes visible
+  const { login } = useAuthStore();
+
+  // Refresh user profile when page becomes visible (catches admin changes like suspension)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && account?.address && isAuthenticated) {
+        console.log('📋 Page became visible, refreshing customer profile...');
+        // Re-authenticate to get latest profile data (including suspension status)
+        login(account.address).catch(err => {
+          console.warn('Profile refresh failed:', err);
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [account?.address, isAuthenticated, login]);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
 

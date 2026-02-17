@@ -284,6 +284,15 @@ export const SectionMenuItem: React.FC<SectionMenuItemProps> = ({
               : item.icon}
           </div>
           <span className="text-sm sm:text-base">{item.title}</span>
+          {item.badge && item.badge.count > 0 && (
+            <span className={`ml-auto px-2 py-0.5 text-xs font-bold rounded-full ${
+              item.badge.variant === 'danger' ? 'bg-red-500 text-white' :
+              item.badge.variant === 'warning' ? 'bg-yellow-500 text-black' :
+              'bg-blue-500 text-white'
+            }`}>
+              {item.badge.count > 99 ? '99+' : item.badge.count}
+            </span>
+          )}
         </Link>
 
         {/* Action Button */}

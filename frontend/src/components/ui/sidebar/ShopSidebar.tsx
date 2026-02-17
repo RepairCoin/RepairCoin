@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { appointmentsApi } from "@/services/api/appointments";
 import {
   Settings,
   LogOut,
@@ -45,6 +46,24 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
   onCollapseChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+
+  // Fetch pending reschedule count for badge
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const count = await appointmentsApi.getShopRescheduleRequestCount();
+      setPendingRescheduleCount(count);
+    } catch (error) {
+      // Silently fail - badge just won't show
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingCount();
+    // Refresh count every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchPendingCount]);
 
   const {
     isCollapsed,
@@ -109,6 +128,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=appointments",
           icon: <Calendar className="w-5 h-5" />,
           tabId: "appointments",
+          badge: pendingRescheduleCount > 0 ? { count: pendingRescheduleCount, variant: 'danger' as const } : undefined,
         },
         {
           title: "Disputes",

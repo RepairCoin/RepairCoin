@@ -53,40 +53,40 @@ export function useAdminAuth() {
 
   // Check admin-specific permissions and status
   useEffect(() => {
-    // Reset admin-specific state when account changes
-    setIsSuperAdmin(false);
-    setAdminRole("");
-    setAdminPermissions([]);
     const currentAddress = account?.address || null;
     const hasAddressChanged = previousAddressRef.current !== currentAddress;
 
-    // Only clear tokens if the address actually changed (account switch or disconnect)
-    if (hasAddressChanged && previousAddressRef.current !== null) {
-      console.log("🔄 Account changed, clearing admin tokens");
-      authManager.clearToken("admin");
-      localStorage.removeItem('adminAuthToken');
-      localStorage.removeItem('isSuperAdmin');
-      localStorage.removeItem('adminRole');
-    }
-
-    // Update the previous address ref
-    previousAddressRef.current = currentAddress;
-
-    // Reset admin-specific state when account changes or on first load
+    // Only reset state and clear tokens if the address actually changed
     if (hasAddressChanged) {
+      // Only clear tokens if there was a previous address (account switch or disconnect)
+      if (previousAddressRef.current !== null) {
+        console.log("🔄 Account changed, clearing admin tokens");
+        authManager.clearToken("admin");
+        localStorage.removeItem('adminAuthToken');
+        localStorage.removeItem('isSuperAdmin');
+        localStorage.removeItem('adminRole');
+      }
+
+      // Reset admin-specific state only when account actually changes
       setIsSuperAdmin(false);
       setAdminRole("");
       setAdminPermissions([]);
+
+      // Update the previous address ref
+      previousAddressRef.current = currentAddress;
     }
 
+    // Only set loading if we're going to fetch (don't reset existing state otherwise)
+    // Skip if no account or not an admin
+    if (!currentAddress || !isAdminFromAuth) {
+      setAdminProfileLoading(false);
+      return;
+    }
+
+    // Only set loading true if we're actually going to fetch
     setAdminProfileLoading(true);
 
     const checkAdminStatus = async () => {
-      if (!account?.address || !isAdminFromAuth) {
-        setAdminProfileLoading(false);
-        return;
-      }
-
       // Check if this is a super admin from env (all addresses in ADMIN_ADDRESSES are super admins)
       const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || "")
         .split(",")
@@ -94,24 +94,24 @@ export function useAdminAuth() {
         .filter(addr => addr.length > 0);
 
       // All addresses in ADMIN_ADDRESSES are super admins
-      const isSuperAdminFromEnv = adminAddresses.includes(account.address.toLowerCase());
+      const isSuperAdminFromEnv = adminAddresses.includes(currentAddress.toLowerCase());
 
       console.log("=== ADMIN AUTH DEBUG ===");
       console.log("NEXT_PUBLIC_ADMIN_ADDRESSES env:", process.env.NEXT_PUBLIC_ADMIN_ADDRESSES);
       console.log("Parsed admin addresses:", adminAddresses);
-      console.log("Connected wallet address:", account.address);
-      console.log("Connected wallet (lowercase):", account.address.toLowerCase());
+      console.log("Connected wallet address:", currentAddress);
+      console.log("Connected wallet (lowercase):", currentAddress.toLowerCase());
       console.log("Is super admin from env:", isSuperAdminFromEnv);
       console.log("=======================")
 
       try {
         // Small delay to ensure wallet is fully ready
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         // Try to fetch admin profile - this will confirm admin status and get permissions
         // Note: If the /admin/me endpoint doesn't exist, we'll fall back to env-based determination
         const profile = await fetchAdminProfile();
-        
+
         if (profile) {
           // Admin profile fetched successfully
           // Trust the backend's determination of super admin status
@@ -140,18 +140,13 @@ export function useAdminAuth() {
           }
         }
       } catch {
-        // Silent fail
+        // Silent fail - keep existing state
       } finally {
         setAdminProfileLoading(false);
       }
     };
 
-    // Only check admin status if user is authenticated as admin from base auth
-    if (account?.address && isAdminFromAuth) {
-      checkAdminStatus();
-    } else {
-      setAdminProfileLoading(false);
-    }
+    checkAdminStatus();
   }, [account, isAdminFromAuth, fetchAdminProfile]);
 
   // Helper function to check if user has a specific permission

@@ -47,7 +47,8 @@ export const useCustomer = (): UseCustomerReturn => {
   const searchParams = useSearchParams();
   const account = useActiveAccount();
   const { refreshProfile } = useAuth();
-  const {login} = useAuthStore()
+  const { login, userProfile } = useAuthStore();
+
   // Get data from Zustand store
   const {
     customerData,
@@ -59,6 +60,10 @@ export const useCustomer = (): UseCustomerReturn => {
     fetchCustomerData: storeFetchCustomerData,
     clearCache,
   } = useCustomerStore();
+
+  // Use address from Thirdweb account OR from session cache (userProfile)
+  // This allows fetching immediately on page refresh without waiting for Thirdweb to restore
+  const walletAddress = account?.address || userProfile?.address;
   
   // Only keep minimal local state for registration form
   const [registrationFormData, setRegistrationFormData] = useState<RegistrationFormData>({
@@ -84,17 +89,33 @@ export const useCustomer = (): UseCustomerReturn => {
   }, [searchParams]);
 
   // Fetch data on mount or account change
+  // Uses walletAddress which can come from Thirdweb OR session cache
   useEffect(() => {
-    if (account?.address) {
-      // Only fetch if we don't have data
-      if (!customerData) {
-        storeFetchCustomerData(account.address);
+    if (walletAddress) {
+      // Fetch if we don't have data OR if the cached data is for a different wallet
+      const cachedAddress = customerData?.address?.toLowerCase();
+      const currentAddress = walletAddress.toLowerCase();
+
+      if (!customerData || cachedAddress !== currentAddress) {
+        // Clear old cache if wallet changed
+        if (customerData && cachedAddress !== currentAddress) {
+          console.log('[useCustomer] Wallet changed, clearing old cache');
+          clearCache();
+        }
+        console.log('[useCustomer] Fetching customer data for:', currentAddress, '(source:', account?.address ? 'Thirdweb' : 'session cache', ')');
+        storeFetchCustomerData(walletAddress);
+      } else {
+        console.log('[useCustomer] Customer data already cached for:', currentAddress);
       }
     } else {
-      // Clear cache when account disconnects
-      clearCache();
+      // Only clear cache if we had data before (wallet disconnected)
+      // Don't clear on initial mount when Thirdweb hasn't initialized yet
+      if (customerData) {
+        console.log('[useCustomer] Account disconnected, clearing cache');
+        clearCache();
+      }
     }
-  }, [account?.address, customerData, storeFetchCustomerData, clearCache]);
+  }, [walletAddress, customerData, storeFetchCustomerData, clearCache, account?.address]);
 
   const clearMessages = useCallback(() => {
     setError(null);
@@ -185,13 +206,13 @@ export const useCustomer = (): UseCustomerReturn => {
     }
   }, [registrationFormData, router]);
 
-  // Wrapper for fetch function to use current account
+  // Wrapper for fetch function to use current account or session cache address
   const fetchCustomerData = useCallback((force?: boolean) => {
-    if (account?.address) {
-      return storeFetchCustomerData(account.address, force);
+    if (walletAddress) {
+      return storeFetchCustomerData(walletAddress, force);
     }
     return Promise.resolve();
-  }, [account?.address, storeFetchCustomerData]);
+  }, [walletAddress, storeFetchCustomerData]);
 
   return {
     // Registration specific

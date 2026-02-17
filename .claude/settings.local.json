@@ -96,7 +96,9 @@
       "Bash(npm run db:check:*)",
       "Bash(ping:*)",
       "Bash(lsof:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(head:*)",
+      "WebFetch(domain:basescan.org)"
     ],
     "deny": [],
     "ask": []

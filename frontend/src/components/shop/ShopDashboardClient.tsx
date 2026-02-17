@@ -441,6 +441,41 @@ export default function ShopDashboardClient() {
     }
   }, [notifications, account?.address, userProfile?.address]);
 
+  // Refresh shop data when page becomes visible (catches changes missed via WebSocket)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const walletAddress = account?.address || userProfile?.address;
+        if (walletAddress && shopData) {
+          console.log('📋 Page became visible, refreshing shop data...');
+          loadShopData();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [account?.address, userProfile?.address, shopData]);
+
+  // Listen for shop status changes via WebSocket DOM events (suspend/unsuspend)
+  useEffect(() => {
+    const handleShopStatusChange = (event: CustomEvent) => {
+      console.log('🏪 Shop status changed event received:', event.detail);
+      const walletAddress = account?.address || userProfile?.address;
+      if (walletAddress) {
+        // Refresh shop data to reflect the new status
+        setTimeout(() => loadShopData(), 500);
+      }
+    };
+
+    window.addEventListener('shop-status-changed', handleShopStatusChange as EventListener);
+    return () => {
+      window.removeEventListener('shop-status-changed', handleShopStatusChange as EventListener);
+    };
+  }, [account?.address, userProfile?.address]);
+
   // Check if shop is suspended or rejected
   const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
   // Check if shop is pending (not yet verified) - must check this BEFORE rejected
@@ -1167,43 +1202,7 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
-          {/* Warning Banner for Cancelled but Active Subscriptions */}
-          {isCancelledButActive && !isBlocked && (
-            <div className="mb-6 rounded-xl p-4 bg-orange-900/20 border-2 border-orange-500/50">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl text-orange-400">⚠️</div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold mb-1 text-orange-400">
-                    Subscription Cancellation Scheduled
-                  </h3>
-                  <p className="text-gray-300 text-sm">
-                    Your subscription has been cancelled and will end on{' '}
-                    <span className="font-semibold text-white">
-                      {new Date(shopData?.subscriptionEndsAt!).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    . You can continue using all shop features until then. After this date, you will need to resubscribe to continue operations.
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      onClick={() => setActiveTab("settings")}
-                      className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Manage Subscription
-                    </button>
-                    <span className="text-xs text-gray-400">
-                      {Math.floor((new Date(shopData?.subscriptionEndsAt!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Subscription Cancellation Banner - Hidden when status is cancelled */}
 
           {/* Breadcrumb Navigation */}
           <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />

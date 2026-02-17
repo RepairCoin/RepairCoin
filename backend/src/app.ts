@@ -35,6 +35,7 @@ import { cleanupService } from './services/CleanupService';
 import { appointmentReminderService } from './services/AppointmentReminderService';
 import { subscriptionReminderService } from './services/SubscriptionReminderService';
 import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionService';
+import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 
@@ -473,6 +474,7 @@ class RepairCoinApp {
       appointmentReminderService.stopScheduledReminders();
       subscriptionReminderService.stopScheduler();
       getAutoNoShowDetectionService().stop();
+      rescheduleExpirationService.stop();
       stopSubscriptionEnforcement();
 
       // Common cleanup
@@ -625,6 +627,10 @@ class RepairCoinApp {
         // Start auto no-show detection service - runs every 30 minutes
         getAutoNoShowDetectionService().start();
         logger.info('🚫 Auto no-show detection service started (every 30 minutes)');
+
+        // Start reschedule expiration service - runs every hour
+        rescheduleExpirationService.start();
+        logger.info('⏰ Reschedule expiration service started (every hour)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

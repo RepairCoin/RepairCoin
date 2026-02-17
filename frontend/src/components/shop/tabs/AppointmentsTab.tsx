@@ -39,6 +39,32 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+
+  // Fetch pending reschedule count for badge
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const count = await appointmentsApi.getShopRescheduleRequestCount();
+      setPendingRescheduleCount(count);
+    } catch (error) {
+      console.error('Error fetching pending reschedule count:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingCount();
+
+    // Refresh count every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchPendingCount]);
+
+  // Refresh count when switching away from reschedules tab (user may have approved/rejected)
+  useEffect(() => {
+    if (activeSubTab === 'appointments') {
+      fetchPendingCount();
+    }
+  }, [activeSubTab, fetchPendingCount]);
 
   // Helper function to format date as YYYY-MM-DD without timezone conversion
   const formatDateLocal = useCallback((date: Date): string => {
@@ -440,6 +466,11 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
           }`}
         >
           <RefreshCw className="w-4 h-4" /> Reschedules
+          {pendingRescheduleCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
+              {pendingRescheduleCount > 99 ? '99+' : pendingRescheduleCount}
+            </span>
+          )}
         </button>
       </div>
 

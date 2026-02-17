@@ -55,7 +55,13 @@ export default function AdminDashboardClient() {
     isAdmin,
     isSuperAdmin,
     adminRole,
+    loading: adminAuthLoading,
   } = useAdminAuth();
+
+  // Determine if user has admin access (either confirmed or assumed during loading)
+  // This prevents blank page during auth restoration on refresh
+  // userType === 'admin' is available early from auth store/session cache
+  const hasAdminAccess = userType === 'admin' || isSuperAdmin || adminRole === "super_admin" || adminRole === "admin" || (isAdmin && adminAuthLoading);
 
   // Mark auth as initialized once authentication has been attempted
   useEffect(() => {
@@ -337,30 +343,21 @@ export default function AdminDashboardClient() {
           )}
 
           {/* Role-based tab content visibility with Lazy Loading */}
-          {activeTab === "customers" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "customers" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "customers"}>
                 <CustomersTabEnhanced initialView={customerView} />
               </LazyTabWrapper>
             )}
 
           {/* New Combined Shop Management Tab with Lazy Loading */}
-          {activeTab === "shops-management" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "shops-management" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "shops-management"}>
                 <ShopsManagementTab initialView={shopView} />
               </LazyTabWrapper>
             )}
 
           {/* Other tabs with Lazy Loading */}
-          {activeTab === "treasury" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "treasury" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "treasury"}>
                 <AdvancedTreasuryTab />
               </LazyTabWrapper>
@@ -379,26 +376,17 @@ export default function AdminDashboardClient() {
             </LazyTabWrapper>
           )}
 
-          {activeTab === "analytics" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "analytics" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "analytics"}>
                 <AnalyticsTab />
               </LazyTabWrapper>
             )}
-          {activeTab === "subscriptions" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "subscriptions" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "subscriptions"}>
                 <SubscriptionManagementTab />
               </LazyTabWrapper>
             )}
-          {activeTab === "promo-codes" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "promo-codes" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "promo-codes"}>
                 <PromoCodesAnalyticsTab />
               </LazyTabWrapper>
@@ -425,10 +413,7 @@ export default function AdminDashboardClient() {
           )}
 
           {/* Session Management Tab */}
-          {activeTab === "sessions" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "sessions" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "sessions"}>
                 <SessionManagementTab />
               </LazyTabWrapper>
