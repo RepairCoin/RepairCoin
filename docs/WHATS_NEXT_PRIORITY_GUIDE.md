@@ -15,31 +15,13 @@
 | Messaging System | - | ✅ Complete |
 | Admin Analytics Dashboard | - | ✅ Complete |
 | Shop Service Analytics | - | ✅ Complete |
+| No-Show Dispute System | ~10 hrs | ✅ Complete |
 
 ---
 
 ## Current Status of Remaining Features
 
-### 1. No-Show Dispute System ⭐⭐⭐⭐
-**Status:** 20-30% Complete (data model only, no workflow)
-**Time Estimate:** 10-12 hours
-**Priority:** HIGH
-
-**What Exists:**
-- ✅ Database columns (disputed, dispute_status, dispute_reason, timestamps)
-- ✅ Shop policy settings (allowDisputes, disputeWindowDays, autoApproveFirstOffense)
-
-**What's Missing:**
-- ❌ API endpoints (submit, review, approve, reject dispute)
-- ❌ Frontend dispute submission form for customers
-- ❌ Shop review interface
-- ❌ Admin arbitration panel
-- ❌ Dispute workflow business logic
-- ❌ Notifications for dispute updates
-
----
-
-### 2. Enhanced No-Show Analytics ⭐⭐⭐⭐
+### 1. Enhanced No-Show Analytics ⭐⭐⭐⭐
 **Status:** 40-50% Complete (basic rate only, no frontend)
 **Time Estimate:** 8-10 hours
 **Priority:** HIGH
@@ -58,7 +40,7 @@
 
 ---
 
-### 3. Admin No-Show Analytics ⭐⭐⭐
+### 2. Admin No-Show Analytics ⭐⭐⭐
 **Status:** 0% (no no-show section in admin dashboard)
 **Time Estimate:** 6-8 hours
 **Priority:** MEDIUM
@@ -77,36 +59,11 @@
 
 ## Recommended Build Order
 
-### Next Up: No-Show Dispute System (10-12 hrs)
+### Next Up: Enhanced No-Show Analytics (8-10 hrs)
 **Why First:**
-- Database schema already exists — just needs workflow + UI
-- Builds directly on completed no-show penalty system
-- High fairness impact for customers
-- Shortest path to completion given existing foundation
-
-**What to Build:**
-
-**Backend:**
-```
-POST   /api/services/orders/:orderId/dispute         - Submit dispute
-GET    /api/services/orders/:orderId/dispute         - Get dispute status
-PUT    /api/shops/:shopId/disputes/:id/approve       - Shop approves
-PUT    /api/shops/:shopId/disputes/:id/reject        - Shop rejects
-GET    /api/shops/:shopId/disputes                   - List shop disputes
-GET    /api/admin/disputes                           - Admin view all
-PUT    /api/admin/disputes/:id/resolve               - Admin arbitration
-```
-
-**Frontend:**
-- `DisputeModal.tsx` - Customer submits dispute with reason
-- `ShopDisputePanel.tsx` - Shop reviews and responds
-- `AdminDisputeTab.tsx` - Admin arbitration view
-- Integration in customer settings (no-show history)
-- Integration in shop dashboard
-
----
-
-### After That: Enhanced No-Show Analytics (8-10 hrs)
+- All data is already being tracked in `no_show_history`
+- `getShopAnalytics()` backend service already exists — just needs API endpoints + frontend
+- High value for shop owners to understand patterns
 
 **Backend:**
 ```
@@ -126,11 +83,27 @@ GET /api/admin/no-show-analytics/platform            - Admin overview
 
 ---
 
+### After That: Admin No-Show Analytics (6-8 hrs)
+
+**Backend:**
+```
+GET /api/admin/no-show-analytics/platform       - Platform-wide overview
+GET /api/admin/no-show-analytics/shops          - Shop comparison rankings
+GET /api/admin/no-show-analytics/policy-impact  - Policy effectiveness
+```
+
+**Frontend:**
+- Platform no-show section in admin analytics dashboard
+- Shop comparison table (best/worst rates)
+- Policy effectiveness metrics
+- Economic impact summary
+
+---
+
 ## Effort vs Impact
 
 ```
 High Impact, Low Effort (DO NEXT):
-  ⏳ Dispute System           (10-12 hrs) - foundation already exists
   ⏳ No-Show Analytics        (8-10 hrs)  - data already tracked
 
 Medium Impact, Low Effort (AFTER):
@@ -148,14 +121,13 @@ Low Impact, High Effort (SKIP FOR NOW):
 
 | # | Feature | Current | Missing | Est. Time |
 |---|---------|---------|---------|-----------|
-| 1 | Dispute System | Schema only | Full workflow + UI | 10-12 hrs |
-| 2 | No-Show Analytics | Basic rate | Trends + frontend | 8-10 hrs |
-| 3 | Admin No-Show Analytics | None | Full section | 6-8 hrs |
+| 1 | No-Show Analytics | Basic rate only | Trends + frontend | 8-10 hrs |
+| 2 | Admin No-Show Analytics | None | Full section | 6-8 hrs |
 
-**Total remaining:** ~24-30 hours
+**Total remaining:** ~14-18 hours
 
 ---
 
 **Document:** What's Next Priority Guide
-**Version:** 3.1
+**Version:** 4.0
 **Last Updated:** February 17, 2026
