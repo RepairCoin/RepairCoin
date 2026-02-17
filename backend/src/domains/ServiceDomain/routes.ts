@@ -3158,6 +3158,106 @@ export function initializeRoutes(stripe: StripeService): Router {
     );
   }
 
+  // ==================== DISPUTE ROUTES ====================
+
+  /**
+   * POST /api/services/orders/:orderId/dispute
+   * Customer submits a no-show dispute
+   */
+  router.post(
+    '/orders/:orderId/dispute',
+    authMiddleware,
+    requireRole(['customer']),
+    async (req, res) => {
+      const { submitDispute } = await import('./controllers/DisputeController');
+      return submitDispute(req, res);
+    }
+  );
+
+  /**
+   * GET /api/services/orders/:orderId/dispute
+   * Get dispute status for an order (customer, shop, or admin)
+   */
+  router.get(
+    '/orders/:orderId/dispute',
+    authMiddleware,
+    requireRole(['customer', 'shop', 'admin']),
+    async (req, res) => {
+      const { getDisputeStatus } = await import('./controllers/DisputeController');
+      return getDisputeStatus(req, res);
+    }
+  );
+
+  /**
+   * GET /api/services/shops/:shopId/disputes
+   * List all disputes for a shop
+   */
+  router.get(
+    '/shops/:shopId/disputes',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { getShopDisputes } = await import('./controllers/DisputeController');
+      return getShopDisputes(req, res);
+    }
+  );
+
+  /**
+   * PUT /api/services/shops/:shopId/disputes/:id/approve
+   * Shop approves a dispute
+   */
+  router.put(
+    '/shops/:shopId/disputes/:id/approve',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { approveDispute } = await import('./controllers/DisputeController');
+      return approveDispute(req, res);
+    }
+  );
+
+  /**
+   * PUT /api/services/shops/:shopId/disputes/:id/reject
+   * Shop rejects a dispute
+   */
+  router.put(
+    '/shops/:shopId/disputes/:id/reject',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { rejectDispute } = await import('./controllers/DisputeController');
+      return rejectDispute(req, res);
+    }
+  );
+
+  /**
+   * GET /api/admin/disputes (mounted under /api/services for consistency)
+   * Admin view all disputes across platform
+   */
+  router.get(
+    '/admin/disputes',
+    authMiddleware,
+    requireRole(['admin']),
+    async (req, res) => {
+      const { getAdminDisputes } = await import('./controllers/DisputeController');
+      return getAdminDisputes(req, res);
+    }
+  );
+
+  /**
+   * PUT /api/services/admin/disputes/:id/resolve
+   * Admin resolves a dispute (arbitration)
+   */
+  router.put(
+    '/admin/disputes/:id/resolve',
+    authMiddleware,
+    requireRole(['admin']),
+    async (req, res) => {
+      const { adminResolveDispute } = await import('./controllers/DisputeController');
+      return adminResolveDispute(req, res);
+    }
+  );
+
   return router;
 }
 

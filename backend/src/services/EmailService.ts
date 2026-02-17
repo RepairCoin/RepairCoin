@@ -1248,6 +1248,103 @@ export class EmailService {
   }
 
   /**
+   * Send email when customer dispute is submitted
+   */
+  async sendDisputeSubmitted(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    appointmentDate: Date;
+    disputeReason: string;
+    autoApproved: boolean;
+  }): Promise<boolean> {
+    const subject = data.autoApproved
+      ? `Your dispute has been approved - ${data.shopName}`
+      : `Dispute submitted for review - ${data.shopName}`;
+
+    const appointmentDateStr = data.appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #1a1a1a; color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #d97706, #f59e0b); padding: 32px; text-align: center;">
+          <h1 style="color: #000; margin: 0; font-size: 24px;">
+            ${data.autoApproved ? '✅ Dispute Approved' : '📋 Dispute Submitted'}
+          </h1>
+        </div>
+        <div style="padding: 32px;">
+          <p style="color: #d1d5db;">Hi ${data.customerName || 'Customer'},</p>
+          ${data.autoApproved ? `
+            <p style="color: #d1d5db;">Great news! Your no-show dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> at <strong style="color: #ffffff;">${data.shopName}</strong> has been <strong style="color: #10b981;">automatically approved</strong>.</p>
+            <p style="color: #d1d5db;">The no-show penalty has been reversed and your account standing has been updated.</p>
+          ` : `
+            <p style="color: #d1d5db;">Your dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> at <strong style="color: #ffffff;">${data.shopName}</strong> has been submitted and is <strong style="color: #f59e0b;">pending review</strong>.</p>
+            <div style="background: #2a2a2a; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="color: #9ca3af; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">Your Reason</p>
+              <p style="color: #ffffff; margin: 0;">${data.disputeReason}</p>
+            </div>
+            <p style="color: #d1d5db;">The shop will review your dispute within their specified timeframe. You'll receive an email when a decision is made.</p>
+          `}
+          <p style="color: #6b7280; font-size: 12px; margin-top: 32px;">RepairCoin — The Repair Shop Loyalty Platform</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send email when shop resolves a dispute
+   */
+  async sendDisputeResolved(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    appointmentDate: Date;
+    resolution: 'approved' | 'rejected';
+    resolutionNotes?: string;
+  }): Promise<boolean> {
+    const subject = data.resolution === 'approved'
+      ? `Your dispute has been approved - ${data.shopName}`
+      : `Your dispute decision - ${data.shopName}`;
+
+    const appointmentDateStr = data.appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #1a1a1a; color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <div style="background: ${data.resolution === 'approved' ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #dc2626, #ef4444)'}; padding: 32px; text-align: center;">
+          <h1 style="color: #fff; margin: 0; font-size: 24px;">
+            ${data.resolution === 'approved' ? '✅ Dispute Approved' : '❌ Dispute Decision'}
+          </h1>
+        </div>
+        <div style="padding: 32px;">
+          <p style="color: #d1d5db;">Hi ${data.customerName || 'Customer'},</p>
+          ${data.resolution === 'approved' ? `
+            <p style="color: #d1d5db;"><strong style="color: #ffffff;">${data.shopName}</strong> has reviewed your dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> and has <strong style="color: #10b981;">approved</strong> your request.</p>
+            <p style="color: #d1d5db;">The no-show penalty has been reversed and your account standing has been updated.</p>
+          ` : `
+            <p style="color: #d1d5db;"><strong style="color: #ffffff;">${data.shopName}</strong> has reviewed your dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> and has <strong style="color: #ef4444;">upheld the no-show record</strong>.</p>
+            <p style="color: #d1d5db;">The no-show penalty remains in effect on your account.</p>
+          `}
+          ${data.resolutionNotes ? `
+            <div style="background: #2a2a2a; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="color: #9ca3af; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">Shop Notes</p>
+              <p style="color: #ffffff; margin: 0;">${data.resolutionNotes}</p>
+            </div>
+          ` : ''}
+          ${data.resolution === 'rejected' ? `<p style="color: #d1d5db;">If you believe this decision is incorrect, please contact platform support.</p>` : ''}
+          <p style="color: #6b7280; font-size: 12px; margin-top: 32px;">RepairCoin — The Repair Shop Loyalty Platform</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
    * Core email sending method
    */
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {

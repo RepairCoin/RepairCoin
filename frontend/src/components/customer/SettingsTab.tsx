@@ -25,7 +25,8 @@ import { SuspendedActionModal } from "./SuspendedActionModal";
 import { NotificationPreferences } from "./NotificationPreferences";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 import CustomerNoShowBadge from "./CustomerNoShowBadge";
-import { CustomerNoShowStatus, getOverallCustomerNoShowStatus } from "@/services/api/noShow";
+import DisputeModal from "./DisputeModal";
+import { CustomerNoShowStatus, NoShowHistoryEntry, getOverallCustomerNoShowStatus, getCustomerNoShowHistory } from "@/services/api/noShow";
 
 export function SettingsTab() {
   const account = useActiveAccount();
@@ -44,6 +45,8 @@ export function SettingsTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
   const [loadingNoShowStatus, setLoadingNoShowStatus] = useState(false);
+  const [noShowHistory, setNoShowHistory] = useState<NoShowHistoryEntry[]>([]);
+  const [disputeModalEntry, setDisputeModalEntry] = useState<NoShowHistoryEntry | null>(null);
 
   // Check if user is suspended
   const isSuspended = userProfile?.suspended || false;
@@ -69,24 +72,28 @@ export function SettingsTab() {
     }
   }, [customerData]);
 
-  // Fetch no-show status (shop-agnostic)
+  // Fetch no-show status and history
   useEffect(() => {
-    const fetchNoShowStatus = async () => {
+    const fetchNoShowData = async () => {
       if (!account?.address) return;
 
       setLoadingNoShowStatus(true);
       try {
-        const status = await getOverallCustomerNoShowStatus(account.address);
+        const [status, history] = await Promise.all([
+          getOverallCustomerNoShowStatus(account.address),
+          getCustomerNoShowHistory(account.address, 10),
+        ]);
         setNoShowStatus(status);
+        setNoShowHistory(history);
       } catch (error) {
-        console.error('Error fetching no-show status:', error);
+        console.error('Error fetching no-show data:', error);
         // Silent fail - don't show error to user
       } finally {
         setLoadingNoShowStatus(false);
       }
     };
 
-    fetchNoShowStatus();
+    fetchNoShowData();
   }, [account?.address]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -465,32 +472,76 @@ export function SettingsTab() {
       </div>
 
       {/* Account Status - No-Show Tier */}
-      {/* TODO: Uncomment when shop-agnostic endpoint is ready */}
-      {/* {noShowStatus && noShowStatus.tier !== 'normal' && (
-        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-          <div
-            className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-            style={{
-              backgroundImage: `url('/img/cust-ref-widget3.png')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-              Account Status
+      {!loadingNoShowStatus && noShowStatus && (
+        <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">
+          <div className="px-6 py-4 border-b border-gray-800/50">
+            <h3 className="text-lg font-semibold text-[#FFCC00]">Account Status</h3>
+            <p className="text-sm text-gray-400 mt-0.5">
+              Your current standing based on appointment history
             </p>
           </div>
-          <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-            <div className="flex flex-col items-center text-center gap-4">
+          <div className="p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <CustomerNoShowBadge status={noShowStatus} size="lg" showDetails={true} />
-              <p className="text-gray-300 text-sm">
-                Your current account standing based on appointment history.
-              </p>
+              {noShowStatus.restrictions.length > 0 && (
+                <div className="flex-1 space-y-1">
+                  {noShowStatus.restrictions.map((r, i) => (
+                    <p key={i} className="text-xs text-orange-400">⚠ {r}</p>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* No-Show History with Dispute Buttons */}
+            {noShowHistory.length > 0 && (
+              <div className="mt-5">
+                <h4 className="text-sm font-semibold text-gray-300 mb-3">No-Show History</h4>
+                <div className="space-y-2">
+                  {noShowHistory.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-xl border border-gray-700/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-200">
+                          {new Date(entry.scheduledTime).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Marked on {new Date(entry.markedNoShowAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {entry.disputed ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                            entry.disputeStatus === 'approved'
+                              ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                              : entry.disputeStatus === 'rejected'
+                              ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                              : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                          }`}>
+                            {entry.disputeStatus === 'approved' ? '✓ Approved'
+                              : entry.disputeStatus === 'rejected' ? '✗ Rejected'
+                              : '⏳ Pending'}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setDisputeModalEntry(entry)}
+                            className="text-xs px-3 py-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg transition-colors"
+                          >
+                            Dispute
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )} */}
+      )}
 
       {/* QR Code for Redemption */}
       <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">
@@ -590,6 +641,23 @@ export function SettingsTab() {
         action="generate QR code"
         reason={userProfile?.suspensionReason}
       />
+
+      {/* Dispute Modal */}
+      {disputeModalEntry && (
+        <DisputeModal
+          isOpen={true}
+          onClose={() => setDisputeModalEntry(null)}
+          noShowEntry={disputeModalEntry}
+          onDisputeSubmitted={() => {
+            // Refresh no-show history after dispute submitted
+            if (account?.address) {
+              getCustomerNoShowHistory(account.address, 10)
+                .then(setNoShowHistory)
+                .catch(console.error);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

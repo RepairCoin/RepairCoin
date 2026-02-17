@@ -33,6 +33,7 @@ import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
 import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
 import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequestsTab";
 import { ProfileTab } from "@/components/shop/tabs/ProfileTab";
+import ShopDisputePanel from "@/components/shop/ShopDisputePanel";
 import { StakingTab } from "@/components/shop/tabs/StakingTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
@@ -1254,6 +1255,11 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {activeTab === "disputes" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <ShopDisputePanel shopId={shopData.shopId} />
+            </SubscriptionGuard>
+          )}
           {activeTab === "messages" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <MessagesTab shopId={shopData.shopId} />

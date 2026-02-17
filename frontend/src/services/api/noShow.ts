@@ -171,3 +171,128 @@ export const updateShopNoShowPolicy = async (
   const response = await apiClient.put(`/services/shops/${shopId}/no-show-policy`, policy);
   return response.data.data;
 };
+
+// ==================== DISPUTE API ====================
+
+export interface DisputeEntry extends NoShowHistoryEntry {
+  disputeResolvedBy?: string;
+  disputeResolutionNotes?: string;
+  serviceName?: string;
+  shopName?: string;
+  customerName?: string;
+  customerEmail?: string;
+}
+
+export interface DisputeListResponse {
+  disputes: DisputeEntry[];
+  total: number;
+  pendingCount: number;
+}
+
+export interface AdminDisputeStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export interface AdminDisputeListResponse {
+  disputes: DisputeEntry[];
+  stats: AdminDisputeStats;
+}
+
+/**
+ * Customer submits a dispute for a no-show record
+ */
+export const submitDispute = async (
+  orderId: string,
+  reason: string
+): Promise<{ dispute: DisputeEntry; autoApproved: boolean; message: string }> => {
+  const response = await apiClient.post(`/services/orders/${orderId}/dispute`, { reason });
+  return {
+    dispute: response.data.data,
+    autoApproved: response.data.autoApproved,
+    message: response.data.message
+  };
+};
+
+/**
+ * Get dispute status for an order
+ */
+export const getDisputeStatus = async (orderId: string): Promise<DisputeEntry> => {
+  const response = await apiClient.get(`/services/orders/${orderId}/dispute`);
+  return response.data.data;
+};
+
+/**
+ * Get all disputes for a shop
+ */
+export const getShopDisputes = async (
+  shopId: string,
+  status?: 'pending' | 'approved' | 'rejected' | 'all',
+  limit?: number,
+  offset?: number
+): Promise<DisputeListResponse> => {
+  const response = await apiClient.get(`/services/shops/${shopId}/disputes`, {
+    params: { status, limit, offset }
+  });
+  return response.data.data;
+};
+
+/**
+ * Shop approves a dispute
+ */
+export const approveDispute = async (
+  shopId: string,
+  disputeId: string,
+  resolutionNotes?: string
+): Promise<DisputeEntry> => {
+  const response = await apiClient.put(`/services/shops/${shopId}/disputes/${disputeId}/approve`, {
+    resolutionNotes
+  });
+  return response.data.data;
+};
+
+/**
+ * Shop rejects a dispute
+ */
+export const rejectDispute = async (
+  shopId: string,
+  disputeId: string,
+  resolutionNotes: string
+): Promise<DisputeEntry> => {
+  const response = await apiClient.put(`/services/shops/${shopId}/disputes/${disputeId}/reject`, {
+    resolutionNotes
+  });
+  return response.data.data;
+};
+
+/**
+ * Admin: Get all disputes across platform
+ */
+export const getAdminDisputes = async (
+  status?: 'pending' | 'approved' | 'rejected' | 'all',
+  shopId?: string,
+  limit?: number,
+  offset?: number
+): Promise<AdminDisputeListResponse> => {
+  const response = await apiClient.get(`/services/admin/disputes`, {
+    params: { status, shopId, limit, offset }
+  });
+  return response.data.data;
+};
+
+/**
+ * Admin: Resolve a dispute (arbitration)
+ */
+export const adminResolveDispute = async (
+  disputeId: string,
+  resolution: 'approved' | 'rejected',
+  resolutionNotes: string
+): Promise<DisputeEntry> => {
+  const response = await apiClient.put(`/services/admin/disputes/${disputeId}/resolve`, {
+    resolution,
+    resolutionNotes
+  });
+  return response.data.data;
+};
