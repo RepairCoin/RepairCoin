@@ -28,6 +28,7 @@ import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
 import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
@@ -1311,6 +1312,10 @@ export default function ShopDashboardClient() {
 
           {activeTab === "customers" && shopData && (
             <CustomersTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === "lookup" && shopData && (
+            <CustomerLookupTab shopId={shopData.shopId} />
           )}
 
           {activeTab === "shop-location" && shopData && (

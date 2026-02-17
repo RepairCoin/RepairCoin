@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { LookupIcon } from "@/components/icon";
 import CustomerCard from "@/components/shop/customers/CustomerCard";
-import { CustomerDetailsModal } from "@/components/shop/customers/CustomerDetailsModal";
+import { CustomerProfileView } from "@/components/shop/customers/profile";
 
 interface Customer {
   address: string;
@@ -435,6 +435,17 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
     return lastTransaction > weekAgo;
   }).length;
 
+  // If a customer is selected, show full profile view
+  if (selectedCustomer) {
+    return (
+      <CustomerProfileView
+        customerAddress={selectedCustomer}
+        shopId={shopId}
+        onBack={() => setSelectedCustomer(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* View Mode Toggle */}
@@ -597,7 +608,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
             {filteredCustomers.map((customer) => (
               <div
                 key={customer.address}
-                className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors"
+                onClick={() => setSelectedCustomer(customer.address)}
+                className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
               >
                 <div className="grid grid-cols-4 gap-4 items-center">
                   {/* Customer Info */}
@@ -909,14 +921,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
         </div>
       )}
 
-      {/* Customer Details Modal */}
-      {selectedCustomer && (
-        <CustomerDetailsModal
-          customerAddress={selectedCustomer}
-          shopId={shopId}
-          onClose={() => setSelectedCustomer(null)}
-        />
-      )}
     </div>
   );
 };

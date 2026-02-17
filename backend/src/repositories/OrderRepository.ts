@@ -83,6 +83,7 @@ export interface OrderFilters {
   status?: OrderStatus;
   startDate?: Date;
   endDate?: Date;
+  customerAddress?: string;
 }
 
 export class OrderRepository extends BaseRepository {
@@ -345,6 +346,12 @@ export class OrderRepository extends BaseRepository {
         paramCount++;
         whereClauses.push(`o.created_at <= $${paramCount}`);
         params.push(filters.endDate);
+      }
+
+      if (filters.customerAddress) {
+        paramCount++;
+        whereClauses.push(`LOWER(o.customer_address) = LOWER($${paramCount})`);
+        params.push(filters.customerAddress);
       }
 
       const whereClause = `WHERE ${whereClauses.join(' AND ')}`;
