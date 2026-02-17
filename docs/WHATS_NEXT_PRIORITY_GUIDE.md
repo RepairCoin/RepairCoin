@@ -9,12 +9,12 @@
 
 | Feature | Time | Status |
 |---------|------|--------|
-| No-Show Penalty System (4-tier) | ~10 hrs | ✅ 100% Complete |
-| Automated No-Show Detection | ~7 hrs | ✅ 100% Complete |
-| Manual Appointment Booking | ~9 hrs | ✅ 100% Complete |
-| Messaging System | - | ✅ 90%+ Complete |
-| Admin Analytics Dashboard | - | ✅ 85%+ Complete |
-| Shop Service Analytics | - | ✅ 85%+ Complete |
+| No-Show Penalty System (4-tier) | ~10 hrs | ✅ Complete |
+| Automated No-Show Detection | ~7 hrs | ✅ Complete |
+| Manual Appointment Booking | ~9 hrs | ✅ Complete |
+| Messaging System | - | ✅ Complete |
+| Admin Analytics Dashboard | - | ✅ Complete |
+| Shop Service Analytics | - | ✅ Complete |
 
 ---
 
@@ -58,27 +58,7 @@
 
 ---
 
-### 3. Messaging System Enhancements ⭐⭐⭐
-**Status:** 90%+ Complete (polling, no WebSockets)
-**Time Estimate:** 4-6 hours
-**Priority:** LOW (already functional)
-
-**What Exists:**
-- ✅ Full backend (MessagingDomain, MessageController, MessageService)
-- ✅ Database tables (direct_messages, direct_message_conversations)
-- ✅ Frontend components (MessagesContainer, MessagesTab, ConversationThread)
-- ✅ Real-time polling (5s conversations, 3s messages)
-- ✅ Unread tracking, conversation archiving, read status
-
-**What Could Be Enhanced:**
-- ⚡ WebSocket integration (replace polling)
-- ⚡ Typing indicators
-- ⚡ File attachments
-- ⚡ Message search
-
----
-
-### 4. Admin No-Show Analytics ⭐⭐⭐
+### 3. Admin No-Show Analytics ⭐⭐⭐
 **Status:** 0% (no no-show section in admin dashboard)
 **Time Estimate:** 6-8 hours
 **Priority:** MEDIUM
@@ -150,12 +130,11 @@ GET /api/admin/no-show-analytics/platform            - Admin overview
 
 ```
 High Impact, Low Effort (DO NEXT):
-  ⏳ Dispute System       (10-12 hrs) - foundation already exists
-  ⏳ No-Show Analytics    (8-10 hrs)  - data already tracked
+  ⏳ Dispute System           (10-12 hrs) - foundation already exists
+  ⏳ No-Show Analytics        (8-10 hrs)  - data already tracked
 
 Medium Impact, Low Effort (AFTER):
   ⏳ Admin No-Show Analytics  (6-8 hrs)   - extends existing admin dashboard
-  ⏳ Messaging WebSockets     (4-6 hrs)   - improves existing working system
 
 Low Impact, High Effort (SKIP FOR NOW):
   ❌ SMS Notifications        (6-8 hrs)   - low usage currently
@@ -172,9 +151,8 @@ Low Impact, High Effort (SKIP FOR NOW):
 | 1 | Dispute System | Schema only | Full workflow + UI | 10-12 hrs |
 | 2 | No-Show Analytics | Basic rate | Trends + frontend | 8-10 hrs |
 | 3 | Admin No-Show Analytics | None | Full section | 6-8 hrs |
-| 4 | Messaging WebSockets | Polling | Real-time | 4-6 hrs |
 
-**Total remaining:** ~28-36 hours
+**Total remaining:** ~24-30 hours
 
 ---
 
