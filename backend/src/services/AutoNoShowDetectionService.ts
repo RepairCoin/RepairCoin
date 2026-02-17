@@ -9,6 +9,7 @@ import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ServiceRepository } from '../repositories/ServiceRepository';
 import { getSharedPool } from '../utils/database-pool';
 import { shopRepository, customerRepository } from '../repositories';
+import { getExpiredOrderService, ExpiredOrderResult } from './ExpiredOrderService';
 
 export interface AutoDetectionReport {
   timestamp: Date;
@@ -19,6 +20,22 @@ export interface AutoDetectionReport {
   emailsSent: number;
   errors: string[];
   shopsProcessed: string[];
+}
+
+export interface ExpiryDetectionReport {
+  timestamp: Date;
+  ordersChecked: number;
+  ordersExpired: number;
+  rcnRefunded: number;
+  stripeRefunded: number;
+  errors: string[];
+}
+
+export interface PendingCleanupReport {
+  timestamp: Date;
+  ordersChecked: number;
+  ordersCancelled: number;
+  errors: string[];
 }
 
 export interface EligibleOrder {
@@ -374,8 +391,126 @@ export class AutoNoShowDetectionService {
   }
 
   /**
+   * Run the expiry detection check
+   * Finds orders 24+ hours past appointment time and marks them as expired
+   */
+  async runExpiryDetection(): Promise<ExpiryDetectionReport> {
+    const report: ExpiryDetectionReport = {
+      timestamp: new Date(),
+      ordersChecked: 0,
+      ordersExpired: 0,
+      rcnRefunded: 0,
+      stripeRefunded: 0,
+      errors: []
+    };
+
+    try {
+      logger.info('Starting order expiry detection run...');
+
+      const expiredOrderService = getExpiredOrderService();
+      const expiredOrders = await expiredOrderService.getExpiredOrders();
+      report.ordersChecked = expiredOrders.length;
+
+      if (expiredOrders.length === 0) {
+        logger.info('No orders eligible for expiration');
+        return report;
+      }
+
+      // Process each expired order
+      for (const order of expiredOrders) {
+        try {
+          const result = await expiredOrderService.processExpiredOrder(order);
+
+          if (result.success) {
+            report.ordersExpired++;
+            report.rcnRefunded += result.rcnRefunded;
+            report.stripeRefunded += result.stripeRefunded;
+          } else if (result.error) {
+            report.errors.push(`Order ${order.orderId}: ${result.error}`);
+          }
+        } catch (orderError) {
+          const errorMsg = `Failed to process expired order ${order.orderId}: ${orderError instanceof Error ? orderError.message : String(orderError)}`;
+          logger.error(errorMsg);
+          report.errors.push(errorMsg);
+        }
+      }
+
+      logger.info('Order expiry detection run completed', {
+        ordersChecked: report.ordersChecked,
+        ordersExpired: report.ordersExpired,
+        rcnRefunded: report.rcnRefunded,
+        stripeRefunded: report.stripeRefunded
+      });
+
+    } catch (error) {
+      const errorMsg = `Critical error in order expiry detection: ${error instanceof Error ? error.message : String(error)}`;
+      logger.error(errorMsg);
+      report.errors.push(errorMsg);
+    }
+
+    return report;
+  }
+
+  /**
+   * Run the pending order cleanup
+   * Cancels stale pending orders that:
+   * - Have past booking dates, OR
+   * - Are older than 24 hours without a booking date
+   */
+  async runPendingCleanup(): Promise<PendingCleanupReport> {
+    const report: PendingCleanupReport = {
+      timestamp: new Date(),
+      ordersChecked: 0,
+      ordersCancelled: 0,
+      errors: []
+    };
+
+    try {
+      logger.info('Starting stale pending order cleanup...');
+
+      // Find and cancel stale pending orders
+      const query = `
+        UPDATE service_orders
+        SET
+          status = 'cancelled',
+          cancelled_at = NOW(),
+          cancellation_reason = 'Auto-cancelled: Stale pending order (payment not completed)',
+          updated_at = NOW()
+        WHERE status = 'pending'
+          AND (
+            -- Past booking date
+            (booking_date IS NOT NULL AND booking_date < NOW())
+            OR
+            -- Old pending without booking date (> 24 hours)
+            (booking_date IS NULL AND created_at < NOW() - INTERVAL '24 hours')
+          )
+        RETURNING order_id
+      `;
+
+      const result = await getSharedPool().query(query);
+      report.ordersChecked = result.rowCount || 0;
+      report.ordersCancelled = result.rowCount || 0;
+
+      if (report.ordersCancelled > 0) {
+        logger.info(`Cancelled ${report.ordersCancelled} stale pending orders`, {
+          orderIds: result.rows.map((r: { order_id: string }) => r.order_id)
+        });
+      } else {
+        logger.info('No stale pending orders to clean up');
+      }
+
+    } catch (error) {
+      const errorMsg = `Error in pending order cleanup: ${error instanceof Error ? error.message : String(error)}`;
+      logger.error(errorMsg);
+      report.errors.push(errorMsg);
+    }
+
+    return report;
+  }
+
+  /**
    * Start the scheduled auto-detection service
-   * Runs every 30 minutes
+   * Runs every 30 minutes (no-show detection, expiry detection, and pending cleanup)
    */
   start(): void {
     if (this.isRunning) {
@@ -386,22 +521,31 @@ export class AutoNoShowDetectionService {
     logger.info('Starting auto no-show detection service...');
     this.isRunning = true;
 
-    // Run immediately on start
+    // Run immediately on start (no-show detection, expiry detection, and pending cleanup)
     this.runDetection().catch(error => {
       logger.error('Error in initial auto no-show detection run:', error);
+    });
+    this.runExpiryDetection().catch(error => {
+      logger.error('Error in initial order expiry detection run:', error);
+    });
+    this.runPendingCleanup().catch(error => {
+      logger.error('Error in initial pending order cleanup:', error);
     });
 
     // Schedule to run every 30 minutes
     const INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
     this.scheduledIntervalId = setInterval(async () => {
       try {
+        // Run no-show detection, expiry detection, and pending cleanup
         await this.runDetection();
+        await this.runExpiryDetection();
+        await this.runPendingCleanup();
       } catch (error) {
-        logger.error('Error in scheduled auto no-show detection run:', error);
+        logger.error('Error in scheduled detection run:', error);
       }
     }, INTERVAL_MS);
 
-    logger.info(`Auto no-show detection service started. Running every 30 minutes.`);
+    logger.info(`Auto detection service started (no-show, expiry, pending cleanup). Running every 30 minutes.`);
   }
 
   /**

@@ -3,7 +3,7 @@ import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 import { formatLocalDate } from '../utils/dateUtils';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
+export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
 
 export interface ServiceOrder {
   orderId: string;
@@ -34,6 +34,9 @@ export interface ServiceOrder {
   noShow?: boolean;
   markedNoShowAt?: Date;
   noShowNotes?: string;
+  // Expired fields (24h past appointment without completion)
+  expiredAt?: Date;
+  expiredBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -567,6 +570,36 @@ export class OrderRepository extends BaseRepository {
   }
 
   /**
+   * Mark order as expired (24h past appointment without completion)
+   */
+  async markAsExpired(orderId: string, expiredBy: string = 'SYSTEM'): Promise<ServiceOrder> {
+    try {
+      const query = `
+        UPDATE service_orders
+        SET
+          status = 'expired',
+          expired_at = NOW(),
+          expired_by = $1,
+          updated_at = NOW()
+        WHERE order_id = $2
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [expiredBy, orderId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Order marked as expired', { orderId, expiredBy });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error marking order as expired:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map database row to ServiceOrder
    */
   private mapOrderRow(row: any): ServiceOrder {
@@ -599,6 +632,9 @@ export class OrderRepository extends BaseRepository {
       noShow: row.no_show || false,
       markedNoShowAt: row.marked_no_show_at,
       noShowNotes: row.no_show_notes,
+      // Expired fields
+      expiredAt: row.expired_at,
+      expiredBy: row.expired_by,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

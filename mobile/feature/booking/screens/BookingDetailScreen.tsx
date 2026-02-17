@@ -61,6 +61,8 @@ const getStatusLabel = (status: BookingStatus, shopApproved?: boolean) => {
       return "Cancelled";
     case "refunded":
       return "Refunded";
+    case "expired":
+      return "Expired";
     default:
       return status;
   }
@@ -346,14 +348,22 @@ export default function BookingDetailScreen() {
     return bookings.find((b) => b.orderId === id);
   }, [bookings, id]);
 
-  // Check if booking date has expired (past date with no completion)
+  // Check if order has expired status
+  const isOrderExpired = useMemo(() => {
+    return booking?.status === "expired";
+  }, [booking?.status]);
+
+  // Check if booking is past 24-hour completion window (for paid orders)
   // Must be called before any early returns to maintain hook order
   const isBookingExpired = useMemo(() => {
     if (!booking?.bookingDate) return false;
+    if (booking.status === "expired") return true;
+    if (booking.status !== "paid") return false;
+
     const bookingDate = new Date(booking.bookingDate);
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return bookingDate < now && booking.status === "paid";
+    const hoursSinceBooking = (now.getTime() - bookingDate.getTime()) / (1000 * 60 * 60);
+    return hoursSinceBooking >= 24;
   }, [booking?.bookingDate, booking?.status]);
 
   const handleApprove = () => {
@@ -440,13 +450,17 @@ export default function BookingDetailScreen() {
   }
 
   const isApproved = booking.shopApproved === true;
-  // Use "approved" status color when paid and shop approved
-  const effectiveStatus = booking.status === "paid" && isApproved ? "approved" : booking.status;
+  // Use appropriate status color
+  const effectiveStatus = booking.status === "expired"
+    ? "expired"
+    : booking.status === "paid" && isApproved
+      ? "approved"
+      : booking.status;
   const statusColor = getStatusColor(effectiveStatus);
   const bookingDateTime = booking.bookingDate || booking.createdAt;
 
-  // Shop actions: pending or paid status
-  const hasShopActions = isShopView && (booking.status === "pending" || booking.status === "paid");
+  // Shop actions: pending or paid status (but not expired)
+  const hasShopActions = isShopView && (booking.status === "pending" || (booking.status === "paid" && !isBookingExpired));
   // Customer actions: paid/approved can cancel (if not expired), completed can review/book again
   const hasCustomerActions = !isShopView && (
     (booking.status === "paid" && !isBookingExpired) ||
@@ -897,17 +911,38 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {/* Expired Booking - Customer View */}
-        {!isShopView && isBookingExpired && (
+        {/* Expired Booking - Shop View */}
+        {isShopView && (isOrderExpired || isBookingExpired) && (
           <View className="mx-4 mb-8 p-4 bg-orange-900/20 border border-orange-700/50 rounded-xl">
             <View className="flex-row items-center">
               <Feather name="alert-circle" size={24} color="#f97316" />
               <View className="ml-3 flex-1">
                 <Text className="text-orange-400 font-semibold">
-                  Booking Expired
+                  Appointment Expired
                 </Text>
                 <Text className="text-orange-400/70 text-sm">
-                  The scheduled date has passed. Please contact the shop for assistance.
+                  {isOrderExpired
+                    ? "This appointment has expired. Refunds have been processed automatically."
+                    : "This appointment is past the 24-hour completion window and cannot be marked as complete."}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Expired Booking - Customer View */}
+        {!isShopView && (isOrderExpired || isBookingExpired) && (
+          <View className="mx-4 mb-8 p-4 bg-orange-900/20 border border-orange-700/50 rounded-xl">
+            <View className="flex-row items-center">
+              <Feather name="alert-circle" size={24} color="#f97316" />
+              <View className="ml-3 flex-1">
+                <Text className="text-orange-400 font-semibold">
+                  Appointment Expired
+                </Text>
+                <Text className="text-orange-400/70 text-sm">
+                  {isOrderExpired
+                    ? "This appointment has expired. Any payments have been refunded to your account."
+                    : "The scheduled date has passed. Please contact the shop for assistance."}
                 </Text>
               </View>
             </View>

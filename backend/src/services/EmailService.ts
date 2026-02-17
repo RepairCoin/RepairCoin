@@ -74,6 +74,17 @@ export interface BookingCancelledByCustomerData {
   stripeRefunded: number;
 }
 
+export interface AppointmentExpiredData {
+  customerEmail: string;
+  customerName: string;
+  shopName: string;
+  serviceName: string;
+  bookingDate: Date;
+  bookingTime: string;
+  rcnRefunded: number;
+  stripeRefunded: number;
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private config: EmailConfig;
@@ -1395,6 +1406,96 @@ export class EmailService {
           ` : ''}
           ${data.resolution === 'rejected' ? `<p style="color: #d1d5db;">If you believe this decision is incorrect, please contact platform support.</p>` : ''}
           <p style="color: #6b7280; font-size: 12px; margin-top: 32px;">RepairCoin — The Repair Shop Loyalty Platform</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send appointment expired notification to customer
+   * Orange theme to match expired status color
+   */
+  async sendAppointmentExpiredNotification(data: AppointmentExpiredData): Promise<boolean> {
+    const subject = `Appointment Expired - Refund Processed`;
+
+    // Format booking date and time
+    const dateFormatted = data.bookingDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Format booking time (HH:MM to readable format)
+    const [hours, minutes] = data.bookingTime.split(':').map(Number);
+    const tempDate = new Date();
+    tempDate.setHours(hours, minutes, 0, 0);
+    const timeFormatted = tempDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // Build refund details string - handle string/number types
+    const rcnAmount = typeof data.rcnRefunded === 'string' ? parseFloat(data.rcnRefunded) : data.rcnRefunded;
+    const stripeAmount = typeof data.stripeRefunded === 'string' ? parseFloat(data.stripeRefunded) : data.stripeRefunded;
+
+    const refundParts: string[] = [];
+    if (rcnAmount > 0) {
+      refundParts.push(`${rcnAmount} RCN tokens`);
+    }
+    if (stripeAmount > 0) {
+      refundParts.push(`$${stripeAmount.toFixed(2)}`);
+    }
+    const hasRefunds = refundParts.length > 0;
+    const refundText = hasRefunds
+      ? refundParts.join(' and ') + ' has been refunded to your account'
+      : 'No refund was required for this booking';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f97316; padding: 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0;">Appointment Expired</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>Your scheduled appointment has expired as it was not marked complete by the shop within 24 hours of the scheduled time.</p>
+
+          <div style="background-color: #fff7ed; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316;">
+            <p style="margin: 5px 0; color: #9a3412;"><strong>Appointment Details:</strong></p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+            <p style="margin: 5px 0;"><strong>Date:</strong> ${dateFormatted}</p>
+            <p style="margin: 5px 0;"><strong>Time:</strong> ${timeFormatted}</p>
+          </div>
+
+          ${hasRefunds ? `
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <p style="margin: 0; color: #155724;"><strong>Refund Information:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #155724;">${refundText}</p>
+            ${data.stripeRefunded > 0 ? '<p style="margin: 5px 0 0 0; color: #155724; font-size: 12px;">Card refunds typically take 5-10 business days to appear.</p>' : ''}
+          </div>
+          ` : ''}
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>What happened?</strong></p>
+            <p style="margin: 5px 0 0 0;">Shops are required to mark appointments as complete within 24 hours of the scheduled time. Since this didn't happen, your appointment has automatically expired and any payments have been refunded.</p>
+          </div>
+
+          <p>If you believe this is an error or the service was actually completed, please contact the shop directly or reach out to our support team.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for using RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin. For support, contact support@repaircoin.com</p>
         </div>
       </div>
     `;

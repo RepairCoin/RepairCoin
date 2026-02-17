@@ -14,6 +14,8 @@ export function getStatusColor(status: BookingStatus | "approved"): string {
       return "#FFCC00"; // Yellow for pending
     case "cancelled":
       return "#ef4444"; // Red for cancelled
+    case "expired":
+      return "#f97316"; // Orange for expired
     default:
       return "#666";
   }

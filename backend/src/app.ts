@@ -625,8 +625,14 @@ class RepairCoinApp {
         logger.info('💳 Subscription reminder service scheduled (every 6 hours for 7d, 3d, 1d reminders)');
 
         // Start auto no-show detection service - runs every 30 minutes
-        getAutoNoShowDetectionService().start();
-        logger.info('🚫 Auto no-show detection service started (every 30 minutes)');
+        // Feature flag: set AUTO_DETECTION_ENABLED=false to disable (includes no-show, expiry, pending cleanup)
+        const autoDetectionEnabled = process.env.AUTO_DETECTION_ENABLED !== 'false';
+        if (autoDetectionEnabled) {
+          getAutoNoShowDetectionService().start();
+          logger.info('🚫 Auto detection service started (no-show, expiry, pending cleanup - every 30 minutes)');
+        } else {
+          logger.info('⏸️ Auto detection service DISABLED via AUTO_DETECTION_ENABLED=false');
+        }
 
         // Start reschedule expiration service - runs every hour
         rescheduleExpirationService.start();

@@ -12,6 +12,7 @@ import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupS
 import { getExpoPushService } from '../../../services/ExpoPushService';
 import noShowPolicyService from '../../../services/NoShowPolicyService';
 import { EmailService } from '../../../services/EmailService';
+import { getExpiredOrderService } from '../../../services/ExpiredOrderService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -297,6 +298,26 @@ export class OrderController {
 
       if (order.shopId !== shopId) {
         return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
+      }
+
+      // Block completion if order is already expired
+      if (order.status === 'expired') {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot complete an expired order. The appointment has passed the 24-hour completion window.'
+        });
+      }
+
+      // Check if trying to mark as completed and order is past 24h window
+      if (status === 'completed') {
+        const expiredOrderService = getExpiredOrderService();
+        const canComplete = expiredOrderService.canCompleteOrder(order);
+        if (!canComplete.canComplete) {
+          return res.status(400).json({
+            success: false,
+            error: canComplete.reason || 'Order cannot be completed after 24 hours past the scheduled appointment time.'
+          });
+        }
       }
 
       const updatedOrder = await this.orderRepository.updateOrderStatus(id, status);
