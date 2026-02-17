@@ -140,6 +140,13 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <UsersIcon className="w-5 h-5" />,
           tabId: "customers",
         },
+        // Lookup tab hidden for now - re-enable when ready
+        // {
+        //   title: "Lookup",
+        //   href: "/shop?tab=lookup",
+        //   icon: <Search className="w-5 h-5" />,
+        //   tabId: "lookup",
+        // },
       ],
     },
     {

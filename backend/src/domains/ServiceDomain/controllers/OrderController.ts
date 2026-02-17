@@ -197,7 +197,8 @@ export class OrderController {
       const filters = {
         status: req.query.status as 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | undefined,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
-        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
+        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+        customerAddress: req.query.customerAddress as string | undefined
       };
 
       const options = {
