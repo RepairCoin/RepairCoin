@@ -134,7 +134,7 @@ router.get('/:address/transactions',
 // Get customer analytics
 router.get('/:address/analytics',
   authMiddleware,
-  requireRole(['admin', 'customer']),
+  requireRole(['admin', 'customer', 'shop']),
   validateEthereumAddress('address'),
   asyncHandler(customerController.getCustomerAnalytics.bind(customerController))
 );

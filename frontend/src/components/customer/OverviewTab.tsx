@@ -216,12 +216,24 @@ export const OverviewTab: React.FC = () => {
     params: customerData?.address ? [customerData.address] : [""],
   });
 
-  // Fetch data on mount if needed
+  // Get address from Thirdweb account OR from session cache (userProfile)
+  // This allows fetching immediately on page refresh without waiting for Thirdweb
+  const walletAddress = account?.address || userProfile?.address;
+
+  // Fetch data when wallet address becomes available (from either source)
+  // This is critical for page refresh where Thirdweb takes time to restore wallet
   useEffect(() => {
-    if (!customerData) {
-      fetchCustomerData();
+    if (walletAddress) {
+      // Check if we need to fetch - either no data or data is for different address
+      const currentDataAddress = customerData?.address?.toLowerCase();
+      const connectedAddress = walletAddress.toLowerCase();
+
+      if (!customerData || currentDataAddress !== connectedAddress) {
+        console.log('[OverviewTab] Wallet address available, fetching customer data for:', connectedAddress, '(source:', account?.address ? 'Thirdweb' : 'session cache', ')');
+        fetchCustomerData(true); // Force fetch to ensure fresh data
+      }
     }
-  }, [customerData, fetchCustomerData]);
+  }, [walletAddress, customerData, fetchCustomerData, account?.address]);
 
   // Update blockchain balance from contract
   useEffect(() => {
