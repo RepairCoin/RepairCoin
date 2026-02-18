@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { appointmentsApi, CustomerSearchResult, TimeSlot } from '@/services/api/appointments';
+import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
 import { DateAvailabilityPicker } from '@/components/customer/DateAvailabilityPicker';
@@ -66,12 +66,25 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const [loadingServices, setLoadingServices] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Load services on mount
+  // Time slot configuration for the shop
+  const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
+
+  // Load services and time slot config on mount
   useEffect(() => {
     if (isOpen) {
       loadServices();
+      loadTimeSlotConfig();
     }
   }, [isOpen, shopId]);
+
+  const loadTimeSlotConfig = async () => {
+    try {
+      const config = await appointmentsApi.getPublicTimeSlotConfig(shopId);
+      setTimeSlotConfig(config);
+    } catch (error) {
+      console.error('Error loading time slot config:', error);
+    }
+  };
 
   // Sync preSelectedDate when modal opens
   useEffect(() => {
@@ -95,12 +108,18 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       setLoadingServices(true);
       const response = await servicesApi.getShopServices(shopId);
       const data = response?.data || [];
-      setServices(data.map((s: any) => ({
+      const mappedServices = data.map((s: any) => ({
         serviceId: s.serviceId,
         serviceName: s.serviceName,
         priceUsd: s.priceUsd,
         durationMinutes: s.durationMinutes || 60
-      })));
+      }));
+      setServices(mappedServices);
+
+      // Auto-select first service if none selected (so time slots load when date is clicked)
+      if (!selectedServiceId && mappedServices.length > 0) {
+        setSelectedServiceId(mappedServices[0].serviceId);
+      }
     } catch (error) {
       console.error('Error loading services:', error);
       toast.error('Failed to load services');
@@ -482,6 +501,9 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
                   const day = String(date.getDate()).padStart(2, '0');
                   setBookingDate(`${year}-${month}-${day}`);
                 }}
+                maxAdvanceDays={timeSlotConfig?.bookingAdvanceDays || 60}
+                minBookingHours={timeSlotConfig?.minBookingHours || 0}
+                allowWeekendBooking={timeSlotConfig?.allowWeekendBooking ?? true}
               />
 
               {loadingSlots && (
@@ -518,6 +540,22 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               {!loadingSlots && selectedServiceId && bookingDate && availableSlots.length === 0 && (
                 <div className="text-center py-8 text-gray-400">
                   No available time slots for this date
+                </div>
+              )}
+
+              {/* Prompt to select service first if date is selected but no service */}
+              {!selectedServiceId && bookingDate && (
+                <div className="text-center py-4 text-amber-400 bg-amber-400/10 rounded-lg border border-amber-400/30">
+                  <p className="text-sm">Please select a service above to see available time slots</p>
+                </div>
+              )}
+
+              {/* Show selected time confirmation */}
+              {selectedTimeSlot && (
+                <div className="mt-3 p-3 bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-lg">
+                  <p className="text-sm text-[#FFCC00]">
+                    Selected time: <span className="font-semibold">{formatTime12Hour(selectedTimeSlot)}</span>
+                  </p>
                 </div>
               )}
             </div>
