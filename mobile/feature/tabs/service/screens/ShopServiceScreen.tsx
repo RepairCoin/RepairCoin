@@ -1,5 +1,6 @@
-import React from "react";
-import { View, Text, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -7,6 +8,10 @@ import {
   ServiceActionModal,
   AddServiceFab,
 } from "../components";
+import { ManualBookingModal } from "@/feature/booking/components";
+
+// Store
+import { useAuthStore } from "@/shared/store/auth.store";
 
 // Hooks
 import {
@@ -23,6 +28,10 @@ import { BookingShopTab } from "@/feature/booking/components";
 import { SERVICE_TABS } from "../constants";
 
 export default function ShopServiceScreen() {
+  const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const { userProfile } = useAuthStore();
+  const shopId = userProfile?.shopId;
+
   const {
     activeTab,
     setActiveTab,
@@ -71,8 +80,34 @@ export default function ShopServiceScreen() {
         {activeTab === "Booking" && <BookingShopTab />}
       </View>
 
-      {/* Add Service FAB */}
-      <AddServiceFab onPress={handleAddService} />
+      {/* Add Service FAB - show when Services tab */}
+      {activeTab === "Services" && <AddServiceFab onPress={handleAddService} />}
+
+      {/* Manual Booking FAB - show when Booking tab */}
+      {activeTab === "Booking" && (
+        <TouchableOpacity
+          onPress={() => setShowManualBookingModal(true)}
+          className="absolute bottom-6 right-4 w-14 h-14 rounded-full bg-[#FFCC00] items-center justify-center"
+          style={{
+            shadowColor: "#FFCC00",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          <Ionicons name="add" size={28} color="#000" />
+        </TouchableOpacity>
+      )}
+
+      {/* Manual Booking Modal */}
+      {shopId && (
+        <ManualBookingModal
+          visible={showManualBookingModal}
+          onClose={() => setShowManualBookingModal(false)}
+          shopId={shopId}
+        />
+      )}
 
       {/* Service Action Modal */}
       <ServiceActionModal
