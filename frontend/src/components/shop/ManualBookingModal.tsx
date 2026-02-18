@@ -6,6 +6,7 @@ import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText,
 import { appointmentsApi, CustomerSearchResult, TimeSlot } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
+import { DateAvailabilityPicker } from '@/components/customer/DateAvailabilityPicker';
 
 interface ManualBookingModalProps {
   shopId: string;
@@ -123,6 +124,15 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     } finally {
       setLoadingSlots(false);
     }
+  };
+
+  // Format time from HH:MM to 12-hour format
+  const formatTime12Hour = (time: string): string => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   const handleSearch = async () => {
@@ -462,12 +472,16 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             </h3>
 
             <div className="space-y-3">
-              <input
-                type="date"
-                value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-800 rounded-lg text-white focus:outline-none focus:border-[#FFCC00]"
+              {/* Visual Calendar Date Picker */}
+              <DateAvailabilityPicker
+                shopId={shopId}
+                selectedDate={bookingDate ? new Date(bookingDate + 'T00:00:00') : null}
+                onDateSelect={(date) => {
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  setBookingDate(`${year}-${month}-${day}`);
+                }}
               />
 
               {loadingSlots && (
@@ -478,24 +492,27 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               )}
 
               {!loadingSlots && availableSlots.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {availableSlots.map((slot) => (
-                    <button
-                      key={slot.time}
-                      onClick={() => setSelectedTimeSlot(slot.time)}
-                      disabled={!slot.available}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        selectedTimeSlot === slot.time
-                          ? 'bg-[#FFCC00] text-black'
-                          : slot.available
-                          ? 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
-                          : 'bg-[#0D0D0D] text-gray-600 border border-gray-800 cursor-not-allowed'
-                      }`}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <p className="text-sm text-gray-400 mb-2">Select a time slot:</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {availableSlots.map((slot) => (
+                      <button
+                        key={slot.time}
+                        onClick={() => setSelectedTimeSlot(slot.time)}
+                        disabled={!slot.available}
+                        className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          selectedTimeSlot === slot.time
+                            ? 'bg-[#FFCC00] text-black ring-2 ring-[#FFCC00] ring-offset-2 ring-offset-[#1A1A1A]'
+                            : slot.available
+                            ? 'bg-[#0D0D0D] text-white border border-gray-800 hover:border-[#FFCC00] hover:bg-[#1A1A1A]'
+                            : 'bg-[#0A0A0A] text-gray-600 border border-gray-900 cursor-not-allowed'
+                        }`}
+                      >
+                        {formatTime12Hour(slot.time)}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
 
               {!loadingSlots && selectedServiceId && bookingDate && availableSlots.length === 0 && (

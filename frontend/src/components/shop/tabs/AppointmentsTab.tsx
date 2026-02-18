@@ -224,6 +224,11 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
     return dateStr === todayStr;
   };
 
+  const isFutureOrToday = (dateStr: string): boolean => {
+    const today = new Date();
+    const todayStr = formatDateLocal(today);
+    return dateStr >= todayStr;
+  };
 
   const isCurrentMonth = (dateStr: string): boolean => {
     const date = new Date(dateStr);
@@ -638,8 +643,8 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                         )}
                       </div>
 
-                      {/* Quick-add button on hover for days in current month */}
-                      {isInCurrentMonth && (
+                      {/* Quick-add button on hover for future dates in current month only */}
+                      {isInCurrentMonth && isFutureOrToday(day.date) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

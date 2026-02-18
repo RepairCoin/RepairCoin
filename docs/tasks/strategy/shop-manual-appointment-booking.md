@@ -294,24 +294,31 @@ Shop clicks "Book" → ManualBookingModal opens
 
 ## Implementation Checklist
 
-### Phase 1: Core Integration (2-3 hours)
-- [ ] Import ManualBookingModal into AppointmentsTab
-- [ ] Add modal state management
-- [ ] Add "Book" button to sidebar header
-- [ ] Pass shopId to modal
-- [ ] Refresh calendar on successful booking
+### Phase 1: Core Integration ✅ COMPLETED (Feb 18, 2026)
+- [x] Import ManualBookingModal into AppointmentsTab
+- [x] Add modal state management
+- [x] Add "Book" button to sidebar header
+- [x] Pass shopId to modal
+- [x] Refresh calendar on successful booking
+- [x] Fix ManualBookingModal API call (getShopServices)
+- [x] Fix ManualBookingController NotificationService import
+- [x] Add senderAddress to notification params
 
-### Phase 2: Calendar Quick-Add (1-2 hours)
-- [ ] Add hover state to calendar day cells
-- [ ] Add "+" button on day hover
-- [ ] Pass pre-selected date to modal
-- [ ] Handle click vs quick-add differentiation
+### Phase 2: Calendar Quick-Add ✅ COMPLETED (Feb 18, 2026)
+- [x] Add hover state to calendar day cells (group relative classes)
+- [x] Add "+" button on day hover (opacity transition)
+- [x] Pass pre-selected date to modal
+- [x] Handle click vs quick-add differentiation (e.stopPropagation)
+- [x] Add useEffect to sync preSelectedDate when modal reopens
 
-### Phase 3: UX Improvements (3-4 hours)
-- [ ] Create DatePickerCalendar component
-- [ ] Replace HTML date input in modal
-- [ ] Add shop availability indicators
-- [ ] Improve mobile responsiveness
+### Phase 3: UX Improvements ✅ COMPLETED (Feb 18, 2026)
+- [x] Reuse existing DateAvailabilityPicker component (no need to create new)
+- [x] Replace HTML date input with visual calendar in ManualBookingModal
+- [x] Shop availability indicators included (green dots for available days)
+- [x] Mobile responsiveness included (responsive grid, sm: breakpoints)
+- [x] Add 12-hour time format (formatTime12Hour helper)
+- [x] Improved time slot grid (4 columns on desktop, 3 on mobile)
+- [x] Added ring effect for selected time slot
 
 ### Phase 4: Payment Link (4-6 hours)
 - [ ] Add "Send Link" payment option
