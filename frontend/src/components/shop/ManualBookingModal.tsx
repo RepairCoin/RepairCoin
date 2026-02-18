@@ -85,7 +85,8 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const loadServices = async () => {
     try {
       setLoadingServices(true);
-      const data = await servicesApi.getServicesByShop(shopId);
+      const response = await servicesApi.getShopServices(shopId);
+      const data = response?.data || [];
       setServices(data.map((s: any) => ({
         serviceId: s.serviceId,
         serviceName: s.serviceName,

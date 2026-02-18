@@ -15,12 +15,15 @@ import {
   ClockAlert,
   X,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { RescheduleRequestsTab } from './RescheduleRequestsTab';
+import { ManualBookingModal } from '../ManualBookingModal';
+import { useAuthStore } from '@/stores/authStore';
 
 interface DayBookings {
   date: string;
@@ -34,12 +37,17 @@ interface AppointmentsTabProps {
 
 export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab = 'appointments' }) => {
   const router = useRouter();
+  const { userProfile } = useAuthStore();
   const [activeSubTab, setActiveSubTab] = useState<'appointments' | 'reschedules'>(defaultSubTab);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+
+  // Manual booking modal state
+  const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const [preSelectedBookingDate, setPreSelectedBookingDate] = useState<string | null>(null);
 
   // Fetch pending reschedule count for badge
   const fetchPendingCount = useCallback(async () => {
@@ -743,15 +751,29 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                   {sidebarAppointments.mode === 'selected' ? 'Appointments' : 'Upcoming'}
                 </span>
               </div>
-              {selectedDate && (
+              <div className="flex items-center gap-2">
+                {/* Book Appointment Button */}
                 <button
-                  onClick={clearSelectedDate}
-                  className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
-                  title="Clear selection"
+                  onClick={() => {
+                    setPreSelectedBookingDate(selectedDate);
+                    setShowManualBookingModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-[#FFCC00] text-black text-xs font-semibold rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-1"
+                  title="Book new appointment"
                 >
-                  <X className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Book</span>
                 </button>
-              )}
+                {selectedDate && (
+                  <button
+                    onClick={clearSelectedDate}
+                    className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
+                    title="Clear selection"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -801,6 +823,22 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
         </div>
       </div>
       </>)}
+
+      {/* Manual Booking Modal */}
+      {userProfile?.shopId && (
+        <ManualBookingModal
+          shopId={userProfile.shopId}
+          isOpen={showManualBookingModal}
+          onClose={() => {
+            setShowManualBookingModal(false);
+            setPreSelectedBookingDate(null);
+          }}
+          onSuccess={() => {
+            loadBookings(); // Refresh calendar after successful booking
+          }}
+          preSelectedDate={preSelectedBookingDate || undefined}
+        />
+      )}
     </div>
   );
 };

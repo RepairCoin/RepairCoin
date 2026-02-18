@@ -9,7 +9,7 @@
 
 import { Request, Response } from 'express';
 import { getSharedPool } from '../../../utils/database-pool';
-import { NotificationService } from '../../../services/NotificationService';
+import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
 
 const pool = getSharedPool();
@@ -212,6 +212,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     // Send notification to customer
     try {
       await notificationService.createNotification({
+        senderAddress: shopAdminAddress,
         receiverAddress: customerData.address,
         notificationType: 'appointment_booked',
         message: `Your appointment at ${shop.name} has been scheduled for ${bookingDate} at ${bookingTimeSlot.substring(0, 5)}`,
