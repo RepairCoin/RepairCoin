@@ -72,6 +72,13 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     }
   }, [isOpen, shopId]);
 
+  // Sync preSelectedDate when modal opens
+  useEffect(() => {
+    if (isOpen && preSelectedDate) {
+      setBookingDate(preSelectedDate);
+    }
+  }, [isOpen, preSelectedDate]);
+
   // Load time slots when date and service change
   useEffect(() => {
     if (selectedServiceId && bookingDate) {

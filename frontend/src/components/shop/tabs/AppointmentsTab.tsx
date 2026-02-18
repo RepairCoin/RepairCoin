@@ -611,10 +611,10 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                     <div
                       key={index}
                       onClick={() => handleDateClick(day.date, hasBookings)}
-                      className={`min-h-[60px] sm:min-h-[100px] lg:min-h-[140px] border-r border-b border-gray-800 p-1 sm:p-2 transition-colors ${
+                      className={`group relative min-h-[60px] sm:min-h-[100px] lg:min-h-[140px] border-r border-b border-gray-800 p-1 sm:p-2 transition-colors ${
                         !isInCurrentMonth ? 'bg-[#0A0A0A]' : ''
                       } ${index % 7 === 6 ? 'border-r-0' : ''} ${
-                        hasBookings ? 'cursor-pointer hover:bg-[#252525]' : ''
+                        hasBookings ? 'cursor-pointer hover:bg-[#252525]' : 'hover:bg-[#1A1A1A]'
                       } ${isSelected ? 'bg-[#252525] ring-1 ring-[#FFCC00]' : ''}`}
                     >
                       {/* Day Number & Customer Count */}
@@ -637,6 +637,24 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                           </div>
                         )}
                       </div>
+
+                      {/* Quick-add button on hover for days in current month */}
+                      {isInCurrentMonth && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreSelectedBookingDate(day.date);
+                            setShowManualBookingModal(true);
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 sm:w-6 sm:h-6 bg-[#FFCC00] text-black rounded-full
+                                     flex items-center justify-center opacity-0 group-hover:opacity-100
+                                     transition-opacity text-xs sm:text-sm font-bold hover:bg-[#FFD700] hover:scale-110
+                                     shadow-lg z-10"
+                          title={`Book appointment for ${day.date}`}
+                        >
+                          +
+                        </button>
+                      )}
 
                       {/* Appointment Badges - Mobile shows dots, desktop shows full badges */}
                       {/* Mobile: Show dots only */}
