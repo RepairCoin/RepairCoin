@@ -18,7 +18,10 @@ import {
   useApproveOrderMutation,
   useCompleteOrderMutation,
   useCancelOrderMutation,
+  useMarkNoShowMutation,
+  useRescheduleMutation,
 } from "../hooks/mutations";
+import { MarkNoShowModal, RescheduleModal } from "../components";
 import { getStatusColor } from "../utils";
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/shared/store/auth.store";
@@ -341,7 +344,12 @@ export default function BookingDetailScreen() {
   const approveOrderMutation = useApproveOrderMutation();
   const completeOrderMutation = useCompleteOrderMutation();
   const cancelOrderMutation = useCancelOrderMutation();
+  const markNoShowMutation = useMarkNoShowMutation();
+  const rescheduleMutation = useRescheduleMutation();
+
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showNoShowModal, setShowNoShowModal] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
 
   const booking = useMemo(() => {
     if (!bookings || !id) return null;
@@ -412,10 +420,29 @@ export default function BookingDetailScreen() {
     cancelOrderMutation.mutate(booking.orderId);
   };
 
+  const handleMarkNoShow = (notes?: string) => {
+    if (!booking) return;
+    setShowNoShowModal(false);
+    markNoShowMutation.mutate({ orderId: booking.orderId, notes });
+  };
+
+  const handleReschedule = (newDate: string, newTimeSlot: string, reason?: string) => {
+    if (!booking) return;
+    setShowRescheduleModal(false);
+    rescheduleMutation.mutate({
+      orderId: booking.orderId,
+      newDate,
+      newTimeSlot,
+      reason,
+    });
+  };
+
   const isActionLoading =
     approveOrderMutation.isPending ||
     completeOrderMutation.isPending ||
-    cancelOrderMutation.isPending;
+    cancelOrderMutation.isPending ||
+    markNoShowMutation.isPending ||
+    rescheduleMutation.isPending;
 
   if (isLoading) {
     return (
@@ -501,7 +528,7 @@ export default function BookingDetailScreen() {
     // Paid but not approved - show Approve button
     if (booking.status === "paid" && !isApproved) {
       return (
-        <View className="space-y-3">
+        <View className="space-y-3 gap-2">
           {/* Info Message */}
           <View className="flex-row items-start p-3 bg-[#1a1a1a] rounded-xl border border-blue-800">
             <Ionicons name="information-circle" size={20} color="#3b82f6" />
@@ -510,15 +537,6 @@ export default function BookingDetailScreen() {
               service.
             </Text>
           </View>
-
-          {/* Cancel Button */}
-          <TouchableOpacity
-            onPress={handleCancelBooking}
-            disabled={isActionLoading}
-            className="py-3 rounded-xl items-center border border-red-700/50"
-          >
-            <Text className="text-red-400 font-medium">Cancel Booking</Text>
-          </TouchableOpacity>
 
           {/* Approve Button */}
           <TouchableOpacity
@@ -537,11 +555,37 @@ export default function BookingDetailScreen() {
               </View>
             )}
           </TouchableOpacity>
+
+          {/* Secondary Actions Row */}
+          <View className="flex-row space-x-2 gap-2">
+            {/* Reschedule Button */}
+            <TouchableOpacity
+              onPress={() => setShowRescheduleModal(true)}
+              disabled={isActionLoading}
+              className="flex-1 py-3 rounded-xl items-center border border-[#FFCC00]/50 bg-[#FFCC00]/10"
+            >
+              <View className="flex-row items-center">
+                <Feather name="calendar" size={16} color="#FFCC00" />
+                <Text className="text-[#FFCC00] font-medium ml-2">
+                  Reschedule
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              onPress={handleCancelBooking}
+              disabled={isActionLoading}
+              className="flex-1 py-3 rounded-xl items-center border border-red-700/50"
+            >
+              <Text className="text-red-400 font-medium">Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
 
-    // Paid and approved - show Mark Complete button
+    // Paid and approved - show Mark Complete, No-Show, and Reschedule buttons
     if (booking.status === "paid" && isApproved) {
       return (
         <View className="space-y-3 gap-2">
@@ -553,15 +597,6 @@ export default function BookingDetailScreen() {
               issue RCN rewards.
             </Text>
           </View>
-
-          {/* Cancel Button */}
-          <TouchableOpacity
-            onPress={handleCancelBooking}
-            disabled={isActionLoading}
-            className="py-3 rounded-xl items-center border border-red-700/50"
-          >
-            <Text className="text-red-400 font-medium">Cancel Booking</Text>
-          </TouchableOpacity>
 
           {/* Mark Complete Button */}
           <TouchableOpacity
@@ -580,6 +615,46 @@ export default function BookingDetailScreen() {
                 </Text>
               </View>
             )}
+          </TouchableOpacity>
+
+          {/* Secondary Actions Row */}
+          <View className="flex-row space-x-2 gap-2">
+            {/* Reschedule Button */}
+            <TouchableOpacity
+              onPress={() => setShowRescheduleModal(true)}
+              disabled={isActionLoading}
+              className="flex-1 py-3 rounded-xl items-center border border-[#FFCC00]/50 bg-[#FFCC00]/10"
+            >
+              <View className="flex-row items-center">
+                <Feather name="calendar" size={16} color="#FFCC00" />
+                <Text className="text-[#FFCC00] font-medium ml-2">
+                  Reschedule
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Mark No-Show Button */}
+            <TouchableOpacity
+              onPress={() => setShowNoShowModal(true)}
+              disabled={isActionLoading}
+              className="flex-1 py-3 rounded-xl items-center border border-orange-700/50 bg-orange-900/10"
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="person-remove-outline" size={16} color="#f97316" />
+                <Text className="text-orange-400 font-medium ml-2">
+                  No-Show
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Cancel Button */}
+          <TouchableOpacity
+            onPress={handleCancelBooking}
+            disabled={isActionLoading}
+            className="py-3 rounded-xl items-center border border-red-700/50"
+          >
+            <Text className="text-red-400 font-medium">Cancel Booking</Text>
           </TouchableOpacity>
         </View>
       );
@@ -999,6 +1074,29 @@ export default function BookingDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Mark No-Show Modal */}
+      <MarkNoShowModal
+        visible={showNoShowModal}
+        onClose={() => setShowNoShowModal(false)}
+        onConfirm={handleMarkNoShow}
+        isLoading={markNoShowMutation.isPending}
+        customerName={booking?.customerName || undefined}
+      />
+
+      {/* Reschedule Modal */}
+      {booking && (
+        <RescheduleModal
+          visible={showRescheduleModal}
+          onClose={() => setShowRescheduleModal(false)}
+          onConfirm={handleReschedule}
+          isLoading={rescheduleMutation.isPending}
+          shopId={booking.shopId}
+          serviceId={booking.serviceId}
+          currentDate={booking.bookingDate || undefined}
+          currentTime={booking.bookingDate ? new Date(booking.bookingDate).toTimeString().slice(0, 5) : undefined}
+        />
+      )}
     </ThemedView>
   );
 }
