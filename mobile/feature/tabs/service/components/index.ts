@@ -1,5 +1,6 @@
 // Shop components
 export { ServiceActionModal } from "./ServiceActionModal";
+export { ShopServiceDetailsModal } from "./ShopServiceDetailsModal";
 export { AddServiceFab } from "./AddServiceFab";
 
 // Customer components

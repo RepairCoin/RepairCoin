@@ -8,5 +8,6 @@ export { ServiceInfoSection } from "./ServiceInfoSection";
 export { ShopInfoSection } from "./ShopInfoSection";
 export { RewardsSection } from "./RewardsSection";
 export { ReviewsSection } from "./ReviewsSection";
+export { ShopReviewsSection } from "./ShopReviewsSection";
 export { AdditionalInfoSection } from "./AdditionalInfoSection";
 export { ServiceBottomActions } from "./ServiceBottomActions";

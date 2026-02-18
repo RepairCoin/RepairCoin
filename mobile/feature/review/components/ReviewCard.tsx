@@ -1,10 +1,13 @@
-import { View, Text, TouchableOpacity, ScrollView, Image } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Image, TextInput, ActivityIndicator, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ReviewData } from "@/shared/interfaces/review.interface";
+import { serviceApi } from "@/shared/services/service.services";
 
 interface ReviewCardProps {
   review: ReviewData;
+  isShopOwner?: boolean;
+  onReviewUpdated?: () => void;
 }
 
 function StarDisplay({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -22,8 +25,32 @@ function StarDisplay({ rating, size = 14 }: { rating: number; size?: number }) {
   );
 }
 
-export default function ReviewCard({ review }: ReviewCardProps) {
+export default function ReviewCard({ review, isShopOwner = false, onReviewUpdated }: ReviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isResponding, setIsResponding] = useState(false);
+  const [responseText, setResponseText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitResponse = async () => {
+    if (!responseText.trim()) {
+      Alert.alert("Error", "Please enter a response");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await serviceApi.addShopResponse(review.reviewId, responseText);
+      Alert.alert("Success", "Response added successfully!");
+      setIsResponding(false);
+      setResponseText("");
+      onReviewUpdated?.();
+    } catch (error) {
+      console.error("Error adding response:", error);
+      Alert.alert("Error", "Failed to add response");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -119,12 +146,12 @@ export default function ReviewCard({ review }: ReviewCardProps) {
       )}
 
       {/* Shop Response */}
-      {review.shopResponse && (
+      {review.shopResponse ? (
         <View className="mt-3 bg-[#252525] rounded-lg p-3">
           <View className="flex-row items-center mb-2">
-            <Ionicons name="storefront-outline" size={14} color="#FFCC00" />
-            <Text className="text-[#FFCC00] text-xs ml-1 font-medium">
-              Shop Response
+            <Ionicons name="storefront-outline" size={14} color={isShopOwner ? "#60A5FA" : "#FFCC00"} />
+            <Text className={`text-xs ml-1 font-medium ${isShopOwner ? "text-blue-400" : "text-[#FFCC00]"}`}>
+              {isShopOwner ? "Your Response" : "Shop Response"}
             </Text>
             {review.shopResponseAt && (
               <Text className="text-gray-500 text-xs ml-2">
@@ -134,7 +161,51 @@ export default function ReviewCard({ review }: ReviewCardProps) {
           </View>
           <Text className="text-gray-300 text-sm">{review.shopResponse}</Text>
         </View>
-      )}
+      ) : isShopOwner && isResponding ? (
+        <View className="mt-3 bg-[#0d0d0d] border border-gray-700 rounded-lg p-3">
+          <TextInput
+            value={responseText}
+            onChangeText={setResponseText}
+            placeholder="Write a response to this review..."
+            placeholderTextColor="#6B7280"
+            multiline
+            className="text-white text-sm min-h-[80px]"
+            style={{ textAlignVertical: "top" }}
+          />
+          <View className="flex-row gap-2 mt-3">
+            <TouchableOpacity
+              onPress={handleSubmitResponse}
+              disabled={isSubmitting || !responseText.trim()}
+              className={`flex-1 bg-[#FFCC00] rounded-lg py-3 items-center ${
+                isSubmitting || !responseText.trim() ? "opacity-50" : ""
+              }`}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text className="text-black font-semibold">Submit Response</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setIsResponding(false);
+                setResponseText("");
+              }}
+              className="px-4 py-3 bg-[#1a1a1a] border border-gray-700 rounded-lg"
+            >
+              <Text className="text-white">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : isShopOwner ? (
+        <TouchableOpacity
+          onPress={() => setIsResponding(true)}
+          className="mt-3 flex-row items-center"
+        >
+          <Ionicons name="chatbubble-outline" size={16} color="#60A5FA" />
+          <Text className="text-blue-400 text-sm ml-2">Respond to this review</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
