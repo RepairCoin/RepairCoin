@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, router } from "expo-router";
 
 // Feature imports
 import { useAuthStore } from "@/shared/store/auth.store";
@@ -17,9 +18,11 @@ import {
   useServiceNavigation,
   useServiceDetailUI,
 } from "../hooks";
-import { ShareModal } from "../components/ShareModal";
+import { ShareModal, ShopReviewsSection } from "../components";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { FULL_DAYS } from "../constants";
+import { serviceApi } from "@/shared/services/service.services";
+import { ReviewData, ReviewStats } from "@/shared/interfaces/review.interface";
 
 export default function ServicesViewDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,7 +32,8 @@ export default function ServicesViewDetailScreen() {
   // Hooks
   const { navigateBack, navigateToEdit } = useServiceNavigation();
   const { data: serviceData, isLoading, error } = useServiceDetailQuery(id);
-  const { data: availabilityData, isLoading: loadingAvailability } = useShopAvailabilityWithConfigQuery(shopId);
+  const { data: availabilityData, isLoading: loadingAvailability } =
+    useShopAvailabilityWithConfigQuery(shopId);
 
   const availability = availabilityData?.availability ?? [];
   const timeSlotConfig = availabilityData?.timeSlotConfig ?? null;
@@ -58,6 +62,40 @@ export default function ServicesViewDetailScreen() {
     shopId,
     availability,
   });
+
+  // Reviews state
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // Load reviews
+  useEffect(() => {
+    if (id) {
+      loadReviews();
+    }
+  }, [id]);
+
+  const loadReviews = async () => {
+    if (!id) return;
+    setReviewsLoading(true);
+    try {
+      const response = await serviceApi.getServiceReviews(id, { limit: 50 });
+      if (response?.data) {
+        setReviews(response.data);
+        if (response.stats) {
+          setReviewStats(response.stats);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading reviews:", error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const handleViewAllReviews = () => {
+    router.push(`/shop/service/${id}/reviews`);
+  };
 
   const handleEdit = () => {
     if (serviceData) {
@@ -156,9 +194,7 @@ export default function ServicesViewDetailScreen() {
             <>
               <View className="h-px bg-gray-800 mb-6" />
               <View className="mb-6">
-                <Text className="text-white text-lg font-semibold mb-4">
-                  Tags
-                </Text>
+                <Text className="text-white text-lg font-semibold mb-4">Tags</Text>
                 <View className="flex-row flex-wrap">
                   {serviceData.tags.map((tag, index) => (
                     <View
@@ -188,9 +224,7 @@ export default function ServicesViewDetailScreen() {
                   <View
                     className={`w-2 h-2 rounded-full mr-2 ${openDaysCount > 0 ? "bg-green-500" : "bg-red-500"}`}
                   />
-                  <Text className="text-gray-400 text-sm">
-                    {openDaysCount}/7 days
-                  </Text>
+                  <Text className="text-gray-400 text-sm">{openDaysCount}/7 days</Text>
                 </View>
               )}
             </View>
@@ -214,11 +248,7 @@ export default function ServicesViewDetailScreen() {
                               className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${today?.isOpen ? "bg-green-500/20" : "bg-red-500/20"}`}
                             >
                               <Ionicons
-                                name={
-                                  today?.isOpen
-                                    ? "checkmark-circle"
-                                    : "close-circle"
-                                }
+                                name={today?.isOpen ? "checkmark-circle" : "close-circle"}
                                 size={24}
                                 color={today?.isOpen ? "#22c55e" : "#ef4444"}
                               />
@@ -227,16 +257,13 @@ export default function ServicesViewDetailScreen() {
                               <Text className="text-white font-semibold">
                                 {today?.isOpen ? "Open Today" : "Closed Today"}
                               </Text>
-                              <Text className="text-gray-500 text-xs">
-                                {todayName}
-                              </Text>
+                              <Text className="text-gray-500 text-xs">{todayName}</Text>
                             </View>
                           </View>
                           {today?.isOpen && (
                             <View className="items-end">
                               <Text className="text-[#FFCC00] font-semibold">
-                                {formatTime(today.openTime)} -{" "}
-                                {formatTime(today.closeTime)}
+                                {formatTime(today.openTime)} - {formatTime(today.closeTime)}
                               </Text>
                             </View>
                           )}
@@ -253,9 +280,7 @@ export default function ServicesViewDetailScreen() {
                   activeOpacity={0.7}
                 >
                   <View className="flex-row items-center justify-between mb-3">
-                    <Text className="text-gray-400 text-sm">
-                      Weekly Schedule
-                    </Text>
+                    <Text className="text-gray-400 text-sm">Weekly Schedule</Text>
                     <Ionicons
                       name={showAllHours ? "chevron-up" : "chevron-down"}
                       size={18}
@@ -264,11 +289,8 @@ export default function ServicesViewDetailScreen() {
                   </View>
 
                   {availability.length === 0 ? (
-                    <Text className="text-gray-500 text-sm">
-                      No hours configured
-                    </Text>
+                    <Text className="text-gray-500 text-sm">No hours configured</Text>
                   ) : showAllHours ? (
-                    // Expanded view - show all days
                     <View>
                       {availability.map((day) => (
                         <View
@@ -277,19 +299,11 @@ export default function ServicesViewDetailScreen() {
                         >
                           <View className="flex-row items-center">
                             <View
-                              className={`w-2 h-2 rounded-full mr-3 ${
-                                day.isOpen ? "bg-green-500" : "bg-red-500"
-                              }`}
+                              className={`w-2 h-2 rounded-full mr-3 ${day.isOpen ? "bg-green-500" : "bg-red-500"}`}
                             />
-                            <Text className="text-white">
-                              {FULL_DAYS[day.dayOfWeek]}
-                            </Text>
+                            <Text className="text-white">{FULL_DAYS[day.dayOfWeek]}</Text>
                           </View>
-                          <Text
-                            className={
-                              day.isOpen ? "text-white" : "text-gray-500"
-                            }
-                          >
+                          <Text className={day.isOpen ? "text-white" : "text-gray-500"}>
                             {day.isOpen
                               ? `${formatTime(day.openTime)} - ${formatTime(day.closeTime)}`
                               : "Closed"}
@@ -298,7 +312,6 @@ export default function ServicesViewDetailScreen() {
                       ))}
                     </View>
                   ) : (
-                    // Compact view - show grouped hours
                     <View>
                       {getGroupedHours().map((group, index) => (
                         <View
@@ -310,9 +323,7 @@ export default function ServicesViewDetailScreen() {
                           </Text>
                           <Text
                             className={
-                              group.isOpen
-                                ? "text-white text-sm"
-                                : "text-gray-500 text-sm"
+                              group.isOpen ? "text-white text-sm" : "text-gray-500 text-sm"
                             }
                           >
                             {group.isOpen
@@ -328,17 +339,11 @@ export default function ServicesViewDetailScreen() {
                 {/* Booking Settings - Compact Icons */}
                 {timeSlotConfig && (
                   <View className="bg-[#1a1a1a] rounded-xl p-4 mb-3">
-                    <Text className="text-gray-400 text-sm mb-3">
-                      Booking Settings
-                    </Text>
+                    <Text className="text-gray-400 text-sm mb-3">Booking Settings</Text>
                     <View className="flex-row justify-between">
                       <View className="items-center flex-1">
                         <View className="w-10 h-10 bg-[#252525] rounded-full items-center justify-center mb-2">
-                          <Ionicons
-                            name="timer-outline"
-                            size={20}
-                            color="#FFCC00"
-                          />
+                          <Ionicons name="timer-outline" size={20} color="#FFCC00" />
                         </View>
                         <Text className="text-white text-sm font-semibold">
                           {timeSlotConfig.slotDurationMinutes}m
@@ -347,11 +352,7 @@ export default function ServicesViewDetailScreen() {
                       </View>
                       <View className="items-center flex-1">
                         <View className="w-10 h-10 bg-[#252525] rounded-full items-center justify-center mb-2">
-                          <Ionicons
-                            name="pause-outline"
-                            size={20}
-                            color="#FFCC00"
-                          />
+                          <Ionicons name="pause-outline" size={20} color="#FFCC00" />
                         </View>
                         <Text className="text-white text-sm font-semibold">
                           {timeSlotConfig.bufferTimeMinutes}m
@@ -360,11 +361,7 @@ export default function ServicesViewDetailScreen() {
                       </View>
                       <View className="items-center flex-1">
                         <View className="w-10 h-10 bg-[#252525] rounded-full items-center justify-center mb-2">
-                          <Ionicons
-                            name="people-outline"
-                            size={20}
-                            color="#FFCC00"
-                          />
+                          <Ionicons name="people-outline" size={20} color="#FFCC00" />
                         </View>
                         <Text className="text-white text-sm font-semibold">
                           {timeSlotConfig.maxConcurrentBookings}
@@ -373,11 +370,7 @@ export default function ServicesViewDetailScreen() {
                       </View>
                       <View className="items-center flex-1">
                         <View className="w-10 h-10 bg-[#252525] rounded-full items-center justify-center mb-2">
-                          <Ionicons
-                            name="calendar-outline"
-                            size={20}
-                            color="#FFCC00"
-                          />
+                          <Ionicons name="calendar-outline" size={20} color="#FFCC00" />
                         </View>
                         <Text className="text-white text-sm font-semibold">
                           {timeSlotConfig.bookingAdvanceDays}d
@@ -391,17 +384,23 @@ export default function ServicesViewDetailScreen() {
             )}
           </View>
 
+          {/* Reviews Section */}
+          <View className="h-px bg-gray-800 mb-6" />
+          <ShopReviewsSection
+            reviews={reviews}
+            stats={reviewStats}
+            isLoading={reviewsLoading}
+            onSeeAll={handleViewAllReviews}
+            onReviewUpdated={loadReviews}
+          />
+
           {/* Divider */}
           <View className="h-px bg-gray-800 mb-6" />
 
           {/* Additional Info */}
           <View className="mb-6">
             <View className="flex-row items-center mb-4">
-              <Ionicons
-                name="information-circle-outline"
-                size={22}
-                color="#FFCC00"
-              />
+              <Ionicons name="information-circle-outline" size={22} color="#FFCC00" />
               <Text className="text-white text-lg font-semibold ml-2">
                 Additional Information
               </Text>
@@ -445,9 +444,7 @@ export default function ServicesViewDetailScreen() {
           activeOpacity={0.8}
         >
           <Ionicons name="pencil" size={20} color="black" />
-          <Text className="text-black text-lg font-bold ml-2">
-            Edit Service
-          </Text>
+          <Text className="text-black text-lg font-bold ml-2">Edit Service</Text>
         </TouchableOpacity>
       </View>
 

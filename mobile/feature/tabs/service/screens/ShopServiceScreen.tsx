@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import {
   ServiceActionModal,
+  ShopServiceDetailsModal,
   AddServiceFab,
 } from "../components";
 import { ManualBookingModal } from "@/feature/booking/components";
@@ -29,6 +30,7 @@ import { SERVICE_TABS } from "../constants";
 
 export default function ShopServiceScreen() {
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId;
 
@@ -45,6 +47,11 @@ export default function ShopServiceScreen() {
 
   const { isUpdating, handleToggleStatus } = useServiceStatusUI();
   const { handleEdit, handleAddService } = useServiceNavigation();
+
+  const handleViewDetails = () => {
+    closeActionModal();
+    setShowDetailsModal(true);
+  };
 
   return (
     <ThemedView className="w-full h-full">
@@ -119,6 +126,14 @@ export default function ShopServiceScreen() {
         onToggleStatus={(value) =>
           handleToggleStatus(selectedService, value, updateSelectedService)
         }
+        onViewDetails={handleViewDetails}
+      />
+
+      {/* Service Details Modal */}
+      <ShopServiceDetailsModal
+        visible={showDetailsModal}
+        service={selectedService}
+        onClose={() => setShowDetailsModal(false)}
       />
     </ThemedView>
   );

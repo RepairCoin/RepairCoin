@@ -187,6 +187,33 @@ class ServiceApi {
       throw error;
     }
   }
+
+  // Shop Reviews API
+  async getShopReviews(
+    filters?: ReviewFilters
+  ): Promise<ServiceReviewsResponse> {
+    try {
+      const queryString = filters ? buildQueryString(filters) : "";
+      return await apiClient.get(`/services/reviews/shop${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get shop reviews:", error.message);
+      throw error;
+    }
+  }
+
+  async addShopResponse(
+    reviewId: string,
+    response: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.post(`/services/reviews/${reviewId}/respond`, {
+        response,
+      });
+    } catch (error: any) {
+      console.error("Failed to add shop response:", error.message);
+      throw error;
+    }
+  }
 }
 
 export const serviceApi = new ServiceApi();

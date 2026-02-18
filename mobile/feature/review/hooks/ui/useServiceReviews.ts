@@ -5,9 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { serviceApi } from "@/shared/services/service.services";
 import { queryKeys } from "@/shared/config/queryClient";
 import { ReviewData } from "@/shared/interfaces/review.interface";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 export function useServiceReviews() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { userProfile } = useAuthStore();
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -24,6 +26,10 @@ export function useServiceReviews() {
       }),
     enabled: !!id,
   });
+
+  // Check if user is shop owner of this service
+  const serviceShopId = data?.data?.[0]?.serviceId ? null : null; // We need service data to check
+  const isShopOwner = !!userProfile?.shopId;
 
   const allReviews = data?.data || [];
   const stats = data?.stats || null;
@@ -67,6 +73,7 @@ export function useServiceReviews() {
     reviews,
     stats,
     hasReviews,
+    isShopOwner,
 
     // State
     ratingFilter,

@@ -17,6 +17,7 @@ interface ServiceActionModalProps {
   onClose: () => void;
   onEdit: () => void;
   onToggleStatus: (value: boolean) => void;
+  onViewDetails?: () => void;
 }
 
 export function ServiceActionModal({
@@ -26,6 +27,7 @@ export function ServiceActionModal({
   onClose,
   onEdit,
   onToggleStatus,
+  onViewDetails,
 }: ServiceActionModalProps) {
   return (
     <Modal
@@ -108,6 +110,24 @@ export function ServiceActionModal({
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {/* View Details Button */}
+            {onViewDetails && (
+              <TouchableOpacity
+                onPress={onViewDetails}
+                className="bg-gray-800 rounded-lg p-4 mb-3 flex-row items-center"
+              >
+                <View className="bg-[#FFCC00]/20 rounded-full p-2">
+                  <Ionicons name="eye" size={20} color="#FFCC00" />
+                </View>
+                <View className="ml-3">
+                  <Text className="text-white font-medium">View Details & Reviews</Text>
+                  <Text className="text-gray-500 text-xs mt-1">
+                    See service info and customer reviews
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Bottom Padding for Safe Area */}

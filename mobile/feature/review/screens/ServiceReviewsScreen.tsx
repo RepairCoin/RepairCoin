@@ -22,6 +22,7 @@ export default function ServiceReviewsScreen() {
     reviews,
     stats,
     hasReviews,
+    isShopOwner,
     ratingFilter,
     refreshing,
     isLoading,
@@ -91,7 +92,12 @@ export default function ServiceReviewsScreen() {
           ) : (
             <View className="pb-6">
               {reviews.map((review) => (
-                <ReviewCard key={review.reviewId} review={review} />
+                <ReviewCard
+                  key={review.reviewId}
+                  review={review}
+                  isShopOwner={isShopOwner}
+                  onReviewUpdated={refetch}
+                />
               ))}
             </View>
           )}
