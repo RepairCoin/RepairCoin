@@ -97,8 +97,7 @@
       "Bash(ping:*)",
       "Bash(lsof:*)",
       "Bash(pkill:*)",
-      "Bash(head:*)",
-      "WebFetch(domain:basescan.org)"
+      "Read(//private/tmp/**)"
     ],
     "deny": [],
     "ask": []

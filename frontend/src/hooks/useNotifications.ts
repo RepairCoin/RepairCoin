@@ -30,6 +30,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     markAsRead: markAsReadInStore,
     markAllAsRead: markAllAsReadInStore,
     removeNotification: removeNotificationFromStore,
+    clearNotifications: clearNotificationsFromStore,
   } = useNotificationStore();
 
   const { userProfile, isAuthenticated } = useAuthStore();
@@ -121,6 +122,19 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     },
     [userProfile?.address, removeNotificationFromStore]
   );
+
+  // Delete all notifications (uses cookies automatically)
+  const deleteAllNotifications = useCallback(async () => {
+    if (!userProfile?.address) return;
+
+    try {
+      await apiClient.delete('/notifications');
+      clearNotificationsFromStore();
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error);
+    }
+  }, [userProfile?.address, clearNotificationsFromStore, setUnreadCount]);
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
@@ -347,6 +361,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
     requestNotificationPermission,
     connectWebSocket,
     disconnectWebSocket,
@@ -362,6 +377,8 @@ export const useNotificationActions = () => {
     markAsRead: markAsReadInStore,
     markAllAsRead: markAllAsReadInStore,
     removeNotification: removeNotificationFromStore,
+    clearNotifications: clearNotificationsFromStore,
+    setUnreadCount,
   } = useNotificationStore();
 
   const { userProfile } = useAuthStore();
@@ -408,9 +425,23 @@ export const useNotificationActions = () => {
     [userProfile?.address, removeNotificationFromStore]
   );
 
+  // Delete all notifications (uses cookies automatically)
+  const deleteAllNotifications = useCallback(async () => {
+    if (!userProfile?.address) return;
+
+    try {
+      await apiClient.delete('/notifications');
+      clearNotificationsFromStore();
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error);
+    }
+  }, [userProfile?.address, clearNotificationsFromStore, setUnreadCount]);
+
   return {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
   };
 };

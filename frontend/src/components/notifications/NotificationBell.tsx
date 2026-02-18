@@ -566,7 +566,7 @@ export const NotificationBell: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const { notifications, unreadCount, isConnected } = useNotificationStore();
-  const { markAsRead, markAllAsRead, deleteNotification } = useNotificationActions();
+  const { markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationActions();
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -660,14 +660,25 @@ export const NotificationBell: React.FC = () => {
               {/* Header */}
               <div className="px-4 py-3 border-b border-gray-700 flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-white">Notifications</h3>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    className="text-sm text-[#FFCC00] hover:text-[#FFD700] transition-colors font-medium"
-                  >
-                    Mark all read
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-sm text-[#FFCC00] hover:text-[#FFD700] transition-colors font-medium"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={deleteAllNotifications}
+                      className="text-sm text-gray-400 hover:text-red-400 transition-colors font-medium"
+                      title="Clear all notifications"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Notifications List */}
