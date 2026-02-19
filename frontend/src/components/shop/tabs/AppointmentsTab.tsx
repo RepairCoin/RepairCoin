@@ -15,12 +15,15 @@ import {
   ClockAlert,
   X,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { RescheduleRequestsTab } from './RescheduleRequestsTab';
+import { ManualBookingModal } from '../ManualBookingModal';
+import { useAuthStore } from '@/stores/authStore';
 
 interface DayBookings {
   date: string;
@@ -34,12 +37,17 @@ interface AppointmentsTabProps {
 
 export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab = 'appointments' }) => {
   const router = useRouter();
+  const { userProfile } = useAuthStore();
   const [activeSubTab, setActiveSubTab] = useState<'appointments' | 'reschedules'>(defaultSubTab);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+
+  // Manual booking modal state
+  const [showManualBookingModal, setShowManualBookingModal] = useState(false);
+  const [preSelectedBookingDate, setPreSelectedBookingDate] = useState<string | null>(null);
 
   // Fetch pending reschedule count for badge
   const fetchPendingCount = useCallback(async () => {
@@ -216,6 +224,11 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
     return dateStr === todayStr;
   };
 
+  const isFutureOrToday = (dateStr: string): boolean => {
+    const today = new Date();
+    const todayStr = formatDateLocal(today);
+    return dateStr >= todayStr;
+  };
 
   const isCurrentMonth = (dateStr: string): boolean => {
     const date = new Date(dateStr);
@@ -603,10 +616,10 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                     <div
                       key={index}
                       onClick={() => handleDateClick(day.date, hasBookings)}
-                      className={`min-h-[60px] sm:min-h-[100px] lg:min-h-[140px] border-r border-b border-gray-800 p-1 sm:p-2 transition-colors ${
+                      className={`group relative min-h-[60px] sm:min-h-[100px] lg:min-h-[140px] border-r border-b border-gray-800 p-1 sm:p-2 transition-colors ${
                         !isInCurrentMonth ? 'bg-[#0A0A0A]' : ''
                       } ${index % 7 === 6 ? 'border-r-0' : ''} ${
-                        hasBookings ? 'cursor-pointer hover:bg-[#252525]' : ''
+                        hasBookings ? 'cursor-pointer hover:bg-[#252525]' : 'hover:bg-[#1A1A1A]'
                       } ${isSelected ? 'bg-[#252525] ring-1 ring-[#FFCC00]' : ''}`}
                     >
                       {/* Day Number & Customer Count */}
@@ -629,6 +642,24 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                           </div>
                         )}
                       </div>
+
+                      {/* Quick-add button on hover for future dates in current month only */}
+                      {isInCurrentMonth && isFutureOrToday(day.date) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreSelectedBookingDate(day.date);
+                            setShowManualBookingModal(true);
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 sm:w-6 sm:h-6 bg-[#FFCC00] text-black rounded-full
+                                     flex items-center justify-center opacity-0 group-hover:opacity-100
+                                     transition-opacity text-xs sm:text-sm font-bold hover:bg-[#FFD700] hover:scale-110
+                                     shadow-lg z-10"
+                          title={`Book appointment for ${day.date}`}
+                        >
+                          +
+                        </button>
+                      )}
 
                       {/* Appointment Badges - Mobile shows dots, desktop shows full badges */}
                       {/* Mobile: Show dots only */}
@@ -743,15 +774,29 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                   {sidebarAppointments.mode === 'selected' ? 'Appointments' : 'Upcoming'}
                 </span>
               </div>
-              {selectedDate && (
+              <div className="flex items-center gap-2">
+                {/* Book Appointment Button */}
                 <button
-                  onClick={clearSelectedDate}
-                  className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
-                  title="Clear selection"
+                  onClick={() => {
+                    setPreSelectedBookingDate(selectedDate);
+                    setShowManualBookingModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-[#FFCC00] text-black text-xs font-semibold rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-1"
+                  title="Book new appointment"
                 >
-                  <X className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Book</span>
                 </button>
-              )}
+                {selectedDate && (
+                  <button
+                    onClick={clearSelectedDate}
+                    className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
+                    title="Clear selection"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -801,6 +846,22 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
         </div>
       </div>
       </>)}
+
+      {/* Manual Booking Modal */}
+      {userProfile?.shopId && (
+        <ManualBookingModal
+          shopId={userProfile.shopId}
+          isOpen={showManualBookingModal}
+          onClose={() => {
+            setShowManualBookingModal(false);
+            setPreSelectedBookingDate(null);
+          }}
+          onSuccess={() => {
+            loadBookings(); // Refresh calendar after successful booking
+          }}
+          preSelectedDate={preSelectedBookingDate || undefined}
+        />
+      )}
     </div>
   );
 };

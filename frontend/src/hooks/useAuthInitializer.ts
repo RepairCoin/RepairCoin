@@ -389,9 +389,15 @@ export function useAuthInitializer() {
         let userEmail: string | undefined;
         try {
           userEmail = await getUserEmail({ client });
-        } catch (e) {}
+          console.log('[AuthInitializer] 📧 Email extracted from thirdweb:', userEmail || 'NONE');
+        } catch (e) {
+          console.log('[AuthInitializer] ⚠️ Failed to get email from thirdweb:', e);
+        }
 
-        console.log('[AuthInitializer] 🚀 Creating new session');
+        console.log('[AuthInitializer] 🚀 Creating new session with:', {
+          address: currentAddress,
+          email: userEmail || 'NONE'
+        });
         await login(currentAddress, userEmail);
         setAuthInitialized(true);
         resetAuthFailures(); // Success - clear failure count

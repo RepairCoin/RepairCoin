@@ -485,23 +485,29 @@ export const validateUniqueness = (options: {
     try {
       const uniquenessService = new UniquenessService();
       const errors: string[] = [];
-      
+
       const email = req.body.email;
       const walletAddress = req.body.walletAddress || req.body.wallet_address;
-      
+
       // Get exclude values for updates
-      const excludeCustomerAddress = options.excludeField && options.accountType === 'customer' 
+      const excludeCustomerAddress = options.excludeField && options.accountType === 'customer'
         ? req.params[options.excludeField] || req.body[options.excludeField]
         : undefined;
       const excludeShopId = options.excludeField && options.accountType === 'shop'
-        ? req.params[options.excludeField] || req.body[options.excludeField] 
+        ? req.params[options.excludeField] || req.body[options.excludeField]
         : undefined;
+
+      // For customer registration, exclude placeholder accounts from email uniqueness check
+      // This allows real customers to claim placeholder accounts created via manual booking
+      // For shop registration, we do NOT exclude placeholders to prevent email hijacking
+      const excludePlaceholders = options.accountType === 'customer';
 
       if (options.email && email) {
         const emailCheck = await uniquenessService.checkEmailUniqueness(
           email,
           excludeCustomerAddress,
-          excludeShopId
+          excludeShopId,
+          excludePlaceholders
         );
 
         if (!emailCheck.isUnique) {

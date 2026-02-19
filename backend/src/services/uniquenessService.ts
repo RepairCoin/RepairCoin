@@ -16,11 +16,20 @@ export class UniquenessService {
 
   /**
    * Check if an email address is unique across all account types
+   * NOTE: Placeholder accounts (addresses starting with 0xmanual) can be excluded
+   * from uniqueness checks to allow real customer accounts to claim them.
+   * However, for shop registration, placeholder emails should still be blocked.
+   *
+   * @param email - Email to check
+   * @param excludeCustomerAddress - Customer address to exclude (for updates)
+   * @param excludeShopId - Shop ID to exclude (for updates)
+   * @param excludePlaceholders - If true, exclude placeholder customer accounts from check
    */
   async checkEmailUniqueness(
-    email: string, 
-    excludeCustomerAddress?: string, 
-    excludeShopId?: string
+    email: string,
+    excludeCustomerAddress?: string,
+    excludeShopId?: string,
+    excludePlaceholders: boolean = false
   ): Promise<UniquenessCheckResult> {
     if (!email || email.trim() === '') {
       return { isUnique: true };
@@ -29,17 +38,21 @@ export class UniquenessService {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check customers table
+    // Only exclude placeholder accounts if explicitly requested (for customer registration)
+    // Shop registration should NOT exclude placeholders to prevent email hijacking
+    const placeholderExclusion = excludePlaceholders ? "AND LOWER(address) NOT LIKE '0xmanual%'" : '';
     const customerQuery = `
-      SELECT address FROM customers 
-      WHERE LOWER(email) = $1 
+      SELECT address FROM customers
+      WHERE LOWER(email) = $1
+      ${placeholderExclusion}
       ${excludeCustomerAddress ? 'AND address != $2' : ''}
     `;
-    const customerParams = excludeCustomerAddress 
-      ? [normalizedEmail, excludeCustomerAddress] 
+    const customerParams = excludeCustomerAddress
+      ? [normalizedEmail, excludeCustomerAddress]
       : [normalizedEmail];
-    
+
     const customerResult = await this.db.query(customerQuery, customerParams);
-    
+
     if (customerResult.rows.length > 0) {
       return {
         isUnique: false,
@@ -130,20 +143,23 @@ export class UniquenessService {
 
   /**
    * Comprehensive uniqueness check for both email and wallet
+   *
+   * @param excludePlaceholders - If true, exclude placeholder customer accounts from email check
    */
   async checkAccountUniqueness(
-    email: string | undefined, 
+    email: string | undefined,
     walletAddress: string,
     excludeCustomerAddress?: string,
-    excludeShopId?: string
+    excludeShopId?: string,
+    excludePlaceholders: boolean = false
   ): Promise<{
     emailCheck: UniquenessCheckResult;
     walletCheck: UniquenessCheckResult;
     isValid: boolean;
     errors: string[];
   }> {
-    const emailCheck = email 
-      ? await this.checkEmailUniqueness(email, excludeCustomerAddress, excludeShopId)
+    const emailCheck = email
+      ? await this.checkEmailUniqueness(email, excludeCustomerAddress, excludeShopId, excludePlaceholders)
       : { isUnique: true };
     
     const walletCheck = await this.checkWalletUniqueness(

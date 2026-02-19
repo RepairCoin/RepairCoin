@@ -3,9 +3,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { appointmentsApi, CustomerSearchResult, TimeSlot } from '@/services/api/appointments';
+import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
+import { DateAvailabilityPicker } from '@/components/customer/DateAvailabilityPicker';
 
 interface ManualBookingModalProps {
   shopId: string;
@@ -65,12 +66,32 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const [loadingServices, setLoadingServices] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Load services on mount
+  // Time slot configuration for the shop
+  const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
+
+  // Load services and time slot config on mount
   useEffect(() => {
     if (isOpen) {
       loadServices();
+      loadTimeSlotConfig();
     }
   }, [isOpen, shopId]);
+
+  const loadTimeSlotConfig = async () => {
+    try {
+      const config = await appointmentsApi.getPublicTimeSlotConfig(shopId);
+      setTimeSlotConfig(config);
+    } catch (error) {
+      console.error('Error loading time slot config:', error);
+    }
+  };
+
+  // Sync preSelectedDate when modal opens
+  useEffect(() => {
+    if (isOpen && preSelectedDate) {
+      setBookingDate(preSelectedDate);
+    }
+  }, [isOpen, preSelectedDate]);
 
   // Load time slots when date and service change
   useEffect(() => {
@@ -85,13 +106,20 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const loadServices = async () => {
     try {
       setLoadingServices(true);
-      const data = await servicesApi.getServicesByShop(shopId);
-      setServices(data.map((s: any) => ({
+      const response = await servicesApi.getShopServices(shopId);
+      const data = response?.data || [];
+      const mappedServices = data.map((s: any) => ({
         serviceId: s.serviceId,
         serviceName: s.serviceName,
         priceUsd: s.priceUsd,
         durationMinutes: s.durationMinutes || 60
-      })));
+      }));
+      setServices(mappedServices);
+
+      // Auto-select first service if none selected (so time slots load when date is clicked)
+      if (!selectedServiceId && mappedServices.length > 0) {
+        setSelectedServiceId(mappedServices[0].serviceId);
+      }
     } catch (error) {
       console.error('Error loading services:', error);
       toast.error('Failed to load services');
@@ -115,6 +143,15 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     } finally {
       setLoadingSlots(false);
     }
+  };
+
+  // Format time from HH:MM to 12-hour format
+  const formatTime12Hour = (time: string): string => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   const handleSearch = async () => {
@@ -454,12 +491,19 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             </h3>
 
             <div className="space-y-3">
-              <input
-                type="date"
-                value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-800 rounded-lg text-white focus:outline-none focus:border-[#FFCC00]"
+              {/* Visual Calendar Date Picker */}
+              <DateAvailabilityPicker
+                shopId={shopId}
+                selectedDate={bookingDate ? new Date(bookingDate + 'T00:00:00') : null}
+                onDateSelect={(date) => {
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  setBookingDate(`${year}-${month}-${day}`);
+                }}
+                maxAdvanceDays={timeSlotConfig?.bookingAdvanceDays || 60}
+                minBookingHours={timeSlotConfig?.minBookingHours || 0}
+                allowWeekendBooking={timeSlotConfig?.allowWeekendBooking ?? true}
               />
 
               {loadingSlots && (
@@ -470,29 +514,48 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               )}
 
               {!loadingSlots && availableSlots.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {availableSlots.map((slot) => (
-                    <button
-                      key={slot.time}
-                      onClick={() => setSelectedTimeSlot(slot.time)}
-                      disabled={!slot.available}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        selectedTimeSlot === slot.time
-                          ? 'bg-[#FFCC00] text-black'
-                          : slot.available
-                          ? 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
-                          : 'bg-[#0D0D0D] text-gray-600 border border-gray-800 cursor-not-allowed'
-                      }`}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <p className="text-sm text-gray-400 mb-2">Select a time slot:</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {availableSlots.map((slot) => (
+                      <button
+                        key={slot.time}
+                        onClick={() => setSelectedTimeSlot(slot.time)}
+                        disabled={!slot.available}
+                        className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          selectedTimeSlot === slot.time
+                            ? 'bg-[#FFCC00] text-black ring-2 ring-[#FFCC00] ring-offset-2 ring-offset-[#1A1A1A]'
+                            : slot.available
+                            ? 'bg-[#0D0D0D] text-white border border-gray-800 hover:border-[#FFCC00] hover:bg-[#1A1A1A]'
+                            : 'bg-[#0A0A0A] text-gray-600 border border-gray-900 cursor-not-allowed'
+                        }`}
+                      >
+                        {formatTime12Hour(slot.time)}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
 
               {!loadingSlots && selectedServiceId && bookingDate && availableSlots.length === 0 && (
                 <div className="text-center py-8 text-gray-400">
                   No available time slots for this date
+                </div>
+              )}
+
+              {/* Prompt to select service first if date is selected but no service */}
+              {!selectedServiceId && bookingDate && (
+                <div className="text-center py-4 text-amber-400 bg-amber-400/10 rounded-lg border border-amber-400/30">
+                  <p className="text-sm">Please select a service above to see available time slots</p>
+                </div>
+              )}
+
+              {/* Show selected time confirmation */}
+              {selectedTimeSlot && (
+                <div className="mt-3 p-3 bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-lg">
+                  <p className="text-sm text-[#FFCC00]">
+                    Selected time: <span className="font-semibold">{formatTime12Hour(selectedTimeSlot)}</span>
+                  </p>
                 </div>
               )}
             </div>

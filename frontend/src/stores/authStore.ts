@@ -182,7 +182,9 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           // Check user type (with email fallback for social login)
+          console.log('[authStore] 📧 Calling checkUser with:', { address, email: email || 'NONE' });
           const userCheck = await authApi.checkUser(address, email);
+          console.log('[authStore] 📋 checkUser response:', JSON.stringify(userCheck, null, 2));
 
           if (!userCheck.exists || !userCheck.type) {
             console.log('[authStore] User not registered - this is normal for new users');
