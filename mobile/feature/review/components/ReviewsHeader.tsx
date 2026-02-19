@@ -1,13 +1,10 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ReviewStats } from "@/shared/interfaces/review.interface";
-
 interface ReviewsHeaderProps {
-  stats: ReviewStats | null;
   onBack: () => void;
 }
 
-export default function ReviewsHeader({ stats, onBack }: ReviewsHeaderProps) {
+export default function ReviewsHeader({ onBack }: ReviewsHeaderProps) {
   return (
     <View className="flex-row items-center px-4 py-3 border-b border-gray-800">
       <TouchableOpacity
@@ -20,17 +17,6 @@ export default function ReviewsHeader({ stats, onBack }: ReviewsHeaderProps) {
       <Text className="text-white text-lg font-semibold ml-2 flex-1">
         Reviews
       </Text>
-      {stats && (
-        <View className="flex-row items-center">
-          <Ionicons name="star" size={16} color="#FFCC00" />
-          <Text className="text-white font-medium ml-1">
-            {stats.averageRating.toFixed(1)}
-          </Text>
-          <Text className="text-gray-500 text-sm ml-1">
-            ({stats.totalReviews})
-          </Text>
-        </View>
-      )}
     </View>
   );
 }

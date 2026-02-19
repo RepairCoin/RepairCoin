@@ -35,7 +35,7 @@ export default function ServiceReviewsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-zinc-950" edges={["top"]}>
-      <ReviewsHeader stats={stats} onBack={handleGoBack} />
+      <ReviewsHeader onBack={handleGoBack} />
 
       {isLoading && !refreshing ? (
         <View className="flex-1 items-center justify-center">
@@ -67,11 +67,7 @@ export default function ServiceReviewsScreen() {
           }
         >
           {/* Rating Summary */}
-          {stats && stats.totalReviews > 0 && (
-            <View className="pt-4">
-              <RatingSummary stats={stats} />
-            </View>
-          )}
+          {stats && stats.totalReviews > 0 && <RatingSummary stats={stats} />}
 
           {/* Rating Filter */}
           {hasReviews && (

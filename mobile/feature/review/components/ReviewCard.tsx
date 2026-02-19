@@ -25,6 +25,27 @@ function StarDisplay({ rating, size = 14 }: { rating: number; size?: number }) {
   );
 }
 
+function ReviewImage({ uri }: { uri: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <View className="w-20 h-20 rounded-lg bg-zinc-800 items-center justify-center">
+        <Ionicons name="image-outline" size={24} color="#6B7280" />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      className="w-20 h-20 rounded-lg"
+      resizeMode="cover"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 export default function ReviewCard({ review, isShopOwner = false, onReviewUpdated }: ReviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
@@ -135,12 +156,7 @@ export default function ReviewCard({ review, isShopOwner = false, onReviewUpdate
           contentContainerStyle={{ gap: 8 }}
         >
           {review.images.map((image, index) => (
-            <Image
-              key={index}
-              source={{ uri: image }}
-              className="w-20 h-20 rounded-lg"
-              resizeMode="cover"
-            />
+            <ReviewImage key={index} uri={image} />
           ))}
         </ScrollView>
       )}
