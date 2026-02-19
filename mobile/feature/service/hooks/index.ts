@@ -13,10 +13,8 @@ export { useCreateServiceMutation, useUpdateServiceMutation } from "./mutations"
 export {
   useServicesTabUI,
   useServiceFormUI,
-  useServiceDetailUI,
   useServiceNavigation,
   useAvailabilityModal,
-  // Customer-side
-  useServiceDetail,
   useTrendingServices,
+  useUnifiedServiceDetail,
 } from "./ui";

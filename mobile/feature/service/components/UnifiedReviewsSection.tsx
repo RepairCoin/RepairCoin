@@ -12,12 +12,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { ReviewData, ReviewStats } from "@/shared/interfaces/review.interface";
 import { serviceApi } from "@/shared/services/service.services";
 
-interface ShopReviewsSectionProps {
+interface UnifiedReviewsSectionProps {
   reviews: ReviewData[];
   stats: ReviewStats | null;
   isLoading: boolean;
+  isShopOwner?: boolean;
   onSeeAll: () => void;
-  onReviewUpdated: () => void;
+  onReviewUpdated?: () => void;
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -35,12 +36,35 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function ShopReviewCard({
+function ReviewImage({ uri }: { uri: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <View className="w-16 h-16 rounded-lg bg-zinc-800 items-center justify-center">
+        <Ionicons name="image-outline" size={20} color="#6B7280" />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      className="w-16 h-16 rounded-lg"
+      resizeMode="cover"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+function ReviewCard({
   review,
+  isShopOwner = false,
   onReviewUpdated,
 }: {
   review: ReviewData;
-  onReviewUpdated: () => void;
+  isShopOwner?: boolean;
+  onReviewUpdated?: () => void;
 }) {
   const [isResponding, setIsResponding] = useState(false);
   const [responseText, setResponseText] = useState("");
@@ -79,7 +103,7 @@ function ShopReviewCard({
       Alert.alert("Success", "Response added successfully!");
       setIsResponding(false);
       setResponseText("");
-      onReviewUpdated();
+      onReviewUpdated?.();
     } catch (error) {
       console.error("Error adding response:", error);
       Alert.alert("Error", "Failed to add response");
@@ -122,12 +146,7 @@ function ShopReviewCard({
       {review.images && review.images.length > 0 && (
         <View className="flex-row mb-3 gap-2">
           {review.images.slice(0, 3).map((image, index) => (
-            <Image
-              key={index}
-              source={{ uri: image }}
-              className="w-16 h-16 rounded-lg"
-              resizeMode="cover"
-            />
+            <ReviewImage key={index} uri={image} />
           ))}
           {review.images.length > 3 && (
             <View className="w-16 h-16 rounded-lg bg-[#333] items-center justify-center">
@@ -141,19 +160,36 @@ function ShopReviewCard({
 
       {/* Shop Response */}
       {review.shopResponse ? (
-        <View className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+        <View
+          className={`mt-3 rounded-lg p-3 ${
+            isShopOwner
+              ? "bg-blue-500/10 border border-blue-500/30"
+              : "bg-[#252525]"
+          }`}
+        >
           <View className="flex-row items-center mb-2">
-            <Ionicons name="chatbubble" size={12} color="#60A5FA" />
-            <Text className="text-blue-400 text-xs ml-1 font-medium">
-              Your Response
+            <Ionicons
+              name={isShopOwner ? "chatbubble" : "storefront-outline"}
+              size={isShopOwner ? 12 : 14}
+              color={isShopOwner ? "#60A5FA" : "#9CA3AF"}
+            />
+            <Text
+              className={`text-xs ml-1 font-medium ${
+                isShopOwner ? "text-blue-400" : "text-gray-400"
+              }`}
+            >
+              {isShopOwner ? "Your Response" : "Shop Response"}
             </Text>
           </View>
-          <Text className="text-blue-200 text-sm" numberOfLines={2}>
+          <Text
+            className={`text-sm ${isShopOwner ? "text-blue-200" : "text-gray-300"}`}
+            numberOfLines={2}
+          >
             {review.shopResponse}
           </Text>
         </View>
-      ) : isResponding ? (
-        <View className="bg-[#0d0d0d] border border-gray-700 rounded-lg p-3">
+      ) : isShopOwner && isResponding ? (
+        <View className="mt-3 bg-[#0d0d0d] border border-gray-700 rounded-lg p-3">
           <TextInput
             value={responseText}
             onChangeText={setResponseText}
@@ -188,15 +224,15 @@ function ShopReviewCard({
             </TouchableOpacity>
           </View>
         </View>
-      ) : (
+      ) : isShopOwner ? (
         <TouchableOpacity
           onPress={() => setIsResponding(true)}
-          className="flex-row items-center"
+          className="mt-3 flex-row items-center"
         >
           <Ionicons name="chatbubble-outline" size={14} color="#60A5FA" />
           <Text className="text-blue-400 text-xs ml-1">Respond</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -248,27 +284,51 @@ function RatingSummary({ stats }: { stats: ReviewStats }) {
   );
 }
 
-export function ShopReviewsSection({
+export function UnifiedReviewsSection({
   reviews,
   stats,
   isLoading,
+  isShopOwner = false,
   onSeeAll,
   onReviewUpdated,
-}: ShopReviewsSectionProps) {
+}: UnifiedReviewsSectionProps) {
   const hasReviews = reviews.length > 0;
-
+  
   return (
     <View className="mb-6">
       {/* Header */}
       <View className="flex-row items-center justify-between mb-4">
-        <View className="flex-row items-center">
-          <Ionicons name="star" size={22} color="#FFCC00" />
+        <View className="flex-1">
           <Text className="text-white text-lg font-semibold ml-2">
             Customer Reviews
+            {hasReviews && (
+              <Text className="text-gray-400"> ({reviews.length})</Text>
+            )}
           </Text>
+
+          {/* Average Rating Display */}
           {stats && stats.totalReviews > 0 && (
-            <View className="bg-[#333] rounded-full px-2 py-0.5 ml-2">
-              <Text className="text-gray-400 text-xs">{stats.totalReviews}</Text>
+            <View className="flex-row items-center ml-2 mt-1">
+              <View className="flex-row items-center">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const filled = star <= Math.floor(stats.averageRating);
+                  const partial = !filled && star - stats.averageRating < 1 && star - stats.averageRating > 0;
+                  return (
+                    <Ionicons
+                      key={star}
+                      name={filled || partial ? "star" : "star-outline"}
+                      size={14}
+                      color={filled || partial ? "#FFCC00" : "#4B5563"}
+                    />
+                  );
+                })}
+              </View>
+              <Text className="text-white text-sm font-semibold ml-1.5">
+                {stats.averageRating.toFixed(1)}
+              </Text>
+              <Text className="text-gray-500 text-xs ml-1">
+                ({stats.totalReviews} {stats.totalReviews === 1 ? "review" : "reviews"})
+              </Text>
             </View>
           )}
         </View>
@@ -303,7 +363,9 @@ export function ShopReviewsSection({
             No reviews yet
           </Text>
           <Text className="text-gray-500 text-sm mt-1 text-center">
-            Reviews will appear here when customers leave feedback
+            {isShopOwner
+              ? "Reviews will appear here when customers leave feedback"
+              : "Be the first to share your experience!"}
           </Text>
         </View>
       )}
@@ -312,13 +374,14 @@ export function ShopReviewsSection({
       {!isLoading && hasReviews && (
         <View>
           {/* Rating Summary */}
-          {stats && <RatingSummary stats={stats} />}
+          {/* {stats && <RatingSummary stats={stats} />} */}
 
           {/* Review Cards - Show max 2 */}
           {reviews.slice(0, 2).map((review) => (
-            <ShopReviewCard
+            <ReviewCard
               key={review.reviewId}
               review={review}
+              isShopOwner={isShopOwner}
               onReviewUpdated={onReviewUpdated}
             />
           ))}

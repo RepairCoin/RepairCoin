@@ -32,8 +32,20 @@ export function useServiceReviews() {
   const isShopOwner = !!userProfile?.shopId;
 
   const allReviews = data?.data || [];
-  const stats = data?.stats || null;
   const hasReviews = allReviews.length > 0;
+
+  // Compute stats from reviews if not provided by API
+  const stats = data?.stats || (hasReviews ? {
+    totalReviews: allReviews.length,
+    averageRating: allReviews.reduce((sum: number, r: ReviewData) => sum + r.rating, 0) / allReviews.length,
+    ratingDistribution: {
+      1: allReviews.filter((r: ReviewData) => r.rating === 1).length,
+      2: allReviews.filter((r: ReviewData) => r.rating === 2).length,
+      3: allReviews.filter((r: ReviewData) => r.rating === 3).length,
+      4: allReviews.filter((r: ReviewData) => r.rating === 4).length,
+      5: allReviews.filter((r: ReviewData) => r.rating === 5).length,
+    }
+  } : null);
 
   // Filter reviews client-side and sort by recent
   const reviews = useMemo(() => {

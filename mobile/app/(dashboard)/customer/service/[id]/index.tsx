@@ -1,1 +1,1 @@
-export { ServiceDetailScreen as default } from "@/feature/service/screens";
+export { UnifiedServiceDetailScreen as default } from "@/feature/service/screens";
