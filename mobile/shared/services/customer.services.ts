@@ -12,12 +12,46 @@ export interface CrossShopBalanceResponse {
   };
 }
 
+// Search all customers response type
+export interface SearchCustomersResponse {
+  success: boolean;
+  data: {
+    customers: CustomerData[];
+    pagination?: {
+      total: number;
+      page: number;
+      limit: number;
+    };
+  };
+}
+
 class CustomerApi {
   async getCustomerByWalletAddress(walletAddress: string): Promise<CustomerResponse> {
     try {
       return await apiClient.get<any>(`/customers/${walletAddress}`);
     } catch (error) {
       console.error("Failed to fetch customer:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search all customers platform-wide
+   * @param search - Search term (name or wallet address)
+   * @param page - Page number (default: 1)
+   * @param limit - Results per page (default: 50)
+   */
+  async searchAllCustomers(
+    search: string,
+    page: number = 1,
+    limit: number = 50
+  ): Promise<SearchCustomersResponse> {
+    try {
+      return await apiClient.get<SearchCustomersResponse>(
+        `/customers?search=${encodeURIComponent(search)}&page=${page}&limit=${limit}`
+      );
+    } catch (error) {
+      console.error("Failed to search customers:", error);
       throw error;
     }
   }

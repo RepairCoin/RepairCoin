@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/shared/services/shop.services";
+import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { CustomerData } from "@/shared/interfaces/customer.interface";
 
@@ -41,5 +42,24 @@ export function useShopCustomersQuery() {
     },
     enabled: !!shopId,
     staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useSearchAllCustomersQuery(searchQuery: string, enabled: boolean = false) {
+  return useQuery({
+    queryKey: ["searchAllCustomers", searchQuery],
+    queryFn: async () => {
+      const response = await customerApi.searchAllCustomers(searchQuery);
+      const data = response?.data;
+
+      // Transform customers to ensure camelCase properties
+      if (data?.customers) {
+        data.customers = data.customers.map(transformCustomer);
+      }
+
+      return data;
+    },
+    enabled: enabled && !!searchQuery.trim(),
+    staleTime: 5 * 60 * 1000,
   });
 }

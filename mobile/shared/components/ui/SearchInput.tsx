@@ -7,6 +7,7 @@ interface SearchInputProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   variant?: "default" | "filled";
+  onSubmitEditing?: () => void;
 }
 
 export function SearchInput({
@@ -14,6 +15,7 @@ export function SearchInput({
   onChangeText,
   placeholder = "Search...",
   variant = "default",
+  onSubmitEditing,
 }: SearchInputProps) {
   const containerStyle =
     variant === "filled"
@@ -35,6 +37,8 @@ export function SearchInput({
         placeholderTextColor={variant === "filled" ? "#6B7280" : "#666"}
         value={value}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
+        returnKeyType={onSubmitEditing ? "search" : "done"}
       />
       {value.length > 0 && (
         <Pressable onPress={() => onChangeText("")}>
