@@ -19,6 +19,8 @@ import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
+import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
+import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
@@ -1363,6 +1365,16 @@ export default function ShopDashboardClient() {
               isSuspended={!!isSuspended}
               isPaused={!!isPaused}
             />
+          )}
+
+          {/* Payment Methods Tab */}
+          {activeTab === "payment-methods" && shopData && (
+            <PaymentMethodsTab />
+          )}
+
+          {/* Wallet & Payouts Tab */}
+          {activeTab === "wallet-payouts" && shopData && (
+            <WalletPayoutsTab />
           )}
 
           {/* Support Tab */}

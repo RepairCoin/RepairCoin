@@ -539,6 +539,104 @@ export class StripeService {
       throw error;
     }
   }
+
+  /**
+   * List all payment methods for a customer
+   */
+  async listPaymentMethods(customerId: string): Promise<Stripe.PaymentMethod[]> {
+    try {
+      const paymentMethods = await this.stripe.paymentMethods.list({
+        customer: customerId,
+        type: 'card',
+      });
+
+      logger.info('Payment methods listed', {
+        customerId,
+        count: paymentMethods.data.length
+      });
+
+      return paymentMethods.data;
+    } catch (error) {
+      logger.error('Failed to list payment methods', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        customerId
+      });
+      throw new Error(`Failed to list payment methods: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Attach a payment method to a customer
+   */
+  async attachPaymentMethod(paymentMethodId: string, customerId: string): Promise<Stripe.PaymentMethod> {
+    try {
+      const paymentMethod = await this.stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      });
+
+      logger.info('Payment method attached', {
+        paymentMethodId,
+        customerId
+      });
+
+      return paymentMethod;
+    } catch (error) {
+      logger.error('Failed to attach payment method', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        paymentMethodId,
+        customerId
+      });
+      throw new Error(`Failed to attach payment method: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Set default payment method for a customer
+   */
+  async setDefaultPaymentMethod(customerId: string, paymentMethodId: string): Promise<Stripe.Customer> {
+    try {
+      const customer = await this.stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+
+      logger.info('Default payment method set', {
+        customerId,
+        paymentMethodId
+      });
+
+      return customer;
+    } catch (error) {
+      logger.error('Failed to set default payment method', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        customerId,
+        paymentMethodId
+      });
+      throw new Error(`Failed to set default payment method: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Detach a payment method from a customer
+   */
+  async detachPaymentMethod(paymentMethodId: string): Promise<Stripe.PaymentMethod> {
+    try {
+      const paymentMethod = await this.stripe.paymentMethods.detach(paymentMethodId);
+
+      logger.info('Payment method detached', {
+        paymentMethodId
+      });
+
+      return paymentMethod;
+    } catch (error) {
+      logger.error('Failed to detach payment method', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        paymentMethodId
+      });
+      throw new Error(`Failed to detach payment method: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 // Singleton instance

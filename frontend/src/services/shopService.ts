@@ -1,4 +1,5 @@
 import { ShopRegistrationFormData, ExistingApplication } from '@/types/shop';
+import apiClient from '@/services/api/client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api';
 
@@ -9,11 +10,11 @@ export class ShopService {
   static async getAllShops(): Promise<any[]> {
     try {
       const response = await fetch(`${API_URL}/shops`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch shops: ${response.status}`);
       }
-      
+
       const data = await response.json();
       return data.data?.shops || [];
     } catch (error) {
@@ -35,7 +36,7 @@ export class ShopService {
         const data = await response.json();
         console.log("Registration check - API Response:", data);
         const shop = data.data;
-        
+
         if (shop) {
           return {
             hasApplication: true,
@@ -45,7 +46,7 @@ export class ShopService {
           };
         }
       }
-      
+
       return { hasApplication: false, status: null };
     } catch (error) {
       console.error("Error checking existing application:", error);
@@ -54,23 +55,22 @@ export class ShopService {
   }
 
   /**
-   * Get shop by ID (public endpoint for shop profiles)
+   * Get shop by ID (authenticated endpoint)
    */
   static async getShopById(shopId: string): Promise<any> {
     try {
-      const response = await fetch(`${API_URL}/shops/${shopId}`);
+      const response = await apiClient.get(`/shops/${shopId}`);
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null; // Shop not found
-        }
-        throw new Error(`Failed to fetch shop: ${response.status}`);
+      if (response.data?.success) {
+        return response.data.data || null;
       }
 
-      const data = await response.json();
-      return data.data || null;
-    } catch (error) {
+      return null;
+    } catch (error: any) {
       console.error("Error fetching shop by ID:", error);
+      if (error.response?.status === 404) {
+        return null; // Shop not found
+      }
       throw error;
     }
   }

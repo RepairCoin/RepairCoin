@@ -62,6 +62,8 @@ interface ShopData {
   aboutText?: string; // Rich text about section (max 2000 characters)
   avgRating?: number;
   totalReviews?: number;
+  stripeCustomerId?: string; // Stripe customer ID for payment methods
+  defaultPaymentMethodId?: string; // Default Stripe payment method ID
 }
 
 export interface ShopFilters {

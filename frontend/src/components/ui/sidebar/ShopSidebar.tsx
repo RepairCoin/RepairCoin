@@ -24,6 +24,8 @@ import {
   Wrench,
   LifeBuoy,
   AlertTriangle,
+  CreditCard,
+  Wallet,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
@@ -226,6 +228,18 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       href: "/shop?tab=support",
       icon: <LifeBuoy className="w-5 h-5" />,
       tabId: "support",
+    },
+    {
+      title: "Wallet & Payouts",
+      href: "/shop?tab=wallet-payouts",
+      icon: <Wallet className="w-5 h-5" />,
+      tabId: "wallet-payouts",
+    },
+    {
+      title: "Payment Methods",
+      href: "/shop?tab=payment-methods",
+      icon: <CreditCard className="w-5 h-5" />,
+      tabId: "payment-methods",
     },
     {
       title: "Settings",
