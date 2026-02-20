@@ -396,6 +396,23 @@ export const appointmentsApi = {
       data
     );
     return (response as unknown as { success: boolean; booking: ManualBookingResponse }).booking;
+  },
+
+  // Shop: Get payment link for unpaid booking
+  async getPaymentLink(shopId: string, orderId: string): Promise<PaymentLinkResponse> {
+    const response = await apiClient.get<PaymentLinkResponse>(
+      `/services/shops/${shopId}/appointments/${orderId}/payment-link`
+    );
+    return response as unknown as PaymentLinkResponse;
+  },
+
+  // Shop: Regenerate payment link for unpaid booking
+  async regeneratePaymentLink(shopId: string, orderId: string, sendEmail?: boolean): Promise<RegeneratePaymentLinkResponse> {
+    const response = await apiClient.post<RegeneratePaymentLinkResponse>(
+      `/services/shops/${shopId}/appointments/${orderId}/regenerate-payment-link`,
+      { sendEmail }
+    );
+    return response as unknown as RegeneratePaymentLinkResponse;
   }
 };
 
@@ -420,7 +437,7 @@ export interface ManualBookingData {
   bookingDate: string; // YYYY-MM-DD
   bookingTimeSlot: string; // HH:MM:SS
   bookingEndTime?: string; // HH:MM:SS
-  paymentStatus: 'paid' | 'pending' | 'unpaid';
+  paymentStatus: 'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code';
   notes?: string;
   createNewCustomer?: boolean;
 }
@@ -443,4 +460,37 @@ export interface ManualBookingResponse {
   bookedBy: string;
   notes: string | null;
   createdAt: string;
+  paymentLink?: string | null; // Stripe payment link for qr_code or send_link
+}
+
+// Payment Link Types
+export interface PaymentLinkResponse {
+  success: boolean;
+  paymentLink?: string;
+  status: 'open' | 'expired' | 'complete';
+  expiresAt?: string | null;
+  message?: string;
+  order?: {
+    orderId: string;
+    serviceName: string;
+    amount: number;
+    bookingDate: string;
+    bookingTime: string;
+  };
+}
+
+export interface RegeneratePaymentLinkResponse {
+  success: boolean;
+  paymentLink: string;
+  sessionId: string;
+  expiresAt: string;
+  emailSent: boolean;
+  order: {
+    orderId: string;
+    serviceName: string;
+    amount: number;
+    bookingDate: string;
+    bookingTime: string;
+    customerEmail: string | null;
+  };
 }

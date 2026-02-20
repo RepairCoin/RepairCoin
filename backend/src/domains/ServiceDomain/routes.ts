@@ -2533,6 +2533,91 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/shops/{shopId}/appointments/{orderId}/payment-link:
+   *   get:
+   *     summary: Get payment link for unpaid booking (Shop only)
+   *     description: Retrieve existing Stripe payment link for an unpaid manual booking
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Payment link retrieved
+   *       400:
+   *         description: Order not awaiting payment
+   *       404:
+   *         description: Order not found
+   */
+  router.get(
+    '/shops/:shopId/appointments/:orderId/payment-link',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { getPaymentLink } = await import('./controllers/ManualBookingController');
+      return getPaymentLink(req, res);
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/appointments/{orderId}/regenerate-payment-link:
+   *   post:
+   *     summary: Regenerate payment link for unpaid booking (Shop only)
+   *     description: Create a new Stripe Checkout Session for an unpaid manual booking
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               sendEmail:
+   *                 type: boolean
+   *                 description: Whether to email the payment link to the customer
+   *     responses:
+   *       200:
+   *         description: New payment link created
+   *       400:
+   *         description: Order not awaiting payment
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/shops/:shopId/appointments/:orderId/regenerate-payment-link',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { regeneratePaymentLink } = await import('./controllers/ManualBookingController');
+      return regeneratePaymentLink(req, res);
+    }
+  );
+
+  /**
+   * @swagger
    * /api/services/bookings/{orderId}/direct-reschedule:
    *   post:
    *     summary: Direct reschedule by shop (Shop only)

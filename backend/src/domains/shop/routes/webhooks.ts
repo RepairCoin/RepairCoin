@@ -1156,6 +1156,85 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
       return; // Exit early for RCN purchases
     }
 
+    // Handle manual booking payment completion
+    if (session.metadata?.bookingType === 'manual_booking_payment') {
+      const orderId = session.metadata.orderId;
+
+      logger.info('Processing manual booking payment completion', {
+        sessionId: session.id,
+        orderId,
+        shopId
+      });
+
+      if (!orderId) {
+        logger.error('No orderId found in manual booking payment session', { sessionId: session.id });
+        return;
+      }
+
+      const db = DatabaseService.getInstance();
+
+      // Update order status to paid and payment_status to paid
+      // Note: 'confirmed' is not a valid status - valid statuses are: pending, paid, completed, cancelled, refunded, no_show, expired
+      await db.query(
+        `UPDATE service_orders
+         SET status = 'paid',
+             payment_status = 'paid',
+             stripe_payment_intent_id = $1,
+             updated_at = NOW()
+         WHERE order_id = $2`,
+        [session.payment_intent, orderId]
+      );
+
+      logger.info('Manual booking payment completed - order paid', {
+        orderId,
+        shopId,
+        sessionId: session.id
+      });
+
+      // Send notification to shop about payment received
+      try {
+        const orderResult = await db.query(
+          `SELECT so.*, c.name as customer_name, ss.service_name
+           FROM service_orders so
+           LEFT JOIN customers c ON LOWER(c.address) = LOWER(so.customer_address)
+           LEFT JOIN shop_services ss ON ss.service_id = so.service_id
+           WHERE so.order_id = $1`,
+          [orderId]
+        );
+
+        if (orderResult.rows.length > 0) {
+          const order = orderResult.rows[0];
+          const shopResult = await db.query(
+            `SELECT wallet_address FROM shops WHERE shop_id = $1`,
+            [shopId]
+          );
+
+          if (shopResult.rows.length > 0) {
+            const notificationService = new NotificationService();
+            await notificationService.createNotification({
+              senderAddress: order.customer_address,
+              receiverAddress: shopResult.rows[0].wallet_address,
+              notificationType: 'payment_received',
+              message: `Payment received for appointment: ${order.service_name} on ${order.booking_date}`,
+              metadata: {
+                orderId,
+                customerName: order.customer_name,
+                amount: order.total_amount,
+                serviceName: order.service_name
+              }
+            });
+          }
+        }
+      } catch (notifError) {
+        logger.error('Failed to send payment notification', {
+          orderId,
+          error: notifError instanceof Error ? notifError.message : 'Unknown error'
+        });
+      }
+
+      return; // Exit early for manual booking payments
+    }
+
     // Original subscription logic
     if (session.subscription && typeof session.subscription === 'string') {
       // Get the full subscription details from Stripe

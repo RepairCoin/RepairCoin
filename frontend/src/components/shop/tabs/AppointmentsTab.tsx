@@ -16,9 +16,14 @@ import {
   X,
   Calendar,
   RefreshCw,
-  Plus
+  Plus,
+  Link as LinkIcon,
+  Smartphone,
+  Copy,
+  Mail
 } from 'lucide-react';
-import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
+import { appointmentsApi, CalendarBooking, PaymentLinkResponse } from '@/services/api/appointments';
+import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { RescheduleRequestsTab } from './RescheduleRequestsTab';
@@ -48,6 +53,15 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
   // Manual booking modal state
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
   const [preSelectedBookingDate, setPreSelectedBookingDate] = useState<string | null>(null);
+
+  // Payment link modal state
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [paymentLinkData, setPaymentLinkData] = useState<{
+    paymentLink: string | null;
+    booking: CalendarBooking | null;
+    loading: boolean;
+    error: string | null;
+  }>({ paymentLink: null, booking: null, loading: false, error: null });
 
   // Fetch pending reschedule count for badge
   const fetchPendingCount = useCallback(async () => {
@@ -369,6 +383,63 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
     router.push(`/shop?tab=bookings&search=${encodeURIComponent(bookingId)}`);
   };
 
+  // Handle getting payment link for unpaid bookings
+  const handleGetPaymentLink = async (booking: CalendarBooking, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+
+    if (!userProfile?.shopId) {
+      toast.error('Shop not found');
+      return;
+    }
+
+    setPaymentLinkData({ paymentLink: null, booking, loading: true, error: null });
+    setShowPaymentLinkModal(true);
+
+    try {
+      // First try to get existing payment link
+      const response = await appointmentsApi.getPaymentLink(userProfile.shopId, booking.orderId);
+
+      if (response.success && response.paymentLink) {
+        setPaymentLinkData({ paymentLink: response.paymentLink, booking, loading: false, error: null });
+      } else {
+        // Link expired or not found, regenerate
+        const regenResponse = await appointmentsApi.regeneratePaymentLink(userProfile.shopId, booking.orderId, false);
+        setPaymentLinkData({ paymentLink: regenResponse.paymentLink, booking, loading: false, error: null });
+        toast.success('New payment link generated');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Failed to get payment link';
+      setPaymentLinkData({ paymentLink: null, booking, loading: false, error: errorMessage });
+      toast.error(errorMessage);
+    }
+  };
+
+  // Copy payment link to clipboard
+  const copyPaymentLink = () => {
+    if (paymentLinkData.paymentLink) {
+      navigator.clipboard.writeText(paymentLinkData.paymentLink);
+      toast.success('Payment link copied to clipboard');
+    }
+  };
+
+  // Resend payment link via email
+  const resendPaymentEmail = async () => {
+    if (!userProfile?.shopId || !paymentLinkData.booking) return;
+
+    try {
+      await appointmentsApi.regeneratePaymentLink(userProfile.shopId, paymentLinkData.booking.orderId, true);
+      toast.success('Payment link sent to customer email');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to send email');
+    }
+  };
+
+  // Close payment link modal
+  const closePaymentLinkModal = () => {
+    setShowPaymentLinkModal(false);
+    setPaymentLinkData({ paymentLink: null, booking: null, loading: false, error: null });
+  };
+
   // Render appointment card
   const renderAppointmentCard = (booking: CalendarBooking) => {
     // Status-based styling for sidebar cards
@@ -446,11 +517,22 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
             <span>{booking.bookingTimeSlot ? formatTime(booking.bookingTimeSlot) : 'TBD'}</span>
           </div>
         </div>
-        {/* Status badge */}
-        <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
+        {/* Status badge and payment link button */}
+        <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-2">
           <span className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-medium ${badgeBg}`}>
             {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
           </span>
+          {/* Show payment link button for pending (unpaid) bookings */}
+          {booking.status === 'pending' && (
+            <button
+              onClick={(e) => handleGetPaymentLink(booking, e)}
+              className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-medium bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors flex items-center gap-1"
+              title="Get payment link"
+            >
+              <LinkIcon className="w-3 h-3" />
+              <span className="hidden sm:inline">Pay Link</span>
+            </button>
+          )}
         </div>
       </button>
     );
@@ -861,6 +943,138 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
           }}
           preSelectedDate={preSelectedBookingDate || undefined}
         />
+      )}
+
+      {/* Payment Link Modal */}
+      {showPaymentLinkModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={closePaymentLinkModal}>
+          <div
+            className="bg-[#1A1A1A] border border-gray-800 rounded-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="border-b border-gray-800 p-6 text-center">
+              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Smartphone className="w-6 h-6 text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-1">Payment Link</h3>
+              <p className="text-sm text-gray-400">
+                {paymentLinkData.loading ? 'Getting payment link...' : 'Customer can scan QR or use link to pay'}
+              </p>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {paymentLinkData.loading ? (
+                <div className="flex flex-col items-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-400 mb-3" />
+                  <p className="text-gray-400 text-sm">Loading payment link...</p>
+                </div>
+              ) : paymentLinkData.error ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <X className="w-6 h-6 text-red-400" />
+                  </div>
+                  <p className="text-red-400 mb-4">{paymentLinkData.error}</p>
+                  <button
+                    onClick={closePaymentLinkModal}
+                    className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : paymentLinkData.paymentLink ? (
+                <>
+                  {/* QR Code */}
+                  <div className="flex flex-col items-center mb-4">
+                    <div className="bg-white p-4 rounded-xl">
+                      <QRCodeSVG
+                        value={paymentLinkData.paymentLink}
+                        size={180}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Booking Details */}
+                  {paymentLinkData.booking && (
+                    <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
+                      <div className="text-center mb-3">
+                        <div className="text-2xl font-bold text-[#FFCC00]">
+                          ${paymentLinkData.booking.totalAmount?.toFixed(2) || '0.00'}
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Service:</span>
+                          <span className="text-white truncate max-w-[180px]">{paymentLinkData.booking.serviceName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Customer:</span>
+                          <span className="text-white">{paymentLinkData.booking.customerName || 'Customer'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Date:</span>
+                          <span className="text-white">
+                            {paymentLinkData.booking.bookingDate
+                              ? new Date(paymentLinkData.booking.bookingDate).toLocaleDateString()
+                              : 'TBD'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Time:</span>
+                          <span className="text-white">
+                            {paymentLinkData.booking.bookingTimeSlot
+                              ? formatTime(paymentLinkData.booking.bookingTimeSlot)
+                              : 'TBD'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={copyPaymentLink}
+                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copy Payment Link
+                    </button>
+                    <button
+                      onClick={resendPaymentEmail}
+                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Send to Customer Email
+                    </button>
+                  </div>
+
+                  {/* Expiry Warning */}
+                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <p className="text-xs text-amber-400 text-center">
+                      ⏰ Payment link expires in 24 hours
+                    </p>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {/* Modal Footer */}
+            {!paymentLinkData.loading && !paymentLinkData.error && (
+              <div className="border-t border-gray-800 p-4">
+                <button
+                  onClick={closePaymentLinkModal}
+                  className="w-full px-6 py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
