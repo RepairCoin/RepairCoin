@@ -9,7 +9,6 @@ import {
   ShopProfileHeader,
   ShopDetailsTab,
   ShopServicesTab,
-  ShopReviewsTab
 } from "../components";
 import { useShopProfileScreen } from "../hooks/ui";
 import { SHOP_PROFILE_TABS } from "../constants";
@@ -76,8 +75,6 @@ export default function ShopProfileScreen() {
             formatDate={formatDate}
           />
         )}
-
-        {activeTab === "reviews" && <ShopReviewsTab />}
 
         <View className="h-8" />
       </ScrollView>
