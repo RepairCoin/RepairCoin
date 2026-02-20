@@ -91,24 +91,27 @@ function InfoRow({ icon, label, value, valueColor = "#fff" }: InfoRowProps) {
 }
 
 // Progress Stepper Component
-const PROGRESS_STEPS = ["pending", "paid", "in_progress", "completed"] as const;
+const PROGRESS_STEPS = ["pending", "paid", "in_progress", "scheduled", "completed"] as const;
 const STEP_LABELS: Record<string, string> = {
   pending: "Pending Payment",
   paid: "Payment Received",
   in_progress: "Approved",
+  scheduled: "Scheduled",
   completed: "Completed",
 };
 const STEP_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   pending: "clock",
   paid: "credit-card",
   in_progress: "check",
+  scheduled: "calendar",
   completed: "check-circle",
 };
-// Step colors - yellow for pending/paid, green for approved/completed
+// Step colors - yellow for pending/paid, blue for scheduled, green for approved/completed
 const STEP_COLORS: Record<string, string> = {
   pending: "#FFCC00",
   paid: "#FFCC00",
   in_progress: "#22c55e",
+  scheduled: "#3b82f6",
   completed: "#22c55e",
 };
 
@@ -121,7 +124,7 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   // Map booking status + approval to step index
-  // pending (0) → paid (1) → approved (2) → completed (3)
+  // pending (0) → paid (1) → approved (2) → scheduled (3) → completed (4)
   const getStepIndex = (): number => {
     if (currentStatus === "cancelled" || currentStatus === "refunded") {
       return -1;
@@ -133,10 +136,11 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
       return 1;
     }
     if (currentStatus === "paid" && shopApproved) {
-      return 2;
+      // When approved, it's also scheduled (step 3)
+      return 3;
     }
     if (currentStatus === "completed") {
-      return 3;
+      return 4;
     }
     return 0;
   };
@@ -175,11 +179,13 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
         {(() => {
           const currentStep = PROGRESS_STEPS[currentStepIndex];
           const badgeColor = isCancelled ? "#ef4444" : STEP_COLORS[currentStep] || "#FFCC00";
-          const badgeBgColor = isCancelled
-            ? "rgba(239, 68, 68, 0.2)"
-            : currentStep === "in_progress" || currentStep === "completed"
-              ? "rgba(34, 197, 94, 0.2)"
-              : "rgba(255, 204, 0, 0.2)";
+          const getBadgeBgColor = () => {
+            if (isCancelled) return "rgba(239, 68, 68, 0.2)";
+            if (currentStep === "in_progress" || currentStep === "completed") return "rgba(34, 197, 94, 0.2)";
+            if (currentStep === "scheduled") return "rgba(59, 130, 246, 0.2)";
+            return "rgba(255, 204, 0, 0.2)";
+          };
+          const badgeBgColor = getBadgeBgColor();
           return (
             <View
               className="flex-row items-center px-2 py-1 rounded-full"
@@ -230,9 +236,12 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
                 {/* Icon Circle */}
                 {(() => {
                   const stepColor = STEP_COLORS[step] || "#FFCC00";
-                  const borderColor = step === "in_progress" || step === "completed"
-                    ? "rgba(34, 197, 94, 0.3)"
-                    : "rgba(255, 204, 0, 0.3)";
+                  const getBorderColor = () => {
+                    if (step === "in_progress" || step === "completed") return "rgba(34, 197, 94, 0.3)";
+                    if (step === "scheduled") return "rgba(59, 130, 246, 0.3)";
+                    return "rgba(255, 204, 0, 0.3)";
+                  };
+                  const borderColor = getBorderColor();
                   return (
                     <TouchableOpacity
                       onPress={() => handleStepPress(step)}
