@@ -11,6 +11,9 @@ export function useShopAnalyticsQuery(shopId: string, timeRange: TimeRange) {
     const start = new Date();
 
     switch (timeRange) {
+      case "day":
+        start.setDate(end.getDate() - 30);
+        break;
       case "month":
         start.setMonth(end.getMonth() - 12);
         break;

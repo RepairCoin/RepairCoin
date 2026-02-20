@@ -1,5 +1,5 @@
-export type TimeRange = "month" | "year";
-export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost"
+export type TimeRange = "day" | "month" | "year";
+export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
 
 export interface ProfitData {
   date: string;
