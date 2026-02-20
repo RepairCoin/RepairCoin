@@ -19,6 +19,8 @@ export function useAnalyticsDataUI() {
   const formatDateByRange = useCallback(
     (date: Date, range: TimeRange): string => {
       switch (range) {
+        case "day":
+          return date.toISOString().split("T")[0];
         case "month":
           return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
         case "year":
@@ -34,6 +36,9 @@ export function useAnalyticsDataUI() {
   const formatLabel = useCallback(
     (dateStr: string, range: TimeRange): string => {
       switch (range) {
+        case "day":
+          const dayDate = new Date(dateStr);
+          return dayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         case "month":
           const monthDate = new Date(dateStr + "-01");
           return monthDate.toLocaleDateString("en-US", { month: "short" });
@@ -180,14 +185,12 @@ export function useAnalyticsDataUI() {
 
   // Transform to chart data format
   const chartData = useMemo(() => {
-    const profitChartData: ChartDataPoint[] = profitData.map((item) => ({
-      value: Math.max(0, item.profit),
+    // Single profit/loss line with colored dots (matching web version)
+    // Positive values = profit (green), Negative values = loss (red)
+    const profitLossChartData = profitData.map((item) => ({
+      value: item.profit,
       label: formatLabel(item.date, timeRange),
-    }));
-
-    const lossChartData: ChartDataPoint[] = profitData.map((item) => ({
-      value: Math.abs(Math.min(0, item.profit)),
-      label: formatLabel(item.date, timeRange),
+      dataPointColor: item.profit >= 0 ? "#10B981" : "#EF4444",
     }));
 
     const revenueChartData: ChartDataPoint[] = profitData.map((item) => ({
@@ -200,11 +203,16 @@ export function useAnalyticsDataUI() {
       label: formatLabel(item.date, timeRange),
     }));
 
+    const profitMarginChartData: ChartDataPoint[] = profitData.map((item) => ({
+      value: item.profitMargin,
+      label: formatLabel(item.date, timeRange),
+    }));
+
     return {
-      profit: profitChartData,
-      loss: lossChartData,
+      profitLoss: profitLossChartData,
       revenue: revenueChartData,
       cost: costChartData,
+      profitMargin: profitMarginChartData,
     };
   }, [profitData, timeRange, formatLabel]);
 
