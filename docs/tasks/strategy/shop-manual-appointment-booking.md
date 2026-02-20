@@ -8,6 +8,35 @@ Allow shops to manually create appointments for customers directly from the Appo
 - Rescheduling existing appointments to new times
 - Booking for customers who don't have the app
 
+## Implementation Status ✅ ALL PHASES COMPLETE
+
+| Phase | Feature | Status | Date |
+|-------|---------|--------|------|
+| 1 | Core Integration (Book button in sidebar) | ✅ Complete | Feb 18, 2026 |
+| 2 | Calendar Quick-Add (+ button on hover) | ✅ Complete | Feb 18, 2026 |
+| 3 | UX Improvements (Visual calendar, 12h time) | ✅ Complete | Feb 18, 2026 |
+| 4 | Send Payment Link (Stripe email) | ✅ Complete | Feb 18, 2026 |
+| 5 | QR Code Payment (Walk-in scan & pay) | ✅ Complete | Feb 18, 2026 |
+| 6 | Auto-Cancel Unpaid (24h expiry protection) | ✅ Complete | Feb 18, 2026 |
+
+### Payment Options Summary
+
+```
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│   ✓ Paid    │  │  ⏳ Pending │  │  🚫 Unpaid  │
+│   (Green)   │  │   (Amber)   │  │   (Gray)    │
+│  Already    │  │  Pay at     │  │ No payment  │
+│  collected  │  │  arrival    │  │   needed    │
+└─────────────┘  └─────────────┘  └─────────────┘
+
+┌─────────────┐  ┌─────────────┐
+│ 📱 QR Code  │  │  📧 Send    │
+│  (Purple)   │  │    Link     │
+│  Walk-in    │  │   (Blue)    │
+│  scan&pay   │  │  Email link │
+└─────────────┘  └─────────────┘
+```
+
 ## Current State Analysis
 
 ### Existing Components (Already Implemented)
@@ -198,51 +227,115 @@ const DatePickerCalendar: React.FC<DatePickerCalendarProps> = ({
 
 ---
 
-## Payment Method Options
+## Payment Method Options ✅ IMPLEMENTED
 
-### Current Implementation
-The ManualBookingModal has three payment status options:
-- **Paid**: Customer already paid (cash, card at counter, etc.)
-- **Pending**: Payment expected later
-- **Unpaid**: No payment expected (comp, loyalty reward, etc.)
+### Current Implementation (5 Options)
+The ManualBookingModal has five payment status options:
 
-### Recommended Enhancements
+| Status | Color | Description | Backend Behavior |
+|--------|-------|-------------|------------------|
+| **Paid** | Green | Customer already paid | Order created as `confirmed`, payment_status = `paid` |
+| **Pending** | Amber | Payment expected later (pay at arrival) | Order created as `confirmed`, payment_status = `pending` |
+| **Unpaid** | Gray | No payment expected (comp, loyalty) | Order created as `confirmed`, payment_status = `unpaid` |
+| **QR Code** | Purple | Walk-in customer scans QR to pay | Order created as `awaiting_payment`, QR modal shows Stripe checkout URL |
+| **Send Link** | Blue | Email payment link to customer | Order created as `awaiting_payment`, Stripe checkout session created, email sent |
 
-#### Option A: Keep Current (Simplest)
-- Works for walk-ins and phone bookings
-- Shop handles payment separately
-- No code changes needed
+### Send Payment Link Flow
 
-#### Option B: Add "Send Payment Link" (Recommended)
-Add a fourth option that sends a Stripe payment link to the customer.
-
-```tsx
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-  {(['paid', 'pending', 'send_link', 'unpaid'] as const).map((status) => (
-    <button
-      key={status}
-      onClick={() => setPaymentStatus(status)}
-      className={`px-3 py-3 rounded-lg font-medium capitalize ...`}
-    >
-      {status === 'send_link' ? 'Send Link' : status}
-    </button>
-  ))}
-</div>
+```
+Shop selects "Send Link" → Submit booking
+                               ↓
+Backend creates order with status = 'awaiting_payment'
+                               ↓
+Creates Stripe Checkout Session (24-hour expiry)
+                               ↓
+Updates order with stripe_session_id
+                               ↓
+Sends email with "Pay Now" button to customer
+                               ↓
+Customer clicks link → Stripe checkout page
+                               ↓
+Payment succeeds → Stripe webhook fires
+                               ↓
+checkout.session.completed with bookingType = 'manual_booking_payment'
+                               ↓
+Order updated: status = 'confirmed', payment_status = 'paid'
+                               ↓
+Shop receives "Payment received" notification
 ```
 
-**Backend flow for "Send Link"**:
-1. Create order with status `awaiting_payment`
-2. Generate Stripe Payment Link
-3. Send email/SMS to customer with payment link
-4. Order auto-confirms when payment completes
+### QR Code Payment Flow (Walk-in Customers)
 
-#### Option C: Full Stripe Terminal Integration (Future)
-- In-person card reader support
-- Requires Stripe Terminal SDK
-- More complex implementation
+```
+Shop selects "QR Code" → Submit booking
+                               ↓
+Backend creates order with status = 'awaiting_payment'
+                               ↓
+Creates Stripe Checkout Session (24-hour expiry)
+                               ↓
+Returns payment link URL in response
+                               ↓
+Frontend displays QR modal with:
+  - Large QR code (Stripe checkout URL)
+  - Service name, date, time
+  - Amount due ($XX.XX)
+  - 24-hour expiry warning
+                               ↓
+Walk-in customer scans QR with phone camera
+                               ↓
+Opens Stripe checkout page on customer's phone
+                               ↓
+Customer enters card details and pays
+                               ↓
+Payment succeeds → Stripe webhook fires
+                               ↓
+Order auto-confirmed, shop notified
+```
 
-### Recommendation
-Start with **Option A** (current) for immediate use, then add **Option B** (send payment link) as a fast-follow enhancement.
+### Email Template Features
+- Professional styled HTML email
+- Shop name and appointment details (service, date, time)
+- Large "Pay Now" button with yellow branding
+- Expiration warning (24 hours)
+- Amount due prominently displayed
+
+### Auto-Cancel Unpaid Bookings ✅ IMPLEMENTED
+
+Prevents time slots from being blocked indefinitely when customers don't pay via Send Link.
+
+**Service**: `UnpaidBookingCleanupService.ts`
+
+```
+Booking created with 'awaiting_payment' status
+                    ↓
+         24 hours pass without payment
+                    ↓
+    Cleanup service runs (every hour check)
+                    ↓
+         Finds expired unpaid bookings
+                    ↓
+    Order status → 'cancelled'
+    Note added: "Auto-cancelled: Payment not received within 24 hours"
+                    ↓
+    Shop notification: "Booking auto-cancelled..."
+                    ↓
+         Time slot freed up for other bookings
+```
+
+**Security Summary**:
+
+| Payment Method | Use Case | Risk Level | Protection |
+|----------------|----------|------------|------------|
+| **Paid** | Cash/external card | ✅ None | Payment already collected |
+| **Pending** | Pay at arrival | ⚠️ Low | Customer expected in-person |
+| **Unpaid** | Comp/loyalty | ✅ None | Shop's choice, no payment expected |
+| **QR Code** | Walk-in | ✅ None | Customer present, pays immediately |
+| **Send Link** | Remote booking | ✅ Protected | Auto-cancelled after 24h if no payment |
+
+### Future Enhancements (Optional)
+- **Stripe Terminal Integration**: In-person card reader support
+- **SMS Payment Link**: For customers without email
+- **Configurable expiry**: Allow shops to set custom expiry time (12h, 24h, 48h)
 
 ---
 
@@ -320,11 +413,33 @@ Shop clicks "Book" → ManualBookingModal opens
 - [x] Improved time slot grid (4 columns on desktop, 3 on mobile)
 - [x] Added ring effect for selected time slot
 
-### Phase 4: Payment Link (4-6 hours)
-- [ ] Add "Send Link" payment option
-- [ ] Create backend endpoint for payment link generation
-- [ ] Integrate Stripe Payment Links API
-- [ ] Add email template for payment request
+### Phase 4: Payment Link ✅ COMPLETED (Feb 18, 2026)
+- [x] Add "Send Link" payment option (4-button UI: paid, pending, send_link, unpaid)
+- [x] Create Stripe Checkout Session for payment link (24-hour expiration)
+- [x] Update order with stripe_session_id
+- [x] Send payment link email with styled HTML template (Pay Now button)
+- [x] Order created with 'awaiting_payment' status until payment completes
+- [x] Add webhook handler for checkout.session.completed (manual_booking_payment type)
+- [x] Webhook updates order to 'confirmed' and payment_status to 'paid'
+- [x] Shop notification when customer completes payment
+
+### Phase 5: QR Code Payment ✅ COMPLETED (Feb 18, 2026)
+- [x] Add "QR Code" payment option (5-button UI: paid, pending, unpaid, qr_code, send_link)
+- [x] Install qrcode.react package for QR code generation
+- [x] Create QR modal with styled display showing payment amount and booking details
+- [x] QR code displays Stripe checkout URL for customer to scan
+- [x] Same Stripe Checkout Session as send_link (24-hour expiration)
+- [x] Same webhook handler for payment confirmation
+- [x] No email sent for QR code (in-person transaction)
+
+### Phase 6: Auto-Cancel Unpaid Bookings ✅ COMPLETED (Feb 18, 2026)
+- [x] Create UnpaidBookingCleanupService (runs every hour)
+- [x] Find orders with status 'awaiting_payment' older than 24 hours
+- [x] Auto-cancel expired bookings (status → 'cancelled')
+- [x] Add note to order: "Auto-cancelled: Payment not received within 24 hours"
+- [x] Send notification to shop about auto-cancellation
+- [x] Integrate with app.ts startup and graceful shutdown
+- [x] Prevents time slots from being blocked indefinitely for remote bookings
 
 ---
 

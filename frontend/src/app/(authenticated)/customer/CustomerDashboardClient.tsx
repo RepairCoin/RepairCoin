@@ -13,6 +13,7 @@ import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
 import NoShowWarningBanner from "@/components/customer/NoShowWarningBanner";
+import { AccountClaimBanner } from "@/components/customer/AccountClaimBanner";
 import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
@@ -222,6 +223,9 @@ export default function CustomerDashboardClient() {
 
           {/* No-Show Warning Banner - Show tier restrictions */}
           <NoShowWarningBanner status={noShowStatus} />
+
+          {/* Account Claim Banner - Show if customer has placeholder accounts to claim */}
+          <AccountClaimBanner />
 
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}

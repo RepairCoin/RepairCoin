@@ -779,6 +779,72 @@ export class EmailService {
   }
 
   /**
+   * Send payment link email for manual booking
+   */
+  async sendPaymentLinkEmail(
+    customerEmail: string,
+    customerName: string,
+    data: {
+      shopName: string;
+      serviceName: string;
+      bookingDate: string;
+      bookingTime: string;
+      amount: number;
+      paymentLink: string;
+      expiresIn: string;
+    }
+  ): Promise<boolean> {
+    const subject = `Complete Your Payment - ${data.shopName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Payment Required</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${customerName || 'there'},</p>
+
+          <p>Your appointment at <strong>${data.shopName}</strong> has been scheduled! Please complete your payment to confirm the booking.</p>
+
+          <div style="background-color: #e7f3ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0066cc;">
+            <p style="margin: 5px 0; color: #004085;"><strong>📅 Appointment Details:</strong></p>
+            <p style="margin: 5px 0; color: #004085;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0; color: #004085;"><strong>Date:</strong> ${data.bookingDate}</p>
+            <p style="margin: 5px 0; color: #004085;"><strong>Time:</strong> ${data.bookingTime}</p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Amount Due:</p>
+            <p style="margin: 0 0 20px 0; font-size: 32px; font-weight: bold; color: #000;">$${data.amount.toFixed(2)}</p>
+            <a href="${data.paymentLink}" style="display: inline-block; background-color: #FFCC00; color: #000; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+              Pay Now
+            </a>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="margin: 5px 0; color: #856404;"><strong>⏰ This link expires in ${data.expiresIn}</strong></p>
+            <p style="margin: 5px 0; color: #856404;">
+              Please complete your payment before the link expires. If you have any questions, contact ${data.shopName}.
+            </p>
+          </div>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for booking with RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(customerEmail, subject, html);
+  }
+
+  /**
    * Send appointment reschedule notification to customer
    */
   async sendAppointmentRescheduledByShop(data: {

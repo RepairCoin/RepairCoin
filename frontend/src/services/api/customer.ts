@@ -457,6 +457,82 @@ export const updateAppointmentNotificationPreferences = async (
   }
 };
 
+// ==================== ACCOUNT CLAIM API ====================
+
+export interface ClaimableAccount {
+  placeholderAddress: string;
+  email: string | null;
+  phone: string | null;
+  name: string | null;
+  bookingCount: number;
+  totalSpent: number;
+  createdAt: string;
+}
+
+export interface CheckClaimableResponse {
+  success: boolean;
+  claimable: boolean;
+  accounts?: ClaimableAccount[];
+  message?: string;
+}
+
+export interface ClaimAccountResponse {
+  success: boolean;
+  message: string;
+  transferredOrders: number;
+  claimedFrom: string;
+  claimedTo: string;
+}
+
+export interface CheckClaimableByContactResponse {
+  success: boolean;
+  hasClaimable: boolean;
+  accountCount?: number;
+  totalBookings?: number;
+}
+
+/**
+ * Check for claimable placeholder accounts (after login)
+ */
+export const checkClaimableAccounts = async (): Promise<CheckClaimableResponse> => {
+  try {
+    const response = await apiClient.get('/customers/claim/check');
+    return response as unknown as CheckClaimableResponse;
+  } catch (error) {
+    console.error('Error checking claimable accounts:', error);
+    return { success: false, claimable: false, message: 'Failed to check' };
+  }
+};
+
+/**
+ * Check for claimable accounts by email/phone (during signup)
+ */
+export const checkClaimableByContact = async (
+  email?: string,
+  phone?: string
+): Promise<CheckClaimableByContactResponse> => {
+  try {
+    const response = await apiClient.post('/customers/claim/check-by-contact', { email, phone });
+    return response as unknown as CheckClaimableByContactResponse;
+  } catch (error) {
+    console.error('Error checking claimable by contact:', error);
+    return { success: false, hasClaimable: false };
+  }
+};
+
+/**
+ * Claim a placeholder account (transfer bookings to real account)
+ */
+export const claimAccount = async (placeholderAddress: string): Promise<ClaimAccountResponse | null> => {
+  try {
+    const response = await apiClient.post('/customers/claim', { placeholderAddress });
+    return response as unknown as ClaimAccountResponse;
+  } catch (error) {
+    console.error('Error claiming account:', error);
+    return null;
+  }
+};
+
 // Named exports grouped as namespace for convenience
 export const customerApi = {
   // Profile
@@ -502,4 +578,9 @@ export const customerApi = {
   getAll: getAllCustomers,
   getByTier: getCustomersByTier,
   mintTokens: mintTokensToCustomer,
+
+  // Account Claim (for placeholder accounts from manual bookings)
+  checkClaimableAccounts,
+  checkClaimableByContact,
+  claimAccount,
 } as const;

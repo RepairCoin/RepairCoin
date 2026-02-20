@@ -2,11 +2,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig } from '@/services/api/appointments';
+import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle, Smartphone } from 'lucide-react';
+import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig, ManualBookingResponse } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
 import { DateAvailabilityPicker } from '@/components/customer/DateAvailabilityPicker';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface ManualBookingModalProps {
   shopId: string;
@@ -44,13 +45,26 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(null);
   const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
 
-  // New customer state
+  // New customer state (no address - will be auto-generated as placeholder)
   const [newCustomer, setNewCustomer] = useState({
     name: '',
     email: '',
-    phone: '',
-    address: ''
+    phone: ''
   });
+
+  // Generate placeholder wallet address for manual booking customers
+  // Format: 0xMANUAL + 34 random hex chars = 42 chars total (valid address format)
+  const generatePlaceholderWallet = (): string => {
+    const randomHex = Array.from({ length: 34 }, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    ).join('');
+    return `0xMANUAL${randomHex}`;
+  };
+
+  // Check if an address is a placeholder (for display purposes)
+  const isPlaceholderWallet = (address: string): boolean => {
+    return address?.toLowerCase().startsWith('0xmanual');
+  };
 
   // Booking state
   const [services, setServices] = useState<Service[]>([]);
@@ -58,7 +72,12 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const [bookingDate, setBookingDate] = useState(preSelectedDate || '');
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(preSelectedTime || '');
-  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending' | 'unpaid'>('paid');
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code'>('paid');
+
+  // QR Code modal state
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrPaymentLink, setQrPaymentLink] = useState<string | null>(null);
+  const [qrBookingDetails, setQrBookingDetails] = useState<ManualBookingResponse | null>(null);
   const [notes, setNotes] = useState('');
 
   // Loading states
@@ -189,6 +208,24 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     setSelectedCustomer(null);
   };
 
+  // Validation helpers
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const isValidWalletAddress = (address: string): boolean => {
+    // Ethereum wallet address: 0x followed by 40 hex characters
+    const walletRegex = /^0x[a-fA-F0-9]{40}$/;
+    return walletRegex.test(address);
+  };
+
+  const isValidPhone = (phone: string): boolean => {
+    // Basic phone validation: at least 10 digits, allows +, -, (), spaces
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length >= 10;
+  };
+
   const handleSubmit = async () => {
     // Validation
     if (!selectedCustomer && !showNewCustomerForm) {
@@ -201,12 +238,30 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
         toast.error('Customer name is required');
         return;
       }
-      if (!newCustomer.address.trim()) {
-        toast.error('Customer wallet address is required');
-        return;
-      }
+      // Wallet address is no longer required - will be auto-generated as placeholder
       if (!newCustomer.email.trim() && !newCustomer.phone.trim()) {
         toast.error('Email or phone is required for new customers');
+        return;
+      }
+      if (newCustomer.email.trim() && !isValidEmail(newCustomer.email.trim())) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+      if (newCustomer.phone.trim() && !isValidPhone(newCustomer.phone.trim())) {
+        toast.error('Please enter a valid phone number (at least 10 digits)');
+        return;
+      }
+    }
+
+    // Validate email for send_link payment status
+    if (paymentStatus === 'send_link') {
+      const customerEmail = showNewCustomerForm ? newCustomer.email : selectedCustomer?.email;
+      if (!customerEmail?.trim()) {
+        toast.error('Customer email is required to send a payment link');
+        return;
+      }
+      if (!isValidEmail(customerEmail.trim())) {
+        toast.error('Please enter a valid email address to send payment link');
         return;
       }
     }
@@ -241,9 +296,12 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       const endTime = new Date(startTime.getTime() + selectedService.durationMinutes * 60000);
       const bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}:00`;
 
+      // Generate placeholder wallet for new customers (prevents collision with real wallets)
+      const placeholderWallet = generatePlaceholderWallet();
+
       const bookingData = showNewCustomerForm
         ? {
-            customerAddress: newCustomer.address,
+            customerAddress: placeholderWallet, // Auto-generated placeholder
             customerEmail: newCustomer.email || undefined,
             customerName: newCustomer.name,
             customerPhone: newCustomer.phone || undefined,
@@ -269,11 +327,20 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             createNewCustomer: false
           };
 
-      await appointmentsApi.createManualBooking(shopId, bookingData);
+      const response = await appointmentsApi.createManualBooking(shopId, bookingData);
 
-      toast.success('Appointment booked successfully!');
-      onSuccess();
-      handleClose();
+      // If QR code payment, show QR modal instead of closing
+      if (paymentStatus === 'qr_code' && response.paymentLink) {
+        setQrPaymentLink(response.paymentLink);
+        setQrBookingDetails(response);
+        setShowQRModal(true);
+        toast.success('Appointment created! Show QR code to customer.');
+        onSuccess();
+      } else {
+        toast.success('Appointment booked successfully!');
+        onSuccess();
+        handleClose();
+      }
     } catch (error: any) {
       console.error('Error creating booking:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to create booking';
@@ -283,18 +350,28 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     }
   };
 
+  const handleCloseQRModal = () => {
+    setShowQRModal(false);
+    setQrPaymentLink(null);
+    setQrBookingDetails(null);
+    handleClose();
+  };
+
   const handleClose = () => {
     // Reset all state
     setSearchQuery('');
     setSearchResults([]);
     setSelectedCustomer(null);
     setShowNewCustomerForm(false);
-    setNewCustomer({ name: '', email: '', phone: '', address: '' });
+    setNewCustomer({ name: '', email: '', phone: '' });
     setSelectedServiceId(preSelectedService?.serviceId || '');
     setBookingDate(preSelectedDate || '');
     setSelectedTimeSlot(preSelectedTime || '');
     setPaymentStatus('paid');
     setNotes('');
+    setShowQRModal(false);
+    setQrPaymentLink(null);
+    setQrBookingDetails(null);
     onClose();
   };
 
@@ -443,15 +520,14 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
                   className="w-full px-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00]"
                 />
 
-                <input
-                  type="text"
-                  value={newCustomer.address}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
-                  placeholder="Wallet Address (0x...) *"
-                  className="w-full px-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] font-mono text-sm"
-                />
+                <p className="text-xs text-gray-500">* Name required. Email or phone must be provided.</p>
 
-                <p className="text-xs text-gray-500">* Required fields. Email or phone must be provided.</p>
+                {/* Info about placeholder wallet */}
+                <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-xs text-blue-400">
+                    💡 A temporary account will be created for this customer. When they sign up with their real wallet, they can claim their booking history using their email or phone.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -568,21 +644,78 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               Payment Status
             </h3>
 
-            <div className="grid grid-cols-3 gap-2">
-              {(['paid', 'pending', 'unpaid'] as const).map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setPaymentStatus(status)}
-                  className={`px-4 py-3 rounded-lg font-medium capitalize transition-colors ${
-                    paymentStatus === status
-                      ? 'bg-[#FFCC00] text-black'
-                      : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
+            {/* First row: 3 buttons */}
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <button
+                onClick={() => setPaymentStatus('paid')}
+                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                  paymentStatus === 'paid'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
+                }`}
+              >
+                <div className="text-sm font-semibold">Paid</div>
+                <div className="text-xs opacity-70">Already collected</div>
+              </button>
+              <button
+                onClick={() => setPaymentStatus('pending')}
+                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                  paymentStatus === 'pending'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
+                }`}
+              >
+                <div className="text-sm font-semibold">Pending</div>
+                <div className="text-xs opacity-70">Pay at arrival</div>
+              </button>
+              <button
+                onClick={() => setPaymentStatus('unpaid')}
+                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                  paymentStatus === 'unpaid'
+                    ? 'bg-gray-500 text-white'
+                    : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
+                }`}
+              >
+                <div className="text-sm font-semibold">Unpaid</div>
+                <div className="text-xs opacity-70">No payment</div>
+              </button>
             </div>
+
+            {/* Second row: 2 buttons for digital payment */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setPaymentStatus('qr_code')}
+                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                  paymentStatus === 'qr_code'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
+                }`}
+              >
+                <div className="text-sm font-semibold flex items-center justify-center gap-1">
+                  <Smartphone className="w-4 h-4" />
+                  QR Code
+                </div>
+                <div className="text-xs opacity-70">Walk-in scan & pay</div>
+              </button>
+              <button
+                onClick={() => setPaymentStatus('send_link')}
+                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                  paymentStatus === 'send_link'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
+                }`}
+              >
+                <div className="text-sm font-semibold">Send Link</div>
+                <div className="text-xs opacity-70">Email payment link</div>
+              </button>
+            </div>
+
+            {/* Warning for send_link if no email */}
+            {paymentStatus === 'send_link' && !selectedCustomer?.email && !newCustomer.email && (
+              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm text-red-400">Customer email is required to send a payment link</p>
+              </div>
+            )}
 
             {selectedService && (
               <div className="mt-3 p-3 bg-[#0D0D0D] border border-gray-800 rounded-lg">
@@ -637,6 +770,82 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* QR Code Payment Modal */}
+      {showQRModal && qrPaymentLink && qrBookingDetails && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={handleCloseQRModal}>
+          <div
+            className="bg-[#1A1A1A] border border-gray-800 rounded-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* QR Modal Header */}
+            <div className="border-b border-gray-800 p-6 text-center">
+              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Smartphone className="w-6 h-6 text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-1">Scan to Pay</h3>
+              <p className="text-sm text-gray-400">Customer scans QR code with their phone</p>
+            </div>
+
+            {/* QR Code */}
+            <div className="p-6 flex flex-col items-center">
+              <div className="bg-white p-4 rounded-xl mb-4">
+                <QRCodeSVG
+                  value={qrPaymentLink}
+                  size={200}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+
+              {/* Booking Details */}
+              <div className="w-full bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
+                <div className="text-center mb-3">
+                  <div className="text-3xl font-bold text-[#FFCC00]">
+                    ${qrBookingDetails.totalAmount.toFixed(2)}
+                  </div>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Service:</span>
+                    <span className="text-white">{qrBookingDetails.serviceName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Date:</span>
+                    <span className="text-white">{qrBookingDetails.bookingDate}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Time:</span>
+                    <span className="text-white">{formatTime12Hour(qrBookingDetails.bookingTimeSlot.substring(0, 5))}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Expiry Warning */}
+              <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
+                <p className="text-xs text-amber-400 text-center">
+                  ⏰ This QR code expires in 24 hours
+                </p>
+              </div>
+
+              {/* Status Info */}
+              <div className="text-center text-sm text-gray-400 mb-4">
+                <p>Appointment will auto-confirm when payment is complete</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-gray-800 p-4">
+              <button
+                onClick={handleCloseQRModal}
+                className="w-full px-6 py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -38,6 +38,7 @@ import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionSer
 import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
+import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
 
 // WebSocket imports
 import { Server as WebSocketServer } from 'ws';
@@ -476,6 +477,7 @@ class RepairCoinApp {
       getAutoNoShowDetectionService().stop();
       rescheduleExpirationService.stop();
       stopSubscriptionEnforcement();
+      stopUnpaidBookingCleanup();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -637,6 +639,11 @@ class RepairCoinApp {
         // Start reschedule expiration service - runs every hour
         rescheduleExpirationService.start();
         logger.info('⏰ Reschedule expiration service started (every hour)');
+
+        // Start unpaid booking cleanup service - runs every hour
+        // Auto-cancels unpaid manual bookings (pending status, pending payment) after 24 hours
+        startUnpaidBookingCleanup();
+        logger.info('🧹 Unpaid booking cleanup service started (every hour, 24h expiry)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {
