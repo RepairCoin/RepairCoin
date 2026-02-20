@@ -22,17 +22,18 @@ export default function AboutCTA() {
               early partner
               {/* Yellow underline curve */}
               <svg
-                className="absolute -bottom-2 left-0 w-full"
-                viewBox="0 0 300 12"
+                className="absolute -bottom-4 -left-[3%] w-[106%] h-[18px]"
+                viewBox="0 0 311 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 preserveAspectRatio="none"
               >
                 <path
-                  d="M2 8C50 2 100 2 150 5C200 8 250 4 298 2"
+                  d="M2 5.5C80 1.5 230 1.5 309 5.5"
                   stroke="#ffcc00"
-                  strokeWidth="3"
+                  strokeWidth="4"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               </svg>
             </span>
@@ -43,7 +44,7 @@ export default function AboutCTA() {
           </p>
 
           <Link
-            href="/"
+            href="/waitlist"
             className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
           >
             Join Waitlist &rarr;
