@@ -200,7 +200,7 @@ export function useServiceFormUI(
         return;
       }
 
-      const { availability, timeSlotConfig } = pendingChanges;
+      const { availability, timeSlotConfig, dateOverrides } = pendingChanges;
 
       // Save availability for each day
       for (const day of availability) {
@@ -210,6 +210,8 @@ export function useServiceFormUI(
             isOpen: day.isOpen,
             openTime: day.openTime || "09:00",
             closeTime: day.closeTime || "17:00",
+            breakStartTime: day.breakStartTime || undefined,
+            breakEndTime: day.breakEndTime || undefined,
           });
         } catch (error) {
           console.error(
@@ -227,9 +229,31 @@ export function useServiceFormUI(
             bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
             maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
             bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
+            minBookingHours: timeSlotConfig.minBookingHours,
+            allowWeekendBooking: timeSlotConfig.allowWeekendBooking,
           });
         } catch (error) {
           console.error("Failed to update time slot config:", error);
+        }
+      }
+
+      // Save date overrides if provided
+      if (dateOverrides && dateOverrides.length > 0) {
+        for (const override of dateOverrides) {
+          try {
+            await appointmentApi.createDateOverride({
+              overrideDate: override.overrideDate,
+              isClosed: override.isClosed,
+              customOpenTime: override.customOpenTime || undefined,
+              customCloseTime: override.customCloseTime || undefined,
+              reason: override.reason || undefined,
+            });
+          } catch (error) {
+            console.error(
+              `Failed to create date override for ${override.overrideDate}:`,
+              error
+            );
+          }
         }
       }
     },
