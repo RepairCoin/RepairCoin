@@ -1,18 +1,21 @@
-import Hero from "@/components/about/Hero";
-import SecondSection from "@/components/about/SecondSection";
-import ThirdSection from "@/components/about/ThirdSection";
-import CommunityBanner from "@/components/CommunityBanner";
+import AboutHero from "@/components/about/AboutHero";
+import TheOrigin from "@/components/about/TheOrigin";
+import OurApproach from "@/components/about/OurApproach";
+import AboutHowItWorks from "@/components/about/AboutHowItWorks";
+import Trust from "@/components/about/Trust";
+import WhereWeAreGoing from "@/components/about/WhereWeAreGoing";
+import AboutCTA from "@/components/about/AboutCTA";
 
 export default function About() {
   return (
     <main>
-      <Hero />
-      <SecondSection />
-      <ThirdSection />
-      <CommunityBanner 
-        communityBannerBgImage="/img/community-chain.png"
-        bannerChainImage="/img/banner-chain.png"
-      />
+      <AboutHero />
+      <TheOrigin />
+      <OurApproach />
+      <AboutHowItWorks />
+      <Trust />
+      <WhereWeAreGoing />
+      <AboutCTA />
     </main>
   );
 }
