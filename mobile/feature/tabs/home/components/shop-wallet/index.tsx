@@ -93,7 +93,8 @@ export default function ShopWalletTab({
         />
 
         {/* Subscription Card */}
-        {shopData?.operational_status !== "subscription_qualified" && (
+        {shopData?.operational_status !== "subscription_qualified" &&
+          shopData?.operational_status !== "rcg_qualified" && (
           <View className="rounded-3xl overflow-hidden">
             <ImageBackground
               source={subscriptionHomeImage}
