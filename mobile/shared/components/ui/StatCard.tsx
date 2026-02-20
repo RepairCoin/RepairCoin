@@ -1,56 +1,49 @@
 import React from "react";
 import { Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 
 interface StatCardProps {
   value: string | number;
   label: string;
   icon?: React.ReactNode;
-  labelColor?: string;
-  valueColor?: string;
+  suffix?: string;
 }
 
 function StatCard({
   value,
   label,
   icon,
-  labelColor = "#FFCC00",
-  valueColor = "#FFFFFF",
+  suffix,
 }: StatCardProps) {
   return (
     <View className="flex-1 mx-1">
-      <LinearGradient
-        colors={["#373737", "#121212"]}
-        start={{ x: 1, y: 1 }}
-        end={{ x: 0, y: 0 }}
-        style={{
-          flex: 1,
-          borderRadius: 16,
-          padding: 16,
-          gap: 8,
-        }}
+      <View
+        className="rounded-2xl p-4 h-[80px] flex-row items-center"
+        style={{ backgroundColor: "#101010" }}
       >
-        <View className="flex-row items-center justify-between">
+        {/* Icon Circle */}
+        {icon && (
+          <View
+            className="w-9 h-9 rounded-full items-center justify-center mr-3"
+            style={{ backgroundColor: "#FFCC00" }}
+          >
+            {icon}
+          </View>
+        )}
+
+        {/* Text Content */}
+        <View className="flex-1">
           <Text
-            className="text-base"
-            style={{ color: labelColor }}
-            numberOfLines={2}
+            className="text-sm font-medium text-white mb-1"
+            numberOfLines={1}
           >
             {label}
           </Text>
-          {icon && (
-            <View className="w-8 h-8 rounded-full items-center justify-center">
-              {icon}
-            </View>
-          )}
+          <Text className="text-xl font-bold text-white">
+            {typeof value === "number" ? value.toLocaleString() : value}
+            {suffix && <Text className="text-xl font-bold text-white"> {suffix}</Text>}
+          </Text>
         </View>
-        <Text
-          className="text-2xl font-bold"
-          style={{ color: valueColor }}
-        >
-          {value}
-        </Text>
-      </LinearGradient>
+      </View>
     </View>
   );
 }
