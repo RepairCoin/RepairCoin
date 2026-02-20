@@ -49,7 +49,7 @@ export interface SubmitFormParams {
 }
 
 // Availability types
-export type AvailabilityTab = "hours" | "settings";
+export type AvailabilityTab = "hours" | "settings" | "overrides";
 
 export interface PendingAvailabilityChanges {
   availability: Array<{
@@ -57,13 +57,24 @@ export interface PendingAvailabilityChanges {
     isOpen: boolean;
     openTime: string | null;
     closeTime: string | null;
+    breakStartTime?: string | null;
+    breakEndTime?: string | null;
   }>;
   timeSlotConfig: {
     slotDurationMinutes: number;
     bufferTimeMinutes: number;
     maxConcurrentBookings: number;
     bookingAdvanceDays: number;
+    minBookingHours: number;
+    allowWeekendBooking: boolean;
   } | null;
+  dateOverrides?: Array<{
+    overrideDate: string;
+    isClosed: boolean;
+    customOpenTime?: string | null;
+    customCloseTime?: string | null;
+    reason?: string | null;
+  }>;
   hasChanges: boolean;
 }
 

@@ -3,10 +3,13 @@ import { Alert } from "react-native";
 import {
   ShopAvailability,
   TimeSlotConfig,
+  DateOverride,
 } from "@/shared/interfaces/appointment.interface";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../types";
 import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";
+
+type TimeField = "openTime" | "closeTime" | "breakStartTime" | "breakEndTime";
 
 interface UseAvailabilityModalProps {
   visible: boolean;
@@ -31,10 +34,14 @@ export function useAvailabilityModal({
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
   const [originalTimeSlotConfig, setOriginalTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
 
+  // Date overrides state
+  const [dateOverrides, setDateOverrides] = useState<DateOverride[]>([]);
+  const [originalDateOverrides, setOriginalDateOverrides] = useState<DateOverride[]>([]);
+
   // Time picker state
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [editingDay, setEditingDay] = useState<number | null>(null);
-  const [editingField, setEditingField] = useState<"openTime" | "closeTime" | null>(null);
+  const [editingField, setEditingField] = useState<TimeField | null>(null);
 
   // Load data when modal becomes visible
   useEffect(() => {
@@ -46,9 +53,10 @@ export function useAvailabilityModal({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [availRes, configRes] = await Promise.all([
+      const [availRes, configRes, overridesRes] = await Promise.all([
         appointmentApi.getShopAvailability(shopId),
         appointmentApi.getTimeSlotConfig(),
+        appointmentApi.getDateOverrides(),
       ]);
 
       if (availRes.data) {
@@ -62,6 +70,10 @@ export function useAvailabilityModal({
         setTimeSlotConfig(configRes.data);
         setOriginalTimeSlotConfig(configRes.data);
       }
+      if (overridesRes.data) {
+        setDateOverrides(overridesRes.data);
+        setOriginalDateOverrides(overridesRes.data);
+      }
     } catch (error) {
       console.error("Failed to load availability data:", error);
       Alert.alert("Error", "Failed to load availability settings");
@@ -72,7 +84,7 @@ export function useAvailabilityModal({
 
   // Time picker handlers
   const openTimePicker = useCallback(
-    (dayOfWeek: number, field: "openTime" | "closeTime") => {
+    (dayOfWeek: number, field: TimeField) => {
       setEditingDay(dayOfWeek);
       setEditingField(field);
       setShowTimePicker(true);
@@ -115,24 +127,66 @@ export function useAvailabilityModal({
     [timeSlotConfig]
   );
 
+  // Date override handlers
+  const handleAddOverride = useCallback((override: Omit<DateOverride, 'overrideId' | 'shopId' | 'createdAt'>) => {
+    const newOverride: DateOverride = {
+      overrideId: `temp-${Date.now()}`,
+      shopId: shopId,
+      overrideDate: override.overrideDate,
+      isClosed: override.isClosed,
+      customOpenTime: override.customOpenTime || null,
+      customCloseTime: override.customCloseTime || null,
+      reason: override.reason || null,
+      createdAt: new Date().toISOString(),
+    };
+    setDateOverrides((prev) => [...prev, newOverride]);
+  }, [shopId]);
+
+  const handleDeleteOverride = useCallback((overrideDate: string) => {
+    setDateOverrides((prev) => prev.filter((o) => o.overrideDate !== overrideDate));
+  }, []);
+
   // Check if there are changes
   const hasChanges = useCallback(() => {
     const availChanged =
       JSON.stringify(availability) !== JSON.stringify(originalAvailability);
     const configChanged =
       JSON.stringify(timeSlotConfig) !== JSON.stringify(originalTimeSlotConfig);
-    return availChanged || configChanged;
-  }, [availability, originalAvailability, timeSlotConfig, originalTimeSlotConfig]);
+    const overridesChanged =
+      JSON.stringify(dateOverrides) !== JSON.stringify(originalDateOverrides);
+    return availChanged || configChanged || overridesChanged;
+  }, [availability, originalAvailability, timeSlotConfig, originalTimeSlotConfig, dateOverrides, originalDateOverrides]);
 
   // Handle done button
   const handleDone = useCallback(() => {
     onSave({
-      availability,
-      timeSlotConfig,
+      availability: availability.map((a) => ({
+        dayOfWeek: a.dayOfWeek,
+        isOpen: a.isOpen,
+        openTime: a.openTime,
+        closeTime: a.closeTime,
+        breakStartTime: a.breakStartTime,
+        breakEndTime: a.breakEndTime,
+      })),
+      timeSlotConfig: timeSlotConfig ? {
+        slotDurationMinutes: timeSlotConfig.slotDurationMinutes,
+        bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
+        maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
+        bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
+        minBookingHours: timeSlotConfig.minBookingHours,
+        allowWeekendBooking: timeSlotConfig.allowWeekendBooking,
+      } : null,
+      dateOverrides: dateOverrides.map((o) => ({
+        overrideDate: o.overrideDate,
+        isClosed: o.isClosed,
+        customOpenTime: o.customOpenTime,
+        customCloseTime: o.customCloseTime,
+        reason: o.reason,
+      })),
       hasChanges: hasChanges(),
     });
     onClose();
-  }, [availability, timeSlotConfig, hasChanges, onSave, onClose]);
+  }, [availability, timeSlotConfig, dateOverrides, hasChanges, onSave, onClose]);
 
   // Format time for display
   const formatTime = useCallback((time: string | null) => {
@@ -149,9 +203,9 @@ export function useAvailabilityModal({
     if (editingDay === null || !editingField) return 0;
 
     const currentDay = availability.find((d) => d.dayOfWeek === editingDay);
-    const currentTime =
-      editingField === "openTime" ? currentDay?.openTime : currentDay?.closeTime;
+    if (!currentDay) return 0;
 
+    const currentTime = currentDay[editingField as keyof ShopAvailability] as string | null;
     const index = TIME_OPTIONS.findIndex((t) => t.value === currentTime);
     return Math.max(0, index - 3);
   }, [editingDay, editingField, availability]);
@@ -160,9 +214,8 @@ export function useAvailabilityModal({
   const isTimeSelected = useCallback(
     (timeValue: string) => {
       const currentDay = availability.find((d) => d.dayOfWeek === editingDay);
-      return editingField === "openTime"
-        ? currentDay?.openTime === timeValue
-        : currentDay?.closeTime === timeValue;
+      if (!currentDay || !editingField) return false;
+      return currentDay[editingField as keyof ShopAvailability] === timeValue;
     },
     [availability, editingDay, editingField]
   );
@@ -175,6 +228,7 @@ export function useAvailabilityModal({
     // Availability data
     availability,
     timeSlotConfig,
+    dateOverrides,
     // Time picker state
     showTimePicker,
     editingField,
@@ -184,6 +238,8 @@ export function useAvailabilityModal({
     handleTimeSelect,
     handleToggleDay,
     handleUpdateConfig,
+    handleAddOverride,
+    handleDeleteOverride,
     handleDone,
     // Utils
     formatTime,
