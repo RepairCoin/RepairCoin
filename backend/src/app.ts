@@ -28,14 +28,17 @@ import { AffiliateShopGroupDomain } from './domains/AffiliateShopGroupDomain';
 import { ServiceDomain } from './domains/ServiceDomain';
 import { MarketingDomain } from './domains/MarketingDomain';
 import { MessagingDomain } from './domains/messaging';
-// import { SupportDomain } from './domains/support'; // TODO: domain not yet created
+import { SupportDomain } from './domains/support';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
 import { appointmentReminderService } from './services/AppointmentReminderService';
 import { subscriptionReminderService } from './services/SubscriptionReminderService';
+import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionService';
+import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
+import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
 
 // WebSocket imports
 import { Server as WebSocketServer } from 'ws';
@@ -248,7 +251,7 @@ class RepairCoinApp {
     domainRegistry.register(new ServiceDomain());
     domainRegistry.register(new MarketingDomain());
     domainRegistry.register(new MessagingDomain());
-    // domainRegistry.register(new SupportDomain()); // TODO: domain not yet created
+    domainRegistry.register(new SupportDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();
@@ -471,7 +474,10 @@ class RepairCoinApp {
       cleanupService.stopScheduledCleanup();
       appointmentReminderService.stopScheduledReminders();
       subscriptionReminderService.stopScheduler();
+      getAutoNoShowDetectionService().stop();
+      rescheduleExpirationService.stop();
       stopSubscriptionEnforcement();
+      stopUnpaidBookingCleanup();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -619,6 +625,25 @@ class RepairCoinApp {
         // Start subscription reminder service - runs every 6 hours
         subscriptionReminderService.startScheduler(6);
         logger.info('💳 Subscription reminder service scheduled (every 6 hours for 7d, 3d, 1d reminders)');
+
+        // Start auto no-show detection service - runs every 30 minutes
+        // Feature flag: set AUTO_DETECTION_ENABLED=false to disable (includes no-show, expiry, pending cleanup)
+        const autoDetectionEnabled = process.env.AUTO_DETECTION_ENABLED !== 'false';
+        if (autoDetectionEnabled) {
+          getAutoNoShowDetectionService().start();
+          logger.info('🚫 Auto detection service started (no-show, expiry, pending cleanup - every 30 minutes)');
+        } else {
+          logger.info('⏸️ Auto detection service DISABLED via AUTO_DETECTION_ENABLED=false');
+        }
+
+        // Start reschedule expiration service - runs every hour
+        rescheduleExpirationService.start();
+        logger.info('⏰ Reschedule expiration service started (every hour)');
+
+        // Start unpaid booking cleanup service - runs every hour
+        // Auto-cancels unpaid manual bookings (pending status, pending payment) after 24 hours
+        startUnpaidBookingCleanup();
+        logger.info('🧹 Unpaid booking cleanup service started (every hour, 24h expiry)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

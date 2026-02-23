@@ -369,6 +369,97 @@ export class ShopSubscriptionRepository extends BaseRepository {
   }
 
   /**
+   * Sync shop_subscriptions when a new Stripe subscription is created
+   * This ensures shop_subscriptions stays in sync with stripe_subscriptions
+   */
+  async syncFromStripeSubscription(
+    shopId: string,
+    stripeSubscriptionId: string,
+    status: 'active' | 'past_due' | 'unpaid' | 'canceled',
+    currentPeriodEnd: Date
+  ): Promise<void> {
+    try {
+      // Map Stripe status to shop_subscriptions status
+      const shopSubStatus = status === 'canceled' ? 'cancelled' : 'active';
+      const isActive = status !== 'canceled';
+
+      // Check if a record exists for this shop
+      const existingQuery = `
+        SELECT id FROM shop_subscriptions WHERE shop_id = $1 LIMIT 1
+      `;
+      const existingResult = await this.pool.query(existingQuery, [shopId]);
+
+      if (existingResult.rows.length > 0) {
+        // Update existing record
+        const updateQuery = `
+          UPDATE shop_subscriptions
+          SET status = $1,
+              billing_reference = $2,
+              next_payment_date = $3,
+              is_active = $4,
+              activated_at = CASE WHEN $4 = true AND activated_at IS NULL THEN NOW() ELSE activated_at END,
+              cancelled_at = CASE WHEN $4 = false THEN NOW() ELSE NULL END,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE shop_id = $5
+        `;
+        await this.pool.query(updateQuery, [
+          shopSubStatus,
+          stripeSubscriptionId,
+          currentPeriodEnd,
+          isActive,
+          shopId
+        ]);
+      } else {
+        // Create new record
+        const insertQuery = `
+          INSERT INTO shop_subscriptions (
+            shop_id, status, monthly_amount, subscription_type,
+            billing_method, billing_reference, payments_made, total_paid,
+            next_payment_date, is_active, enrolled_at, activated_at
+          ) VALUES ($1, $2, 500, 'standard', 'credit_card', $3, 0, 0, $4, $5, NOW(), NOW())
+        `;
+        await this.pool.query(insertQuery, [
+          shopId,
+          shopSubStatus,
+          stripeSubscriptionId,
+          currentPeriodEnd,
+          isActive
+        ]);
+      }
+
+      // Update shop operational_status based on subscription status
+      const shopStatusQuery = `
+        UPDATE shops
+        SET operational_status = CASE
+          WHEN $2 = true THEN 'subscription_qualified'
+          WHEN (SELECT rcg_balance FROM shops WHERE shop_id = $1) >= 10000 THEN 'rcg_qualified'
+          ELSE 'not_qualified'
+        END,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $1
+        AND operational_status != 'paused'
+      `;
+
+      await this.pool.query(shopStatusQuery, [shopId, isActive]);
+
+      logger.info('Synced shop_subscriptions from Stripe subscription', {
+        shopId,
+        stripeSubscriptionId,
+        status: shopSubStatus,
+        isActive,
+        nextPaymentDate: currentPeriodEnd.toISOString()
+      });
+    } catch (error) {
+      logger.error('Error syncing from Stripe subscription:', {
+        shopId,
+        stripeSubscriptionId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      // Don't throw - this is a sync operation, shouldn't block main flow
+    }
+  }
+
+  /**
    * Sync next_payment_date from stripe_subscriptions.current_period_end
    * This ensures shop_subscriptions stays in sync with Stripe data
    */

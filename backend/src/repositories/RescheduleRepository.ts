@@ -54,6 +54,16 @@ export interface CreateRescheduleRequestInput {
   expirationHours?: number;
 }
 
+export interface ExpiredRequestInfo {
+  requestId: string;
+  orderId: string;
+  customerAddress: string;
+  shopId: string;
+  customerName: string;
+  shopName: string;
+  serviceName: string;
+}
+
 export class RescheduleRepository extends BaseRepository {
   // ==================== CREATE ====================
 
@@ -475,9 +485,45 @@ export class RescheduleRepository extends BaseRepository {
     }
   }
 
-  async expireOldRequests(): Promise<number> {
+  async expireOldRequests(): Promise<ExpiredRequestInfo[]> {
     try {
-      const query = `
+      // First, get the details of requests that will be expired (for notifications)
+      const selectQuery = `
+        SELECT
+          arr.request_id,
+          arr.order_id,
+          arr.customer_address,
+          arr.shop_id,
+          c.name as customer_name,
+          s.name as shop_name,
+          ss.service_name
+        FROM appointment_reschedule_requests arr
+        LEFT JOIN customers c ON arr.customer_address = c.wallet_address
+        LEFT JOIN shops s ON arr.shop_id = s.shop_id
+        LEFT JOIN service_orders so ON arr.order_id = so.order_id
+        LEFT JOIN shop_services ss ON so.service_id = ss.service_id
+        WHERE arr.status = 'pending'
+          AND arr.expires_at IS NOT NULL
+          AND arr.expires_at < NOW()
+      `;
+
+      const selectResult = await this.pool.query(selectQuery);
+      const expiredRequests: ExpiredRequestInfo[] = selectResult.rows.map(row => ({
+        requestId: row.request_id,
+        orderId: row.order_id,
+        customerAddress: row.customer_address,
+        shopId: row.shop_id,
+        customerName: row.customer_name || 'Customer',
+        shopName: row.shop_name || 'Shop',
+        serviceName: row.service_name || 'Service',
+      }));
+
+      if (expiredRequests.length === 0) {
+        return [];
+      }
+
+      // Now update the status to expired
+      const updateQuery = `
         UPDATE appointment_reschedule_requests
         SET
           status = 'expired',
@@ -487,14 +533,10 @@ export class RescheduleRepository extends BaseRepository {
           AND expires_at < NOW()
       `;
 
-      const result = await this.pool.query(query);
-      const expiredCount = result.rowCount || 0;
+      await this.pool.query(updateQuery);
+      logger.info('Expired old reschedule requests', { count: expiredRequests.length });
 
-      if (expiredCount > 0) {
-        logger.info('Expired old reschedule requests', { count: expiredCount });
-      }
-
-      return expiredCount;
+      return expiredRequests;
     } catch (error) {
       logger.error('Error expiring old requests:', error);
       throw new Error('Failed to expire old requests');

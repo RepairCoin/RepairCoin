@@ -174,6 +174,102 @@ export const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
+  // Render footer action buttons based on booking status
+  const renderFooterActions = () => {
+    const disabledClass = isBlocked ? "opacity-50 cursor-not-allowed" : "";
+    const baseButtonClass = "w-full sm:w-auto px-3 py-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 min-w-0";
+
+    // Cancel button - always shown for actionable statuses
+    const cancelButton = (
+      <button
+        onClick={onCancel}
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Cancel booking"}
+        className={`${baseButtonClass} text-white bg-red-600 ${
+          isBlocked ? disabledClass : "hover:bg-red-700"
+        }`}
+      >
+        <XCircle className="w-4 h-4 flex-shrink-0" />
+        <span className="truncate">Cancel</span>
+      </button>
+    );
+
+    // Reschedule button
+    const rescheduleButton = (
+      <button
+        onClick={onReschedule}
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Reschedule booking"}
+        className={`${baseButtonClass} text-gray-300 bg-[#0D0D0D] border border-gray-700 ${
+          isBlocked ? disabledClass : "hover:border-gray-500 hover:bg-gray-800"
+        }`}
+      >
+        <RefreshCw className="w-4 h-4 flex-shrink-0" />
+        <span className="truncate">Reschedule</span>
+      </button>
+    );
+
+    switch (booking.status) {
+      case 'requested':
+        return cancelButton;
+      case 'paid':
+        return (
+          <>
+            {cancelButton}
+            <button
+              onClick={onApprove}
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Approve booking"}
+              className={`${baseButtonClass} text-white bg-green-600 ${
+                isBlocked ? disabledClass : "hover:bg-green-700"
+              }`}
+            >
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Approve</span>
+            </button>
+          </>
+        );
+      case 'approved':
+        return (
+          <>
+            {cancelButton}
+            {rescheduleButton}
+            <button
+              onClick={onSchedule}
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as scheduled"}
+              className={`${baseButtonClass} text-black bg-cyan-400 ${
+                isBlocked ? disabledClass : "hover:bg-cyan-500"
+              }`}
+            >
+              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Schedule</span>
+            </button>
+          </>
+        );
+      case 'scheduled':
+        return (
+          <>
+            {cancelButton}
+            {rescheduleButton}
+            <button
+              onClick={onComplete}
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as complete"}
+              className={`${baseButtonClass} text-white bg-green-600 ${
+                isBlocked ? disabledClass : "hover:bg-green-700"
+              }`}
+            >
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Complete</span>
+            </button>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Get action items for mobile dropdown
   const getDropdownActions = (): { label: string; icon: React.ReactNode; onClick: () => void; variant: 'primary' | 'secondary' | 'danger' }[] => {
     const actions: { label: string; icon: React.ReactNode; onClick: () => void; variant: 'primary' | 'secondary' | 'danger' }[] = [];
@@ -227,7 +323,8 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-white font-semibold truncate">{booking.serviceName}</h3>
-            {hasActions && (
+            {/* 3-dot menu - hidden for now, using footer action buttons instead */}
+            {/* {hasActions && (
               <div className="relative flex-shrink-0" ref={dropdownRef} onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -260,7 +357,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            )} */}
           </div>
           <p className="text-gray-400 text-sm truncate">
             {booking.customerName} • {truncateAddress(booking.customerAddress)}
@@ -372,6 +469,15 @@ export const BookingCard: React.FC<BookingCardProps> = ({
           Booking ID: <span className="text-white font-medium">{booking.bookingId}</span>
         </span>
       </div>
+
+      {/* Action Buttons */}
+      {hasActions && (
+        <div className="pt-3 mt-3 border-t border-gray-800" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2">
+            {renderFooterActions()}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

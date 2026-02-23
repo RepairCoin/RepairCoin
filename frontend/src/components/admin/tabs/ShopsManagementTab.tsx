@@ -24,6 +24,8 @@ import {
   Plus,
   Filter,
   ChevronDown,
+  Grid,
+  List,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -134,6 +136,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     type: "suspend" | "reconsider" | null;
     shop: Shop | null;
   }>({ isOpen: false, type: null, shop: null });
+  const [displayMode, setDisplayMode] = useState<"table" | "grid">("table");
 
   // Fetch unsuspend requests for shops
   const fetchShopUnsuspendRequests = async () => {
@@ -1102,6 +1105,38 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               </div>
             )}
           </div>
+
+          {/* View Mode Toggle - only for shop data views */}
+          {viewMode !== "unsuspend-requests" && (
+            <div className="flex justify-end mt-4">
+              <div className="inline-flex bg-gray-700/50 rounded-lg p-1 gap-1">
+                <button
+                  onClick={() => setDisplayMode("table")}
+                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                    displayMode === "table"
+                      ? "bg-[#FFCC00] text-black font-medium shadow-lg"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                  title="Table View"
+                >
+                  <List className="w-4 h-4" />
+                  <span className="hidden sm:inline">Table</span>
+                </button>
+                <button
+                  onClick={() => setDisplayMode("grid")}
+                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                    displayMode === "grid"
+                      ? "bg-[#FFCC00] text-black font-medium shadow-lg"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                  title="Grid View"
+                >
+                  <Grid className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cards</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Shop List - DataTable or Unsuspend Requests Table */}
@@ -1240,8 +1275,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 </div>
               )}
             </div>
-          ) : (
-            // Regular Shop List
+          ) : displayMode === "table" ? (
+            // Table View
             <DataTable
               data={filteredShops}
               columns={columns}
@@ -1255,6 +1290,19 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               }
               showPagination={true}
               itemsPerPage={10}
+            />
+          ) : (
+            // Grid View
+            <ShopGrid
+              shops={filteredShops}
+              getStatusBadge={getStatusBadge}
+              onEdit={(shop) => setEditModal({ isOpen: true, shop })}
+              onSuspend={(shop) =>
+                setConfirmationModal({ isOpen: true, type: "suspend", shop })
+              }
+              onUnsuspend={(shop) =>
+                setConfirmationModal({ isOpen: true, type: "reconsider", shop })
+              }
             />
           )}
         </div>
@@ -1547,6 +1595,126 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Shop Grid Component for Cards View
+const ShopGrid: React.FC<{
+  shops: (Shop & { status: string })[];
+  getStatusBadge: (shop: Shop & { status: string }) => React.ReactNode;
+  onEdit: (shop: Shop) => void;
+  onSuspend: (shop: Shop) => void;
+  onUnsuspend: (shop: Shop) => void;
+}> = ({ shops, getStatusBadge, onEdit, onSuspend, onUnsuspend }) => {
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  if (shops.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+        <p className="text-gray-400">No shops found matching your criteria</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {shops.map((shop) => {
+        const shopId = shop.shopId || shop.shop_id || "";
+        const walletAddr = shop.walletAddress || shop.wallet_address || "";
+        const isSuspended = shop.suspended_at || shop.suspendedAt;
+
+        return (
+          <div
+            key={shopId}
+            className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50 hover:border-yellow-400/50 transition-all"
+          >
+            {/* Shop Header */}
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                  <Store className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-medium text-white truncate">{shop.name}</h4>
+                  <p className="text-xs text-gray-400 font-mono truncate">{shopId}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Badges */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {getStatusBadge(shop)}
+            </div>
+
+            {/* Shop Info */}
+            <div className="space-y-2 mb-4">
+              {shop.email && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-300 truncate">{shop.email}</span>
+                </div>
+              )}
+              {walletAddr && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Wallet className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-300 font-mono">{formatAddress(walletAddr)}</span>
+                </div>
+              )}
+              {shop.purchasedRcnBalance !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">RCN Balance</span>
+                  <span className="text-yellow-400 font-medium">
+                    {shop.purchasedRcnBalance} RCN
+                  </span>
+                </div>
+              )}
+              {shop.totalTokensIssued !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Tokens Issued</span>
+                  <span className="text-green-400 font-medium">
+                    {shop.totalTokensIssued}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-3 border-t border-gray-700/50">
+              <button
+                onClick={() => onEdit(shop)}
+                className="flex-1 px-3 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+                title="Edit Shop"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit</span>
+              </button>
+              {isSuspended ? (
+                <button
+                  onClick={() => onUnsuspend(shop)}
+                  className="flex-1 px-3 py-2 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+                  title="Unsuspend Shop"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Unsuspend</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => onSuspend(shop)}
+                  className="flex-1 px-3 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+                  title="Suspend Shop"
+                >
+                  <ShieldOff className="w-4 h-4" />
+                  <span>Suspend</span>
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

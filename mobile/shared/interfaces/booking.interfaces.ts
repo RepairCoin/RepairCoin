@@ -1,6 +1,6 @@
 import { BaseResponse } from "./base.interface";
 
-export type BookingStatus = "pending" | "paid" | "in_progress" | "completed" | "cancelled" | "refunded";
+export type BookingStatus = "pending" | "paid" | "in_progress" | "completed" | "cancelled" | "refunded" | "expired";
 
 export interface BookingFilters {
   status?: BookingStatus | "all";

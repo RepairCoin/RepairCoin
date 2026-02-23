@@ -17,6 +17,10 @@ export interface SidebarItem {
     onClick: () => void;
     tooltip?: string;
   };
+  badge?: {
+    count: number;
+    variant?: 'danger' | 'warning' | 'info';
+  };
 }
 
 export interface SidebarSection {
@@ -56,17 +60,36 @@ export function useSidebar({
   }, [isCollapsed, onCollapseChange]);
 
   const handleLogout = useCallback(async () => {
-    // Clear auth store state
-    resetAuth();
+    try {
+      // Clear auth store state
+      resetAuth();
 
-    // Disconnect wallet
-    if (wallet && disconnect) {
-      disconnect(wallet);
+      // Disconnect wallet (wrapped in try-catch as it can fail)
+      if (wallet && disconnect) {
+        try {
+          disconnect(wallet);
+        } catch (disconnectError) {
+          console.warn('Wallet disconnect error (non-blocking):', disconnectError);
+        }
+      }
+
+      // Clear localStorage
       localStorage.clear();
-    }
 
-    // Call backend to clear httpOnly cookie and redirect
-    await logout();
+      // Call backend to clear httpOnly cookie
+      try {
+        await logout();
+      } catch (logoutError) {
+        console.warn('Backend logout error (non-blocking):', logoutError);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Always redirect to home page after logout
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
   }, [resetAuth, wallet, disconnect]);
 
   const toggleSection = useCallback((sectionId: string) => {

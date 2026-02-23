@@ -51,6 +51,8 @@ interface ShopData {
   };
   purchasedRcnBalance?: number;
   totalRcnPurchased?: number;
+  avgRating?: number;
+  totalReviews?: number;
 }
 
 // Import new route modules
@@ -58,6 +60,7 @@ import purchaseRoutes from './purchase';
 import tierBonusRoutes from './tierBonus';
 import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
+import paymentMethodsRoutes from './paymentMethods';
 
 const router = Router();
 
@@ -67,6 +70,7 @@ router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
+router.use('/', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;
@@ -146,7 +150,9 @@ router.get('/', async (req: Request, res: Response) => {
       category: shop.category,
       logoUrl: shop.logoUrl,
       bannerUrl: shop.bannerUrl,
-      aboutText: shop.aboutText
+      aboutText: shop.aboutText,
+      avgRating: shop.avgRating || 0,
+      totalReviews: shop.totalReviews || 0
     }));
 
     res.json({
@@ -209,7 +215,9 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         category: shop.category,
         logoUrl: shop.logoUrl,
         bannerUrl: shop.bannerUrl,
-        aboutText: shop.aboutText
+        aboutText: shop.aboutText,
+        avgRating: shop.avgRating || 0,
+        totalReviews: shop.totalReviews || 0,
       };
     }
 
@@ -576,12 +584,15 @@ router.put('/:shopId/details',
         firstName,
         lastName,
         logoUrl,
+        bannerUrl,
       } = req.body;
 
       logger.info('Shop details update request received:', {
         shopId,
         requestBody: req.body,
-        userId: req.user?.address
+        userId: req.user?.address,
+        logoUrl: logoUrl,
+        bannerUrl: bannerUrl
       });
 
       const shop = await shopRepository.getShop(shopId);
@@ -608,6 +619,7 @@ router.put('/:shopId/details',
         firstName?: string;
         lastName?: string;
         logoUrl?: string;
+        bannerUrl?: string;
      }> = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
@@ -622,6 +634,7 @@ router.put('/:shopId/details',
       if (firstName !== undefined) updates.firstName = firstName;
       if (lastName !== undefined) updates.lastName = lastName;
       if (logoUrl !== undefined) updates.logoUrl = logoUrl;
+      if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl;
 
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {

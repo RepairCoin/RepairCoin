@@ -8,6 +8,7 @@ import { AnalyticsController } from './controllers/AnalyticsController';
 import { AppointmentController } from './controllers/AppointmentController';
 import { DiscoveryController } from './controllers/DiscoveryController';
 import { ServiceGroupController } from './controllers/ServiceGroupController';
+import NoShowPolicyController from './controllers/NoShowPolicyController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
@@ -2403,6 +2404,218 @@ export function initializeRoutes(stripe: StripeService): Router {
     appointmentController.rejectRescheduleRequest
   );
 
+  // ==================== MANUAL BOOKING ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/appointments/manual:
+   *   post:
+   *     summary: Create manual appointment booking (Shop only)
+   *     description: Allow shop to manually book appointments for customers from calendar view
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - customerAddress
+   *               - serviceId
+   *               - bookingDate
+   *               - bookingTimeSlot
+   *               - paymentStatus
+   *             properties:
+   *               customerAddress:
+   *                 type: string
+   *                 example: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+   *               customerEmail:
+   *                 type: string
+   *                 example: "customer@example.com"
+   *               customerName:
+   *                 type: string
+   *                 example: "John Doe"
+   *               customerPhone:
+   *                 type: string
+   *                 example: "+1234567890"
+   *               serviceId:
+   *                 type: string
+   *                 example: "abc-123-def"
+   *               bookingDate:
+   *                 type: string
+   *                 format: date
+   *                 example: "2026-02-20"
+   *               bookingTimeSlot:
+   *                 type: string
+   *                 example: "14:00:00"
+   *               bookingEndTime:
+   *                 type: string
+   *                 example: "15:00:00"
+   *               paymentStatus:
+   *                 type: string
+   *                 enum: [paid, pending, unpaid]
+   *                 example: "paid"
+   *               notes:
+   *                 type: string
+   *                 example: "Walk-in customer"
+   *               createNewCustomer:
+   *                 type: boolean
+   *                 example: false
+   *     responses:
+   *       201:
+   *         description: Appointment booked successfully
+   *       400:
+   *         description: Invalid request or missing fields
+   *       403:
+   *         description: Not authorized for this shop
+   *       404:
+   *         description: Service or customer not found
+   *       409:
+   *         description: Time slot conflict
+   */
+  router.post(
+    '/shops/:shopId/appointments/manual',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { createManualBooking } = await import('./controllers/ManualBookingController');
+      return createManualBooking(req, res);
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/customers/search:
+   *   get:
+   *     summary: Search customers for booking (Shop only)
+   *     description: Search customers by name, email, phone, or wallet address
+   *     tags: [Customers]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: q
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Search query
+   *         example: "john"
+   *     responses:
+   *       200:
+   *         description: Customer search results
+   *       400:
+   *         description: Missing search query
+   *       403:
+   *         description: Not authorized for this shop
+   */
+  router.get(
+    '/shops/:shopId/customers/search',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { searchCustomers } = await import('./controllers/ManualBookingController');
+      return searchCustomers(req, res);
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/appointments/{orderId}/payment-link:
+   *   get:
+   *     summary: Get payment link for unpaid booking (Shop only)
+   *     description: Retrieve existing Stripe payment link for an unpaid manual booking
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Payment link retrieved
+   *       400:
+   *         description: Order not awaiting payment
+   *       404:
+   *         description: Order not found
+   */
+  router.get(
+    '/shops/:shopId/appointments/:orderId/payment-link',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { getPaymentLink } = await import('./controllers/ManualBookingController');
+      return getPaymentLink(req, res);
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/appointments/{orderId}/regenerate-payment-link:
+   *   post:
+   *     summary: Regenerate payment link for unpaid booking (Shop only)
+   *     description: Create a new Stripe Checkout Session for an unpaid manual booking
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               sendEmail:
+   *                 type: boolean
+   *                 description: Whether to email the payment link to the customer
+   *     responses:
+   *       200:
+   *         description: New payment link created
+   *       400:
+   *         description: Order not awaiting payment
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/shops/:shopId/appointments/:orderId/regenerate-payment-link',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { regeneratePaymentLink } = await import('./controllers/ManualBookingController');
+      return regeneratePaymentLink(req, res);
+    }
+  );
+
   /**
    * @swagger
    * /api/services/bookings/{orderId}/direct-reschedule:
@@ -2803,6 +3016,331 @@ export function initializeRoutes(stripe: StripeService): Router {
     '/discovery/trending',
     optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     discoveryController.getTrendingServices
+  );
+
+  // ==================== NO-SHOW POLICY ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/no-show-policy:
+   *   get:
+   *     summary: Get shop's no-show policy configuration
+   *     description: Retrieve the current no-show policy settings for a shop (Shop owner or Admin only)
+   *     tags: [No-Show Policy]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Shop ID
+   *     responses:
+   *       200:
+   *         description: Policy retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     shopId:
+   *                       type: string
+   *                     enabled:
+   *                       type: boolean
+   *                     gracePeriodMinutes:
+   *                       type: integer
+   *                     cautionThreshold:
+   *                       type: integer
+   *                     depositThreshold:
+   *                       type: integer
+   *                     suspensionThreshold:
+   *                       type: integer
+   *                     depositAmount:
+   *                       type: number
+   *       403:
+   *         description: Unauthorized
+   *       404:
+   *         description: Shop not found
+   */
+  router.get(
+    '/shops/:shopId/no-show-policy',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    NoShowPolicyController.getShopPolicy.bind(NoShowPolicyController)
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/no-show-policy:
+   *   put:
+   *     summary: Update shop's no-show policy configuration
+   *     description: Update no-show policy settings for a shop (Shop owner or Admin only)
+   *     tags: [No-Show Policy]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               enabled:
+   *                 type: boolean
+   *               gracePeriodMinutes:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 120
+   *               cautionThreshold:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 10
+   *               cautionAdvanceBookingHours:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 168
+   *               depositThreshold:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 20
+   *               depositAmount:
+   *                 type: number
+   *                 minimum: 0
+   *                 maximum: 500
+   *               depositAdvanceBookingHours:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 168
+   *               depositResetAfterSuccessful:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 20
+   *               maxRcnRedemptionPercent:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 100
+   *               suspensionThreshold:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 50
+   *               suspensionDurationDays:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 365
+   *               sendEmailTier1:
+   *                 type: boolean
+   *               sendEmailTier2:
+   *                 type: boolean
+   *               sendEmailTier3:
+   *                 type: boolean
+   *               sendEmailTier4:
+   *                 type: boolean
+   *               allowDisputes:
+   *                 type: boolean
+   *               disputeWindowDays:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 30
+   *     responses:
+   *       200:
+   *         description: Policy updated successfully
+   *       400:
+   *         description: Invalid request
+   *       403:
+   *         description: Unauthorized
+   *       404:
+   *         description: Shop not found
+   */
+  router.put(
+    '/shops/:shopId/no-show-policy',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    NoShowPolicyController.updateShopPolicy.bind(NoShowPolicyController)
+  );
+
+  // ==================== TESTING ENDPOINTS (DEVELOPMENT ONLY) ====================
+
+  /**
+   * @swagger
+   * /api/services/test/auto-no-show-detection:
+   *   post:
+   *     summary: Manually trigger auto no-show detection (Development/Testing only)
+   *     description: Runs the auto-detection service immediately for testing purposes
+   *     tags: [Testing]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Detection completed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 report:
+   *                   type: object
+   *                   properties:
+   *                     timestamp:
+   *                       type: string
+   *                     ordersChecked:
+   *                       type: number
+   *                     ordersMarked:
+   *                       type: number
+   *                     customerNotificationsSent:
+   *                       type: number
+   *                     shopNotificationsSent:
+   *                       type: number
+   *                     emailsSent:
+   *                       type: number
+   *                     errors:
+   *                       type: array
+   *                     shopsProcessed:
+   *                       type: array
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Admin access required
+   */
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_TEST_ENDPOINTS === 'true') {
+    router.post(
+      '/test/auto-no-show-detection',
+      authMiddleware,
+      requireRole(['admin']),
+      async (req, res) => {
+        try {
+          const { getAutoNoShowDetectionService } = await import('../../services/AutoNoShowDetectionService');
+          const service = getAutoNoShowDetectionService();
+          const report = await service.runDetection();
+
+          res.json({
+            success: true,
+            message: 'Auto no-show detection triggered manually',
+            report: report
+          });
+        } catch (error) {
+          res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Detection failed'
+          });
+        }
+      }
+    );
+  }
+
+  // ==================== DISPUTE ROUTES ====================
+
+  /**
+   * POST /api/services/orders/:orderId/dispute
+   * Customer submits a no-show dispute
+   */
+  router.post(
+    '/orders/:orderId/dispute',
+    authMiddleware,
+    requireRole(['customer']),
+    async (req, res) => {
+      const { submitDispute } = await import('./controllers/DisputeController');
+      return submitDispute(req, res);
+    }
+  );
+
+  /**
+   * GET /api/services/orders/:orderId/dispute
+   * Get dispute status for an order (customer, shop, or admin)
+   */
+  router.get(
+    '/orders/:orderId/dispute',
+    authMiddleware,
+    requireRole(['customer', 'shop', 'admin']),
+    async (req, res) => {
+      const { getDisputeStatus } = await import('./controllers/DisputeController');
+      return getDisputeStatus(req, res);
+    }
+  );
+
+  /**
+   * GET /api/services/shops/:shopId/disputes
+   * List all disputes for a shop
+   */
+  router.get(
+    '/shops/:shopId/disputes',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { getShopDisputes } = await import('./controllers/DisputeController');
+      return getShopDisputes(req, res);
+    }
+  );
+
+  /**
+   * PUT /api/services/shops/:shopId/disputes/:id/approve
+   * Shop approves a dispute
+   */
+  router.put(
+    '/shops/:shopId/disputes/:id/approve',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { approveDispute } = await import('./controllers/DisputeController');
+      return approveDispute(req, res);
+    }
+  );
+
+  /**
+   * PUT /api/services/shops/:shopId/disputes/:id/reject
+   * Shop rejects a dispute
+   */
+  router.put(
+    '/shops/:shopId/disputes/:id/reject',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { rejectDispute } = await import('./controllers/DisputeController');
+      return rejectDispute(req, res);
+    }
+  );
+
+  /**
+   * GET /api/admin/disputes (mounted under /api/services for consistency)
+   * Admin view all disputes across platform
+   */
+  router.get(
+    '/admin/disputes',
+    authMiddleware,
+    requireRole(['admin']),
+    async (req, res) => {
+      const { getAdminDisputes } = await import('./controllers/DisputeController');
+      return getAdminDisputes(req, res);
+    }
+  );
+
+  /**
+   * PUT /api/services/admin/disputes/:id/resolve
+   * Admin resolves a dispute (arbitration)
+   */
+  router.put(
+    '/admin/disputes/:id/resolve',
+    authMiddleware,
+    requireRole(['admin']),
+    async (req, res) => {
+      const { adminResolveDispute } = await import('./controllers/DisputeController');
+      return adminResolveDispute(req, res);
+    }
   );
 
   return router;

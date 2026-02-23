@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
+import { NoShowPolicySettings } from "../NoShowPolicySettings";
 // import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
@@ -22,6 +23,7 @@ import {
   MessageSquare,
   Shield,
   HelpCircle,
+  Ban,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -75,6 +77,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "accessibility"
     | "notifications"
     | "subscription"
+    | "no-show-policy"
     | "emails"
     | "password"
     | "social-media"
@@ -290,6 +293,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const accessTabs = [
     { id: "subscription" as const, label: "Subscription", icon: CreditCard },
+    { id: "no-show-policy" as const, label: "No-Show Policy", icon: Ban },
     { id: "emails" as const, label: "Emails", icon: Mail },
     {
       id: "password" as const,
@@ -775,6 +779,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   isPaused={isPaused}
                 />
               )}
+            </div>
+          )}
+
+          {/* No-Show Policy Tab Content */}
+          {activeTab === "no-show-policy" && (
+            <div>
+              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
+                No-Show Policy
+              </h2>
+              <p className="text-sm text-gray-400 mb-6">
+                Configure your shop's no-show penalty system and customer booking policies
+              </p>
+              <NoShowPolicySettings shopId={shopId} />
             </div>
           )}
 

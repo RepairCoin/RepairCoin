@@ -79,6 +79,11 @@ export default function ChatScreen() {
           name={otherPartyName}
           subtitle={isCustomer ? "Shop" : "Customer"}
           onBack={handleGoBack}
+          shopImageUrl={conversation?.shopImageUrl}
+          shopId={conversation?.shopId}
+          customerImageUrl={conversation?.customerImageUrl}
+          customerAddress={conversation?.customerAddress}
+          isCustomer={isCustomer}
         />
 
         <FlatList

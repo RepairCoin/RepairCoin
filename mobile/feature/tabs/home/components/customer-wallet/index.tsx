@@ -20,11 +20,12 @@ import ActionCard from "@/shared/components/shared/ActionCard";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
+import RecentlyViewedSection from "./RecentlyViewedSection";
 
 export default function CustomerWalletTab() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const { useGetAllServicesQuery, useGetTrendingServices } = useService();
+  const { useGetAllServicesQuery, useGetTrendingServices, useGetRecentlyViewed } = useService();
   const { useGetFavorites } = useFavorite();
 
   // Use the token balance hook
@@ -48,6 +49,13 @@ export default function CustomerWalletTab() {
     refetch: refetchTrending,
   } = useGetTrendingServices({ limit: 4, days: 7 });
 
+  // Get recently viewed services
+  const {
+    data: recentlyViewedData,
+    isLoading: recentlyViewedLoading,
+    refetch: refetchRecentlyViewed,
+  } = useGetRecentlyViewed({ limit: 8 });
+
   // Fetch favorites for heart icon
   const { data: favoritesData, refetch: refetchFavorites } = useGetFavorites();
 
@@ -68,12 +76,13 @@ export default function CustomerWalletTab() {
         refetch(),
         refetchServices(),
         refetchTrending(),
+        refetchRecentlyViewed(),
         refetchFavorites(),
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetch, refetchServices, refetchTrending, refetchFavorites]);
+  }, [refetch, refetchServices, refetchTrending, refetchRecentlyViewed, refetchFavorites]);
 
   const totalBalance =
     (customerData?.customer?.lifetimeEarnings || 0) -
@@ -183,6 +192,16 @@ export default function CustomerWalletTab() {
             },
           ]}
         />
+
+        {/* Recently Viewed Section */}
+        {recentlyViewedData && recentlyViewedData.length > 0 && (
+          <RecentlyViewedSection
+            data={recentlyViewedData}
+            isLoading={recentlyViewedLoading}
+            getCategoryLabel={getCategoryLabel}
+            onServicePress={handleServicePress}
+          />
+        )}
 
         {/* Trending Services Section */}
         {trendingData && trendingData.length > 0 && (

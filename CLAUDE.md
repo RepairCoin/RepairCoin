@@ -461,3 +461,40 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
   - Automatic token issuance when orders complete
   - Customers earn both RCN + group tokens simultaneously
   - Filter marketplace by group to discover group-specific services
+
+### Auth Resilience Improvements (February 2026)
+- **Phase 1: SessionStorage Mutex**
+  - Cross-refresh mutex using sessionStorage (`rc_auth_lock`)
+  - 5-second lock timeout to prevent deadlocks
+  - Prevents concurrent auth operations across rapid page refreshes
+- **Phase 2: Session Caching**
+  - Session profile caching in sessionStorage (`rc_session_cache`)
+  - 30-second cache TTL for instant page loads
+  - Cache-first strategy before API calls
+- **Phase 3: Immediate Session Check**
+  - Session check runs immediately on mount (before Thirdweb wallet restoration)
+  - Decoupled from wallet connection state
+  - Reduces load time from 2+ minutes to < 1 second
+- **Phase 4: Shop Data Caching**
+  - Shop data caching with 60-second TTL (`rc_shop_data_cache`)
+  - Shop ID persistence for faster lookups (`rc_shop_id`)
+  - Background refresh while showing cached content
+- **Phase 5: Logout Fix**
+  - `clearAllAuthCaches()` function clears all session-related caches
+  - Proper redirect to home on logout/session expiry
+  - Fixed "stuck on Initializing..." screen issue
+- **Phase 6: Auto-Recovery Mechanism**
+  - Tracks auth failures in 30-second sliding window
+  - Triggers recovery after 3 failures (clears storage, redirects home)
+  - Safety net for corrupted auth state edge cases
+  - File: `frontend/src/utils/authRecovery.ts`
+- **Phase 7: Wallet Mismatch Debounce**
+  - 500ms stability check before triggering mismatch warnings
+  - Prevents false positives during rapid wallet switches
+  - Re-validates addresses after debounce period
+  - Cancels pending checks on new wallet switches
+- **Key Files**
+  - `frontend/src/hooks/useAuthInitializer.ts` - Central auth flow
+  - `frontend/src/utils/authRecovery.ts` - Auto-recovery mechanism
+  - `frontend/src/stores/authStore.ts` - Auth state management
+  - `frontend/src/services/api/client.ts` - API client with token refresh

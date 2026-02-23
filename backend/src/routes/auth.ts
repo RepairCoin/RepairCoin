@@ -13,13 +13,14 @@ const router = Router();
  * Prevents brute force attacks and account enumeration
  *
  * Updated to be more permissive for legitimate usage while still preventing abuse:
- * - Allows 20 requests per 5 minutes (increased from 5 per 15 minutes)
+ * - Production: 50 requests per 15 minutes (increased from 5 - was too restrictive)
+ * - Development: 100 requests per 15 minutes
  * - Better balance between security and user experience
- * - Supports multiple wallet connections/tab refreshes during development
+ * - Supports multiple wallet connections/tab refreshes
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 5 : 100, // 5 in production, 100 in development
+  max: process.env.NODE_ENV === 'production' ? 50 : 100, // 50 in production, 100 in development
   message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
@@ -528,6 +529,14 @@ router.post('/check-user', async (req, res) => {
     // EMAIL FALLBACK: If email is provided (social login), try to find shop by email
     // This allows shops registered with MetaMask to also login via Google if email matches
     const { email } = req.body;
+
+    logger.info('[check-user] Email fallback check', {
+      address: normalizedAddress,
+      emailProvided: !!email,
+      email: email || 'none',
+      emailType: typeof email
+    });
+
     if (email && typeof email === 'string' && email.includes('@')) {
       try {
         const shopByEmail = await shopRepository.getShopByEmail(email);
@@ -616,6 +625,132 @@ router.post('/check-user', async (req, res) => {
         }
       } catch (error) {
         logger.debug('Shop not found by email:', email);
+      }
+
+      // PLACEHOLDER CUSTOMER DETECTION: Check if email matches a placeholder customer account
+      // If found, auto-register the customer with the real wallet and mark for claiming
+      logger.info('[check-user] Checking for placeholder customer by email', {
+        email,
+        address: normalizedAddress
+      });
+
+      try {
+        const placeholderQuery = `
+          SELECT address, email, phone, name, first_name, last_name
+          FROM customers
+          WHERE LOWER(email) = LOWER($1)
+          AND LOWER(address) LIKE '0xmanual%'
+          LIMIT 1
+        `;
+        const { getSharedPool } = require('../utils/database-pool');
+        const pool = getSharedPool();
+        const placeholderResult = await pool.query(placeholderQuery, [email]);
+
+        logger.info('[check-user] Placeholder query result', {
+          email,
+          foundRows: placeholderResult.rows.length,
+          placeholderAddress: placeholderResult.rows[0]?.address || 'none'
+        });
+
+        if (placeholderResult.rows.length > 0) {
+          const placeholder = placeholderResult.rows[0];
+
+          logger.info('Placeholder customer found by email, upgrading to real wallet', {
+            email,
+            placeholderAddress: placeholder.address,
+            realWallet: normalizedAddress
+          });
+
+          // UPGRADE the placeholder account to use the real wallet address
+          // This preserves all existing data and avoids unique constraint violations
+          // Also transfer all related data (orders, conversations, etc.) to the new address
+
+          // 1. Update the customer record
+          await pool.query(`
+            UPDATE customers
+            SET address = $1,
+                wallet_address = $1,
+                updated_at = NOW()
+            WHERE LOWER(address) = LOWER($2)
+          `, [normalizedAddress, placeholder.address]);
+
+          // 2. Transfer service orders
+          const ordersResult = await pool.query(`
+            UPDATE service_orders
+            SET customer_address = $1
+            WHERE LOWER(customer_address) = LOWER($2)
+            RETURNING order_id
+          `, [normalizedAddress, placeholder.address]);
+
+          // 3. Transfer RCN balances
+          await pool.query(`
+            UPDATE customer_rcn_sources
+            SET customer_address = $1
+            WHERE LOWER(customer_address) = LOWER($2)
+          `, [normalizedAddress, placeholder.address]);
+
+          // 4. Transfer conversations
+          await pool.query(`
+            UPDATE conversations
+            SET customer_address = $1
+            WHERE LOWER(customer_address) = LOWER($2)
+          `, [normalizedAddress, placeholder.address]);
+
+          // 5. Transfer notifications
+          await pool.query(`
+            UPDATE notifications
+            SET receiver_address = $1
+            WHERE LOWER(receiver_address) = LOWER($2)
+          `, [normalizedAddress, placeholder.address]);
+
+          logger.info('Placeholder account upgraded to real wallet', {
+            oldAddress: placeholder.address,
+            newAddress: normalizedAddress,
+            email: placeholder.email,
+            ordersTransferred: ordersResult.rows.length
+          });
+
+          // Fetch the upgraded customer
+          const newCustomer = await customerRepository.getCustomer(normalizedAddress);
+
+          if (newCustomer) {
+            logger.info('Auto-registered customer from placeholder account', {
+              newAddress: normalizedAddress,
+              placeholderAddress: placeholder.address,
+              email: placeholder.email
+            });
+
+            return res.json({
+              exists: true,
+              type: 'customer',
+              autoRegistered: true, // Flag to indicate auto-registration from placeholder
+              hasClaimableAccounts: true, // Flag to show claim banner immediately
+              user: {
+                id: newCustomer.address,
+                address: newCustomer.address,
+                walletAddress: newCustomer.address,
+                name: newCustomer.name || 'Customer',
+                firstName: newCustomer.first_name,
+                lastName: newCustomer.last_name,
+                email: newCustomer.email,
+                phone: newCustomer.phone,
+                tier: newCustomer.tier || 'BRONZE',
+                active: newCustomer.isActive,
+                isActive: newCustomer.isActive,
+                createdAt: newCustomer.joinDate,
+                joinDate: newCustomer.joinDate,
+                lifetimeEarnings: 0,
+                currentBalance: 0,
+                currentRcnBalance: 0,
+                pendingMintBalance: 0,
+                totalRedemptions: 0
+              }
+            });
+          }
+        }
+      } catch (error) {
+        logger.error('Error checking/creating placeholder customer:', error);
+        // Continue to return not found - don't block the flow
       }
     }
 

@@ -1,5 +1,5 @@
 // backend/src/domains/ServiceDomain/services/RescheduleService.ts
-import { RescheduleRepository, RescheduleRequest, RescheduleRequestWithDetails, CreateRescheduleRequestInput } from '../../../repositories/RescheduleRepository';
+import { RescheduleRepository, RescheduleRequest, RescheduleRequestWithDetails, CreateRescheduleRequestInput, ExpiredRequestInfo } from '../../../repositories/RescheduleRepository';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
 import { logger } from '../../../utils/logger';
 import { parseLocalDateString } from '../../../utils/dateUtils';
@@ -523,19 +523,36 @@ export class RescheduleService {
 
   /**
    * Expire old pending requests (to be called by a scheduled job)
+   * Returns the list of expired requests for notification purposes
    */
-  async expireOldRequests(): Promise<number> {
-    const expiredCount = await this.rescheduleRepo.expireOldRequests();
+  async expireOldRequests(): Promise<ExpiredRequestInfo[]> {
+    const expiredRequests = await this.rescheduleRepo.expireOldRequests();
 
-    if (expiredCount > 0) {
-      logger.info('Expired old reschedule requests', { count: expiredCount });
+    if (expiredRequests.length > 0) {
+      logger.info('Expired old reschedule requests', { count: expiredRequests.length });
 
       // Emit event for each expired request (for notifications)
-      // Note: In production, you'd want to get the list of expired requests
-      // and emit events for each one
+      for (const request of expiredRequests) {
+        const event = createDomainEvent(
+          'reschedule:request_expired',
+          request.requestId,
+          {
+            requestId: request.requestId,
+            orderId: request.orderId,
+            customerAddress: request.customerAddress,
+            shopId: request.shopId,
+            customerName: request.customerName,
+            shopName: request.shopName,
+            serviceName: request.serviceName,
+          },
+          'RescheduleService'
+        );
+        eventBus.publish(event);
+        logger.info('Emitted reschedule:request_expired event', { requestId: request.requestId });
+      }
     }
 
-    return expiredCount;
+    return expiredRequests;
   }
 
   /**

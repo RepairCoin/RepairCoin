@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins, Calendar } from "lucide-react";
+import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins, Calendar, Ban } from "lucide-react";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { createPaymentIntent } from "@/services/api/services";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -12,6 +12,7 @@ import { TimeSlotPicker } from "./TimeSlotPicker";
 import { DateAvailabilityPicker } from "./DateAvailabilityPicker";
 import { formatLocalDate } from "@/utils/dateUtils";
 import { appointmentsApi, TimeSlotConfig } from "@/services/api/appointments";
+import { getCustomerNoShowStatus, CustomerNoShowStatus } from "@/services/api/noShow";
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
@@ -173,6 +174,10 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
 
+  // No-Show Status State
+  const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
+  const [loadingNoShowStatus, setLoadingNoShowStatus] = useState(false);
+
   // Fetch customer balance when modal opens
   useEffect(() => {
     if (address && !balanceData) {
@@ -193,15 +198,39 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
     loadTimeSlotConfig();
   }, [service.shopId]);
 
+  // Fetch no-show status when modal opens
+  useEffect(() => {
+    const loadNoShowStatus = async () => {
+      if (!address) return;
+
+      try {
+        setLoadingNoShowStatus(true);
+        const status = await getCustomerNoShowStatus(address, service.shopId);
+        setNoShowStatus(status);
+      } catch (error) {
+        console.error('Error loading no-show status:', error);
+        // Non-critical error, don't block booking
+      } finally {
+        setLoadingNoShowStatus(false);
+      }
+    };
+    loadNoShowStatus();
+  }, [address, service.shopId]);
+
   // RCN Redemption State
   const [rcnToRedeem, setRcnToRedeem] = useState(0);
   const [showRedemption, setShowRedemption] = useState(true);
   const customerBalance = balanceData?.availableBalance || 0;
 
-  // Calculate discount and final amount
+  // Calculate discount and final amount with tier-based caps
   const RCN_TO_USD = 0.10;
-  const MAX_DISCOUNT_PCT = 0.20; // 20% cap
   const MIN_SERVICE_PRICE = 10;
+
+  // Determine max discount percentage based on tier
+  // Tier 2 (caution) and Tier 3 (deposit_required) have 80% cap
+  // Tier 0 (normal) and Tier 1 (warning) have 20% cap
+  const isRestrictedTier = noShowStatus?.tier === 'caution' || noShowStatus?.tier === 'deposit_required';
+  const MAX_DISCOUNT_PCT = isRestrictedTier ? 0.80 : 0.20;
 
   const showRedemptionSection = service.priceUsd >= MIN_SERVICE_PRICE;
   const canUseRedemption = showRedemptionSection && customerBalance > 0;
@@ -210,10 +239,63 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
   const actualRcnRedeemed = Math.min(rcnToRedeem, maxRcnRedeemable);
   const discountUsd = actualRcnRedeemed * RCN_TO_USD;
-  const finalAmount = Math.max(service.priceUsd - discountUsd, 0);
+
+  // Calculate deposit requirement
+  const DEPOSIT_AMOUNT = 25.00;
+  const requiresDeposit = noShowStatus?.tier === 'deposit_required';
+  const depositAmount = requiresDeposit ? DEPOSIT_AMOUNT : 0;
+
+  // Final amount includes service price (after discount) + deposit
+  const serviceAmount = Math.max(service.priceUsd - discountUsd, 0);
+  const finalAmount = serviceAmount + depositAmount;
+
+  // Check if customer is suspended
+  const isSuspended = noShowStatus?.tier === 'suspended' && !noShowStatus?.canBook;
+
+  // Validate advance booking hours
+  const validateAdvanceBooking = (): { isValid: boolean; error: string | null } => {
+    if (!bookingDate || !bookingTimeSlot || !noShowStatus) {
+      return { isValid: true, error: null };
+    }
+
+    const minimumHours = noShowStatus.minimumAdvanceHours;
+    if (minimumHours === 0) {
+      return { isValid: true, error: null };
+    }
+
+    // Parse the booking time slot (format: "HH:MM AM/PM")
+    const [time, period] = bookingTimeSlot.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let hour24 = hours;
+    if (period === 'PM' && hours !== 12) hour24 += 12;
+    if (period === 'AM' && hours === 12) hour24 = 0;
+
+    const bookingDateTime = new Date(bookingDate);
+    bookingDateTime.setHours(hour24, minutes, 0, 0);
+
+    const now = new Date();
+    const hoursUntilBooking = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursUntilBooking < minimumHours) {
+      return {
+        isValid: false,
+        error: `Your account requires booking at least ${minimumHours} hours in advance. Please select a later date/time.`
+      };
+    }
+
+    return { isValid: true, error: null };
+  };
+
+  const advanceBookingValidation = validateAdvanceBooking();
 
   const handleInitializePayment = async () => {
     if (paymentInitialized) return;
+
+    // Check advance booking validation
+    if (!advanceBookingValidation.isValid) {
+      setError(advanceBookingValidation.error || 'Invalid booking time');
+      return;
+    }
 
     try {
       setLoading(true);
@@ -357,8 +439,135 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                 </div>
               </div>
 
+              {/* Suspension Warning - Block Booking */}
+              {isSuspended && noShowStatus && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 mb-6">
+                  <div className="flex items-start gap-4">
+                    <Ban className="w-8 h-8 text-red-400 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-lg font-bold text-red-400 mb-2">Account Suspended</p>
+                      <p className="text-sm text-gray-300 mb-3">
+                        Your booking privileges have been suspended due to {noShowStatus.noShowCount} missed appointments.
+                      </p>
+                      {noShowStatus.bookingSuspendedUntil && (
+                        <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-3 mb-3">
+                          <p className="text-sm text-red-300">
+                            <strong>Suspended Until:</strong>{' '}
+                            {new Date(noShowStatus.bookingSuspendedUntil).toLocaleDateString('en-US', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {noShowStatus.restrictions.map((restriction, index) => (
+                          <p key={index} className="text-xs text-gray-400">• {restriction}</p>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-3">
+                        Please contact support if you believe this is an error.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tier Restriction Warning */}
+              {!isSuspended && noShowStatus && (noShowStatus.tier === 'caution' || noShowStatus.tier === 'deposit_required') && (
+                <div className={`border rounded-xl p-4 mb-6 ${
+                  noShowStatus.tier === 'deposit_required'
+                    ? 'bg-red-500/10 border-red-500/30'
+                    : 'bg-orange-500/10 border-orange-500/30'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                      noShowStatus.tier === 'deposit_required' ? 'text-red-400' : 'text-orange-400'
+                    }`} />
+                    <div className="flex-1">
+                      <p className={`text-sm font-semibold mb-2 ${
+                        noShowStatus.tier === 'deposit_required' ? 'text-red-400' : 'text-orange-400'
+                      }`}>
+                        {noShowStatus.tier === 'deposit_required' ? 'Deposit Required - Account Restricted' : 'Account Restrictions Active'}
+                      </p>
+                      <p className="text-xs text-gray-300 mb-2">
+                        Due to {noShowStatus.noShowCount} missed appointment{noShowStatus.noShowCount > 1 ? 's' : ''}, the following restrictions apply:
+                      </p>
+                      <div className="space-y-1">
+                        {noShowStatus.restrictions.map((restriction, index) => (
+                          <p key={index} className="text-xs text-gray-400">• {restriction}</p>
+                        ))}
+                      </div>
+                      {noShowStatus.tier === 'deposit_required' && noShowStatus.successfulAppointmentsSinceTier3 !== undefined && (
+                        <div className="mt-3 bg-gray-800/50 border border-gray-700 rounded-lg p-2">
+                          <p className="text-xs text-gray-400">
+                            <strong className="text-white">Recovery Progress:</strong> {noShowStatus.successfulAppointmentsSinceTier3}/3 successful appointments
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Complete 3 successful appointments to restore your account.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Advance Booking Validation Error */}
+              {!advanceBookingValidation.isValid && bookingDate && bookingTimeSlot && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-400">Booking Time Too Soon</p>
+                      <p className="text-sm text-gray-300 mt-1">{advanceBookingValidation.error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Deposit Required Notice */}
+              {requiresDeposit && !isSuspended && !paymentInitialized && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mb-6">
+                  <div className="flex items-start gap-3">
+                    <DollarSign className="w-6 h-6 text-blue-400 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-400 mb-2">Refundable Deposit Required</p>
+                      <p className="text-sm text-gray-300 mb-3">
+                        A ${DEPOSIT_AMOUNT.toFixed(2)} refundable deposit is required due to your account status.
+                      </p>
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Service Price:</span>
+                          <span className="text-white font-semibold">${serviceAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Refundable Deposit:</span>
+                          <span className="text-blue-400 font-semibold">+${depositAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-blue-500/20 pt-2 flex justify-between text-base">
+                          <span className="text-white font-bold">Total Due Now:</span>
+                          <span className="text-white font-bold">${finalAmount.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-400 space-y-1">
+                        <p>✓ Deposit will be fully refunded when you attend your appointment</p>
+                        <p>✓ Complete 3 successful appointments to remove deposit requirement</p>
+                        {noShowStatus?.successfulAppointmentsSinceTier3 !== undefined && (
+                          <p className="text-blue-400 font-semibold">
+                            Progress: {noShowStatus.successfulAppointmentsSinceTier3}/3 successful appointments
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Appointment Scheduling Section */}
-              {!paymentInitialized && (
+              {!paymentInitialized && !isSuspended && (
                 <div className="bg-[#0D0D0D] border border-[#FFCC00]/30 rounded-xl p-5 mb-6">
                   <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-[#FFCC00]" />
@@ -401,7 +610,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
               )}
 
               {/* RCN Redemption Section */}
-              {showRedemptionSection && !paymentInitialized && (
+              {showRedemptionSection && !paymentInitialized && !isSuspended && (
                 <div className="bg-[#0D0D0D] border border-[#FFCC00]/30 rounded-xl p-5 mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -452,7 +661,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>0 RCN</span>
-                          <span>{maxRcnRedeemable} RCN (Max 20%)</span>
+                          <span>{maxRcnRedeemable} RCN (Max {(MAX_DISCOUNT_PCT * 100).toFixed(0)}%)</span>
                         </div>
                       </div>
 
@@ -471,8 +680,18 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                             <span className="text-gray-400">Original Price:</span>
                             <span className="text-gray-400 line-through">${service.priceUsd.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between text-base font-bold">
-                            <span className="text-white">Final Price:</span>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Service Price:</span>
+                            <span className="text-white">${serviceAmount.toFixed(2)}</span>
+                          </div>
+                          {requiresDeposit && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400">Refundable Deposit:</span>
+                              <span className="text-blue-400">+${depositAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-700">
+                            <span className="text-white">Total Due:</span>
                             <span className="text-[#FFCC00]">${finalAmount.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
@@ -517,14 +736,22 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
               )}
 
               {/* Proceed to Payment Button */}
-              {!paymentInitialized && (
+              {!paymentInitialized && !isSuspended && (
                 <button
                   onClick={handleInitializePayment}
-                  disabled={loading || !bookingDate || !bookingTimeSlot}
+                  disabled={loading || !bookingDate || !bookingTimeSlot || !advanceBookingValidation.isValid}
                   className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mb-6"
                 >
                   {loading ? "Preparing..." : `Proceed to Payment - $${finalAmount.toFixed(2)}`}
                 </button>
+              )}
+
+              {/* Suspended - Cannot Book */}
+              {isSuspended && (
+                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 mb-6 text-center">
+                  <Ban className="w-12 h-12 text-gray-500 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm">Booking unavailable due to suspension</p>
+                </div>
               )}
 
               {/* Payment Form */}

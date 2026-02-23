@@ -21,8 +21,6 @@ import {
   ChevronRight,
   Store,
   RotateCcw,
-  Home,
-  ClipboardList
 } from "lucide-react";
 import { getCustomerOrders, ServiceOrderWithDetails, servicesApi } from "@/services/api/services";
 import { WriteReviewModal } from "./WriteReviewModal";
@@ -264,17 +262,6 @@ export const ServiceOrdersTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Breadcrumb & Subtitle */}
-      <div className="border-b border-gray-800 pb-4 mb-2">
-        <div className="flex items-center gap-3 mb-2">
-          <Home className="w-5 h-5 text-gray-300" />
-          <span className="text-gray-400">&gt;</span>
-          <ClipboardList className="w-5 h-5 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] font-semibold">My Bookings</span>
-        </div>
-        <p className="text-gray-400">View your booked services, payment status, and real-time progress updates from shops.</p>
-      </div>
-
       {/* Filter Tabs & Sort */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         {/* Filter Buttons - Horizontal scroll on mobile with arrows */}

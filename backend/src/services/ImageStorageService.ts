@@ -49,8 +49,10 @@ export class ImageStorageService {
     // Force IPv4 for DNS resolution (fixes localhost issues)
     dns.setDefaultResultOrder('ipv4first');
 
-    // Use Google DNS for resolution with promises API
-    dns.promises.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+    // Use Google/Cloudflare DNS for resolution (both callback and promises API)
+    const dnsServers = ['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1'];
+    dns.setServers(dnsServers);
+    dns.promises.setServers(dnsServers);
 
     // Use path-style URLs to avoid DNS issues with bucket subdomains
     // Path-style: https://sfo3.digitaloceanspaces.com/repaircoinstorage/file.jpg
@@ -81,9 +83,17 @@ export class ImageStorageService {
           maxSockets: 50,
           timeout: 30000,
           family: 4, // Force IPv4
-          lookup: (hostname, options, callback) => {
-            // Custom DNS lookup with IPv4 preference
-            dns.lookup(hostname, { family: 4, all: false }, callback);
+          lookup: (hostname, _options, callback) => {
+            // Use dns.resolve4 which respects dns.setServers() (Google/Cloudflare DNS)
+            // instead of dns.lookup which uses the OS resolver (may be broken/slow)
+            dns.resolve4(hostname, (err, addresses) => {
+              if (err || !addresses.length) {
+                // Fallback to OS resolver if custom DNS fails
+                dns.lookup(hostname, { family: 4, all: false }, callback);
+              } else {
+                callback(null, addresses[0], 4);
+              }
+            });
           },
         }),
       }),
@@ -226,6 +236,13 @@ export class ImageStorageService {
   }
 
   /**
+   * Upload customer avatar
+   */
+  async uploadCustomerAvatar(file: MulterFile, customerAddress: string): Promise<UploadResult> {
+    return this.uploadImage(file, `customers/${customerAddress}/avatars`);
+  }
+
+  /**
    * Delete image from DigitalOcean Spaces
    */
   async deleteImage(key: string): Promise<boolean> {
@@ -268,15 +285,23 @@ export class ImageStorageService {
    */
   extractKeyFromUrl(url: string): string | null {
     try {
-      // Handle both CDN and Spaces URLs
-      const cdnMatch = url.match(/\/([^\/]+\/.+)$/);
+      // CDN URL: https://repaircoinstorage.sfo3.cdn.digitaloceanspaces.com/customers/.../file.jpg
+      // Bucket is in subdomain, so everything after .com/ is the key
+      const cdnMatch = url.match(/\.cdn\.digitaloceanspaces\.com\/(.+)$/);
       if (cdnMatch) {
         return cdnMatch[1];
       }
 
-      const spacesMatch = url.match(/\.com\/(.+)$/);
-      if (spacesMatch) {
-        return spacesMatch[1];
+      // CDN custom endpoint
+      if (this.cdnEndpoint && url.startsWith(this.cdnEndpoint)) {
+        return url.slice(this.cdnEndpoint.length + 1);
+      }
+
+      // Path-style URL: https://sfo3.digitaloceanspaces.com/repaircoinstorage/customers/.../file.jpg
+      // Bucket is first path segment, so skip it to get the key
+      const pathStyleMatch = url.match(/digitaloceanspaces\.com\/[^\/]+\/(.+)$/);
+      if (pathStyleMatch) {
+        return pathStyleMatch[1];
       }
 
       return null;

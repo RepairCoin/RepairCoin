@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShoppingBag, Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X, Home } from "lucide-react";
+import { Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X } from "lucide-react";
 import { getAllServices, ShopServiceWithShopInfo, servicesApi } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceFilters, FilterState } from "./ServiceFilters";
@@ -272,31 +272,9 @@ export const ServiceMarketplaceClient: React.FC = () => {
   return (
     <div className="text-white">
       <div className="max-w-7xl mx-auto">
-        {/* Breadcrumb & Subtitle */}
+        {/* View Controls */}
         <div className="border-b border-gray-800 pb-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            {/* Left Column: Breadcrumb & Description */}
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Home className="w-5 h-5 text-gray-300" />
-                <span className="text-gray-400">&gt;</span>
-                <ShoppingBag className="w-5 h-5 text-[#FFCC00]" />
-                <span className="text-[#FFCC00] font-semibold">Marketplace</span>
-              </div>
-              <p className="text-gray-400">
-                {activeTab === "shops"
-                  ? "Browse shops by category and location"
-                  : showFavoritesOnly
-                  ? "Your favorited services"
-                  : viewMode === "map"
-                  ? "Find nearby shops on the map"
-                  : filters.shopId
-                  ? `Browsing services from ${services.find(s => s.shopId === filters.shopId)?.shopName || "shop"}`
-                  : "Discover and book services from local businesses"}
-              </p>
-            </div>
-
-            {/* Right Column: View Controls */}
+          <div className="flex items-center justify-end gap-4">
             {activeTab === "services" && (
               <div className="flex items-center gap-3 flex-shrink-0">
                 {/* View Mode Toggle */}

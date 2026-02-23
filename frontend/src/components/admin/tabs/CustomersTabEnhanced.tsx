@@ -6,6 +6,7 @@ import {
   Store,
   Search,
   ChevronRight,
+  ChevronLeft,
   Award,
   Calendar,
   Coins,
@@ -19,6 +20,8 @@ import {
   Hash,
   UserCheck,
   Star,
+  Grid,
+  List,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -94,13 +97,17 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       ? "all"
       : "grouped"
   );
-  const [displayMode] = useState<"table" | "grid">("table");
+  const [displayMode, setDisplayMode] = useState<"table" | "grid">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTier, setSelectedTier] = useState<string>("all");
   const [sortBy, setSortBy] = useState<
     "earnings" | "transactions" | "date" | "name"
   >("earnings");
   const [sortOrder] = useState<"asc" | "desc">("desc");
+
+  // Pagination state for grouped shops
+  const [currentPage, setCurrentPage] = useState(1);
+  const SHOPS_PER_PAGE = 10;
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
@@ -418,6 +425,11 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       );
     }
   }, [initialView]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTier, sortBy, viewMode]);
 
   const fetchUnsuspendRequests = async () => {
     setUnsuspendRequestsLoading(true);
@@ -772,19 +784,72 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               </div>
             )}
           </div>
+
+          {/* View Mode Toggle - only for customer data views */}
+          {viewMode !== "unsuspend-requests" && (
+            <div className="flex justify-end">
+              <div className="inline-flex bg-gray-700/50 rounded-lg p-1 gap-1">
+                <button
+                  onClick={() => setDisplayMode("table")}
+                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                    displayMode === "table"
+                      ? "bg-[#FFCC00] text-black font-medium shadow-lg"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                  title="Table View"
+                >
+                  <List className="w-4 h-4" />
+                  <span className="hidden sm:inline">Table</span>
+                </button>
+                <button
+                  onClick={() => setDisplayMode("grid")}
+                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                    displayMode === "grid"
+                      ? "bg-[#FFCC00] text-black font-medium shadow-lg"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                  title="Grid View"
+                >
+                  <Grid className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cards</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content */}
         <div className="py-6">
-          {viewMode === "grouped" && (
-            <div className="space-y-4">
-              {data.shopsWithCustomers.map((shop) => {
-                const isExpanded = expandedShops.has(shop.shopId);
-                const filteredCustomers = filterCustomers(shop.customers);
+          {viewMode === "grouped" && (() => {
+            // Filter shops based on search term
+            const filteredShops = data.shopsWithCustomers.filter((shop) => {
+              if (!searchTerm) return true;
+              const filteredCustomers = filterCustomers(shop.customers);
+              return filteredCustomers.length > 0 ||
+                     shop.shopName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                     shop.shopId.toLowerCase().includes(searchTerm.toLowerCase());
+            });
 
-                if (searchTerm && filteredCustomers.length === 0) return null;
+            // Pagination
+            const totalPages = Math.ceil(filteredShops.length / SHOPS_PER_PAGE);
+            const startIndex = (currentPage - 1) * SHOPS_PER_PAGE;
+            const endIndex = startIndex + SHOPS_PER_PAGE;
+            const paginatedShops = filteredShops.slice(startIndex, endIndex);
 
-                return (
+            return (
+              <>
+                <div className="px-6 pb-4">
+                  <p className="text-gray-400 text-sm">
+                    Showing {startIndex + 1}-{Math.min(endIndex, filteredShops.length)} of {filteredShops.length} shops
+                  </p>
+                </div>
+
+                <div className="space-y-4 px-6">
+                  {paginatedShops.map((shop) => {
+                    const isExpanded = expandedShops.has(shop.shopId);
+                    const filteredCustomers = filterCustomers(shop.customers);
+
+                    return (
                   <div
                     key={shop.shopId}
                     className="bg-[#2F2F2F] rounded-xl border border-gray-700/50 overflow-hidden"
@@ -879,10 +944,113 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                    );
+                  })}
+
+                  {/* No shops found message */}
+                  {paginatedShops.length === 0 && (
+                    <div className="text-center py-12">
+                      <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                      <p className="text-gray-400 text-lg">No shops found matching your criteria</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-8 px-6">
+                    <button
+                      onClick={() => {
+                        setCurrentPage(Math.max(1, currentPage - 1));
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span className="hidden sm:inline">Previous</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {/* Show first page */}
+                      {currentPage > 3 && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setCurrentPage(1);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="w-10 h-10 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                          >
+                            1
+                          </button>
+                          {currentPage > 4 && (
+                            <span className="text-gray-500 px-2">...</span>
+                          )}
+                        </>
+                      )}
+
+                      {/* Show nearby pages */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          return page === currentPage ||
+                                 page === currentPage - 1 ||
+                                 page === currentPage + 1 ||
+                                 page === currentPage - 2 ||
+                                 page === currentPage + 2;
+                        })
+                        .map(page => (
+                          <button
+                            key={page}
+                            onClick={() => {
+                              setCurrentPage(page);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className={`w-10 h-10 rounded-lg transition-colors ${
+                              page === currentPage
+                                ? 'bg-[#FFCC00] text-black font-bold'
+                                : 'bg-gray-700 text-white hover:bg-gray-600'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+
+                      {/* Show last page */}
+                      {currentPage < totalPages - 2 && (
+                        <>
+                          {currentPage < totalPages - 3 && (
+                            <span className="text-gray-500 px-2">...</span>
+                          )}
+                          <button
+                            onClick={() => {
+                              setCurrentPage(totalPages);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="w-10 h-10 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                          >
+                            {totalPages}
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setCurrentPage(Math.min(totalPages, currentPage + 1));
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {viewMode === "all" &&
             (displayMode === "table" ? (

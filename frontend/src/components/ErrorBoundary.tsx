@@ -151,52 +151,23 @@ export class ErrorBoundary extends Component<Props, State> {
 
       const { isChunkError, error } = this.state;
 
-      // Chunk error specific UI
+      // Chunk error - auto-redirect to home instead of showing modal
+      // This provides a better UX than showing an "Update Available" message
       if (isChunkError) {
+        if (typeof window !== 'undefined') {
+          console.log('[ErrorBoundary] ChunkLoadError - auto-redirecting to home');
+          sessionStorage.removeItem(CHUNK_ERROR_RETRY_KEY);
+          // Redirect to home page after a brief delay
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 100);
+        }
+        // Show minimal loading while redirecting
         return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
-              <div className="text-center">
-                <div className="text-6xl mb-4">🔄</div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                  Update Available
-                </h1>
-                <p className="text-gray-600 mb-2">
-                  A new version of the app is available. Please refresh to get the latest updates.
-                </p>
-                <p className="text-sm text-gray-500 mb-6">
-                  This can happen after we deploy improvements to the site.
-                </p>
-
-                <div className="space-y-2">
-                  <button
-                    onClick={this.handleHardRefresh}
-                    className="w-full px-4 py-2 bg-yellow-500 text-gray-900 font-semibold rounded-md hover:bg-yellow-400 transition"
-                  >
-                    Refresh Now
-                  </button>
-                  <button
-                    onClick={() => {
-                      sessionStorage.removeItem(CHUNK_ERROR_RETRY_KEY);
-                      window.location.href = '/';
-                    }}
-                    className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
-                  >
-                    Go to Home Page
-                  </button>
-                </div>
-
-                {process.env.NODE_ENV === 'development' && error && (
-                  <details className="text-left mt-4">
-                    <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                      Technical details
-                    </summary>
-                    <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
-                      {error.toString()}
-                    </pre>
-                  </details>
-                )}
-              </div>
+          <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+              <p className="text-gray-400">Refreshing...</p>
             </div>
           </div>
         );

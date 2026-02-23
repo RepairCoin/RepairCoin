@@ -7,6 +7,7 @@ import {
   ServiceInfoSection,
   ShopInfoSection,
   RewardsSection,
+  ReviewsSection,
   AdditionalInfoSection,
   ServiceBottomActions,
   ShareModal,
@@ -37,6 +38,11 @@ export default function ServiceDetailScreen() {
     handleGoBack,
     getCategoryLabel,
     formatDate,
+    // Reviews
+    reviews,
+    reviewStats,
+    isLoadingReviews,
+    handleViewAllReviews,
   } = useServiceDetail();
 
   if (isLoading) {
@@ -98,6 +104,16 @@ export default function ServiceDetailScreen() {
           <View className="h-px bg-gray-800 mb-6" />
 
           <RewardsSection tierInfo={getTierInfo()} reward={calculateReward()} />
+
+          {/* Divider */}
+          <View className="h-px bg-gray-800 mb-6" />
+
+          <ReviewsSection
+            reviews={reviews}
+            stats={reviewStats}
+            isLoading={isLoadingReviews}
+            onSeeAll={handleViewAllReviews}
+          />
 
           {/* Divider */}
           <View className="h-px bg-gray-800 mb-6" />

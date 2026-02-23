@@ -1,14 +1,21 @@
 import type { Metadata } from 'next'
-import { Poppins } from 'next/font/google'
+import { Poppins, Inria_Sans } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { Providers } from './providers'
 // AuthRedirect removed - redirect logic now handled in individual pages
 import '@/styles/globals.css'
 
-const poppins = Poppins({ 
+const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700', '800'],
   display: 'swap',
+})
+
+const inriaSans = Inria_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '700'],
+  display: 'swap',
+  variable: '--font-inria-sans',
 })
 
 export const metadata: Metadata = {
@@ -28,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inriaSans.variable}>
       <body className={poppins.className} suppressHydrationWarning={true}>
         <Providers>
           <Toaster

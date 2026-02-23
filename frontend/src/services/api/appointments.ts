@@ -376,5 +376,121 @@ export const appointmentsApi = {
       `/services/bookings/${orderId}/direct-reschedule`,
       { newDate, newTimeSlot, reason }
     );
+  },
+
+  // ==================== MANUAL BOOKING API ====================
+
+  // Shop: Search customers for manual booking
+  async searchCustomers(shopId: string, query: string): Promise<CustomerSearchResult[]> {
+    const response = await apiClient.get<{ success: boolean; customers: CustomerSearchResult[] }>(
+      `/services/shops/${shopId}/customers/search`,
+      { params: { q: query } }
+    );
+    return (response as unknown as { success: boolean; customers: CustomerSearchResult[] }).customers;
+  },
+
+  // Shop: Create manual booking
+  async createManualBooking(shopId: string, data: ManualBookingData): Promise<ManualBookingResponse> {
+    const response = await apiClient.post<{ success: boolean; booking: ManualBookingResponse }>(
+      `/services/shops/${shopId}/appointments/manual`,
+      data
+    );
+    return (response as unknown as { success: boolean; booking: ManualBookingResponse }).booking;
+  },
+
+  // Shop: Get payment link for unpaid booking
+  async getPaymentLink(shopId: string, orderId: string): Promise<PaymentLinkResponse> {
+    const response = await apiClient.get<PaymentLinkResponse>(
+      `/services/shops/${shopId}/appointments/${orderId}/payment-link`
+    );
+    return response as unknown as PaymentLinkResponse;
+  },
+
+  // Shop: Regenerate payment link for unpaid booking
+  async regeneratePaymentLink(shopId: string, orderId: string, sendEmail?: boolean): Promise<RegeneratePaymentLinkResponse> {
+    const response = await apiClient.post<RegeneratePaymentLinkResponse>(
+      `/services/shops/${shopId}/appointments/${orderId}/regenerate-payment-link`,
+      { sendEmail }
+    );
+    return response as unknown as RegeneratePaymentLinkResponse;
   }
 };
+
+// ==================== MANUAL BOOKING TYPES ====================
+
+export interface CustomerSearchResult {
+  address: string;
+  email: string | null;
+  name: string | null;
+  phone: string | null;
+  noShowCount: number;
+  noShowTier: string;
+  createdAt: string;
+}
+
+export interface ManualBookingData {
+  customerAddress: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  serviceId: string;
+  bookingDate: string; // YYYY-MM-DD
+  bookingTimeSlot: string; // HH:MM:SS
+  bookingEndTime?: string; // HH:MM:SS
+  paymentStatus: 'paid' | 'pending' | 'unpaid' | 'send_link' | 'qr_code';
+  notes?: string;
+  createNewCustomer?: boolean;
+}
+
+export interface ManualBookingResponse {
+  orderId: string;
+  customerAddress: string;
+  customerName: string | null;
+  customerEmail: string | null;
+  shopId: string;
+  shopName: string;
+  serviceId: string;
+  serviceName: string;
+  bookingDate: string;
+  bookingTimeSlot: string;
+  bookingEndTime: string | null;
+  totalAmount: number;
+  paymentStatus: string;
+  bookingType: string;
+  bookedBy: string;
+  notes: string | null;
+  createdAt: string;
+  paymentLink?: string | null; // Stripe payment link for qr_code or send_link
+}
+
+// Payment Link Types
+export interface PaymentLinkResponse {
+  success: boolean;
+  paymentLink?: string;
+  status: 'open' | 'expired' | 'complete';
+  expiresAt?: string | null;
+  message?: string;
+  order?: {
+    orderId: string;
+    serviceName: string;
+    amount: number;
+    bookingDate: string;
+    bookingTime: string;
+  };
+}
+
+export interface RegeneratePaymentLinkResponse {
+  success: boolean;
+  paymentLink: string;
+  sessionId: string;
+  expiresAt: string;
+  emailSent: boolean;
+  order: {
+    orderId: string;
+    serviceName: string;
+    amount: number;
+    bookingDate: string;
+    bookingTime: string;
+    customerEmail: string | null;
+  };
+}

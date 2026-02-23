@@ -12,7 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { useShopProfitStore } from '@/stores/shopProfitStore';
 
 interface ProfitData {
@@ -215,10 +215,14 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     return processRawDataToProfit(filteredTransactions, filteredPurchases, timeRange);
   }, [rawTransactions, rawPurchases, timeRange, processRawDataToProfit]);
 
-  // Compute metrics from filtered data
+  // Compute metrics from filtered data (always returns metrics, even if zero)
   const metrics = useMemo(() => {
-    return filteredProfitData.length > 0 ? calculateMetrics(filteredProfitData) : null;
+    return calculateMetrics(filteredProfitData);
   }, [filteredProfitData, calculateMetrics]);
+
+  // Check if we have any data loaded
+  const hasData = shopData && (rawTransactions.length > 0 || rawPurchases.length > 0);
+  const isEmptyState = shopData && !hasData;
 
   const formatCurrency = useCallback((value: number) => `$${value.toFixed(2)}`, []);
 
@@ -318,51 +322,49 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         </div>
       </div>
 
-      {/* Metrics Cards */}
-      {metrics && (
-        <div className="px-4 sm:px-6 pb-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs text-gray-400">Total Profit</p>
-                  <p className={`text-sm sm:text-lg font-bold ${metrics.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {formatCurrency(metrics.totalProfit)}
-                  </p>
-                </div>
-                {metrics.profitTrend === 'up' ? (
-                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0 ml-1" />
-                ) : metrics.profitTrend === 'down' ? (
-                  <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 ml-1" />
-                ) : (
-                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0 ml-1" />
-                )}
+      {/* Metrics Cards - Always show, even with zero values */}
+      <div className="px-4 sm:px-6 pb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] sm:text-xs text-gray-400">Total Profit</p>
+                <p className={`text-sm sm:text-lg font-bold ${metrics.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatCurrency(metrics.totalProfit)}
+                </p>
               </div>
-            </div>
-
-            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-              <p className="text-[10px] sm:text-xs text-gray-400">Revenue</p>
-              <p className="text-sm sm:text-lg font-bold text-blue-400">
-                {formatCurrency(metrics.totalRevenue)}
-              </p>
-            </div>
-
-            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-              <p className="text-[10px] sm:text-xs text-gray-400">Costs</p>
-              <p className="text-sm sm:text-lg font-bold text-orange-400">
-                {formatCurrency(metrics.totalCosts)}
-              </p>
-            </div>
-
-            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-              <p className="text-[10px] sm:text-xs text-gray-400">Profit Margin</p>
-              <p className={`text-sm sm:text-lg font-bold ${metrics.averageProfitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {metrics.averageProfitMargin.toFixed(1)}%
-              </p>
+              {metrics.profitTrend === 'up' ? (
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0 ml-1" />
+              ) : metrics.profitTrend === 'down' ? (
+                <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 ml-1" />
+              ) : (
+                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0 ml-1" />
+              )}
             </div>
           </div>
+
+          <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-gray-400">Revenue</p>
+            <p className="text-sm sm:text-lg font-bold text-blue-400">
+              {formatCurrency(metrics.totalRevenue)}
+            </p>
+          </div>
+
+          <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-gray-400">Costs</p>
+            <p className="text-sm sm:text-lg font-bold text-orange-400">
+              {formatCurrency(metrics.totalCosts)}
+            </p>
+          </div>
+
+          <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-gray-400">Profit Margin</p>
+            <p className={`text-sm sm:text-lg font-bold ${metrics.averageProfitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {metrics.averageProfitMargin.toFixed(1)}%
+            </p>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Charts */}
       <div className="px-4 sm:px-6 pb-6">
@@ -506,10 +508,29 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
             </div>
           </div>
         ) : (
-          <div className="h-[300px] flex flex-col items-center justify-center text-center">
-            <Calendar className="w-12 h-12 text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">No profit data available</p>
-            <p className="text-gray-500 text-sm mt-1">Start issuing rewards to see your profit analysis</p>
+          <div className="bg-[#1e1f22] rounded-lg p-6">
+            <div className="h-[250px] flex flex-col items-center justify-center text-center">
+              {error ? (
+                <>
+                  <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                  <p className="text-gray-400 text-lg">Failed to load profit data</p>
+                  <p className="text-gray-500 text-sm mt-1 mb-4">{error}</p>
+                  <button
+                    onClick={() => fetchProfitData(shopId, true)}
+                    className="px-4 py-2 bg-[#FFCC00] text-[#101010] rounded-lg hover:bg-yellow-400 transition-colors font-medium text-sm flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Retry
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-12 h-12 text-gray-600 mb-4" />
+                  <p className="text-gray-400 text-lg">No profit data available</p>
+                  <p className="text-gray-500 text-sm mt-1">Start issuing rewards and purchasing RCN to see your profit analysis</p>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

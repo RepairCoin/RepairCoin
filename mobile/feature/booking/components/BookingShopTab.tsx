@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   View,
   Text,
@@ -34,6 +35,9 @@ const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
 
 // Helper to get display status considering shopApproved
 const getDisplayStatus = (booking: BookingData): string => {
+  if (booking.status === "expired") {
+    return "expired";
+  }
   if (booking.status === "paid" && booking.shopApproved) {
     return "approved";
   }
@@ -42,6 +46,9 @@ const getDisplayStatus = (booking: BookingData): string => {
 
 // Helper to get status color considering shopApproved
 const getDisplayStatusColor = (booking: BookingData): string => {
+  if (booking.status === "expired") {
+    return "#f97316"; // Orange for expired
+  }
   if (booking.status === "paid" && booking.shopApproved) {
     return "#10b981"; // Emerald/teal for approved (distinct from completed green)
   }
@@ -255,6 +262,10 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
           <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Completed</Text>
+          </View>
+          <View className="flex-row items-center">
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#f97316', marginRight: 4 }} />
+            <Text className="text-gray-500 text-xs">Expired</Text>
           </View>
         </View>
       </ScrollView>
@@ -488,6 +499,10 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Completed</Text>
                   </View>
+                  <View className="flex-row items-center">
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#f97316', marginRight: 4 }} />
+                    <Text className="text-gray-500 text-xs">Expired</Text>
+                  </View>
                 </View>
               </>
             )}
@@ -498,50 +513,182 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
   );
 }
 
+type ViewMode = "calendar" | "list";
+
+interface BookingListProps {
+  bookings: BookingData[];
+}
+
+function BookingList({ bookings }: BookingListProps) {
+  // Sort by booking date descending (most recent first)
+  const sortedBookings = [...bookings].sort((a, b) => {
+    const dateA = new Date(a.bookingDate || a.createdAt).getTime();
+    const dateB = new Date(b.bookingDate || b.createdAt).getTime();
+    return dateB - dateA;
+  });
+
+  if (sortedBookings.length === 0) {
+    return (
+      <View className="flex-1 items-center justify-center py-12">
+        <Ionicons name="receipt-outline" size={48} color="#333" />
+        <Text className="text-gray-500 mt-3">No bookings found</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      {sortedBookings.map((booking, idx) => (
+        <TouchableOpacity
+          key={booking.orderId || idx}
+          onPress={() => router.push(`/shop/booking/${booking.orderId}`)}
+          className="bg-[#1a1a1a] rounded-xl p-4 mb-3 border-l-4"
+          style={{ borderLeftColor: getDisplayStatusColor(booking) }}
+        >
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1">
+              <Text className="text-white font-semibold text-base" numberOfLines={1}>
+                {booking.serviceName}
+              </Text>
+              <View className="flex-row items-center mt-1">
+                <Feather name="user" size={12} color="#666" />
+                <Text className="text-gray-400 text-sm ml-1">
+                  {booking.customerName || `${booking.customerAddress.slice(0, 6)}...${booking.customerAddress.slice(-4)}`}
+                </Text>
+              </View>
+              <View className="flex-row items-center mt-2">
+                <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
+                <Text className="text-gray-400 text-sm ml-1">
+                  {new Date(booking.bookingDate || booking.createdAt).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </Text>
+                <Text className="text-gray-600 mx-2">•</Text>
+                <Ionicons name="time-outline" size={14} color="#FFCC00" />
+                <Text className="text-[#FFCC00] text-sm ml-1 font-medium">
+                  {formatBookingTime(booking.bookingDate || booking.createdAt)}
+                </Text>
+              </View>
+            </View>
+            <View className="items-end">
+              <View
+                className="px-2 py-1 rounded-full"
+                style={{ backgroundColor: getDisplayStatusColor(booking) + "20" }}
+              >
+                <Text
+                  className="text-xs font-medium capitalize"
+                  style={{ color: getDisplayStatusColor(booking) }}
+                >
+                  {getDisplayStatus(booking)}
+                </Text>
+              </View>
+              <Text className="text-[#FFCC00] font-semibold mt-2">
+                ${booking.totalAmount.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      ))}
+      <View className="h-24" />
+    </ScrollView>
+  );
+}
+
 export default function BookingsTab() {
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+
   // UI state
   const { statusFilter, setStatusFilter } = useBookingsFilter();
 
   // Data fetching
-  const { isLoading, getBookingsForDate } = useBookingsData(statusFilter);
+  const { isLoading, getBookingsForDate, bookings } = useBookingsData(statusFilter);
 
   return (
     <View className="flex-1 bg-zinc-950">
-      {/* Status Filters */}
-      <View className="mb-4">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View className="flex-row gap-2">
-            {BOOKING_STATUS_FILTERS.map((filter) => (
-              <TouchableOpacity
-                key={filter.value}
-                onPress={() => setStatusFilter(filter.value)}
-                className={`px-3 py-1.5 rounded-full ${
-                  statusFilter === filter.value
-                    ? "bg-[#FFCC00]"
-                    : "bg-[#1a1a1a] border border-[#333]"
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
+      {/* View Mode Tabs */}
+      <View className="flex-row mb-4 bg-[#1a1a1a] rounded-xl p-1">
+        <TouchableOpacity
+          onPress={() => setViewMode("calendar")}
+          className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg ${
+            viewMode === "calendar" ? "bg-[#FFCC00]" : ""
+          }`}
+        >
+          <Ionicons
+            name="calendar"
+            size={18}
+            color={viewMode === "calendar" ? "#000" : "#9CA3AF"}
+          />
+          <Text
+            className={`ml-2 font-semibold ${
+              viewMode === "calendar" ? "text-black" : "text-gray-400"
+            }`}
+          >
+            Calendar
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setViewMode("list")}
+          className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg ${
+            viewMode === "list" ? "bg-[#FFCC00]" : ""
+          }`}
+        >
+          <Ionicons
+            name="list"
+            size={18}
+            color={viewMode === "list" ? "#000" : "#9CA3AF"}
+          />
+          <Text
+            className={`ml-2 font-semibold ${
+              viewMode === "list" ? "text-black" : "text-gray-400"
+            }`}
+          >
+            List
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Status Filters - Only show for List view */}
+      {viewMode === "list" && (
+        <View className="mb-4">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View className="flex-row gap-2">
+              {BOOKING_STATUS_FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter.value}
+                  onPress={() => setStatusFilter(filter.value)}
+                  className={`px-3 py-1.5 rounded-full ${
                     statusFilter === filter.value
-                      ? "text-black"
-                      : "text-gray-400"
+                      ? "bg-[#FFCC00]"
+                      : "bg-[#1a1a1a] border border-[#333]"
                   }`}
                 >
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
+                  <Text
+                    className={`text-sm font-medium ${
+                      statusFilter === filter.value
+                        ? "text-black"
+                        : "text-gray-400"
+                    }`}
+                  >
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      )}
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#ffcc00" />
         </View>
-      ) : (
+      ) : viewMode === "calendar" ? (
         <BookingCalendar getBookingsForDate={getBookingsForDate} />
+      ) : (
+        <BookingList bookings={bookings} />
       )}
     </View>
   );

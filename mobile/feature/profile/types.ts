@@ -21,6 +21,8 @@ export interface ShopData {
   joinDate?: string;
   walletAddress?: string;
   country?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
   location?: {
     lat?: string;
     lng?: string;
@@ -77,6 +79,8 @@ export interface ShopEditFormData {
   instagram: string;
   website: string;
   walletAddress: string;
+  logoUrl: string;
+  bannerUrl: string;
   location: {
     lat: string;
     lng: string;

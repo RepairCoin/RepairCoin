@@ -79,6 +79,12 @@ const Header: React.FC = () => {
           const userData = session.user as any;
           setHasValidSession(true);
           setSessionUserType(userData.type || userData.role);
+
+          // Refresh the auth_token cookie so the Next.js middleware
+          // won't block navigation to protected routes (the access
+          // token cookie has a short 15-min maxAge and may be expired
+          // even though the refresh token is still valid).
+          await authApi.refreshToken();
         }
       } catch (error) {
         // No valid session - this is normal for logged out users
@@ -170,6 +176,16 @@ const Header: React.FC = () => {
             console.log("🟦 [Header] Detection result:", result);
 
             if (!result.isRegistered) {
+              // Check if rate limited
+              if (result.route === '/rate-limited') {
+                console.error('🟦 [Header] ⚠️ Rate limited - please wait and try again');
+                closeWelcomeModal();
+                // Show error to user via alert (could be improved with toast)
+                alert(result.data?.message || 'Too many requests. Please wait a few minutes and try again.');
+                // Reset check flags
+                hasCheckedRef.current = false;
+                return;
+              }
               console.log(
                 "🟦 [Header] 🔄 New user detected, redirecting to /choose..."
               );

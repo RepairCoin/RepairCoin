@@ -61,6 +61,8 @@ const getStatusLabel = (status: BookingStatus, shopApproved?: boolean) => {
       return "Cancelled";
     case "refunded":
       return "Refunded";
+    case "expired":
+      return "Expired";
     default:
       return status;
   }
@@ -98,6 +100,13 @@ const STEP_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   paid: "credit-card",
   in_progress: "check",
   completed: "check-circle",
+};
+// Step colors - yellow for pending/paid, green for approved/completed
+const STEP_COLORS: Record<string, string> = {
+  pending: "#FFCC00",
+  paid: "#FFCC00",
+  in_progress: "#22c55e",
+  completed: "#22c55e",
 };
 
 interface ProgressStepperProps {
@@ -160,36 +169,41 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
         </Text>
 
         {/* Current Status Badge */}
-        <View
-          className="flex-row items-center px-2 py-1 rounded-full"
-          style={{
-            backgroundColor: isCancelled
-              ? "rgba(239, 68, 68, 0.2)"
-              : "rgba(255, 204, 0, 0.2)",
-          }}
-        >
-          <View
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: isCancelled ? "#ef4444" : "#FFCC00",
-              marginRight: 6,
-            }}
-          />
-          <Text
-            className="text-xs font-medium"
-            style={{
-              color: isCancelled ? "#ef4444" : "#FFCC00",
-            }}
-          >
-            {isCancelled
-              ? currentStatus === "cancelled"
-                ? "Cancelled"
-                : "Refunded"
-              : STEP_LABELS[PROGRESS_STEPS[currentStepIndex]] || "Unknown"}
-          </Text>
-        </View>
+        {(() => {
+          const currentStep = PROGRESS_STEPS[currentStepIndex];
+          const badgeColor = isCancelled ? "#ef4444" : STEP_COLORS[currentStep] || "#FFCC00";
+          const badgeBgColor = isCancelled
+            ? "rgba(239, 68, 68, 0.2)"
+            : currentStep === "in_progress" || currentStep === "completed"
+              ? "rgba(34, 197, 94, 0.2)"
+              : "rgba(255, 204, 0, 0.2)";
+          return (
+            <View
+              className="flex-row items-center px-2 py-1 rounded-full"
+              style={{ backgroundColor: badgeBgColor }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: badgeColor,
+                  marginRight: 6,
+                }}
+              />
+              <Text
+                className="text-xs font-medium"
+                style={{ color: badgeColor }}
+              >
+                {isCancelled
+                  ? currentStatus === "cancelled"
+                    ? "Cancelled"
+                    : "Refunded"
+                  : STEP_LABELS[currentStep] || "Unknown"}
+              </Text>
+            </View>
+          );
+        })()}
       </View>
 
       {/* Progress Steps */}
@@ -211,30 +225,36 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
               {/* Step Icon with Tooltip */}
               <View className="items-center">
                 {/* Icon Circle */}
-                <TouchableOpacity
-                  onPress={() => handleStepPress(step)}
-                  activeOpacity={0.7}
-                  className="items-center justify-center"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor:
-                      status === "completed"
-                        ? "#FFCC00"
-                        : status === "current"
-                          ? "#FFCC00"
-                          : "#333",
-                    borderWidth: status === "current" ? 3 : 0,
-                    borderColor: "rgba(255, 204, 0, 0.3)",
-                  }}
-                >
-                  <Feather
-                    name={STEP_ICONS[step]}
-                    size={16}
-                    color={isActive ? "#000" : "#666"}
-                  />
-                </TouchableOpacity>
+                {(() => {
+                  const stepColor = STEP_COLORS[step] || "#FFCC00";
+                  const borderColor = step === "in_progress" || step === "completed"
+                    ? "rgba(34, 197, 94, 0.3)"
+                    : "rgba(255, 204, 0, 0.3)";
+                  return (
+                    <TouchableOpacity
+                      onPress={() => handleStepPress(step)}
+                      activeOpacity={0.7}
+                      className="items-center justify-center"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor:
+                          status === "completed" || status === "current"
+                            ? stepColor
+                            : "#333",
+                        borderWidth: status === "current" ? 3 : 0,
+                        borderColor: borderColor,
+                      }}
+                    >
+                      <Feather
+                        name={STEP_ICONS[step]}
+                        size={16}
+                        color={isActive ? "#000" : "#666"}
+                      />
+                    </TouchableOpacity>
+                  );
+                })()}
 
                 {/* Tooltip - Below Circle */}
                 {showTooltip && (
@@ -257,13 +277,13 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
                         borderBottomWidth: 6,
                         borderLeftColor: "transparent",
                         borderRightColor: "transparent",
-                        borderBottomColor: isActive ? "#FFCC00" : "#444",
+                        borderBottomColor: isActive ? STEP_COLORS[step] : "#444",
                       }}
                     />
                     <View
                       className="px-3 py-1.5 rounded-lg"
                       style={{
-                        backgroundColor: isActive ? "#FFCC00" : "#444",
+                        backgroundColor: isActive ? STEP_COLORS[step] : "#444",
                         shadowColor: "#000",
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.25,
@@ -291,7 +311,7 @@ function ProgressStepper({ currentStatus, shopApproved }: ProgressStepperProps) 
                     backgroundColor:
                       getStepStatus(index + 1) === "completed" ||
                       status === "completed"
-                        ? "#FFCC00"
+                        ? STEP_COLORS[PROGRESS_STEPS[index + 1]] || "#FFCC00"
                         : "#333",
                     borderRadius: 2,
                   }}
@@ -328,14 +348,22 @@ export default function BookingDetailScreen() {
     return bookings.find((b) => b.orderId === id);
   }, [bookings, id]);
 
-  // Check if booking date has expired (past date with no completion)
+  // Check if order has expired status
+  const isOrderExpired = useMemo(() => {
+    return booking?.status === "expired";
+  }, [booking?.status]);
+
+  // Check if booking is past 24-hour completion window (for paid orders)
   // Must be called before any early returns to maintain hook order
   const isBookingExpired = useMemo(() => {
     if (!booking?.bookingDate) return false;
+    if (booking.status === "expired") return true;
+    if (booking.status !== "paid") return false;
+
     const bookingDate = new Date(booking.bookingDate);
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return bookingDate < now && booking.status === "paid";
+    const hoursSinceBooking = (now.getTime() - bookingDate.getTime()) / (1000 * 60 * 60);
+    return hoursSinceBooking >= 24;
   }, [booking?.bookingDate, booking?.status]);
 
   const handleApprove = () => {
@@ -421,12 +449,18 @@ export default function BookingDetailScreen() {
     );
   }
 
-  const statusColor = getStatusColor(booking.status);
-  const bookingDateTime = booking.bookingDate || booking.createdAt;
   const isApproved = booking.shopApproved === true;
+  // Use appropriate status color
+  const effectiveStatus = booking.status === "expired"
+    ? "expired"
+    : booking.status === "paid" && isApproved
+      ? "approved"
+      : booking.status;
+  const statusColor = getStatusColor(effectiveStatus);
+  const bookingDateTime = booking.bookingDate || booking.createdAt;
 
-  // Shop actions: pending or paid status
-  const hasShopActions = isShopView && (booking.status === "pending" || booking.status === "paid");
+  // Shop actions: pending or paid status (but not expired)
+  const hasShopActions = isShopView && (booking.status === "pending" || (booking.status === "paid" && !isBookingExpired));
   // Customer actions: paid/approved can cancel (if not expired), completed can review/book again
   const hasCustomerActions = !isShopView && (
     (booking.status === "paid" && !isBookingExpired) ||
@@ -877,17 +911,38 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {/* Expired Booking - Customer View */}
-        {!isShopView && isBookingExpired && (
+        {/* Expired Booking - Shop View */}
+        {isShopView && (isOrderExpired || isBookingExpired) && (
           <View className="mx-4 mb-8 p-4 bg-orange-900/20 border border-orange-700/50 rounded-xl">
             <View className="flex-row items-center">
               <Feather name="alert-circle" size={24} color="#f97316" />
               <View className="ml-3 flex-1">
                 <Text className="text-orange-400 font-semibold">
-                  Booking Expired
+                  Appointment Expired
                 </Text>
                 <Text className="text-orange-400/70 text-sm">
-                  The scheduled date has passed. Please contact the shop for assistance.
+                  {isOrderExpired
+                    ? "This appointment has expired. Refunds have been processed automatically."
+                    : "This appointment is past the 24-hour completion window and cannot be marked as complete."}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Expired Booking - Customer View */}
+        {!isShopView && (isOrderExpired || isBookingExpired) && (
+          <View className="mx-4 mb-8 p-4 bg-orange-900/20 border border-orange-700/50 rounded-xl">
+            <View className="flex-row items-center">
+              <Feather name="alert-circle" size={24} color="#f97316" />
+              <View className="ml-3 flex-1">
+                <Text className="text-orange-400 font-semibold">
+                  Appointment Expired
+                </Text>
+                <Text className="text-orange-400/70 text-sm">
+                  {isOrderExpired
+                    ? "This appointment has expired. Any payments have been refunded to your account."
+                    : "The scheduled date has passed. Please contact the shop for assistance."}
                 </Text>
               </View>
             </View>

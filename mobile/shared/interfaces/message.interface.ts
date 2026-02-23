@@ -16,6 +16,7 @@ export interface Conversation {
   updatedAt: string;
   // Joined data
   customerName?: string;
+  customerImageUrl?: string;
   shopName?: string;
   shopImageUrl?: string;
 }

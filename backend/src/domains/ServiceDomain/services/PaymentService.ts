@@ -11,6 +11,7 @@ import { customerRepository, shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
+import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 
 export interface CreatePaymentIntentRequest {
   serviceId: string;
@@ -98,6 +99,7 @@ export class PaymentService {
   private rcnRedemptionService: RcnRedemptionService;
   private appointmentRepository: AppointmentRepository;
   private transactionRepository: TransactionRepository;
+  private noShowPolicyService: NoShowPolicyService;
 
   constructor(stripeService: StripeService) {
     this.orderRepository = new OrderRepository();
@@ -108,6 +110,7 @@ export class PaymentService {
     this.rcnRedemptionService = new RcnRedemptionService();
     this.appointmentRepository = new AppointmentRepository();
     this.transactionRepository = new TransactionRepository();
+    this.noShowPolicyService = new NoShowPolicyService();
   }
 
   /**
@@ -206,10 +209,45 @@ export class PaymentService {
         customerRcnBalance = redemption.remainingBalance;
       }
 
+      // Check no-show status and deposit requirement
+      let depositAmount = 0;
+      let requiresDeposit = false;
+      try {
+        const noShowStatus = await this.noShowPolicyService.getCustomerStatus(
+          request.customerAddress,
+          service.shopId
+        );
+
+        // Block booking if suspended
+        if (noShowStatus.tier === 'suspended' && !noShowStatus.canBook) {
+          throw new Error(`Booking suspended until ${noShowStatus.bookingSuspendedUntil ? new Date(noShowStatus.bookingSuspendedUntil).toLocaleDateString() : 'unknown date'}`);
+        }
+
+        // Add deposit for tier 3 customers
+        if (noShowStatus.tier === 'deposit_required' || noShowStatus.requiresDeposit) {
+          requiresDeposit = true;
+          depositAmount = 25.00; // Default deposit amount
+          finalAmountUsd += depositAmount;
+
+          logger.info('Deposit required for customer', {
+            customerAddress: request.customerAddress,
+            tier: noShowStatus.tier,
+            depositAmount,
+            noShowCount: noShowStatus.noShowCount
+          });
+        }
+      } catch (error) {
+        logger.warn('Failed to check no-show status, proceeding without deposit', {
+          error: error instanceof Error ? error.message : String(error),
+          customerAddress: request.customerAddress
+        });
+        // Non-blocking: If no-show check fails, proceed without deposit
+      }
+
       // Generate order ID (will be used when order is created after payment)
       const orderId = `ord_${uuidv4()}`;
 
-      // Create Stripe Payment Intent for final amount (after discount)
+      // Create Stripe Payment Intent for final amount (after discount + deposit)
       // Stripe uses smallest currency unit (cents for USD)
       // NOTE: Order is NOT created in DB - all data stored in Stripe metadata
       const amountInCents = Math.round(finalAmountUsd * 100);
@@ -225,6 +263,8 @@ export class PaymentService {
           totalAmount: service.priceUsd.toString(),
           rcnRedeemed: rcnRedeemed.toString(),
           rcnDiscountUsd: rcnDiscountUsd.toString(),
+          depositAmount: depositAmount.toString(),
+          requiresDeposit: requiresDeposit.toString(),
           finalAmountUsd: finalAmountUsd.toString(),
           bookingDate: bookingDateStr || '',
           bookingTime: request.bookingTime || '',
@@ -232,7 +272,7 @@ export class PaymentService {
           notes: request.notes || '',
           type: 'service_booking'
         },
-        description: `Service Booking: ${service.serviceName}${rcnRedeemed > 0 ? ` (${rcnRedeemed} RCN redeemed)` : ''}`
+        description: `Service Booking: ${service.serviceName}${rcnRedeemed > 0 ? ` (${rcnRedeemed} RCN redeemed)` : ''}${depositAmount > 0 ? ` + $${depositAmount} deposit` : ''}`
       });
 
       logger.info('Payment intent created for service booking (order will be created on payment success)', {

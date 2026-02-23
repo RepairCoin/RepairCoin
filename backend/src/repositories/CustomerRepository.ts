@@ -122,6 +122,7 @@ export class CustomerRepository extends BaseRepository {
         suspensionReason: row.suspension_reason,
         referralCode: row.referral_code,
         referredBy: row.referred_by,
+        profile_image_url: row.profile_image_url,
         // Enhanced balance tracking fields
         currentRcnBalance: row.current_rcn_balance ? parseFloat(row.current_rcn_balance) : 0,
         pendingMintBalance: row.pending_mint_balance ? parseFloat(row.pending_mint_balance) : 0,
@@ -230,7 +231,8 @@ export class CustomerRepository extends BaseRepository {
         fixflowCustomerId: 'fixflow_customer_id',
         suspendedAt: 'suspended_at',
         suspensionReason: 'suspension_reason',
-        referredBy: 'referred_by'
+        referredBy: 'referred_by',
+        profile_image_url: 'profile_image_url'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -338,6 +340,7 @@ export class CustomerRepository extends BaseRepository {
       last_name?: string;
       email?: string;
       phone?: string;
+      profileImageUrl?: string;
     }
   ): Promise<void> {
     try {
@@ -374,6 +377,12 @@ export class CustomerRepository extends BaseRepository {
         paramCount++;
         setClause.push(`phone = $${paramCount}`);
         params.push(updates.phone);
+      }
+
+      if (updates.profileImageUrl !== undefined) {
+        paramCount++;
+        setClause.push(`profile_image_url = $${paramCount}`);
+        params.push(updates.profileImageUrl);
       }
 
       // Always update the updated_at timestamp

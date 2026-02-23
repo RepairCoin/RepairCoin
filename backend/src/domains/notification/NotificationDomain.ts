@@ -68,6 +68,7 @@ export class NotificationDomain implements DomainModule {
     eventBus.subscribe('reschedule:request_created', this.handleRescheduleRequestCreated.bind(this), 'NotificationDomain');
     eventBus.subscribe('reschedule:request_approved', this.handleRescheduleRequestApproved.bind(this), 'NotificationDomain');
     eventBus.subscribe('reschedule:request_rejected', this.handleRescheduleRequestRejected.bind(this), 'NotificationDomain');
+    eventBus.subscribe('reschedule:request_expired', this.handleRescheduleRequestExpired.bind(this), 'NotificationDomain');
 
     // Listen to shop direct reschedule events
     eventBus.subscribe('booking:rescheduled_by_shop', this.handleBookingRescheduledByShop.bind(this), 'NotificationDomain');
@@ -535,6 +536,60 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling reschedule request rejected event:', error);
+    }
+  }
+
+  private async handleRescheduleRequestExpired(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        customerName,
+        shopName,
+        serviceName
+      } = event.data;
+
+      logger.info(`Creating reschedule expired notification for customer ${customerAddress}`, { requestId, orderId });
+
+      // 1. Create in-app notification
+      const notification = await this.notificationService.createRescheduleRequestExpiredNotification(
+        customerAddress,
+        shopName || 'Shop',
+        serviceName || 'Service',
+        orderId,
+        requestId
+      );
+
+      // 2. Send real-time notification via WebSocket to the customer
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+
+      // 3. Send email notification
+      try {
+        const customer = await this.customerRepository.getCustomer(customerAddress);
+        if (customer?.email) {
+          await this.emailService.sendRescheduleRequestExpired({
+            customerEmail: customer.email,
+            customerName: customerName || customer.name || 'Customer',
+            shopName: shopName || 'Shop',
+            serviceName: serviceName || 'Service',
+            orderId
+          });
+          logger.info('Reschedule expired email sent to customer', { orderId, customerEmail: customer.email });
+        } else {
+          logger.warn('No customer email for reschedule expired notification', { orderId, customerAddress });
+        }
+      } catch (emailError) {
+        logger.error('Error sending reschedule expired email:', emailError);
+        // Don't throw - email is best effort
+      }
+
+      logger.info('Reschedule request expired notification sent', { requestId, orderId, customerAddress });
+    } catch (error: any) {
+      logger.error('Error handling reschedule request expired event:', error);
     }
   }
 

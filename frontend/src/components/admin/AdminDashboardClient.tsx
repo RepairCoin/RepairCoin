@@ -17,8 +17,9 @@ import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManag
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
 import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
 import { SessionManagementTab } from "@/components/admin/tabs/SessionManagementTab";
-// import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab"; // TODO: component not yet created
+import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
 import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
+import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -31,8 +32,19 @@ const client = createThirdwebClient({
 export default function AdminDashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
+
+  // Delayed loading modal - prevents flash when cache loads quickly
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  useEffect(() => {
+    if (!authInitialized || authLoading) {
+      const timer = setTimeout(() => setShowLoadingModal(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingModal(false);
+    }
+  }, [authInitialized, authLoading]);
 
   // Connect to Thirdweb and populate auth store
   useAuth();
@@ -43,7 +55,13 @@ export default function AdminDashboardClient() {
     isAdmin,
     isSuperAdmin,
     adminRole,
+    loading: adminAuthLoading,
   } = useAdminAuth();
+
+  // Determine if user has admin access (either confirmed or assumed during loading)
+  // This prevents blank page during auth restoration on refresh
+  // userType === 'admin' is available early from auth store/session cache
+  const hasAdminAccess = userType === 'admin' || isSuperAdmin || adminRole === "super_admin" || adminRole === "admin" || (isAdmin && adminAuthLoading);
 
   // Mark auth as initialized once authentication has been attempted
   useEffect(() => {
@@ -231,8 +249,11 @@ export default function AdminDashboardClient() {
     window.history.pushState({}, "", url);
   };
 
-  // Loading state - while auth is initializing
-  if (!authInitialized || authLoading) {
+  // NEVER return null - always show something visible
+  const isInitializing = !authInitialized || authLoading;
+
+  // During initialization with no profile, show loading state (not blank)
+  if (isInitializing && !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div
@@ -244,21 +265,17 @@ export default function AdminDashboardClient() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <div className="text-center rounded-lg p-8 border-gray-800 border-2 bg-[#212121]">
+          <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h3 className="text-xl font-semibold text-[#FFCC00] mb-4">
-              Initializing...
-            </h3>
-            <p className="text-gray-300">
-              Checking your authentication status
-            </p>
+            <p className="text-gray-400">Loading...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (!account) {
+  // Not connected state - only show AFTER initialization is complete
+  if (!isInitializing && !account && !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div
@@ -326,30 +343,21 @@ export default function AdminDashboardClient() {
           )}
 
           {/* Role-based tab content visibility with Lazy Loading */}
-          {activeTab === "customers" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "customers" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "customers"}>
                 <CustomersTabEnhanced initialView={customerView} />
               </LazyTabWrapper>
             )}
 
           {/* New Combined Shop Management Tab with Lazy Loading */}
-          {activeTab === "shops-management" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "shops-management" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "shops-management"}>
                 <ShopsManagementTab initialView={shopView} />
               </LazyTabWrapper>
             )}
 
           {/* Other tabs with Lazy Loading */}
-          {activeTab === "treasury" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "treasury" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "treasury"}>
                 <AdvancedTreasuryTab />
               </LazyTabWrapper>
@@ -368,37 +376,28 @@ export default function AdminDashboardClient() {
             </LazyTabWrapper>
           )}
 
-          {activeTab === "analytics" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "analytics" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "analytics"}>
                 <AnalyticsTab />
               </LazyTabWrapper>
             )}
-          {activeTab === "subscriptions" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "subscriptions" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "subscriptions"}>
                 <SubscriptionManagementTab />
               </LazyTabWrapper>
             )}
-          {activeTab === "promo-codes" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "promo-codes" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "promo-codes"}>
                 <PromoCodesAnalyticsTab />
               </LazyTabWrapper>
             )}
 
-          {/* Support Tab - TODO: AdminSupportTab component not yet created */}
-          {/* {activeTab === "support" && (
+          {/* Support Tab */}
+          {activeTab === "support" && (
             <LazyTabWrapper isActive={activeTab === "support"}>
               <AdminSupportTab />
             </LazyTabWrapper>
-          )} */}
+          )}
 
           {/* Waitlist Tab */}
           {activeTab === "waitlist" && (
@@ -406,12 +405,15 @@ export default function AdminDashboardClient() {
               <AdminWaitlistTab />
             </LazyTabWrapper>
           )}
+          {/* Disputes Tab */}
+          {activeTab === "disputes" && (
+            <LazyTabWrapper isActive={activeTab === "disputes"}>
+              <AdminDisputeTab />
+            </LazyTabWrapper>
+          )}
 
           {/* Session Management Tab */}
-          {activeTab === "sessions" &&
-            (isSuperAdmin ||
-              adminRole === "super_admin" ||
-              adminRole === "admin") && (
+          {activeTab === "sessions" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "sessions"}>
                 <SessionManagementTab />
               </LazyTabWrapper>

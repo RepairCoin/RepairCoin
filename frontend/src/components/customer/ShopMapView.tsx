@@ -466,7 +466,7 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
         {/* Shop Details Sidebar */}
         <div className="lg:col-span-1">
           {selectedShop ? (
-            <div className="bg-[#2F2F2F] rounded-xl p-6 border border-gray-600 sticky top-6">
+            <div className="bg-[#2F2F2F] rounded-xl p-6 border border-gray-600">
               <h3 className="text-xl font-bold text-[#FFCC00] mb-2">
                 {selectedShop.shopName}
               </h3>
@@ -573,8 +573,8 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
           )}
 
           {/* Shops List */}
-          <div className="mt-6 bg-[#2F2F2F] rounded-xl border border-gray-600 max-h-[400px] overflow-y-auto">
-            <div className="sticky top-0 bg-[#2F2F2F] border-b border-gray-700 px-4 py-3 z-10">
+          <div className="mt-6 bg-[#2F2F2F] rounded-xl border border-gray-600">
+            <div className="bg-[#2F2F2F] border-b border-gray-700 px-4 py-3 rounded-t-xl">
               <h4 className="font-semibold text-white">
                 Nearby Shops ({shops.length})
               </h4>

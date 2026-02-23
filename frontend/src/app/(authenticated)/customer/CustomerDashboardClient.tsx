@@ -12,13 +12,17 @@ import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
+import NoShowWarningBanner from "@/components/customer/NoShowWarningBanner";
+import { AccountClaimBanner } from "@/components/customer/AccountClaimBanner";
 import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
 import { MessagesTab } from "@/components/customer/tabs/MessagesTab";
-// import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection"; // TODO: component not yet created
+import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection";
+import { CustomerBreadcrumb } from "@/components/customer/CustomerBreadcrumb";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
+import { CustomerNoShowStatus, getOverallCustomerNoShowStatus } from "@/services/api/noShow";
 
 const client = createThirdwebClient({
   clientId:
@@ -35,6 +39,19 @@ export default function CustomerDashboardClient() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
   >("overview");
+  const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
+  const [loadingNoShowStatus, setLoadingNoShowStatus] = useState(false);
+
+  // Delayed loading modal - prevents flash when cache loads quickly
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  useEffect(() => {
+    if (!authInitialized || authLoading) {
+      const timer = setTimeout(() => setShowLoadingModal(true), 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingModal(false);
+    }
+  }, [authInitialized, authLoading]);
 
   // Mark auth as initialized once authentication has been attempted
   useEffect(() => {
@@ -88,6 +105,47 @@ export default function CustomerDashboardClient() {
     }
   }, [searchParams]);
 
+  // Fetch no-show status (shop-agnostic)
+  useEffect(() => {
+    const fetchNoShowStatus = async () => {
+      if (!account?.address || !isAuthenticated) return;
+
+      setLoadingNoShowStatus(true);
+      try {
+        const status = await getOverallCustomerNoShowStatus(account.address);
+        setNoShowStatus(status);
+      } catch (error) {
+        console.error('Error fetching no-show status:', error);
+        // Silent fail - don't show error to user
+      } finally {
+        setLoadingNoShowStatus(false);
+      }
+    };
+
+    fetchNoShowStatus();
+  }, [account?.address, isAuthenticated]);
+
+  // Get login function to refresh profile when page becomes visible
+  const { login } = useAuthStore();
+
+  // Refresh user profile when page becomes visible (catches admin changes like suspension)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && account?.address && isAuthenticated) {
+        console.log('📋 Page became visible, refreshing customer profile...');
+        // Re-authenticate to get latest profile data (including suspension status)
+        login(account.address).catch(err => {
+          console.warn('Profile refresh failed:', err);
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [account?.address, isAuthenticated, login]);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
 
@@ -97,27 +155,23 @@ export default function CustomerDashboardClient() {
     window.history.pushState({}, "", url);
   };
 
-  // Loading state - while auth is initializing
-  if (!authInitialized || authLoading) {
+  // NEVER return null - always show something visible
+  const isInitializing = !authInitialized || authLoading;
+
+  // During initialization with no profile, show loading state (not blank)
+  if (isInitializing && !userProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Initializing...
-            </h3>
-            <p className="text-gray-600">
-              Checking your authentication status
-            </p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Not connected state
-  if (!account) {
+  // Not connected state - only show AFTER initialization is complete
+  if (!isInitializing && !account && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -155,7 +209,7 @@ export default function CustomerDashboardClient() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Suspension Banner - Show if account is suspended */}
           {userProfile?.suspended && (
             <SuspensionBanner
@@ -163,6 +217,15 @@ export default function CustomerDashboardClient() {
               suspendedAt={userProfile.suspendedAt}
             />
           )}
+
+          {/* Breadcrumb */}
+          <CustomerBreadcrumb activeTab={activeTab} />
+
+          {/* No-Show Warning Banner - Show tier restrictions */}
+          <NoShowWarningBanner status={noShowStatus} />
+
+          {/* Account Claim Banner - Show if customer has placeholder accounts to claim */}
+          <AccountClaimBanner />
 
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}
@@ -196,8 +259,8 @@ export default function CustomerDashboardClient() {
           {/* Settings Tab */}
           {activeTab === "settings" && <SettingsTab />}
 
-          {/* FAQ Tab - TODO: CustomerFAQSection component not yet created */}
-          {/* {activeTab === "faq" && <CustomerFAQSection />} */}
+          {/* FAQ Tab */}
+          {activeTab === "faq" && <CustomerFAQSection />}
         </div>
       </div>
     </DashboardLayout>

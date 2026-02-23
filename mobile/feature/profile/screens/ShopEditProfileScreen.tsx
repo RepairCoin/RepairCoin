@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Platform, Image } from "react-native";
 import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import FormInput from "@/shared/components/ui/FormInput";
@@ -19,7 +19,16 @@ export default function ShopEditProfileScreen() {
     showLocationPicker,
     setShowLocationPicker,
     isPending,
-    goBack
+    goBack,
+    // Image upload
+    selectedLogo,
+    selectedBanner,
+    isUploadingLogo,
+    isUploadingBanner,
+    handleLogoPick,
+    handleBannerPick,
+    removeLogo,
+    removeBanner,
   } = useShopEditProfile();
 
   return (
@@ -53,6 +62,112 @@ export default function ShopEditProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
         >
+          {/* Shop Images Section */}
+          <SectionHeader
+            icon={<Ionicons name="image" size={16} color="#000" />}
+            title="Shop Images"
+          />
+
+          {/* Banner Upload */}
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              Shop Banner
+            </Text>
+            <TouchableOpacity
+              onPress={handleBannerPick}
+              disabled={isUploadingBanner}
+              className="relative overflow-hidden"
+            >
+              {isUploadingBanner ? (
+                <View className="bg-gray-800 rounded-lg border-2 border-dashed border-gray-700 h-32 items-center justify-center">
+                  <View className="bg-gray-700/50 rounded-full p-3 mb-2">
+                    <Ionicons name="cloud-upload-outline" size={24} color="#FFCC00" />
+                  </View>
+                  <Text className="text-white font-medium text-sm">Uploading Banner...</Text>
+                  <Text className="text-gray-500 text-xs">Please wait</Text>
+                </View>
+              ) : selectedBanner ? (
+                <View className="relative">
+                  <Image
+                    source={{ uri: selectedBanner }}
+                    className="w-full h-32 rounded-lg"
+                    resizeMode="cover"
+                  />
+                  <View className="absolute inset-0 bg-black/20 rounded-lg" />
+                  <View className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 rounded-b-lg">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center">
+                        <Ionicons name="image" size={14} color="white" />
+                        <Text className="text-white text-xs ml-2">Banner Selected</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          removeBanner();
+                        }}
+                        className="bg-red-500/80 rounded-full p-1"
+                      >
+                        <Ionicons name="close" size={14} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <View className="bg-gray-800 rounded-lg border-2 border-dashed border-gray-700 h-32 items-center justify-center">
+                  <View className="bg-gray-700/50 rounded-full p-3 mb-2">
+                    <Ionicons name="image-outline" size={24} color="#FFCC00" />
+                  </View>
+                  <Text className="text-white font-medium text-sm">Add Shop Banner</Text>
+                  <Text className="text-gray-500 text-xs">Recommended: 16:9 ratio</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Logo Upload */}
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              Shop Logo
+            </Text>
+            <TouchableOpacity
+              onPress={handleLogoPick}
+              disabled={isUploadingLogo}
+              className="relative overflow-hidden self-start"
+            >
+              {isUploadingLogo ? (
+                <View className="bg-gray-800 rounded-full border-2 border-dashed border-gray-700 w-24 h-24 items-center justify-center">
+                  <Ionicons name="cloud-upload-outline" size={24} color="#FFCC00" />
+                  <Text className="text-gray-500 text-xs mt-1">Uploading...</Text>
+                </View>
+              ) : selectedLogo ? (
+                <View className="relative">
+                  <Image
+                    source={{ uri: selectedLogo }}
+                    className="w-24 h-24 rounded-full"
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      removeLogo();
+                    }}
+                    className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1"
+                  >
+                    <Ionicons name="close" size={14} color="white" />
+                  </TouchableOpacity>
+                  <View className="absolute bottom-0 right-0 bg-[#FFCC00] rounded-full p-1.5">
+                    <Ionicons name="camera" size={14} color="#000" />
+                  </View>
+                </View>
+              ) : (
+                <View className="bg-gray-800 rounded-full border-2 border-dashed border-gray-700 w-24 h-24 items-center justify-center">
+                  <Ionicons name="storefront-outline" size={28} color="#FFCC00" />
+                  <Text className="text-gray-500 text-xs mt-1">Add Logo</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
           {/* Basic Information Section */}
           <SectionHeader
             icon={<Feather name="info" size={16} color="#000" />}

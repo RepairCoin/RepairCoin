@@ -23,6 +23,7 @@ export interface CustomerData {
   suspensionReason?: string | null;
   referralCode?: string;
   referredBy?: string | null;
+  profile_image_url?: string;
   // Enhanced balance tracking for hybrid database/blockchain system
   currentRcnBalance?: number;
   pendingMintBalance?: number;

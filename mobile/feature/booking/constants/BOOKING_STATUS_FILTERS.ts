@@ -9,4 +9,6 @@ export const BOOKING_STATUS_FILTERS: {
   { label: "Paid", value: "paid" },
   { label: "Approved", value: "approved" },
   { label: "Completed", value: "completed" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Expired", value: "expired" },
 ];

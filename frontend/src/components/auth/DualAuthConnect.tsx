@@ -164,6 +164,16 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
             console.log('🟩 [DualAuthConnect] Detection result:', result);
 
             if (!result.isRegistered) {
+              // Check if rate limited
+              if (result.route === '/rate-limited') {
+                console.error('🟩 [DualAuthConnect] ⚠️ Rate limited - showing error');
+                if (onError) {
+                  onError(new Error(result.data?.message || 'Too many requests. Please wait a few minutes and try again.'));
+                }
+                // Reset the check flag so user can try again
+                hasCheckedRef.current = false;
+                return;
+              }
               console.log('🟩 [DualAuthConnect] 🔄 New user detected, redirecting to /choose...');
               setTimeout(() => {
                 router.push('/choose');

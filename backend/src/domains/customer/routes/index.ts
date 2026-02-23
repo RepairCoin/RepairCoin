@@ -16,6 +16,11 @@ import { RateLimiter, createRateLimitMiddleware } from '../../../utils/rateLimit
 import { verifyCaptchaRegister } from '../../../middleware/captcha';
 import { CustomerController } from '../controllers/CustomerController';
 import { CustomerService } from '../services/CustomerService';
+import {
+  checkClaimableAccounts,
+  claimAccount,
+  checkClaimableByContact
+} from '../controllers/AccountClaimController';
 
 // Import new route modules
 import crossShopRoutes from './crossShop';
@@ -43,6 +48,38 @@ router.use('/balance', balanceRoutes);
 
 // Register notification preferences routes (must be before /:address dynamic route)
 router.use('/', notificationPreferencesRoutes);
+
+// ==================== ACCOUNT CLAIM ROUTES ====================
+
+/**
+ * Check for claimable placeholder accounts (authenticated customer)
+ * Used after login to prompt user if they have booking history to claim
+ */
+router.get('/claim/check',
+  authMiddleware,
+  requireRole(['customer']),
+  asyncHandler(checkClaimableAccounts)
+);
+
+/**
+ * Check for claimable accounts by email/phone (public - used during signup)
+ * Returns count only, no sensitive data
+ */
+router.post('/claim/check-by-contact',
+  asyncHandler(checkClaimableByContact)
+);
+
+/**
+ * Claim a placeholder account
+ * Transfers bookings from placeholder to real customer account
+ */
+router.post('/claim',
+  authMiddleware,
+  requireRole(['customer']),
+  asyncHandler(claimAccount)
+);
+
+// ==================== END ACCOUNT CLAIM ROUTES ====================
 
 // Public endpoint to get shops for customers (QR code generation)
 router.get('/shops',
@@ -134,7 +171,7 @@ router.get('/:address/transactions',
 // Get customer analytics
 router.get('/:address/analytics',
   authMiddleware,
-  requireRole(['admin', 'customer']),
+  requireRole(['admin', 'customer', 'shop']),
   validateEthereumAddress('address'),
   asyncHandler(customerController.getCustomerAnalytics.bind(customerController))
 );
@@ -182,6 +219,31 @@ router.post('/:address/request-unsuspend',
   validateEthereumAddress('address'),
   validateRequired(['reason']),
   asyncHandler(customerController.requestUnsuspend.bind(customerController))
+);
+
+// Get customer's no-show status
+router.get('/:address/no-show-status',
+  authMiddleware,
+  requireRole(['admin', 'customer', 'shop']),
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getNoShowStatus.bind(customerController))
+);
+
+// Get customer's no-show history
+router.get('/:address/no-show-history',
+  authMiddleware,
+  requireRole(['admin', 'customer', 'shop']),
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getNoShowHistory.bind(customerController))
+);
+
+// Get customer's overall no-show status (shop-agnostic)
+// This endpoint does not require a shopId and returns the customer's global tier
+router.get('/:address/overall-no-show-status',
+  authMiddleware,
+  requireRole(['admin', 'customer', 'shop']),
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getOverallNoShowStatus.bind(customerController))
 );
 
 export default router;

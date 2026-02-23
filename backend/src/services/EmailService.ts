@@ -74,6 +74,17 @@ export interface BookingCancelledByCustomerData {
   stripeRefunded: number;
 }
 
+export interface AppointmentExpiredData {
+  customerEmail: string;
+  customerName: string;
+  shopName: string;
+  serviceName: string;
+  bookingDate: Date;
+  bookingTime: string;
+  rcnRefunded: number;
+  stripeRefunded: number;
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private config: EmailConfig;
@@ -694,6 +705,146 @@ export class EmailService {
   }
 
   /**
+   * Send appointment confirmation for manual booking
+   */
+  async sendAppointmentConfirmation(
+    customerEmail: string,
+    customerName: string,
+    shopName: string,
+    serviceName: string,
+    bookingDate: Date,
+    bookingTime: string,
+    paymentStatus: string
+  ): Promise<boolean> {
+    const subject = `Appointment Confirmed at ${shopName}`;
+
+    const dateFormatted = bookingDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const paymentStatusText = paymentStatus === 'paid'
+      ? 'Payment collected'
+      : paymentStatus === 'pending'
+      ? 'Payment pending'
+      : 'Payment not yet collected';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Appointment Confirmed</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${customerName || 'there'},</p>
+
+          <p>Your appointment at <strong>${shopName}</strong> has been successfully booked!</p>
+
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <p style="margin: 5px 0; color: #155724;"><strong>📅 Date & Time:</strong></p>
+            <p style="margin: 5px 0; font-size: 18px; color: #155724;">
+              <strong>${dateFormatted}</strong><br>
+              <strong>${bookingTime}</strong>
+            </p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${shopName}</p>
+            <p style="margin: 5px 0;"><strong>Payment Status:</strong> ${paymentStatusText}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="margin: 5px 0; color: #856404;"><strong>⏰ Please arrive on time</strong></p>
+            <p style="margin: 5px 0; color: #856404;">
+              If you need to cancel or reschedule, please contact the shop as soon as possible.
+            </p>
+          </div>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for booking with RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(customerEmail, subject, html);
+  }
+
+  /**
+   * Send payment link email for manual booking
+   */
+  async sendPaymentLinkEmail(
+    customerEmail: string,
+    customerName: string,
+    data: {
+      shopName: string;
+      serviceName: string;
+      bookingDate: string;
+      bookingTime: string;
+      amount: number;
+      paymentLink: string;
+      expiresIn: string;
+    }
+  ): Promise<boolean> {
+    const subject = `Complete Your Payment - ${data.shopName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Payment Required</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${customerName || 'there'},</p>
+
+          <p>Your appointment at <strong>${data.shopName}</strong> has been scheduled! Please complete your payment to confirm the booking.</p>
+
+          <div style="background-color: #e7f3ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0066cc;">
+            <p style="margin: 5px 0; color: #004085;"><strong>📅 Appointment Details:</strong></p>
+            <p style="margin: 5px 0; color: #004085;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0; color: #004085;"><strong>Date:</strong> ${data.bookingDate}</p>
+            <p style="margin: 5px 0; color: #004085;"><strong>Time:</strong> ${data.bookingTime}</p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Amount Due:</p>
+            <p style="margin: 0 0 20px 0; font-size: 32px; font-weight: bold; color: #000;">$${data.amount.toFixed(2)}</p>
+            <a href="${data.paymentLink}" style="display: inline-block; background-color: #FFCC00; color: #000; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+              Pay Now
+            </a>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="margin: 5px 0; color: #856404;"><strong>⏰ This link expires in ${data.expiresIn}</strong></p>
+            <p style="margin: 5px 0; color: #856404;">
+              Please complete your payment before the link expires. If you have any questions, contact ${data.shopName}.
+            </p>
+          </div>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for booking with RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(customerEmail, subject, html);
+  }
+
+  /**
    * Send appointment reschedule notification to customer
    */
   async sendAppointmentRescheduledByShop(data: {
@@ -744,6 +895,64 @@ export class EmailService {
 
           <p style="color: #666; font-size: 12px; margin-top: 30px;">
             Thank you for your understanding!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send reschedule request expired notification to customer
+   */
+  async sendRescheduleRequestExpired(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    orderId: string;
+  }): Promise<boolean> {
+    const subject = `Your reschedule request at ${data.shopName} has expired`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Reschedule Request Expired</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>Your reschedule request for <strong>${data.serviceName}</strong> at <strong>${data.shopName}</strong> has expired.</p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            <p style="margin: 0; color: #856404;">
+              <strong>What this means:</strong><br>
+              The shop did not respond to your reschedule request within the allowed time period (48 hours). Your original appointment remains unchanged.
+            </p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+            <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${data.orderId.slice(-8).toUpperCase()}</p>
+          </div>
+
+          <div style="background-color: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+            <p style="margin: 0; color: #0c5460;">
+              <strong>What you can do:</strong><br>
+              You can submit a new reschedule request from your bookings page, or contact the shop directly to discuss alternative times.
+            </p>
+          </div>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for using RepairCoin!<br>
             The RepairCoin Team
           </p>
         </div>
@@ -874,6 +1083,641 @@ export class EmailService {
     `;
 
     return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 1 warning email (1st offense)
+   */
+  async sendNoShowTier1Warning(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+  }): Promise<boolean> {
+    const subject = 'Missed Appointment Notice - Please Read';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #fff3cd; padding: 20px; text-align: center; border-left: 4px solid #ffc107;">
+          <h2 style="color: #856404; margin: 0;">Missed Appointment Notice</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>We noticed that you missed your scheduled appointment at <strong>${data.shopName}</strong>.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <p><strong>We understand that unexpected things happen!</strong> This is just a friendly reminder that missed appointments impact local businesses.</p>
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Your Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0;">Current Tier: Warning (No Restrictions)</p>
+          </div>
+
+          <p><strong>Tips for Future Bookings:</strong></p>
+          <ul>
+            <li>Cancel at least 4 hours in advance if you can't make it</li>
+            <li>Set reminders on your phone for appointments</li>
+            <li>Contact the shop directly if you're running late</li>
+          </ul>
+
+          <p>You can continue booking services normally. Thank you for being a valued RepairCoin customer!</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 2 caution email (2nd offense)
+   */
+  async sendNoShowTier2Caution(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+    minimumAdvanceHours: number;
+  }): Promise<boolean> {
+    const subject = '⚠️ Important: Account Restrictions Applied - Multiple No-Shows';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #fff3cd; padding: 20px; text-align: center; border-left: 4px solid #ff9800;">
+          <h2 style="color: #e65100; margin: 0;">⚠️ Account Restrictions Applied</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>You were marked as no-show for another appointment at <strong>${data.shopName}</strong>.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ff9800;">
+            <p style="margin: 0; color: #e65100;"><strong>⚠️ Your Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #e65100;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0; color: #e65100;">Current Tier: Caution</p>
+          </div>
+
+          <p><strong>Due to multiple no-shows, the following restriction now applies:</strong></p>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #c62828;"><strong>📅 Advance Booking Required:</strong></p>
+            <p style="margin: 5px 0 0 0;">You must book at least <strong>${data.minimumAdvanceHours} hours in advance</strong></p>
+          </div>
+
+          <p><strong>Why This Matters:</strong></p>
+          <p>No-shows hurt local repair businesses and prevent other customers from getting appointments. We appreciate your understanding.</p>
+
+          <p><strong>How to Avoid Further Restrictions:</strong></p>
+          <ul>
+            <li>Always cancel at least 4 hours before your appointment</li>
+            <li>Show up on time (or call if you'll be late)</li>
+            <li>Set calendar reminders for your bookings</li>
+          </ul>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions? Contact support@repaircoin.com<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 3 deposit required email (3rd offense)
+   */
+  async sendNoShowTier3DepositRequired(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+    depositAmount: number;
+    minimumAdvanceHours: number;
+    maxRcnRedemptionPercent: number;
+    resetAfterSuccessful: number;
+  }): Promise<boolean> {
+    const subject = '🚨 Critical: Deposit Now Required - Multiple No-Shows';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #ffebee; padding: 20px; text-align: center; border-left: 4px solid #d32f2f;">
+          <h2 style="color: #c62828; margin: 0;">🚨 Deposit Required</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p><strong>You were marked as no-show for another appointment.</strong> Due to repeated missed appointments, we must now require a refundable deposit for future bookings.</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Latest Missed Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d32f2f;">
+            <p style="margin: 0; color: #c62828;"><strong>🚨 Your Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #c62828;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0; color: #c62828;">Current Tier: Deposit Required</p>
+          </div>
+
+          <p><strong>New Booking Requirements:</strong></p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>💰 Refundable Deposit:</strong> $${data.depositAmount.toFixed(2)}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Fully refunded when you show up for your appointment</p>
+          </div>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>📅 Advance Booking:</strong> ${data.minimumAdvanceHours} hours minimum</p>
+            <p style="margin: 5px 0 0 0;"><strong>🪙 RCN Redemption:</strong> Limited to ${data.maxRcnRedemptionPercent}% of service cost</p>
+          </div>
+
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50;">
+            <p style="margin: 0; color: #2e7d32;"><strong>✨ Good News - You Can Restore Your Account!</strong></p>
+            <p style="margin: 5px 0 0 0;">Show up for <strong>${data.resetAfterSuccessful} successful appointments</strong> and we'll remove these restrictions.</p>
+          </div>
+
+          <p><strong>Important Information:</strong></p>
+          <ul>
+            <li>Deposits are charged when you book and fully refunded when you show up</li>
+            <li>If you no-show again, the deposit is forfeited</li>
+            <li>Always cancel at least 4 hours in advance to get your deposit back</li>
+          </ul>
+
+          <p style="color: #666; font-size: 14px;">We understand life happens, but repeated no-shows significantly impact small businesses. Thank you for your cooperation.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions? Contact support@repaircoin.com<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send no-show tier 4 suspended email (5th offense)
+   */
+  async sendNoShowTier4Suspended(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    serviceName: string;
+    appointmentDate: string;
+    noShowCount: number;
+    suspensionEndDate: string;
+    suspensionDays: number;
+  }): Promise<boolean> {
+    const subject = '🛑 Account Suspended - Multiple No-Shows';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f44336; padding: 20px; text-align: center;">
+          <h2 style="color: #ffffff; margin: 0;">🛑 Account Suspended</h2>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p><strong style="color: #d32f2f;">Your RepairCoin account has been temporarily suspended due to repeated no-shows.</strong></p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Latest Missed Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Scheduled Date:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+          </div>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f44336;">
+            <p style="margin: 0; color: #b71c1c;"><strong>🛑 Account Status:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #b71c1c;">Total No-Shows: ${data.noShowCount}</p>
+            <p style="margin: 5px 0 0 0; color: #b71c1c;">Current Tier: Suspended</p>
+            <p style="margin: 5px 0 0 0; color: #b71c1c;"><strong>Suspension Until: ${data.suspensionEndDate}</strong></p>
+          </div>
+
+          <p><strong>What This Means:</strong></p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>❌ You cannot book any services for ${data.suspensionDays} days</strong></p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Suspension automatically lifts on ${data.suspensionEndDate}</p>
+          </div>
+
+          <p><strong>Why This Happened:</strong></p>
+          <p>Repeated no-shows cause significant harm to local businesses by preventing other customers from booking and wasting business resources. We take this seriously to protect our shop partners.</p>
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>📅 After Suspension Ends:</strong></p>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+              <li>You'll be able to book again with a refundable deposit</li>
+              <li>48-hour advance booking will be required</li>
+              <li>RCN redemption will be limited to 80%</li>
+              <li>Complete successful appointments to restore your account</li>
+            </ul>
+          </div>
+
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>💡 Tips to Rebuild Trust:</strong></p>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+              <li>Always cancel at least 4 hours in advance</li>
+              <li>Set multiple reminders for appointments</li>
+              <li>Only book when you're confident you can attend</li>
+              <li>Contact shops directly if you're running late</li>
+            </ul>
+          </div>
+
+          <p style="color: #666; font-size: 14px;">We value all our customers and look forward to serving you again after the suspension period. Please use this time to reflect on the importance of honoring appointments.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Questions about your suspension? Contact support@repaircoin.com<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send email when customer dispute is submitted
+   */
+  async sendDisputeSubmitted(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    appointmentDate: Date;
+    disputeReason: string;
+    autoApproved: boolean;
+  }): Promise<boolean> {
+    const subject = data.autoApproved
+      ? `Your dispute has been approved - ${data.shopName}`
+      : `Dispute submitted for review - ${data.shopName}`;
+
+    const appointmentDateStr = data.appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #1a1a1a; color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #d97706, #f59e0b); padding: 32px; text-align: center;">
+          <h1 style="color: #000; margin: 0; font-size: 24px;">
+            ${data.autoApproved ? '✅ Dispute Approved' : '📋 Dispute Submitted'}
+          </h1>
+        </div>
+        <div style="padding: 32px;">
+          <p style="color: #d1d5db;">Hi ${data.customerName || 'Customer'},</p>
+          ${data.autoApproved ? `
+            <p style="color: #d1d5db;">Great news! Your no-show dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> at <strong style="color: #ffffff;">${data.shopName}</strong> has been <strong style="color: #10b981;">automatically approved</strong>.</p>
+            <p style="color: #d1d5db;">The no-show penalty has been reversed and your account standing has been updated.</p>
+          ` : `
+            <p style="color: #d1d5db;">Your dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> at <strong style="color: #ffffff;">${data.shopName}</strong> has been submitted and is <strong style="color: #f59e0b;">pending review</strong>.</p>
+            <div style="background: #2a2a2a; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="color: #9ca3af; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">Your Reason</p>
+              <p style="color: #ffffff; margin: 0;">${data.disputeReason}</p>
+            </div>
+            <p style="color: #d1d5db;">The shop will review your dispute within their specified timeframe. You'll receive an email when a decision is made.</p>
+          `}
+          <p style="color: #6b7280; font-size: 12px; margin-top: 32px;">RepairCoin — The Repair Shop Loyalty Platform</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send email when shop resolves a dispute
+   */
+  async sendDisputeResolved(data: {
+    customerEmail: string;
+    customerName: string;
+    shopName: string;
+    appointmentDate: Date;
+    resolution: 'approved' | 'rejected';
+    resolutionNotes?: string;
+  }): Promise<boolean> {
+    const subject = data.resolution === 'approved'
+      ? `Your dispute has been approved - ${data.shopName}`
+      : `Your dispute decision - ${data.shopName}`;
+
+    const appointmentDateStr = data.appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #1a1a1a; color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <div style="background: ${data.resolution === 'approved' ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #dc2626, #ef4444)'}; padding: 32px; text-align: center;">
+          <h1 style="color: #fff; margin: 0; font-size: 24px;">
+            ${data.resolution === 'approved' ? '✅ Dispute Approved' : '❌ Dispute Decision'}
+          </h1>
+        </div>
+        <div style="padding: 32px;">
+          <p style="color: #d1d5db;">Hi ${data.customerName || 'Customer'},</p>
+          ${data.resolution === 'approved' ? `
+            <p style="color: #d1d5db;"><strong style="color: #ffffff;">${data.shopName}</strong> has reviewed your dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> and has <strong style="color: #10b981;">approved</strong> your request.</p>
+            <p style="color: #d1d5db;">The no-show penalty has been reversed and your account standing has been updated.</p>
+          ` : `
+            <p style="color: #d1d5db;"><strong style="color: #ffffff;">${data.shopName}</strong> has reviewed your dispute for your appointment on <strong style="color: #ffffff;">${appointmentDateStr}</strong> and has <strong style="color: #ef4444;">upheld the no-show record</strong>.</p>
+            <p style="color: #d1d5db;">The no-show penalty remains in effect on your account.</p>
+          `}
+          ${data.resolutionNotes ? `
+            <div style="background: #2a2a2a; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <p style="color: #9ca3af; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase;">Shop Notes</p>
+              <p style="color: #ffffff; margin: 0;">${data.resolutionNotes}</p>
+            </div>
+          ` : ''}
+          ${data.resolution === 'rejected' ? `<p style="color: #d1d5db;">If you believe this decision is incorrect, please contact platform support.</p>` : ''}
+          <p style="color: #6b7280; font-size: 12px; margin-top: 32px;">RepairCoin — The Repair Shop Loyalty Platform</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send appointment expired notification to customer
+   * Orange theme to match expired status color
+   */
+  async sendAppointmentExpiredNotification(data: AppointmentExpiredData): Promise<boolean> {
+    const subject = `Appointment Expired - Refund Processed`;
+
+    // Format booking date and time
+    const dateFormatted = data.bookingDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Format booking time (HH:MM to readable format)
+    const [hours, minutes] = data.bookingTime.split(':').map(Number);
+    const tempDate = new Date();
+    tempDate.setHours(hours, minutes, 0, 0);
+    const timeFormatted = tempDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // Build refund details string - handle string/number types
+    const rcnAmount = typeof data.rcnRefunded === 'string' ? parseFloat(data.rcnRefunded) : data.rcnRefunded;
+    const stripeAmount = typeof data.stripeRefunded === 'string' ? parseFloat(data.stripeRefunded) : data.stripeRefunded;
+
+    const refundParts: string[] = [];
+    if (rcnAmount > 0) {
+      refundParts.push(`${rcnAmount} RCN tokens`);
+    }
+    if (stripeAmount > 0) {
+      refundParts.push(`$${stripeAmount.toFixed(2)}`);
+    }
+    const hasRefunds = refundParts.length > 0;
+    const refundText = hasRefunds
+      ? refundParts.join(' and ') + ' has been refunded to your account'
+      : 'No refund was required for this booking';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f97316; padding: 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0;">Appointment Expired</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.customerName || 'there'},</p>
+
+          <p>Your scheduled appointment has expired as it was not marked complete by the shop within 24 hours of the scheduled time.</p>
+
+          <div style="background-color: #fff7ed; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316;">
+            <p style="margin: 5px 0; color: #9a3412;"><strong>Appointment Details:</strong></p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Shop:</strong> ${data.shopName}</p>
+            <p style="margin: 5px 0;"><strong>Date:</strong> ${dateFormatted}</p>
+            <p style="margin: 5px 0;"><strong>Time:</strong> ${timeFormatted}</p>
+          </div>
+
+          ${hasRefunds ? `
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <p style="margin: 0; color: #155724;"><strong>Refund Information:</strong></p>
+            <p style="margin: 5px 0 0 0; color: #155724;">${refundText}</p>
+            ${data.stripeRefunded > 0 ? '<p style="margin: 5px 0 0 0; color: #155724; font-size: 12px;">Card refunds typically take 5-10 business days to appear.</p>' : ''}
+          </div>
+          ` : ''}
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>What happened?</strong></p>
+            <p style="margin: 5px 0 0 0;">Shops are required to mark appointments as complete within 24 hours of the scheduled time. Since this didn't happen, your appointment has automatically expired and any payments have been refunded.</p>
+          </div>
+
+          <p>If you believe this is an error or the service was actually completed, please contact the shop directly or reach out to our support team.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            Thank you for using RepairCoin!<br>
+            The RepairCoin Team
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p>This is an automated message from RepairCoin. For support, contact support@repaircoin.com</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.customerEmail, subject, html);
+  }
+
+  /**
+   * Send waitlist confirmation email to user
+   */
+  async sendWaitlistConfirmation(data: {
+    email: string;
+    userType: 'customer' | 'shop';
+  }): Promise<boolean> {
+    const subject = '🎉 You\'re on the RepairCoin Waitlist!';
+
+    const userTypeText = data.userType === 'shop' ? 'Shop Owner' : 'Customer';
+    const benefitsHtml = data.userType === 'shop' ? `
+      <ul style="color: #333; padding-left: 20px;">
+        <li>Early partner access and onboarding</li>
+        <li>Elite tier pricing for first 50 shops</li>
+        <li>Priority support during launch</li>
+        <li>Exclusive beta testing opportunities</li>
+      </ul>
+    ` : `
+      <ul style="color: #333; padding-left: 20px;">
+        <li>Early access when shops near you join</li>
+        <li>Bonus RCN tokens for early adopters</li>
+        <li>Exclusive launch promotions</li>
+        <li>Priority notifications for new partner shops</li>
+      </ul>
+    `;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 30px; text-align: center;">
+          <h1 style="color: #000; margin: 0; font-size: 28px;">Welcome to RepairCoin! 🪙</h1>
+        </div>
+
+        <div style="padding: 30px; background-color: #ffffff;">
+          <p style="font-size: 16px; color: #333;">Hi there!</p>
+
+          <p style="font-size: 16px; color: #333;">
+            Thank you for joining the RepairCoin waitlist as a <strong>${userTypeText}</strong>.
+            You're now part of an exclusive group of early adopters who will help shape the future of
+            blockchain loyalty rewards for the repair industry.
+          </p>
+
+          <div style="background-color: #f9f9f9; padding: 20px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #FFCC00;">
+            <h3 style="color: #000; margin: 0 0 15px 0;">What's Next?</h3>
+            ${benefitsHtml}
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 25px 0;">
+            <p style="margin: 0; color: #856404;">
+              <strong>💡 Did you know?</strong> 1 RCN = $0.10 USD, always. No volatility, no speculation—just reliable rewards.
+            </p>
+          </div>
+
+          <p style="font-size: 16px; color: #333;">
+            We'll keep you updated on our progress and let you know as soon as you can start
+            ${data.userType === 'shop' ? 'issuing rewards to your customers' : 'earning rewards at partner shops'}.
+          </p>
+
+          <p style="font-size: 14px; color: #666; margin-top: 30px;">
+            Have questions? Reply to this email or visit <a href="https://repaircoin.com" style="color: #FFCC00;">repaircoin.com</a>
+          </p>
+        </div>
+
+        <div style="background-color: #1a1a1a; padding: 20px; text-align: center;">
+          <p style="color: #888; font-size: 12px; margin: 0;">
+            © 2026 RepairCoin | Blockchain Loyalty for Repair Shops
+          </p>
+          <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">
+            You received this email because you signed up for the RepairCoin waitlist.
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.email, subject, html);
+  }
+
+  /**
+   * Send waitlist notification email to admin
+   */
+  async sendWaitlistAdminNotification(data: {
+    email: string;
+    userType: 'customer' | 'shop';
+    createdAt: Date;
+  }): Promise<boolean> {
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+
+    logger.info('sendWaitlistAdminNotification called', {
+      adminEmail,
+      ADMIN_NOTIFICATION_EMAIL: process.env.ADMIN_NOTIFICATION_EMAIL,
+      EMAIL_USER: process.env.EMAIL_USER,
+      newSignup: data.email,
+      userType: data.userType
+    });
+
+    if (!adminEmail) {
+      logger.warn('No admin email configured for waitlist notifications');
+      return false;
+    }
+
+    const subject = `🆕 New Waitlist Signup: ${data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer'}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #10b981; padding: 20px; text-align: center;">
+          <h2 style="color: #fff; margin: 0;">New Waitlist Signup!</h2>
+        </div>
+
+        <div style="padding: 25px; background-color: #ffffff;">
+          <p style="font-size: 16px; color: #333;">A new user has joined the RepairCoin waitlist:</p>
+
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; width: 120px;"><strong>Email:</strong></td>
+                <td style="padding: 8px 0; color: #333;">${data.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;"><strong>Type:</strong></td>
+                <td style="padding: 8px 0; color: #333;">
+                  ${data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer'}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;"><strong>Signed Up:</strong></td>
+                <td style="padding: 8px 0; color: #333;">${data.createdAt.toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${data.userType === 'shop' ? `
+          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+            <p style="margin: 0; color: #92400e;">
+              <strong>⭐ Shop Owner Signup!</strong> Consider reaching out for early partner onboarding.
+            </p>
+          </div>
+          ` : ''}
+
+          <p style="font-size: 14px; color: #666;">
+            View all waitlist entries in the <a href="${process.env.FRONTEND_URL || 'https://repaircoin.com'}/admin/waitlist" style="color: #FFCC00;">Admin Dashboard</a>
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p style="margin: 0;">This is an automated notification from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(adminEmail, subject, html);
   }
 
   /**

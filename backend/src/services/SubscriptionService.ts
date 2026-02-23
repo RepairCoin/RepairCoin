@@ -153,9 +153,14 @@ export class SubscriptionService extends BaseRepository {
 
       const subscription = this.mapSubscriptionRow(subscriptionResult.rows[0]);
 
-      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      // Sync shop_subscriptions with stripe subscription (creates or updates record)
       const shopSubRepo = new ShopSubscriptionRepository();
-      await shopSubRepo.syncNextPaymentDateFromStripe(shopId, new Date(currentPeriodEnd * 1000));
+      await shopSubRepo.syncFromStripeSubscription(
+        shopId,
+        stripeSubscription.id,
+        stripeSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
+        new Date(currentPeriodEnd * 1000)
+      );
 
       // Publish event
       eventBus.publish({

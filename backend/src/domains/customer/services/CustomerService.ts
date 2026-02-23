@@ -25,6 +25,7 @@ export interface CustomerUpdateData {
   last_name?: string;
   email?: string;
   phone?: string;
+  profile_image_url?: string;
 }
 
 export interface RedemptionCheckParams {
@@ -251,6 +252,7 @@ export class CustomerService {
         last_name?: string;
         email?: string;
         phone?: string;
+        profileImageUrl?: string;
       } = {};
 
       if (updates.name !== undefined) profileUpdates.name = updates.name;
@@ -258,6 +260,7 @@ export class CustomerService {
       if (updates.last_name !== undefined) profileUpdates.last_name = updates.last_name;
       if (updates.email !== undefined) profileUpdates.email = updates.email;
       if (updates.phone !== undefined) profileUpdates.phone = updates.phone;
+      if (updates.profile_image_url !== undefined) profileUpdates.profileImageUrl = updates.profile_image_url;
 
       await customerRepository.updateCustomerProfile(address, profileUpdates);
 

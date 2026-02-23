@@ -48,7 +48,8 @@ const publicRouter = Router();
 router.get('/subscription/status', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    
+    const forceSync = req.query.sync === 'true'; // Optional: force sync with Stripe
+
     if (!shopId) {
       return res.status(401).json({
         success: false,
@@ -56,7 +57,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       });
     }
 
-    logger.debug('Checking subscription status for shop', { shopId });
+    logger.debug('Checking subscription status for shop', { shopId, forceSync });
 
     const db = DatabaseService.getInstance();
 
@@ -142,54 +143,31 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
 
     // Check for Stripe subscription only if shop_subscriptions is not cancelled/paused
     const subscriptionService = getSubscriptionService();
-    let stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
+    const stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
 
     if (stripeSubscription) {
-      // Sync with Stripe to ensure database is up-to-date
-      try {
-        logger.info('🔄 Syncing subscription status with Stripe', {
+      // PERFORMANCE: Skip Stripe sync on status endpoint - return cached data immediately
+      // Stripe sync is slow (external API call) and causes timeouts on multi-tab refresh
+      // Sync happens via:
+      // 1. Webhooks (real-time updates from Stripe)
+      // 2. POST /subscription/sync endpoint (manual sync when needed)
+      // 3. Background jobs (if implemented)
+
+      // Check if subscription is active based on cached status
+      const activeStatuses = ['active', 'past_due', 'unpaid'];
+      if (!activeStatuses.includes(stripeSubscription.status)) {
+        logger.info('📋 Subscription not active (cached status)', {
           shopId,
           subscriptionId: stripeSubscription.stripeSubscriptionId,
-          currentStatus: stripeSubscription.status
+          status: stripeSubscription.status
         });
 
-        const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(
-          stripeSubscription.stripeSubscriptionId
-        );
-
-        logger.info('✅ Subscription synced with Stripe', {
-          shopId,
-          subscriptionId: syncedSubscription.stripeSubscriptionId,
-          syncedStatus: syncedSubscription.status
-        });
-
-        // Check if subscription is still active after sync
-        // Active statuses: 'active', 'past_due', 'unpaid'
-        const activeStatuses = ['active', 'past_due', 'unpaid'];
-        if (!activeStatuses.includes(syncedSubscription.status)) {
-          logger.warn('⚠️ Subscription is no longer active after sync', {
-            shopId,
-            subscriptionId: syncedSubscription.stripeSubscriptionId,
-            status: syncedSubscription.status
-          });
-
-          // Return no active subscription
-          return res.json({
-            success: true,
-            data: {
-              currentSubscription: null,
-              hasActiveSubscription: false
-            }
-          });
-        }
-
-        stripeSubscription = syncedSubscription;
-      } catch (syncError) {
-        // Log sync error but continue with cached data
-        logger.error('⚠️ Failed to sync subscription with Stripe, using cached data', {
-          shopId,
-          subscriptionId: stripeSubscription.stripeSubscriptionId,
-          error: syncError instanceof Error ? syncError.message : 'Unknown error'
+        return res.json({
+          success: true,
+          data: {
+            currentSubscription: null,
+            hasActiveSubscription: false
+          }
         });
       }
 

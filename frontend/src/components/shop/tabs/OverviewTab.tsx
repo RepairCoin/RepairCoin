@@ -15,6 +15,8 @@ import {
   Info,
   HelpCircle,
   Plus,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
@@ -57,11 +59,16 @@ interface OverviewTabProps {
   purchases: PurchaseHistory[];
   onRefreshData?: () => void;
   authToken?: string;
+  loading?: boolean;
+  error?: string | null;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   shopData,
   purchases,
+  onRefreshData,
+  loading = false,
+  error = null,
 }) => {
   const { rcgInfo } = useRCGBalance(shopData?.shopId);
 
@@ -133,6 +140,31 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     }
   }, [showFilterDropdown]);
 
+  // Error state - show error message with retry button
+  if (error && !shopData) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="bg-[#101010] rounded-[20px] p-8">
+          <div className="flex flex-col items-center justify-center text-center py-12">
+            <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Failed to Load Shop Data</h3>
+            <p className="text-gray-400 mb-6 max-w-md">{error}</p>
+            {onRefreshData && (
+              <button
+                onClick={onRefreshData}
+                className="px-6 py-3 bg-[#FFCC00] text-[#101010] rounded-lg hover:bg-yellow-400 transition-colors font-medium flex items-center gap-2"
+              >
+                <RefreshCw className="w-5 h-5" />
+                Try Again
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state - show skeleton
   if (!shopData) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -161,6 +193,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <div className="h-4 bg-gray-700 rounded w-32 mb-4"></div>
             <div className="h-64 bg-gray-700 rounded"></div>
           </div>
+          {/* Loading indicator text */}
+          {loading && (
+            <div className="flex items-center justify-center gap-2 text-gray-400">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading shop data...</span>
+            </div>
+          )}
         </div>
       </div>
     );

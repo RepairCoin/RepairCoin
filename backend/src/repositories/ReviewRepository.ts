@@ -20,6 +20,7 @@ export interface ServiceReview {
 
 export interface ServiceReviewWithDetails extends ServiceReview {
   customerName?: string;
+  customerProfileImageUrl?: string;
   serviceName?: string;
   shopName?: string;
 }
@@ -155,6 +156,7 @@ export class ReviewRepository extends BaseRepository {
         SELECT
           r.*,
           c.name as customer_name,
+          c.profile_image_url as customer_profile_image_url,
           s.service_name,
           sh.name as shop_name
         FROM service_reviews r
@@ -285,6 +287,7 @@ export class ReviewRepository extends BaseRepository {
         SELECT
           r.*,
           c.name as customer_name,
+          c.profile_image_url as customer_profile_image_url,
           s.service_name
         FROM service_reviews r
         LEFT JOIN customers c ON r.customer_address = c.address
@@ -538,6 +541,7 @@ export class ReviewRepository extends BaseRepository {
     return {
       ...this.mapReviewRow(row),
       customerName: row.customer_name,
+      customerProfileImageUrl: row.customer_profile_image_url,
       serviceName: row.service_name,
       shopName: row.shop_name
     };

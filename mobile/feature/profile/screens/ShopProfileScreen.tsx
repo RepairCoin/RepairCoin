@@ -49,11 +49,11 @@ export default function ShopProfileScreen() {
     <View className="flex-1 bg-zinc-950">
       <AppHeader title="Shop Profile" />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="h-4" />
-
         <ShopProfileHeader
           name={shopData.name}
           verified={shopData.verified}
+          logoUrl={shopData.logoUrl}
+          bannerUrl={shopData.bannerUrl}
         />
 
         <TabButtons

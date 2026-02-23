@@ -5,6 +5,7 @@ import {
   ServiceInfoCard,
   StarRating,
   CommentInput,
+  ImagePicker,
   ReviewTips,
   SubmitButton,
 } from "../components";
@@ -16,6 +17,8 @@ export default function WriteReviewScreen() {
     rating,
     comment,
     setComment,
+    images,
+    setImages,
     isSubmitted,
     handleRatingSelect,
     handleSubmit,
@@ -39,6 +42,8 @@ export default function WriteReviewScreen() {
         />
 
         <CommentInput value={comment} onChangeText={setComment} />
+
+        <ImagePicker images={images} onImagesChange={setImages} maxImages={5} />
 
         <ReviewTips />
 

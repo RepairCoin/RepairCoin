@@ -6,12 +6,13 @@ import QrScanner from "qr-scanner";
 import { Camera, X, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import CustomerCard from "@/components/shop/customers/CustomerCard";
-import { CustomerDetailsModal } from "@/components/shop/customers/CustomerDetailsModal";
+import { CustomerProfileView } from "@/components/shop/customers/profile";
 
 // Search result from API
 interface CustomerSearchResult {
   address: string;
   name?: string;
+  profile_image_url?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetime_earnings: number;
   last_transaction_date?: string;
@@ -88,6 +89,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       const customers = (data.data.customers || []).map((c: {
         address: string;
         name?: string;
+        profile_image_url?: string;
         tier?: string;
         lifetimeEarnings?: number;
         currentBalance?: number;
@@ -96,6 +98,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       }) => ({
         address: c.address,
         name: c.name,
+        profile_image_url: c.profile_image_url,
         tier: c.tier || "BRONZE",
         lifetime_earnings: c.lifetimeEarnings || 0,
         last_transaction_date: c.lastEarnedDate,
@@ -242,6 +245,17 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       searchCustomers();
     }
   };
+
+  // If a customer is selected, show full profile view
+  if (selectedCustomer) {
+    return (
+      <CustomerProfileView
+        customerAddress={selectedCustomer}
+        shopId={shopId}
+        onBack={() => setSelectedCustomer(null)}
+      />
+    );
+  }
 
   return (
     <div className=" mx-auto rounded-lg">
@@ -499,14 +513,6 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
         </div>
       )}
 
-      {/* Customer Details Modal */}
-      {selectedCustomer && (
-        <CustomerDetailsModal
-          customerAddress={selectedCustomer}
-          shopId={shopId}
-          onClose={() => setSelectedCustomer(null)}
-        />
-      )}
     </div>
   );
 };

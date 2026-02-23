@@ -9,6 +9,7 @@ export interface SubmitReviewData {
   orderId: string;
   rating: number;
   comment: string;
+  images?: string[];
 }
 
 export type RatingLevel = 0 | 1 | 2 | 3 | 4 | 5;

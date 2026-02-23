@@ -23,9 +23,14 @@ export function useCustomerHistoryListUI() {
   // Query
   const { data: transactionData, isLoading, error, refetch } = useCustomerTransactionsQuery();
 
-  // Raw transactions
+  // Raw transactions (excluding rejected/cancelled)
   const rawTransactions = useMemo((): TransactionData[] => {
-    return transactionData?.transactions || [];
+    const transactions = transactionData?.transactions || [];
+    // Filter out rejected and cancelled transactions
+    return transactions.filter((tx) => {
+      const type = tx.type?.toLowerCase() || "";
+      return !["rejected_redemption", "cancelled_redemption", "rejected", "cancelled"].includes(type);
+    });
   }, [transactionData]);
 
   // Filtered transactions

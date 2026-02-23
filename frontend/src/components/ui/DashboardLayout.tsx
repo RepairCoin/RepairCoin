@@ -73,8 +73,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {renderSidebar()}
 
       {/* Message Icon & Notification Bell - Absolute Position (only for customers and shops) */}
+      {/* z-[1001] ensures icons stay above Leaflet map layers (which use z-index 400-1000 internally) */}
       {userRole !== "admin" && (
-        <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ease-in-out flex items-center gap-2 ${
+        <div className={`fixed top-4 right-4 z-[1001] transition-all duration-300 ease-in-out flex items-center gap-2 ${
           isSidebarCollapsed ? "lg:right-4" : "lg:right-4"
         }`}>
           <MessageIcon />

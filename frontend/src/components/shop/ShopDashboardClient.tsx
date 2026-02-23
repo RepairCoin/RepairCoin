@@ -19,7 +19,9 @@ import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
-// import { SupportTab } from "@/components/shop/tabs/SupportTab"; // TODO: component not yet created
+import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
+import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
+import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
@@ -28,11 +30,13 @@ import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
 import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
 import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequestsTab";
 import { ProfileTab } from "@/components/shop/tabs/ProfileTab";
+import ShopDisputePanel from "@/components/shop/ShopDisputePanel";
 import { StakingTab } from "@/components/shop/tabs/StakingTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
@@ -51,6 +55,84 @@ const client = createThirdwebClient({
     process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
+
+// SessionStorage cache for shop data (survives page refresh)
+const SHOP_DATA_CACHE_KEY = 'rc_shop_data_cache';
+const SHOP_ID_CACHE_KEY = 'rc_shop_id';
+const SHOP_DATA_CACHE_TTL_MS = 60000; // 1 minute cache TTL
+
+interface CachedShopData {
+  timestamp: number;
+  shopId: string;
+  data: ShopData;
+}
+
+// Shop ID cache - persists across page refreshes
+function getShopIdFromCache(): string | null {
+  try {
+    return sessionStorage.getItem(SHOP_ID_CACHE_KEY);
+  } catch { return null; }
+}
+
+function setShopIdCache(shopId: string): void {
+  try {
+    sessionStorage.setItem(SHOP_ID_CACHE_KEY, shopId);
+    console.log('[ShopDashboard] 📦 Shop ID cached:', shopId);
+  } catch {}
+}
+
+// Get cached shop data - now can work without shopId parameter
+function getCachedShopData(shopId?: string): ShopData | null {
+  try {
+    const cached = sessionStorage.getItem(SHOP_DATA_CACHE_KEY);
+    if (!cached) return null;
+
+    const data: CachedShopData = JSON.parse(cached);
+    const age = Date.now() - data.timestamp;
+
+    // Check if cache is not expired
+    if (age > SHOP_DATA_CACHE_TTL_MS) {
+      console.log('[ShopDashboard] 📦 Shop data cache expired (age: ' + age + 'ms)');
+      sessionStorage.removeItem(SHOP_DATA_CACHE_KEY);
+      return null;
+    }
+
+    // If shopId provided, verify it matches
+    if (shopId && data.shopId !== shopId) {
+      console.log('[ShopDashboard] 📦 Shop data cache mismatch');
+      return null;
+    }
+
+    console.log('[ShopDashboard] 📦 Using cached shop data (age: ' + age + 'ms)');
+    return data.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCachedShopData(shopId: string, data: ShopData): void {
+  try {
+    const cacheData: CachedShopData = {
+      timestamp: Date.now(),
+      shopId,
+      data
+    };
+    sessionStorage.setItem(SHOP_DATA_CACHE_KEY, JSON.stringify(cacheData));
+    setShopIdCache(shopId); // Also cache the shopId separately
+    console.log('[ShopDashboard] 📦 Shop data cached');
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
+function clearCachedShopData(): void {
+  try {
+    sessionStorage.removeItem(SHOP_DATA_CACHE_KEY);
+    sessionStorage.removeItem(SHOP_ID_CACHE_KEY);
+  } catch (e) {
+    // Ignore errors
+  }
+}
 
 export interface ShopData {
   shopId: string;
@@ -119,7 +201,15 @@ export default function ShopDashboardClient() {
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, authInitialized, userProfile } = useAuthStore();
   const { existingApplication } = useShopRegistration();
+
+  // shopData starts null - loaded via useEffect to avoid SSR hydration mismatch
   const [shopData, setShopData] = useState<ShopData | null>(null);
+
+  // Track if we've attempted to load from cache (client-side only)
+  const [cacheChecked, setCacheChecked] = useState(false);
+
+  // Prevent multiple concurrent background refreshes (thundering herd prevention)
+  const backgroundRefreshInProgressRef = useRef(false);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -142,6 +232,21 @@ export default function ShopDashboardClient() {
 
   // Suspended/Rejected modal state
   const [showSuspendedModal, setShowSuspendedModal] = useState(true);
+
+  // Delayed loading state - prevents flash when cache loads quickly
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  useEffect(() => {
+    // Only show loading modal after 150ms delay if still not initialized
+    // This gives cache check time to complete without showing the modal
+    if (!authInitialized || authLoading) {
+      const timer = setTimeout(() => {
+        setShowLoadingModal(true);
+      }, 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingModal(false);
+    }
+  }, [authInitialized, authLoading]);
 
   // Cancelled subscription modal state
   const [showCancelledModal, setShowCancelledModal] = useState(false);
@@ -170,8 +275,23 @@ export default function ShopDashboardClient() {
     setAuthToken(null);
   }, []);
 
-  // Note: authInitialized is now managed by useAuthInitializer hook in the auth store
-  // No need for local state or useEffect - it's set when session check completes
+  // Load from cache IMMEDIATELY on mount - runs only on client
+  // This is useLayoutEffect to ensure it runs synchronously before paint
+  useEffect(() => {
+    if (cacheChecked) return;
+    setCacheChecked(true);
+
+    const cachedShopId = getShopIdFromCache();
+    if (cachedShopId) {
+      const cached = getCachedShopData(cachedShopId);
+      if (cached) {
+        console.log('[ShopDashboard] ⚡ Cache hit on mount');
+        setShopData(cached);
+      }
+    }
+  }, [cacheChecked]);
+
+  // authInitialized is managed by useAuthInitializer hook in the auth store
 
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
@@ -263,11 +383,26 @@ export default function ShopDashboardClient() {
   }, [searchParams, account?.address]);
 
   useEffect(() => {
-    if (account?.address) {
+    // Load shop data when we have any identifier available
+    // Priority: shopId from session > shopId from cache > wallet address
+    const walletAddress = account?.address || userProfile?.address;
+    const shopIdFromSession = userProfile?.shopId;
+    const shopIdFromCache = getShopIdFromCache();
+    const hasIdentifier = walletAddress || shopIdFromSession || shopIdFromCache;
+
+    // Only load if we don't already have shop data (cache might have set it)
+    if (hasIdentifier && !shopData) {
+      console.log('[ShopDashboard] Triggering loadShopData:', {
+        walletAddress,
+        shopIdFromSession,
+        shopIdFromCache,
+        hasAccount: !!account,
+        hasProfile: !!userProfile,
+        hasShopData: !!shopData
+      });
       loadShopData();
     }
-    // Also re-load when userProfile.shopId becomes available (for social login)
-  }, [account?.address, userProfile?.shopId]);
+  }, [account?.address, userProfile?.address, userProfile?.shopId, shopData]);
 
   // Listen for subscription-related notifications and refresh data
   const { notifications } = useNotificationStore();
@@ -300,12 +435,48 @@ export default function ShopDashboardClient() {
       // Add small delay to let modal animations complete and prevent flicker
       setTimeout(() => {
         // Refresh shop data to update the warning banner
-        if (account?.address) {
+        const walletAddress = account?.address || userProfile?.address;
+        if (walletAddress) {
           loadShopData();
         }
       }, 500);
     }
-  }, [notifications, account?.address]);
+  }, [notifications, account?.address, userProfile?.address]);
+
+  // Refresh shop data when page becomes visible (catches changes missed via WebSocket)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const walletAddress = account?.address || userProfile?.address;
+        if (walletAddress && shopData) {
+          console.log('📋 Page became visible, refreshing shop data...');
+          loadShopData();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [account?.address, userProfile?.address, shopData]);
+
+  // Listen for shop status changes via WebSocket DOM events (suspend/unsuspend)
+  useEffect(() => {
+    const handleShopStatusChange = (event: CustomEvent) => {
+      console.log('🏪 Shop status changed event received:', event.detail);
+      const walletAddress = account?.address || userProfile?.address;
+      if (walletAddress) {
+        // Refresh shop data to reflect the new status
+        setTimeout(() => loadShopData(), 500);
+      }
+    };
+
+    window.addEventListener('shop-status-changed', handleShopStatusChange as EventListener);
+    return () => {
+      window.removeEventListener('shop-status-changed', handleShopStatusChange as EventListener);
+    };
+  }, [account?.address, userProfile?.address]);
 
   // Check if shop is suspended or rejected
   const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
@@ -436,7 +607,36 @@ export default function ShopDashboardClient() {
     }
   }, [shopData?.shopId]);
 
-  const loadShopData = async () => {
+  const loadShopData = async (forceRefresh = false) => {
+    // Get shopId from multiple sources (priority order)
+    const shopIdFromSession = userProfile?.shopId;
+    const shopIdFromCache = getShopIdFromCache();
+    const shopId = shopIdFromSession || shopIdFromCache;
+    const walletAddress = account?.address || userProfile?.address;
+
+    console.log('[ShopDashboard] loadShopData called:', { shopId, shopIdFromSession, shopIdFromCache, walletAddress, forceRefresh });
+
+    // Try to use cached data first (instant load)
+    if (!forceRefresh && shopId) {
+      const cached = getCachedShopData(shopId);
+      if (cached) {
+        console.log('[ShopDashboard] ⚡ Cache hit in loadShopData');
+        setShopData(cached);
+        // Delay background refresh by 5 seconds to avoid thundering herd
+        // when multiple tabs refresh simultaneously
+        setTimeout(() => {
+          refreshShopDataInBackground(shopId, walletAddress);
+        }, 5000);
+        return;
+      }
+    }
+
+    // If we don't have any identifier yet, wait for auth to provide it
+    if (!shopId && !walletAddress) {
+      console.log('[ShopDashboard] No identifier available yet, waiting...');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -444,14 +644,13 @@ export default function ShopDashboardClient() {
       // NOTE: Authentication is now handled globally by useAuthInitializer
       // No need to call /auth/shop here - cookies are already set
 
-      // Load shop data - prefer shopId from session (for social login where wallet differs)
+      // Load shop data - prefer shopId (from session or cache) for faster lookup
       // Fall back to wallet address for backwards compatibility
-      const shopIdFromSession = userProfile?.shopId;
-      const shopEndpoint = shopIdFromSession
-        ? `/shops/${shopIdFromSession}`
-        : `/shops/wallet/${account?.address}`;
+      const shopEndpoint = shopId
+        ? `/shops/${shopId}`
+        : `/shops/wallet/${walletAddress}`;
 
-      console.log('[ShopDashboard] Loading shop data from:', shopEndpoint, { shopIdFromSession, walletAddress: account?.address });
+      console.log('[ShopDashboard] Loading shop data from:', shopEndpoint, { shopIdFromSession, walletAddress });
       const shopResult = await apiClient.get(shopEndpoint);
 
       if (shopResult.success && shopResult.data) {
@@ -501,6 +700,10 @@ export default function ShopDashboardClient() {
         }
 
         setShopData(enhancedShopData);
+        // Cache the shop data for rapid refresh resilience
+        if (enhancedShopData.shopId) {
+          setCachedShopData(enhancedShopData.shopId, enhancedShopData);
+        }
       } else {
         setError("Invalid shop data received");
       }
@@ -509,6 +712,69 @@ export default function ShopDashboardClient() {
       setError("Failed to load shop data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Background refresh - doesn't show loading spinner
+  // Uses ref to prevent multiple concurrent refreshes (thundering herd prevention)
+  const refreshShopDataInBackground = async (shopId: string, walletAddress?: string) => {
+    // Prevent concurrent background refreshes
+    if (backgroundRefreshInProgressRef.current) {
+      console.log('[ShopDashboard] ⏭️ Background refresh already in progress, skipping');
+      return;
+    }
+
+    backgroundRefreshInProgressRef.current = true;
+
+    try {
+      const shopEndpoint = shopId ? `/shops/${shopId}` : `/shops/wallet/${walletAddress}`;
+      console.log('[ShopDashboard] 🔄 Background refresh from:', shopEndpoint);
+      const shopResult = await apiClient.get(shopEndpoint);
+
+      if (shopResult.success && shopResult.data) {
+        let enhancedShopData = shopResult.data;
+
+        // Load subscription details
+        if (shopResult.data.shopId) {
+          try {
+            const subResult = await apiClient.get(`/shops/subscription/status`);
+            if (subResult.success && subResult.data?.currentSubscription) {
+              const sub = subResult.data.currentSubscription;
+              const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
+              enhancedShopData = {
+                ...enhancedShopData,
+                subscriptionStatus: actualStatus,
+                subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
+                subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt,
+              };
+            }
+          } catch (subErr) {
+            console.error("Error loading subscription details:", subErr);
+          }
+
+          // Load purchase history
+          const purchaseResult = await apiClient.get(`/shops/purchase/history/${shopResult.data.shopId}`);
+          if (purchaseResult.success) {
+            setPurchases(purchaseResult.data.purchases || []);
+          }
+
+          // Load tier bonus stats
+          const tierResult = await apiClient.get(`/shops/tier-bonus/stats/${shopResult.data.shopId}`);
+          if (tierResult.success) {
+            setTierStats(tierResult.data);
+          }
+        }
+
+        setShopData(enhancedShopData);
+        if (enhancedShopData.shopId) {
+          setCachedShopData(enhancedShopData.shopId, enhancedShopData);
+        }
+      }
+    } catch (err) {
+      console.error("[ShopDashboard] Background refresh failed:", err);
+      // Don't set error - we already have cached data showing
+    } finally {
+      backgroundRefreshInProgressRef.current = false;
     }
   };
 
@@ -523,7 +789,7 @@ export default function ShopDashboardClient() {
       setShowOnboardingModal(true);
     } else {
       if (!shopData || !account?.address) {
-        setError("Shop data not loaded or wallet not connected");
+        toast.error("Shop data not loaded or wallet not connected");
         return;
       }
 
@@ -566,7 +832,7 @@ export default function ShopDashboardClient() {
         setShowPaymentWaitingModal(true);
       } catch (err) {
         console.error("Error initiating purchase:", err);
-        setError(
+        toast.error(
           err instanceof Error ? err.message : "Purchase initiation failed"
         );
       } finally {
@@ -592,7 +858,7 @@ export default function ShopDashboardClient() {
   };
 
   const handlePaymentError = (error: string) => {
-    setError(`Payment failed: ${error}`);
+    toast.error(`Payment failed: ${error}`);
   };
 
   const cancelPayment = () => {
@@ -670,15 +936,15 @@ export default function ShopDashboardClient() {
         // Reload data to reflect the failed status
         await loadShopData();
       } else if (result.success === false && result.data?.stripeStatus) {
-        setError(
+        toast.error(
           `Payment status: ${result.data.stripeStatus}. Please wait a moment and try again.`
         );
       } else {
-        setError(result.message || "Could not verify payment status");
+        toast.error(result.message || "Could not verify payment status");
       }
     } catch (error) {
       console.error("Error checking purchase status:", error);
-      setError("Failed to check payment status");
+      toast.error("Failed to check payment status");
     }
   };
 
@@ -712,27 +978,24 @@ export default function ShopDashboardClient() {
     );
   }
 
-  // Loading state - while auth is initializing
-  if (!authInitialized || authLoading) {
+  // NEVER return null or blank screen - always render something visible
+  const isInitializing = !authInitialized || authLoading;
+
+  // During initialization with no cached data, show a loading state
+  // This prevents white screen while auth is being verified
+  if (isInitializing && !shopData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Initializing...
-            </h3>
-            <p className="text-gray-600">
-              Checking your authentication status
-            </p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Not connected state
-  if (!account) {
+  // Not connected state - only show AFTER initialization is complete
+  if (!isInitializing && !account && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -941,46 +1204,20 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
-          {/* Warning Banner for Cancelled but Active Subscriptions */}
-          {isCancelledButActive && !isBlocked && (
-            <div className="mb-6 rounded-xl p-4 bg-orange-900/20 border-2 border-orange-500/50">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl text-orange-400">⚠️</div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold mb-1 text-orange-400">
-                    Subscription Cancellation Scheduled
-                  </h3>
-                  <p className="text-gray-300 text-sm">
-                    Your subscription has been cancelled and will end on{' '}
-                    <span className="font-semibold text-white">
-                      {new Date(shopData?.subscriptionEndsAt!).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    . You can continue using all shop features until then. After this date, you will need to resubscribe to continue operations.
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      onClick={() => setActiveTab("settings")}
-                      className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Manage Subscription
-                    </button>
-                    <span className="text-xs text-gray-400">
-                      {Math.floor((new Date(shopData?.subscriptionEndsAt!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Subscription Cancellation Banner - Hidden when status is cancelled */}
 
           {/* Breadcrumb Navigation */}
           <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
+
+          {/* Loading state for tabs that require shopData */}
+          {!shopData && activeTab !== "overview" && (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading dashboard data...</p>
+              </div>
+            </div>
+          )}
 
           {/* Tab Content */}
           {activeTab === "overview" && (
@@ -989,6 +1226,8 @@ export default function ShopDashboardClient() {
               purchases={purchases}
               onRefreshData={loadShopData}
               authToken={authToken ?? undefined}
+              loading={loading}
+              error={error}
             />
           )}
 
@@ -1018,6 +1257,11 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {activeTab === "disputes" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <ShopDisputePanel shopId={shopData.shopId} />
+            </SubscriptionGuard>
+          )}
           {activeTab === "messages" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <MessagesTab shopId={shopData.shopId} />
@@ -1077,6 +1321,10 @@ export default function ShopDashboardClient() {
             <CustomersTab shopId={shopData.shopId} />
           )}
 
+          {activeTab === "lookup" && shopData && (
+            <CustomerLookupTab shopId={shopData.shopId} />
+          )}
+
           {activeTab === "shop-location" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <ShopLocationTab
@@ -1119,10 +1367,20 @@ export default function ShopDashboardClient() {
             />
           )}
 
-          {/* Support Tab - TODO: SupportTab component not yet created */}
-          {/* {activeTab === "support" && shopData && (
-            <SupportTab shopId={shopData.shopId} />
-          )} */}
+          {/* Payment Methods Tab */}
+          {activeTab === "payment-methods" && shopData && (
+            <PaymentMethodsTab />
+          )}
+
+          {/* Wallet & Payouts Tab */}
+          {activeTab === "wallet-payouts" && shopData && (
+            <WalletPayoutsTab />
+          )}
+
+          {/* Support Tab */}
+          {activeTab === "support" && shopData && (
+            <SupportTab />
+          )}
 
           {activeTab === "staking" && shopData && (
             <SubscriptionGuard shopData={shopData}>
@@ -1137,19 +1395,6 @@ export default function ShopDashboardClient() {
                 subscriptionActive={isOperational || isCancelledButActive || false}
               />
             </SubscriptionGuard>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="bg-red-900 bg-opacity-90 border border-red-700 rounded-lg p-4 mt-6">
-              <div className="flex">
-                <div className="text-red-400 text-2xl mr-3">⚠️</div>
-                <div>
-                  <h3 className="text-sm font-medium text-red-300">Error</h3>
-                  <div className="mt-2 text-sm text-red-200">{error}</div>
-                </div>
-              </div>
-            </div>
           )}
 
           {/* Payment Modal */}

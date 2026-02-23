@@ -43,6 +43,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
           customerId: userType === "shop" ? conv.customerAddress : undefined,
           customerName: userType === "shop" ? conv.customerName : undefined,
           participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
+          participantAvatar: userType === "customer" ? conv.shopImageUrl : undefined, // Shop logo for customers
           lastMessage: conv.lastMessagePreview || "",
           lastMessageTime: conv.lastMessageAt || conv.createdAt,
           unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,
@@ -192,6 +193,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       customerId: userType === "shop" ? conv.customerAddress : undefined,
       customerName: userType === "shop" ? conv.customerName : undefined,
       participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
+      participantAvatar: userType === "customer" ? conv.shopImageUrl : undefined, // Shop logo for customers
       lastMessage: conv.lastMessagePreview || "",
       lastMessageTime: conv.lastMessageAt || conv.createdAt,
       unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,

@@ -60,6 +60,10 @@ interface ShopData {
   logoUrl?: string; // URL to shop logo stored in DigitalOcean Spaces
   bannerUrl?: string; // URL to shop banner image stored in DigitalOcean Spaces
   aboutText?: string; // Rich text about section (max 2000 characters)
+  avgRating?: number;
+  totalReviews?: number;
+  stripeCustomerId?: string; // Stripe customer ID for payment methods
+  defaultPaymentMethodId?: string; // Default Stripe payment method ID
 }
 
 export interface ShopFilters {
@@ -71,13 +75,27 @@ export interface ShopFilters {
 export class ShopRepository extends BaseRepository {
   async getShop(shopId: string): Promise<ShopData | null> {
     try {
-      const query = 'SELECT * FROM shops WHERE shop_id = $1';
+      const query = `
+        SELECT s.*,
+          COALESCE(r.avg_rating, 0) as shop_avg_rating,
+          COALESCE(r.total_reviews, 0) as shop_total_reviews
+        FROM shops s
+        LEFT JOIN (
+          SELECT ss.shop_id,
+            AVG(sr.rating)::numeric(3,2) as avg_rating,
+            COUNT(sr.review_id) as total_reviews
+          FROM shop_services ss
+          INNER JOIN service_reviews sr ON ss.service_id = sr.service_id
+          GROUP BY ss.shop_id
+        ) r ON s.shop_id = r.shop_id
+        WHERE s.shop_id = $1
+      `;
       const result = await this.pool.query(query, [shopId]);
-      
+
       if (result.rows.length === 0) {
         return null;
       }
-      
+
       const row = result.rows[0];
       return {
         shopId: row.shop_id,
@@ -124,7 +142,9 @@ export class ShopRepository extends BaseRepository {
         city: row.location_city, // Map location_city to city
         logoUrl: row.logo_url,
         bannerUrl: row.banner_url,
-        aboutText: row.about_text
+        aboutText: row.about_text,
+        avgRating: parseFloat(row.shop_avg_rating || 0),
+        totalReviews: parseInt(row.shop_total_reviews || 0),
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -484,7 +504,21 @@ export class ShopRepository extends BaseRepository {
 
   async getActiveShops(): Promise<ShopData[]> {
     try {
-      const query = 'SELECT * FROM shops WHERE active = true AND verified = true';
+      const query = `
+        SELECT s.*,
+          COALESCE(r.avg_rating, 0) as shop_avg_rating,
+          COALESCE(r.total_reviews, 0) as shop_total_reviews
+        FROM shops s
+        LEFT JOIN (
+          SELECT ss.shop_id,
+            AVG(sr.rating)::numeric(3,2) as avg_rating,
+            COUNT(sr.review_id) as total_reviews
+          FROM shop_services ss
+          INNER JOIN service_reviews sr ON ss.service_id = sr.service_id
+          GROUP BY ss.shop_id
+        ) r ON s.shop_id = r.shop_id
+        WHERE s.active = true AND s.verified = true
+      `;
       const result = await this.pool.query(query);
 
       return result.rows.map(row => ({
@@ -533,7 +567,9 @@ export class ShopRepository extends BaseRepository {
         country: row.country,
         city: row.location_city, // Map location_city to city for convenience
         category: row.category,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        avgRating: parseFloat(row.shop_avg_rating || 0),
+        totalReviews: parseInt(row.shop_total_reviews || 0),
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);
@@ -632,7 +668,8 @@ export class ShopRepository extends BaseRepository {
         twitter: row.twitter,
         instagram: row.instagram,
         website: row.website,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        bannerUrl: row.banner_url
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);
@@ -693,7 +730,8 @@ export class ShopRepository extends BaseRepository {
         twitter: row.twitter,
         instagram: row.instagram,
         website: row.website,
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        bannerUrl: row.banner_url
       };
     } catch (error) {
       logger.error('Error fetching shop by email:', error);
@@ -1430,6 +1468,7 @@ export class ShopRepository extends BaseRepository {
     customers: Array<{
       address: string;
       name?: string;
+      profile_image_url?: string;
       tier: string;
       lifetime_earnings: number;
       last_transaction_date?: string;
@@ -1490,6 +1529,7 @@ export class ShopRepository extends BaseRepository {
         SELECT
           t.customer_address as address,
           MAX(c.name) as name,
+          MAX(c.profile_image_url) as profile_image_url,
           COALESCE(MAX(c.tier), 'BRONZE') as tier,
           SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
@@ -1510,6 +1550,7 @@ export class ShopRepository extends BaseRepository {
       const customers = result.rows.map(row => ({
         address: row.address,
         name: row.name,
+        profile_image_url: row.profile_image_url,
         tier: row.tier,
         lifetime_earnings: parseFloat(row.lifetime_earnings || 0),
         last_transaction_date: row.last_transaction_date,

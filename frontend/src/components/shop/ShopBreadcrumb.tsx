@@ -21,6 +21,7 @@ import {
   ShoppingCart,
   TrendingUp,
   MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -58,6 +59,11 @@ const TAB_CONFIG: Record<string, {
     title: "Appointments",
     icon: <Calendar className="w-5 h-5" />,
     description: "Manage your appointment schedule and availability",
+  },
+  disputes: {
+    title: "No-Show Disputes",
+    icon: <AlertTriangle className="w-5 h-5" />,
+    description: "Review and respond to customer no-show dispute requests",
   },
   purchase: {
     title: "Buy Credits",
