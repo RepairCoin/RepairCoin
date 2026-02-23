@@ -1,1 +1,1 @@
-export { CustomerListScreen as default } from "@/feature/tabs/customer/screens";
+export { CustomerListScreen as default } from "@/feature/customer/screens";

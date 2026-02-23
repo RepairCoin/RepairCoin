@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { router } from "expo-router";
 import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/shared/hooks/booking/useBooking";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
-import { BookingFilterTab, BookingStatusFilter } from "../../types";
+import { BookingFilterTab, BookingStatusFilter } from "../../tab-types";
 import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "../../constants";
 
 // Check if appointment can be cancelled (24+ hours before + not already cancelled/completed)

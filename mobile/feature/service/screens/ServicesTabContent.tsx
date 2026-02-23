@@ -14,7 +14,7 @@ import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useServicesTab } from "../hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../components";
-import { ServiceSortOption } from "../types";
+import { ServiceSortOption } from "../tab-types";
 
 // Sort option labels for display
 const SORT_LABELS: Record<ServiceSortOption, string> = {

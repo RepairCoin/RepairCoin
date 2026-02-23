@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceStatusFilter, ServiceSortOption, PriceRange } from "../types";
+import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "../tab-types";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 
 interface ServiceFilterModalProps {
   visible: boolean;
   onClose: () => void;
-  statusFilter: ServiceStatusFilter;
-  onStatusChange: (status: ServiceStatusFilter) => void;
+  statusFilter: CustomerServiceStatusFilter;
+  onStatusChange: (status: CustomerServiceStatusFilter) => void;
   selectedCategories: string[];
   onToggleCategory: (category: string) => void;
   onClearFilters: () => void;
@@ -18,7 +18,7 @@ interface ServiceFilterModalProps {
   onPriceRangeChange: (range: PriceRange) => void;
 }
 
-const STATUS_OPTIONS: ServiceStatusFilter[] = ["all", "available", "unavailable"];
+const STATUS_OPTIONS: CustomerServiceStatusFilter[] = ["all", "available", "unavailable"];
 
 const SORT_OPTIONS: { value: ServiceSortOption; label: string; icon: string }[] = [
   { value: "default", label: "Default", icon: "apps-outline" },

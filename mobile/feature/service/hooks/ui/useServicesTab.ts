@@ -4,7 +4,7 @@ import { useService } from "@/shared/hooks/service/useService";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
-import { ServiceStatusFilter, ServiceSortOption, PriceRange } from "../../types";
+import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "../../tab-types";
 
 export function useServicesTab() {
   const { useGetAllServicesQuery } = useService();
@@ -29,7 +29,7 @@ export function useServicesTab() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<ServiceStatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<CustomerServiceStatusFilter>("all");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState<ServiceSortOption>("default");
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: null, max: null });

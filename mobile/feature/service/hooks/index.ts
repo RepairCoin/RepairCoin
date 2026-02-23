@@ -18,3 +18,18 @@ export {
   useTrendingServices,
   useUnifiedServiceDetail,
 } from "./ui";
+
+// Tab UI hooks
+export {
+  useServiceTabUI,
+  useShopServiceNavigation,
+  useServiceStatusUI,
+  useCustomerServiceTab,
+  useServicesTab,
+  useFavoritesTab,
+  useBookingsTab,
+  canCancelAppointment,
+} from "./ui";
+
+// Tab mutations
+export { useServiceToggleMutation } from "./mutations";

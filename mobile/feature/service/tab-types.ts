@@ -7,7 +7,7 @@ export type BookingFilterStatus = "all" | BookingStatus;
 
 // Customer types
 export type CustomerServiceTab = "Services" | "Favorites" | "Bookings";
-export type ServiceStatusFilter = "all" | "available" | "unavailable";
+export type CustomerServiceStatusFilter = "all" | "available" | "unavailable";
 export type BookingFilterTab = "upcoming" | "past" | "all";
 export type BookingStatusFilter = "all" | "pending" | "paid" | "approved" | "completed" | "cancelled";
 
