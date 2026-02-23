@@ -52,15 +52,16 @@ export function AdminWaitlistTab() {
           userType: filter.userType,
           limit: 100,
         },
-      });
+      }) as any;
 
-      if (entriesResponse.data?.success) {
-        setEntries(entriesResponse.data.entries || []);
+      // apiClient interceptor returns response.data directly
+      if (entriesResponse.success) {
+        setEntries(entriesResponse.data?.entries || []);
       }
 
       // Load stats
-      const statsResponse = await apiClient.get("/waitlist/stats");
-      if (statsResponse.data?.success) {
+      const statsResponse = await apiClient.get("/waitlist/stats") as any;
+      if (statsResponse.success) {
         setStats(statsResponse.data);
       }
     } catch (error) {
@@ -84,9 +85,9 @@ export function AdminWaitlistTab() {
           status: updateForm.status,
           notes: updateForm.notes,
         }
-      );
+      ) as any;
 
-      if (response.data?.success) {
+      if (response.success) {
         toast.success("Waitlist entry updated successfully");
         setShowUpdateModal(false);
         setSelectedEntry(null);
