@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import WaitlistRepository from '../repositories/WaitlistRepository';
+import { EmailService } from '../services/EmailService';
+
+const emailService = new EmailService();
 
 /**
  * Submit a new waitlist entry (public endpoint)
@@ -47,6 +50,26 @@ export const submitWaitlist = async (req: Request, res: Response) => {
       email: email.toLowerCase(),
       userType
     });
+
+    // Send confirmation email to user (non-blocking)
+    emailService.sendWaitlistConfirmation({
+      email: entry.email,
+      userType: entry.userType
+    }).then(success => {
+      console.log(`Waitlist confirmation email ${success ? 'sent' : 'failed'} to ${entry.email}`);
+    }).catch(err => console.error('Failed to send waitlist confirmation email:', err));
+
+    // Send notification to admin (non-blocking)
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+    console.log(`Attempting to send admin notification to: ${adminEmail}`);
+
+    emailService.sendWaitlistAdminNotification({
+      email: entry.email,
+      userType: entry.userType,
+      createdAt: entry.createdAt
+    }).then(success => {
+      console.log(`Waitlist admin notification ${success ? 'sent' : 'failed'} to ${adminEmail}`);
+    }).catch(err => console.error('Failed to send waitlist admin notification:', err));
 
     return res.status(201).json({
       success: true,

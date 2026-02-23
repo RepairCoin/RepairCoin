@@ -258,10 +258,10 @@ export default function WaitlistPage() {
                 }}
               >
                 <div
+                  className="text-3xl sm:text-4xl md:text-[44px]"
                   style={{
                     fontFamily: "Poppins, sans-serif",
                     fontWeight: 600,
-                    fontSize: "44px",
                     color: "rgba(255, 204, 0, 1)",
                     marginBottom: "4px",
                   }}
@@ -1168,19 +1168,18 @@ export default function WaitlistPage() {
 
                 {/* Heading */}
                 <h2
+                  className="text-3xl sm:text-4xl md:text-5xl lg:text-[60px]"
                   style={{
                     fontFamily: "Poppins, sans-serif",
                     fontWeight: 600,
-                    fontSize: "60px",
                     lineHeight: "120%",
                     color: "#fff",
                     marginBottom: "16px",
                   }}
                 >
-                  S
-                  <span className="relative inline-block">
-                    ecure You
-                    {/* Yellow curve - centered under "ecure You" */}
+                  <span className="relative inline-block whitespace-nowrap">
+                    Secure Your
+                    {/* Yellow curve - centered under "Secure Your" */}
                     <svg
                       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
                       style={{
@@ -1200,7 +1199,6 @@ export default function WaitlistPage() {
                       />
                     </svg>
                   </span>
-                  r
                   <br />
                   Founding Partner
                   <br />
@@ -1274,11 +1272,11 @@ export default function WaitlistPage() {
                     >
                       I'm joining as
                     </label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setUserType("shop")}
-                        className={`px-4 py-5 transition-all text-left flex items-start gap-3 ${
+                        className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
                           userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
                         }`}
                         style={{
@@ -1288,20 +1286,19 @@ export default function WaitlistPage() {
                           borderRadius: "16px",
                         }}
                       >
-                        <div className="w-11 h-11 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
                           <img
                             src="/img/waitlist/section10/store.svg"
                             alt=""
                             className="w-5 h-5"
                           />
                         </div>
-                        <div>
-                          <span className="text-white font-semibold block text-base">
+                        <div className="min-w-0">
+                          <span className="text-white font-semibold block text-sm">
                             Shop Owner
                           </span>
-                          <p className="text-gray-400 text-sm mt-1 leading-snug">
-                            Early partner access
-                            <br />& onboarding process
+                          <p className="text-gray-400 text-xs mt-0.5">
+                            Early partner access & onboarding
                           </p>
                         </div>
                       </button>
@@ -1309,7 +1306,7 @@ export default function WaitlistPage() {
                       <button
                         type="button"
                         onClick={() => setUserType("customer")}
-                        className={`px-4 py-5 transition-all text-left flex items-start gap-3 ${
+                        className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
                           userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
                         }`}
                         style={{
@@ -1319,21 +1316,19 @@ export default function WaitlistPage() {
                           borderRadius: "16px",
                         }}
                       >
-                        <div className="w-11 h-11 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
                           <img
                             src="/img/waitlist/section10/user.svg"
                             alt=""
                             className="w-5 h-5"
                           />
                         </div>
-                        <div>
-                          <span className="text-white font-semibold block text-base">
+                        <div className="min-w-0">
+                          <span className="text-white font-semibold block text-sm">
                             Customer
                           </span>
-                          <p className="text-gray-400 text-sm mt-1 leading-snug">
-                            Get notified when
-                            <br />
-                            rewards go live near you.
+                          <p className="text-gray-400 text-xs mt-0.5">
+                            Get notified when rewards go live
                           </p>
                         </div>
                       </button>
@@ -1652,11 +1647,11 @@ export default function WaitlistPage() {
                 >
                   I'm joining as
                 </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setUserType("shop")}
-                    className={`px-4 py-5 transition-all text-left flex items-start gap-3 ${
+                    className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
                       userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
                     }`}
                     style={{
@@ -1666,20 +1661,19 @@ export default function WaitlistPage() {
                       borderRadius: "16px",
                     }}
                   >
-                    <div className="w-11 h-11 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
                       <img
                         src="/img/waitlist/section10/store.svg"
                         alt=""
                         className="w-5 h-5"
                       />
                     </div>
-                    <div>
-                      <span className="text-white font-semibold block text-base">
+                    <div className="min-w-0">
+                      <span className="text-white font-semibold block text-sm">
                         Shop Owner
                       </span>
-                      <p className="text-gray-400 text-sm mt-1 leading-snug">
-                        Early partner access
-                        <br />& onboarding process
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        Early partner access & onboarding
                       </p>
                     </div>
                   </button>
@@ -1687,7 +1681,7 @@ export default function WaitlistPage() {
                   <button
                     type="button"
                     onClick={() => setUserType("customer")}
-                    className={`px-4 py-5 transition-all text-left flex items-start gap-3 ${
+                    className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
                       userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
                     }`}
                     style={{
@@ -1697,21 +1691,19 @@ export default function WaitlistPage() {
                       borderRadius: "16px",
                     }}
                   >
-                    <div className="w-11 h-11 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
                       <img
                         src="/img/waitlist/section10/user.svg"
                         alt=""
                         className="w-5 h-5"
                       />
                     </div>
-                    <div>
-                      <span className="text-white font-semibold block text-base">
+                    <div className="min-w-0">
+                      <span className="text-white font-semibold block text-sm">
                         Customer
                       </span>
-                      <p className="text-gray-400 text-sm mt-1 leading-snug">
-                        Get notified when
-                        <br />
-                        rewards go live near you.
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        Get notified when rewards go live
                       </p>
                     </div>
                   </button>

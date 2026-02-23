@@ -1570,6 +1570,157 @@ export class EmailService {
   }
 
   /**
+   * Send waitlist confirmation email to user
+   */
+  async sendWaitlistConfirmation(data: {
+    email: string;
+    userType: 'customer' | 'shop';
+  }): Promise<boolean> {
+    const subject = '🎉 You\'re on the RepairCoin Waitlist!';
+
+    const userTypeText = data.userType === 'shop' ? 'Shop Owner' : 'Customer';
+    const benefitsHtml = data.userType === 'shop' ? `
+      <ul style="color: #333; padding-left: 20px;">
+        <li>Early partner access and onboarding</li>
+        <li>Elite tier pricing for first 50 shops</li>
+        <li>Priority support during launch</li>
+        <li>Exclusive beta testing opportunities</li>
+      </ul>
+    ` : `
+      <ul style="color: #333; padding-left: 20px;">
+        <li>Early access when shops near you join</li>
+        <li>Bonus RCN tokens for early adopters</li>
+        <li>Exclusive launch promotions</li>
+        <li>Priority notifications for new partner shops</li>
+      </ul>
+    `;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 30px; text-align: center;">
+          <h1 style="color: #000; margin: 0; font-size: 28px;">Welcome to RepairCoin! 🪙</h1>
+        </div>
+
+        <div style="padding: 30px; background-color: #ffffff;">
+          <p style="font-size: 16px; color: #333;">Hi there!</p>
+
+          <p style="font-size: 16px; color: #333;">
+            Thank you for joining the RepairCoin waitlist as a <strong>${userTypeText}</strong>.
+            You're now part of an exclusive group of early adopters who will help shape the future of
+            blockchain loyalty rewards for the repair industry.
+          </p>
+
+          <div style="background-color: #f9f9f9; padding: 20px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #FFCC00;">
+            <h3 style="color: #000; margin: 0 0 15px 0;">What's Next?</h3>
+            ${benefitsHtml}
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 25px 0;">
+            <p style="margin: 0; color: #856404;">
+              <strong>💡 Did you know?</strong> 1 RCN = $0.10 USD, always. No volatility, no speculation—just reliable rewards.
+            </p>
+          </div>
+
+          <p style="font-size: 16px; color: #333;">
+            We'll keep you updated on our progress and let you know as soon as you can start
+            ${data.userType === 'shop' ? 'issuing rewards to your customers' : 'earning rewards at partner shops'}.
+          </p>
+
+          <p style="font-size: 14px; color: #666; margin-top: 30px;">
+            Have questions? Reply to this email or visit <a href="https://repaircoin.com" style="color: #FFCC00;">repaircoin.com</a>
+          </p>
+        </div>
+
+        <div style="background-color: #1a1a1a; padding: 20px; text-align: center;">
+          <p style="color: #888; font-size: 12px; margin: 0;">
+            © 2026 RepairCoin | Blockchain Loyalty for Repair Shops
+          </p>
+          <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">
+            You received this email because you signed up for the RepairCoin waitlist.
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(data.email, subject, html);
+  }
+
+  /**
+   * Send waitlist notification email to admin
+   */
+  async sendWaitlistAdminNotification(data: {
+    email: string;
+    userType: 'customer' | 'shop';
+    createdAt: Date;
+  }): Promise<boolean> {
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+
+    logger.info('sendWaitlistAdminNotification called', {
+      adminEmail,
+      ADMIN_NOTIFICATION_EMAIL: process.env.ADMIN_NOTIFICATION_EMAIL,
+      EMAIL_USER: process.env.EMAIL_USER,
+      newSignup: data.email,
+      userType: data.userType
+    });
+
+    if (!adminEmail) {
+      logger.warn('No admin email configured for waitlist notifications');
+      return false;
+    }
+
+    const subject = `🆕 New Waitlist Signup: ${data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer'}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #10b981; padding: 20px; text-align: center;">
+          <h2 style="color: #fff; margin: 0;">New Waitlist Signup!</h2>
+        </div>
+
+        <div style="padding: 25px; background-color: #ffffff;">
+          <p style="font-size: 16px; color: #333;">A new user has joined the RepairCoin waitlist:</p>
+
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #666; width: 120px;"><strong>Email:</strong></td>
+                <td style="padding: 8px 0; color: #333;">${data.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;"><strong>Type:</strong></td>
+                <td style="padding: 8px 0; color: #333;">
+                  ${data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer'}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;"><strong>Signed Up:</strong></td>
+                <td style="padding: 8px 0; color: #333;">${data.createdAt.toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${data.userType === 'shop' ? `
+          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+            <p style="margin: 0; color: #92400e;">
+              <strong>⭐ Shop Owner Signup!</strong> Consider reaching out for early partner onboarding.
+            </p>
+          </div>
+          ` : ''}
+
+          <p style="font-size: 14px; color: #666;">
+            View all waitlist entries in the <a href="${process.env.FRONTEND_URL || 'https://repaircoin.com'}/admin/waitlist" style="color: #FFCC00;">Admin Dashboard</a>
+          </p>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+          <p style="margin: 0;">This is an automated notification from RepairCoin</p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail(adminEmail, subject, html);
+  }
+
+  /**
    * Core email sending method
    */
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
