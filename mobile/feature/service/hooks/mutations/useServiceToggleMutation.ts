@@ -4,7 +4,7 @@ import { useAuthStore } from "@/shared/store/auth.store";
 import { useService } from "@/shared/hooks/service/useService";
 import { queryKeys } from "@/shared/config/queryClient";
 
-export function useServiceMutations() {
+export function useServiceToggleMutation() {
   const queryClient = useQueryClient();
   const { userProfile } = useAuthStore();
   const { useUpdateService } = useService();

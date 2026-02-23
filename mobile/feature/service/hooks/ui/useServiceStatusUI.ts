@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
 import { Alert } from "react-native";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { useServiceMutations } from "../mutations";
+import { useServiceToggleMutation } from "../mutations";
 
 export function useServiceStatusUI() {
-  const { toggleServiceStatus } = useServiceMutations();
+  const { toggleServiceStatus } = useServiceToggleMutation();
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleToggleStatus = useCallback(

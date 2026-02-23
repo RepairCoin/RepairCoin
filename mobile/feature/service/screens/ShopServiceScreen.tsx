@@ -18,7 +18,7 @@ import { useAuthStore } from "@/shared/store/auth.store";
 import {
   useServiceTabUI,
   useServiceStatusUI,
-  useServiceNavigation,
+  useShopServiceNavigation,
 } from "../hooks/ui";
 
 // Feature
@@ -46,7 +46,7 @@ export default function ShopServiceScreen() {
   } = useServiceTabUI();
 
   const { isUpdating, handleToggleStatus } = useServiceStatusUI();
-  const { handleEdit, handleAddService } = useServiceNavigation();
+  const { handleEdit, handleAddService } = useShopServiceNavigation();
 
   const handleViewDetails = () => {
     closeActionModal();

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { CustomerServiceTab } from "../../types";
+import { CustomerServiceTab } from "../../tab-types";
 import { CUSTOMER_SERVICE_TABS } from "../../constants";
 
 export function useCustomerServiceTab() {

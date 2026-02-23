@@ -13,7 +13,7 @@ import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal } from "@/shared/components/shared/FilterModal";
 import { useBookingsTab } from "../hooks";
 import { TIME_FILTERS, STATUS_FILTERS } from "../constants";
-import { BookingFilterTab, BookingStatusFilter } from "../types";
+import { BookingFilterTab, BookingStatusFilter } from "../tab-types";
 import { AppointmentCard, CancelModal, BookingsEmptyState } from "../components";
 
 export default function BookingsTabContent() {

@@ -1,1 +1,1 @@
-export { ShopSettingsScreen as default } from "@/feature/tabs/settings/screens";
+export { ShopSettingsScreen as default } from "@/feature/settings/screens";
