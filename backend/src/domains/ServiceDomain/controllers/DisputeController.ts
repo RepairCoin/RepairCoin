@@ -12,6 +12,9 @@ interface AuthenticatedRequest extends Request {
     role: string;
     shopId?: string;
   };
+  body: any;
+  params: any;
+  query: any;
 }
 
 interface DisputeRow {
