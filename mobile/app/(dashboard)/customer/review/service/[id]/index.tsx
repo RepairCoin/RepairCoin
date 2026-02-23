@@ -1,1 +1,1 @@
-export { ServiceReviewsScreen as default } from "@/feature/review/screens";
+export { ServiceReviewsScreen as default } from "@/feature/ratings/screens";
