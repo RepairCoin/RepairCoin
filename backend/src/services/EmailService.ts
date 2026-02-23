@@ -87,12 +87,37 @@ export interface AppointmentExpiredData {
 
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
-  private config: EmailConfig;
+  private config: EmailConfig | null = null;
   private isConfigured: boolean = false;
+  private initialized: boolean = false;
 
   constructor(config?: EmailConfig) {
-    this.config = config || this.loadConfigFromEnv();
+    // Store explicit config if provided, otherwise will load from env on first use
+    if (config) {
+      this.config = config;
+      this.initializeTransporter();
+    }
+    // If no config provided, delay initialization until first use
+    // This allows environment variables to be loaded before we check them
+  }
+
+  /**
+   * Ensure the transporter is initialized (lazy initialization)
+   * This is called before each email send to handle cases where
+   * env vars weren't available at module load time
+   */
+  private ensureInitialized(): void {
+    if (this.initialized) {
+      return;
+    }
+
+    // Load config from env if not already set
+    if (!this.config) {
+      this.config = this.loadConfigFromEnv();
+    }
+
     this.initializeTransporter();
+    this.initialized = true;
   }
 
   private loadConfigFromEnv(): EmailConfig {
@@ -110,14 +135,14 @@ export class EmailService {
 
   private initializeTransporter() {
     logger.debug('Initializing email service with config:', {
-      host: this.config.host,
-      port: this.config.port,
-      secure: this.config.secure,
-      hasAuth: !!this.config.auth?.user,
-      from: this.config.from,
+      host: this.config?.host,
+      port: this.config?.port,
+      secure: this.config?.secure,
+      hasAuth: !!this.config?.auth?.user,
+      from: this.config?.from,
     });
 
-    if (!this.config.auth?.user) {
+    if (!this.config?.auth?.user) {
       logger.warn('Email service not configured - emails will be logged only. Set EMAIL_USER env variable.');
       this.isConfigured = false;
       return;
@@ -1724,6 +1749,9 @@ export class EmailService {
    * Core email sending method
    */
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    // Lazy initialization - ensures env vars are loaded before checking config
+    this.ensureInitialized();
+
     if (!this.isConfigured || !this.transporter) {
       // Log email content if not configured
       logger.info('Email Service - Mock Send (not configured):', {
@@ -1740,11 +1768,11 @@ export class EmailService {
       logger.debug('Attempting to send email:', {
         to,
         subject,
-        from: this.config.from,
+        from: this.config!.from,
       });
 
       const info = await this.transporter.sendMail({
-        from: this.config.from,
+        from: this.config!.from,
         to,
         subject,
         html
