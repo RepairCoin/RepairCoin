@@ -10,7 +10,7 @@ import {
   getCurrentLocation,
   geocodeAddress,
   Coordinates,
-} from "@/shared/services/geocoding.service";
+} from "@/shared/services/geocoding.services";
 import {
   fetchRoute,
   metersToMiles,
