@@ -1,365 +1,233 @@
-# Auto Account Switching Implementation Plan
+# Auto Account Switching
 
 ## Overview
 
 Automatically detect and switch user accounts when MetaMask wallet changes, seamlessly transitioning between admin/shop/customer roles without requiring manual logout/login.
 
 **Created**: February 9, 2026
-**Status**: Planning
-**Priority**: Medium
+**Completed**: February 24, 2026
+**Status**: Complete
 
 ---
 
 ## Problem Statement
 
-**Current Behavior:**
-- When user switches accounts in MetaMask, the app detects the change
-- Shows a "wallet mismatch" warning toast
-- Disconnects the wallet and reloads the page
-- User must manually re-authenticate
+**Original Behavior (pre-implementation):**
+- Switching MetaMask accounts showed a "wallet mismatch" warning toast
+- Disconnected the wallet and reloaded the page
+- User had to manually re-authenticate
 
-**Desired Behavior:**
-- When user switches accounts in MetaMask, automatically:
-  1. Logout current session
-  2. Check if new wallet is registered
-  3. If registered → auto-login and redirect to appropriate dashboard
-  4. If not registered → redirect to registration page
+**Bug (initial implementation - two-phase approach):**
+- `switchAccount` used redirect-first, login-later: logout, set localStorage marker, `window.location.replace('/shop')`, then detect marker on new page and login
+- Race condition: new page loads, immediate session check finds no valid session, dashboard auth guard fires `router.push('/')` before login can run
+- API client's 401 interceptor also redirected to `/` independently
+- Result: URL redirects but page shows landing page, console full of 404s and "Failed to connect" errors
 
 ---
 
-## Technical Analysis
+## Solution: Login-First, Redirect-Second
 
-### Current Architecture
+The fix eliminates all race conditions by authenticating **before** navigating, so the new page always loads with a valid session cookie.
 
-**Account Change Detection:**
+### Flow
+
 ```
-MetaMask Switch → Thirdweb SDK → useActiveAccount() hook → useAuthInitializer effect
+MetaMask switch
+  -> switchAccount(newAddress)
+  -> checkUser(newAddress)          // Determine role (non-destructive)
+  -> setAccountSwitchingState(true) // Block stale API calls
+  -> await logout()                 // Clear old session (awaited, not fire-and-forget)
+  -> await authenticateXxx()        // Set new session cookie directly
+  -> clearAllAuthCaches()           // Clear stale cached data
+  -> window.location.replace(path)  // Redirect with valid session
+
+New page loads
+  -> immediate session check
+  -> getSession() finds valid cookie
+  -> set profile, render dashboard  // No race condition
 ```
 
-**Key Files:**
-| File | Purpose |
-|------|---------|
-| `frontend/src/hooks/useAuthInitializer.ts` | Detects account changes, handles auth flow |
-| `frontend/src/stores/authStore.ts` | Centralized auth state (role, profile) |
-| `frontend/src/services/walletDetectionService.ts` | Determines user role from wallet |
-| `frontend/src/services/api/auth.ts` | Auth API client |
-| `backend/src/routes/auth.ts` | Authentication endpoints |
+### Why This Works
 
-**Current Flow (useAuthInitializer.ts:91-276):**
-```typescript
-useEffect(() => {
-  const currentAddress = account?.address;
-  const previousAddress = previousAddressRef.current;
-
-  if (currentAddress === previousAddress) return;
-
-  previousAddressRef.current = currentAddress || null;
-
-  if (currentAddress) {
-    // Check session → wallet mismatch detection → warning toast
-    // Does NOT auto-switch accounts
-  }
-}, [account?.address]);
-```
+1. **Session cookie is set before redirect** - the new page's immediate session check succeeds on first try
+2. **No localStorage markers** - no two-phase coordination across page loads
+3. **No Zustand state updates during switch** - avoids triggering dashboard redirect effects
+4. **API calls blocked during switch** - prevents stale requests from old dashboard components
 
 ---
 
-## Implementation Plan
+## Files Modified
 
-### Phase 1: Update Auth Store
+### 1. `frontend/src/stores/authStore.ts`
 
-**File:** `frontend/src/stores/authStore.ts`
-
-**Changes:**
-1. Add `switchingAccount` state flag to prevent race conditions
-2. Add `switchAccount()` action for clean account transitions
-
+**`switchAccount` rewritten (login-first approach):**
 ```typescript
-// Add to AuthState interface
-switchingAccount: boolean;
-
-// Add action
-switchAccount: (newAddress: string) => Promise<void>;
-```
-
-**Implementation:**
-```typescript
-switchAccount: async (newAddress: string) => {
-  set({ switchingAccount: true });
-
-  try {
-    // 1. Logout current session (clear cookies)
-    await authApi.logout();
-
-    // 2. Clear local state
-    set({
-      userProfile: null,
-      isAuthenticated: false,
-      userType: null,
-    });
-
-    // 3. Check if new wallet is registered
-    const userCheck = await authApi.checkUser(newAddress);
-
-    if (userCheck.exists) {
-      // 4a. Auto-login with new wallet
-      await get().login(newAddress);
-    } else {
-      // 4b. Redirect to registration
-      window.location.href = '/choose';
-    }
-  } finally {
-    set({ switchingAccount: false });
-  }
-},
-```
-
----
-
-### Phase 2: Update Account Change Handler
-
-**File:** `frontend/src/hooks/useAuthInitializer.ts`
-
-**Current Code (Lines 116-229):**
-```typescript
-// Wallet mismatch detection - shows warning and reloads
-if (sessionAddress !== connectedAddress) {
-  window.dispatchEvent(new CustomEvent('auth:wallet-mismatch', {...}));
-  // ... disconnect and reload
+switchAccount: async (newAddress, email?) => {
+  // 1. checkUser() - determine target role
+  // 2. setAccountSwitchingState(true) - block stale API calls
+  // 3. await authApi.logout() - clear old session
+  // 4. await authApi.authenticateXxx() - set new session cookie directly
+  //    (uses authenticateAdmin/Shop/Customer, NOT login() which has side effects)
+  // 5. clearAllAuthCaches() - clear stale cached data
+  // 6. window.location.replace(targetPath) - redirect with valid session
+  // On auth failure: redirect to '/' as fallback
+  // On unregistered wallet: redirect to '/choose'
 }
 ```
 
-**New Code:**
+**`auth:login-failed` event suppressed during switch:**
+- Two locations in `login()` where `window.dispatchEvent('auth:login-failed')` is called
+- Both now check `!get().switchingAccount` before dispatching
+- Prevents AuthProvider's login-failed handler from interfering during switch
+
+**Removed imports:** `setAccountSwitchPending`, `clearAccountSwitchPending` (dead code)
+
+### 2. `frontend/src/hooks/useAuthInitializer.ts`
+
+**Removed switch pending system (dead code):**
+- `AUTH_SWITCH_PENDING_KEY`, `SWITCH_PENDING_TTL_MS`, `SwitchPendingData` interface
+- `setAccountSwitchPending()`, `getAccountSwitchPending()`, `clearAccountSwitchPending()` functions
+- Switch pending checks in immediate session check and secondary effect Case 4
+
+**Added `switchingAccount` guard to secondary effect:**
 ```typescript
-// Auto-switch accounts when wallet changes
-if (sessionAddress && connectedAddress && sessionAddress !== connectedAddress) {
-  console.log('[Auth] Wallet changed, auto-switching account', {
-    from: sessionAddress,
-    to: connectedAddress,
-  });
-
-  // Check if this is an email-based login (social login)
-  const connectedEmail = await getUserEmail({ client });
-  const sessionEmail = userData?.email;
-
-  if (connectedEmail && sessionEmail && connectedEmail === sessionEmail) {
-    // Email-based login - don't switch, this is expected
-    console.log('[Auth] Email-based login detected, keeping session');
+const initializeAuth = async () => {
+  const { switchingAccount: isSwitching } = useAuthStore.getState();
+  if (isSwitching) {
+    console.log('[AuthInitializer] Account switch in progress, skipping initializeAuth');
     return;
   }
-
-  // Genuine wallet switch - auto-switch accounts
-  await switchAccount(connectedAddress);
-  return;
-}
-```
-
----
-
-### Phase 3: Add Loading State During Switch
-
-**File:** `frontend/src/providers/AuthProvider.tsx`
-
-**Add visual feedback during account switch:**
-```typescript
-const { switchingAccount } = useAuthStore();
-
-// Show loading overlay during switch
-if (switchingAccount) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-6 text-center">
-        <Spinner className="w-8 h-8 mx-auto mb-4" />
-        <p className="text-white">Switching account...</p>
-      </div>
-    </div>
-  );
-}
-```
-
----
-
-### Phase 4: Handle Role-Based Redirects
-
-**File:** `frontend/src/hooks/useAuthInitializer.ts`
-
-**After successful auto-login, redirect to appropriate dashboard:**
-```typescript
-const redirectToDashboard = (userType: string) => {
-  const dashboards = {
-    admin: '/admin',
-    shop: '/shop',
-    customer: '/customer',
-  };
-
-  const targetPath = dashboards[userType] || '/';
-
-  // Only redirect if not already on correct dashboard
-  if (!window.location.pathname.startsWith(targetPath)) {
-    window.location.href = targetPath;
-  }
+  // ... rest of initializeAuth
 };
 ```
 
----
+**Kept intact:** MetaMask `accountsChanged` listener and wallet mismatch debounce detection - these correctly trigger `switchAccount`.
 
-### Phase 5: Edge Cases & Error Handling
+### 3. `frontend/src/services/api/client.ts`
 
-**Scenarios to Handle:**
-
-1. **Switch to unregistered wallet:**
-   - Clear session
-   - Redirect to `/choose` for registration
-   - Show toast: "New wallet detected. Please register to continue."
-
-2. **Switch during pending transaction:**
-   - Block switch until transaction completes
-   - Or warn user and allow cancel
-
-3. **Network errors during switch:**
-   - Show error toast
-   - Keep user logged out (safe state)
-   - Allow manual retry
-
-4. **Rapid switching (multiple changes):**
-   - Debounce account changes (300ms)
-   - Cancel pending switch if new change detected
-
-**Implementation:**
+**Expanded allowed endpoints during switch:**
 ```typescript
-// Debounce account changes
-const debouncedSwitch = useMemo(
-  () => debounce(async (address: string) => {
-    await switchAccount(address);
-  }, 300),
-  [switchAccount]
-);
-
-// Cancel on unmount
-useEffect(() => {
-  return () => debouncedSwitch.cancel();
-}, [debouncedSwitch]);
+// Before: only /auth/logout and /auth/check-user
+const isAllowedDuringSwitch = config.url?.includes('/auth/');
+// Now: all /auth/ endpoints (needed for authenticate calls during switch)
 ```
 
----
+**Suppressed redirect-to-home during switch:**
+```typescript
+// In response interceptor's refresh-failure handler:
+if (isProtectedRoute && !isAccountSwitching) {
+  window.location.href = '/';
+}
+// When switching, switchAccount handles its own navigation
+```
 
-### Phase 6: Remove Old Wallet Mismatch Code
+**Silent cancellation for blocked requests:**
+```typescript
+// Response error interceptor resolves (not rejects) for AccountSwitchError:
+if (error instanceof AccountSwitchError) {
+  return { data: null, success: false, _accountSwitchCancelled: true };
+}
+```
 
-**Files to Update:**
+This is the key fix for console noise. By resolving instead of rejecting, callers' `catch` blocks are never triggered. The empty response is safe because:
+- Callers that check `response.success` skip processing (false)
+- Callers that do `response.data || defaultValue` get the default (null)
+- The page is about to redirect anyway, so partial data doesn't matter
 
-1. `frontend/src/hooks/useAuthInitializer.ts`
-   - Remove `auth:wallet-mismatch` event dispatch
-   - Remove wallet mismatch warning logic
+### 4. `frontend/src/providers/AuthProvider.tsx`
 
-2. `frontend/src/providers/AuthProvider.tsx`
-   - Remove `auth:wallet-mismatch` event listener
-   - Remove mismatch handling code
+**Added `switchingAccount` guard to `auth:login-failed` handler:**
+```typescript
+const handleLoginFailed = async (event: CustomEvent) => {
+  if (useAuthStore.getState().switchingAccount) {
+    console.log('[AuthProvider] Skipping login-failed handler - account switch in progress');
+    return;
+  }
+  // ... rest of handler (toast, page reload, etc.)
+};
+```
 
----
-
-## Implementation Checklist
-
-### Phase 1: Auth Store Updates
-- [ ] Add `switchingAccount` state to authStore
-- [ ] Implement `switchAccount()` action
-- [ ] Add proper error handling
-
-### Phase 2: Account Change Handler
-- [ ] Update `useAuthInitializer.ts` to auto-switch
-- [ ] Preserve email-based login detection
-- [ ] Add logging for debugging
-
-### Phase 3: Loading State
-- [ ] Add loading overlay during switch
-- [ ] Show "Switching account..." message
-
-### Phase 4: Role-Based Redirects
-- [ ] Implement `redirectToDashboard()` function
-- [ ] Handle all user types (admin/shop/customer)
-- [ ] Prevent unnecessary redirects
-
-### Phase 5: Edge Cases
-- [ ] Handle unregistered wallet switch
-- [ ] Add debouncing for rapid switches
-- [ ] Implement error handling with toasts
-- [ ] Test network failure scenarios
-
-### Phase 6: Cleanup
-- [ ] Remove old wallet mismatch event code
-- [ ] Remove mismatch warning toasts
-- [ ] Update any related tests
-
-### Testing
-- [ ] Test admin → customer switch
-- [ ] Test customer → shop switch
-- [ ] Test shop → admin switch
-- [ ] Test switch to unregistered wallet
-- [ ] Test rapid account switching
-- [ ] Test switch during page load
-- [ ] Test switch with network errors
+Redundant safety net alongside the authStore change.
 
 ---
 
-## File Changes Summary
+## Edge Cases Handled
 
-| File | Changes |
-|------|---------|
-| `frontend/src/stores/authStore.ts` | Add `switchingAccount` state, `switchAccount()` action |
-| `frontend/src/hooks/useAuthInitializer.ts` | Replace mismatch warning with auto-switch logic |
-| `frontend/src/providers/AuthProvider.tsx` | Add loading overlay, remove mismatch listener |
-| `frontend/src/services/api/auth.ts` | No changes needed (logout already exists) |
-
----
-
-## Estimated Effort
-
-| Phase | Effort |
-|-------|--------|
-| Phase 1: Auth Store | 1-2 hours |
-| Phase 2: Change Handler | 2-3 hours |
-| Phase 3: Loading State | 30 mins |
-| Phase 4: Redirects | 1 hour |
-| Phase 5: Edge Cases | 2-3 hours |
-| Phase 6: Cleanup | 30 mins |
-| Testing | 2-3 hours |
-| **Total** | **~10-12 hours** |
+| Scenario | Behavior |
+|----------|----------|
+| Customer -> Shop switch | checkUser -> logout -> authenticateShop -> redirect `/shop` |
+| Shop -> Customer switch | checkUser -> logout -> authenticateCustomer -> redirect `/customer` |
+| Any role -> Admin switch | checkUser -> logout -> authenticateAdmin -> redirect `/admin` |
+| Switch to unregistered wallet | checkUser (not found) -> logout -> redirect `/choose`, toast "New wallet detected" |
+| Auth failure after logout | Redirect to `/` as fallback, clear caches |
+| Rapid switching | `switchingAccount` flag prevents concurrent switches |
+| Stale API calls from old dashboard | Blocked by `setAccountSwitchingState(true)`, resolve with empty data |
+| MetaMask `accountsChanged` event | Debounced 500ms, triggers `switchAccount` if address differs |
+| Email-based login (social) | Detected and preserved - no switch triggered |
 
 ---
 
-## Risks & Mitigations
+## API Call Blocking Strategy
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Race conditions during rapid switching | Medium | Debounce + cancel pending operations |
-| Session corruption on failed switch | High | Always logout first, then attempt login |
-| User confusion during switch | Low | Clear loading indicator + toast messages |
-| Breaking email-based login | High | Preserve email fallback detection logic |
+During account switch, non-auth API calls are blocked at the request interceptor level to prevent stale dashboard components from making requests with the old/no session:
+
+```
+Request interceptor:
+  if (isAccountSwitching && !url.includes('/auth/')) {
+    -> reject with AccountSwitchError
+
+Response error interceptor:
+  if (error is AccountSwitchError) {
+    -> resolve with { data: null, success: false }  // NOT reject
+    -> callers get empty response in try block, catch blocks never fire
+    -> no console.error noise from dozens of catch blocks across the app
+```
+
+This approach is critical because:
+- Dashboard components have many `catch (err) { console.error(...) }` blocks
+- Patching each one individually is not scalable
+- Resolving at the interceptor level silences all of them at once
 
 ---
 
-## Success Criteria
+## Key Architectural Decisions
 
-1. User can switch MetaMask accounts without manual logout
-2. Correct dashboard loads based on new wallet's role
-3. Unregistered wallets redirect to registration
-4. No race conditions or duplicate login attempts
-5. Clear visual feedback during switch
-6. Email-based logins (social login) continue to work
+### Why `authenticateXxx()` directly instead of `login()`
+
+The `login()` function in authStore has side effects:
+- Updates Zustand state (`userProfile`, `isAuthenticated`, `userType`)
+- Dispatches `auth:login-failed` events on failure
+- Has its own `loginInProgress` lock that can conflict
+
+During switch, we only need the **session cookie** to be set. The new page will hydrate its own state from `getSession()`. Calling authenticate endpoints directly avoids triggering state changes that could cause the old page's dashboard components to re-render.
+
+### Why `await logout()` instead of fire-and-forget
+
+The old approach did `authApi.logout().catch(() => {})` (fire-and-forget) then redirected immediately. This created a race where the authenticate call could arrive at the backend while the old session was still being cleared, potentially causing session conflicts. Awaiting ensures clean sequencing: old session cleared, then new session created.
+
+### Why resolve instead of reject for AccountSwitchError
+
+The original design rejected with `AccountSwitchError` expecting callers to check `isAccountSwitchError()`. In practice, only 2-3 top-level callers had this check while dozens of inner catch blocks logged the error. Resolving with empty data at the interceptor level is a zero-maintenance solution that works for all current and future callers.
 
 ---
 
-## Future Enhancements
+## Verification Checklist
 
-1. **Remember last account per wallet** - Store preferences
-2. **Multi-account support** - Quick switch menu in header
-3. **Account linking** - Link multiple wallets to one profile
-4. **Session persistence** - Remember sessions per wallet address
+- [x] Customer to Shop switch - redirects to `/shop` dashboard
+- [x] Shop to Customer switch - redirects to `/customer` dashboard
+- [x] Any role to Admin switch - redirects to `/admin`
+- [x] Switch to unregistered wallet - redirects to `/choose`
+- [x] Rapid switching - no duplicate switches or errors
+- [x] Console clean - no 404 errors, no "Failed to connect" errors, no AccountSwitchError noise
+- [x] Loading overlay shown during switch ("Switching account...")
+- [x] Email-based logins (social login) continue to work
 
 ---
 
 ## References
 
-- Current auth flow: `frontend/src/hooks/useAuthInitializer.ts`
+- Auth initializer: `frontend/src/hooks/useAuthInitializer.ts`
 - Auth store: `frontend/src/stores/authStore.ts`
-- Thirdweb docs: https://portal.thirdweb.com/react/v5
-- MetaMask events: https://docs.metamask.io/wallet/reference/provider-api/#events
+- API client interceptors: `frontend/src/services/api/client.ts`
+- Auth provider: `frontend/src/providers/AuthProvider.tsx`
+- Auth API service: `frontend/src/services/api/auth.ts`

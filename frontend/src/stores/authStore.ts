@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { authApi } from '@/services/api/auth';
 import { clearAllAuthCaches } from '@/hooks/useAuthInitializer';
+import { setAccountSwitchingState } from '@/services/api/client';
 
 export interface UserProfile {
   id: string;
@@ -37,6 +38,7 @@ export interface AuthState {
   authError: AuthError | null; // Structured error for better handling
   authInitialized: boolean; // Flag to track if initial auth check is complete
   walletMismatchPending: boolean; // Flag to prevent logout when disconnecting mismatched wallet
+  switchingAccount: boolean; // Flag to indicate account switch in progress
 
   // Computed values
   userType: 'customer' | 'shop' | 'admin' | null;
@@ -58,6 +60,7 @@ export interface AuthState {
   // Centralized authentication actions
   login: (address: string, email?: string) => Promise<void>;
   logout: () => Promise<void>;
+  switchAccount: (newAddress: string, email?: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -74,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
       authError: null,
       authInitialized: false, // Initially false, set to true after first auth check
       walletMismatchPending: false, // Flag to prevent logout when disconnecting mismatched wallet
+      switchingAccount: false, // Flag to indicate account switch in progress
 
       // Computed values (derived from userProfile)
       userType: null,
@@ -240,8 +244,8 @@ export const useAuthStore = create<AuthState>()(
             const errorMessage = 'Authentication failed. Please try again or contact support.';
             set({ error: errorMessage, userProfile: null, isAuthenticated: false }, false, 'login:failed');
 
-            // Trigger wallet disconnect on auth failure
-            if (typeof window !== 'undefined') {
+            // Trigger wallet disconnect on auth failure (skip during account switch)
+            if (typeof window !== 'undefined' && !get().switchingAccount) {
               const failureError: AuthError = {
                 message: errorMessage,
                 type: 'general',
@@ -337,8 +341,8 @@ export const useAuthStore = create<AuthState>()(
           }, false, 'login:error');
 
           // Trigger wallet disconnect on auth failure (especially for revocation)
-          // Pass structured error instead of plain object
-          if (typeof window !== 'undefined') {
+          // Pass structured error instead of plain object (skip during account switch)
+          if (typeof window !== 'undefined' && !get().switchingAccount) {
             window.dispatchEvent(new CustomEvent('auth:login-failed', {
               detail: authError
             }));
@@ -384,6 +388,111 @@ export const useAuthStore = create<AuthState>()(
         // Redirect to home page for better UX
         if (typeof window !== 'undefined') {
           window.location.href = '/';
+        }
+      },
+
+      // Auto-switch account when MetaMask wallet changes
+      // Login-first, redirect-second approach: authenticate BEFORE navigating
+      // This eliminates race conditions where the new page loads without a valid session
+      switchAccount: async (newAddress: string, email?: string) => {
+        const state = get();
+
+        // Prevent multiple switches
+        if (state.switchingAccount) {
+          console.log('[authStore] Account switch already in progress, skipping');
+          return;
+        }
+
+        console.log('[authStore] 🔄 Starting account switch to:', newAddress);
+        set({ switchingAccount: true }, false, 'switchAccount:start');
+
+        try {
+          // 1. Check if new wallet is registered (non-destructive, determines target role)
+          console.log('[authStore] 📧 Checking if new wallet is registered:', newAddress);
+          const userCheck = await authApi.checkUser(newAddress, email);
+          console.log('[authStore] 📋 checkUser response:', JSON.stringify(userCheck, null, 2));
+
+          // 2. Determine target path
+          const dashboards: Record<string, string> = {
+            admin: '/admin',
+            shop: '/shop',
+            customer: '/customer',
+          };
+          const targetPath = userCheck.exists && userCheck.type
+            ? dashboards[userCheck.type] || '/'
+            : '/choose';
+
+          // 3. Block non-essential API calls to prevent stale requests
+          setAccountSwitchingState(true);
+
+          // 4. Logout current session (await to ensure it completes before re-auth)
+          console.log('[authStore] 🔄 Logging out current session...');
+          try {
+            await authApi.logout();
+            console.log('[authStore] 🔄 Logout complete');
+          } catch (logoutError) {
+            console.warn('[authStore] Logout failed (continuing with switch):', logoutError);
+          }
+
+          // 5. Authenticate with new wallet directly (skip login() to avoid side effects)
+          if (userCheck.exists && userCheck.type) {
+            console.log('[authStore] 🔄 Authenticating as', userCheck.type, 'with new wallet...');
+            try {
+              switch (userCheck.type) {
+                case 'admin':
+                  await authApi.authenticateAdmin(newAddress);
+                  break;
+                case 'shop':
+                  await authApi.authenticateShop(newAddress, email);
+                  break;
+                case 'customer':
+                  await authApi.authenticateCustomer(newAddress);
+                  break;
+              }
+              console.log('[authStore] 🔄 Authentication successful for:', userCheck.type);
+            } catch (authError: any) {
+              console.error('[authStore] 🔄 Authentication failed during switch:', authError);
+              // Auth failed after logout - redirect to home as fallback
+              setAccountSwitchingState(false);
+              set({ switchingAccount: false }, false, 'switchAccount:authFailed');
+              if (typeof window !== 'undefined') {
+                clearAllAuthCaches();
+                window.location.replace('/');
+              }
+              return;
+            }
+          }
+
+          // 6. Clear caches so new page loads fresh data for the new user
+          if (typeof window !== 'undefined') {
+            clearAllAuthCaches();
+          }
+
+          // 7. Redirect - session cookie is already set by authenticate call above
+          // The new page will find a valid session immediately via getSession()
+          console.log('[authStore] 🔄 Redirecting to:', targetPath);
+          if (typeof window !== 'undefined') {
+            if (!userCheck.exists) {
+              window.dispatchEvent(new CustomEvent('auth:new-wallet-detected', {
+                detail: { address: newAddress }
+              }));
+            }
+            // Use replace to prevent back button issues
+            window.location.replace(targetPath);
+          }
+        } catch (error: any) {
+          console.error('[authStore] ❌ Account switch error:', error);
+
+          // Re-enable API calls and reset state
+          setAccountSwitchingState(false);
+          set({ switchingAccount: false }, false, 'switchAccount:error');
+
+          // Show error
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:switch-failed', {
+              detail: { message: error?.message || 'Failed to switch accounts' }
+            }));
+          }
         }
       },
     }),
