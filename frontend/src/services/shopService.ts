@@ -61,14 +61,16 @@ export class ShopService {
     try {
       const response = await apiClient.get(`/shops/${shopId}`);
 
-      if (response.data?.success) {
-        return response.data.data || null;
+      // apiClient response interceptor already unwraps response.data
+      // so response is the actual data, not axios response
+      if (response?.success) {
+        return response.data || null;
       }
 
       return null;
     } catch (error: any) {
       console.error("Error fetching shop by ID:", error);
-      if (error.response?.status === 404) {
+      if (error.status === 404) {
         return null; // Shop not found
       }
       throw error;

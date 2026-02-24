@@ -12,7 +12,7 @@ import {
 } from '@/services/api/admin';
 import { toast } from 'react-hot-toast';
 import { WorkingChart, WorkingLineChart, WorkingPieChart } from '@/components/admin/charts/WorkingChart';
-import { BarChart3, Coins, Trophy, AlertTriangle, Search, RefreshCcw, Users, Store } from 'lucide-react';
+import { BarChart3, Coins, Trophy, AlertTriangle, Search, RefreshCcw, Users, Store, TrendingUp, Activity } from 'lucide-react';
 
 interface TokenCirculationMetrics {
   totalSupply: number;
@@ -136,8 +136,8 @@ export function AnalyticsTab() {
     try {
       const success = await markAlertAsRead(alertId);
       if (success) {
-        setAlerts(prev => prev.map(alert => 
-          alert.id === alertId 
+        setAlerts(prev => prev.map(alert =>
+          alert.id === alertId
             ? { ...alert, acknowledged: true, acknowledgedAt: new Date().toISOString() }
             : alert
         ));
@@ -172,7 +172,6 @@ export function AnalyticsTab() {
       const success = await runMonitoringChecks();
       if (success) {
         toast.success('Monitoring checks completed');
-        // Reload alerts to see any new ones created
         await loadAlerts();
       } else {
         toast.error('Failed to run monitoring checks');
@@ -206,248 +205,288 @@ export function AnalyticsTab() {
 
   if (loading) {
     return (
-      <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00]"></div>
-          <p className="mt-4 text-[#FFCC00]/70">Loading analytics...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-800 border-t-white"></div>
+          <p className="mt-4 text-gray-400">Loading analytics...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Navigation Tabs */}
-      <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#FFCC00]/20">
-          {/* Header - Stack on mobile */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h1 className="text-xl sm:text-3xl font-bold text-[#FFCC00]">Advanced Analytics</h1>
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Modern Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+            Analytics
+          </h1>
+          <p className="text-gray-400 mt-2">Platform insights and performance metrics</p>
+        </div>
+        <button
+          onClick={handleRunMonitoringChecks}
+          disabled={monitoringLoading}
+          className="group relative px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2 font-medium"
+        >
+          {monitoringLoading ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+          ) : (
+            <Activity className="w-5 h-5" />
+          )}
+          Run Health Check
+        </button>
+      </div>
+
+      {/* Elegant Tabs */}
+      <div className="relative">
+        <div className="flex gap-8 border-b border-gray-800">
+          {[
+            { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
+            { id: 'circulation', label: 'Circulation', icon: <Coins className="w-4 h-4" /> },
+            { id: 'rankings', label: 'Rankings', icon: <Trophy className="w-4 h-4" /> },
+            { id: 'alerts', label: 'Alerts', icon: <AlertTriangle className="w-4 h-4" />, badge: alerts.filter(a => !a.acknowledged).length }
+          ].map((tab) => (
             <button
-              onClick={handleRunMonitoringChecks}
-              disabled={monitoringLoading}
-              className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 flex items-center justify-center gap-2 font-bold text-sm sm:text-base w-full sm:w-auto"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`group relative pb-4 px-2 flex items-center gap-2 text-sm font-medium transition-all duration-300 ${
+                activeTab === tab.id
+                  ? 'text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
             >
-              {monitoringLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Search className="w-4 h-4" />
+              <span className={`transition-all duration-300 ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                {tab.icon}
+              </span>
+              {tab.label}
+              {tab.badge !== undefined && tab.badge > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-semibold">
+                  {tab.badge}
+                </span>
               )}
-              <span className="hidden xs:inline">Run</span> Monitoring Checks
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+              )}
             </button>
-          </div>
-          {/* Tabs - Horizontal scroll on mobile */}
-          <div className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2 sm:gap-4 min-w-max pb-2 sm:pb-0">
-              {[
-                { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
-                { id: 'circulation', label: 'Circulation', icon: <Coins className="w-4 h-4" /> },
-                { id: 'rankings', label: 'Rankings', icon: <Trophy className="w-4 h-4" /> },
-                { id: 'alerts', label: 'Alerts', icon: <AlertTriangle className="w-4 h-4" />, badge: alerts.filter(a => !a.acknowledged).length }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap text-sm sm:text-base ${
-                    activeTab === tab.id
-                      ? 'bg-[#FFCC00] text-[#0D0D0D] font-bold'
-                      : 'text-[#FFCC00]/70 hover:bg-[#FFCC00]/10 hover:text-[#FFCC00]'
-                  }`}
-                >
-                  {tab.icon}
-                  {tab.label}
-                  {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className="bg-red-500 text-white text-xs rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="space-y-4 sm:space-y-6">
-          {/* Key Metrics Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-[#FFCC00]/70">Total Supply</p>
-                  <p className="text-lg sm:text-3xl font-bold text-[#FFCC00] truncate">
-                    {tokenMetrics?.totalSupply?.toLocaleString() || 0}
-                  </p>
-                  <p className="text-[10px] sm:text-xs text-[#FFCC00]/60 mt-1">RCN tokens</p>
+        <div className="space-y-8">
+          {/* Beautiful Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Total Supply Card */}
+            <div className="group relative bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-sm rounded-2xl p-6 border border-blue-500/20 hover:border-blue-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-blue-500/10 rounded-xl">
+                  <Coins className="w-6 h-6 text-blue-400" />
                 </div>
-                <Coins className="w-6 h-6 sm:w-8 sm:h-8 text-[#FFCC00] flex-shrink-0" />
+                <TrendingUp className="w-5 h-5 text-blue-400 opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
+              <p className="text-sm text-gray-400 font-medium mb-1">Total Supply</p>
+              <p className="text-3xl font-bold text-white mb-1">
+                {tokenMetrics?.totalSupply?.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-blue-400">RCN tokens</p>
             </div>
 
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#22C55E]/20 hover:border-[#22C55E]/40 transition-all">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-[#22C55E]/70">In Circulation</p>
-                  <p className="text-lg sm:text-3xl font-bold text-[#22C55E] truncate">
-                    {tokenMetrics?.totalInCirculation?.toLocaleString() || 0}
-                  </p>
-                  <p className="text-[10px] sm:text-xs text-[#22C55E]/60 mt-1">Active tokens</p>
+            {/* In Circulation Card */}
+            <div className="group relative bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm rounded-2xl p-6 border border-green-500/20 hover:border-green-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-green-500/10 rounded-xl">
+                  <RefreshCcw className="w-6 h-6 text-green-400" />
                 </div>
-                <RefreshCcw className="w-6 h-6 sm:w-8 sm:h-8 text-[#22C55E] flex-shrink-0" />
+                <TrendingUp className="w-5 h-5 text-green-400 opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
+              <p className="text-sm text-gray-400 font-medium mb-1">In Circulation</p>
+              <p className="text-3xl font-bold text-white mb-1">
+                {tokenMetrics?.totalInCirculation?.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-green-400">Active tokens</p>
             </div>
 
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#A855F7]/20 hover:border-[#A855F7]/40 transition-all">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-[#A855F7]/70">Active Customers</p>
-                  <p className="text-lg sm:text-3xl font-bold text-[#A855F7] truncate">
-                    {tokenMetrics?.customerBalances?.activeCustomers?.toLocaleString() || 0}
-                  </p>
-                  <p className="text-[10px] sm:text-xs text-[#A855F7]/60 mt-1">With tokens</p>
+            {/* Active Customers Card */}
+            <div className="group relative bg-gradient-to-br from-purple-500/10 to-purple-600/5 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-purple-500/10 rounded-xl">
+                  <Users className="w-6 h-6 text-purple-400" />
                 </div>
-                <Users className="w-6 h-6 sm:w-8 sm:h-8 text-[#A855F7] flex-shrink-0" />
+                <TrendingUp className="w-5 h-5 text-purple-400 opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
+              <p className="text-sm text-gray-400 font-medium mb-1">Active Customers</p>
+              <p className="text-3xl font-bold text-white mb-1">
+                {tokenMetrics?.customerBalances?.activeCustomers?.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-purple-400">With tokens</p>
             </div>
 
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#FB923C]/20 hover:border-[#FB923C]/40 transition-all">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-[#FB923C]/70">Active Shops</p>
-                  <p className="text-lg sm:text-3xl font-bold text-[#FB923C] truncate">
-                    {tokenMetrics?.shopBalances?.length || 0}
-                  </p>
-                  <p className="text-[10px] sm:text-xs text-[#FB923C]/60 mt-1">Issuing tokens</p>
+            {/* Active Shops Card */}
+            <div className="group relative bg-gradient-to-br from-orange-500/10 to-orange-600/5 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/20 hover:border-orange-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/10">
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 bg-orange-500/10 rounded-xl">
+                  <Store className="w-6 h-6 text-orange-400" />
                 </div>
-                <Store className="w-6 h-6 sm:w-8 sm:h-8 text-[#FB923C] flex-shrink-0" />
+                <TrendingUp className="w-5 h-5 text-orange-400 opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
+              <p className="text-sm text-gray-400 font-medium mb-1">Active Shops</p>
+              <p className="text-3xl font-bold text-white mb-1">
+                {tokenMetrics?.shopBalances?.length || 0}
+              </p>
+              <p className="text-xs text-orange-400">Issuing tokens</p>
             </div>
           </div>
 
-          {/* Row 1: Daily Activity Chart */}
+          {/* Charts Section */}
           {tokenMetrics?.dailyActivity && tokenMetrics.dailyActivity.length > 0 && (
-            <WorkingLineChart
-              data={tokenMetrics.dailyActivity.map(day => ({
-                date: day.date,
-                value: day.minted,
-                value2: day.redeemed
-              }))}
-              title="Daily Token Activity (Last 30 Days)"
-              lines={[
-                { key: 'value', color: '#22C55E', label: 'Tokens Issued' },
-                { key: 'value2', color: '#EF4444', label: 'Tokens Redeemed' }
-              ]}
-              formatValue={(value) => `${value.toLocaleString()} RCN`}
-              height={300}
-            />
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <WorkingLineChart
+                data={tokenMetrics.dailyActivity.map(day => ({
+                  date: day.date,
+                  value: day.minted,
+                  value2: day.redeemed
+                }))}
+                title="Daily Token Activity"
+                lines={[
+                  { key: 'value', color: '#22C55E', label: 'Issued' },
+                  { key: 'value2', color: '#EF4444', label: 'Redeemed' }
+                ]}
+                formatValue={(value) => `${value.toLocaleString()} RCN`}
+                height={300}
+              />
+            </div>
           )}
 
-          {/* Row 2: Top Shops by Tokens Issued */}
           {tokenMetrics && (
-            <WorkingChart
-              data={tokenMetrics.shopBalances.slice(0, 10).map(shop => ({
-                date: shop.shopName,
-                value: shop.tokensIssued,
-                label: shop.shopName
-              }))}
-              title="Top Shops by Tokens Issued"
-              color="#FFCC00"
-              formatValue={(value) => `${value.toLocaleString()} RCN`}
-              height={300}
-              type="bar"
-            />
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <WorkingChart
+                data={tokenMetrics.shopBalances.slice(0, 10).map(shop => ({
+                  date: shop.shopName,
+                  value: shop.tokensIssued,
+                  label: shop.shopName
+                }))}
+                title="Top Shops by Tokens Issued"
+                color="#FFCC00"
+                formatValue={(value) => `${value.toLocaleString()} RCN`}
+                height={300}
+                type="bar"
+              />
+            </div>
           )}
 
           {/* Recent Alerts */}
-          <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all duration-300">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#FFCC00]/20">
-              <h2 className="text-lg sm:text-xl font-bold text-[#FFCC00]">Recent Alerts</h2>
-            </div>
-            <div className="p-3 sm:p-6">
-              {alerts.slice(0, 5).map((alert) => (
-                <div key={alert.id} className={`p-3 sm:p-4 rounded-lg border mb-2 sm:mb-3 bg-gradient-to-r from-[#0D0D0D] to-[#212121] border-[#FFCC00]/30 hover:border-[#FFCC00]/50 transition-all duration-200`}>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-[#FFCC00] text-sm sm:text-base">{alert.title}</h3>
-                      <p className="text-xs sm:text-sm text-[#FFCC00]/70 line-clamp-2">{alert.message}</p>
-                      <p className="text-[10px] sm:text-xs text-[#FFCC00]/50 mt-1">
-                        {new Date(alert.createdAt).toLocaleString()}
-                      </p>
+          {alerts.length > 0 && (
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-700/50">
+                <h2 className="text-xl font-semibold text-white">Recent Alerts</h2>
+              </div>
+              <div className="p-6">
+                <div className="space-y-3">
+                  {alerts.slice(0, 5).map((alert) => (
+                    <div key={alert.id} className="group bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-medium text-white">{alert.title}</h3>
+                            <span className={`px-2 py-1 rounded-md text-xs font-medium ${
+                              alert.severity === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                              alert.severity === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                              alert.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                              'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            }`}>
+                              {alert.severity.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 line-clamp-2">{alert.message}</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(alert.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          {!alert.acknowledged && (
+                            <button
+                              onClick={() => handleMarkAlertAsRead(alert.id)}
+                              className="px-3 py-1.5 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg text-xs transition-colors"
+                            >
+                              Mark Read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleResolveAlert(alert.id)}
+                            className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg text-xs font-medium transition-all"
+                          >
+                            Resolve
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      {!alert.acknowledged && (
-                        <button
-                          onClick={() => handleMarkAlertAsRead(alert.id)}
-                          className="px-2 sm:px-3 py-1 bg-[#FFCC00]/20 hover:bg-[#FFCC00]/30 text-[#FFCC00] rounded text-[10px] sm:text-xs border border-[#FFCC00]/40 transition-all"
-                        >
-                          Mark Read
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleResolveAlert(alert.id)}
-                        className="px-2 sm:px-3 py-1 bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-[#0D0D0D] rounded text-[10px] sm:text-xs font-bold transition-all"
-                      >
-                        Resolve
-                      </button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* Token Circulation Tab */}
       {activeTab === 'circulation' && tokenMetrics && (
-        <div className="space-y-4 sm:space-y-6">
-          {/* Supply Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 border border-[#FFCC00]/20">
-              <h3 className="text-base sm:text-lg font-semibold text-[#FFCC00] mb-3 sm:mb-4">Supply Overview</h3>
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex justify-between items-center text-sm sm:text-base">
-                  <span className="text-[#FFCC00]/70">Total Supply:</span>
-                  <span className="font-semibold text-[#FFCC00]">{tokenMetrics.totalSupply.toLocaleString()} RCN</span>
+        <div className="space-y-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <h3 className="text-sm font-medium text-gray-400 mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                Supply Overview
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Total Supply</span>
+                  <span className="font-semibold text-white">{tokenMetrics.totalSupply.toLocaleString()} RCN</span>
                 </div>
-                <div className="flex justify-between items-center text-sm sm:text-base">
-                  <span className="text-[#FFCC00]/70">In Circulation:</span>
-                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.totalInCirculation.toLocaleString()} RCN</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">In Circulation</span>
+                  <span className="font-semibold text-green-400">{tokenMetrics.totalInCirculation.toLocaleString()} RCN</span>
                 </div>
-                <div className="flex justify-between items-center text-sm sm:text-base">
-                  <span className="text-[#FFCC00]/70">Total Redeemed:</span>
-                  <span className="font-semibold text-[#4F9EF8]">{tokenMetrics.totalRedeemed.toLocaleString()} RCN</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 border border-[#22C55E]/20">
-              <h3 className="text-base sm:text-lg font-semibold text-[#22C55E] mb-3 sm:mb-4">Customer Analytics</h3>
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex justify-between items-center text-sm sm:text-base">
-                  <span className="text-[#22C55E]/70">Active Customers:</span>
-                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.activeCustomers.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm sm:text-base">
-                  <span className="text-[#22C55E]/70">Total Balance:</span>
-                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.totalCustomerBalance.toLocaleString()} RCN</span>
-                </div>
-                <div className="flex justify-between items-center text-sm sm:text-base">
-                  <span className="text-[#22C55E]/70">Average Balance:</span>
-                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.averageBalance.toFixed(2)} RCN</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Total Redeemed</span>
+                  <span className="font-semibold text-blue-400">{tokenMetrics.totalRedeemed.toLocaleString()} RCN</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 border border-[#A855F7]/20 sm:col-span-2 lg:col-span-1">
-              <h3 className="text-base sm:text-lg font-semibold text-[#A855F7] mb-3 sm:mb-4">Recent Activity</h3>
-              <div className="space-y-2">
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <h3 className="text-sm font-medium text-gray-400 mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                Customer Analytics
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Active Customers</span>
+                  <span className="font-semibold text-white">{tokenMetrics.customerBalances.activeCustomers.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Total Balance</span>
+                  <span className="font-semibold text-purple-400">{tokenMetrics.customerBalances.totalCustomerBalance.toLocaleString()} RCN</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Avg Balance</span>
+                  <span className="font-semibold text-purple-400">{tokenMetrics.customerBalances.averageBalance.toFixed(2)} RCN</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <h3 className="text-sm font-medium text-gray-400 mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                Recent Activity
+              </h3>
+              <div className="space-y-3">
                 {tokenMetrics.dailyActivity.slice(0, 5).map((day, index) => (
-                  <div key={index} className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-[#A855F7]/70">{new Date(day.date).toLocaleDateString()}:</span>
-                    <span className={`font-semibold ${day.netFlow >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
+                  <div key={index} className="flex justify-between text-sm">
+                    <span className="text-gray-400">{new Date(day.date).toLocaleDateString()}</span>
+                    <span className={`font-semibold ${day.netFlow >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {day.netFlow >= 0 ? '+' : ''}{day.netFlow.toFixed(0)} RCN
                     </span>
                   </div>
@@ -456,39 +495,37 @@ export function AnalyticsTab() {
             </div>
           </div>
 
-          {/* Top Shops by Balance */}
-          <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl border border-[#FFCC00]/20">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#FFCC00]/20">
-              <h2 className="text-lg sm:text-xl font-bold text-[#FFCC00]">Shop Token Balances</h2>
+          {/* Shop Balances Table */}
+          <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-700/50">
+              <h2 className="text-xl font-semibold text-white">Shop Token Balances</h2>
             </div>
-            <div className="p-3 sm:p-6">
-              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-                <table className="w-full min-w-[500px]">
-                  <thead>
-                    <tr className="border-b border-[#FFCC00]/20">
-                      <th className="text-left py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Shop</th>
-                      <th className="text-right py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Balance</th>
-                      <th className="text-right py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Issued</th>
-                      <th className="text-right py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Redeemed</th>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-700/50">
+                    <th className="text-left py-4 px-6 font-medium text-gray-400 text-sm">Shop</th>
+                    <th className="text-right py-4 px-6 font-medium text-gray-400 text-sm">Balance</th>
+                    <th className="text-right py-4 px-6 font-medium text-gray-400 text-sm">Issued</th>
+                    <th className="text-right py-4 px-6 font-medium text-gray-400 text-sm">Redeemed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokenMetrics.shopBalances.slice(0, 10).map((shop, index) => (
+                    <tr key={shop.shopId} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                      <td className="py-4 px-6">
+                        <div>
+                          <div className="font-medium text-white text-sm">{shop.shopName}</div>
+                          <div className="text-xs text-gray-500">{shop.shopId}</div>
+                        </div>
+                      </td>
+                      <td className="text-right py-4 px-6 font-semibold text-white text-sm">{shop.balance.toLocaleString()} RCN</td>
+                      <td className="text-right py-4 px-6 text-green-400 text-sm">{shop.tokensIssued.toLocaleString()} RCN</td>
+                      <td className="text-right py-4 px-6 text-blue-400 text-sm">{shop.redemptionsProcessed.toLocaleString()} RCN</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {tokenMetrics.shopBalances.slice(0, 10).map((shop, index) => (
-                      <tr key={shop.shopId} className="border-b border-[#FFCC00]/10 hover:bg-[#FFCC00]/5 transition-all">
-                        <td className="py-2 sm:py-3">
-                          <div>
-                            <div className="font-medium text-[#FFCC00] text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{shop.shopName}</div>
-                            <div className="text-[10px] sm:text-sm text-[#FFCC00]/50 truncate max-w-[120px] sm:max-w-none">{shop.shopId}</div>
-                          </div>
-                        </td>
-                        <td className="text-right py-2 sm:py-3 font-semibold text-[#22C55E] text-xs sm:text-sm whitespace-nowrap">{shop.balance.toLocaleString()} RCN</td>
-                        <td className="text-right py-2 sm:py-3 text-[#4F9EF8] text-xs sm:text-sm whitespace-nowrap">{shop.tokensIssued.toLocaleString()} RCN</td>
-                        <td className="text-right py-2 sm:py-3 text-[#A855F7] text-xs sm:text-sm whitespace-nowrap">{shop.redemptionsProcessed.toLocaleString()} RCN</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -496,113 +533,124 @@ export function AnalyticsTab() {
 
       {/* Shop Rankings Tab */}
       {activeTab === 'rankings' && (
-        <div className="space-y-4 sm:space-y-6">
-          {/* Row 1: Performance Score Distribution */}
-          <WorkingChart
-            data={shopRankings.map(shop => ({
-              date: shop.shopName,
-              value: shop.performanceScore,
-              label: shop.shopName
-            }))}
-            title="Performance Score Distribution"
-            color="#FFCC00"
-            formatValue={(value) => `${value.toFixed(1)} pts`}
-            height={300}
-          />
-          
-          {/* Row 2: Shop Tier Distribution */}
-          <WorkingPieChart
-            data={[
-              { 
-                label: 'Elite Tier', 
-                value: shopRankings.filter(s => s.tier === 'Elite').length, 
-                color: '#8B5CF6' 
-              },
-              { 
-                label: 'Premium Tier', 
-                value: shopRankings.filter(s => s.tier === 'Premium').length, 
-                color: '#3B82F6' 
-              },
-              { 
-                label: 'Standard Tier', 
-                value: shopRankings.filter(s => s.tier === 'Standard').length, 
-                color: '#10B981' 
-              }
-            ]}
-            title="Shop Tier Distribution"
-            formatValue={(value) => `${value} shops`}
-            size={300}
-          />
-          
-          {/* Row 3: Customer Retention */}
-          <WorkingChart
-            data={shopRankings.slice(0, 10).map(shop => ({
-              date: shop.shopName,
-              value: shop.customerRetention,
-              label: shop.shopName
-            }))}
-            title="Customer Retention by Shop (Top 10)"
-            color="#A855F7"
-            formatValue={(value) => `${value.toFixed(1)}%`}
-            height={300}
-          />
-          
-          {/* Row 4: Average Transaction Value */}
-          <WorkingChart
-            data={shopRankings.slice(0, 10).map(shop => ({
-              date: shop.shopName,
-              value: shop.averageTransactionValue,
-              label: shop.shopName
-            }))}
-            title="Average Transaction Value by Shop (Top 10)"
-            color="#FB923C"
-            formatValue={(value) => `${value.toFixed(2)} RCN`}
-            height={300}
-          />
+        <div className="space-y-8">
+          <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+            <WorkingChart
+              data={shopRankings.map(shop => ({
+                date: shop.shopName,
+                value: shop.performanceScore,
+                label: shop.shopName
+              }))}
+              title="Performance Score Distribution"
+              color="#FFCC00"
+              formatValue={(value) => `${value.toFixed(1)} pts`}
+              height={300}
+            />
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+            <WorkingPieChart
+              data={[
+                {
+                  label: 'Elite Tier',
+                  value: shopRankings.filter(s => s.tier === 'Elite').length,
+                  color: '#8B5CF6'
+                },
+                {
+                  label: 'Premium Tier',
+                  value: shopRankings.filter(s => s.tier === 'Premium').length,
+                  color: '#3B82F6'
+                },
+                {
+                  label: 'Standard Tier',
+                  value: shopRankings.filter(s => s.tier === 'Standard').length,
+                  color: '#10B981'
+                }
+              ]}
+              title="Shop Tier Distribution"
+              formatValue={(value) => `${value} shops`}
+              size={300}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <WorkingChart
+                data={shopRankings.slice(0, 10).map(shop => ({
+                  date: shop.shopName,
+                  value: shop.customerRetention,
+                  label: shop.shopName
+                }))}
+                title="Customer Retention (Top 10)"
+                color="#A855F7"
+                formatValue={(value) => `${value.toFixed(1)}%`}
+                height={250}
+              />
+            </div>
+
+            <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+              <WorkingChart
+                data={shopRankings.slice(0, 10).map(shop => ({
+                  date: shop.shopName,
+                  value: shop.averageTransactionValue,
+                  label: shop.shopName
+                }))}
+                title="Avg Transaction Value (Top 10)"
+                color="#FB923C"
+                formatValue={(value) => `${value.toFixed(2)} RCN`}
+                height={250}
+              />
+            </div>
+          </div>
         </div>
       )}
 
       {/* Alerts Tab */}
       {activeTab === 'alerts' && (
-        <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl border border-[#FFCC00]/20">
-          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#FFCC00]/20">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-700/50">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-[#FFCC00]">System Alerts</h2>
-                <p className="text-[#FFCC00]/70 text-sm mt-1">Total: {alertsTotal} alerts</p>
+                <h2 className="text-xl font-semibold text-white">System Alerts</h2>
+                <p className="text-sm text-gray-400 mt-1">Total: {alertsTotal} alerts</p>
               </div>
               <button
                 onClick={loadAlerts}
                 disabled={alertsLoading}
-                className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 font-bold text-sm sm:text-base w-full sm:w-auto"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl disabled:opacity-50 text-sm font-medium transition-all shadow-lg hover:shadow-xl"
               >
                 {alertsLoading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
           </div>
-          <div className="p-3 sm:p-6">
-            <div className="space-y-3 sm:space-y-4">
+          <div className="p-6">
+            <div className="space-y-4">
               {alerts.map((alert) => (
-                <div key={alert.id} className={`p-3 sm:p-4 rounded-lg border ${getSeverityColor(alert.severity)}`}>
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-sm sm:text-base">{alert.title}</h3>
-                        <span className={`px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${getSeverityColor(alert.severity)}`}>
+                <div key={alert.id} className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-5 border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <h3 className="font-semibold text-white">{alert.title}</h3>
+                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                          alert.severity === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                          alert.severity === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                          alert.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                          'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        }`}>
                           {alert.severity.toUpperCase()}
                         </span>
                         {alert.acknowledged && (
-                          <span className="px-2 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-[10px] sm:text-xs">
+                          <span className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-lg text-xs font-medium">
                             READ
                           </span>
                         )}
                       </div>
-                      <p className="text-xs sm:text-sm opacity-85 mb-2 line-clamp-2">{alert.message}</p>
-                      <div className="text-[10px] sm:text-xs opacity-70 space-y-1">
+                      <p className="text-sm text-gray-400 mb-3 line-clamp-2">{alert.message}</p>
+                      <div className="text-xs text-gray-500 space-y-1">
                         <p>Type: {alert.alertType}</p>
                         <p>Created: {new Date(alert.createdAt).toLocaleString()}</p>
                         {alert.acknowledgedAt && (
-                          <p className="truncate">Read: {new Date(alert.acknowledgedAt).toLocaleString()} by {alert.acknowledgedBy}</p>
+                          <p>Read: {new Date(alert.acknowledgedAt).toLocaleString()} by {alert.acknowledgedBy}</p>
                         )}
                       </div>
                     </div>
@@ -610,14 +658,14 @@ export function AnalyticsTab() {
                       {!alert.acknowledged && (
                         <button
                           onClick={() => handleMarkAlertAsRead(alert.id)}
-                          className="px-2 sm:px-3 py-1 bg-white bg-opacity-50 rounded text-[10px] sm:text-xs hover:bg-opacity-75"
+                          className="px-4 py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg text-xs transition-colors"
                         >
                           Mark Read
                         </button>
                       )}
                       <button
                         onClick={() => handleResolveAlert(alert.id)}
-                        className="px-2 sm:px-3 py-1 bg-white bg-opacity-50 rounded text-[10px] sm:text-xs hover:bg-opacity-75"
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg text-xs font-medium transition-all"
                       >
                         Resolve
                       </button>
