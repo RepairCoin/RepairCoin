@@ -34,7 +34,7 @@ export default function CustomerDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, userProfile, switchingAccount } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
@@ -108,7 +108,7 @@ export default function CustomerDashboardClient() {
   // Fetch no-show status (shop-agnostic)
   useEffect(() => {
     const fetchNoShowStatus = async () => {
-      if (!account?.address || !isAuthenticated) return;
+      if (!account?.address || !isAuthenticated || switchingAccount) return;
 
       setLoadingNoShowStatus(true);
       try {
@@ -123,7 +123,7 @@ export default function CustomerDashboardClient() {
     };
 
     fetchNoShowStatus();
-  }, [account?.address, isAuthenticated]);
+  }, [account?.address, isAuthenticated, switchingAccount]);
 
   // Get login function to refresh profile when page becomes visible
   const { login } = useAuthStore();

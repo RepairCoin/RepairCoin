@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import apiClient, { isAccountSwitchError } from "@/services/api/client";
+import { useAuthStore } from "@/stores/authStore";
 
 export interface CustomerData {
   address: string;
@@ -130,6 +131,12 @@ export const useCustomerStore = create<CustomerStore>()(
 
       // Fetch customer data
       fetchCustomerData: async (address: string, force: boolean = false) => {
+        // Block fetches during account switch to prevent requests with wrong wallet
+        if (useAuthStore.getState().switchingAccount) {
+          console.log('[customerStore] Account switch in progress, skipping fetch');
+          return;
+        }
+
         const state = get();
         const newAddress = address.toLowerCase();
 

@@ -47,7 +47,7 @@ export const useCustomer = (): UseCustomerReturn => {
   const searchParams = useSearchParams();
   const account = useActiveAccount();
   const { refreshProfile } = useAuth();
-  const { login, userProfile } = useAuthStore();
+  const { login, userProfile, switchingAccount } = useAuthStore();
 
   // Get data from Zustand store
   const {
@@ -91,6 +91,12 @@ export const useCustomer = (): UseCustomerReturn => {
   // Fetch data on mount or account change
   // Uses walletAddress which can come from Thirdweb OR session cache
   useEffect(() => {
+    // Skip fetching during account switch to prevent stale requests with wrong wallet
+    if (switchingAccount) {
+      console.log('[useCustomer] Account switch in progress, skipping fetch');
+      return;
+    }
+
     if (walletAddress) {
       // Fetch if we don't have data OR if the cached data is for a different wallet
       const cachedAddress = customerData?.address?.toLowerCase();
@@ -115,7 +121,7 @@ export const useCustomer = (): UseCustomerReturn => {
         clearCache();
       }
     }
-  }, [walletAddress, customerData, storeFetchCustomerData, clearCache, account?.address]);
+  }, [walletAddress, customerData, storeFetchCustomerData, clearCache, account?.address, switchingAccount]);
 
   const clearMessages = useCallback(() => {
     setError(null);

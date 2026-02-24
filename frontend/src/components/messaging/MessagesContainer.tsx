@@ -5,6 +5,7 @@ import { MessageInbox, type Conversation } from "./MessageInbox";
 import { ConversationThread, type Message } from "./ConversationThread";
 import { MessageCircle, ArrowLeft } from "lucide-react";
 import * as messagingApi from "@/services/api/messaging";
+import { useAuthStore } from "@/stores/authStore";
 
 interface MessagesContainerProps {
   userType: "customer" | "shop";
@@ -22,9 +23,12 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { switchingAccount } = useAuthStore();
 
   // Fetch conversations from API
   useEffect(() => {
+    if (switchingAccount) return;
+
     const fetchConversations = async (isInitialLoad = true) => {
       try {
         if (isInitialLoad) {
@@ -34,7 +38,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         const response = await messagingApi.getConversations({ page: 1, limit: 50 });
 
         // Transform API response to match Conversation type
-        const transformedConversations: Conversation[] = response.data.map((conv) => ({
+        const transformedConversations: Conversation[] = (response.data || []).map((conv: any) => ({
           id: conv.conversationId,
           serviceId: "", // Will need to fetch from service orders if needed
           serviceName: "", // Will need to fetch from service orders if needed
@@ -84,7 +88,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [userType]);
+  }, [userType, switchingAccount]);
 
   // Fetch messages when conversation is selected
   useEffect(() => {
@@ -104,7 +108,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         });
 
         // Transform API response to match Message type
-        const transformedMessages: Message[] = response.data.map((msg) => ({
+        const transformedMessages: Message[] = (response.data || []).map((msg: any) => ({
           id: msg.messageId,
           conversationId: msg.conversationId,
           senderId: msg.senderAddress,

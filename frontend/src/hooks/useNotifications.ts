@@ -33,7 +33,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     clearNotifications: clearNotificationsFromStore,
   } = useNotificationStore();
 
-  const { userProfile, isAuthenticated } = useAuthStore();
+  const { userProfile, isAuthenticated, switchingAccount } = useAuthStore();
 
   // Fetch initial notifications from API (uses cookies automatically)
   const fetchNotifications = useCallback(async () => {
@@ -329,6 +329,11 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       return;
     }
 
+    if (switchingAccount) {
+      disconnectWebSocket();
+      return;
+    }
+
     if (isAuthenticated && userProfile?.address) {
       // Only connect if we don't already have an open or connecting WebSocket
       const currentState = wsRef.current?.readyState;
@@ -353,7 +358,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isAuthenticated, userProfile?.address]);
+  }, [enabled, isAuthenticated, userProfile?.address, switchingAccount]);
 
   return {
     fetchNotifications,
