@@ -10,8 +10,45 @@ const apiClient = axios.create({
   timeout: 30000, // 30 second timeout to prevent hanging requests
 });
 
-// Request interceptor - Add request metadata
+// Flag to block all API calls during account switching
+let isAccountSwitching = false;
+
+// Function to set the account switching state (called from authStore)
+export const setAccountSwitchingState = (switching: boolean) => {
+  isAccountSwitching = switching;
+  if (switching) {
+    console.log('[API Client] Account switching started - blocking all API calls');
+  } else {
+    console.log('[API Client] Account switching ended - resuming API calls');
+  }
+};
+
+// Custom error class for cancelled requests during account switch
+export class AccountSwitchError extends Error {
+  constructor() {
+    super('Request cancelled: Account switch in progress');
+    this.name = 'AccountSwitchError';
+  }
+}
+
+// Helper function to check if an error is due to account switching
+export const isAccountSwitchError = (error: unknown): boolean => {
+  return error instanceof AccountSwitchError ||
+    (error as any)?.name === 'AccountSwitchError' ||
+    (error as any)?.message?.includes('Account switch in progress');
+};
+
+// Request interceptor - Add request metadata and block during account switch
 apiClient.interceptors.request.use((config) => {
+  // Block all API calls during account switching (except essential auth endpoints)
+  const isAllowedDuringSwitch = config.url?.includes('/auth/');
+
+  if (isAccountSwitching && !isAllowedDuringSwitch) {
+    console.log('[API Client] Blocking request during account switch:', config.url);
+    // Reject with a silent error that won't trigger error toasts
+    return Promise.reject(new AccountSwitchError());
+  }
+
   // Cookies are automatically sent via withCredentials: true
   // No need to manually add Authorization header - the backend reads from cookies
 
@@ -82,6 +119,12 @@ apiClient.interceptors.response.use(
     return response.data;
   },
   async (error: AxiosError<{ code?: string; message?: string; error?: string }>) => {
+    // Silently handle account switch cancellations - resolve with empty data
+    // so callers' catch blocks are never triggered (prevents noisy console.error logs)
+    if (error instanceof AccountSwitchError || (error as any)?.name === 'AccountSwitchError') {
+      return { data: null, success: false, _accountSwitchCancelled: true };
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // Extract error details
@@ -211,12 +254,13 @@ apiClient.interceptors.response.use(
 
           // Check if on protected route - if so, clear caches and redirect to home
           // This prevents users from being stuck on a protected route with invalid session
+          // BUT skip during account switch - switchAccount handles its own navigation
           const isProtectedRoute = typeof window !== 'undefined' &&
             (window.location.pathname.startsWith('/shop') ||
              window.location.pathname.startsWith('/customer') ||
              window.location.pathname.startsWith('/admin'));
 
-          if (isProtectedRoute) {
+          if (isProtectedRoute && !isAccountSwitching) {
             console.warn('[API Client] On protected route with failed auth - clearing caches and redirecting to home');
             // Clear all session caches to prevent stale data on next visit
             try {

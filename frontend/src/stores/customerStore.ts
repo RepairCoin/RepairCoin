@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import apiClient from "@/services/api/client";
+import apiClient, { isAccountSwitchError } from "@/services/api/client";
 
 export interface CustomerData {
   address: string;
@@ -204,6 +204,11 @@ export const useCustomerStore = create<CustomerStore>()(
             set({ transactions: transactionsResponse.data?.transactions || [] });
           }
         } catch (err) {
+          // Silently ignore errors during account switching
+          if (isAccountSwitchError(err)) {
+            console.log("[customerStore] Request cancelled due to account switch - ignoring");
+            return;
+          }
           console.log("[customerStore] Error fetching customer data:", err);
           set({ error: "Failed to load customer data" });
         } finally {

@@ -10,7 +10,7 @@ import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
-import apiClient from "@/services/api/client";
+import apiClient, { isAccountSwitchError } from "@/services/api/client";
 
 // Import our new components
 import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
@@ -19,7 +19,6 @@ import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
 import { ToolsTab } from "@/components/shop/tabs/ToolsTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
-import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
 import { WalletPayoutsTab } from "@/components/shop/tabs/WalletPayoutsTab";
 import { SupportTab } from "@/components/shop/tabs/SupportTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
@@ -708,6 +707,11 @@ export default function ShopDashboardClient() {
         setError("Invalid shop data received");
       }
     } catch (err) {
+      // Silently ignore errors during account switching
+      if (isAccountSwitchError(err)) {
+        console.log("[ShopDashboard] Request cancelled due to account switch - ignoring");
+        return;
+      }
       console.error("Error loading shop data:", err);
       setError("Failed to load shop data");
     } finally {
@@ -771,6 +775,11 @@ export default function ShopDashboardClient() {
         }
       }
     } catch (err) {
+      // Silently ignore errors during account switching
+      if (isAccountSwitchError(err)) {
+        console.log("[ShopDashboard] Background refresh cancelled due to account switch - ignoring");
+        return;
+      }
       console.error("[ShopDashboard] Background refresh failed:", err);
       // Don't set error - we already have cached data showing
     } finally {
@@ -1365,11 +1374,6 @@ export default function ShopDashboardClient() {
               isSuspended={!!isSuspended}
               isPaused={!!isPaused}
             />
-          )}
-
-          {/* Payment Methods Tab */}
-          {activeTab === "payment-methods" && shopData && (
-            <PaymentMethodsTab />
           )}
 
           {/* Wallet & Payouts Tab */}

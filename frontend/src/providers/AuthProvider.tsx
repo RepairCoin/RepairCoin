@@ -17,6 +17,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
   const wallet = useActiveWallet();
   const { disconnect } = useDisconnect();
+  const { switchingAccount } = useAuthStore();
 
   // Initialize authentication ONCE at the app root
   useAuthInitializer();
@@ -90,6 +91,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Handle login failures - disconnect wallet on auth failures
   useEffect(() => {
     const handleLoginFailed = async (event: CustomEvent) => {
+      // Skip handling during account switch - switchAccount manages its own flow
+      if (useAuthStore.getState().switchingAccount) {
+        console.log('[AuthProvider] Skipping login-failed handler - account switch in progress');
+        return;
+      }
+
       const authError = event.detail; // Now receives structured AuthError
       const { message, type, timestamp } = authError || {};
 
@@ -228,6 +235,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [wallet, disconnect]);
 
+  // Handle new wallet detected (unregistered wallet during auto-switch)
+  useEffect(() => {
+    const handleNewWalletDetected = (event: CustomEvent) => {
+      const { address } = event.detail || {};
+      console.log('[AuthProvider] 🆕 New wallet detected:', address);
+
+      toast('New wallet detected. Please register to continue.', {
+        duration: 5000,
+        icon: '👋',
+        style: {
+          background: '#1f2937',
+          color: '#fff',
+          fontSize: '14px'
+        }
+      });
+    };
+
+    window.addEventListener('auth:new-wallet-detected', handleNewWalletDetected as EventListener);
+
+    return () => {
+      window.removeEventListener('auth:new-wallet-detected', handleNewWalletDetected as EventListener);
+    };
+  }, []);
+
+  // Handle account switch failure
+  useEffect(() => {
+    const handleSwitchFailed = (event: CustomEvent) => {
+      const { message } = event.detail || {};
+      console.error('[AuthProvider] ❌ Account switch failed:', message);
+
+      toast.error(message || 'Failed to switch accounts. Please try again.', {
+        duration: 6000,
+        style: {
+          background: '#dc2626',
+          color: '#fff',
+          fontSize: '14px'
+        }
+      });
+    };
+
+    window.addEventListener('auth:switch-failed', handleSwitchFailed as EventListener);
+
+    return () => {
+      window.removeEventListener('auth:switch-failed', handleSwitchFailed as EventListener);
+    };
+  }, []);
+
   // Handle session revocation - disconnect wallet
   useEffect(() => {
     const handleSessionRevoked = async () => {
@@ -305,6 +359,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.removeEventListener('auth:session-revoked', handleSessionRevoked as EventListener);
     };
   }, [wallet, disconnect]);
+
+  // Show loading overlay during account switch
+  if (switchingAccount) {
+    return (
+      <>
+        {children}
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
+          <div className="bg-gray-900 rounded-xl p-8 text-center shadow-2xl border border-gray-700">
+            <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-white text-lg font-medium">Switching account...</p>
+            <p className="text-gray-400 text-sm mt-2">Please wait while we log you into the new wallet</p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return <>{children}</>;
 };

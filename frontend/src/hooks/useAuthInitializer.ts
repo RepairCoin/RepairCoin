@@ -160,12 +160,66 @@ function releaseAuthLock(): void {
 export function useAuthInitializer() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
-  const { login, logout, setAccount, setUserProfile, setAuthInitialized, walletMismatchPending, setWalletMismatchPending, userProfile } = useAuthStore();
+  const { login, logout, switchAccount, setAccount, setUserProfile, setAuthInitialized, walletMismatchPending, setWalletMismatchPending, switchingAccount } = useAuthStore();
   const previousAddressRef = useRef<string | null>(null);
   const authInProgressRef = useRef(false);
   const hasAcquiredLockRef = useRef(false);
   const immediateCheckDoneRef = useRef(false);
-  const mismatchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const switchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const metamaskListenerAddedRef = useRef(false);
+
+  // Listen to MetaMask's native accountsChanged event for real-time account switching
+  useEffect(() => {
+    if (typeof window === 'undefined' || metamaskListenerAddedRef.current) return;
+
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) {
+      console.log('[AuthInitializer] No ethereum provider found');
+      return;
+    }
+
+    const handleAccountsChanged = async (accounts: string[]) => {
+      const newAddress = accounts[0]?.toLowerCase();
+      const { userProfile, switchingAccount: isSwitching } = useAuthStore.getState();
+      const currentSessionAddress = userProfile?.address?.toLowerCase();
+
+      console.log('[AuthInitializer] 🦊 MetaMask accountsChanged event:', {
+        newAddress,
+        currentSessionAddress,
+        isSwitching,
+      });
+
+      // Skip if no accounts, already switching, or same address
+      if (!newAddress || isSwitching) {
+        console.log('[AuthInitializer] Skipping - no address or already switching');
+        return;
+      }
+
+      if (currentSessionAddress && newAddress !== currentSessionAddress) {
+        console.log('[AuthInitializer] 🔄 MetaMask account changed! Auto-switching...', {
+          from: currentSessionAddress,
+          to: newAddress,
+        });
+
+        // Trigger auto-switch
+        try {
+          await switchAccount(newAddress);
+        } catch (error) {
+          console.error('[AuthInitializer] ❌ Auto-switch failed:', error);
+        }
+      }
+    };
+
+    console.log('[AuthInitializer] 🦊 Adding MetaMask accountsChanged listener');
+    ethereum.on('accountsChanged', handleAccountsChanged);
+    metamaskListenerAddedRef.current = true;
+
+    return () => {
+      console.log('[AuthInitializer] 🦊 Removing MetaMask accountsChanged listener');
+      ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      metamaskListenerAddedRef.current = false;
+    };
+  }, [switchAccount]);
 
   // CRITICAL: Run session check IMMEDIATELY on mount for protected routes
   // This runs BEFORE waiting for Thirdweb to restore wallet connection
@@ -242,6 +296,13 @@ export function useAuthInitializer() {
     const previousAddress = previousAddressRef.current;
 
     const initializeAuth = async () => {
+      // Skip if account switch is in progress (switchAccount handles auth directly)
+      const { switchingAccount: isSwitching } = useAuthStore.getState();
+      if (isSwitching) {
+        console.log('[AuthInitializer] ⏭️ Account switch in progress, skipping initializeAuth');
+        return;
+      }
+
       // Skip if immediate check already set up auth
       const { userProfile: currentProfile, authInitialized: isInit } = useAuthStore.getState();
       if (isInit && currentProfile && !currentAddress) {
@@ -323,7 +384,7 @@ export function useAuthInitializer() {
             const sessionAddress = (userData.address || userData.walletAddress || '').toLowerCase();
             const connectedAddress = currentAddress?.toLowerCase();
 
-            // Check for wallet mismatch with debounce for stability
+            // Check for wallet change - auto-switch to new account
             if (sessionAddress && connectedAddress && sessionAddress !== connectedAddress) {
               let connectedWalletEmail: string | undefined;
               try {
@@ -332,30 +393,46 @@ export function useAuthInitializer() {
 
               const sessionEmail = userData.email?.toLowerCase();
 
-              // Allow if emails match (social login)
-              if (!(connectedWalletEmail && sessionEmail && connectedWalletEmail.toLowerCase() === sessionEmail)) {
-                // Clear any existing mismatch timeout
-                if (mismatchTimeoutRef.current) {
-                  clearTimeout(mismatchTimeoutRef.current);
+              // Allow if emails match (social login) - this is expected, don't switch
+              if (connectedWalletEmail && sessionEmail && connectedWalletEmail.toLowerCase() === sessionEmail) {
+                console.log('[AuthInitializer] ✅ Email-based login detected, keeping session');
+              } else {
+                // Clear any existing switch timeout
+                if (switchTimeoutRef.current) {
+                  clearTimeout(switchTimeoutRef.current);
                 }
 
-                console.log('[AuthInitializer] 🔄 Wallet mismatch detected, waiting for stability...');
+                console.log('[AuthInitializer] 🔄 Wallet changed detected, preparing auto-switch...');
 
-                // Debounce: Wait 500ms and confirm mismatch still exists
-                mismatchTimeoutRef.current = setTimeout(() => {
-                  // Re-check that addresses still mismatch after debounce period
+                // Debounce: Wait 500ms to confirm the change is stable (not a glitch)
+                switchTimeoutRef.current = setTimeout(async () => {
+                  // Re-check that addresses still differ after debounce period
                   const currentConnectedAddress = account?.address?.toLowerCase();
                   if (currentConnectedAddress && sessionAddress !== currentConnectedAddress) {
-                    console.warn('[AuthInitializer] ⚠️ Wallet mismatch confirmed after stability check!');
-                    if (typeof window !== 'undefined') {
-                      window.dispatchEvent(new CustomEvent('auth:wallet-mismatch', {
-                        detail: { sessionWallet: sessionAddress, connectedWallet: currentConnectedAddress }
-                      }));
+                    console.log('[AuthInitializer] 🔄 Wallet change confirmed, auto-switching account', {
+                      from: sessionAddress,
+                      to: currentConnectedAddress,
+                    });
+
+                    // Auto-switch to new account
+                    try {
+                      await switchAccount(currentConnectedAddress, connectedWalletEmail);
+                    } catch (error) {
+                      console.error('[AuthInitializer] ❌ Auto-switch failed:', error);
+                      // Fallback to old behavior - dispatch mismatch event
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('auth:wallet-mismatch', {
+                          detail: { sessionWallet: sessionAddress, connectedWallet: currentConnectedAddress }
+                        }));
+                      }
                     }
                   } else {
-                    console.log('[AuthInitializer] ✅ Wallet mismatch resolved during stability check');
+                    console.log('[AuthInitializer] ✅ Wallet change resolved during stability check');
                   }
                 }, WALLET_MISMATCH_DEBOUNCE_MS);
+
+                // Return early - we'll handle the profile update after the switch
+                return;
               }
             }
 
@@ -414,18 +491,18 @@ export function useAuthInitializer() {
     initializeAuth();
     previousAddressRef.current = currentAddress || null;
 
-    // Cleanup: release lock and clear mismatch timeout if component unmounts
+    // Cleanup: release lock and clear switch timeout if component unmounts
     return () => {
       if (hasAcquiredLockRef.current) {
         releaseAuthLock();
         hasAcquiredLockRef.current = false;
       }
-      if (mismatchTimeoutRef.current) {
-        clearTimeout(mismatchTimeoutRef.current);
-        mismatchTimeoutRef.current = null;
+      if (switchTimeoutRef.current) {
+        clearTimeout(switchTimeoutRef.current);
+        switchTimeoutRef.current = null;
       }
     };
-  }, [account?.address]);
+  }, [account?.address, switchAccount]);
 
   return null;
 }
