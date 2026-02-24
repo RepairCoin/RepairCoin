@@ -1,7 +1,7 @@
 import { ShopRegistrationFormData, ExistingApplication } from '@/types/shop';
 import apiClient from '@/services/api/client';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export class ShopService {
   /**
@@ -9,7 +9,7 @@ export class ShopService {
    */
   static async getAllShops(): Promise<any[]> {
     try {
-      const response = await fetch(`${API_URL}/shops`);
+      const response = await fetch(`${API_URL}/customers/shops`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch shops: ${response.status}`);

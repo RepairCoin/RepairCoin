@@ -30,6 +30,8 @@ import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
 import { ImageUploader} from "../ImageUploader";
 import apiClient from "@/services/api/client";
+import { AccessibilitySettings } from "../../accessibility/AccessibilitySettings";
+import { GeneralNotificationSettings } from "../../notifications/GeneralNotificationSettings";
 
 interface ShopData {
   // crossShopEnabled removed - universal redemption is now always enabled
@@ -731,34 +733,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Accessibility Tab Content */}
           {activeTab === "accessibility" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Accessibility
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Configure accessibility options
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Accessibility settings coming soon...
-                </p>
-              </div>
+              <AccessibilitySettings />
             </div>
           )}
 
           {/* Notifications Tab Content */}
           {activeTab === "notifications" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Notifications
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Manage your notification preferences
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Notification settings coming soon...
-                </p>
-              </div>
+              <GeneralNotificationSettings userType="shop" />
             </div>
           )}
 

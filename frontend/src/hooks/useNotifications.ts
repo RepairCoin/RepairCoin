@@ -6,7 +6,7 @@ import apiClient from '@/services/api/client';
 // WebSocket URL - explicitly use api.repaircoin.ai subdomain in production
 const WS_URL = typeof window !== 'undefined' && window.location.hostname.includes('repaircoin.ai')
   ? 'wss://api.repaircoin.ai'
-  : 'ws://localhost:3002';
+  : 'ws://localhost:4000';
 
 interface UseNotificationsOptions {
   enabled?: boolean;

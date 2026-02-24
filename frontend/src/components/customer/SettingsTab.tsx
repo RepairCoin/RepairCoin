@@ -27,6 +27,8 @@ import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 import CustomerNoShowBadge from "./CustomerNoShowBadge";
 import DisputeModal from "./DisputeModal";
 import { CustomerNoShowStatus, NoShowHistoryEntry, getOverallCustomerNoShowStatus, getCustomerNoShowHistory } from "@/services/api/noShow";
+import { AccessibilitySettings } from "../accessibility/AccessibilitySettings";
+import { GeneralNotificationSettings } from "../notifications/GeneralNotificationSettings";
 
 export function SettingsTab() {
   const account = useActiveAccount();
@@ -570,8 +572,14 @@ export function SettingsTab() {
         </div>
       </div>
 
+      {/* General Notification Preferences */}
+      <GeneralNotificationSettings userType="customer" />
+
       {/* Appointment Reminder Notification Preferences */}
       <NotificationPreferences />
+
+      {/* Accessibility Settings */}
+      <AccessibilitySettings />
 
       {/* QR Code Modal */}
       {showQRModal && (
