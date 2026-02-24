@@ -15,6 +15,24 @@ const STATUS_COLORS: Record<string, string> = {
   pending: '#6B7280',
 };
 
+const CANCELLATION_REASON_LABELS: Record<string, string> = {
+  'emergency': 'Personal emergency',
+  'schedule_conflict': 'Schedule conflict',
+  'too_expensive': 'Too expensive',
+  'found_alternative': 'Found alternative',
+  'customer_request': 'Customer requested',
+  'shop:customer_request': 'Customer requested (by shop)',
+  'shop:schedule_conflict': 'Schedule conflict (by shop)',
+  'shop:emergency': 'Emergency (by shop)',
+  'shop:no_show': 'No show (by shop)',
+  'shop:other': 'Other (by shop)',
+  'Not specified': 'Not specified',
+};
+
+function formatCancellationReason(reason: string): string {
+  return CANCELLATION_REASON_LABELS[reason] || reason.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function formatHour(hour: number): string {
   if (hour === 0) return '12 AM';
   if (hour === 12) return '12 PM';
@@ -280,7 +298,7 @@ export function BookingAnalyticsTab() {
             <div className="space-y-2">
               {cancellationReasons.map((r, i) => (
                 <div key={i} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                  <span className="text-sm text-gray-300">{r.reason}</span>
+                  <span className="text-sm text-gray-300">{formatCancellationReason(r.reason)}</span>
                   <span className="text-sm font-semibold text-white bg-red-500/20 px-3 py-1 rounded-full">
                     {r.count}
                   </span>
