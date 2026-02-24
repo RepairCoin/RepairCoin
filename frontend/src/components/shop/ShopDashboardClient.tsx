@@ -10,7 +10,7 @@ import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
-import apiClient from "@/services/api/client";
+import apiClient, { isAccountSwitchError } from "@/services/api/client";
 
 // Import our new components
 import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
@@ -708,6 +708,11 @@ export default function ShopDashboardClient() {
         setError("Invalid shop data received");
       }
     } catch (err) {
+      // Silently ignore errors during account switching
+      if (isAccountSwitchError(err)) {
+        console.log("[ShopDashboard] Request cancelled due to account switch - ignoring");
+        return;
+      }
       console.error("Error loading shop data:", err);
       setError("Failed to load shop data");
     } finally {
@@ -771,6 +776,11 @@ export default function ShopDashboardClient() {
         }
       }
     } catch (err) {
+      // Silently ignore errors during account switching
+      if (isAccountSwitchError(err)) {
+        console.log("[ShopDashboard] Background refresh cancelled due to account switch - ignoring");
+        return;
+      }
       console.error("[ShopDashboard] Background refresh failed:", err);
       // Don't set error - we already have cached data showing
     } finally {
