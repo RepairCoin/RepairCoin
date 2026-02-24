@@ -1,0 +1,1 @@
+export { GroupScreen as default } from "@/feature/groups/screens";
