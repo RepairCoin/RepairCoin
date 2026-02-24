@@ -406,6 +406,10 @@ export const useAuthStore = create<AuthState>()(
         console.log('[authStore] 🔄 Starting account switch to:', newAddress);
         set({ switchingAccount: true }, false, 'switchAccount:start');
 
+        // Block non-essential API calls immediately to prevent stale requests
+        // This must happen before any async work so useEffect hooks see the flag
+        setAccountSwitchingState(true);
+
         try {
           // 1. Check if new wallet is registered (non-destructive, determines target role)
           console.log('[authStore] 📧 Checking if new wallet is registered:', newAddress);
@@ -421,9 +425,6 @@ export const useAuthStore = create<AuthState>()(
           const targetPath = userCheck.exists && userCheck.type
             ? dashboards[userCheck.type] || '/'
             : '/choose';
-
-          // 3. Block non-essential API calls to prevent stale requests
-          setAccountSwitchingState(true);
 
           // 4. Logout current session (await to ensure it completes before re-auth)
           console.log('[authStore] 🔄 Logging out current session...');

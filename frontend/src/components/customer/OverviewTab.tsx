@@ -65,7 +65,7 @@ const CompactStatCard: React.FC<CompactStatCardProps> = ({
 export const OverviewTab: React.FC = () => {
   const router = useRouter();
   const account = useActiveAccount();
-  const { userProfile } = useAuthStore();
+  const { userProfile, switchingAccount } = useAuthStore();
   const {
     customerData,
     balanceData,
@@ -223,6 +223,8 @@ export const OverviewTab: React.FC = () => {
   // Fetch data when wallet address becomes available (from either source)
   // This is critical for page refresh where Thirdweb takes time to restore wallet
   useEffect(() => {
+    if (switchingAccount) return;
+
     if (walletAddress) {
       // Check if we need to fetch - either no data or data is for different address
       const currentDataAddress = customerData?.address?.toLowerCase();
@@ -233,7 +235,7 @@ export const OverviewTab: React.FC = () => {
         fetchCustomerData(true); // Force fetch to ensure fresh data
       }
     }
-  }, [walletAddress, customerData, fetchCustomerData, account?.address]);
+  }, [walletAddress, customerData, fetchCustomerData, account?.address, switchingAccount]);
 
   // Update blockchain balance from contract
   useEffect(() => {

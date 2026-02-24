@@ -7,14 +7,14 @@ import * as messagingApi from '@/services/api/messaging';
 import { MessagePreviewDropdown } from './MessagePreviewDropdown';
 
 export const MessageIcon: React.FC = () => {
-  const { userType } = useAuthStore();
+  const { userType, switchingAccount } = useAuthStore();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Fetch unread message count
   useEffect(() => {
-    // Don't fetch if userType is not set
-    if (!userType || (userType !== 'customer' && userType !== 'shop')) {
+    // Don't fetch if userType is not set or during account switch
+    if (!userType || (userType !== 'customer' && userType !== 'shop') || switchingAccount) {
       return;
     }
 
@@ -23,7 +23,8 @@ export const MessageIcon: React.FC = () => {
         const response = await messagingApi.getConversations({ page: 1, limit: 100 });
 
         // Calculate total unread count based on user type
-        const totalUnread = response.data.reduce((sum, conv) => {
+        const conversations = response.data || [];
+        const totalUnread = conversations.reduce((sum: number, conv: any) => {
           if (userType === 'customer') {
             return sum + (conv.unreadCountCustomer || 0);
           } else if (userType === 'shop') {
@@ -46,7 +47,7 @@ export const MessageIcon: React.FC = () => {
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [userType]);
+  }, [userType, switchingAccount]);
 
   const handleClick = () => {
     setIsDropdownOpen(!isDropdownOpen);

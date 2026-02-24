@@ -32,7 +32,7 @@ import { GeneralNotificationSettings } from "../notifications/GeneralNotificatio
 
 export function SettingsTab() {
   const account = useActiveAccount();
-  const { userProfile } = useAuthStore();
+  const { userProfile, switchingAccount } = useAuthStore();
   const {
     customerData,
     isLoading,
@@ -77,7 +77,7 @@ export function SettingsTab() {
   // Fetch no-show status and history
   useEffect(() => {
     const fetchNoShowData = async () => {
-      if (!account?.address) return;
+      if (!account?.address || switchingAccount) return;
 
       setLoadingNoShowStatus(true);
       try {
@@ -96,7 +96,7 @@ export function SettingsTab() {
     };
 
     fetchNoShowData();
-  }, [account?.address]);
+  }, [account?.address, switchingAccount]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
