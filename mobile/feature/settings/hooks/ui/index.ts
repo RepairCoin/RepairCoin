@@ -1,4 +1,2 @@
-export { useSettingsUI } from "./useSettingsUI";
-export { useSettingsNavigation } from "./useSettingsNavigation";
-export { useLogoutUI } from "./useLogoutUI";
-export { useCustomerSettings } from "./useCustomerSettings";
+export { useSettings } from "./useSettings";
+export type { SettingsRole, SettingsConfig } from "./useSettings";
