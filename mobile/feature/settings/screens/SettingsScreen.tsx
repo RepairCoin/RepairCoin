@@ -24,6 +24,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     handleSubscription,
     handleBuyTokens,
     handleRedeemTokens,
+    handleGroups,
   } = useSettings(role);
 
   return (
@@ -99,6 +100,13 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               title="Redeem Tokens"
               subtitle="Process customer redemptions"
               onPress={handleRedeemTokens!}
+            />
+            <Divider />
+            <SettingsItem
+              icon={<Ionicons name="people" size={20} color="#FFCC00" />}
+              title="Groups"
+              subtitle="Manage affiliate shop groups"
+              onPress={handleGroups!}
             />
           </SettingsSection>
         )}

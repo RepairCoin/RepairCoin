@@ -19,6 +19,7 @@ export interface SettingsConfig {
     handleSubscription?: () => void;
     handleBuyTokens?: () => void;
     handleRedeemTokens?: () => void;
+    handleGroups?: () => void;
   };
 }
 
@@ -81,6 +82,7 @@ export function useSettings(role: SettingsRole) {
             handleSubscription: () => router.push("/shop/subscription"),
             handleBuyTokens: () => router.push("/shop/buy-token"),
             handleRedeemTokens: () => router.push("/shop/redeem-token"),
+            handleGroups: () => router.push("/shop/groups" as any),
           },
         };
 
