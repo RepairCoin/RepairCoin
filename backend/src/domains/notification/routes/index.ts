@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../../../middleware/auth';
 import { NotificationController } from '../controllers/NotificationController';
 import { PushTokenController } from '../controllers/PushTokenController';
+import { GeneralPreferencesController } from '../controllers/GeneralPreferencesController';
 import { NotificationService } from '../services/NotificationService';
 
 const router = Router();
@@ -10,6 +11,7 @@ const router = Router();
 const notificationService = new NotificationService();
 const notificationController = new NotificationController(notificationService);
 const pushTokenController = new PushTokenController();
+const generalPreferencesController = new GeneralPreferencesController();
 
 // All notification routes require authentication
 router.use(authMiddleware);
@@ -112,5 +114,30 @@ router.delete('/:id', (req, res) => notificationController.deleteNotification(re
  * @access  Private
  */
 router.delete('/', (req, res) => notificationController.deleteAllNotifications(req, res));
+
+// ============================================
+// General Notification Preferences Routes
+// ============================================
+
+/**
+ * @route   GET /api/notifications/preferences/general
+ * @desc    Get general notification preferences for authenticated user
+ * @access  Private
+ */
+router.get('/preferences/general', (req, res) => generalPreferencesController.getPreferences(req, res));
+
+/**
+ * @route   PUT /api/notifications/preferences/general
+ * @desc    Update general notification preferences
+ * @access  Private
+ */
+router.put('/preferences/general', (req, res) => generalPreferencesController.updatePreferences(req, res));
+
+/**
+ * @route   POST /api/notifications/preferences/general/reset
+ * @desc    Reset general notification preferences to defaults
+ * @access  Private
+ */
+router.post('/preferences/general/reset', (req, res) => generalPreferencesController.resetToDefaults(req, res));
 
 export default router;
