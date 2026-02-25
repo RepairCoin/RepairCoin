@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Users, Search, Sparkles, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Users, Search, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
+import { LoadingSpinner, Pagination, EmptyState, SectionHeader } from "./shared";
+import { formatAddress } from "./utils/formatters";
+import { CUSTOMERS_PER_PAGE } from "./constants";
 
 interface GroupCustomersTabProps {
   groupId: string;
@@ -17,7 +20,6 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCustomers, setTotalCustomers] = useState(0);
-  const limit = 20;
 
   useEffect(() => {
     loadData();
@@ -30,7 +32,7 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
         shopGroupsAPI.getGroup(groupId),
         shopGroupsAPI.getGroupCustomers(groupId, {
           page: currentPage,
-          limit,
+          limit: CUSTOMERS_PER_PAGE,
           search: searchQuery || undefined,
         }),
       ]);
@@ -50,19 +52,13 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1);
   };
 
   if (loading && customers.length === 0) {
     return (
       <div className="bg-[#101010] rounded-xl p-6">
-        <div className="text-center py-12">
-          <div className="relative mx-auto w-12 h-12">
-            <div className="w-12 h-12 border-4 border-gray-800 border-t-[#FFCC00] rounded-full animate-spin"></div>
-            <Sparkles className="w-5 h-5 text-[#FFCC00] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-          </div>
-          <p className="mt-6 text-gray-400 font-medium">Loading customers...</p>
-        </div>
+        <LoadingSpinner message="Loading customers..." showSparkles />
       </div>
     );
   }
@@ -71,15 +67,12 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
     <div className="bg-[#101010] rounded-xl p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-[#FFCC00]" />
-          <div>
-            <h3 className="text-[#FFCC00] font-semibold">Customers</h3>
-            <p className="text-sm text-gray-400">
-              {totalCustomers} {totalCustomers === 1 ? "customer" : "customers"} with {group?.customTokenSymbol || "custom token"} activity
-            </p>
-          </div>
-        </div>
+        <SectionHeader
+          icon={Users}
+          title="Customers"
+          subtitle={`${totalCustomers} ${totalCustomers === 1 ? "customer" : "customers"} with ${group?.customTokenSymbol || "custom token"} activity`}
+          className="mb-0"
+        />
 
         {/* Search */}
         <div className="relative w-full sm:w-64">
@@ -96,17 +89,15 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
 
       {/* Customers List */}
       {customers.length === 0 ? (
-        <div className="text-center py-12">
-          <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400 font-medium">
-            {searchQuery ? "No customers found" : "No customers yet"}
-          </p>
-          <p className="text-gray-500 text-sm mt-2">
-            {searchQuery
+        <EmptyState
+          icon={Users}
+          title={searchQuery ? "No customers found" : "No customers yet"}
+          description={
+            searchQuery
               ? "Try adjusting your search query"
-              : "Customers will appear here once they earn or redeem tokens"}
-          </p>
-        </div>
+              : "Customers will appear here once they earn or redeem tokens"
+          }
+        />
       ) : (
         <>
           {/* Table */}
@@ -134,7 +125,7 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
                         <div>
                           <p className="text-white font-medium">{customer.customerName || "Unknown"}</p>
                           <p className="text-gray-500 text-xs font-mono">
-                            {customer.customerAddress.slice(0, 6)}...{customer.customerAddress.slice(-4)}
+                            {formatAddress(customer.customerAddress)}
                           </p>
                         </div>
                       </div>
@@ -161,56 +152,12 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
             </table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-gray-800">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1 || loading}
-                className="px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      disabled={loading}
-                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        currentPage === pageNum
-                          ? "bg-[#1e1f22] text-white border border-gray-600"
-                          : "text-gray-400 hover:text-white"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || loading}
-                className="px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            disabled={loading}
+          />
         </>
       )}
     </div>
