@@ -1,7 +1,8 @@
 "use client";
 
-import { Users, Globe, Eye, Plus, Crown, UserCheck, Coins, Settings, Dumbbell, Wrench, Heart, Sparkles } from "lucide-react";
+import { Users, Globe, Eye, Plus, Crown, UserCheck, Coins } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
+import { getCategoryIcon } from "./utils/categoryIcons";
 
 interface GroupCardProps {
   group: shopGroupsAPI.AffiliateShopGroup;
@@ -11,27 +12,6 @@ interface GroupCardProps {
   isDiscoverTab?: boolean;
   onJoinClick?: (e: React.MouseEvent) => void;
 }
-
-// Category icon mapping
-const getCategoryIcon = (category?: string) => {
-  const categoryLower = category?.toLowerCase() || "";
-  if (categoryLower.includes("fitness") || categoryLower.includes("training")) {
-    return <Dumbbell className="w-5 h-5 text-white" />;
-  }
-  if (categoryLower.includes("tech") || categoryLower.includes("repair")) {
-    return <Settings className="w-5 h-5 text-white" />;
-  }
-  if (categoryLower.includes("home") || categoryLower.includes("auto")) {
-    return <Wrench className="w-5 h-5 text-white" />;
-  }
-  if (categoryLower.includes("health") || categoryLower.includes("wellness")) {
-    return <Heart className="w-5 h-5 text-white" />;
-  }
-  if (categoryLower.includes("beauty") || categoryLower.includes("care")) {
-    return <Sparkles className="w-5 h-5 text-white" />;
-  }
-  return <Settings className="w-5 h-5 text-white" />;
-};
 
 export default function GroupCard({
   group,
@@ -108,7 +88,7 @@ export default function GroupCard({
 
         {/* Category Chip */}
         <div className="flex items-center gap-1.5 px-2 py-1.5 bg-[#242424] rounded-full shadow-sm">
-          {getCategoryIcon(category)}
+          {getCategoryIcon(category, "w-4 h-4 text-white")}
           <span className="text-xs text-white font-medium">
             {category}
           </span>

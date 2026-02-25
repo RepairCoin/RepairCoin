@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Coins, RefreshCw, ArrowUpCircle, ArrowDownCircle, TrendingUp, Users, PieChart } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
+import { LoadingSpinner, Modal, SectionHeader } from "./shared";
 
 interface ImprovedRcnAllocationCardProps {
   groupId: string;
@@ -67,9 +68,10 @@ export default function ImprovedRcnAllocationCard({
       setAmount("");
       await loadData();
       onAllocationChange?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error allocating RCN:", error);
-      toast.error(error?.response?.data?.error || "Failed to allocate RCN");
+      toast.error(err?.response?.data?.error || "Failed to allocate RCN");
     } finally {
       setSubmitting(false);
     }
@@ -95,9 +97,10 @@ export default function ImprovedRcnAllocationCard({
       setAmount("");
       await loadData();
       onAllocationChange?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error withdrawing RCN:", error);
-      toast.error(error?.response?.data?.error || "Failed to withdraw RCN");
+      toast.error(err?.response?.data?.error || "Failed to withdraw RCN");
     } finally {
       setSubmitting(false);
     }
@@ -136,23 +139,20 @@ export default function ImprovedRcnAllocationCard({
   return (
     <>
       <div className="bg-[#101010] rounded-xl p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Coins className="w-5 h-5 text-[#FFCC00]" />
-            <div>
-              <h3 className="text-[#FFCC00] font-semibold">RCN Allocations</h3>
-              <p className="text-sm text-gray-400">Manage your group token backing</p>
-            </div>
-          </div>
-          <button
-            onClick={loadData}
-            className="p-2 rounded-lg bg-[#1e1f22] hover:bg-[#2a2b2f] transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4 text-gray-400" />
-          </button>
-        </div>
+        <SectionHeader
+          icon={Coins}
+          title="RCN Allocations"
+          subtitle="Manage your group token backing"
+          action={
+            <button
+              onClick={loadData}
+              className="p-2 rounded-lg bg-[#1e1f22] hover:bg-[#2a2b2f] transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className="w-4 h-4 text-gray-400" />
+            </button>
+          }
+        />
 
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -211,7 +211,7 @@ export default function ImprovedRcnAllocationCard({
             </div>
 
             <p className="text-xs text-gray-500 italic">
-              Combined resources from all {members.length} active member{members.length !== 1 ? 's' : ''}.
+              Combined resources from all {members.length} active member{members.length !== 1 ? "s" : ""}.
             </p>
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function ImprovedRcnAllocationCard({
         <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400 mb-1">Your Shop's Main RCN Balance</p>
+              <p className="text-sm text-gray-400 mb-1">Your Shop&apos;s Main RCN Balance</p>
               <p className="text-xl font-bold text-[#FFCC00]">{shopRcnBalance.toLocaleString()} RCN</p>
             </div>
             <PieChart className="w-6 h-6 text-gray-600" />
@@ -267,119 +267,127 @@ export default function ImprovedRcnAllocationCard({
       </div>
 
       {/* Allocate Modal */}
-      {showAllocateModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#101010] rounded-xl border border-gray-800 p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold text-white mb-6">Allocate RCN to Group</h3>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Amount to Allocate
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                  min="0"
-                  step="0.01"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">RCN</span>
-              </div>
-              <p className="text-sm text-gray-400 mt-2 flex items-center justify-between">
-                <span>Available in shop:</span>
-                <span className="text-white font-semibold">{shopRcnBalance.toLocaleString()} RCN</span>
-              </p>
+      <Modal
+        isOpen={showAllocateModal}
+        onClose={() => {
+          setShowAllocateModal(false);
+          setAmount("");
+        }}
+        title="Allocate RCN to Group"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setShowAllocateModal(false);
+                setAmount("");
+              }}
+              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-3 px-4 rounded-lg transition-colors border border-gray-700"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAllocate}
+              disabled={submitting || !amount}
+              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? "Allocating..." : "Allocate"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Amount to Allocate
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-4 py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                min="0"
+                step="0.01"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">RCN</span>
             </div>
+            <p className="text-sm text-gray-400 mt-2 flex items-center justify-between">
+              <span>Available in shop:</span>
+              <span className="text-white font-semibold">{shopRcnBalance.toLocaleString()} RCN</span>
+            </p>
+          </div>
 
-            <div className="bg-[#1e1f22] border border-[#FFCC00]/20 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-300">
-                This moves RCN from your shop's main balance to this group, allowing you to issue group tokens.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowAllocateModal(false);
-                  setAmount("");
-                }}
-                className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-3 px-4 rounded-lg transition-colors border border-gray-700"
-                disabled={submitting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAllocate}
-                disabled={submitting || !amount}
-                className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? "Allocating..." : "Allocate"}
-              </button>
-            </div>
+          <div className="bg-[#1e1f22] border border-[#FFCC00]/20 rounded-lg p-4">
+            <p className="text-sm text-gray-300">
+              This moves RCN from your shop&apos;s main balance to this group, allowing you to issue group tokens.
+            </p>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Withdraw Modal */}
-      {showWithdrawModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#101010] rounded-xl border border-gray-800 p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold text-white mb-6">Withdraw RCN to Shop</h3>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Amount to Withdraw
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                  min="0"
-                  step="0.01"
-                  max={yourAvailable}
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">RCN</span>
-              </div>
-              <p className="text-sm text-gray-400 mt-2 flex items-center justify-between">
-                <span>Available to withdraw:</span>
-                <span className="text-green-400 font-semibold">{yourAvailable.toLocaleString()} RCN</span>
-              </p>
+      <Modal
+        isOpen={showWithdrawModal}
+        onClose={() => {
+          setShowWithdrawModal(false);
+          setAmount("");
+        }}
+        title="Withdraw RCN to Shop"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setShowWithdrawModal(false);
+                setAmount("");
+              }}
+              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-3 px-4 rounded-lg transition-colors border border-gray-700"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleWithdraw}
+              disabled={submitting || !amount}
+              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? "Withdrawing..." : "Withdraw"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Amount to Withdraw
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-4 py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                min="0"
+                step="0.01"
+                max={yourAvailable}
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">RCN</span>
             </div>
+            <p className="text-sm text-gray-400 mt-2 flex items-center justify-between">
+              <span>Available to withdraw:</span>
+              <span className="text-green-400 font-semibold">{yourAvailable.toLocaleString()} RCN</span>
+            </p>
+          </div>
 
-            <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-300">
-                Only unused RCN can be withdrawn. RCN backing active tokens ({yourUsed.toLocaleString()} RCN) must stay in the pool.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowWithdrawModal(false);
-                  setAmount("");
-                }}
-                className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-3 px-4 rounded-lg transition-colors border border-gray-700"
-                disabled={submitting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleWithdraw}
-                disabled={submitting || !amount}
-                className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? "Withdrawing..." : "Withdraw"}
-              </button>
-            </div>
+          <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-4">
+            <p className="text-sm text-gray-300">
+              Only unused RCN can be withdrawn. RCN backing active tokens ({yourUsed.toLocaleString()} RCN) must remain in the pool.
+            </p>
           </div>
         </div>
-      )}
+      </Modal>
     </>
   );
 }

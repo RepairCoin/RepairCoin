@@ -3,18 +3,12 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
+import { POPULAR_ICONS } from "./constants";
 
 interface CreateGroupModalProps {
   onClose: () => void;
   onSubmit: (data: shopGroupsAPI.CreateGroupData) => Promise<void>;
 }
-
-// Popular emojis for shop groups
-const POPULAR_ICONS = [
-  "🏪", "🔧", "🚗", "🏍️", "🚲", "⚙️", "🛠️", "🔩",
-  "💎", "⭐", "🌟", "✨", "🎯", "🎨", "🏆", "👥",
-  "🤝", "💼", "🏢", "🏭", "🌍", "🌎", "🌏", "🔰"
-];
 
 export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModalProps) {
   const [formData, setFormData] = useState<shopGroupsAPI.CreateGroupData>({
@@ -23,7 +17,7 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
     customTokenSymbol: "",
     description: "",
     logoUrl: "",
-    icon: "🏪", // Default icon
+    icon: "🏪",
   });
   const [submitting, setSubmitting] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
