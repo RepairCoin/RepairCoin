@@ -70,7 +70,7 @@ router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
-router.use('/', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
+router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;

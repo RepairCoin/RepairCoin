@@ -68,13 +68,14 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
     const isNotQualified = shopData.operational_status === 'not_qualified';
 
     const isCancelled = !!shopData.subscriptionCancelledAt;
-    // Only consider expired if operational_status is NOT already qualified
-    // The backend validates operational_status on every fetch, so it's the source of truth
+    // Check if subscription period has ended based on the actual end date
+    // This catches stale operational_status when Stripe webhook fails after self-cancel
     const subscriptionEndedByDate = shopData.subscriptionEndsAt
       ? new Date(shopData.subscriptionEndsAt) < new Date()
       : false;
+    // Expired if period ended — RCG qualified shops bypass, but subscription_qualified
+    // must NOT bypass because operational_status can be stale after a missed webhook
     const isExpired = subscriptionEndedByDate &&
-      shopData.operational_status !== 'subscription_qualified' &&
       shopData.operational_status !== 'rcg_qualified';
 
     // Check RCG qualification (10K+ tokens bypass subscription)

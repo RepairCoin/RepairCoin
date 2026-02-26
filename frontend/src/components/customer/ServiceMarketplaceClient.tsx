@@ -545,7 +545,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
             )}
 
             {/* Map View */}
-            {viewMode === "map" && !showFavoritesOnly ? (
+            {viewMode === "map" ? (
               <ShopMapView
                 services={services}
                 loading={loading}

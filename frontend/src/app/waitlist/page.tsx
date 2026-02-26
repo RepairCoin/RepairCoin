@@ -193,7 +193,7 @@ export default function WaitlistPage() {
             <svg
               className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
               style={{
-                bottom: "-5px",
+                bottom: "-10px",
                 width: "311px",
                 height: "14px",
               }}
@@ -558,7 +558,7 @@ export default function WaitlistPage() {
                 className="w-5 h-5"
               />
               <span className="text-sm font-semibold text-[#FFCC00]">
-                Why It's For
+                Who It's For
               </span>
             </div>
           </div>
@@ -616,6 +616,7 @@ export default function WaitlistPage() {
               </div>
               <div className="p-6">
                 <h3
+                  className="text-center"
                   style={{
                     fontFamily: "Poppins, sans-serif",
                     fontWeight: 600,
@@ -715,6 +716,7 @@ export default function WaitlistPage() {
               </div>
               <div className="p-6">
                 <h3
+                  className="text-center"
                   style={{
                     fontFamily: "Poppins, sans-serif",
                     fontWeight: 600,
@@ -798,7 +800,10 @@ export default function WaitlistPage() {
       </section>
 
       {/* Trust & Security */}
-      <section id="trust-security" className="pt-16 pb-20 px-6 md:px-12 bg-[#101010]">
+      <section
+        id="trust-security"
+        className="pt-16 pb-20 px-6 md:px-12 bg-[#101010]"
+      >
         <div className="max-w-6xl mx-auto">
           {/* Badge - same style as hero */}
           <div className="text-center mb-6">
@@ -1183,7 +1188,7 @@ export default function WaitlistPage() {
                     <svg
                       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
                       style={{
-                        bottom: "-5px",
+                        bottom: "-10px",
                         width: "90%",
                         height: "14px",
                       }}
@@ -1442,7 +1447,7 @@ export default function WaitlistPage() {
                     color: "#fff",
                   }}
                 >
-                  When It's For
+                  Who It's For
                 </a>
                 <a
                   href="#trust-security"
@@ -1519,7 +1524,11 @@ export default function WaitlistPage() {
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <img src="/img/waitlist/footer/socialicon2.svg" alt="X" className="w-[17px] h-[17px]" />
+                  <img
+                    src="/img/waitlist/footer/socialicon2.svg"
+                    alt="X"
+                    className="w-[17px] h-[17px]"
+                  />
                 </a>
                 <a
                   href="https://www.instagram.com/repaircoin/"
@@ -1528,14 +1537,22 @@ export default function WaitlistPage() {
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <img src="/img/waitlist/footer/socialicon3.svg" alt="Instagram" className="w-[18px] h-[18px]" />
+                  <img
+                    src="/img/waitlist/footer/socialicon3.svg"
+                    alt="Instagram"
+                    className="w-[18px] h-[18px]"
+                  />
                 </a>
                 <a
                   href="#"
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <img src="/img/waitlist/footer/socialicon4.svg" alt="Telegram" className="w-[18px] h-[15px]" />
+                  <img
+                    src="/img/waitlist/footer/socialicon4.svg"
+                    alt="Telegram"
+                    className="w-[18px] h-[15px]"
+                  />
                 </a>
                 <a
                   href="https://www.facebook.com/repaircoin"
@@ -1544,7 +1561,11 @@ export default function WaitlistPage() {
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <img src="/img/waitlist/footer/socialicon1.svg" alt="Facebook" className="w-[9px] h-[17px]" />
+                  <img
+                    src="/img/waitlist/footer/socialicon1.svg"
+                    alt="Facebook"
+                    className="w-[9px] h-[17px]"
+                  />
                 </a>
               </div>
             </div>

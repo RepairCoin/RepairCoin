@@ -16,21 +16,37 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const CANCELLATION_REASON_LABELS: Record<string, string> = {
+  // Customer-initiated reasons
   'emergency': 'Personal emergency',
   'schedule_conflict': 'Schedule conflict',
   'too_expensive': 'Too expensive',
   'found_alternative': 'Found alternative',
+  'changed_mind': 'Changed mind',
   'customer_request': 'Customer requested',
+  'no_show': 'Customer no-show',
+  // Shop-initiated reasons (prefixed with shop:)
   'shop:customer_request': 'Customer requested (by shop)',
   'shop:schedule_conflict': 'Schedule conflict (by shop)',
   'shop:emergency': 'Emergency (by shop)',
-  'shop:no_show': 'No show (by shop)',
+  'shop:no_show': 'No-show (by shop)',
+  'shop:service_unavailable': 'Service unavailable (by shop)',
+  'shop:capacity_issues': 'Capacity issues (by shop)',
   'shop:other': 'Other (by shop)',
   'Not specified': 'Not specified',
 };
 
 function formatCancellationReason(reason: string): string {
-  return CANCELLATION_REASON_LABELS[reason] || reason.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // Direct lookup
+  if (CANCELLATION_REASON_LABELS[reason]) return CANCELLATION_REASON_LABELS[reason];
+  // Auto-cancelled reasons — keep as-is (already human-readable)
+  if (reason.startsWith('Auto-cancelled:')) return reason;
+  // Unknown shop: prefixed reasons — strip prefix and format
+  if (reason.startsWith('shop:')) {
+    const inner = reason.slice(5).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return `${inner} (by shop)`;
+  }
+  // Fallback: replace underscores and title-case
+  return reason.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function formatHour(hour: number): string {
