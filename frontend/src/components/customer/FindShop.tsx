@@ -260,10 +260,10 @@ export function FindShop() {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (shop) =>
-          shop.name.toLowerCase().includes(query) ||
-          shop.address.toLowerCase().includes(query) ||
+          shop.name?.toLowerCase().includes(query) ||
+          shop.address?.toLowerCase().includes(query) ||
           shop.location?.city?.toLowerCase().includes(query) ||
-          shop.shopId.toLowerCase().includes(query)
+          shop.shopId?.toLowerCase().includes(query)
       );
     }
 
