@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Menu, X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { SidebarItem } from "./useSidebar";
 
 interface BaseSidebarProps {
@@ -26,18 +26,6 @@ export const BaseSidebar: React.FC<BaseSidebarProps> = ({
 }) => {
   return (
     <>
-      {/* Mobile Menu Toggle */}
-      <button
-        onClick={onToggle}
-        className="lg:hidden fixed top-3 left-3 sm:top-4 sm:left-4 z-50 p-1.5 sm:p-2 rounded-lg bg-gray-900 text-yellow-400 hover:bg-gray-800"
-      >
-        {isOpen ? (
-          <X className="w-5 h-5 sm:w-6 sm:h-6" />
-        ) : (
-          <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
-        )}
-      </button>
-
       {/* Overlay for mobile */}
       {isOpen && (
         <div
