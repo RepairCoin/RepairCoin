@@ -240,6 +240,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'subscription_cancelled' }
+        });
       }
     } catch (error: any) {
       logger.error('Error handling subscription cancelled event:', error);
@@ -296,6 +302,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'paused' }
+        });
       }
     } catch (error: any) {
       logger.error('Error handling subscription paused event:', error);
@@ -315,6 +327,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'resumed' }
+        });
       }
     } catch (error: any) {
       logger.error('Error handling subscription resumed event:', error);
@@ -334,6 +352,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket to the shop
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'reactivated' }
+        });
 
         // Also notify admins so their dashboard can refresh
         const adminAddresses = this.getAdminAddresses();
@@ -371,6 +395,12 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
 
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'suspended' }
+        });
+
         // Also notify admins so their dashboard can refresh
         const adminAddresses = this.getAdminAddresses();
         if (adminAddresses.length > 0) {
@@ -403,6 +433,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'unsuspended' }
+        });
 
         // Also notify admins so their dashboard can refresh
         const adminAddresses = this.getAdminAddresses();

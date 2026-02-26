@@ -98,7 +98,9 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
             }
             // Check if Stripe subscription is still active with cancel_at_period_end
             // This is true for shop self-cancel (cancel at period end)
-            cancelAtPeriodEnd = stripeRow.cancel_at_period_end === true || stripeRow.status === 'active';
+            // BUT only if the billing period hasn't ended yet (stale data protection)
+            const periodHasEnded = stripeRow.current_period_end && new Date(stripeRow.current_period_end) < new Date();
+            cancelAtPeriodEnd = !periodHasEnded && (stripeRow.cancel_at_period_end === true || stripeRow.status === 'active');
             logger.info('📅 Found Stripe subscription data for cancelled shop subscription', {
               shopId,
               currentPeriodEnd,
@@ -152,6 +154,31 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       // 1. Webhooks (real-time updates from Stripe)
       // 2. POST /subscription/sync endpoint (manual sync when needed)
       // 3. Background jobs (if implemented)
+
+      // Stale data protection: If billing period has ended, subscription is expired
+      // This catches cases where Stripe webhook (customer.subscription.deleted) failed
+      if (stripeSubscription.currentPeriodEnd && new Date(stripeSubscription.currentPeriodEnd) < new Date()) {
+        logger.warn('📋 Subscription period has ended (stale data detected)', {
+          shopId,
+          currentPeriodEnd: stripeSubscription.currentPeriodEnd,
+          status: stripeSubscription.status,
+          cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            currentSubscription: {
+              id: stripeSubscription.id,
+              status: 'expired',
+              cancelAtPeriodEnd: false,
+              currentPeriodEnd: new Date(stripeSubscription.currentPeriodEnd).toISOString(),
+              enrolledAt: stripeSubscription.createdAt,
+            },
+            hasActiveSubscription: false
+          }
+        });
+      }
 
       // Check if subscription is active based on cached status
       const activeStatuses = ['active', 'past_due', 'unpaid'];

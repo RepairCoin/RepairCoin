@@ -291,8 +291,6 @@ export function FindShop() {
     if (shop.location?.lat && shop.location?.lng) {
       setMapCenter([shop.location.lat, shop.location.lng]);
       setMapZoom(16);
-    } else {
-      toast.error(`${shop.name} doesn't have map coordinates yet`);
     }
   };
 
@@ -413,17 +411,25 @@ export function FindShop() {
                       {fullAddress(shop)}
                     </p>
 
-                    {/* Bottom: Category + Tier + Verified */}
+                    {/* Bottom: Category + Tier + Verified + Location status */}
                     <div className="flex items-center justify-between ml-9">
                       <span className="text-gray-500 text-xs">
                         {shop.category || "General"} &bull; {getTierLabel(shop.tier)}
                       </span>
-                      {shop.verified && (
-                        <span className="flex items-center gap-1 text-green-500 text-xs font-medium">
-                          <CheckCircle className="w-3.5 h-3.5 fill-green-500 text-black" />
-                          Verified
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!shop.location?.lat && !shop.location?.lng && (
+                          <span className="flex items-center gap-1 text-gray-500 text-xs">
+                            <MapPin className="w-3 h-3" />
+                            No map
+                          </span>
+                        )}
+                        {shop.verified && (
+                          <span className="flex items-center gap-1 text-green-500 text-xs font-medium">
+                            <CheckCircle className="w-3.5 h-3.5 fill-green-500 text-black" />
+                            Verified
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -535,6 +541,14 @@ export function FindShop() {
                       </span>
                     )}
                   </div>
+
+                  {/* Map location notice */}
+                  {!selectedShop.location?.lat && !selectedShop.location?.lng && (
+                    <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-gray-800/50 border border-gray-700">
+                      <MapPin className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                      <span className="text-gray-500 text-xs">Map location not available for this shop</span>
+                    </div>
+                  )}
 
                   {/* Contact Info */}
                   <div className="space-y-2 mb-4">

@@ -23,7 +23,7 @@ router.use(requireRole(['shop']));
  *       200:
  *         description: List of payment methods
  */
-router.get('/payment-methods', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
 
@@ -86,7 +86,7 @@ router.get('/payment-methods', async (req: Request, res: Response) => {
  *       200:
  *         description: Setup intent created
  */
-router.post('/payment-methods/setup-intent', async (req: Request, res: Response) => {
+router.post('/setup-intent', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
 
@@ -162,7 +162,7 @@ router.post('/payment-methods/setup-intent', async (req: Request, res: Response)
  *       200:
  *         description: Default payment method updated
  */
-router.post('/payment-methods/:paymentMethodId/set-default', async (req: Request, res: Response) => {
+router.post('/:paymentMethodId/set-default', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { paymentMethodId } = req.params;
@@ -227,7 +227,7 @@ router.post('/payment-methods/:paymentMethodId/set-default', async (req: Request
  *       200:
  *         description: Payment method deleted
  */
-router.delete('/payment-methods/:paymentMethodId', async (req: Request, res: Response) => {
+router.delete('/:paymentMethodId', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { paymentMethodId } = req.params;

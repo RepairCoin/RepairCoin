@@ -129,28 +129,51 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
           const subscription = subscriptionResult.rows[0];
           const periodEnd = subscription.current_period_end;
 
-          // Check if subscription has expired (period end date has passed)
+          // Check if subscription period has ended (current_period_end is in the past)
+          // This is the authoritative expiration check — if the billing period is over,
+          // the subscription is expired regardless of status/cancel_at_period_end flags.
+          // These flags can be stale if the Stripe webhook (customer.subscription.deleted)
+          // didn't fire or failed to update the database after a self-cancel.
           if (periodEnd && new Date(periodEnd) < new Date()) {
-            // Only block if not in an active state that might still be valid
-            if (subscription.status !== 'active' || !subscription.cancel_at_period_end) {
-              logger.warn('Subscription guard: Subscription expired', {
-                shopId,
-                periodEnd,
-                status: subscription.status,
-                operationalStatus: shop.operational_status
-              });
+            logger.warn('Subscription guard: Subscription period ended', {
+              shopId,
+              periodEnd,
+              status: subscription.status,
+              cancelAtPeriodEnd: subscription.cancel_at_period_end,
+              operationalStatus: shop.operational_status
+            });
 
-              return res.status(403).json({
-                success: false,
-                error: 'Subscription expired',
-                code: 'SUBSCRIPTION_EXPIRED',
-                details: {
-                  status: 'expired',
-                  expiredAt: periodEnd,
-                  message: getBlockedMessage('expired')
-                }
-              });
+            // Proactively fix stale operational_status if needed
+            // This self-heals the data when a webhook was missed
+            if (shop.operational_status === 'subscription_qualified') {
+              try {
+                await pool.query(
+                  `UPDATE shops SET operational_status = 'not_qualified', updated_at = CURRENT_TIMESTAMP WHERE shop_id = $1`,
+                  [shopId]
+                );
+                logger.info('Subscription guard: Fixed stale operational_status', {
+                  shopId,
+                  from: 'subscription_qualified',
+                  to: 'not_qualified'
+                });
+              } catch (fixErr) {
+                logger.warn('Subscription guard: Failed to fix stale operational_status', {
+                  shopId,
+                  error: fixErr instanceof Error ? fixErr.message : 'Unknown error'
+                });
+              }
             }
+
+            return res.status(403).json({
+              success: false,
+              error: 'Subscription expired',
+              code: 'SUBSCRIPTION_EXPIRED',
+              details: {
+                status: 'expired',
+                expiredAt: periodEnd,
+                message: getBlockedMessage('expired')
+              }
+            });
           }
         }
       } catch (dbError) {
