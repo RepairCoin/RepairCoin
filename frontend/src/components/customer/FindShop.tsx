@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,8 @@ import {
   Clock,
   ExternalLink,
   Share2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
@@ -179,6 +181,7 @@ function getTierBadgeColor(tier?: string): string {
 export function FindShop() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
@@ -188,15 +191,57 @@ export function FindShop() {
   const [activeDetailTab, setActiveDetailTab] = useState<"services" | "rewards">("services");
   const [shopServices, setShopServices] = useState<ShopServiceType[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<{
+    page: number; limit: number; totalItems: number; totalPages: number; hasMore: boolean;
+  } | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const ITEMS_PER_PAGE = 20;
 
+  // Debounce search input by 500ms
   useEffect(() => {
-    const fetchShops = async () => {
-      try {
-        setLoading(true);
-        const shopsData = await ShopService.getAllShops();
-        setShops(shopsData);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // reset to page 1 on new search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-        const shopWithLocation = shopsData.find(
+  // Reset to page 1 when category changes
+  useEffect(() => {
+    setPage(1);
+  }, [filterCategory]);
+
+  // Fetch shops from server whenever search/category/page changes
+  const fetchShops = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await ShopService.getAllShops({
+        search: debouncedSearch || undefined,
+        category: filterCategory !== "all" ? filterCategory : undefined,
+        page,
+        limit: ITEMS_PER_PAGE,
+      });
+      setShops(result.shops);
+      setPagination(result.pagination || null);
+
+      // On first load with no filters, populate categories list
+      if (!categoriesLoaded && !debouncedSearch && filterCategory === "all" && page === 1) {
+        const cats = new Set<string>();
+        result.shops.forEach((s: Shop) => {
+          if (s.category) cats.add(s.category);
+        });
+        // Only set if we got results — for a more complete list, fetch all on first load
+        if (cats.size > 0) {
+          setCategories(Array.from(cats).sort());
+          setCategoriesLoaded(true);
+        }
+      }
+
+      // Center map on first shop with location (only on first page load)
+      if (page === 1 && !debouncedSearch && filterCategory === "all") {
+        const shopWithLocation = result.shops.find(
           (shop: Shop) => shop.location?.lat && shop.location?.lng
         );
         if (shopWithLocation) {
@@ -205,17 +250,39 @@ export function FindShop() {
             shopWithLocation.location!.lng!,
           ]);
         }
+      }
+    } catch (error) {
+      console.error("Error fetching shops:", error);
+      toast.error("Failed to load shops. Please try again.");
+      setShops([]);
+      setPagination(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, filterCategory, page, categoriesLoaded]);
 
-      } catch (error) {
-        console.error("Error fetching shops:", error);
-        toast.error("Failed to load shops. Please try again.");
-        setShops([]);
-      } finally {
-        setLoading(false);
+  useEffect(() => {
+    fetchShops();
+  }, [fetchShops]);
+
+  // Load all categories once on mount (separate lightweight call)
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const result = await ShopService.getAllShops({ limit: 100 });
+        const cats = new Set<string>();
+        result.shops.forEach((s: any) => {
+          if (s.category) cats.add(s.category);
+        });
+        if (cats.size > 0) {
+          setCategories(Array.from(cats).sort());
+          setCategoriesLoaded(true);
+        }
+      } catch {
+        // Categories will be populated from the main fetch
       }
     };
-
-    fetchShops();
+    loadCategories();
   }, []);
 
   // Fetch services when a shop is selected
@@ -241,50 +308,8 @@ export function FindShop() {
     }
   }, [selectedShop?.shopId]);
 
-  // Get unique categories for filter
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    shops.forEach((s) => {
-      if (s.category) {
-        // Split combined categories like "Fitness & Training"
-        cats.add(s.category);
-      }
-    });
-    return Array.from(cats).sort();
-  }, [shops]);
-
-  const filteredShops = useMemo(() => {
-    let result = shops;
-
-    if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (shop) =>
-          shop.name?.toLowerCase().includes(query) ||
-          shop.address?.toLowerCase().includes(query) ||
-          shop.location?.city?.toLowerCase().includes(query) ||
-          shop.shopId?.toLowerCase().includes(query)
-      );
-    }
-
-    if (filterCategory !== "all") {
-      result = result.filter((shop) =>
-        shop.category?.toLowerCase().includes(filterCategory.toLowerCase())
-      );
-    }
-
-    // Sort by rating descending (highest first)
-    result = [...result].sort((a, b) => {
-      const ratingA = a.avgRating || 0;
-      const ratingB = b.avgRating || 0;
-      if (ratingB !== ratingA) return ratingB - ratingA;
-      const reviewsA = a.totalReviews || 0;
-      const reviewsB = b.totalReviews || 0;
-      return reviewsB - reviewsA;
-    });
-
-    return result;
-  }, [searchQuery, filterCategory, shops]);
+  // Shops are already sorted by server (avgRating DESC, totalReviews DESC)
+  const filteredShops = shops;
 
   const handleShopSelect = (shop: Shop) => {
     setSelectedShop(shop);
@@ -344,7 +369,7 @@ export function FindShop() {
               {/* Available Shops Count + Filter */}
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-semibold text-sm">
-                  Available Shops ({loading ? "..." : filteredShops.filter((s) => s.verified).length})
+                  Available Shops ({loading ? "..." : pagination?.totalItems ?? filteredShops.length})
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500 text-xs">Filter by:</span>
@@ -436,12 +461,35 @@ export function FindShop() {
 
                 {!loading && filteredShops.length === 0 && (
                   <div className="text-center py-8 text-gray-400">
-                    {shops.length === 0
-                      ? "No shops available yet."
-                      : "No shops found matching your search."}
+                    No shops found matching your search.
                   </div>
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-800">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[#212121] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-[#FFCC00]"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Previous
+                  </button>
+                  <span className="text-gray-400 text-xs">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!pagination.hasMore}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[#212121] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-[#FFCC00]"
+                  >
+                    Next
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Right Column: Map + Shop Details */}
