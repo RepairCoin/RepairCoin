@@ -201,7 +201,7 @@ export default function CustomerDashboardClient() {
       onTabChange={handleTabChange}
     >
       <div
-        className="min-h-screen py-8 bg-[#0D0D0D] pt-16 lg:pt-8"
+        className="min-h-screen py-8 pt-16 lg:pt-8"
         style={{
           backgroundImage: `url('/img/dashboard-bg.png')`,
           backgroundSize: "cover",
