@@ -85,7 +85,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Mobile header bar — hamburger left, icons right */}
       {/* z-[1001] ensures header stays above Leaflet map layers (which use z-index 400-1000 internally) */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 z-[1001] bg-[#1e1f22] flex items-center justify-between px-4 transition-all duration-300 ease-in-out pt-2 pb-2 ${
+      <div className={`lg:hidden fixed top-0 left-0 right-0 bg-[#1e1f22] flex items-center justify-between px-4 transition-all duration-300 ease-in-out pt-2 pb-2 z-20 ${
         isScrolled ? "top-0" : "top-8"
       }`}>
         <button
@@ -108,8 +108,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Desktop icons — fixed top-right (only for customers and shops) */}
       {userRole !== "admin" && (
-        <div className={`hidden lg:flex fixed right-4 z-[1001] transition-all duration-300 ease-in-out items-center gap-3 pt-4 pb-4 ${
-          isScrolled ? "top-0" : "top-4"
+        <div className={`hidden lg:flex fixed right-4 z-[1001] transition-all duration-300 ease-in-out items-center gap-3 pt-2 pb-2 ${
+          isScrolled ? "top-0" : "top-6"
         }`}>
           <MessageIcon />
           <NotificationBell />
