@@ -1,3 +1,4 @@
+import Link from "next/link";
 import SectionBadge from "./SectionBadge";
 
 export default function AboutHero() {
@@ -44,6 +45,13 @@ export default function AboutHero() {
           RepairCoin is a modern loyalty platform for service businesses, created from everyday
           operations and focused on long term customer relationships.
         </p>
+
+        <Link
+          href="/waitlist"
+          className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
+        >
+          Join Waitlist &rarr;
+        </Link>
       </div>
     </section>
   );

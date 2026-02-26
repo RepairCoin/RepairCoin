@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function AboutCTA() {
   return (
     <section className="relative w-full bg-[#0D0D0D] overflow-hidden">
@@ -43,12 +41,6 @@ export default function AboutCTA() {
             Be among the first to launch, test, and grow with RepairCoin from day one.
           </p>
 
-          <Link
-            href="/waitlist"
-            className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
-          >
-            Join Waitlist &rarr;
-          </Link>
         </div>
       </div>
     </section>
