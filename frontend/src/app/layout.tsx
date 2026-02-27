@@ -7,6 +7,7 @@ import { Providers } from './providers'
 import '@/styles/globals.css'
 
 const GA_MEASUREMENT_ID = 'G-JSDJ8WLV27'
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.repaircoin.ai'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -22,13 +23,37 @@ const inriaSans = Inria_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'RepairCoin - Loyalty Tokens for Repair Shops',
-  description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
+  title: 'Repaircoin - RCN Tokens for Repair Shops',
+  description: 'Earn RCN tokens for repairs and redeem them at participating shops',
   keywords: ['blockchain', 'loyalty', 'tokens', 'repair', 'cryptocurrency'],
   icons: {
     icon: '/img/favicon-logo.png',
     shortcut: '/img/favicon-logo.png',
     apple: '/img/favicon-logo.png',
+  },
+  openGraph: {
+    title: 'Repaircoin - RCN Tokens for Repair Shops',
+    description: 'Earn RCN tokens for repairs and redeem them at participating shops',
+    url: baseUrl,
+    siteName: 'Repaircoin',
+    images: [
+      {
+        url: `${baseUrl}/img/hero-bg.png`,
+        width: 1200,
+        height: 630,
+        alt: 'Repaircoin - RCN Tokens for Repair Shops',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Repaircoin - RCN Tokens for Repair Shops',
+    description: 'Earn RCN tokens for repairs and redeem them at participating shops',
+    images: [`${baseUrl}/img/hero-bg.png`],
+    site: '@Repaircoin',
+    creator: '@Repaircoin',
   },
 }
 
