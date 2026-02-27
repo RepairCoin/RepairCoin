@@ -129,15 +129,27 @@ export default function CustomerDashboardClient() {
   const { login } = useAuthStore();
 
   // Refresh user profile when page becomes visible (catches admin changes like suspension)
+  // Debounced to avoid spamming login() on rapid tab switches which can cause auth failures
   useEffect(() => {
+    let lastRefresh = 0;
+    const REFRESH_COOLDOWN_MS = 30000; // Only refresh once per 30 seconds
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && account?.address && isAuthenticated) {
-        console.log('📋 Page became visible, refreshing customer profile...');
-        // Re-authenticate to get latest profile data (including suspension status)
-        login(account.address).catch(err => {
-          console.warn('Profile refresh failed:', err);
-        });
+      if (document.visibilityState !== 'visible') return;
+      if (!account?.address || !isAuthenticated) return;
+      if (useAuthStore.getState().switchingAccount) return;
+
+      const now = Date.now();
+      if (now - lastRefresh < REFRESH_COOLDOWN_MS) {
+        console.log('📋 Page visible but skipping refresh (cooldown)');
+        return;
       }
+
+      lastRefresh = now;
+      console.log('📋 Page became visible, refreshing customer profile...');
+      login(account.address).catch(err => {
+        console.warn('Profile refresh failed:', err);
+      });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);

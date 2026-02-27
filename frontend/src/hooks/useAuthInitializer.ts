@@ -15,6 +15,101 @@ const AUTH_SESSION_CACHE_KEY = 'rc_session_cache';
 const AUTH_LOCK_TIMEOUT_MS = 5000; // 5 second lock timeout
 const SESSION_CACHE_TTL_MS = 30000; // 30 second cache TTL
 const WALLET_MISMATCH_DEBOUNCE_MS = 500; // 500ms debounce for wallet mismatch detection
+const SWITCH_INTENT_KEY = 'rc_switch_intent';
+const SWITCH_INTENT_MAX_AGE_MS = 60000; // 60 seconds — discard stale intents
+
+interface SwitchIntent {
+  newAddress: string;
+  email: string | null;
+  targetType: 'customer' | 'shop' | 'admin' | null;
+  targetPath: string;
+  timestamp: number;
+}
+
+/**
+ * Check for a pending switch intent saved by switchAccount().
+ * Returns the intent if valid (< 60s old), null otherwise.
+ */
+function getPendingSwitchIntent(): SwitchIntent | null {
+  try {
+    const raw = sessionStorage.getItem(SWITCH_INTENT_KEY);
+    if (!raw) return null;
+
+    const intent: SwitchIntent = JSON.parse(raw);
+    const age = Date.now() - intent.timestamp;
+
+    if (age > SWITCH_INTENT_MAX_AGE_MS) {
+      console.log('[AuthInitializer] 🔄 Switch intent expired (age:', age, 'ms), clearing');
+      sessionStorage.removeItem(SWITCH_INTENT_KEY);
+      return null;
+    }
+
+    console.log('[AuthInitializer] 🔄 Found pending switch intent (age:', age, 'ms):', intent.targetPath);
+    return intent;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resume a pending account switch that was interrupted (e.g., tab was backgrounded).
+ * Tries to authenticate with the target wallet and redirect.
+ */
+async function resumeSwitchIntent(intent: SwitchIntent): Promise<boolean> {
+  console.log('[AuthInitializer] 🔄 Resuming switch intent for:', intent.newAddress, '→', intent.targetPath);
+
+  try {
+    // First check if authenticate already succeeded (session cookie might be set)
+    try {
+      const session = await authApi.getSession();
+      if (session.isValid && session.user) {
+        const sessionAddress = ((session.user as any).address || (session.user as any).walletAddress || '').toLowerCase();
+        if (sessionAddress === intent.newAddress.toLowerCase()) {
+          console.log('[AuthInitializer] 🔄 Session already valid for target wallet, redirecting');
+          sessionStorage.removeItem(SWITCH_INTENT_KEY);
+          clearAllAuthCaches();
+          window.location.replace(intent.targetPath);
+          return true;
+        }
+      }
+    } catch {
+      // No session — need to re-authenticate
+    }
+
+    // Re-authenticate with the target wallet
+    if (intent.targetType) {
+      console.log('[AuthInitializer] 🔄 Re-authenticating as', intent.targetType);
+      switch (intent.targetType) {
+        case 'admin':
+          await authApi.authenticateAdmin(intent.newAddress);
+          break;
+        case 'shop':
+          await authApi.authenticateShop(intent.newAddress, intent.email || undefined);
+          break;
+        case 'customer':
+          await authApi.authenticateCustomer(intent.newAddress);
+          break;
+      }
+
+      console.log('[AuthInitializer] 🔄 Re-authentication successful, redirecting to:', intent.targetPath);
+      sessionStorage.removeItem(SWITCH_INTENT_KEY);
+      clearAllAuthCaches();
+      window.location.replace(intent.targetPath);
+      return true;
+    } else {
+      // Unregistered wallet — redirect to /choose
+      console.log('[AuthInitializer] 🔄 Unregistered wallet, redirecting to /choose');
+      sessionStorage.removeItem(SWITCH_INTENT_KEY);
+      clearAllAuthCaches();
+      window.location.replace('/choose');
+      return true;
+    }
+  } catch (error) {
+    console.error('[AuthInitializer] 🔄 Resume switch failed:', error);
+    sessionStorage.removeItem(SWITCH_INTENT_KEY);
+    return false;
+  }
+}
 
 interface CachedSession {
   timestamp: number;
@@ -97,6 +192,8 @@ export function clearAllAuthCaches(): void {
     // Also clear shop-related caches (these stay in sessionStorage per-tab)
     sessionStorage.removeItem('rc_shop_data_cache');
     sessionStorage.removeItem('rc_shop_id');
+    // Note: do NOT clear rc_switch_intent here — it's cleared by switchAccount on success
+    // or by resumeSwitchIntent after retry. Clearing it here would break resume on tab return.
     console.log('[AuthInitializer] 🧹 All auth caches cleared');
   } catch (e) {
     // Ignore errors
@@ -167,6 +264,32 @@ export function useAuthInitializer() {
   const immediateCheckDoneRef = useRef(false);
   const switchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const metamaskListenerAddedRef = useRef(false);
+
+  // Resume pending switch intent when tab becomes visible again
+  // This handles the case where user switches away from Firefox during account switch
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+
+      const pendingSwitch = getPendingSwitchIntent();
+      if (!pendingSwitch) return;
+
+      // Don't interfere if switchAccount is actively running
+      const { switchingAccount: isSwitching } = useAuthStore.getState();
+      if (isSwitching) {
+        console.log('[AuthInitializer] 🔄 Tab visible with pending switch but switchAccount is active, skipping');
+        return;
+      }
+
+      console.log('[AuthInitializer] 🔄 Tab became visible with pending switch intent — resuming');
+      await resumeSwitchIntent(pendingSwitch);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Listen to MetaMask's native accountsChanged event for real-time account switching
   useEffect(() => {
@@ -281,7 +404,15 @@ export function useAuthInitializer() {
         recordAuthFailure('Immediate session check failed: ' + (error?.message || 'Unknown'));
       }
 
-      // 3. No session found on protected route - clear any stale caches and redirect
+      // 3. No session found — check for pending switch intent before redirecting
+      const pendingSwitch = getPendingSwitchIntent();
+      if (pendingSwitch) {
+        console.log('[AuthInitializer] IMMEDIATE: No session but found pending switch intent — resuming');
+        const resumed = await resumeSwitchIntent(pendingSwitch);
+        if (resumed) return; // resumeSwitchIntent handles redirect
+        // Resume failed — fall through to redirect home
+      }
+
       console.log('[AuthInitializer] IMMEDIATE: No valid session on protected route - redirecting to home');
       clearAllAuthCaches();
       window.location.href = '/';
