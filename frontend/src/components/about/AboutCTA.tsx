@@ -20,7 +20,7 @@ export default function AboutCTA() {
               early partner
               {/* Yellow underline curve */}
               <svg
-                className="absolute -bottom-4 -left-[3%] w-[106%] h-[18px]"
+                className="absolute -bottom-8 -left-[3%] w-[106%] h-[18px]"
                 viewBox="0 0 311 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -37,7 +37,7 @@ export default function AboutCTA() {
             </span>
           </h2>
 
-          <p className="mt-6 max-w-xl mx-auto text-gray-400 text-base leading-relaxed">
+          <p className="mt-10 mx-auto text-gray-400 text-base leading-relaxed whitespace-nowrap">
             Be among the first to launch, test, and grow with RepairCoin from day one.
           </p>
 

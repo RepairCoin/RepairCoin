@@ -1,107 +1,116 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { Gift, Users, Store } from "lucide-react";
-import CustomerTierCards from "@/components/rewards/CustomerTierCards";
+import { Store, Users, SparklesIcon } from "lucide-react";
 import ShopTierCards from "@/components/rewards/ShopTierCards";
-import TierInfoSection from "@/components/rewards/TierInfoSection";
+import ShopHowItWorks from "@/components/rewards/ShopHowItWorks";
+import CustomerTierCards from "@/components/rewards/CustomerTierCards";
+import CustomerHowTiersWork from "@/components/rewards/CustomerHowTiersWork";
 import RewardsCTA from "@/components/rewards/RewardsCTA";
 
 export default function RewardsPage() {
-  const [activeTab, setActiveTab] = useState<"customers" | "shops">("customers");
+  const [activeTab, setActiveTab] = useState<"shopowner" | "customers">(
+    "shopowner",
+  );
 
   return (
-    <div className="min-h-screen bg-[#191919] text-white">
-      {/* Hero Section with Background Image - extends behind tier cards */}
-      <div className="relative">
-        {/* Background image - wave pattern - extends to cover cards area */}
-        <div className="absolute inset-0 h-[700px] md:h-[700px]">
-          <Image
-            src="/img/rewards/hero-bg.png"
-            alt="Hero background"
-            fill
-            className="object-cover object-top"
-            priority
-          />
-          {/* Subtle overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent" />
-        </div>
+    <div className="min-h-screen bg-[#0D0D0D] text-white">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden min-h-[84vh] flex items-center">
+        {/* Background wave pattern */}
+        <div
+          className="absolute inset-0 bg-no-repeat bg-right-bottom opacity-40"
+          style={{
+            backgroundImage: "url(/img/about/bg-design.png)",
+            backgroundSize: "contain",
+          }}
+        />
 
-        {/* Hero Content */}
-        <div className="relative max-w-7xl mx-auto px-4 pt-44">
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-24 md:py-36 flex flex-col items-center text-center">
           {/* Badge */}
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-1.5 bg-[#FFCC00] px-3 py-1.5 rounded-full">
-              <Gift className="w-5 h-5 text-[#101010]" />
-              <span className="text-[#101010] text-sm md:text-base font-medium tracking-wide">
-                RepairCoin Rewards
-              </span>
-            </div>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#ffcc00] bg-gradient-to-r from-[#ffcc00]/10 to-transparent text-[#ffcc00] mb-6 md:mb-8">
+            <SparklesIcon size={14} className="text-[#ffcc00]" />
+            <span className="text-xs md:text-sm font-medium">Progressive Rewards</span>
           </div>
 
-          {/* Title */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white text-center mb-6">
-            Loyalty that levels up with every tier
+          {/* Heading */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4">
+            Earn more. Level up.
+            <br />
+            <span className="relative inline-block">Unlock better rewards.</span>
+            <span className="relative inline-block w-[40%]">
+              <svg
+                className="absolute bottom-5 md:bottom-10 -left-[3%] w-[106%] h-[14px] md:h-[18px]"
+                viewBox="0 0 311 8"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M2 5.5C80 1.5 230 1.5 309 5.5"
+                  stroke="#ffcc00"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-white/80 text-base md:text-lg text-center max-w-3xl mx-auto mb-10">
-            See how RepairCoin rewards both customers and shops. Earn RCN with every repair and purchase,
-            and unlock better benefits as you move up each tier.
+          <p className="text-white/55 text-sm md:text-lg max-w-xl mb-10 md:mb-20 leading-relaxed px-2">
+            Simple progression. Real benefits.
+            <br />
+            Earn tokens with every service and unlock higher tiers with bigger rewards.
           </p>
 
-          {/* Tab Navigation */}
-          <div className="flex justify-center mb-8">
-            <div className="bg-white rounded-lg p-1 flex gap-1 shadow-lg">
-              <button
-                onClick={() => setActiveTab("customers")}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 text-sm font-medium ${
-                  activeTab === "customers"
-                    ? "bg-[#FFCC00] text-black"
-                    : "text-black hover:bg-gray-100"
-                }`}
-              >
-                <Users className="w-5 h-5" />
-                <span>Customers</span>
-              </button>
-              <button
-                onClick={() => setActiveTab("shops")}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 text-sm font-medium ${
-                  activeTab === "shops"
-                    ? "bg-[#FFCC00] text-black"
-                    : "text-black hover:bg-gray-100"
-                }`}
-              >
-                <Store className="w-5 h-5" />
-                <span>Shops</span>
-              </button>
-            </div>
+          {/* Tab Toggle */}
+          <div className="flex items-center gap-1 bg-[#181818] border border-[#2a2a2a] rounded-full p-1">
+            <button
+              onClick={() => setActiveTab("shopowner")}
+              className={`flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs md:text-sm font-medium transition-all duration-200 ${
+                activeTab === "shopowner"
+                  ? "bg-[#FFCC00] text-black"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              <Store className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              Shop Owner
+            </button>
+            <button
+              onClick={() => setActiveTab("customers")}
+              className={`flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs md:text-sm font-medium transition-all duration-200 ${
+                activeTab === "customers"
+                  ? "bg-[#FFCC00] text-black"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              Customers
+            </button>
           </div>
-
-          {/* Description based on tab */}
-          <p className="text-white/70 text-base text-center max-w-3xl mx-auto mb-12">
-            {activeTab === "customers" ? (
-              <>The more you repair and purchase at partner shops, the more your tier – and your RCN rewards – can grow. Each tier unlocks better earning potential and access to special perks.</>
-            ) : (
-              <>Choose the tier that matches your growth stage. Each level gives you better RCN pricing, higher redemption caps, and a stronger loyalty engine for your shop.</>
-            )}
-          </p>
         </div>
+      </section>
 
-        {/* Tier Cards - positioned within hero background */}
-        <div className="relative max-w-7xl mx-auto px-4 pb-16">
-          {activeTab === "customers" ? (
-            <CustomerTierCards />
-          ) : (
+      {/* Tab Content */}
+      {activeTab === "shopowner" ? (
+        <>
+          <section className="max-w-7xl mx-auto px-4 pt-4 pb-12 min-h-screen h-full">
             <ShopTierCards />
-          )}
-        </div>
-      </div>
+          </section>
+          <ShopHowItWorks />
+        </>
+      ) : (
+        <>
+          <section className="max-w-7xl mx-auto px-4 pt-4 pb-12">
+            <CustomerTierCards />
+          </section>
+          <CustomerHowTiersWork />
+        </>
+      )}
 
-      <TierInfoSection activeTab={activeTab} />
-
-      <RewardsCTA />
+      {/* Footer CTA — shown for both tabs */}
+      <RewardsCTA activeTab={activeTab} />
     </div>
   );
 }
