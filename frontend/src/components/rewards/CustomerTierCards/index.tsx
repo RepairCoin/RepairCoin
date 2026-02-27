@@ -1,87 +1,102 @@
 "use client";
 
-import { Medal, CheckCircle } from "lucide-react";
+import { Shield, Sparkles, Crown, CheckCircle } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface CustomerTier {
   name: string;
-  subtitle: string;
+  description: string;
   benefits: string[];
-  note: string;
-  badgeColor: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
 }
 
 const customerTiers: CustomerTier[] = [
   {
     name: "Bronze",
-    subtitle: "Starter Rewards",
+    description:
+      "You start here and keep climbing. Every repair begins here with base rewards and full access to the RepairCoin partner network.",
     benefits: [
       "Earn base RCN on every repair and purchase",
       "Access to all verified partner shops",
       "Basic wallet history tracking",
     ],
-    note: "Perfect for new customers just starting to earn.",
-    badgeColor: "bg-[#CD7F32]", // Bronze color
+    icon: Shield,
+    iconBg: "bg-[#2a1e10]",
+    iconColor: "text-[#CD7F32]",
   },
   {
     name: "Silver",
-    subtitle: "Boosted Earnings",
+    description:
+      "Boost your tier by staying active. Earn higher multipliers and get early access to promotions across the network.",
     benefits: [
-      "Boosted RCN rewards on eligible transactions",
+      "Boosted RCN rewards on eligible services",
       "Occasional promo multipliers at select shops",
       "Priority access to limited-time campaigns",
     ],
-    note: "For regulars who visit partner shops more often.",
-    badgeColor: "bg-[#C0C0C0]", // Silver color
+    icon: Sparkles,
+    iconBg: "bg-[#1e1e1e]",
+    iconColor: "text-[#C0C0C0]",
   },
   {
     name: "Gold",
-    subtitle: "Premium Loyalty",
+    description:
+      "The highest tier for your most loyal activity. Earn maximum rewards, exclusive benefits, and priority access across the entire network.",
     benefits: [
       "Highest RCN earning rates",
       "Early access to new partner shops and promos",
       "Exclusive Gold-only perks defined by governance",
     ],
-    note: "Designed for power users and loyal customers.",
-    badgeColor: "bg-[#FFD700]", // Gold color
+    icon: Crown,
+    iconBg: "bg-[#FFCC00]",
+    iconColor: "text-black",
   },
 ];
 
 const CustomerTierCards = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {customerTiers.map((tier) => (
-        <div
-          key={tier.name}
-          className="bg-[#101010] border border-[rgba(83,83,83,0.21)] rounded-lg p-6 md:p-8 hover:border-[#ffcc00]/30 transition-all duration-300"
-        >
-          {/* Header with icon */}
-          <div className="flex items-start gap-4 mb-6">
-            <div className="relative">
-              <div className={`absolute inset-0 ${tier.badgeColor} blur-md opacity-50 rounded-lg`} />
-              <div className={`relative p-2 rounded-lg ${tier.badgeColor}`}>
-                <Medal className="w-5 h-5 text-[#101010]" />
-              </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
+      {customerTiers.map((tier) => {
+        const Icon = tier.icon;
+        return (
+          <div
+            key={tier.name}
+            className="border border-[#2a2a2a] rounded-3xl p-8 flex flex-col"
+            style={{
+              background:
+                "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
+            }}
+          >
+            {/* Icon circle */}
+            <div
+              className={`w-14 h-14 rounded-full ${tier.iconBg} flex items-center justify-center mb-6`}
+            >
+              <Icon className={`w-7 h-7 ${tier.iconColor}`} />
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
-              <p className="text-sm text-[#999999]">{tier.subtitle}</p>
-            </div>
+
+            {/* Name & Description */}
+            <h3 className="text-2xl font-bold text-white mb-2">{tier.name}</h3>
+            <p className="text-sm text-[#777] mb-6 leading-relaxed">
+              {tier.description}
+            </p>
+
+            {/* Divider */}
+            <div className="border-t border-[#1e1e28] mb-6" />
+
+            {/* Tier Benefits */}
+            <h4 className="text-base font-bold text-white mb-4">Tier Benefits</h4>
+            <ul className="space-y-3">
+              {tier.benefits.map((benefit, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-[#FFCC00] flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-[#bbb] leading-relaxed">{benefit}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-
-          {/* Benefits list */}
-          <ul className="space-y-4 mb-8">
-            {tier.benefits.map((benefit, benefitIndex) => (
-              <li key={benefitIndex} className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-[#FFCC00] flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-white leading-relaxed">{benefit}</span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Bottom note */}
-          <p className="text-xs text-[#999999] mt-auto">{tier.note}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

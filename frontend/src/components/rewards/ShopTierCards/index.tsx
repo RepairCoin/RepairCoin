@@ -1,121 +1,155 @@
 "use client";
 
-import { Store, CheckCircle } from "lucide-react";
+import { Shield, Sparkles, Crown, CheckCircle, Coins } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface ShopTier {
   name: string;
-  overview: string;
+  description: string;
+  rcgStake: string;
+  rcnShopRate: string;
+  redemptionCap: string;
   benefits: string[];
   whoFor: string;
-  badgeColor: string;
-  badgeTextColor: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
 }
 
 const shopTiers: ShopTier[] = [
   {
     name: "Standard Tier",
-    overview:
-      "Standard Tier lets any shop plug into the RepairCoin network instantly — no staking, no commitment. Start offering rewards, track customer activity automatically, and test the loyalty system with zero risk. Ideal for small shops and solo techs getting started.",
+    description:
+      "Plug into RepairCoin with zero staking. Great for new partner shops testing loyalty rewards.",
+    rcgStake: "None",
+    rcnShopRate: "Pay $0.10 per RCN",
+    redemptionCap: "$50 in RCN per customer, per visit.",
     benefits: [
-      "No RCG required so you can start instantly",
-      "Pay $0.10 per RCN at the Standard shop rate",
+      "Start issuing RCN rewards in minutes",
       "Customer redemption value fixed at $0.10 per RCN",
-      "Redemption cap up to $50 RCN per customer per visit",
-      "Use all core loyalty tools and QR based redemptions",
-      "Issue RCN Rewards to customers on small, medium and large repairs",
+      "QR-based redemption + core loyalty tools",
+      "Track customer activity & retention insights",
+      "Issue rewards for small, medium, and large services",
     ],
     whoFor:
-      "Shops that want a simple, low risk way to start rewarding customers, collect data, and improve retention without changing their current operations too much.",
-    badgeColor: "bg-[#999999]",
-    badgeTextColor: "text-[#101010]",
+      "Shops looking for a simple, low-risk way to reward customers, gather useful data, and improve retention without overhauling their current operations.",
+    icon: Shield,
+    iconBg: "bg-[#252525]",
+    iconColor: "text-white",
   },
   {
-    name: "Premium Tier",
-    overview:
-      "Premium Tier is designed for growing shops that want more value from every visit. By staking RCG you unlock better RCN pricing, higher redemption caps, and stronger loyalty incentives that keep customers coming back more often.",
+    name: "Premium",
+    description:
+      "For growing shops that want better RCN pricing and stronger incentives to drive repeat visits.",
+    rcgStake: "500 RCG",
+    rcnShopRate: "Pay $0.08 per RCN",
+    redemptionCap: "$75 in RCN per customer, per visit.",
     benefits: [
-      "Stake 500 RCG to unlock Premium status",
-      "Pay $0.08 per RCN with improved shop pricing",
+      "Premium pricing on RCN purchases",
       "Customer redemption value still fixed at $0.10 per RCN",
-      "Redemption cap up to $75 RCN per customer per visit",
-      "Automatic Premium bonus of +2 RCN added to each reward",
-      "Issue RCN Rewards to customers on small, medium and large repairs",
+      "Recommended for scaling multi-tech operations",
+      "Automatic +2 RCN bonus added to each reward",
+      "Issue rewards for small, medium, and large services",
     ],
     whoFor:
       "Shops that are ready to scale, want a better return on every dollar spent on rewards, and are building a loyal base of recurring customers.",
-    badgeColor: "bg-[#DDDDDD]",
-    badgeTextColor: "text-[#101010]",
+    icon: Sparkles,
+    iconBg: "bg-[#252525]",
+    iconColor: "text-white",
   },
   {
     name: "Elite Tier",
-    overview:
-      "Elite Tier is for top performing shops that want the strongest loyalty engine possible. You get the lowest RCN cost, the highest redemption caps, and the biggest tier bonuses so you can turn every repair into long term customer value.",
+    description:
+      "Built for top-performing service shops that want the strongest loyalty engine and best rates.",
+    rcgStake: "1500 RCG",
+    rcnShopRate: "Pay $0.06 per RCN",
+    redemptionCap: "$100 in RCN per customer, per visit.",
     benefits: [
-      "Stake 1500 RCG to unlock Elite status",
-      "Pay $0.06 per RCN at the best shop rate",
+      "Best shop pricing + highest caps",
       "Customer redemption value still fixed at $0.10 per RCN",
-      "Redemption cap up to $100 RCN per customer per visit",
-      "Automatic Elite bonus of +5 RCN added to each reward",
-      "Issue RCN Rewards to customers on small, medium and large repairs",
+      "Automatic +5 RCN bonus added to each reward",
+      "Ideal for high-volume, high-ticket service teams",
+      "Priority access to new partner features",
     ],
     whoFor:
       "High volume repair shops, clinics, and service businesses that treat loyalty as a core growth strategy and want maximum leverage from the RepairCoin ecosystem.",
-    badgeColor: "bg-[#FFCC00]",
-    badgeTextColor: "text-[#101010]",
+    icon: Crown,
+    iconBg: "bg-[#FFCC00]",
+    iconColor: "text-black",
   },
 ];
 
 const ShopTierCards = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {shopTiers.map((tier) => (
-        <div
-          key={tier.name}
-          className="bg-[#101010] border border-[rgba(83,83,83,0.21)] rounded-lg p-6 md:p-8 flex flex-col hover:border-[#ffcc00]/30 transition-all duration-300"
-        >
-          {/* Badge */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-7 min-h-screen">
+      {shopTiers.map((tier) => {
+        const Icon = tier.icon;
+        return (
           <div
-            className={`inline-flex items-center gap-1.5 ${tier.badgeColor} px-3 py-1.5 rounded-full w-fit mb-6`}
+            key={tier.name}
+            className="border border-[#2a2a2a] rounded-3xl p-8 flex flex-col"
+            style={{
+              background:
+                "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
+            }}
           >
-            <Store className={`w-5 h-5 ${tier.badgeTextColor}`} />
-            <span className={`text-sm font-medium ${tier.badgeTextColor}`}>
-              {tier.name}
-            </span>
-          </div>
+            {/* Icon circle */}
+            <div
+              className={`w-14 h-14 rounded-full ${tier.iconBg} flex items-center justify-center mb-6`}
+            >
+              <Icon className={`w-7 h-7 ${tier.iconColor}`} />
+            </div>
 
-          {/* Overview Section */}
-          <div className="mb-6">
-            <h4 className="text-base font-bold text-white mb-3">Overview</h4>
-            <p className="text-sm text-white leading-relaxed text-justify">
-              {tier.overview}
-            </p>
-          </div>
+            {/* Name & Description */}
+            <h3 className="text-2xl font-bold text-white mb-2">{tier.name}</h3>
+            <p className="text-sm text-[#777] mb-6 leading-relaxed">{tier.description}</p>
 
-          {/* Key Benefits Section */}
-          <div className="mb-6">
+            {/* RCG Stake pill */}
+            <div className="inline-flex items-center gap-2 border border-[#2a2a2a] rounded-lg px-3 py-2 w-fit mb-6">
+              <Coins className="w-4 h-4 text-[#666]" />
+              <span className="text-sm text-[#aaa]">
+                RCG Stake:{" "}
+                <span className="font-semibold text-white">{tier.rcgStake}</span>
+              </span>
+            </div>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="border border-[#252530] rounded-xl p-4">
+                <p className="text-xs text-[#555] mb-2 font-medium">RCN Shop Rate</p>
+                <p className="text-sm text-white font-semibold">{tier.rcnShopRate}</p>
+              </div>
+              <div className="border border-[#252530] rounded-xl p-4">
+                <p className="text-xs text-[#555] mb-2 font-medium">Redemption Cap</p>
+                <p className="text-sm text-white font-semibold">{tier.redemptionCap}</p>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-[#1e1e28] mb-6" />
+
+            {/* Key Benefits */}
             <h4 className="text-base font-bold text-white mb-4">Key Benefits</h4>
-            <ul className="space-y-3">
-              {tier.benefits.map((benefit, benefitIndex) => (
-                <li key={benefitIndex} className="flex items-start gap-3">
+            <ul className="space-y-3 mb-6">
+              {tier.benefits.map((benefit, i) => (
+                <li key={i} className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-[#FFCC00] flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-white leading-relaxed">{benefit}</span>
+                  <span className="text-sm text-[#bbb] leading-relaxed">{benefit}</span>
                 </li>
               ))}
             </ul>
-          </div>
 
-          {/* Separator */}
-          <div className="border-t border-[rgba(83,83,83,0.21)] my-6" />
+            {/* Divider */}
+            <div className="border-t border-[#1e1e28] mb-6" />
 
-          {/* Who It Is For Section */}
-          <div className="mt-auto">
-            <h4 className="text-base font-bold text-white mb-3">Who It Is For</h4>
-            <p className="text-sm text-[#979797] leading-relaxed text-justify">
-              {tier.whoFor}
-            </p>
+            {/* Who It's For */}
+            <div className="mt-auto">
+              <h4 className="text-base font-bold text-white mb-2">Who It&apos;s For</h4>
+              <p className="text-sm text-[#777] leading-relaxed">{tier.whoFor}</p>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
