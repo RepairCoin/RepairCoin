@@ -87,7 +87,7 @@ const ShopTierCards = () => {
         return (
           <div
             key={tier.name}
-            className="border border-[#2a2a2a] rounded-3xl p-8 flex flex-col"
+            className="border border-[#2a2a2a] rounded-3xl p-5 md:p-8 flex flex-col"
             style={{
               background:
                 "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
@@ -101,7 +101,7 @@ const ShopTierCards = () => {
             </div>
 
             {/* Name & Description */}
-            <h3 className="text-2xl font-bold text-white mb-2">{tier.name}</h3>
+            <h3 className="text-xl md:text-2xl font-bold text-white mb-2">{tier.name}</h3>
             <p className="text-sm text-[#777] mb-6 leading-relaxed">{tier.description}</p>
 
             {/* RCG Stake pill */}

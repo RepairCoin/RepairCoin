@@ -14,7 +14,7 @@ const ShopHowItWorks = () => {
   return (
     <section className="max-w-5xl mx-auto px-4 pb-16">
       <div
-        className="border border-[#2a2a2a] rounded-2xl p-8"
+        className="border border-[#2a2a2a] rounded-2xl p-5 md:p-8"
         style={{ background: "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)" }}
       >
         {/* Header */}

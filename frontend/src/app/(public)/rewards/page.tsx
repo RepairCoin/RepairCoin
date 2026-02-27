@@ -26,21 +26,21 @@ export default function RewardsPage() {
           }}
         />
 
-        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-36 flex flex-col items-center text-center">
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-24 md:py-36 flex flex-col items-center text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-[#ffcc00] bg-gradient-to-r from-[#ffcc00]/10 to-transparent text-[#ffcc00] mb-8">
-            <SparklesIcon size={16} className="text-[#ffcc00]" />
-            <span className="text-sm font-medium">Progressive Rewards</span>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#ffcc00] bg-gradient-to-r from-[#ffcc00]/10 to-transparent text-[#ffcc00] mb-6 md:mb-8">
+            <SparklesIcon size={14} className="text-[#ffcc00]" />
+            <span className="text-xs md:text-sm font-medium">Progressive Rewards</span>
           </div>
 
           {/* Heading */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4">
             Earn more. Level up.
             <br />
-            <span className="relative inline-block"> Unlock better rewards.</span>
+            <span className="relative inline-block">Unlock better rewards.</span>
             <span className="relative inline-block w-[40%]">
               <svg
-                className="absolute bottom-10 -left-[3%] w-[106%] h-[18px]"
+                className="absolute bottom-5 md:bottom-10 -left-[3%] w-[106%] h-[14px] md:h-[18px]"
                 viewBox="0 0 311 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -58,35 +58,34 @@ export default function RewardsPage() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-white/55 text-base md:text-lg max-w-2xl mb-36 leading-relaxed">
+          <p className="text-white/55 text-sm md:text-lg max-w-xl mb-10 md:mb-20 leading-relaxed px-2">
             Simple progression. Real benefits.
             <br />
-            Earn tokens with every service and unlock higher tiers with bigger
-            rewards.
+            Earn tokens with every service and unlock higher tiers with bigger rewards.
           </p>
 
           {/* Tab Toggle */}
           <div className="flex items-center gap-1 bg-[#181818] border border-[#2a2a2a] rounded-full p-1">
             <button
               onClick={() => setActiveTab("shopowner")}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs md:text-sm font-medium transition-all duration-200 ${
                 activeTab === "shopowner"
                   ? "bg-[#FFCC00] text-black"
                   : "text-white/60 hover:text-white"
               }`}
             >
-              <Store className="w-4 h-4" />
+              <Store className="w-3.5 h-3.5 md:w-4 md:h-4" />
               Shop Owner
             </button>
             <button
               onClick={() => setActiveTab("customers")}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs md:text-sm font-medium transition-all duration-200 ${
                 activeTab === "customers"
                   ? "bg-[#FFCC00] text-black"
                   : "text-white/60 hover:text-white"
               }`}
             >
-              <Users className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
               Customers
             </button>
           </div>

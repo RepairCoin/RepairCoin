@@ -30,7 +30,7 @@ const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
   const { line1, line2, subtitle, cta, href } = content[activeTab];
 
   return (
-    <section className="relative overflow-hidden bg-[#0D0D0D] py-28">
+    <section className="relative overflow-hidden bg-[#0D0D0D] py-16 md:py-28">
       {/* Background wave pattern */}
       <div
         className="absolute inset-0 bg-no-repeat bg-right-bottom opacity-40"
@@ -42,7 +42,7 @@ const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-4">
-        <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
+        <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight">
           {line1}
           <br />
 
@@ -51,7 +51,7 @@ const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
             <span className="relative inline-block w-2/3">
               {/* Yellow curved underline */}
               <svg
-                className="absolute bottom-6 -left-[3%] w-[106%] h-[18px]"
+                className="absolute bottom-4 md:bottom-5 -left-[3%] w-[106%] h-[18px]"
                 viewBox="0 0 311 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
