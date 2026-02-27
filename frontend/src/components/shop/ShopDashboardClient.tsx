@@ -445,15 +445,27 @@ export default function ShopDashboardClient() {
   }, [notifications, account?.address, userProfile?.address]);
 
   // Refresh shop data when page becomes visible (catches changes missed via WebSocket)
+  // Debounced to avoid spamming API on rapid tab switches which can cause auth failures
   useEffect(() => {
+    let lastRefresh = 0;
+    const REFRESH_COOLDOWN_MS = 30000; // Only refresh once per 30 seconds
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const walletAddress = account?.address || userProfile?.address;
-        if (walletAddress && shopData) {
-          console.log('📋 Page became visible, refreshing shop data...');
-          loadShopDataRef.current(true);
-        }
+      if (document.visibilityState !== 'visible') return;
+      if (useAuthStore.getState().switchingAccount) return;
+
+      const walletAddress = account?.address || userProfile?.address;
+      if (!walletAddress || !shopData) return;
+
+      const now = Date.now();
+      if (now - lastRefresh < REFRESH_COOLDOWN_MS) {
+        console.log('📋 Page visible but skipping shop refresh (cooldown)');
+        return;
       }
+
+      lastRefresh = now;
+      console.log('📋 Page became visible, refreshing shop data...');
+      loadShopDataRef.current(true);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);

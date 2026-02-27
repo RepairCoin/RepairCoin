@@ -100,32 +100,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const authError = event.detail; // Now receives structured AuthError
       const { message, type, timestamp } = authError || {};
 
-      console.log('[AuthProvider] Login failed - handling WITHOUT wallet disconnect to avoid page refresh', {
+      console.log('[AuthProvider] Login failed - handling WITHOUT wallet disconnect', {
         type,
         message,
         timestamp
       });
 
-      // DON'T disconnect wallet here - that triggers useAuthInitializer logout → page refresh
-      // Instead, just clear the Thirdweb storage so wallet appears disconnected on next page load
-      try {
-        if (typeof window !== 'undefined') {
-          const thirdwebKeys = Object.keys(localStorage).filter(key =>
-            key.includes('thirdweb') ||
-            key.includes('walletconnect') ||
-            key.includes('WALLET_')
-          );
+      // DON'T clear Thirdweb localStorage here - that destroys the wallet connection
+      // and causes MetaMask to show "To connect to a site select the connect button"
+      // on next tab switch. Only clear wallet storage on explicit logout/session revocation.
 
-          thirdwebKeys.forEach(key => {
-            localStorage.removeItem(key);
-          });
-          console.log('[AuthProvider] ✅ Cleared Thirdweb localStorage');
-        }
-      } catch (error) {
-        console.error('[AuthProvider] Error clearing Thirdweb storage:', error);
-      }
-
-      // Show error toast based on error type - NO page refresh, so user will see it!
+      // Show error toast based on error type
       if (type === 'revoked') {
         toast.error(message, {
           duration: 10000,
