@@ -4,14 +4,14 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { ReactNode } from "react";
 
 interface AppHeaderProps {
-  title: string;
+  title?: string;
   showBackButton?: boolean;
   onBackPress?: () => void;
   rightElement?: ReactNode;
 }
 
 export function AppHeader({
-  title,
+  title = "",
   showBackButton = true,
   onBackPress,
   rightElement,
@@ -25,7 +25,7 @@ export function AppHeader({
   };
 
   return (
-    <View className="pt-14 px-4 py-6 bg-zinc-950/90">
+    <View className="pt-14 px-4 pb-4 bg-zinc-950/90">
       <View className="flex-row items-center justify-between">
         <View className="w-12">
           {showBackButton && (
