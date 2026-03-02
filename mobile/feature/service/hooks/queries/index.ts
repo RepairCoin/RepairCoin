@@ -1,6 +1,7 @@
 // Service queries (serviceApi)
 export {
   useServicesTabQuery,
+  useInfiniteShopServicesQuery,
   useServiceDetailQuery,
   useServiceFormData,
 } from "./useServiceQueries";
