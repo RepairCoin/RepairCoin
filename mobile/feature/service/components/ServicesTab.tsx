@@ -186,7 +186,6 @@ export default function ServicesTab({
           renderItem={renderServiceItem}
           numColumns={2}
           columnWrapperStyle={{ paddingHorizontal: 12 }}
-          contentContainerStyle={{ paddingBottom: 100 }}
           extraData={services.length}
           refreshControl={
             <RefreshControl
