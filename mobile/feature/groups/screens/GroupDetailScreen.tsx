@@ -33,8 +33,13 @@ export default function GroupDetailScreen() {
     refetch: refetchGroup,
   } = useGroup(groupId || "");
 
+  // Derive membership status from group data
+  const isAdmin = group?.role === "admin";
+  const isMember = group?.membershipStatus === "active";
+
   const { refetch: refetchMembers } = useGroupMembers(groupId || "");
-  const { refetch: refetchAnalytics } = useGroupAnalytics(groupId || "");
+  // Only fetch analytics if user is an admin (analytics tab is admin-only)
+  const { refetch: refetchAnalytics } = useGroupAnalytics(groupId || "", isAdmin);
 
   useFocusEffect(
     useCallback(() => {
@@ -46,7 +51,11 @@ export default function GroupDetailScreen() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchGroup(), refetchMembers(), refetchAnalytics()]);
+    const promises: Promise<unknown>[] = [refetchGroup(), refetchMembers()];
+    if (isAdmin) {
+      promises.push(refetchAnalytics());
+    }
+    await Promise.all(promises);
     setIsRefreshing(false);
   };
 
@@ -60,14 +69,14 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const isAdmin = group?.role === "admin";
-  const isMember = group?.membershipStatus === "active";
-
+  // Only show tabs for members and admins
   const tabs: DetailTab[] = isAdmin
     ? ["Overview", "Members", "Tokens", "History", "Analytics"]
     : isMember
       ? ["Overview", "Members", "Tokens", "History"]
-      : ["Overview"];
+      : [];
+
+  const showTabs = tabs.length > 0;
 
   if (isLoading) {
     return (
@@ -91,10 +100,10 @@ export default function GroupDetailScreen() {
 
   return (
     <View className="flex-1 bg-zinc-950">
-      <AppHeader title={group.groupName} onBackPress={handleBack} />
+      <AppHeader onBackPress={handleBack} />
 
       {/* Group Header */}
-      <View className="px-4 py-4 border-b border-zinc-800">
+      <View className="px-4 pb-4 border-b border-zinc-800">
         <View className="flex-row items-center">
           {/* Icon */}
           <View className="w-16 h-16 rounded-full bg-zinc-800 items-center justify-center mr-4">
@@ -176,36 +185,38 @@ export default function GroupDetailScreen() {
         )}
       </View>
 
-      {/* Tabs */}
-      <View className="h-12 border-b border-zinc-800">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, alignItems: "center" }}
-          className="flex-1"
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <Pressable
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                className={`h-12 px-4 mr-2 justify-center border-b-2 ${
-                  isActive ? "border-yellow-500" : "border-transparent"
-                }`}
-              >
-                <Text
-                  className={`font-medium ${
-                    isActive ? "text-yellow-500" : "text-gray-500"
+      {/* Tabs - only shown for members and admins */}
+      {showTabs && (
+        <View className="h-12 border-b border-zinc-800">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, alignItems: "center" }}
+            className="flex-1"
+          >
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  className={`h-12 px-4 mr-2 justify-center border-b-2 ${
+                    isActive ? "border-yellow-500" : "border-transparent"
                   }`}
                 >
-                  {tab}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    className={`font-medium ${
+                      isActive ? "text-yellow-500" : "text-gray-500"
+                    }`}
+                  >
+                    {tab}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Tab Content */}
       <ScrollView
@@ -219,15 +230,22 @@ export default function GroupDetailScreen() {
           />
         }
       >
-        {activeTab === "Overview" && <OverviewTab group={group} />}
-        {activeTab === "Members" && (
-          <MembersTab groupId={groupId!} isAdmin={isAdmin} />
+        {showTabs ? (
+          <>
+            {activeTab === "Overview" && <OverviewTab group={group} />}
+            {activeTab === "Members" && (
+              <MembersTab groupId={groupId!} isAdmin={isAdmin} />
+            )}
+            {activeTab === "Tokens" && (
+              <TokenOperationsTab groupId={groupId!} group={group} />
+            )}
+            {activeTab === "History" && <TransactionsTab groupId={groupId!} />}
+            {activeTab === "Analytics" && <AnalyticsTab groupId={groupId!} />}
+          </>
+        ) : (
+          /* Non-members see overview content directly without tabs */
+          <OverviewTab group={group} />
         )}
-        {activeTab === "Tokens" && (
-          <TokenOperationsTab groupId={groupId!} group={group} />
-        )}
-        {activeTab === "History" && <TransactionsTab groupId={groupId!} />}
-        {activeTab === "Analytics" && <AnalyticsTab groupId={groupId!} />}
       </ScrollView>
     </View>
   );

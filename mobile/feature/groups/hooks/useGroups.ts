@@ -54,11 +54,11 @@ export function useGroupMembers(groupId: string, status?: MembershipStatus) {
   });
 }
 
-export function useGroupAnalytics(groupId: string) {
+export function useGroupAnalytics(groupId: string, enabled: boolean = true) {
   return useQuery({
     queryKey: groupsKeys.analytics(groupId),
     queryFn: () => groupsApi.getGroupAnalytics(groupId),
-    enabled: !!groupId,
+    enabled: !!groupId && enabled,
   });
 }
 
