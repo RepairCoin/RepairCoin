@@ -1,5 +1,5 @@
 import { Alert } from "react-native";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/shared/services/service.services";
 import {
@@ -7,7 +7,7 @@ import {
   ServiceFilters,
   ServiceResponse,
   UpdateServiceData,
-  ServiceDetailResponse
+  ServiceDetailResponse,
 } from "@/shared/interfaces/service.interface";
 
 export function useService() {
@@ -17,6 +17,27 @@ export function useService() {
       queryFn: async () => {
         const response: ServiceResponse = await serviceApi.getAll(filters);
         return response.data;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+  };
+
+  const useInfiniteServicesQuery = (filters?: Omit<ServiceFilters, 'page'>) => {
+    return useInfiniteQuery({
+      queryKey: ['services', 'infinite', filters],
+      queryFn: async ({ pageParam = 1 }) => {
+        const response = await serviceApi.getAll({ ...filters, page: pageParam, limit: 10 });
+        return {
+          data: response.data || [],
+          pagination: response.pagination,
+        };
+      },
+      initialPageParam: 1,
+      getNextPageParam: (lastPage) => {
+        if (lastPage.pagination?.hasMore) {
+          return (lastPage.pagination.page || 1) + 1;
+        }
+        return undefined;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
     });
@@ -154,6 +175,7 @@ export function useService() {
 
   return {
     useGetAllServicesQuery,
+    useInfiniteServicesQuery,
     useShopServicesQuery,
     useGetService,
     useGetTrendingServices,

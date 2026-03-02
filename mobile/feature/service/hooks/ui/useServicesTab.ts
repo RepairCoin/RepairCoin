@@ -7,16 +7,25 @@ import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "../../tab-types";
 
 export function useServicesTab() {
-  const { useGetAllServicesQuery } = useService();
+  const { useInfiniteServicesQuery } = useService();
   const { useGetFavorites } = useFavorite();
 
   const {
-    data: servicesData,
+    data: servicesPages,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useGetAllServicesQuery();
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteServicesQuery();
+
+  // Flatten paginated data into single array
+  const servicesData = useMemo(() => {
+    if (!servicesPages?.pages) return [];
+    return servicesPages.pages.flatMap(page => page.data);
+  }, [servicesPages]);
 
   // Fetch all favorites once to avoid N API calls
   const { data: favoritesData } = useGetFavorites();
@@ -138,6 +147,12 @@ export function useServicesTab() {
     setFilterModalVisible(false);
   }, []);
 
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   return {
     // Data
     servicesData,
@@ -146,6 +161,11 @@ export function useServicesTab() {
     isLoading,
     isFetching,
     error,
+
+    // Pagination
+    hasNextPage,
+    isFetchingNextPage,
+    handleLoadMore,
 
     // Search and filters
     searchQuery,

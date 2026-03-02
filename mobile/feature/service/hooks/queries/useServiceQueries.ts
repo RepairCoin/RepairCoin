@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/shared/services/service.services";
@@ -19,6 +19,34 @@ export function useServicesTabQuery() {
         limit: 10,
       });
       return response.data;
+    },
+    enabled: !!shopId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInfiniteShopServicesQuery() {
+  const { userProfile } = useAuthStore();
+  const shopId = userProfile?.shopId ?? "";
+
+  return useInfiniteQuery({
+    queryKey: ['shopServices', 'infinite', shopId],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await serviceApi.getShopServices(shopId, {
+        page: pageParam,
+        limit: 10,
+      });
+      return {
+        data: response.data || [],
+        pagination: response.pagination,
+      };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.pagination?.hasMore) {
+        return (lastPage.pagination.page || 1) + 1;
+      }
+      return undefined;
     },
     enabled: !!shopId,
     staleTime: 5 * 60 * 1000,

@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  Dimensions,
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,9 @@ import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useServicesTab } from "../hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../components";
 import { ServiceSortOption } from "../tab-types";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;
 
 // Sort option labels for display
 const SORT_LABELS: Record<ServiceSortOption, string> = {
@@ -52,21 +56,26 @@ export default function ServicesTabContent() {
     setSortOption,
     priceRange,
     setPriceRange,
+    hasNextPage,
+    isFetchingNextPage,
+    handleLoadMore,
   } = useServicesTab();
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
-    <ServiceCard
-      imageUrl={item.imageUrl}
-      category={getCategoryLabel(item.category)}
-      title={item.serviceName}
-      description={item.description}
-      price={item.priceUsd}
-      duration={item.durationMinutes}
-      onPress={() => handleServicePress(item)}
-      showFavoriteButton
-      serviceId={item.serviceId}
-      isFavorited={favoritedIds.has(item.serviceId)}
-    />
+    <View style={{ width: CARD_WIDTH, marginHorizontal: 4, marginVertical: 8 }}>
+      <ServiceCard
+        imageUrl={item.imageUrl}
+        category={getCategoryLabel(item.category)}
+        title={item.serviceName}
+        description={item.description}
+        price={item.priceUsd}
+        duration={item.durationMinutes}
+        onPress={() => handleServicePress(item)}
+        showFavoriteButton
+        serviceId={item.serviceId}
+        isFavorited={favoritedIds.has(item.serviceId)}
+      />
+    </View>
   );
 
   return (
@@ -160,17 +169,32 @@ export default function ServicesTabContent() {
       ) : (
         <FlatList
           data={filteredServices}
-          keyExtractor={(item, index) => `${item.serviceId}-${index}`}
+          keyExtractor={(item) => item.serviceId}
           renderItem={renderServiceItem}
           numColumns={2}
-          columnWrapperStyle={{ alignItems: "stretch" }}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          extraData={filteredServices.length}
           refreshControl={
             <RefreshControl
-              refreshing={isFetching}
+              refreshing={isFetching && !isFetchingNextPage}
               onRefresh={handleRefresh}
               tintColor="#FFCC00"
             />
+          }
+          ListFooterComponent={
+            hasNextPage ? (
+              <View className="py-4 items-center">
+                {isFetchingNextPage ? (
+                  <ActivityIndicator size="small" color="#FFCC00" />
+                ) : (
+                  <Pressable
+                    onPress={handleLoadMore}
+                    className="bg-zinc-800 px-6 py-3 rounded-full"
+                  >
+                    <Text className="text-[#FFCC00] font-semibold">Load More</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center pt-20">
