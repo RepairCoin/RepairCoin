@@ -32,6 +32,7 @@ import { ImageUploader} from "../ImageUploader";
 import apiClient from "@/services/api/client";
 import { AccessibilitySettings } from "../../accessibility/AccessibilitySettings";
 import { GeneralNotificationSettings } from "../../notifications/GeneralNotificationSettings";
+import { SubscriptionSettings } from "../../notifications/SubscriptionSettings";
 
 interface ShopData {
   // crossShopEnabled removed - universal redemption is now always enabled
@@ -739,8 +740,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {/* Notifications Tab Content */}
           {activeTab === "notifications" && (
-            <div>
+            <div className="space-y-6">
               <GeneralNotificationSettings userType="shop" />
+              <SubscriptionSettings userType="shop" />
             </div>
           )}
 

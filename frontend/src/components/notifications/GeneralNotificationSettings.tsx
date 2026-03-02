@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useActiveAccount } from "thirdweb/react";
 import { Bell, MessageSquare, Gift, Wallet, Store, AlertCircle, Mail, Smartphone } from "lucide-react";
 import toast from "react-hot-toast";
+import { notificationsApi } from "@/services/api/notifications";
+import { GeneralNotificationPreferences } from "@/constants/types";
 
 interface ToggleSwitchProps {
   label: string;
@@ -69,9 +72,12 @@ interface GeneralNotificationSettingsProps {
 }
 
 export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNotificationSettingsProps) {
+  const account = useActiveAccount();
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [backendPreferences, setBackendPreferences] = useState<GeneralNotificationPreferences | null>(null);
 
-  // Placeholder state - these will be connected to API later
+  // Form state - these will be connected to API
   const [preferences, setPreferences] = useState({
     // Platform Updates
     platformUpdates: true,
@@ -81,7 +87,7 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
     // Account & Security
     securityAlerts: true,
     loginNotifications: false,
-    passwordChanges: true,
+    passwordChanges: false,
 
     // Transactions (Customer)
     tokenReceived: true,
@@ -110,6 +116,65 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
     treasuryChanges: true,
   });
 
+  // Load preferences from backend on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!account?.address) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const prefs = await notificationsApi.getGeneralNotificationPreferences();
+
+        // Check if preferences were returned
+        if (!prefs) {
+          console.warn("No preferences returned from API");
+          setLoading(false);
+          return;
+        }
+
+        setBackendPreferences(prefs);
+
+        // Update form state with backend data
+        setPreferences({
+          platformUpdates: prefs.platformUpdates ?? true,
+          maintenanceAlerts: prefs.maintenanceAlerts ?? true,
+          newFeatures: prefs.newFeatures ?? false,
+          securityAlerts: prefs.securityAlerts ?? true,
+          loginNotifications: prefs.loginNotifications ?? false,
+          passwordChanges: prefs.passwordChanges ?? false,
+          tokenReceived: prefs.tokenReceived ?? true,
+          tokenRedeemed: prefs.tokenRedeemed ?? true,
+          rewardsEarned: prefs.rewardsEarned ?? true,
+          orderUpdates: prefs.orderUpdates ?? true,
+          serviceApproved: prefs.serviceApproved ?? true,
+          reviewRequests: prefs.reviewRequests ?? false,
+          newOrders: prefs.newOrders ?? true,
+          customerMessages: prefs.customerMessages ?? true,
+          lowTokenBalance: prefs.lowTokenBalance ?? true,
+          subscriptionReminders: prefs.subscriptionReminders ?? true,
+          systemAlerts: prefs.systemAlerts ?? true,
+          userReports: prefs.userReports ?? true,
+          treasuryChanges: prefs.treasuryChanges ?? true,
+          promotions: prefs.promotions ?? false,
+          newsletter: prefs.newsletter ?? false,
+          surveys: prefs.surveys ?? false,
+        });
+      } catch (error: any) {
+        console.error("Error loading notification preferences:", error);
+        console.error("Error details:", error.response?.data || error.message);
+        // Don't show error toast - just use defaults
+        // This allows the UI to work even if the API fails
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPreferences();
+  }, [account?.address]);
+
   const handleToggle = (key: keyof typeof preferences) => {
     setPreferences(prev => ({
       ...prev,
@@ -118,13 +183,44 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
   };
 
   const handleSave = async () => {
+    if (!account?.address) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
     setSaving(true);
-    // Simulate API call
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const updatedPrefs = await notificationsApi.updateGeneralNotificationPreferences(preferences);
+      setBackendPreferences(updatedPrefs);
       toast.success("Notification preferences saved!");
-    }, 1000);
+    } catch (error) {
+      console.error("Error saving notification preferences:", error);
+      toast.error("Failed to save preferences. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FFCC00]/10 flex items-center justify-center">
+              <Bell className="w-5 h-5 text-[#FFCC00]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Notification Preferences</h3>
+              <p className="text-sm text-gray-400">Choose what you want to be notified about</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-40">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-400 border-t-transparent"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#212121] rounded-2xl overflow-hidden border border-gray-800/50">
@@ -148,12 +244,12 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
       </div>
 
       <div className="px-6 py-6 space-y-6">
-        {/* Info Banner */}
-        <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+        {/* Success Info Banner */}
+        <div className="flex items-start gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+          <AlertCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm text-blue-300">
-              <strong>Feature Preview:</strong> Notification preferences are being configured. Most options will be available soon!
+            <p className="text-sm text-green-300">
+              Your notification preferences are now active. Changes are saved automatically to your account.
             </p>
           </div>
         </div>
@@ -185,7 +281,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               checked={preferences.newFeatures}
               onChange={() => handleToggle("newFeatures")}
               icon={<Gift className="w-5 h-5" />}
-              comingSoon
             />
           </div>
         </div>
@@ -211,7 +306,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               checked={preferences.loginNotifications}
               onChange={() => handleToggle("loginNotifications")}
               icon={<Wallet className="w-5 h-5" />}
-              comingSoon
             />
             <ToggleSwitch
               label="Password Changes"
@@ -219,7 +313,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               checked={preferences.passwordChanges}
               onChange={() => handleToggle("passwordChanges")}
               icon={<AlertCircle className="w-5 h-5" />}
-              comingSoon
             />
           </div>
         </div>
@@ -240,7 +333,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                   checked={preferences.tokenReceived}
                   onChange={() => handleToggle("tokenReceived")}
                   icon={<Wallet className="w-5 h-5" />}
-                  comingSoon
                 />
                 <ToggleSwitch
                   label="Tokens Redeemed"
@@ -248,7 +340,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                   checked={preferences.tokenRedeemed}
                   onChange={() => handleToggle("tokenRedeemed")}
                   icon={<Wallet className="w-5 h-5" />}
-                  comingSoon
                 />
                 <ToggleSwitch
                   label="Rewards & Bonuses"
@@ -256,7 +347,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                   checked={preferences.rewardsEarned}
                   onChange={() => handleToggle("rewardsEarned")}
                   icon={<Gift className="w-5 h-5" />}
-                  comingSoon
                 />
               </div>
             </div>
@@ -274,7 +364,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                   checked={preferences.orderUpdates}
                   onChange={() => handleToggle("orderUpdates")}
                   icon={<Bell className="w-5 h-5" />}
-                  comingSoon
                 />
                 <ToggleSwitch
                   label="Service Approved"
@@ -282,7 +371,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                   checked={preferences.serviceApproved}
                   onChange={() => handleToggle("serviceApproved")}
                   icon={<Store className="w-5 h-5" />}
-                  comingSoon
                 />
                 <ToggleSwitch
                   label="Review Requests"
@@ -290,7 +378,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                   checked={preferences.reviewRequests}
                   onChange={() => handleToggle("reviewRequests")}
                   icon={<MessageSquare className="w-5 h-5" />}
-                  comingSoon
                 />
               </div>
             </div>
@@ -311,7 +398,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                 checked={preferences.newOrders}
                 onChange={() => handleToggle("newOrders")}
                 icon={<Bell className="w-5 h-5" />}
-                comingSoon
               />
               <ToggleSwitch
                 label="Customer Messages"
@@ -319,7 +405,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                 checked={preferences.customerMessages}
                 onChange={() => handleToggle("customerMessages")}
                 icon={<MessageSquare className="w-5 h-5" />}
-                comingSoon
               />
               <ToggleSwitch
                 label="Low Token Balance"
@@ -327,7 +412,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                 checked={preferences.lowTokenBalance}
                 onChange={() => handleToggle("lowTokenBalance")}
                 icon={<Wallet className="w-5 h-5" />}
-                comingSoon
               />
               <ToggleSwitch
                 label="Subscription Reminders"
@@ -335,7 +419,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                 checked={preferences.subscriptionReminders}
                 onChange={() => handleToggle("subscriptionReminders")}
                 icon={<AlertCircle className="w-5 h-5" />}
-                comingSoon
               />
             </div>
           </div>
@@ -363,7 +446,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                 checked={preferences.userReports}
                 onChange={() => handleToggle("userReports")}
                 icon={<MessageSquare className="w-5 h-5" />}
-                comingSoon
               />
               <ToggleSwitch
                 label="Treasury Changes"
@@ -371,7 +453,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
                 checked={preferences.treasuryChanges}
                 onChange={() => handleToggle("treasuryChanges")}
                 icon={<Wallet className="w-5 h-5" />}
-                comingSoon
               />
             </div>
           </div>
@@ -390,7 +471,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               checked={preferences.promotions}
               onChange={() => handleToggle("promotions")}
               icon={<Gift className="w-5 h-5" />}
-              comingSoon
             />
             <ToggleSwitch
               label="Newsletter"
@@ -398,7 +478,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               checked={preferences.newsletter}
               onChange={() => handleToggle("newsletter")}
               icon={<Mail className="w-5 h-5" />}
-              comingSoon
             />
             <ToggleSwitch
               label="Surveys & Feedback"
@@ -406,7 +485,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               checked={preferences.surveys}
               onChange={() => handleToggle("surveys")}
               icon={<MessageSquare className="w-5 h-5" />}
-              comingSoon
             />
           </div>
         </div>

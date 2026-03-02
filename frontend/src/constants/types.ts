@@ -353,3 +353,87 @@ export interface AppointmentNotificationPreferences {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+// General Notification Preferences (for all user types)
+export interface GeneralNotificationPreferences {
+  id: string;
+  userAddress: string;
+  userType: 'customer' | 'shop' | 'admin';
+
+  // Platform & System Updates
+  platformUpdates: boolean;
+  maintenanceAlerts: boolean;
+  newFeatures: boolean;
+
+  // Account & Security
+  securityAlerts: boolean;
+  loginNotifications: boolean;
+  passwordChanges: boolean;
+
+  // Tokens & Rewards (Customer only)
+  tokenReceived: boolean;
+  tokenRedeemed: boolean;
+  rewardsEarned: boolean;
+
+  // Orders & Services (Customer only)
+  orderUpdates: boolean;
+  serviceApproved: boolean;
+  reviewRequests: boolean;
+
+  // Shop Operations (Shop only)
+  newOrders: boolean;
+  customerMessages: boolean;
+  lowTokenBalance: boolean;
+  subscriptionReminders: boolean;
+
+  // Admin Alerts (Admin only)
+  systemAlerts: boolean;
+  userReports: boolean;
+  treasuryChanges: boolean;
+
+  // Marketing & Promotions (All users)
+  promotions: boolean;
+  newsletter: boolean;
+  surveys: boolean;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UpdateGeneralNotificationPreferences {
+  // Platform & System Updates
+  platformUpdates?: boolean;
+  maintenanceAlerts?: boolean;
+  newFeatures?: boolean;
+
+  // Account & Security
+  securityAlerts?: boolean;
+  loginNotifications?: boolean;
+  passwordChanges?: boolean;
+
+  // Tokens & Rewards (Customer only)
+  tokenReceived?: boolean;
+  tokenRedeemed?: boolean;
+  rewardsEarned?: boolean;
+
+  // Orders & Services (Customer only)
+  orderUpdates?: boolean;
+  serviceApproved?: boolean;
+  reviewRequests?: boolean;
+
+  // Shop Operations (Shop only)
+  newOrders?: boolean;
+  customerMessages?: boolean;
+  lowTokenBalance?: boolean;
+  subscriptionReminders?: boolean;
+
+  // Admin Alerts (Admin only)
+  systemAlerts?: boolean;
+  userReports?: boolean;
+  treasuryChanges?: boolean;
+
+  // Marketing & Promotions (All users)
+  promotions?: boolean;
+  newsletter?: boolean;
+  surveys?: boolean;
+}
