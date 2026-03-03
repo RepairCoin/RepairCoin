@@ -32,6 +32,14 @@ export interface GeneralNotificationPreferences {
   lowTokenBalance: boolean;
   subscriptionReminders: boolean;
 
+  // Subscription Notifications (Shop only)
+  paymentReminders: boolean;
+  paymentFailureAlerts: boolean;
+  subscriptionRenewalNotices: boolean;
+  subscriptionExpirationWarnings: boolean;
+  paymentMethodExpiring: boolean;
+  billingReceiptNotifications: boolean;
+
   // Admin Alerts (Admin only)
   systemAlerts: boolean;
   userReports: boolean;
@@ -72,6 +80,14 @@ export interface UpdatePreferencesParams {
   customerMessages?: boolean;
   lowTokenBalance?: boolean;
   subscriptionReminders?: boolean;
+
+  // Subscription Notifications (Shop only)
+  paymentReminders?: boolean;
+  paymentFailureAlerts?: boolean;
+  subscriptionRenewalNotices?: boolean;
+  subscriptionExpirationWarnings?: boolean;
+  paymentMethodExpiring?: boolean;
+  billingReceiptNotifications?: boolean;
 
   // Admin Alerts (Admin only)
   systemAlerts?: boolean;
@@ -114,6 +130,12 @@ export class GeneralNotificationPreferencesRepository extends BaseRepository {
           customer_messages as "customerMessages",
           low_token_balance as "lowTokenBalance",
           subscription_reminders as "subscriptionReminders",
+          payment_reminders as "paymentReminders",
+          payment_failure_alerts as "paymentFailureAlerts",
+          subscription_renewal_notices as "subscriptionRenewalNotices",
+          subscription_expiration_warnings as "subscriptionExpirationWarnings",
+          payment_method_expiring as "paymentMethodExpiring",
+          billing_receipt_notifications as "billingReceiptNotifications",
           system_alerts as "systemAlerts",
           user_reports as "userReports",
           treasury_changes as "treasuryChanges",
@@ -173,6 +195,12 @@ export class GeneralNotificationPreferencesRepository extends BaseRepository {
           customer_messages as "customerMessages",
           low_token_balance as "lowTokenBalance",
           subscription_reminders as "subscriptionReminders",
+          payment_reminders as "paymentReminders",
+          payment_failure_alerts as "paymentFailureAlerts",
+          subscription_renewal_notices as "subscriptionRenewalNotices",
+          subscription_expiration_warnings as "subscriptionExpirationWarnings",
+          payment_method_expiring as "paymentMethodExpiring",
+          billing_receipt_notifications as "billingReceiptNotifications",
           system_alerts as "systemAlerts",
           user_reports as "userReports",
           treasury_changes as "treasuryChanges",
@@ -233,6 +261,12 @@ export class GeneralNotificationPreferencesRepository extends BaseRepository {
         customerMessages: 'customer_messages',
         lowTokenBalance: 'low_token_balance',
         subscriptionReminders: 'subscription_reminders',
+        paymentReminders: 'payment_reminders',
+        paymentFailureAlerts: 'payment_failure_alerts',
+        subscriptionRenewalNotices: 'subscription_renewal_notices',
+        subscriptionExpirationWarnings: 'subscription_expiration_warnings',
+        paymentMethodExpiring: 'payment_method_expiring',
+        billingReceiptNotifications: 'billing_receipt_notifications',
         systemAlerts: 'system_alerts',
         userReports: 'user_reports',
         treasuryChanges: 'treasury_changes',
@@ -282,6 +316,12 @@ export class GeneralNotificationPreferencesRepository extends BaseRepository {
           customer_messages as "customerMessages",
           low_token_balance as "lowTokenBalance",
           subscription_reminders as "subscriptionReminders",
+          payment_reminders as "paymentReminders",
+          payment_failure_alerts as "paymentFailureAlerts",
+          subscription_renewal_notices as "subscriptionRenewalNotices",
+          subscription_expiration_warnings as "subscriptionExpirationWarnings",
+          payment_method_expiring as "paymentMethodExpiring",
+          billing_receipt_notifications as "billingReceiptNotifications",
           system_alerts as "systemAlerts",
           user_reports as "userReports",
           treasury_changes as "treasuryChanges",

@@ -386,6 +386,14 @@ export interface GeneralNotificationPreferences {
   lowTokenBalance: boolean;
   subscriptionReminders: boolean;
 
+  // Subscription Notifications (Shop only)
+  paymentReminders: boolean;
+  paymentFailureAlerts: boolean;
+  subscriptionRenewalNotices: boolean;
+  subscriptionExpirationWarnings: boolean;
+  paymentMethodExpiring: boolean;
+  billingReceiptNotifications: boolean;
+
   // Admin Alerts (Admin only)
   systemAlerts: boolean;
   userReports: boolean;
@@ -426,6 +434,14 @@ export interface UpdateGeneralNotificationPreferences {
   customerMessages?: boolean;
   lowTokenBalance?: boolean;
   subscriptionReminders?: boolean;
+
+  // Subscription Notifications (Shop only)
+  paymentReminders?: boolean;
+  paymentFailureAlerts?: boolean;
+  subscriptionRenewalNotices?: boolean;
+  subscriptionExpirationWarnings?: boolean;
+  paymentMethodExpiring?: boolean;
+  billingReceiptNotifications?: boolean;
 
   // Admin Alerts (Admin only)
   systemAlerts?: boolean;

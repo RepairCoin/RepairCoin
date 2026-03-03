@@ -33,6 +33,7 @@ import apiClient from "@/services/api/client";
 import { AccessibilitySettings } from "../../accessibility/AccessibilitySettings";
 import { GeneralNotificationSettings } from "../../notifications/GeneralNotificationSettings";
 import { SubscriptionSettings } from "../../notifications/SubscriptionSettings";
+import { SubscriptionNotificationSettings } from "../../notifications/SubscriptionNotificationSettings";
 
 interface ShopData {
   // crossShopEnabled removed - universal redemption is now always enabled
@@ -748,21 +749,26 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {/* Subscription Tab Content */}
           {activeTab === "subscription" && (
-            <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Subscription
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Manage your RepairCoin subscription
-              </p>
-              {shopData && shopData.operational_status !== "rcg_qualified" && (
-                <SubscriptionManagement
-                  shopId={shopId}
-                  shopWallet={shopData.walletAddress}
-                  isSuspended={isSuspended}
-                  isPaused={isPaused}
-                />
-              )}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
+                  Subscription
+                </h2>
+                <p className="text-sm text-gray-400 mb-6">
+                  Manage your RepairCoin subscription
+                </p>
+                {shopData && shopData.operational_status !== "rcg_qualified" && (
+                  <SubscriptionManagement
+                    shopId={shopId}
+                    shopWallet={shopData.walletAddress}
+                    isSuspended={isSuspended}
+                    isPaused={isPaused}
+                  />
+                )}
+              </div>
+
+              {/* Subscription Notification Settings */}
+              <SubscriptionNotificationSettings userType="shop" />
             </div>
           )}
 
