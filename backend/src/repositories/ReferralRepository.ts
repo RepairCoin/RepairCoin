@@ -5,8 +5,9 @@ export interface Referral {
   id: string;
   referralCode: string;
   referrerAddress: string;
+  refereeAddress: string;
+  /** @deprecated Use refereeAddress instead */
   referredAddress: string;
-  refereeAddress?: string;
   status: 'pending' | 'completed' | 'expired';
   createdAt: string;
   completedAt?: string;
@@ -38,32 +39,43 @@ export interface ReferralStats {
 }
 
 export class ReferralRepository extends BaseRepository {
+  private generateReferralCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
   async createReferral(
     referrerAddress: string,
     refereeAddress?: string,
     metadata?: object
   ): Promise<Referral> {
     try {
+      const referralCode = this.generateReferralCode();
       const query = `
         INSERT INTO referrals (
           referral_code,
           referrer_address,
-          referred_address,
+          referee_address,
           status,
           expires_at,
           metadata
         ) VALUES (
-          generate_referral_code(),
           $1,
           $2,
+          $3,
           'pending',
           CURRENT_TIMESTAMP + INTERVAL '30 days',
-          $3
+          $4
         )
         RETURNING *
       `;
 
       const result = await this.pool.query(query, [
+        referralCode,
         referrerAddress.toLowerCase(),
         refereeAddress?.toLowerCase() || null,
         JSON.stringify(metadata || {})
@@ -615,12 +627,13 @@ export class ReferralRepository extends BaseRepository {
   }
 
   private mapReferralFromDb(row: any): Referral {
+    const refereeAddr = row.referee_address || '';
     return {
       id: row.id,
       referralCode: row.referral_code,
       referrerAddress: row.referrer_address,
-      referredAddress: row.referred_address,
-      refereeAddress: row.referee_address,
+      refereeAddress: refereeAddr,
+      referredAddress: refereeAddr, // Alias for backwards compatibility
       status: row.status,
       createdAt: row.created_at,
       completedAt: row.completed_at,

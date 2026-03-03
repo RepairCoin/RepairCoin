@@ -48,7 +48,7 @@ export function ReferralDashboard() {
             totalReferrals: resp.data.totalReferrals || 0,
             successfulReferrals: resp.data.successfulReferrals || 0,
             pendingReferrals: resp.data.pendingReferrals || 0,
-            totalEarned: resp.data.totalEarned?.toString() || "0",
+            totalEarned: resp.data.totalEarned ?? 0,
             referrals: resp.data.referrals || [],
           });
         }
@@ -372,7 +372,7 @@ export function ReferralDashboard() {
                       </span>
                       <span className="text-right text-xs font-medium text-green-400">
                         {referral.status === "completed"
-                          ? `+${referral.rewardAmount || 15} RCN`
+                          ? "+25 RCN"
                           : "—"}
                       </span>
                     </div>

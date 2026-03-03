@@ -247,7 +247,7 @@ export const OverviewTab: React.FC = () => {
 
   // Mint to Wallet functionality
   const handleMintToWallet = async () => {
-    if (!account?.address) {
+    if (!walletAddress) {
       toast.error("Please connect your wallet first");
       return;
     }
@@ -273,7 +273,7 @@ export const OverviewTab: React.FC = () => {
 
     try {
       const result = (await apiClient.post(
-        `/customers/balance/${account.address}/instant-mint`,
+        `/customers/balance/${walletAddress}/instant-mint`,
         { amount }
       )) as {
         success: boolean;

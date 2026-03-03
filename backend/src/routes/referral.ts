@@ -43,7 +43,7 @@ router.post('/generate', authMiddleware, requireRole(['customer']), async (req: 
     }
 
     const referralCode = await referralService.generateReferralCode(customerAddress);
-    const referralLink = `${process.env.FRONTEND_URL}/register?ref=${referralCode}`;
+    const referralLink = `${process.env.FRONTEND_URL}/register/customer?ref=${referralCode}`;
 
     res.json({
       success: true,
