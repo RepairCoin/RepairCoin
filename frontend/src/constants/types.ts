@@ -102,7 +102,7 @@ export interface Shop {
 // Transaction Types
 export interface Transaction {
   id: string | number;
-  type: 'earned' | 'redeemed' | 'bonus' | 'referral' | 'mint' | 'purchase' | 'redemption';
+  type: 'earned' | 'redeemed' | 'bonus' | 'referral' | 'tier_bonus' | 'mint' | 'purchase' | 'redemption' | 'transfer' | 'transfer_in' | 'transfer_out' | 'shop_purchase' | 'rejected_redemption' | 'cancelled_redemption' | 'cross_shop_verification' | 'service_redemption' | 'service_redemption_refund';
   amount: number;
   shopId?: string;
   shopName?: string;
@@ -114,6 +114,7 @@ export interface Transaction {
   status?: 'completed' | 'pending' | 'failed';
   txHash?: string;
   details?: any;
+  metadata?: any;
 }
 
 // Referral Types
