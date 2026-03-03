@@ -248,8 +248,12 @@ export class ShopRepository extends BaseRepository {
 
       logger.info('Created default time slot config and availability', { shopId });
     } catch (error) {
-      // Log but don't fail shop creation - time slot config is not critical
-      logger.warn('Failed to create default time slot config (non-fatal)', { shopId, error });
+      // Don't fail shop creation, but log as ERROR - lazy init in AppointmentService will recover
+      logger.error('CRITICAL: Failed to create default time slot config for new shop (lazy init will recover)', {
+        shopId,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
     }
   }
 
