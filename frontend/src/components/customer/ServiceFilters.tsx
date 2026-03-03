@@ -116,7 +116,7 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
           <select
             value={filters.category || ""}
             onChange={(e) => handleCategoryChange(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#FFCC00] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 cursor-pointer transition-colors w-full sm:min-w-[140px]"
+            className="bg-[#1A1A1A] border border-gray-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#FFCC00] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 cursor-pointer transition-colors w-full sm:min-w-[140px]"
           >
             <option value="">All Categories</option>
             {SERVICE_CATEGORIES.map((cat) => (
@@ -130,7 +130,7 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
           <select
             value={filters.sortBy || "newest"}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#FFCC00] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 cursor-pointer transition-colors w-full sm:min-w-[150px]"
+            className="bg-[#1A1A1A] border border-gray-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#FFCC00] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 cursor-pointer transition-colors w-full sm:min-w-[150px]"
           >
             <option value="newest">Newest First</option>
             <option value="rating_desc">Highest Rated</option>
@@ -142,7 +142,7 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
           {/* Advanced Filters Toggle */}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-center gap-2 bg-gray-800 border border-gray-700 text-white text-sm px-4 py-3 rounded-lg hover:border-[#FFCC00]/50 transition-colors"
+            className="flex items-center justify-center gap-2 bg-[#1A1A1A] border border-gray-800 text-white text-sm px-4 py-3 rounded-lg hover:border-[#FFCC00]/50 transition-colors"
           >
             <span>Filters</span>
             <span className="flex-1" />
@@ -153,7 +153,7 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
           {hasActiveFilters && (
             <button
               onClick={onReset}
-              className="flex items-center justify-center gap-1.5 bg-gray-800 border border-gray-700 text-white text-sm px-3 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+              className="flex items-center justify-center gap-1.5 bg-[#1A1A1A] border border-gray-800 text-white text-sm px-3 py-3 rounded-lg hover:bg-gray-700 transition-colors"
               title="Clear filters"
             >
               <X className="w-4 h-4" />
