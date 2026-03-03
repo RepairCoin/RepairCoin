@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import toast from "react-hot-toast";
 import {
@@ -18,6 +18,7 @@ import Tooltip from "../ui/tooltip";
 import { useAuthStore } from "@/stores/authStore";
 import { useCustomerStore } from "@/stores/customerStore";
 import { SuspendedActionModal } from "./SuspendedActionModal";
+import apiClient from "@/services/api/client";
 
 interface TransferForm {
   recipientAddress: string;
@@ -40,7 +41,8 @@ interface TransferHistory {
 export function TokenGiftingTab() {
   const account = useActiveAccount();
   const { userProfile } = useAuthStore();
-  const { balanceData } = useCustomerStore();
+  const { balanceData, fetchCustomerData } = useCustomerStore();
+  const walletAddress = account?.address || userProfile?.address;
   const [isLoading, setIsLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -63,34 +65,26 @@ export function TokenGiftingTab() {
     recipientExists: boolean;
   } | null>(null);
 
-  const validateTransfer = async () => {
-    if (!formData.recipientAddress || !formData.amount || !account?.address) {
+  const validateTransfer = useCallback(async () => {
+    if (!formData.recipientAddress || !formData.amount || !walletAddress) {
       setValidation(null);
       return;
     }
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/validate-transfer`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fromAddress: account.address,
-            toAddress: formData.recipientAddress,
-            amount: parseFloat(formData.amount),
-          }),
-        }
-      );
+      const result = await apiClient.post("/tokens/validate-transfer", {
+        fromAddress: walletAddress,
+        toAddress: formData.recipientAddress,
+        amount: parseFloat(formData.amount),
+      });
 
-      const result = await response.json();
       if (result.success) {
         setValidation(result.data);
       }
     } catch (error) {
       console.error("Validation error:", error);
     }
-  };
+  }, [formData.recipientAddress, formData.amount, walletAddress]);
 
   const handleQRScan = (result: string) => {
     if (/^0x[a-fA-F0-9]{40}$/.test(result)) {
@@ -108,7 +102,7 @@ export function TokenGiftingTab() {
       return;
     }
 
-    if (!account?.address || !formData.recipientAddress || !formData.amount) {
+    if (!walletAddress || !formData.recipientAddress || !formData.amount) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -122,36 +116,28 @@ export function TokenGiftingTab() {
   };
 
   const confirmSendTokens = async () => {
-    if (!account?.address) return;
+    if (!walletAddress) return;
 
     setIsLoading(true);
     setShowConfirmModal(false);
 
     try {
-      const mockTransactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/transfer`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fromAddress: account.address,
-            toAddress: formData.recipientAddress,
-            amount: parseFloat(formData.amount),
-            message: formData.message,
-            transactionHash: mockTransactionHash,
-          }),
-        }
-      );
-
-      const result = await response.json();
+      const result = await apiClient.post("/tokens/transfer", {
+        fromAddress: walletAddress,
+        toAddress: formData.recipientAddress,
+        amount: parseFloat(formData.amount),
+        message: formData.message,
+      });
 
       if (result.success) {
         toast.success(`Successfully sent ${formData.amount} RCN tokens!`);
         setFormData({ recipientAddress: "", amount: "", message: "" });
         setValidation(null);
         fetchTransferHistory();
+        // Refresh store balance so the UI reflects the deduction immediately
+        if (walletAddress) {
+          fetchCustomerData(walletAddress, true);
+        }
       } else {
         toast.error(result.message || "Transfer failed");
       }
@@ -163,15 +149,12 @@ export function TokenGiftingTab() {
     }
   };
 
-  const fetchTransferHistory = async () => {
-    if (!account?.address) return;
+  const fetchTransferHistory = useCallback(async () => {
+    if (!walletAddress) return;
 
     setLoadingHistory(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/transfer-history/${account.address}`
-      );
-      const result = await response.json();
+      const result = await apiClient.get(`/tokens/transfer-history/${walletAddress}`);
 
       if (result.success) {
         setTransferHistory(result.data.transfers);
@@ -181,17 +164,31 @@ export function TokenGiftingTab() {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [walletAddress]);
+
+  // Fetch customer data (including balance) if not already loaded
+  useEffect(() => {
+    if (walletAddress && !balanceData) {
+      fetchCustomerData(walletAddress);
+    }
+  }, [walletAddress, balanceData, fetchCustomerData]);
 
   useEffect(() => {
     fetchTransferHistory();
-  }, [account?.address]);
+  }, [fetchTransferHistory]);
 
   useEffect(() => {
-    if (formData.recipientAddress && formData.amount) {
-      validateTransfer();
+    if (!formData.recipientAddress || !formData.amount) {
+      setValidation(null);
+      return;
     }
-  }, [formData.recipientAddress, formData.amount]);
+
+    const debounceTimer = setTimeout(() => {
+      validateTransfer();
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [formData.recipientAddress, formData.amount, validateTransfer]);
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -584,8 +581,8 @@ export function TokenGiftingTab() {
 
               <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
                 <p className="text-xs text-blue-300">
-                  The recipient can redeem these tokens at any participating shop
-                  (20% value) or at the shop where you earned them (100% value).
+                  Gifted tokens are transferred directly to the recipient&apos;s
+                  balance. This action cannot be reversed.
                 </p>
               </div>
             </div>

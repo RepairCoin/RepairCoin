@@ -315,10 +315,12 @@ export class CustomerRepository extends BaseRepository {
     amount: number
   ): Promise<void> {
     try {
+      // Only update current_rcn_balance — NOT lifetime_earnings.
+      // lifetime_earnings is cumulative from repairs/bonuses and must never be
+      // reduced by gifting (would corrupt tier calculations).
       const query = `
         UPDATE customers
         SET
-          lifetime_earnings = GREATEST(0, COALESCE(lifetime_earnings, 0) + $1),
           current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) + $1),
           updated_at = NOW()
         WHERE address = $2
@@ -609,6 +611,7 @@ export class CustomerRepository extends BaseRepository {
    * Get customer's enhanced balance information for hybrid database/blockchain system
    */
   async getCustomerBalance(address: string): Promise<{
+    currentRcnBalance: number;
     databaseBalance: number;
     pendingMintBalance: number;
     totalBalance: number;
@@ -666,6 +669,7 @@ export class CustomerRepository extends BaseRepository {
       }
 
       const row = result.rows[0];
+      const currentRcnBalance = parseFloat(row.current_rcn_balance || '0');
       const pendingMintBalance = parseFloat(row.pending_mint_balance || '0');
       const lifetimeEarnings = parseFloat(row.lifetime_earnings || '0');
       const totalRedemptions = parseFloat(row.total_redemptions || '0');
@@ -676,6 +680,7 @@ export class CustomerRepository extends BaseRepository {
       const calculatedAvailableBalance = parseFloat(row.calculated_available_balance || '0');
 
       return {
+        currentRcnBalance: currentRcnBalance,
         databaseBalance: calculatedAvailableBalance,
         pendingMintBalance: pendingMintBalance,
         totalBalance: lifetimeEarnings - totalRedemptions - totalMintedToWallet, // Total tokens customer owns (excluding already minted)

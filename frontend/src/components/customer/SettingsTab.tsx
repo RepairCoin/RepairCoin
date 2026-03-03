@@ -33,6 +33,7 @@ import { GeneralNotificationSettings } from "../notifications/GeneralNotificatio
 export function SettingsTab() {
   const account = useActiveAccount();
   const { userProfile, switchingAccount } = useAuthStore();
+  const walletAddress = account?.address || userProfile?.address;
   const {
     customerData,
     isLoading,
@@ -203,13 +204,13 @@ export function SettingsTab() {
       return;
     }
 
-    if (!account?.address) {
+    if (!walletAddress) {
       toast.error("No wallet address found");
       return;
     }
 
     try {
-      const qrData = await QRCode.toDataURL(account.address, {
+      const qrData = await QRCode.toDataURL(walletAddress, {
         width: 256,
         margin: 2,
         color: {
@@ -229,7 +230,7 @@ export function SettingsTab() {
     if (!qrCodeData) return;
 
     const link = document.createElement("a");
-    link.download = `wallet-qr-${account?.address?.slice(0, 6)}.png`;
+    link.download = `wallet-qr-${walletAddress?.slice(0, 6)}.png`;
     link.href = qrCodeData;
     link.click();
     toast.success("QR code downloaded!");
@@ -349,13 +350,13 @@ export function SettingsTab() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  value={account?.address || ""}
+                  value={walletAddress || ""}
                   disabled
                   className="flex-1 px-4 py-3 bg-[#2F2F2F] text-gray-400 rounded-xl border border-gray-700 focus:outline-none cursor-not-allowed font-mono text-sm truncate"
                 />
                 <button
                   onClick={() =>
-                    copyToClipboard(account?.address || "", "Wallet address")
+                    copyToClipboard(walletAddress || "", "Wallet address")
                   }
                   className="px-3 py-3 bg-[#2F2F2F] border border-gray-700 text-gray-400 rounded-xl hover:text-[#FFCC00] hover:border-[#FFCC00]/50 transition-colors"
                   title="Copy wallet address"
@@ -607,14 +608,14 @@ export function SettingsTab() {
                   />
 
                   <div className="text-sm text-gray-300 break-all bg-[#2F2F2F] p-3 rounded-lg font-mono">
-                    {account?.address}
+                    {walletAddress}
                   </div>
 
                   <div className="flex gap-3 justify-center">
                     <button
                       onClick={() =>
                         copyToClipboard(
-                          account?.address || "",
+                          walletAddress || "",
                           "Wallet address"
                         )
                       }

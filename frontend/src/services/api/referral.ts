@@ -36,7 +36,7 @@ export const generateReferralCode = async (): Promise<{
   shareUrl: string;
 } | null> => {
   try {
-    const response = await apiClient.post<{ code: string }>('/referral/generate', {});
+    const response = await apiClient.post<{ code: string }>('/referrals/generate', {});
     
     if (response.data) {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -54,7 +54,7 @@ export const generateReferralCode = async (): Promise<{
 
 export const validateReferralCode = async (code: string): Promise<ReferralValidation> => {
   try {
-    const response = await apiClient.get<ReferralValidation>(`/referral/validate/${code}`);
+    const response = await apiClient.get<ReferralValidation>(`/referrals/validate/${code}`);
     return response.data || { isValid: false, message: 'Invalid referral code' };
   } catch (error) {
     console.error('Error validating referral code:', error);
@@ -68,7 +68,7 @@ export const validateReferralCode = async (code: string): Promise<ReferralValida
 // Statistics
 export const getReferralStats = async (): Promise<ReferralStats | null> => {
   try {
-    const response = await apiClient.get<ReferralStats>('/referral/stats');
+    const response = await apiClient.get<ReferralStats>('/referrals/stats');
     
     if (response.data) {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -105,7 +105,7 @@ export const getReferralLeaderboard = async (params?: {
       name?: string;
       referralCount: number;
       totalEarned: number;
-    }>>(`/referral/leaderboard${queryString}`);
+    }>>(`/referrals/leaderboard${queryString}`);
     return response.data || [];
   } catch (error) {
     console.error('Error getting referral leaderboard:', error);
@@ -127,7 +127,7 @@ export const getReferralHistory = async (address: string): Promise<Referral[]> =
 // Tracking
 export const trackReferralClick = async (code: string): Promise<boolean> => {
   try {
-    await apiClient.post('/referral/track-click', { code });
+    await apiClient.post('/referrals/track-click', { code });
     return true;
   } catch (error) {
     console.error('Error tracking referral click:', error);
@@ -149,7 +149,7 @@ export const completeReferral = async (
       success: boolean;
       rewardAmount?: number;
       txHash?: string;
-    }>('/referral/complete', {
+    }>('/referrals/complete', {
       referredAddress,
       referralCode,
     });
@@ -180,7 +180,7 @@ export const getPendingReferralRewards = async (address: string): Promise<{
         status: string;
         expectedReward: number;
       }>;
-    }>(`/referral/pending-rewards/${address}`);
+    }>(`/referrals/pending-rewards/${address}`);
     
     return response.data || {
       pendingAmount: 0,
