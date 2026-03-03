@@ -378,16 +378,25 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
               {averageRating > 0 && (
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`w-5 h-5 ${
-                          star <= Math.round(averageRating)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-600"
-                        }`}
-                      />
-                    ))}
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const fullStars = Math.floor(averageRating);
+                      const fraction = averageRating - fullStars;
+
+                      if (star <= fullStars) {
+                        return <Star key={star} className="w-5 h-5 fill-yellow-400 text-yellow-400" />;
+                      } else if (star === fullStars + 1 && fraction > 0) {
+                        return (
+                          <div key={star} className="relative w-5 h-5">
+                            <Star className="w-5 h-5 text-gray-600 absolute inset-0" />
+                            <div className="absolute inset-0" style={{ clipPath: `inset(0 ${(1 - fraction) * 100}% 0 0)` }}>
+                              <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        return <Star key={star} className="w-5 h-5 text-gray-600" />;
+                      }
+                    })}
                   </div>
                   <span className="text-white font-semibold">{averageRating.toFixed(1)}</span>
                   <span className="text-gray-400">({totalReviews} reviews)</span>
