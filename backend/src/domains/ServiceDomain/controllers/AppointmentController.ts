@@ -92,7 +92,12 @@ export class AppointmentController {
         return res.status(400).json({ success: false, error: 'shopId is required' });
       }
 
-      const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+      // Lazy init: auto-create defaults if missing
+      let config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+      if (!config) {
+        logger.warn('No time slot config found in public endpoint, auto-creating defaults', { shopId });
+        config = await this.appointmentRepo.updateTimeSlotConfig({ shopId });
+      }
 
       res.json({
         success: true,
@@ -190,7 +195,8 @@ export class AppointmentController {
         maxConcurrentBookings,
         bookingAdvanceDays,
         minBookingHours,
-        allowWeekendBooking
+        allowWeekendBooking,
+        timezone
       } = req.body;
 
       // Validate all fields before saving
@@ -251,7 +257,8 @@ export class AppointmentController {
         maxConcurrentBookings,
         bookingAdvanceDays,
         minBookingHours,
-        allowWeekendBooking
+        allowWeekendBooking,
+        timezone
       });
 
       res.json({

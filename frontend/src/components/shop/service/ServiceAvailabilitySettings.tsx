@@ -139,11 +139,13 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
     try {
       setSaving(true);
       await appointmentsApi.updateTimeSlotConfig({
-        bufferTimeMinutes: timeSlotConfig?.bufferTimeMinutes || 15,
-        maxConcurrentBookings: timeSlotConfig?.maxConcurrentBookings || 1,
-        bookingAdvanceDays: timeSlotConfig?.bookingAdvanceDays || 30,
-        minBookingHours: timeSlotConfig?.minBookingHours || 2,
-        allowWeekendBooking: timeSlotConfig?.allowWeekendBooking ?? true
+        slotDurationMinutes: timeSlotConfig?.slotDurationMinutes ?? 60,
+        bufferTimeMinutes: timeSlotConfig?.bufferTimeMinutes ?? 15,
+        maxConcurrentBookings: timeSlotConfig?.maxConcurrentBookings ?? 1,
+        bookingAdvanceDays: timeSlotConfig?.bookingAdvanceDays ?? 30,
+        minBookingHours: timeSlotConfig?.minBookingHours ?? 2,
+        allowWeekendBooking: timeSlotConfig?.allowWeekendBooking ?? true,
+        timezone: timeSlotConfig?.timezone ?? 'America/New_York',
       });
       setConfigSaved(true);
       toast.success('Time slot configuration updated successfully');
@@ -299,7 +301,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                 </label>
                 <input
                   type="number"
-                  value={timeSlotConfig?.bufferTimeMinutes || 30}
+                  value={timeSlotConfig?.bufferTimeMinutes ?? 15}
                   onChange={(e) => {
                     const value = parseInt(e.target.value) || 0;
                     setTimeSlotConfig({ ...timeSlotConfig, bufferTimeMinutes: Math.max(0, Math.min(120, value)) });
@@ -321,7 +323,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                 </label>
                 <input
                   type="number"
-                  value={timeSlotConfig?.maxConcurrentBookings || 1}
+                  value={timeSlotConfig?.maxConcurrentBookings ?? 1}
                   onChange={(e) => {
                     const value = parseInt(e.target.value) || 1;
                     setTimeSlotConfig({ ...timeSlotConfig, maxConcurrentBookings: Math.max(1, Math.min(50, value)) });
@@ -342,7 +344,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                 </label>
                 <input
                   type="number"
-                  value={timeSlotConfig?.bookingAdvanceDays || 30}
+                  value={timeSlotConfig?.bookingAdvanceDays ?? 30}
                   onChange={(e) => {
                     const value = parseInt(e.target.value) || 30;
                     setTimeSlotConfig({ ...timeSlotConfig, bookingAdvanceDays: Math.max(1, Math.min(365, value)) });
@@ -363,7 +365,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                 </label>
                 <input
                   type="number"
-                  value={timeSlotConfig?.minBookingHours || 2}
+                  value={timeSlotConfig?.minBookingHours ?? 2}
                   onChange={(e) => {
                     const value = parseInt(e.target.value) || 0;
                     setTimeSlotConfig({ ...timeSlotConfig, minBookingHours: Math.max(0, Math.min(168, value)) });

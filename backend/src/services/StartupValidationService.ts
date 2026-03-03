@@ -1,4 +1,5 @@
 import { AdminRoleConflictService } from './AdminRoleConflictService';
+import { getSharedPool } from '../utils/database-pool';
 import { logger } from '../utils/logger';
 
 export class StartupValidationService {
@@ -190,6 +191,64 @@ export class StartupValidationService {
   }
 
   /**
+   * Ensure all shops have required appointment scheduling data.
+   * Auto-creates missing shop_time_slot_config and shop_availability rows.
+   * This catches gaps from migration failures, silent creation errors, or manual DB inserts.
+   */
+  async ensureShopDataIntegrity(): Promise<void> {
+    const pool = getSharedPool();
+
+    try {
+      // Auto-create missing shop_time_slot_config rows
+      const configResult = await pool.query(`
+        INSERT INTO shop_time_slot_config (shop_id)
+        SELECT s.shop_id FROM shops s
+        WHERE NOT EXISTS (
+          SELECT 1 FROM shop_time_slot_config tc WHERE tc.shop_id = s.shop_id
+        )
+        RETURNING shop_id;
+      `);
+
+      if (configResult.rowCount && configResult.rowCount > 0) {
+        logger.warn('Auto-created missing time slot configs on startup', {
+          count: configResult.rowCount,
+          shopIds: configResult.rows.map((r: any) => r.shop_id)
+        });
+      }
+
+      // Auto-create missing shop_availability rows (Mon-Fri 9am-6pm, weekends closed)
+      const availResult = await pool.query(`
+        INSERT INTO shop_availability (shop_id, day_of_week, is_open, open_time, close_time)
+        SELECT s.shop_id, d.day,
+          CASE WHEN d.day BETWEEN 1 AND 5 THEN true ELSE false END,
+          CASE WHEN d.day BETWEEN 1 AND 5 THEN '09:00:00'::time ELSE NULL END,
+          CASE WHEN d.day BETWEEN 1 AND 5 THEN '18:00:00'::time ELSE NULL END
+        FROM shops s
+        CROSS JOIN generate_series(0, 6) AS d(day)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM shop_availability sa
+          WHERE sa.shop_id = s.shop_id AND sa.day_of_week = d.day
+        )
+        ON CONFLICT (shop_id, day_of_week) DO NOTHING
+        RETURNING shop_id, day_of_week;
+      `);
+
+      if (availResult.rowCount && availResult.rowCount > 0) {
+        const uniqueShops = [...new Set(availResult.rows.map((r: any) => r.shop_id))];
+        logger.warn('Auto-created missing availability rows on startup', {
+          rowsCreated: availResult.rowCount,
+          shopsAffected: uniqueShops.length,
+          shopIds: uniqueShops
+        });
+      }
+
+      logger.info('Shop data integrity check passed');
+    } catch (error) {
+      logger.error('Shop data integrity check failed (non-fatal):', error);
+    }
+  }
+
+  /**
    * Full startup validation including environment and admin addresses
    */
   async performFullStartupValidation(): Promise<{
@@ -206,9 +265,12 @@ export class StartupValidationService {
 
     // Environment validation
     const envValidation = this.validateEnvironmentConfig();
-    
+
     // Admin address validation
     const adminValidation = await this.validateAdminAddressesOnStartup();
+
+    // Data integrity: ensure all shops have time slot configs and availability
+    await this.ensureShopDataIntegrity();
 
     const criticalIssues = envValidation.issues.length + adminValidation.errors.length;
     const warnings = adminValidation.warnings.length;
