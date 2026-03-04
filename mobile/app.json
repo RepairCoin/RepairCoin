@@ -11,9 +11,9 @@
     "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.repaircoin.app",
+      "bundleIdentifier": "com.repaircoin.staging",
       "runtimeVersion": "1.0.0",
-      "appleTeamId": "BAN25WZ5LK",
+      "buildNumber": "1.0.0",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app uses your location to find nearby shops.",
         "NSLocationAlwaysUsageDescription": "This app uses your location to find nearby shops.",
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "googleServicesFile": "./google-services.json",
-      "package": "com.repaircoin.app",
+      "package": "com.repaircoin.staging",
       "runtimeVersion": {
         "policy": "appVersion"
       },
