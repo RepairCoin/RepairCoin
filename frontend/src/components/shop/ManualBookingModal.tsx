@@ -336,6 +336,14 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
         setShowQRModal(true);
         toast.success('Appointment created! Show QR code to customer.');
         onSuccess();
+      } else if (paymentStatus === 'send_link') {
+        if (response.emailSent) {
+          toast.success(`Payment link sent to ${bookingData.customerEmail}`);
+        } else {
+          toast.error('Booking created but email failed to send. Copy the payment link manually.');
+        }
+        onSuccess();
+        handleClose();
       } else {
         toast.success('Appointment booked successfully!');
         onSuccess();

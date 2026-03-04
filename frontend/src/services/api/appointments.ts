@@ -461,6 +461,7 @@ export interface ManualBookingResponse {
   notes: string | null;
   createdAt: string;
   paymentLink?: string | null; // Stripe payment link for qr_code or send_link
+  emailSent?: boolean; // Whether the payment link email was sent successfully
 }
 
 // Payment Link Types
