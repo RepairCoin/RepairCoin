@@ -36,9 +36,10 @@ export interface ReviewStats {
 export interface ServiceReviewsResponse extends BaseResponse<ReviewData[]> {
   stats?: ReviewStats;
   pagination?: {
-    page: number;
+    hasMore: boolean;
     limit: number;
-    total: number;
+    page: number;
+    totalItems: number;
     totalPages: number;
   };
 }
