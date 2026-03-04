@@ -75,7 +75,14 @@ export default function TierProgressCard({
           colors={[currentTierConfig.color[0] + "30", "#18181b"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="mx-4 mt-4 p-4 border border-zinc-800"
+          style={{
+            marginHorizontal: 16,
+            marginTop: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#27272a',
+            borderRadius: 16,
+          }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center">
@@ -119,7 +126,14 @@ export default function TierProgressCard({
         colors={[nextTierConfig.color[0] + "20", "#18181b"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        className="mx-4 mt-4 p-4 border border-zinc-800"
+        style={{
+          marginHorizontal: 16,
+          marginTop: 16,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: '#27272a',
+          borderRadius: 16,
+        }}
       >
         {/* Header */}
         <View className="flex-row items-center justify-between mb-3">
@@ -144,8 +158,11 @@ export default function TierProgressCard({
               colors={nextTierConfig.color}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              className="h-full rounded-full"
-              style={{ width: `${progressPercentage}%` }}
+              style={{
+                height: '100%',
+                borderRadius: 9999,
+                width: `${progressPercentage}%`,
+              }}
             />
           </View>
         </View>

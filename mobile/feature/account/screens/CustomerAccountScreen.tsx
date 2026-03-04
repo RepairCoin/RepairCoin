@@ -5,10 +5,12 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Hooks
 import { useAuthStore } from "@/shared/store/auth.store";
@@ -46,6 +48,7 @@ const TIER_CONFIG = {
 };
 
 export default function CustomerAccountScreen() {
+  const insets = useSafeAreaInsets();
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
 
@@ -77,28 +80,47 @@ export default function CustomerAccountScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  // Calculate header top padding for buttons (safe area + extra padding)
+  const headerTopPadding = Platform.OS === 'ios' ? insets.top + 8 : 48;
+
   return (
     <View className="flex-1 bg-zinc-950">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Banner with Gradient */}
-        <View className="relative">
+        <View style={{ position: 'relative' }}>
           <LinearGradient
             colors={[tierConfig.gradient[0], tierConfig.gradient[1], "#09090b"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            className="h-44"
+            style={{ height: Platform.OS === 'ios' ? 176 + insets.top : 176 }}
           />
 
           {/* Gradient Overlay */}
           <LinearGradient
             colors={["transparent", "rgba(9,9,11,0.8)", "rgba(9,9,11,1)"]}
-            className="absolute bottom-0 left-0 right-0 h-24"
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 96
+            }}
           />
 
           {/* Settings Button */}
           <TouchableOpacity
             onPress={() => router.push("/customer/settings")}
-            className="absolute top-12 right-4 w-10 h-10 rounded-full bg-black/50 items-center justify-center"
+            style={{
+              position: 'absolute',
+              top: headerTopPadding,
+              right: 16,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </TouchableOpacity>
@@ -106,7 +128,17 @@ export default function CustomerAccountScreen() {
           {/* Edit Profile Button */}
           <TouchableOpacity
             onPress={() => router.push("/customer/profile/edit-profile")}
-            className="absolute top-12 right-16 w-10 h-10 rounded-full bg-black/50 items-center justify-center"
+            style={{
+              position: 'absolute',
+              top: headerTopPadding,
+              right: 64,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <Feather name="edit-2" size={18} color="#fff" />
           </TouchableOpacity>
