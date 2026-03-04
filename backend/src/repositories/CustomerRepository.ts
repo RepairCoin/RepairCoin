@@ -747,6 +747,35 @@ export class CustomerRepository extends BaseRepository {
   }
 
   /**
+   * Decrease customer's database balance after minting to wallet (database → blockchain).
+   * Only decreases current_rcn_balance — does NOT touch lifetime_earnings or total_redemptions
+   * since minting to wallet is not a redemption, it's a balance transfer to blockchain.
+   */
+  async decreaseBalanceAfterMint(address: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers
+        SET
+          current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) - $1),
+          updated_at = NOW()
+        WHERE address = $2
+          AND COALESCE(current_rcn_balance, 0) >= $1
+      `;
+
+      const result = await this.pool.query(query, [amount, address.toLowerCase()]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Insufficient balance for minting or customer not found');
+      }
+
+      logger.info('Customer balance decreased after mint to wallet', { address, amount });
+    } catch (error) {
+      logger.error('Error decreasing balance after mint:', error);
+      throw new Error('Failed to decrease balance after mint');
+    }
+  }
+
+  /**
    * Refund RCN to customer after order cancellation
    */
   async refundRcnAfterCancellation(address: string, amount: number): Promise<void> {
