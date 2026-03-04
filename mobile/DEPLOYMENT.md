@@ -380,6 +380,38 @@ eas build:list
 
 ---
 
+## NPM Deploy Scripts
+
+Simplified deployment commands using npm scripts:
+
+```bash
+# Auto-deploy based on current branch
+# - main branch → staging
+# - prod branch → production
+npm run deploy
+
+# Deploy to specific environment
+npm run deploy:staging      # Build for staging
+npm run deploy:testflight   # Build for TestFlight
+npm run deploy:production   # Build for production (warns if not on prod branch)
+
+# Submit after build
+npm run submit:testflight   # Submit to TestFlight
+npm run submit:production   # Submit to App Store
+```
+
+### Branch-based Deployment
+
+| Branch | Command | Action |
+|--------|---------|--------|
+| `main` | `npm run deploy` | Deploys to staging |
+| `prod` | `npm run deploy` | Deploys to production |
+| Any | `npm run deploy:staging` | Deploys to staging |
+| Any | `npm run deploy:testflight` | Deploys to TestFlight |
+| Any | `npm run deploy:production` | Deploys to production (with warning) |
+
+---
+
 ## Push Notifications
 
 Push notifications are automatically configured through EAS. When you build with EAS:
