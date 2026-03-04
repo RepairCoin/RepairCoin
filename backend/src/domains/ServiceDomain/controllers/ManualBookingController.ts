@@ -258,6 +258,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
 
     // Handle payment link generation for 'send_link' or 'qr_code' options
     let paymentLinkUrl: string | null = null;
+    let emailSent = false;
     if (paymentStatus === 'send_link' || paymentStatus === 'qr_code') {
       // Check if Stripe is configured
       if (!process.env.STRIPE_SECRET_KEY) {
@@ -299,27 +300,43 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
             `UPDATE service_orders SET stripe_session_id = $1 WHERE order_id = $2`,
             [session.id, order.order_id]
           );
+        } catch (stripeError: any) {
+          console.error('Error creating Stripe session:', stripeError);
+          // Continue with booking even if payment link fails
+        }
 
-          // Send payment link email to customer (only for send_link, not qr_code)
-          if (paymentStatus === 'send_link' && customerEmail) {
-            await emailService.sendPaymentLinkEmail(
+        // Send payment link email to customer (separate from Stripe error handling)
+        if (paymentStatus === 'send_link' && customerEmail && paymentLinkUrl) {
+          try {
+            // Format date and time for email (e.g., "Mar 9, 2026" and "3:15 PM")
+            const formattedDate = new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+            const formattedTime = new Date(`2000-01-01T${bookingTimeSlot}`).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+
+            emailSent = await emailService.sendPaymentLinkEmail(
               customerEmail,
               customerData.name || 'Customer',
               {
                 shopName: shop.name,
                 serviceName: service.service_name,
-                bookingDate: bookingDate,
-                bookingTime: bookingTimeSlot.substring(0, 5),
-                amount: service.price_usd,
-                paymentLink: paymentLinkUrl || '',
+                bookingDate: formattedDate,
+                bookingTime: formattedTime,
+                amount: parseFloat(service.price_usd),
+                paymentLink: paymentLinkUrl,
                 expiresIn: '24 hours',
               }
             );
+            console.log('Payment link email result:', { emailSent, to: customerEmail });
+          } catch (emailError) {
+            console.error('Error sending payment link email:', emailError);
           }
-        } catch (stripeError: any) {
-          console.error('Error creating payment link:', stripeError);
-          // Continue with booking even if payment link fails
-          // The booking is created, shop can resend link later
         }
       }
     }
@@ -386,7 +403,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         bookedBy: shopAdminAddress,
         notes: notes,
         createdAt: order.created_at,
-        paymentLink: paymentLinkUrl // Include payment link for QR code or send_link options
+        paymentLink: paymentLinkUrl, // Include payment link for QR code or send_link options
+        emailSent: emailSent
       }
     });
 
@@ -722,15 +740,26 @@ export const regeneratePaymentLink = async (req: Request, res: Response): Promis
     // Send email if requested and customer has email
     if (sendEmail && order.customer_email && session.url) {
       try {
+        const formattedDate = new Date(order.booking_date + 'T00:00:00').toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        const formattedTime = new Date(`2000-01-01T${order.booking_time_slot}`).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+
         await emailService.sendPaymentLinkEmail(
           order.customer_email,
           order.customer_name || 'Customer',
           {
             shopName: shop.name,
             serviceName: order.service_name,
-            bookingDate: order.booking_date,
-            bookingTime: order.booking_time_slot.substring(0, 5),
-            amount: order.total_amount,
+            bookingDate: formattedDate,
+            bookingTime: formattedTime,
+            amount: parseFloat(order.total_amount),
             paymentLink: session.url,
             expiresIn: '24 hours',
           }
