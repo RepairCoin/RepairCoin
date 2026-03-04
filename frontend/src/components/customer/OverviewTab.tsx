@@ -210,7 +210,7 @@ export const OverviewTab: React.FC = () => {
   ];
 
   // Read token balance from contract
-  const { data: tokenBalance } = useReadContract({
+  const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
     contract,
     method: "function balanceOf(address) view returns (uint256)",
     params: customerData?.address ? [customerData.address] : [""],
@@ -290,6 +290,8 @@ export const OverviewTab: React.FC = () => {
         toast.success(`Successfully minted ${amount} RCN to your wallet!`);
         setMintAmount("");
         fetchCustomerData(true);
+        // Refresh wallet balance from blockchain after short delay for confirmation
+        setTimeout(() => refetchTokenBalance(), 3000);
       } else {
         toast.error(result.error || "Failed to mint tokens");
         setMintResult(null);
