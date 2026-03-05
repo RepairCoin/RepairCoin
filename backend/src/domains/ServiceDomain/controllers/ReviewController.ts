@@ -150,6 +150,42 @@ export class ReviewController {
   }
 
   /**
+   * Get public shop reviews (no auth required)
+   * GET /api/services/reviews/shop/:shopId
+   */
+  async getPublicShopReviews(req: Request, res: Response): Promise<void> {
+    try {
+      const { shopId } = req.params;
+
+      if (!shopId) {
+        res.status(400).json({ error: 'Shop ID is required' });
+        return;
+      }
+
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const rating = req.query.rating ? parseInt(req.query.rating as string) : undefined;
+
+      const result = await reviewRepository.getShopReviews(shopId, {
+        page,
+        limit,
+        rating
+      });
+
+      res.json({
+        success: true,
+        data: result.items,
+        pagination: result.pagination
+      });
+    } catch (error) {
+      logger.error('Error fetching public shop reviews:', error);
+      res.status(500).json({
+        error: 'Failed to fetch reviews'
+      });
+    }
+  }
+
+  /**
    * Get shop reviews
    * GET /api/services/reviews/shop
    */

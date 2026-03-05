@@ -1052,6 +1052,11 @@ export function initializeRoutes(stripe: StripeService): Router {
    *         description: List of reviews
    */
   router.get(
+    '/reviews/shop/:shopId',
+    reviewController.getPublicShopReviews
+  );
+
+  router.get(
     '/reviews/shop',
     authMiddleware,
     requireRole(['shop']),
