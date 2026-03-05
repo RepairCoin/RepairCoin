@@ -21,7 +21,7 @@ import {
   Plus,
   MessageCircle,
 } from "lucide-react";
-import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
 import { getGalleryPhotos, getShopCustomers, type GalleryPhoto } from "@/services/api/shop";
@@ -513,21 +513,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   ) : (
                     <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
                       <FaFacebook className="w-5 h-5 text-gray-400" />
-                    </div>
-                  )}
-
-                  {shopInfo.twitter ? (
-                    <a
-                      href={shopInfo.twitter}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center w-10 h-10 bg-sky-500 hover:bg-sky-600 rounded-full transition-all duration-200 group shadow hover:shadow-sky-500/25 hover:scale-105"
-                    >
-                      <FaTwitter className="w-5 h-5 text-white" />
-                    </a>
-                  ) : (
-                    <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
-                      <FaTwitter className="w-5 h-5 text-gray-400" />
                     </div>
                   )}
 

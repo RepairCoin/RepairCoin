@@ -43,12 +43,13 @@ export interface BalanceData {
 
 export interface TransactionHistory {
   id: string;
-  type: "earned" | "redeemed" | "bonus" | "referral" | "tier_bonus";
+  type: "earned" | "redeemed" | "bonus" | "referral" | "tier_bonus" | "transfer" | "transfer_in" | "transfer_out" | "shop_purchase" | "rejected_redemption" | "cancelled_redemption" | "cross_shop_verification" | "service_redemption" | "service_redemption_refund";
   amount: number;
   shopId?: string;
   shopName?: string;
   description: string;
   createdAt: string;
+  metadata?: any;
 }
 
 export interface CustomerStore {
