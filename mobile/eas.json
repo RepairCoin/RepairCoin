@@ -73,7 +73,8 @@
       "distribution": "store",
       "android": {
         "buildType": "app-bundle",
-        "autoIncrement": true
+        "autoIncrement": true,
+        "prebuildCommand": "bash ./eas-build-pre-install.sh"
       },
       "ios": {
         "simulator": false,
@@ -113,7 +114,8 @@
       "distribution": "store",
       "android": {
         "buildType": "app-bundle",
-        "autoIncrement": true
+        "autoIncrement": true,
+        "prebuildCommand": "bash ./eas-build-pre-install.sh"
       },
       "ios": {
         "simulator": false,
