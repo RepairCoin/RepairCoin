@@ -34,7 +34,7 @@ yarn-error.*
 .env*.local
 
 # Firebase/Google Services (sensitive credentials)
-google-services.json
+# google-services.json is tracked for EAS Build (contains only public Firebase config)
 GoogleService-Info.plist
 *-firebase-adminsdk-*.json
 

@@ -1,31 +1,27 @@
 #!/bin/bash
 
 # EAS Build pre-install hook
-# Writes google-services.json from EAS secret (base64 encoded)
-
-set -e
+# Verifies google-services.json exists (should be tracked in git)
 
 echo "=== EAS Build Pre-install Hook ==="
 echo "Current directory: $(pwd)"
-echo "Checking for GOOGLE_SERVICES_JSON secret..."
 
-if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-  echo "Secret found, writing google-services.json..."
-
-  # Create directory if it doesn't exist
-  mkdir -p ./android/app
-
-  # Use -d flag for Linux compatibility (EAS build servers run Linux)
-  echo "$GOOGLE_SERVICES_JSON" | base64 -d > ./android/app/google-services.json
-
-  echo "google-services.json created successfully"
-  echo "File size: $(wc -c < ./android/app/google-services.json) bytes"
-  ls -la ./android/app/google-services.json
+# Check if google-services.json exists (should be tracked in git)
+if [ -f "./google-services.json" ]; then
+  echo "google-services.json found in project root"
+  echo "File size: $(wc -c < ./google-services.json) bytes"
 else
-  echo "ERROR: GOOGLE_SERVICES_JSON environment variable not set!"
-  echo "Available env vars:"
-  env | grep -i google || echo "No GOOGLE vars found"
-  exit 1
+  echo "WARNING: google-services.json not found in project root"
+
+  # Try to use EAS secret as fallback
+  if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+    echo "Using GOOGLE_SERVICES_JSON secret as fallback..."
+    echo "$GOOGLE_SERVICES_JSON" | base64 -d > ./google-services.json
+    echo "Created google-services.json from secret"
+  else
+    echo "ERROR: No google-services.json found and no secret available"
+    exit 1
+  fi
 fi
 
 echo "=== Pre-install Hook Complete ==="
