@@ -7,6 +7,9 @@
     "base": {
       "env": {
         "NODE_VERSION": "20"
+      },
+      "android": {
+        "prebuildCommand": "bash ./eas-build-pre-install.sh"
       }
     },
     "development": {
@@ -121,6 +124,11 @@
   },
   "submit": {
     "testflight": {
+      "android": {
+        "track": "internal",
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "releaseStatus": "draft"
+      },
       "ios": {
         "appleId": "sanggoyodk8@gmail.com",
         "ascAppId": "6759975798"
@@ -128,7 +136,9 @@
     },
     "production": {
       "android": {
-        "serviceAccountKeyPath": "path/to/google-play-service-account.json"
+        "track": "production",
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "releaseStatus": "draft"
       },
       "ios": {
         "appleId": "sanggoyodk8@gmail.com",
