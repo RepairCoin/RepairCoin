@@ -189,6 +189,7 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     total: number;
+    totalItems: number;
     totalPages: number;
   };
 }
@@ -646,6 +647,29 @@ export const getServiceReviews = async (
     return response || null;
   } catch (error) {
     console.error('Error getting service reviews:', error);
+    return null;
+  }
+};
+
+/**
+ * Get public shop reviews (no auth required)
+ */
+export const getPublicShopReviews = async (
+  shopId: string,
+  options: {
+    page?: number;
+    limit?: number;
+    rating?: number;
+  } = {}
+): Promise<PaginatedResponse<ServiceReview> | null> => {
+  try {
+    const queryString = buildQueryString(options as Record<string, unknown>);
+    const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
+      `/services/reviews/shop/${shopId}${queryString}`
+    );
+    return response || null;
+  } catch (error) {
+    console.error('Error getting public shop reviews:', error);
     return null;
   }
 };
