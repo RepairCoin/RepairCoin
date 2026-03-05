@@ -42,3 +42,4 @@ GoogleService-Info.plist
 *.tsbuildinfo
 
 app-example
+google-play-service-account.json
