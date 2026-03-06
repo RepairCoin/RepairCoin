@@ -27,8 +27,8 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
 }) => {
   const filterCounts = {
     all: bookings.length,
-    pending: bookings.filter(b => b.status === 'requested' || b.status === 'paid').length,
-    paid: bookings.filter(b => b.status === 'paid').length,
+    pending: bookings.filter(b => b.status === 'requested').length,
+    paid: bookings.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled').length,
     completed: bookings.filter(b => b.status === 'completed').length,
     cancelled: bookings.filter(b => b.status === 'cancelled').length
   };
