@@ -12,7 +12,7 @@ export default function WaitlistPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [showModal, setShowModal] = useState(false);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,6 @@ export default function WaitlistPage() {
 
       if (response.data.success) {
         setSubmitted(true);
-        setShowModal(false);
         toast.success("Successfully joined the waitlist!", {
           duration: 5000,
           icon: "🎉",
@@ -226,14 +225,153 @@ export default function WaitlistPage() {
             repeat customers, smarter growth and long-term loyalty.
           </p>
 
-          {/* CTA Button - Last element of hero section */}
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-[#FFCC00] hover:bg-[#E6B800] text-black font-semibold py-3.5 rounded-lg transition-all text-base hover:scale-105 hover:shadow-lg hover:shadow-[#FFCC00]/20"
-            style={{ paddingLeft: "32px", paddingRight: "32px" }}
+          {/* Inline Waitlist Form */}
+          <div
+            className="max-w-lg mx-auto w-full rounded-2xl p-6 md:p-8 text-left"
+            style={{
+              background: "#0D0D0D",
+              border: "1px solid rgba(221, 221, 221, 0.44)",
+            }}
           >
-            Join Waitlist →
-          </button>
+            <form onSubmit={handleSubmit}>
+              {/* Email Input */}
+              <div className="mb-6">
+                <label
+                  className="block mb-2"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    lineHeight: "22px",
+                    color: "#fff",
+                  }}
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Address"
+                  className="w-full px-4 py-3.5 text-black placeholder-gray-400 focus:outline-none transition-colors"
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(151, 151, 151, 0.55)",
+                    borderRadius: "5px",
+                  }}
+                  required
+                />
+              </div>
+
+              {/* User Type Selection */}
+              <div className="mb-8">
+                <label
+                  className="block mb-3"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    lineHeight: "22px",
+                    color: "#fff",
+                  }}
+                >
+                  I'm joining as
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setUserType("shop")}
+                    className={`p-5 transition-all text-left flex items-start gap-3 ${
+                      userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
+                    }`}
+                    style={{
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      background:
+                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
+                      borderRadius: "16px",
+                    }}
+                  >
+                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                      <img
+                        src="/img/waitlist/section10/store.svg"
+                        alt=""
+                        className="w-5 h-5"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-white font-semibold block text-sm">
+                        Shop Owner
+                      </span>
+                      <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                        Early partner access & onboarding process
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUserType("customer")}
+                    className={`p-5 transition-all text-left flex items-start gap-3 ${
+                      userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
+                    }`}
+                    style={{
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      background:
+                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
+                      borderRadius: "16px",
+                    }}
+                  >
+                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                      <img
+                        src="/img/waitlist/section10/user.svg"
+                        alt=""
+                        className="w-5 h-5"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-white font-semibold block text-sm">
+                        Customer
+                      </span>
+                      <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                        Get notified when rewards go live near you.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading || !email || !userType}
+                className="w-full py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                style={{
+                  fontFamily: "Poppins, sans-serif",
+                  fontSize: "16px",
+                  lineHeight: "100%",
+                  background: "rgba(255, 204, 0, 1)",
+                  borderRadius: "8px",
+                  color: "#000",
+                }}
+              >
+                {loading ? "Joining..." : "Join Waitlist →"}
+              </button>
+
+              <p
+                className="mt-4 text-center"
+                style={{
+                  fontFamily:
+                    'var(--font-inria-sans), "Inria Sans", sans-serif',
+                  fontWeight: 400,
+                  fontSize: "12px",
+                  lineHeight: "17px",
+                  color: "rgba(232, 232, 232, 1)",
+                }}
+              >
+                We respect your inbox. No spam. Only updates about RepairCoin.
+              </p>
+            </form>
+          </div>
         </div>
       </section>
 
@@ -1252,7 +1390,7 @@ export default function WaitlistPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder="Address"
                       className="w-full px-4 py-3 text-black placeholder-gray-400 focus:outline-none transition-colors"
                       style={{
                         background: "#fff",
@@ -1264,7 +1402,7 @@ export default function WaitlistPage() {
                   </div>
 
                   {/* User Type Selection */}
-                  <div className="mb-6">
+                  <div className="mb-8">
                     <label
                       className="block mb-3"
                       style={{
@@ -1277,11 +1415,11 @@ export default function WaitlistPage() {
                     >
                       I'm joining as
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setUserType("shop")}
-                        className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
+                        className={`p-5 transition-all text-left flex items-start gap-3 ${
                           userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
                         }`}
                         style={{
@@ -1302,8 +1440,8 @@ export default function WaitlistPage() {
                           <span className="text-white font-semibold block text-sm">
                             Shop Owner
                           </span>
-                          <p className="text-gray-400 text-xs mt-0.5">
-                            Early partner access & onboarding
+                          <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                            Early partner access & onboarding process
                           </p>
                         </div>
                       </button>
@@ -1311,7 +1449,7 @@ export default function WaitlistPage() {
                       <button
                         type="button"
                         onClick={() => setUserType("customer")}
-                        className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
+                        className={`p-5 transition-all text-left flex items-start gap-3 ${
                           userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
                         }`}
                         style={{
@@ -1332,70 +1470,33 @@ export default function WaitlistPage() {
                           <span className="text-white font-semibold block text-sm">
                             Customer
                           </span>
-                          <p className="text-gray-400 text-xs mt-0.5">
-                            Get notified when rewards go live
+                          <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                            Get notified when rewards go live near you.
                           </p>
                         </div>
                       </button>
                     </div>
-
-                    {/* Helper text */}
-                    <p
-                      className="mt-6"
-                      style={{
-                        fontFamily:
-                          'var(--font-inria-sans), "Inria Sans", sans-serif',
-                        fontWeight: 400,
-                        fontSize: "12px",
-                        lineHeight: "100%",
-                        color: "rgba(232, 232, 232, 1)",
-                      }}
-                    >
-                      We'll tailor updates based on your selection.
-                    </p>
                   </div>
 
-                  {/* Buttons */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail("");
-                        setUserType("");
-                      }}
-                      className="py-4 px-6 transition-colors"
-                      style={{
-                        fontFamily: "Poppins, sans-serif",
-                        fontWeight: 500,
-                        fontSize: "16px",
-                        lineHeight: "100%",
-                        background: "rgba(232, 232, 232, 1)",
-                        borderRadius: "8px",
-                        color: "#000",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading || !email || !userType}
-                      className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      style={{
-                        fontFamily: "Poppins, sans-serif",
-                        fontWeight: 500,
-                        fontSize: "16px",
-                        lineHeight: "100%",
-                        background: "rgba(255, 204, 0, 1)",
-                        borderRadius: "8px",
-                        color: "#000",
-                      }}
-                    >
-                      {loading ? "Joining..." : "Join Waitlist →"}
-                    </button>
-                  </div>
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={loading || !email || !userType}
+                    className="w-full py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                    style={{
+                      fontFamily: "Poppins, sans-serif",
+                      fontSize: "16px",
+                      lineHeight: "100%",
+                      background: "rgba(255, 204, 0, 1)",
+                      borderRadius: "8px",
+                      color: "#000",
+                    }}
+                  >
+                    {loading ? "Joining..." : "Join Waitlist →"}
+                  </button>
 
                   <p
-                    className="text-left"
+                    className="mt-4 text-center"
                     style={{
                       fontFamily:
                         'var(--font-inria-sans), "Inria Sans", sans-serif',
@@ -1405,10 +1506,7 @@ export default function WaitlistPage() {
                       color: "rgba(232, 232, 232, 1)",
                     }}
                   >
-                    Your information is secure and will only be used for
-                    RepairCoin updates.
-                    <br />
-                    No spam, unsubscribe anytime.
+                    We respect your inbox. No spam. Only updates about RepairCoin.
                   </p>
                 </form>
               </div>
@@ -1573,230 +1671,6 @@ export default function WaitlistPage() {
         </footer>
       </div>
 
-      {/* Modal for Join Waitlist (triggered by hero button) */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/80"
-            onClick={() => setShowModal(false)}
-          ></div>
-          <div
-            className="relative rounded-2xl p-8 max-w-md w-full"
-            style={{
-              background: "#0D0D0D",
-              border: "1px solid rgba(221, 221, 221, 0.44)",
-            }}
-          >
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-
-            <h3
-              className="mb-6"
-              style={{
-                fontFamily: "Poppins, sans-serif",
-                fontWeight: 600,
-                fontSize: "24px",
-                lineHeight: "140%",
-                color: "#fff",
-              }}
-            >
-              Join the Waitlist
-            </h3>
-
-            <form onSubmit={handleSubmit}>
-              {/* Email Input */}
-              <div className="mb-6">
-                <label
-                  className="block mb-2"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    lineHeight: "22px",
-                    color: "#fff",
-                  }}
-                >
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-3 text-black placeholder-gray-400 focus:outline-none transition-colors"
-                  style={{
-                    background: "#fff",
-                    border: "1px solid rgba(151, 151, 151, 0.55)",
-                    borderRadius: "5px",
-                  }}
-                  required
-                />
-              </div>
-
-              {/* User Type Selection */}
-              <div className="mb-6">
-                <label
-                  className="block mb-3"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    lineHeight: "22px",
-                    color: "#fff",
-                  }}
-                >
-                  I'm joining as
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setUserType("shop")}
-                    className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
-                      userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
-                    }`}
-                    style={{
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
-                      background:
-                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
-                      borderRadius: "16px",
-                    }}
-                  >
-                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
-                      <img
-                        src="/img/waitlist/section10/store.svg"
-                        alt=""
-                        className="w-5 h-5"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-white font-semibold block text-sm">
-                        Shop Owner
-                      </span>
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        Early partner access & onboarding
-                      </p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setUserType("customer")}
-                    className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
-                      userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
-                    }`}
-                    style={{
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
-                      background:
-                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
-                      borderRadius: "16px",
-                    }}
-                  >
-                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
-                      <img
-                        src="/img/waitlist/section10/user.svg"
-                        alt=""
-                        className="w-5 h-5"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-white font-semibold block text-sm">
-                        Customer
-                      </span>
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        Get notified when rewards go live
-                      </p>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Helper text */}
-                <p
-                  className="mt-6"
-                  style={{
-                    fontFamily:
-                      'var(--font-inria-sans), "Inria Sans", sans-serif',
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    lineHeight: "100%",
-                    color: "rgba(232, 232, 232, 1)",
-                  }}
-                >
-                  We'll tailor updates based on your selection.
-                </p>
-              </div>
-
-              {/* Buttons */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="py-4 px-6 transition-colors"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 500,
-                    fontSize: "16px",
-                    lineHeight: "100%",
-                    background: "rgba(232, 232, 232, 1)",
-                    borderRadius: "8px",
-                    color: "#000",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || !email || !userType}
-                  className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 500,
-                    fontSize: "16px",
-                    lineHeight: "100%",
-                    background: "rgba(255, 204, 0, 1)",
-                    borderRadius: "8px",
-                    color: "#000",
-                  }}
-                >
-                  {loading ? "Joining..." : "Join Waitlist →"}
-                </button>
-              </div>
-
-              <p
-                className="text-left"
-                style={{
-                  fontFamily:
-                    'var(--font-inria-sans), "Inria Sans", sans-serif',
-                  fontWeight: 400,
-                  fontSize: "12px",
-                  lineHeight: "17px",
-                  color: "rgba(232, 232, 232, 1)",
-                }}
-              >
-                Your information is secure and will only be used for RepairCoin
-                updates.
-                <br />
-                No spam, unsubscribe anytime.
-              </p>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

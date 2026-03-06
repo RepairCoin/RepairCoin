@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useSearchParams } from "next/navigation";
 import { MessagesContainer } from "@/components/messaging/MessagesContainer";
 import { MessageCircle, HelpCircle } from "lucide-react";
 
@@ -9,6 +10,8 @@ interface MessagesTabProps {
 }
 
 export const MessagesTab: React.FC<MessagesTabProps> = ({ customerId }) => {
+  const searchParams = useSearchParams();
+  const conversationId = searchParams.get("conversation");
   return (
     <div className="h-full flex flex-col">
       {/* Header Info Banner (Optional) */}
@@ -30,7 +33,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ customerId }) => {
 
       {/* Messages Container */}
       <div className="flex-1 bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
-        <MessagesContainer userType="customer" currentUserId={customerId} />
+        <MessagesContainer userType="customer" currentUserId={customerId} initialConversationId={conversationId} />
       </div>
     </div>
   );

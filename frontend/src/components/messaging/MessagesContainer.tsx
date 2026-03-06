@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MessageInbox, type Conversation } from "./MessageInbox";
 import { ConversationThread, type Message } from "./ConversationThread";
 import { MessageCircle, ArrowLeft } from "lucide-react";
@@ -10,12 +10,16 @@ import { useAuthStore } from "@/stores/authStore";
 interface MessagesContainerProps {
   userType: "customer" | "shop";
   currentUserId: string;
+  initialConversationId?: string | null;
 }
 
 export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   userType,
   currentUserId,
+  initialConversationId,
 }) => {
+  const appliedInitialId = useRef<string | null>(null);
+
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showMobileThread, setShowMobileThread] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -89,6 +93,22 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
   }, [userType, switchingAccount]);
+
+  // Auto-select conversation from prop (passed from URL query param)
+  useEffect(() => {
+    if (
+      initialConversationId &&
+      conversations.length > 0 &&
+      appliedInitialId.current !== initialConversationId
+    ) {
+      const exists = conversations.find((c) => c.id === initialConversationId);
+      if (exists) {
+        setSelectedConversationId(initialConversationId);
+        setShowMobileThread(true);
+        appliedInitialId.current = initialConversationId;
+      }
+    }
+  }, [initialConversationId, conversations]);
 
   // Fetch messages when conversation is selected
   useEffect(() => {

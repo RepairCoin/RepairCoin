@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessagesContainer } from "@/components/messaging/MessagesContainer";
 import {
   MessageCircle,
@@ -17,6 +18,8 @@ interface MessagesTabProps {
 }
 
 export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
+  const searchParams = useSearchParams();
+  const conversationId = searchParams.get("conversation");
   const [showStats, setShowStats] = useState(true);
   const [messageStats, setMessageStats] = useState({
     totalConversations: 0,
@@ -163,7 +166,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
 
       {/* Messages Container */}
       <div className="flex-1 bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
-        <MessagesContainer userType="shop" currentUserId={shopId} />
+        <MessagesContainer userType="shop" currentUserId={shopId} initialConversationId={conversationId} />
       </div>
 
       {/* Help Text */}
