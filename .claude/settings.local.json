@@ -100,7 +100,11 @@
       "Read(//private/tmp/**)",
       "Bash(cd /Users/laptop-022/Documents/codebility-project/RepairCoin/mobile/feature/tabs/service && mv hooks/mutations/useServiceMutations.ts hooks/mutations/useServiceToggleMutation.ts && mv hooks/ui/useServiceNavigation.ts hooks/ui/useShopServiceNavigation.ts && mv types.ts tab-types.ts)",
       "Bash(for f in feature/tabs/service/components/*.tsx; do cp \"$f\" feature/service/components/; done && cp feature/tabs/service/tab-types.ts feature/service/tab-types.ts)",
-      "Bash(for f in feature/tabs/service/constants/CUSTOMER_SERVICE_TABS.ts feature/tabs/service/constants/SERVICE_TABS.ts; do cp \"$f\" feature/service/constants/; done)"
+      "Bash(for f in feature/tabs/service/constants/CUSTOMER_SERVICE_TABS.ts feature/tabs/service/constants/SERVICE_TABS.ts; do cp \"$f\" feature/service/constants/; done)",
+      "Bash(gh pr merge:*)",
+      "Bash(npm ls:*)",
+      "Bash(rm:*)",
+      "Bash(npx jest:*)"
     ],
     "deny": [],
     "ask": []

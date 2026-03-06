@@ -247,6 +247,16 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               }
               break;
 
+            case 'manual_booking_payment_completed':
+              // Manual booking payment received (QR code or send_link)
+              console.log('💳 Manual booking payment completed:', message.payload);
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('manual-booking-paid', {
+                  detail: message.payload
+                }));
+              }
+              break;
+
             default:
               console.warn('Unknown WebSocket message type:', message.type);
           }

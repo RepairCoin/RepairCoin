@@ -2576,6 +2576,42 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/shops/{shopId}/appointments/{orderId}/payment-status:
+   *   get:
+   *     summary: Check payment status for an order (Shop only)
+   *     description: Lightweight endpoint for polling order payment status
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Payment status retrieved
+   *       404:
+   *         description: Order not found
+   */
+  router.get(
+    '/shops/:shopId/appointments/:orderId/payment-status',
+    authMiddleware,
+    requireRole(['shop']),
+    async (req, res) => {
+      const { getOrderPaymentStatus } = await import('./controllers/ManualBookingController');
+      return getOrderPaymentStatus(req, res);
+    }
+  );
+
+  /**
+   * @swagger
    * /api/services/shops/{shopId}/appointments/{orderId}/regenerate-payment-link:
    *   post:
    *     summary: Regenerate payment link for unpaid booking (Shop only)

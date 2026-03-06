@@ -50,7 +50,40 @@ export class SubscriptionService extends BaseRepository {
     // Check for existing active subscription BEFORE doing anything
     const existingSubscription = await this.getActiveSubscription(shopId);
     if (existingSubscription) {
-      throw new Error('Shop already has an active subscription');
+      // Verify with Stripe that it's actually still active (self-healing for stale data)
+      try {
+        const stripeSubscription = await this.stripeService.getSubscription(existingSubscription.stripeSubscriptionId);
+        if (stripeSubscription.status === 'canceled' || stripeSubscription.status === 'incomplete_expired') {
+          // Stripe says it's cancelled — fix the stale DB record and allow resubscription
+          logger.info('Fixing stale subscription record (Stripe says canceled)', {
+            shopId,
+            subscriptionId: existingSubscription.id,
+            dbStatus: existingSubscription.status,
+            stripeStatus: stripeSubscription.status
+          });
+          await this.pool.query(
+            `UPDATE stripe_subscriptions SET status = $1, canceled_at = COALESCE(canceled_at, NOW()) WHERE id = $2`,
+            [stripeSubscription.status, existingSubscription.id]
+          );
+        } else {
+          throw new Error('Shop already has an active subscription');
+        }
+      } catch (stripeError: any) {
+        if (stripeError?.message === 'Shop already has an active subscription') {
+          throw stripeError;
+        }
+        // Subscription doesn't exist on Stripe (deleted/resource_missing) — fix stale record
+        logger.info('Fixing orphaned subscription record (not found on Stripe)', {
+          shopId,
+          subscriptionId: existingSubscription.id,
+          stripeSubscriptionId: existingSubscription.stripeSubscriptionId,
+          error: stripeError?.message
+        });
+        await this.pool.query(
+          `UPDATE stripe_subscriptions SET status = 'canceled', canceled_at = COALESCE(canceled_at, NOW()) WHERE id = $1`,
+          [existingSubscription.id]
+        );
+      }
     }
 
     // Get or create customer BEFORE acquiring connection
@@ -207,11 +240,14 @@ export class SubscriptionService extends BaseRepository {
 
   /**
    * Get active subscription for shop
+   * Checks both status AND period expiry to prevent stale records from blocking resubscription
    */
   async getActiveSubscription(shopId: string): Promise<SubscriptionData | null> {
     const query = `
       SELECT * FROM stripe_subscriptions
-      WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid')
+      WHERE shop_id = $1
+        AND status IN ('active', 'past_due', 'unpaid')
+        AND current_period_end > NOW()
       ORDER BY created_at DESC LIMIT 1
     `;
     const result = await this.pool.query(query, [shopId]);
@@ -223,6 +259,7 @@ export class SubscriptionService extends BaseRepository {
         id: row.id,
         stripe_subscription_id: row.stripe_subscription_id,
         status: row.status,
+        current_period_end: row.current_period_end,
         created_at: row.created_at
       }))
     });
