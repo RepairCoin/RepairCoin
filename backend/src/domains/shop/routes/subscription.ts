@@ -71,75 +71,115 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
     if (shopSubQuery.rows.length > 0) {
       const shopSub = shopSubQuery.rows[0];
 
-      // If subscription is paused or cancelled by admin, return it immediately
+      // If subscription is paused or cancelled, check if there's a newer active Stripe subscription first
+      // This handles resubscription where the shop paid again but shop_subscriptions hasn't been updated yet
       if (shopSub.status === 'paused' || shopSub.status === 'cancelled') {
-        logger.info(`📋 Subscription found with status: ${shopSub.status} (admin action)`, {
-          shopId,
-          status: shopSub.status,
-          subscriptionId: shopSub.id,
-          cancellationReason: shopSub.cancellation_reason
-        });
-
-        // For cancelled subscriptions, fetch currentPeriodEnd and cancelAtPeriodEnd from stripe_subscriptions
-        // This is needed to show "full access until" date and the warning banner
-        let currentPeriodEnd = null;
-        let cancelAtPeriodEnd = false;
+        // Check if there's an active Stripe subscription that overrides the cancelled status
         if (shopSub.status === 'cancelled') {
-          const stripeSubQuery = await db.query(
-            'SELECT current_period_end, cancel_at_period_end, status FROM stripe_subscriptions WHERE shop_id = $1 ORDER BY created_at DESC LIMIT 1',
+          const activeStripeCheck = await db.query(
+            `SELECT id, stripe_subscription_id, status, current_period_end
+             FROM stripe_subscriptions
+             WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid') AND current_period_end > NOW()
+             ORDER BY created_at DESC LIMIT 1`,
             [shopId]
           );
-          if (stripeSubQuery.rows.length > 0) {
-            const stripeRow = stripeSubQuery.rows[0];
-            if (stripeRow.current_period_end) {
-              // current_period_end is stored as a TIMESTAMP in PostgreSQL, which returns as a Date object
-              const periodEndDate = stripeRow.current_period_end;
-              currentPeriodEnd = new Date(periodEndDate).toISOString();
-            }
-            // Check if Stripe subscription is still active with cancel_at_period_end
-            // This is true for shop self-cancel (cancel at period end)
-            // BUT only if the billing period hasn't ended yet (stale data protection)
-            const periodHasEnded = stripeRow.current_period_end && new Date(stripeRow.current_period_end) < new Date();
-            cancelAtPeriodEnd = !periodHasEnded && (stripeRow.cancel_at_period_end === true || stripeRow.status === 'active');
-            logger.info('📅 Found Stripe subscription data for cancelled shop subscription', {
+
+          if (activeStripeCheck.rows.length > 0) {
+            // Active Stripe subscription found — shop has resubscribed
+            // Update shop_subscriptions to reflect the new active state
+            logger.info('Found active Stripe subscription despite cancelled shop_subscriptions — updating', {
               shopId,
-              currentPeriodEnd,
-              cancelAtPeriodEnd,
-              stripeStatus: stripeRow.status
+              stripeSubscriptionId: activeStripeCheck.rows[0].stripe_subscription_id,
+              stripeStatus: activeStripeCheck.rows[0].status
+            });
+
+            const { ShopSubscriptionRepository } = await import('../../../repositories/ShopSubscriptionRepository');
+            const shopSubRepo = new ShopSubscriptionRepository();
+            await shopSubRepo.syncFromStripeSubscription(
+              shopId,
+              activeStripeCheck.rows[0].stripe_subscription_id,
+              activeStripeCheck.rows[0].status,
+              new Date(activeStripeCheck.rows[0].current_period_end)
+            );
+
+            // Fall through to the Stripe subscription check below (don't return cancelled)
+          } else {
+            // No active Stripe subscription — return cancelled data as before
+            logger.info(`📋 Subscription found with status: ${shopSub.status}`, {
+              shopId,
+              status: shopSub.status,
+              subscriptionId: shopSub.id,
+              cancellationReason: shopSub.cancellation_reason
+            });
+
+            // Fetch currentPeriodEnd and cancelAtPeriodEnd from stripe_subscriptions
+            let currentPeriodEnd = null;
+            let cancelAtPeriodEnd = false;
+            const stripeSubQuery = await db.query(
+              'SELECT current_period_end, cancel_at_period_end, status FROM stripe_subscriptions WHERE shop_id = $1 ORDER BY created_at DESC LIMIT 1',
+              [shopId]
+            );
+            if (stripeSubQuery.rows.length > 0) {
+              const stripeRow = stripeSubQuery.rows[0];
+              if (stripeRow.current_period_end) {
+                const periodEndDate = stripeRow.current_period_end;
+                currentPeriodEnd = new Date(periodEndDate).toISOString();
+              }
+              const periodHasEnded = stripeRow.current_period_end && new Date(stripeRow.current_period_end) < new Date();
+              cancelAtPeriodEnd = !periodHasEnded && (stripeRow.cancel_at_period_end === true || stripeRow.status === 'active');
+            }
+
+            return res.json({
+              success: true,
+              data: {
+                currentSubscription: {
+                  id: shopSub.id,
+                  shopId: shopSub.shop_id,
+                  status: shopSub.status,
+                  monthlyAmount: parseFloat(shopSub.monthly_amount || 500),
+                  subscriptionType: shopSub.subscription_type || 'standard',
+                  billingMethod: shopSub.billing_method,
+                  billingReference: shopSub.billing_reference,
+                  paymentsMade: shopSub.payments_made || 0,
+                  totalPaid: parseFloat(shopSub.total_paid || 0),
+                  nextPaymentDate: shopSub.next_payment_date,
+                  lastPaymentDate: shopSub.last_payment_date,
+                  isActive: shopSub.is_active,
+                  enrolledAt: shopSub.enrolled_at,
+                  activatedAt: shopSub.activated_at,
+                  cancelledAt: shopSub.cancelled_at,
+                  pausedAt: shopSub.paused_at,
+                  resumedAt: shopSub.resumed_at,
+                  cancellationReason: shopSub.cancellation_reason,
+                  pauseReason: shopSub.pause_reason,
+                  notes: shopSub.notes,
+                  currentPeriodEnd: currentPeriodEnd,
+                  cancelAtPeriodEnd: cancelAtPeriodEnd
+                },
+                hasActiveSubscription: cancelAtPeriodEnd
+              }
             });
           }
+        } else {
+          // Paused by admin — always return paused immediately
+          return res.json({
+            success: true,
+            data: {
+              currentSubscription: {
+                id: shopSub.id,
+                shopId: shopSub.shop_id,
+                status: shopSub.status,
+                monthlyAmount: parseFloat(shopSub.monthly_amount || 500),
+                subscriptionType: shopSub.subscription_type || 'standard',
+                billingMethod: shopSub.billing_method,
+                isActive: shopSub.is_active,
+                pausedAt: shopSub.paused_at,
+                pauseReason: shopSub.pause_reason,
+              },
+              hasActiveSubscription: false
+            }
+          });
         }
-
-        return res.json({
-          success: true,
-          data: {
-            currentSubscription: {
-              id: shopSub.id,
-              shopId: shopSub.shop_id,
-              status: shopSub.status,
-              monthlyAmount: parseFloat(shopSub.monthly_amount || 500),
-              subscriptionType: shopSub.subscription_type || 'standard',
-              billingMethod: shopSub.billing_method,
-              billingReference: shopSub.billing_reference,
-              paymentsMade: shopSub.payments_made || 0,
-              totalPaid: parseFloat(shopSub.total_paid || 0),
-              nextPaymentDate: shopSub.next_payment_date,
-              lastPaymentDate: shopSub.last_payment_date,
-              isActive: shopSub.is_active,
-              enrolledAt: shopSub.enrolled_at,
-              activatedAt: shopSub.activated_at,
-              cancelledAt: shopSub.cancelled_at,
-              pausedAt: shopSub.paused_at,
-              resumedAt: shopSub.resumed_at,
-              cancellationReason: shopSub.cancellation_reason,
-              pauseReason: shopSub.pause_reason,
-              notes: shopSub.notes,
-              currentPeriodEnd: currentPeriodEnd,
-              cancelAtPeriodEnd: cancelAtPeriodEnd
-            },
-            hasActiveSubscription: cancelAtPeriodEnd // If cancelAtPeriodEnd is true, subscription is still active until period end
-          }
-        });
       }
     }
 
@@ -398,7 +438,17 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
         metadata: { syncedManually: true }
       });
 
-      logger.info('Manually synced subscription from Stripe (created new record)', {
+      // Also sync shop_subscriptions table so the status endpoint reflects the new subscription
+      const { ShopSubscriptionRepository } = await import('../../../repositories/ShopSubscriptionRepository');
+      const shopSubRepo = new ShopSubscriptionRepository();
+      await shopSubRepo.syncFromStripeSubscription(
+        shopId,
+        latestSubscription.id,
+        latestSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
+        currentPeriodEnd
+      );
+
+      logger.info('Manually synced subscription from Stripe (created new record + updated shop_subscriptions)', {
         shopId,
         subscriptionId: latestSubscription.id,
         status: latestSubscription.status
@@ -418,7 +468,20 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
       const oldStatus = existingResult.rows[0].status;
       const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(latestSubscription.id);
 
-      logger.info('Manually synced subscription from Stripe (updated existing record)', {
+      // Also sync shop_subscriptions table to keep it in sync
+      const { ShopSubscriptionRepository } = await import('../../../repositories/ShopSubscriptionRepository');
+      const shopSubRepo = new ShopSubscriptionRepository();
+      const periodEnd = syncedSubscription.currentPeriodEnd
+        ? new Date(syncedSubscription.currentPeriodEnd)
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await shopSubRepo.syncFromStripeSubscription(
+        shopId,
+        latestSubscription.id,
+        syncedSubscription.status as 'active' | 'past_due' | 'unpaid' | 'canceled',
+        periodEnd
+      );
+
+      logger.info('Manually synced subscription from Stripe (updated existing record + shop_subscriptions)', {
         shopId,
         subscriptionId: latestSubscription.id,
         oldStatus,

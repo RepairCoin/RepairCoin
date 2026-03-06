@@ -406,6 +406,14 @@ export const appointmentsApi = {
     return response as unknown as PaymentLinkResponse;
   },
 
+  // Shop: Check order payment status (lightweight polling)
+  async checkOrderPaymentStatus(shopId: string, orderId: string): Promise<OrderPaymentStatusResponse> {
+    const response = await apiClient.get<OrderPaymentStatusResponse>(
+      `/services/shops/${shopId}/appointments/${orderId}/payment-status`
+    );
+    return response as unknown as OrderPaymentStatusResponse;
+  },
+
   // Shop: Regenerate payment link for unpaid booking
   async regeneratePaymentLink(shopId: string, orderId: string, sendEmail?: boolean): Promise<RegeneratePaymentLinkResponse> {
     const response = await apiClient.post<RegeneratePaymentLinkResponse>(
@@ -478,6 +486,14 @@ export interface PaymentLinkResponse {
     bookingDate: string;
     bookingTime: string;
   };
+}
+
+export interface OrderPaymentStatusResponse {
+  success: boolean;
+  orderId: string;
+  status: string;
+  paymentStatus: string;
+  updatedAt: string;
 }
 
 export interface RegeneratePaymentLinkResponse {

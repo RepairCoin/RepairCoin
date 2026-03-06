@@ -1223,6 +1223,23 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
                 serviceName: order.service_name
               }
             });
+
+            // Publish event so NotificationDomain can send WebSocket message to shop
+            eventBus.publish({
+              type: 'manual_booking:payment_completed',
+              aggregateId: shopId,
+              timestamp: new Date(),
+              source: 'StripeWebhook',
+              version: 1,
+              data: {
+                orderId,
+                shopId,
+                shopAddress: shopResult.rows[0].wallet_address,
+                customerName: order.customer_name,
+                serviceName: order.service_name,
+                amount: order.total_amount
+              }
+            });
           }
         }
       } catch (notifError) {
