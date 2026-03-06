@@ -109,7 +109,9 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
     // Apply status filter
     if (activeFilter !== 'all') {
       if (activeFilter === 'pending') {
-        filtered = filtered.filter(b => b.status === 'requested' || b.status === 'paid');
+        filtered = filtered.filter(b => b.status === 'requested');
+      } else if (activeFilter === 'paid') {
+        filtered = filtered.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled');
       } else {
         filtered = filtered.filter(b => b.status === activeFilter);
       }
