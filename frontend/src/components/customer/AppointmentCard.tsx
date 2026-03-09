@@ -55,7 +55,9 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const isUpcoming = !['completed', 'cancelled'].includes(status);
 
   // Check if appointment date is in the future
-  const appointmentDate = new Date(appointment.bookingDate);
+  // Parse YYYY-MM-DD as local date (new Date("YYYY-MM-DD") is UTC, causing off-by-one in western timezones)
+  const bookingParts = appointment.bookingDate.split('-').map(Number);
+  const appointmentDate = new Date(bookingParts[0], bookingParts[1] - 1, bookingParts[2]);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const isFuture = appointmentDate >= today;

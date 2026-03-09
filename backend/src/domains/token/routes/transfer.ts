@@ -141,10 +141,10 @@ router.post('/transfer', authMiddleware, requireRole(['customer']), asyncHandler
     });
 
     // Check if sender exists and has sufficient balance
-    // Use currentRcnBalance (actual DB balance) — not totalBalance which uses a formula
-    // that doesn't account for received transfers
+    // Use databaseBalance (calculated: earnings + net_transfers - redemptions - pending - minted_to_wallet)
+    // This accounts for gift tokens AND prevents spending already-minted tokens
     const senderBalance = await customerRepository.getCustomerBalance(fromAddress);
-    if (!senderBalance || senderBalance.currentRcnBalance < amount) {
+    if (!senderBalance || senderBalance.databaseBalance < amount) {
       return ResponseHelper.badRequest(res, 'Insufficient balance for transfer');
     }
 
@@ -500,11 +500,11 @@ router.post('/validate-transfer', authMiddleware, requireRole(['customer']), asy
       });
     }
 
-    if (senderBalance.currentRcnBalance < amount) {
+    if (senderBalance.databaseBalance < amount) {
       return ResponseHelper.success(res, {
         valid: false,
         message: 'Insufficient balance',
-        senderBalance: senderBalance.currentRcnBalance,
+        senderBalance: senderBalance.databaseBalance,
         recipientExists: false
       });
     }
@@ -520,7 +520,7 @@ router.post('/validate-transfer', authMiddleware, requireRole(['customer']), asy
     ResponseHelper.success(res, {
       valid: true,
       message: recipientExists ? 'Transfer is valid' : 'Transfer is valid (new recipient will be created)',
-      senderBalance: senderBalance.currentRcnBalance,
+      senderBalance: senderBalance.databaseBalance,
       recipientExists
     });
 

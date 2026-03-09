@@ -1423,6 +1423,22 @@ router.post('/:shopId/redeem',
         await redemptionSessionRepository.updateSessionStatus(sessionId, 'used', undefined, dbClient);
         logger.info('Session marked as used within atomic transaction', { sessionId });
 
+        // 4d. Deduct from customer's available balance and increment total_redemptions
+        await dbClient.query(
+          `UPDATE customers
+           SET
+             current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) - $1),
+             total_redemptions = COALESCE(total_redemptions, 0) + $1,
+             updated_at = NOW()
+           WHERE address = $2`,
+          [amount, customerAddress.toLowerCase()]
+        );
+        logger.info('Customer balance deducted within atomic transaction', {
+          customerAddress,
+          amount,
+          sessionId
+        });
+
         // COMMIT the transaction - all operations succeed together
         await dbClient.query('COMMIT');
 
@@ -1497,8 +1513,7 @@ router.post('/:shopId/redeem',
 
       // Note: Customer is automatically added to shop's customer list via the redeem transaction
       // The getShopCustomers query now includes customers who have earned OR redeemed at the shop
-
-      // Customer balance is updated via the transaction record above
+      // Customer balance (current_rcn_balance, total_redemptions) is updated in step 4d above
 
       logger.info('Token redemption processed', {
         shopId,

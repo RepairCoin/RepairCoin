@@ -73,6 +73,14 @@ export const sendMessage = async (request: SendMessageRequest): Promise<Message>
 };
 
 /**
+ * Get or create a conversation with a customer (shop only)
+ */
+export const getOrCreateConversation = async (customerAddress: string): Promise<Conversation> => {
+  const response = await apiClient.post('/messages/conversations/get-or-create', { customerAddress });
+  return response.data;
+};
+
+/**
  * Get all conversations for the authenticated user
  */
 export const getConversations = async (options?: {

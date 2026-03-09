@@ -8,6 +8,7 @@ import {
   Copy,
   MessageSquare,
   User,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -27,6 +28,8 @@ interface CustomerInfoCardProps {
   };
   bookingsCount: number;
   activeBookingsCount: number;
+  onSendMessage?: (customerAddress: string) => void;
+  sendingMessage?: boolean;
 }
 
 const TierBadge: React.FC<{ tier: "BRONZE" | "SILVER" | "GOLD" }> = ({ tier }) => {
@@ -46,6 +49,8 @@ export const CustomerInfoCard: React.FC<CustomerInfoCardProps> = ({
   customer,
   bookingsCount,
   activeBookingsCount,
+  onSendMessage,
+  sendingMessage,
 }) => {
   const formatAddress = (address: string) =>
     `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -129,10 +134,18 @@ export const CustomerInfoCard: React.FC<CustomerInfoCardProps> = ({
           </div>
         </div>
 
-        {/* Send SMS Button */}
-        <button className="px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white text-sm font-medium hover:bg-[#2a2a2a] transition-colors flex items-center gap-2 flex-shrink-0">
-          <MessageSquare className="w-4 h-4" />
-          Send SMS
+        {/* Send Message Button */}
+        <button
+          onClick={() => onSendMessage?.(customer.address)}
+          disabled={sendingMessage}
+          className="px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white text-sm font-medium hover:bg-[#2a2a2a] transition-colors flex items-center gap-2 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {sendingMessage ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <MessageSquare className="w-4 h-4" />
+          )}
+          {sendingMessage ? 'Opening...' : 'Send Message'}
         </button>
       </div>
 

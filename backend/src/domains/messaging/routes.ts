@@ -26,6 +26,14 @@ router.post('/send', messageController.sendMessage);
 router.get('/conversations', messageController.getConversations);
 
 /**
+ * @route POST /api/messages/conversations/get-or-create
+ * @description Get or create a conversation with a customer (shop only)
+ * @body customerAddress - The customer's wallet address
+ * @access Authenticated shop users
+ */
+router.post('/conversations/get-or-create', messageController.getOrCreateConversation);
+
+/**
  * @route GET /api/messages/conversations/:conversationId/messages
  * @description Get all messages in a conversation
  * @param conversationId - The conversation ID

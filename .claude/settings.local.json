@@ -104,7 +104,10 @@
       "Bash(gh pr merge:*)",
       "Bash(npm ls:*)",
       "Bash(rm:*)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(LOG_LEVEL=error npx ts-node -r dotenv/config -e \":*)",
+      "Read(//tmp/**)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []
