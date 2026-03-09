@@ -14,12 +14,12 @@ export function getScrollableDays(): Date[] {
   const today = new Date();
   const currentDay = today.getDay();
 
-  // Start from 6 weeks ago (Sunday of that week)
+  // Start from 2 weeks ago (Sunday of that week) - reduced from 6 weeks for better performance
   const startDate = new Date(today);
-  startDate.setDate(today.getDate() - currentDay - 42);
+  startDate.setDate(today.getDate() - currentDay - 14);
 
-  // Generate 84 days (12 weeks)
-  for (let i = 0; i < 84; i++) {
+  // Generate 28 days (4 weeks) - reduced from 84 days for better memory usage
+  for (let i = 0; i < 28; i++) {
     const day = new Date(startDate);
     day.setDate(startDate.getDate() + i);
     days.push(day);

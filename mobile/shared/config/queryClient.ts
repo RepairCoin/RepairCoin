@@ -15,7 +15,7 @@ export const createQueryClient = () => {
         gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
-        refetchOnMount: true,
+        refetchOnMount: false, // Don't refetch on mount - rely on staleTime for cache freshness
         networkMode: 'offlineFirst',
       },
       mutations: {

@@ -84,6 +84,8 @@ export function useFindShop() {
 
   // Fetch availability for shops (batch load when shops are available)
   useEffect(() => {
+    let isCancelled = false;
+
     const loadAvailabilities = async () => {
       if (!shops?.shops) return;
 
@@ -93,20 +95,36 @@ export function useFindShop() {
       // Load availability for each shop (in parallel with limit)
       const batchSize = 5;
       for (let i = 0; i < shopIds.length; i += batchSize) {
+        // Check if component unmounted before each batch
+        if (isCancelled) return;
+
         const batch = shopIds.slice(i, i + batchSize);
         const results = await Promise.allSettled(
           batch.map((shopId: string) => appointmentApi.getShopAvailability(shopId))
         );
+
+        // Check again after async operation
+        if (isCancelled) return;
+
         results.forEach((result, index) => {
           if (result.status === "fulfilled" && result.value?.data) {
             newAvailabilities[batch[index]] = result.value.data;
           }
         });
       }
-      setShopAvailabilities(newAvailabilities);
+
+      // Only update state if still mounted
+      if (!isCancelled) {
+        setShopAvailabilities(newAvailabilities);
+      }
     };
 
     loadAvailabilities();
+
+    // Cleanup function - cancel pending operations on unmount
+    return () => {
+      isCancelled = true;
+    };
   }, [shops]);
 
   // Request location permission and get user's location

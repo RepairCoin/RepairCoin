@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -383,7 +383,7 @@ export default function BookingDetailScreen() {
     return hoursSinceBooking >= 24;
   }, [booking?.bookingDate, booking?.status]);
 
-  const handleApprove = () => {
+  const handleApprove = useCallback(() => {
     if (!booking) return;
 
     Alert.alert(
@@ -399,9 +399,9 @@ export default function BookingDetailScreen() {
         },
       ]
     );
-  };
+  }, [booking, approveOrderMutation]);
 
-  const handleMarkComplete = () => {
+  const handleMarkComplete = useCallback(() => {
     if (!booking) return;
 
     Alert.alert(
@@ -417,25 +417,25 @@ export default function BookingDetailScreen() {
         },
       ]
     );
-  };
+  }, [booking, completeOrderMutation]);
 
-  const handleCancelBooking = () => {
+  const handleCancelBooking = useCallback(() => {
     setShowCancelModal(true);
-  };
+  }, []);
 
-  const confirmCancel = () => {
+  const confirmCancel = useCallback(() => {
     if (!booking) return;
     setShowCancelModal(false);
     cancelOrderMutation.mutate(booking.orderId);
-  };
+  }, [booking, cancelOrderMutation]);
 
-  const handleMarkNoShow = (notes?: string) => {
+  const handleMarkNoShow = useCallback((notes?: string) => {
     if (!booking) return;
     setShowNoShowModal(false);
     markNoShowMutation.mutate({ orderId: booking.orderId, notes });
-  };
+  }, [booking, markNoShowMutation]);
 
-  const handleReschedule = (newDate: string, newTimeSlot: string, reason?: string) => {
+  const handleReschedule = useCallback((newDate: string, newTimeSlot: string, reason?: string) => {
     if (!booking) return;
     setShowRescheduleModal(false);
     rescheduleMutation.mutate({
@@ -444,7 +444,7 @@ export default function BookingDetailScreen() {
       newTimeSlot,
       reason,
     });
-  };
+  }, [booking, rescheduleMutation]);
 
   const isActionLoading =
     approveOrderMutation.isPending ||
@@ -486,6 +486,11 @@ export default function BookingDetailScreen() {
   }
 
   const isApproved = booking.shopApproved === true;
+  // Memoize image source to prevent re-renders
+  const imageSource = useMemo(
+    () => (booking.serviceImageUrl ? { uri: booking.serviceImageUrl } : null),
+    [booking.serviceImageUrl]
+  );
   // Use appropriate status color
   const effectiveStatus = booking.status === "expired"
     ? "expired"
@@ -776,10 +781,10 @@ export default function BookingDetailScreen() {
       <AppHeader title="Booking Details" />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Service Image */}
-        {booking.serviceImageUrl && (
+        {imageSource && (
           <View className="px-4 mb-4">
             <Image
-              source={{ uri: booking.serviceImageUrl }}
+              source={imageSource}
               className="w-full h-48 rounded-xl"
               resizeMode="cover"
             />

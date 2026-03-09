@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -69,13 +69,21 @@ function ServiceCard({
     setLocalFavorited(initialFavorited);
   }, [initialFavorited]);
 
-  const handleFavoritePress = () => {
+  // Memoize image source to prevent re-renders
+  const imageSource = useMemo(
+    () => (imageUrl ? { uri: imageUrl } : null),
+    [imageUrl]
+  );
+
+  const handleFavoritePress = useCallback(() => {
     if (!serviceId) return;
     // Update UI instantly
-    setLocalFavorited(!localFavorited);
-    // Then make API call in background
-    toggleFavorite(serviceId, !!localFavorited);
-  };
+    setLocalFavorited((prev) => {
+      // Then make API call in background
+      toggleFavorite(serviceId, !!prev);
+      return !prev;
+    });
+  }, [serviceId, toggleFavorite]);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not scheduled";
@@ -95,9 +103,9 @@ function ServiceCard({
           <View className="bg-gray-900 rounded-xl overflow-hidden flex-row">
             {/* Image */}
             <View className="relative">
-              {imageUrl ? (
+              {imageSource ? (
                 <Image
-                  source={{ uri: imageUrl }}
+                  source={imageSource}
                   className="w-24 h-24"
                   resizeMode="cover"
                 />
@@ -185,9 +193,9 @@ function ServiceCard({
         >
           {imageUrl !== undefined && (
             <View className="relative">
-              {imageUrl ? (
+              {imageSource ? (
                 <Image
-                  source={{ uri: imageUrl }}
+                  source={imageSource}
                   className="w-full h-28"
                   resizeMode="cover"
                 />
