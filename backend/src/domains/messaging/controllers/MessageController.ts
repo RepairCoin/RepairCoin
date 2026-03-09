@@ -279,6 +279,45 @@ export class MessageController {
   };
 
   /**
+   * Get or create a conversation with a customer
+   * POST /api/messages/conversations/get-or-create
+   * Body: { customerAddress: string }
+   */
+  getOrCreateConversation = async (req: Request, res: Response) => {
+    try {
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole !== 'shop' || !shopId) {
+        return res.status(403).json({ success: false, error: 'Only shops can initiate conversations' });
+      }
+
+      const { customerAddress } = req.body;
+
+      if (!customerAddress) {
+        return res.status(400).json({ success: false, error: 'customerAddress is required' });
+      }
+
+      const conversation = await this.messageService.getOrCreateConversation(customerAddress, shopId);
+
+      res.json({
+        success: true,
+        data: conversation
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getOrCreateConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get or create conversation'
+      });
+    }
+  };
+
+  /**
    * Get typing indicators for a conversation
    * GET /api/messages/conversations/:conversationId/typing
    */

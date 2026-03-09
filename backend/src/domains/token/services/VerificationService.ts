@@ -196,11 +196,10 @@ export class VerificationService {
       const lifetimeEarnings = customer.lifetimeEarnings || 0;
       const pendingMintBalance = customer.pendingMintBalance || 0;
 
-      // Use current_rcn_balance as the available balance — it's the authoritative
-      // balance that accounts for ALL operations (earning, redeeming, minting, transfers).
-      // The old formula (lifetime - redeemed - pending - minted) doesn't account for
-      // received transfers, causing the balance to show 0 for customers who received gifts.
-      const availableBalance = customer.currentRcnBalance || 0;
+      // Use the unified calculated balance from getCustomerBalance() which accounts for
+      // ALL operations: earnings, transfers, redemptions, pending mints, and minted-to-wallet.
+      const balanceInfo = await customerRepository.getCustomerBalance(customerAddress);
+      const availableBalance = balanceInfo ? balanceInfo.databaseBalance : 0;
 
       // Note: Removed slow getCustomerRcnBySource call that was taking ~2 seconds
       // The earningHistory breakdown is nice-to-have but not critical for balance display
@@ -362,9 +361,10 @@ export class VerificationService {
         return 0;
       }
 
-      // Use currentRcnBalance — the authoritative balance that accounts for ALL
-      // operations (earning, redeeming, minting, transfers).
-      return balanceInfo.currentRcnBalance;
+      // Use the calculated available balance that accounts for ALL operations:
+      // available = lifetime_earnings + net_transfers - total_redemptions - pending_mint - minted_to_wallet
+      // This includes gift tokens (transfers) and prevents redeeming minted-to-wallet tokens.
+      return balanceInfo.databaseBalance;
 
     } catch (error) {
       logger.error('Error calculating available balance:', error);

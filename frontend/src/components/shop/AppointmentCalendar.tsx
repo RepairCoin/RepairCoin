@@ -174,8 +174,9 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
   };
 
   const isCurrentMonth = (dateStr: string): boolean => {
-    const date = new Date(dateStr);
-    return date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear();
+    // Parse as local date to avoid UTC timezone shift (new Date("YYYY-MM-DD") is UTC)
+    const [year, month] = dateStr.split('-').map(Number);
+    return (month - 1) === currentDate.getMonth() && year === currentDate.getFullYear();
   };
 
   const monthDays = getMonthDays();
@@ -281,7 +282,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
                 {monthDays.map((day, index) => {
                   const isTodayDate = isToday(day.date);
                   const isInCurrentMonth = isCurrentMonth(day.date);
-                  const dayNumber = new Date(day.date).getDate();
+                  const dayNumber = parseInt(day.date.split('-')[2], 10);
 
                   return (
                     <div
@@ -388,7 +389,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
                   <div>
                     <div className="text-sm text-gray-400 mb-1">Date & Time</div>
                     <div className="text-white font-medium">
-                      {new Date(selectedBooking.bookingDate).toLocaleDateString('en-US', {
+                      {new Date(selectedBooking.bookingDate + (selectedBooking.bookingDate.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',

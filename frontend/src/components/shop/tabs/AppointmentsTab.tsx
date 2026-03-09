@@ -248,8 +248,9 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
   };
 
   const isCurrentMonth = (dateStr: string): boolean => {
-    const date = new Date(dateStr);
-    return date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear();
+    // Parse as local date to avoid UTC timezone shift (new Date("YYYY-MM-DD") is UTC)
+    const [year, month] = dateStr.split('-').map(Number);
+    return (month - 1) === currentDate.getMonth() && year === currentDate.getFullYear();
   };
 
   const monthDays = getMonthDays();
@@ -758,7 +759,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                 {monthDays.map((day, index) => {
                   const isTodayDate = isToday(day.date);
                   const isInCurrentMonth = isCurrentMonth(day.date);
-                  const dayNumber = new Date(day.date).getDate();
+                  const dayNumber = parseInt(day.date.split('-')[2], 10);
                   const uniqueCustomers = new Set(day.bookings.map(b => b.customerAddress)).size;
                   const hasBookings = day.bookings.length > 0;
                   const isSelected = selectedDate === day.date;
@@ -1105,7 +1106,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                           <span className="text-gray-400">Date:</span>
                           <span className="text-white">
                             {paymentLinkData.booking.bookingDate
-                              ? new Date(paymentLinkData.booking.bookingDate).toLocaleDateString()
+                              ? new Date(paymentLinkData.booking.bookingDate + (paymentLinkData.booking.bookingDate.includes('T') ? '' : 'T00:00:00')).toLocaleDateString()
                               : 'TBD'}
                           </span>
                         </div>

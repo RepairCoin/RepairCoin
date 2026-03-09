@@ -142,6 +142,13 @@ export class MessageService {
   }
 
   /**
+   * Get or create a conversation between a customer and shop
+   */
+  async getOrCreateConversation(customerAddress: string, shopId: string): Promise<Conversation> {
+    return this.messageRepo.getOrCreateConversation(customerAddress, shopId);
+  }
+
+  /**
    * Get conversations for a user
    * @param userIdentifier - For customers: wallet address, For shops: shopId
    * @param userType - 'customer' or 'shop'

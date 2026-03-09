@@ -66,9 +66,13 @@ export class CustomerBalanceService {
         return null;
       }
 
+      // Use the unified calculated balance from getCustomerBalance() which accounts for
+      // ALL operations: earnings, transfers, redemptions, pending mints, and minted-to-wallet.
+      const availableBalance = balanceInfo.databaseBalance;
+
       return {
         address: customer.address,
-        databaseBalance: balanceInfo.currentRcnBalance,
+        databaseBalance: availableBalance,
         pendingMintBalance: balanceInfo.pendingMintBalance,
         totalBalance: balanceInfo.totalBalance,
         lifetimeEarnings: balanceInfo.lifetimeEarnings,
@@ -77,7 +81,7 @@ export class CustomerBalanceService {
         lastBlockchainSync: balanceInfo.lastBlockchainSync,
         balanceSynced: balanceInfo.balanceSynced,
         tier: customer.tier,
-        canMintToWallet: balanceInfo.currentRcnBalance > 0
+        canMintToWallet: availableBalance > 0
       };
     } catch (error) {
       logger.error('Error getting customer balance info:', error);

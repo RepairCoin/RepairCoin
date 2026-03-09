@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { CustomerInfoCard } from "./CustomerInfoCard";
 import { CustomerSnapshotPanel } from "./CustomerSnapshotPanel";
 import { CustomerProfileTabs } from "./CustomerProfileTabs";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
+import { getOrCreateConversation } from "@/services/api/messaging";
 
 // --- Types ---
 
@@ -74,12 +77,26 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   shopId,
   onBack,
 }) => {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [customer, setCustomer] = useState<CustomerDetails | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [analytics, setAnalytics] = useState<CustomerAnalytics | null>(null);
   const [bookings, setBookings] = useState<BookingOrder[]>([]);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+
+  const handleSendMessage = async (address: string) => {
+    setSendingMessage(true);
+    try {
+      const conversation = await getOrCreateConversation(address);
+      router.push(`/shop?tab=messages&conversation=${conversation.conversationId}`);
+    } catch (error) {
+      console.error("Failed to open conversation:", error);
+      toast.error("Failed to open conversation");
+      setSendingMessage(false);
+    }
+  };
 
   useEffect(() => {
     loadAllData();
@@ -217,6 +234,8 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
             customer={customer}
             bookingsCount={bookings.length}
             activeBookingsCount={activeBookingsCount}
+            onSendMessage={handleSendMessage}
+            sendingMessage={sendingMessage}
           />
           <CustomerProfileTabs
             bookings={bookings}
