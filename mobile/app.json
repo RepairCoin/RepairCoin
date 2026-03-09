@@ -20,7 +20,8 @@
         "NSCameraUsageDescription": "This app uses your camera to scan QR codes and take photos.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload images.",
         "NSMicrophoneUsageDescription": "This app uses your microphone for video recording."
-      }
+      },
+      "appleTeamId": "HSX33PFXS6"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,15 +34,6 @@
         "policy": "appVersion"
       },
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.INTERNET",
-        "android.permission.VIBRATE",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
