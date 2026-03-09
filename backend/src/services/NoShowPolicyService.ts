@@ -515,38 +515,42 @@ export class NoShowPolicyService {
   }
 
   /**
-   * Update shop's no-show policy
+   * Update shop's no-show policy (with UPSERT for shops without policy)
    */
   async updateShopPolicy(shopId: string, policy: Partial<NoShowPolicy>): Promise<NoShowPolicy> {
     const fields: string[] = [];
     const values: any[] = [];
+    const updateFields: string[] = [];
     let paramCount = 1;
 
-    // Build dynamic UPDATE query
+    // Build field lists for INSERT and UPDATE
     Object.entries(policy).forEach(([key, value]) => {
       if (key !== 'shopId') {
         const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        fields.push(`${snakeKey} = $${paramCount}`);
+        fields.push(snakeKey);
         values.push(value);
+        updateFields.push(`${snakeKey} = EXCLUDED.${snakeKey}`);
         paramCount++;
       }
     });
 
-    values.push(shopId);
+    // Add shopId as first parameter
+    values.unshift(shopId);
 
+    // Build UPSERT query (INSERT ... ON CONFLICT DO UPDATE)
     const query = `
-      UPDATE shop_no_show_policy
-      SET ${fields.join(', ')}, updated_at = NOW()
-      WHERE shop_id = $${paramCount}
+      INSERT INTO shop_no_show_policy (shop_id, ${fields.join(', ')})
+      VALUES ($1, ${fields.map((_, i) => `$${i + 2}`).join(', ')})
+      ON CONFLICT (shop_id)
+      DO UPDATE SET
+        ${updateFields.join(', ')},
+        updated_at = NOW()
       RETURNING *
     `;
 
-    const result = await this.pool.query(query, values);
+    await this.pool.query(query, values);
 
-    if (result.rows.length === 0) {
-      throw new Error('Shop policy not found');
-    }
-
+    // Return the updated policy using the existing getter
     return this.getShopPolicy(shopId);
   }
 }

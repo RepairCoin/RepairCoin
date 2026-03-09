@@ -73,7 +73,10 @@ export class GeneralPreferencesController {
         'orderUpdates', 'serviceApproved', 'reviewRequests',
         'newOrders', 'customerMessages', 'lowTokenBalance', 'subscriptionReminders',
         'systemAlerts', 'userReports', 'treasuryChanges',
-        'promotions', 'newsletter', 'surveys'
+        'promotions', 'newsletter', 'surveys',
+        // Subscription notification fields
+        'paymentReminders', 'paymentFailureAlerts', 'subscriptionRenewalNotices',
+        'subscriptionExpirationWarnings', 'paymentMethodExpiring', 'billingReceiptNotifications'
       ];
 
       const hasInvalidFields = Object.keys(updates).some(

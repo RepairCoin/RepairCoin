@@ -939,12 +939,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                   Want to continue using RepairCoin?
                 </h4>
                 <p className="text-gray-300 mb-4">
-                  You can resubscribe at any time by clicking the button below.
-                  Alternatively, holding 10,000+ RCG tokens grants you full platform
-                  access without a monthly subscription.
+                  You can resubscribe at any time to regain full platform access.
                 </p>
-                <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
-                  <Link href="/shop/subscription-form">Subscribe Again</Link>
+                <Button
+                  onClick={() => setShowSubscribeModal(true)}
+                  className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+                >
+                  Resubscribe Now
                 </Button>
               </div>
             </>
