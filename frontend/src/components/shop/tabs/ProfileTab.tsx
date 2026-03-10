@@ -92,15 +92,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           ) : (
             // View Mode - Show profile as it appears
             <>
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-white">
-                  Your Shop Profile
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  This is how your shop appears to customers. Click "Edit Profile" to make changes.
-                </p>
-              </div>
-
               <div className="bg-[#0A0A0A] rounded-lg overflow-hidden">
                 <ShopProfileClient shopId={shopId} isPreviewMode={true} />
               </div>

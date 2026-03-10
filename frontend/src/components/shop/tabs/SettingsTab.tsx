@@ -45,7 +45,7 @@ interface ShopData {
   phone?: string;
   address?: string;
   facebook?: string;
-  twitter?: string;
+  x?: string;
   instagram?: string;
   website?: string;
   logoUrl?: string;
@@ -100,7 +100,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     phone: "",
     address: "",
     facebook: "",
-    twitter: "",
+    x: "",
     instagram: "",
     website: "",
     logoUrl: "",
@@ -123,7 +123,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopData.phone || "",
         address: shopData.address || "",
         facebook: shopData.facebook || "",
-        twitter: shopData.twitter || "",
+        x: shopData.x || "",
         instagram: shopData.instagram || "",
         website: shopData.website || "",
         logoUrl: shopData.logoUrl || "",
@@ -153,7 +153,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopFormData.phone,
         address: shopFormData.address,
         facebook: shopFormData.facebook,
-        twitter: shopFormData.twitter,
+        x: shopFormData.x,
         instagram: shopFormData.instagram,
         website: shopFormData.website,
         logoUrl: shopFormData.logoUrl,
@@ -190,7 +190,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       phone: shopData?.phone || "",
       address: shopData?.address || "",
       facebook: shopData?.facebook || "",
-      twitter: shopData?.twitter || "",
+      x: shopData?.x || "",
       instagram: shopData?.instagram || "",
       website: shopData?.website || "",
       logoUrl: shopData?.logoUrl || "",
@@ -581,19 +581,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       placeholder="https://yourshop.com"
                     />
                   </div>
-                  {/* Twitter */}
+                  {/* X (formerly Twitter) */}
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      Twitter
+                      X
                     </label>
                     <input
                       type="url"
-                      name="twitter"
-                      value={shopFormData.twitter}
+                      name="x"
+                      value={shopFormData.x}
                       onChange={handleShopInputChange}
                       disabled={!isEditingShop}
                       className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
-                      placeholder="https://twitter.com/yourshop"
+                      placeholder="https://x.com/yourshop"
                     />
                   </div>
                   {/* Instagram */}

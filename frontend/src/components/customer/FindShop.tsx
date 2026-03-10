@@ -16,7 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from "react-icons/fa";
+import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { ShopService } from "@/services/shopService";
 import { getShopServices } from "@/services/api/services";
@@ -142,7 +142,7 @@ interface Shop {
   category?: string;
   tier?: string;
   facebook?: string;
-  twitter?: string;
+  x?: string;
   instagram?: string;
   linkedin?: string;
   avgRating?: number;
@@ -638,7 +638,7 @@ export function FindShop() {
                   </div>
 
                   {/* Social Media */}
-                  {(selectedShop.facebook || selectedShop.twitter || selectedShop.instagram || selectedShop.linkedin) && (
+                  {(selectedShop.facebook || selectedShop.x || selectedShop.instagram || selectedShop.linkedin) && (
                     <div className="mb-4">
                       <div className="flex items-center gap-1.5 mb-2">
                         <Share2 className="w-3.5 h-3.5 text-gray-500" />
@@ -663,8 +663,8 @@ export function FindShop() {
                             <FaLinkedin className="w-4 h-4 text-gray-300" />
                           </a>
                         )}
-                        {selectedShop.twitter && (
-                          <a href={selectedShop.twitter} target="_blank" rel="noopener noreferrer"
+                        {selectedShop.x && (
+                          <a href={selectedShop.x} target="_blank" rel="noopener noreferrer"
                             className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center transition-colors">
                             <FaXTwitter className="w-4 h-4 text-gray-300" />
                           </a>

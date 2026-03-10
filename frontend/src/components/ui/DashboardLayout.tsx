@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import { CustomerSidebar, ShopSidebar, AdminSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
+import { CartIcon } from "@/components/ui/CartIcon";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -100,6 +101,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </button>
         {userRole !== "admin" && (
           <div className="flex items-center gap-3">
+            {userRole === "shop" && <CartIcon />}
             <MessageIcon />
             <NotificationBell />
           </div>
@@ -111,6 +113,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <div className={`hidden lg:flex fixed right-4 z-[1001] transition-all duration-300 ease-in-out items-center gap-3 pt-2 pb-2 ${
           isScrolled ? "top-0" : "top-6"
         }`}>
+          {userRole === "shop" && <CartIcon />}
           <MessageIcon />
           <NotificationBell />
         </div>

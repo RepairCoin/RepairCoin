@@ -278,12 +278,12 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             placeholder="https://facebook.com/yourshop"
           />
           <FormField
-            label="Twitter"
-            name="twitter"
+            label="X"
+            name="x"
             type="url"
-            value={formData.twitter}
+            value={formData.x}
             onChange={onChange}
-            placeholder="https://twitter.com/yourshop"
+            placeholder="https://x.com/yourshop"
           />
           <FormField
             label="Instagram"
