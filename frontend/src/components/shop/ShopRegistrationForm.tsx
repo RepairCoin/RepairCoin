@@ -278,6 +278,14 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             placeholder="https://facebook.com/yourshop"
           />
           <FormField
+            label="X"
+            name="x"
+            type="url"
+            value={formData.x}
+            onChange={onChange}
+            placeholder="https://x.com/yourshop"
+          />
+          <FormField
             label="Instagram"
             name="instagram"
             type="url"

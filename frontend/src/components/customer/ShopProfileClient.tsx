@@ -23,6 +23,7 @@ import {
   User,
 } from "lucide-react";
 import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, getPublicShopReviews, ShopServiceWithShopInfo, ServiceReview } from "@/services/api/services";
 import { getGalleryPhotos, getShopCustomers, type GalleryPhoto } from "@/services/api/shop";
@@ -47,6 +48,7 @@ interface ShopInfo {
   website?: string;
   category?: string;
   facebook?: string;
+  x?: string;
   instagram?: string;
   verified: boolean;
   logoUrl?: string;
@@ -358,7 +360,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
 
         {/* Banner Image */}
         {shopInfo?.bannerUrl && (
-          <div className="w-full h-64 md:h-80 relative overflow-hidden mt-6">
+          <div className="w-full h-64 md:h-80 relative overflow-hidden">
             <img
               src={shopInfo.bannerUrl}
               alt={`${shopInfo.name} banner`}
@@ -482,24 +484,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   </div>
                 )}
 
-                {shopInfo.website && (
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-[#FFCC00]" />
-                    <a
-                      href={shopInfo.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-300 hover:text-[#FFCC00] transition-colors"
-                    >
-                      Visit Website
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Sidebar: Operating Hours, Stats & Social Media */}
-            <div className="lg:w-80 space-y-6">
+            <div className="lg:w-80 flex flex-col gap-6">
               {/* Operating Hours */}
               {operatingHours && (
                 <div className="bg-[#0A0A0A] rounded-xl p-6">
@@ -537,9 +526,10 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
               </div>
 
               {/* Social Media */}
-              <div>
-                <h3 className="text-sm font-semibold text-white mb-3">Follow Us</h3>
-                <div className="flex items-center gap-3">
+              <div className="mt-auto flex flex-col lg:items-end gap-2">
+                <div className="mt-auto flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-white">Follow Us</span>
+                  <div className="flex items-center gap-3">
                   {shopInfo.facebook ? (
                     <a
                       href={shopInfo.facebook}
@@ -569,6 +559,37 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                       <FaInstagram className="w-5 h-5 text-gray-400" />
                     </div>
                   )}
+
+                  {shopInfo.x ? (
+                    <a
+                      href={shopInfo.x}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center w-10 h-10 bg-black hover:bg-gray-900 rounded-full transition-all duration-200 group shadow hover:shadow-gray-500/25 hover:scale-105 border border-gray-700"
+                    >
+                      <FaXTwitter className="w-5 h-5 text-white" />
+                    </a>
+                  ) : (
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
+                      <FaXTwitter className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+
+                  {shopInfo.website ? (
+                    <a
+                      href={shopInfo.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center w-10 h-10 bg-emerald-600 hover:bg-emerald-700 rounded-full transition-all duration-200 group shadow hover:shadow-emerald-600/25 hover:scale-105"
+                    >
+                      <Globe className="w-5 h-5 text-white" />
+                    </a>
+                  ) : (
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
+                      <Globe className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  </div>
                 </div>
               </div>
             </div>

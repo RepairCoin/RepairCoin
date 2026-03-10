@@ -113,6 +113,7 @@ export class ShopService {
       website: formData.website,
       referral: formData.referral,
       facebook: formData.facebook,
+      x: formData.x,
       instagram: formData.instagram,
       reimbursementAddress: formData.reimbursementAddress,
       fixflowShopId: formData.fixflowShopId,

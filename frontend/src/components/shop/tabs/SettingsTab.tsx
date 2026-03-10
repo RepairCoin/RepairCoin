@@ -45,6 +45,7 @@ interface ShopData {
   phone?: string;
   address?: string;
   facebook?: string;
+  x?: string;
   instagram?: string;
   website?: string;
   logoUrl?: string;
@@ -99,6 +100,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     phone: "",
     address: "",
     facebook: "",
+    x: "",
     instagram: "",
     website: "",
     logoUrl: "",
@@ -121,6 +123,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopData.phone || "",
         address: shopData.address || "",
         facebook: shopData.facebook || "",
+        x: shopData.x || "",
         instagram: shopData.instagram || "",
         website: shopData.website || "",
         logoUrl: shopData.logoUrl || "",
@@ -150,6 +153,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopFormData.phone,
         address: shopFormData.address,
         facebook: shopFormData.facebook,
+        x: shopFormData.x,
         instagram: shopFormData.instagram,
         website: shopFormData.website,
         logoUrl: shopFormData.logoUrl,
@@ -186,6 +190,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       phone: shopData?.phone || "",
       address: shopData?.address || "",
       facebook: shopData?.facebook || "",
+      x: shopData?.x || "",
       instagram: shopData?.instagram || "",
       website: shopData?.website || "",
       logoUrl: shopData?.logoUrl || "",
@@ -574,6 +579,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       disabled={!isEditingShop}
                       className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                       placeholder="https://yourshop.com"
+                    />
+                  </div>
+                  {/* X (formerly Twitter) */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                      X
+                    </label>
+                    <input
+                      type="url"
+                      name="x"
+                      value={shopFormData.x}
+                      onChange={handleShopInputChange}
+                      disabled={!isEditingShop}
+                      className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
+                      placeholder="https://x.com/yourshop"
                     />
                   </div>
                   {/* Instagram */}
