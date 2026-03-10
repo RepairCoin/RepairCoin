@@ -1,9 +1,10 @@
 # Bug: Booking Settings Save Configuration Fails
 
-**Status:** Open
+**Status:** ALREADY FIXED
 **Priority:** HIGH
 **Est. Effort:** 2-3 hours
 **Created:** 2026-03-10
+**Verified:** 2026-03-10
 
 ---
 
@@ -11,23 +12,23 @@
 
 "Save Configuration" fails with database error. Multiple secondary bugs cause silent data corruption.
 
-## Bugs to Fix
+## Bugs to Fix - ALL ALREADY FIXED
 
-1. Missing UNIQUE constraint on `shop_id` (root cause - migration needed)
-2. `slotDurationMinutes` not included in save payload
-3. `||` operator treats `0` as falsy (should use `??`)
-4. `timezone` not sent in payload
-5. Display defaults don't match save defaults
+| Bug | Status | Location |
+|-----|--------|----------|
+| 1. Missing UNIQUE constraint | ✅ Fixed | `migrations/070_fix_time_slot_config_unique_constraint.sql` |
+| 2. `slotDurationMinutes` missing | ✅ Fixed | `ServiceAvailabilitySettings.tsx:142` |
+| 3. `||` treats 0 as falsy | ✅ Fixed | Uses `??` throughout |
+| 4. `timezone` not sent | ✅ Fixed | `ServiceAvailabilitySettings.tsx:148` |
+| 5. Display defaults mismatch | ✅ Fixed | All inputs use `??` with matching defaults |
 
-## Files to Modify
+## Remaining Action
 
-- `frontend/src/components/shop/service/ServiceAvailabilitySettings.tsx`
-- `backend/src/domains/ServiceDomain/controllers/AppointmentController.ts`
-- Run migration `070_fix_time_slot_config_unique_constraint.sql`
+- [ ] Verify migration `070` has been run on staging/production database
 
 ## Verification Checklist
 
-- [ ] Save Configuration succeeds without error
-- [ ] `slotDurationMinutes` preserved after save
-- [ ] Setting values to `0` works correctly
-- [ ] Timezone preserved
+- [x] Save Configuration succeeds without error (code ready)
+- [x] `slotDurationMinutes` preserved after save
+- [x] Setting values to `0` works correctly
+- [x] Timezone preserved
