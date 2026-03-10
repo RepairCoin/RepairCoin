@@ -19,7 +19,7 @@ import {
   GlobeIcon,
   MapPinnedIcon,
   Calendar,
-  User,
+  Store,
   TrendingUp,
   Wrench,
   LifeBuoy,
@@ -93,12 +93,6 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=overview",
           icon: <HouseIcon width={24} height={24} />,
           tabId: "overview",
-        },
-        {
-          title: "Profile",
-          href: "/shop?tab=profile",
-          icon: <User className="w-5 h-5" />,
-          tabId: "profile",
         },
       ],
     },
@@ -174,6 +168,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       id: "shop-tools",
       title: "SHOP MANAGEMENT",
       items: [
+        {
+          title: "Shop Profile",
+          href: "/shop?tab=profile",
+          icon: <Store className="w-5 h-5" />,
+          tabId: "profile",
+        },
         {
           title: "Marketing",
           href: "/shop?tab=marketing",
