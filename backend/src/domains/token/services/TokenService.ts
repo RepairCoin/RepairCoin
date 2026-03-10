@@ -558,6 +558,10 @@
         // Update shop statistics
         await this.updateShopStats(shopId, 0, amount);
 
+        // Update customer balance - deduct from current_rcn_balance and increment total_redemptions
+        await customerRepository.updateBalanceAfterRedemption(customerAddress, amount);
+        logger.info('Customer balance updated after redemption', { customerAddress, amount });
+
         logger.transaction('Token redemption processed successfully', {
           customerAddress,
           shopId,

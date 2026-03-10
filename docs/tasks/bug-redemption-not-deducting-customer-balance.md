@@ -1,11 +1,30 @@
 # BUG: RCN Redemption Not Deducting Customer Available Balance
 
-**Status:** Open
+**Status:** FIXED (Code) / PENDING (Data Migration)
 **Priority:** Critical
 **Type:** Bug (Regression)
 **Reported:** 2026-03-09
+**Fixed:** 2026-03-10
 **Affected Customer:** 0x150e4A7bCF6204BEbe0EFe08fE7479f2eE30A24e
 **Affected Shop:** 0xb3afc20c0f66e9ec902bd7df2313b57ae8fb1d81
+
+## Fix Summary (2026-03-10)
+
+### Code Fixes Applied:
+1. **Shop redemption endpoint** (`backend/src/domains/shop/routes/index.ts:1426-1440`) - Already fixed with inline SQL update
+2. **TokenService.processRedemption** (`backend/src/domains/token/services/TokenService.ts`) - Added `customerRepository.updateBalanceAfterRedemption()` call
+3. **RcnRedemptionService.processRedemption** (`backend/src/domains/ServiceDomain/services/RcnRedemptionService.ts:189`) - Already correctly calls `updateBalanceAfterRedemption()`
+
+### Data Migration Created:
+- `backend/migrations/072_fix_customer_redemption_balances.sql` - Recalculates all customer `total_redemptions` and `current_rcn_balance` from transaction history
+
+### Next Steps:
+- [ ] Run migration `072_fix_customer_redemption_balances.sql` on staging
+- [ ] Verify affected customer balances are corrected
+- [ ] Run migration on production
+- [ ] Monitor redemption flow for correct balance deduction
+
+---
 
 ## Description
 
