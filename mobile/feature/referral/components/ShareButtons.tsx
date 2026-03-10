@@ -27,10 +27,10 @@ export default function ShareButtons({
         </Pressable>
         <Pressable
           onPress={onTwitter}
-          className="flex-1 bg-[#1DA1F2] rounded-xl py-4 flex-row items-center justify-center"
+          className="flex-1 bg-black rounded-xl py-4 flex-row items-center justify-center border border-zinc-700"
         >
-          <FontAwesome5 name="twitter" size={20} color="white" />
-          <Text className="text-white font-semibold ml-2">Twitter</Text>
+          <Text className="text-white text-lg font-bold">𝕏</Text>
+          <Text className="text-white font-semibold ml-2">X</Text>
         </Pressable>
       </View>
       <View className="flex-row gap-3 mt-3">

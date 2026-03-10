@@ -285,11 +285,11 @@ export default function ShopEditProfileScreen() {
           />
 
           <FormInput
-            label="Twitter"
-            icon={<Feather name="twitter" size={20} color={PROFILE_COLORS.primary} />}
+            label="X (Twitter)"
+            icon={<Text style={{ fontSize: 18, fontWeight: 'bold', color: PROFILE_COLORS.primary }}>𝕏</Text>}
             value={formData.twitter}
             onChangeText={updateField("twitter")}
-            placeholder="Twitter handle or URL"
+            placeholder="X handle or URL"
             keyboardType="url"
             autoCapitalize="none"
           />
