@@ -58,7 +58,7 @@ export const MessageIcon: React.FC = () => {
       {/* Message Icon Button */}
       <button
         onClick={handleClick}
-        className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300"
+        className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 shadow-[0_2px_8px_4px_#101010]"
         aria-label="Messages"
       >
         {/* Message Icon */}

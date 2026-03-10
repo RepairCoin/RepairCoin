@@ -90,7 +90,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       }`}>
         <button
           onClick={toggleSidebar}
-          className="p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-colors"
+          className="p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-colors shadow-[0_2px_8px_4px_#101010]"
         >
           {isSidebarOpen ? (
             <X className="w-5 h-5" />
