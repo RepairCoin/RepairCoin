@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { MapPin, Navigation, Phone, Mail, Globe, Loader2, Star, Package } from "lucide-react";
-import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import toast from "react-hot-toast";
 import "leaflet/dist/leaflet.css";

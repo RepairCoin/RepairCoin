@@ -47,7 +47,6 @@ interface ShopInfo {
   website?: string;
   category?: string;
   facebook?: string;
-  twitter?: string;
   instagram?: string;
   verified: boolean;
   logoUrl?: string;

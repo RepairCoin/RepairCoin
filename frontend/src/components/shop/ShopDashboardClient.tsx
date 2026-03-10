@@ -162,7 +162,6 @@ export interface ShopData {
   rcg_tier?: string;
   rcg_balance?: number;
   facebook?: string;
-  twitter?: string;
   instagram?: string;
   website?: string;
   suspended_at?: string;

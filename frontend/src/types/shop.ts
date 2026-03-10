@@ -21,7 +21,6 @@ export interface ShopRegistrationFormData {
 
   // Social Media
   facebook: string;
-  twitter: string;
   instagram: string;
 
   // Wallet Information
@@ -64,7 +63,6 @@ export const initialShopFormData: ShopRegistrationFormData = {
   website: "",
   referral: "",
   facebook: "",
-  twitter: "",
   instagram: "",
   reimbursementAddress: "",
   fixflowShopId: "",

@@ -108,7 +108,8 @@
       "Bash(LOG_LEVEL=error npx ts-node -r dotenv/config -e \":*)",
       "Read(//tmp/**)",
       "Bash(test:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []
