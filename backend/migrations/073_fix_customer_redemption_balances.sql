@@ -36,15 +36,14 @@ WHERE c.address = cr.customer_address
   AND COALESCE(c.total_redemptions, 0) != COALESCE(cr.calculated_total_redemptions, 0);
 
 -- Step 4: Recalculate current_rcn_balance based on:
--- current_rcn_balance = lifetime_earnings - total_redemptions - pending_mint - minted_to_wallet
+-- current_rcn_balance = lifetime_earnings - total_redemptions - pending_mint_balance
 -- Note: We only update if the balance is off by more than a small epsilon to avoid floating point issues
 UPDATE customers
 SET
   current_rcn_balance = GREATEST(0,
     COALESCE(lifetime_earnings, 0) -
     COALESCE(total_redemptions, 0) -
-    COALESCE(pending_mint, 0) -
-    COALESCE(minted_to_wallet, 0)
+    COALESCE(pending_mint_balance, 0)
   ),
   updated_at = NOW()
 WHERE ABS(
@@ -52,8 +51,7 @@ WHERE ABS(
   GREATEST(0,
     COALESCE(lifetime_earnings, 0) -
     COALESCE(total_redemptions, 0) -
-    COALESCE(pending_mint, 0) -
-    COALESCE(minted_to_wallet, 0)
+    COALESCE(pending_mint_balance, 0)
   )
 ) > 0.00001;
 

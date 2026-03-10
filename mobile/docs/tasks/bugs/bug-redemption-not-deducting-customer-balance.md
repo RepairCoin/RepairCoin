@@ -19,8 +19,11 @@
 - `backend/migrations/072_fix_customer_redemption_balances.sql` - Recalculates all customer `total_redemptions` and `current_rcn_balance` from transaction history
 
 ### Next Steps:
-- [ ] Run migration `072_fix_customer_redemption_balances.sql` on staging
-- [ ] Verify affected customer balances are corrected
+- [x] Run migration `073_fix_customer_redemption_balances.sql` on staging (2026-03-10)
+- [x] Verify affected customer balances are corrected
+  - Customer `0x150e4a7bcf6204bebe0efe08fe7479f2ee30a24e`:
+    - Before: 150 RCN balance, 46 RCN redemptions
+    - After: 118 RCN balance, 92 RCN redemptions (correct!)
 - [ ] Run migration on production
 - [ ] Monitor redemption flow for correct balance deduction
 
