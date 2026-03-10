@@ -18,6 +18,7 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 import { useSubscriptionStatus, SubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 
 // Re-export the hook for convenience
@@ -90,6 +91,9 @@ const BlockedOverlay: React.FC<{
   status: SubscriptionStatus;
   customMessage?: string;
 }> = ({ status, customMessage }) => {
+  const router = useRouter();
+  const isSubscriptionBlock = status.isPaused || status.isExpired || status.isCancelled;
+
   const getTitle = () => {
     if (status.isPending) return "Application Pending Approval";
     if (status.isSuspended) return "Shop Suspended";
@@ -127,6 +131,18 @@ const BlockedOverlay: React.FC<{
           <p className="text-gray-300 text-sm">
             {getMessage()}
           </p>
+          {isSubscriptionBlock && (
+            <button
+              onClick={() => router.push('/shop?tab=subscription')}
+              className={`mt-4 px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 ${
+                isRedTheme
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-orange-500 hover:bg-orange-600 text-white'
+              }`}
+            >
+              Manage Subscription
+            </button>
+          )}
         </div>
       </div>
     </div>
