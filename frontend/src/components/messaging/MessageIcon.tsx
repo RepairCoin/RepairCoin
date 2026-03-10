@@ -20,20 +20,9 @@ export const MessageIcon: React.FC = () => {
 
     const fetchUnreadCount = async () => {
       try {
-        const response = await messagingApi.getConversations({ page: 1, limit: 100 });
-
-        // Calculate total unread count based on user type
-        const conversations = response.data || [];
-        const totalUnread = conversations.reduce((sum: number, conv: any) => {
-          if (userType === 'customer') {
-            return sum + (conv.unreadCountCustomer || 0);
-          } else if (userType === 'shop') {
-            return sum + (conv.unreadCountShop || 0);
-          }
-          return sum;
-        }, 0);
-
-        setUnreadCount(totalUnread);
+        // Use lightweight endpoint instead of fetching all conversations
+        const count = await messagingApi.getUnreadCount();
+        setUnreadCount(count);
       } catch (err) {
         console.error('[MessageIcon] Error fetching unread message count:', err);
       }
