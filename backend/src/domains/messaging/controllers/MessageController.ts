@@ -1,13 +1,16 @@
 // backend/src/domains/messaging/controllers/MessageController.ts
 import { Request, Response } from 'express';
 import { MessageService } from '../services/MessageService';
+import { QuickReplyRepository } from '../../../repositories/QuickReplyRepository';
 import { logger } from '../../../utils/logger';
 
 export class MessageController {
   private messageService: MessageService;
+  private quickReplyRepo: QuickReplyRepository;
 
   constructor() {
     this.messageService = new MessageService();
+    this.quickReplyRepo = new QuickReplyRepository();
   }
 
   /**
@@ -336,6 +339,136 @@ export class MessageController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get typing indicators'
+      });
+    }
+  };
+
+  /**
+   * Get quick replies for the authenticated shop
+   * GET /api/messages/quick-replies
+   */
+  getQuickReplies = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const replies = await this.quickReplyRepo.getByShopId(shopId);
+      res.json({ success: true, data: replies });
+    } catch (error: unknown) {
+      logger.error('Error in getQuickReplies controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get quick replies'
+      });
+    }
+  };
+
+  /**
+   * Create a new quick reply
+   * POST /api/messages/quick-replies
+   * Body: { title, content, category? }
+   */
+  createQuickReply = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { title, content, category } = req.body;
+      if (!title || !content) {
+        return res.status(400).json({ success: false, error: 'Title and content are required' });
+      }
+
+      const reply = await this.quickReplyRepo.create({ shopId, title, content, category });
+      res.status(201).json({ success: true, data: reply });
+    } catch (error: unknown) {
+      logger.error('Error in createQuickReply controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create quick reply'
+      });
+    }
+  };
+
+  /**
+   * Update a quick reply
+   * PUT /api/messages/quick-replies/:id
+   * Body: { title?, content?, category? }
+   */
+  updateQuickReply = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      const { title, content, category } = req.body;
+
+      const reply = await this.quickReplyRepo.update(id, shopId, { title, content, category });
+      if (!reply) {
+        return res.status(404).json({ success: false, error: 'Quick reply not found' });
+      }
+
+      res.json({ success: true, data: reply });
+    } catch (error: unknown) {
+      logger.error('Error in updateQuickReply controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update quick reply'
+      });
+    }
+  };
+
+  /**
+   * Delete a quick reply
+   * DELETE /api/messages/quick-replies/:id
+   */
+  deleteQuickReply = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      const deleted = await this.quickReplyRepo.delete(id, shopId);
+      if (!deleted) {
+        return res.status(404).json({ success: false, error: 'Quick reply not found' });
+      }
+
+      res.json({ success: true, message: 'Quick reply deleted' });
+    } catch (error: unknown) {
+      logger.error('Error in deleteQuickReply controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete quick reply'
+      });
+    }
+  };
+
+  /**
+   * Increment usage count for a quick reply
+   * POST /api/messages/quick-replies/:id/use
+   */
+  useQuickReply = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      await this.quickReplyRepo.incrementUsage(id);
+      res.json({ success: true, message: 'Usage count incremented' });
+    } catch (error: unknown) {
+      logger.error('Error in useQuickReply controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to increment usage'
       });
     }
   };

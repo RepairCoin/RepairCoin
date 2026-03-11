@@ -307,6 +307,48 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                             </div>
                           )}
 
+                          {/* Booking Link Card */}
+                          {message.messageType === "booking_link" && message.metadata && (
+                            <div className="mb-2">
+                              <div className={`rounded-lg overflow-hidden border ${
+                                isOwnMessage
+                                  ? "border-black/20 bg-black/10"
+                                  : "border-gray-700 bg-[#0A0A0A]"
+                              }`}>
+                                {message.metadata.serviceImage && (
+                                  <img
+                                    src={message.metadata.serviceImage}
+                                    alt={message.metadata.serviceName}
+                                    className="w-full h-32 object-cover"
+                                  />
+                                )}
+                                <div className="p-3">
+                                  <h4 className={`font-semibold text-sm mb-1 ${
+                                    isOwnMessage ? "text-black" : "text-white"
+                                  }`}>
+                                    {message.metadata.shopName || message.metadata.serviceName}
+                                  </h4>
+                                  <div className={`space-y-1 text-xs ${
+                                    isOwnMessage ? "text-black/70" : "text-gray-400"
+                                  }`}>
+                                    <p>Service: {message.metadata.serviceName}</p>
+                                    <p>Price: ${message.metadata.servicePrice}</p>
+                                    {message.metadata.serviceCategory && (
+                                      <p>Category: {message.metadata.serviceCategory}</p>
+                                    )}
+                                    {message.metadata.bookingDate && (
+                                      <p className={`font-medium ${
+                                        isOwnMessage ? "text-black" : "text-[#FFCC00]"
+                                      }`}>
+                                        {message.metadata.bookingDate}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Attachments */}
                           {message.attachments && message.attachments.length > 0 && (
                             <div className="mb-2 space-y-2">

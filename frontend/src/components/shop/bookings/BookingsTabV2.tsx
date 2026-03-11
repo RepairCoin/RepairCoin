@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Home, ChevronRight, Loader2, RefreshCw } from "lucide-react";
-import { mockBookings, MockBooking, Message, transformApiOrder, formatTime12Hour } from "./mockData";
+import { mockBookings, MockBooking, transformApiOrder, formatTime12Hour } from "./mockData";
 import { BookingStatsCards } from "./BookingStatsCards";
 import { BookingFilters } from "./BookingFilters";
 import { BookingCard } from "./BookingCard";
@@ -293,26 +293,6 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
     }
   };
 
-  const handleSendMessage = (bookingId: string, content: string) => {
-    setBookings(prev => prev.map(b => {
-      if (b.bookingId === bookingId) {
-        const newMessage: Message = {
-          id: `msg-${Date.now()}`,
-          sender: 'shop',
-          content,
-          timestamp: new Date().toISOString()
-        };
-        return {
-          ...b,
-          messages: [...b.messages, newMessage],
-          unreadCount: 0
-        };
-      }
-      return b;
-    }));
-    toast.success('Message sent!');
-  };
-
   const handleCancel = (bookingId: string) => {
     const booking = bookings.find(b => b.bookingId === bookingId);
     if (booking) {
@@ -432,7 +412,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
             <BookingDetailsPanel
               booking={selectedBooking}
               onClose={() => setSelectedBookingId(null)}
-              onSendMessage={handleSendMessage}
+              shopId={shopId}
               isBlocked={isBlocked}
               blockReason={blockReason}
             />

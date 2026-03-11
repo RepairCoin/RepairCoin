@@ -16,6 +16,7 @@ import {
   ShoppingBagIcon,
   TagIcon,
   UsersIcon,
+  MessageCircle,
   GlobeIcon,
   MapPinnedIcon,
   Calendar,
@@ -154,6 +155,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=customers",
           icon: <UsersIcon className="w-5 h-5" />,
           tabId: "customers",
+        },
+        {
+          title: "Messages",
+          href: "/shop?tab=messages",
+          icon: <MessageCircle className="w-5 h-5" />,
+          tabId: "messages",
         },
         // Lookup tab hidden for now - re-enable when ready
         // {

@@ -5,6 +5,8 @@ import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { AppointmentService } from '../services/AppointmentService';
 import { RescheduleService } from '../services/RescheduleService';
 import { logger } from '../../../utils/logger';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { OrderRepository } from '../../../repositories/OrderRepository';
 
 export class AppointmentController {
   private appointmentRepo: AppointmentRepository;
@@ -587,6 +589,28 @@ export class AppointmentController {
       const { orderId } = req.params;
 
       await this.appointmentRepo.cancelAppointment(orderId, customerAddress);
+
+      // Emit order cancelled event for auto-messages
+      try {
+        const orderRepo = new OrderRepository();
+        const order = await orderRepo.getOrderById(orderId);
+        if (order) {
+          await eventBus.publish(createDomainEvent(
+            'service.order_cancelled',
+            customerAddress,
+            {
+              orderId: order.orderId,
+              customerAddress: order.customerAddress,
+              shopId: order.shopId,
+              serviceId: order.serviceId,
+              cancelledBy: 'customer',
+            },
+            'ServiceDomain'
+          ));
+        }
+      } catch (eventError) {
+        logger.error('Error publishing order_cancelled event (appointment):', eventError);
+      }
 
       res.json({
         success: true,

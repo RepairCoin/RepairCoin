@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessagesContainer } from "@/components/messaging/MessagesContainer";
+import { AutoMessagesManager } from "@/components/messaging/AutoMessagesManager";
 import {
   MessageCircle,
   TrendingUp,
@@ -10,6 +11,7 @@ import {
   CheckCircle,
   Filter,
   Download,
+  Send,
 } from "lucide-react";
 import * as messagingApi from "@/services/api/messaging";
 
@@ -20,6 +22,7 @@ interface MessagesTabProps {
 export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("conversation");
+  const [activeSubTab, setActiveSubTab] = useState<"conversations" | "auto-messages">("conversations");
   const [showStats, setShowStats] = useState(true);
   const [messageStats, setMessageStats] = useState({
     totalConversations: 0,
@@ -88,6 +91,37 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Sub-Tab Switcher */}
+      <div className="flex items-center gap-1 mb-4 bg-[#0D0D0D] border border-gray-800 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setActiveSubTab("conversations")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+            activeSubTab === "conversations"
+              ? "bg-[#1A1A1A] text-white"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          <MessageCircle className="w-4 h-4" />
+          Conversations
+        </button>
+        <button
+          onClick={() => setActiveSubTab("auto-messages")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+            activeSubTab === "auto-messages"
+              ? "bg-[#1A1A1A] text-white"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          <Send className="w-4 h-4" />
+          Auto-Messages
+        </button>
+      </div>
+
+      {/* Auto-Messages Tab */}
+      {activeSubTab === "auto-messages" ? (
+        <AutoMessagesManager />
+      ) : (
+      <>
       {/* Stats Cards (Collapsible) */}
       {showStats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -175,6 +209,8 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
           💡 <span className="font-semibold text-white">Pro Tip:</span> Quick responses improve customer satisfaction and increase booking conversions by up to 40%
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 };
