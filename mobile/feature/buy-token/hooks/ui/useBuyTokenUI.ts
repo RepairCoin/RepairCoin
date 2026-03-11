@@ -24,25 +24,32 @@ export function useBuyTokenUI() {
   }, [purchaseAmount]);
 
   const MAX_AMOUNT = 100000;
+  const MIN_AMOUNT = 5;
 
   // Handle input change
   const handleInputChange = useCallback(
     (text: string) => {
-      const value = parseInt(text) || 0;
-      const clampedValue = Math.min(Math.max(0, value), MAX_AMOUNT);
-
-      // If value exceeds max, show clamped value in input and error message
-      if (value > MAX_AMOUNT) {
-        setInputValue(MAX_AMOUNT.toString());
-        setShowExceedError(true);
-        // Auto-dismiss error after 3 seconds
-        setTimeout(() => setShowExceedError(false), 3000);
-      } else {
-        setInputValue(text);
+      // Allow empty input
+      if (!text) {
+        setInputValue("");
+        setPurchaseAmount(0);
         setShowExceedError(false);
+        return;
       }
 
-      setPurchaseAmount(clampedValue);
+      const value = parseInt(text) || 0;
+
+      // Show error if exceeds max, but don't clamp the input immediately
+      // This lets user see what they typed and understand the error
+      if (value > MAX_AMOUNT) {
+        setShowExceedError(true);
+        setInputValue(text);
+        setPurchaseAmount(MAX_AMOUNT); // Clamp the actual purchase amount
+      } else {
+        setShowExceedError(false);
+        setInputValue(text);
+        setPurchaseAmount(value);
+      }
     },
     [setPurchaseAmount]
   );

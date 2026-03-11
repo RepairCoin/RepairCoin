@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopRewards, RepairType } from "../useShopRewards";
+import { useShopRewards, useShopBalance, RepairType } from "../useShopRewards";
 import { useAuthStore } from "@/shared/store/auth.store";
 
 export function useRewardToken() {
@@ -38,8 +38,9 @@ export function useRewardToken() {
     isIssuingReward,
   } = useShopRewards();
 
-  // Get shop's available RCN balance
-  const availableBalance = shopData?.purchasedRcnBalance ?? 0;
+  // Get shop's available RCN balance with real-time query
+  const { data: realTimeBalance, refetch: refetchBalance } = useShopBalance();
+  const availableBalance = realTimeBalance ?? shopData?.purchasedRcnBalance ?? 0;
 
   const isSelfReward = Boolean(
     shopData?.address &&
@@ -113,7 +114,11 @@ export function useRewardToken() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      await refetchBalance();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleRepairTypeSelect = (type: RepairType) => {

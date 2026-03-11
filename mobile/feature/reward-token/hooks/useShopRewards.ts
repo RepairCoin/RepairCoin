@@ -15,6 +15,20 @@ const TIER_BONUSES = {
   GOLD: 5,
 } as const;
 
+// Hook for fetching real-time shop balance
+export function useShopBalance() {
+  const shopId = useAuthStore((state) => state.userProfile?.shopId);
+
+  return useQuery({
+    queryKey: queryKeys.shop(shopId || ""),
+    queryFn: () => shopApi.getShopById(shopId!),
+    enabled: !!shopId,
+    select: (data) => data.data?.purchasedRcnBalance ?? 0,
+    staleTime: 30 * 1000, // 30 seconds - balance should be fresh
+    refetchOnMount: true, // Always refetch on mount to ensure fresh balance
+  });
+}
+
 // Repair type constants
 const MINOR_REPAIR_RCN = 5;
 const SMALL_REPAIR_RCN = 10;
