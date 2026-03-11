@@ -36,6 +36,7 @@ import { appointmentReminderService } from './services/AppointmentReminderServic
 import { subscriptionReminderService } from './services/SubscriptionReminderService';
 import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionService';
 import { rescheduleExpirationService } from './services/RescheduleExpirationService';
+import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -478,6 +479,7 @@ class RepairCoinApp {
       rescheduleExpirationService.stop();
       stopSubscriptionEnforcement();
       stopUnpaidBookingCleanup();
+      autoMessageSchedulerService.stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -644,6 +646,11 @@ class RepairCoinApp {
         // Auto-cancels unpaid manual bookings (pending status, pending payment) after 24 hours
         startUnpaidBookingCleanup();
         logger.info('🧹 Unpaid booking cleanup service started (every hour, 24h expiry)');
+
+        // Start auto-message scheduler - runs every hour
+        // Processes scheduled auto-messages (daily/weekly/monthly) and pending delayed sends
+        autoMessageSchedulerService.start(1);
+        logger.info('📨 Auto-message scheduler started (every 1 hour)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

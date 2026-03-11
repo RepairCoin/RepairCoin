@@ -1,260 +1,240 @@
-# Strategy: Messaging System Gaps — WebSocket, Unread Count, Non-Functional Buttons
+# Strategy: Booking Detail Panel Chat — Connect to Real Messaging with Rich Booking Cards
 
 ## Problem Statement
 
-The messaging system is functionally complete but has three gaps:
-1. **Polling-only updates** — Frontend polls every 3-10 seconds despite WebSocket infrastructure already existing on the backend
-2. **Missing `getUnreadCount()` in frontend API client** — Backend endpoint exists but frontend fetches all conversations just to count unread
-3. **Non-functional buttons** — Several UI buttons in the messaging interface have no click handlers
+The "Message" tab on the booking details panel (`BookingsTabV2` → `BookingDetailsPanel` → `BookingMessageTab`) does NOT send real messages. It updates local React state only — customer never receives anything.
 
-## Gap 1: No WebSocket Real-Time for Messaging
+When connecting this to the real messaging system, messages should include **rich booking cards** (service name, cost, date/time, image) so the customer knows exactly which booking the shop is referencing — the same pattern already used on the customer side with `service_link` cards.
 
-### Current State
+## Existing Pattern: Customer → Shop (Already Works)
 
-**Backend WebSocket infrastructure (fully built):**
-- `backend/src/services/WebSocketManager.ts` (492 lines)
-- JWT authentication (cookie-based auto-auth + manual token auth)
-- Rate limiting: 10 connections/minute per IP, 5-second auth timeout
-- Heartbeat: 30-second ping/pong cycle
-- Public API: `sendNotificationToUser()`, `broadcastToAll()`, `sendToAddresses()`, `isUserConnected()`
-- Already used by NotificationDomain for 20+ event types (rewards, subscriptions, bookings, etc.)
+The customer side already sends rich service cards via the "Message Shop" button in the Service Details modal:
 
-**Frontend WebSocket client: DOES NOT EXIST**
-- No WebSocket connection code anywhere in `frontend/src/`
-- All messaging updates use `setInterval()` polling
-
-**Current polling load per active user:**
-
-| Component | API Call | Interval | Frequency |
-|-----------|----------|----------|-----------|
-| `MessagesContainer.tsx` (line 89) | `GET /messages/conversations` | 5s | 12x/min |
-| `MessagesContainer.tsx` (line 163) | `GET /messages/conversations/:id/messages` | 3s | 20x/min |
-| `MessageIcon.tsx` (line 46) | `GET /messages/conversations` (calculates unread) | 10s | 6x/min |
-| **Total** | | | **38 requests/min** |
-
-### Implementation Plan
-
-#### Step 1: Create Frontend WebSocket Hook
-
-Create `frontend/src/hooks/useWebSocket.ts`:
-- Connect to backend WebSocket on mount
-- Auto-authenticate via cookie (already supported by backend)
-- Reconnect on disconnect with exponential backoff
-- Expose `onMessage(type, callback)` for event subscriptions
-- Clean up on unmount
-
-#### Step 2: Add Messaging Events to Backend WebSocketManager
-
-In `backend/src/domains/messaging/services/MessageService.ts`, after sending a message, broadcast via WebSocket:
-
-```
-Event: "new_message"
-Payload: { conversationId, messageId, senderAddress, senderType, messageText, createdAt }
-Targets: Both customer and shop addresses for that conversation
-```
-
-Similarly for:
-- `conversation_created` — when new conversation is created
-- `messages_read` — when messages are marked read (update read receipts)
-- `typing_indicator` — replace polling with WebSocket events
-
-#### Step 3: Update Frontend Components to Use WebSocket
-
-**MessagesContainer.tsx:**
-- Subscribe to `new_message` events → append to message list
-- Subscribe to `conversation_created` → prepend to conversation list
-- Subscribe to `messages_read` → update read status indicators
-- **Keep polling as fallback** (increase interval to 30s) for reconnection recovery
-
-**MessageIcon.tsx:**
-- Subscribe to `new_message` → increment unread badge
-- Subscribe to `messages_read` → decrement unread badge
-- Remove 10-second polling entirely
-
-**ConversationThread.tsx:**
-- Subscribe to `typing_indicator` → show typing bubble in real-time
-- Remove polling for typing indicators
-
-#### Step 4: Graceful Degradation
-
-- If WebSocket disconnects, fall back to current polling intervals
-- On reconnect, fetch latest state to sync any missed events
-- Log WebSocket connection status for debugging
-
-### Impact
-- **Performance**: ~38 requests/min → ~1 request/min (fallback poll only)
-- **UX**: Messages appear instantly instead of 3-5 second delay
-- **Server load**: Significant reduction in API calls under load
-
-### Files to Modify
-
-| File | Change |
-|------|--------|
-| `frontend/src/hooks/useWebSocket.ts` | **NEW** — WebSocket connection hook |
-| `frontend/src/components/messaging/MessagesContainer.tsx` | Subscribe to WS events, reduce polling |
-| `frontend/src/components/messaging/MessageIcon.tsx` | Subscribe to WS events, remove polling |
-| `frontend/src/components/messaging/ConversationThread.tsx` | WS typing indicators |
-| `backend/src/domains/messaging/services/MessageService.ts` | Emit WS events on send/read |
-| `backend/src/domains/messaging/index.ts` | Inject WebSocketManager reference |
-
----
-
-## Gap 2: Missing `getUnreadCount()` in Frontend API Client
-
-### Current State
-
-**Backend endpoint exists and works:**
-- Route: `GET /api/messages/unread/count` (in `messaging/routes.ts` line 55)
-- Controller: `MessageController.getUnreadCount` (lines 213-244)
-- Returns: `{ success: true, count: number }`
-
-**Frontend workaround (inefficient):**
-- `MessageIcon.tsx` (line 23) calls `getConversations({ page: 1, limit: 100 })`
-- Iterates all conversations to sum `unreadCountCustomer` or `unreadCountShop`
-- Fetches 100 full conversation objects just to get a single number
-
-### Implementation Plan
-
-#### Step 1: Add Method to Frontend API Client
-
-In `frontend/src/services/api/messaging.ts`, add:
+**`ServiceDetailsModal.tsx` lines 64-78:**
 
 ```typescript
-export const getUnreadCount = async (): Promise<number> => {
-  const response = await apiClient.get('/messages/unread/count');
-  return response.data.count;
-};
+await messagingApi.sendMessage({
+  customerAddress: address,
+  shopId: service.shopId,
+  messageText: `Hi! I'm interested in your service "${service.serviceName}".\n...`,
+  messageType: "service_link",
+  metadata: {
+    serviceId: service.serviceId,
+    serviceName: service.serviceName,
+    serviceImage: service.imageUrl,
+    servicePrice: service.priceUsd,
+    serviceCategory: service.category,
+    shopName: service.companyName,
+  },
+});
 ```
 
-#### Step 2: Update MessageIcon.tsx
+**`ConversationThread.tsx` lines 271-308** renders this as a rich card:
 
-Replace the current `fetchUnreadCount` function (lines 22-34):
+```
+┌─────────────────────────────────┐
+│  [Service Image - 32px height]  │
+├─────────────────────────────────┤
+│  Service Name (bold)            │
+│  Category           $Price      │
+└─────────────────────────────────┘
+```
+
+The **same pattern** needs to be replicated for shop → customer with booking details.
+
+## What's Missing
+
+1. **`booking_link` card renderer** — `ConversationThread.tsx` only renders `service_link` cards. No `booking_link` renderer exists yet, even though the DB supports the `booking_link` message type.
+2. **Booking detail panel uses mock data** — `BookingMessageTab.tsx` imports from `mockData.ts`, sends nothing to the API.
+3. **No shop-initiated booking message flow** — Shop has no way to send a message with booking context attached.
+
+## Rollback Plan
+
+Before making any changes, preserve the current frontend state for easy rollback.
+
+### Files to Back Up (Do NOT Delete)
+
+| File | Reason to Keep |
+|------|----------------|
+| `frontend/src/components/shop/bookings/tabs/BookingMessageTab.tsx` | **Keep** — Contains Quick Replies UI that will be updated in the next strategy (`shop-auto-responses-scheduled-messages.md`) |
+| `frontend/src/components/shop/bookings/mockData.ts` | **Keep** — Contains mock quick replies data needed for reference |
+| `frontend/src/components/shop/bookings/BookingDetailsPanel.tsx` | Back up original before modifying |
+| `frontend/src/components/shop/bookings/BookingsTabV2.tsx` | Back up original before modifying |
+
+### How to Rollback
+
+If something goes wrong, revert with:
+
+```bash
+# Revert all changes to the booking panel files
+git checkout -- \
+  frontend/src/components/shop/bookings/BookingDetailsPanel.tsx \
+  frontend/src/components/shop/bookings/BookingsTabV2.tsx \
+  frontend/src/components/messaging/ConversationThread.tsx
+```
+
+The `booking_link` renderer in `ConversationThread.tsx` is additive (doesn't change existing `service_link` behavior), so reverting it is safe — any `booking_link` messages already sent will just render as plain text fallback.
+
+## Implementation Plan
+
+### Step 1: Add `booking_link` Card Renderer to ConversationThread
+
+In `ConversationThread.tsx`, add a `booking_link` card renderer after the existing `service_link` block (line 308). This renders for both shop and customer views since they share the same component.
+
+```tsx
+{/* Booking Link Card */}
+{message.messageType === "booking_link" && message.metadata && (
+  <div className="mb-2">
+    <div
+      className={`rounded-lg overflow-hidden border ${
+        isOwnMessage
+          ? "border-black/20 bg-black/10"
+          : "border-gray-700 bg-[#0A0A0A]"
+      }`}
+    >
+      {/* Service Image */}
+      {message.metadata.serviceImage && (
+        <img
+          src={message.metadata.serviceImage}
+          alt={message.metadata.serviceName}
+          className="w-full h-32 object-cover"
+        />
+      )}
+      {/* Booking Details */}
+      <div className="p-3">
+        <h4
+          className={`font-semibold text-sm mb-1 ${
+            isOwnMessage ? "text-black" : "text-white"
+          }`}
+        >
+          {message.metadata.shopName || message.metadata.serviceName}
+        </h4>
+        <div className="space-y-1 text-xs">
+          <div className="flex items-center gap-1">
+            <span>{isOwnMessage ? "text-black/70" : "text-gray-400"}</span>
+            <span>Service: {message.metadata.serviceName}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>Price: ${message.metadata.servicePrice}</span>
+          </div>
+          {message.metadata.serviceCategory && (
+            <div className="flex items-center gap-1">
+              <span>Category: {message.metadata.serviceCategory}</span>
+            </div>
+          )}
+          {message.metadata.bookingDate && (
+            <div className="flex items-center gap-1">
+              <span>{message.metadata.bookingDate}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+```
+
+### Step 2: Wire BookingDetailsPanel to Real Messaging (Keep Existing UI)
+
+In `BookingDetailsPanel.tsx`, keep the current UI structure but connect the "Message" tab to the real messaging system:
+
+1. When "Message" tab is selected, call `getOrCreateConversation(booking.customerAddress)` to get the real conversation
+2. Render the real `ConversationThread` component with the conversation ID
+3. On first open, auto-send a `booking_link` message with booking details if no prior booking message exists for this order
+
+**Keep `BookingMessageTab.tsx` as-is** — the Quick Replies UI and Edit button will be updated in the next strategy (`shop-auto-responses-scheduled-messages.md`). Do not delete or modify it.
+
+**Updated props for BookingDetailsPanel:**
+
+- Remove `onSendMessage` prop (ConversationThread handles sending)
+- Add `shopId` prop (needed for getOrCreateConversation)
+- Booking data already available via existing `booking` prop
+
+**Booking metadata to include:**
 
 ```typescript
-// Before: fetches all conversations, iterates to count
-const conversations = await getConversations({ page: 1, limit: 100 });
-const totalUnread = conversations.reduce(...)
-
-// After: single lightweight call
-const count = await getUnreadCount();
-setUnreadCount(count);
+metadata: {
+  bookingId: booking.orderId,
+  serviceName: booking.serviceName,
+  serviceImage: booking.serviceImage,       // if available
+  servicePrice: booking.totalPrice,
+  serviceCategory: booking.serviceCategory,
+  shopName: booking.shopName,
+  bookingDate: booking.bookingTimeSlot,     // "Dec 26, 2025 at 2:00 PM"
+  bookingEndTime: booking.bookingEndTime,
+}
 ```
 
-### Impact
-- **Response size**: ~50KB (100 conversations) → ~50 bytes (single count)
-- **DB query**: Complex JOIN with pagination → Simple COUNT query
-- **No backend changes needed**
+### Step 3: Update BookingsTabV2.tsx
 
-### Files to Modify
+- Remove the fake `handleSendMessage` function (lines 294-311) that only updates local state
+- Pass `shopId` to `BookingDetailsPanel`
 
-| File | Change |
-|------|--------|
-| `frontend/src/services/api/messaging.ts` | Add `getUnreadCount()` method |
-| `frontend/src/components/messaging/MessageIcon.tsx` | Use `getUnreadCount()` instead of `getConversations()` |
+### Step 4: Customer Service Details "Message Shop" Already Works
 
----
+The customer side (`ServiceDetailsModal.tsx`) already sends `service_link` messages with rich cards. No changes needed — this flow is already functional per sc1.png and sc2.png.
 
-## Gap 3: Non-Functional Buttons in Messaging UI
-
-### Current State — Buttons With No Click Handlers
-
-| Component | Button | Icon | Line | Purpose |
-|-----------|--------|------|------|---------|
-| `ConversationThread.tsx` | Info | `Info` | 202-204 | Show conversation details |
-| `ConversationThread.tsx` | More Options | `MoreVertical` | 205-207 | Context menu (archive, block, etc.) |
-| `MessagesTab.tsx` (shop) | Filter | `Filter` | 156-159 | Filter conversations |
-| `MessagesTab.tsx` (shop) | Export | `Download` | 160-163 | Export chat history |
-| `BookingMessageTab.tsx` | Edit Quick Replies | `Edit2` | 130-132 | Edit canned responses |
-
-**Note:** `BookingMessageTab.tsx` also uses **mock data** — it's not integrated with the real messaging system.
-
-### Implementation Plan
-
-#### Step 1: ConversationThread Header Buttons
-
-**Info Button** — Show a slide-out panel with conversation metadata:
-- Customer name, address, joined date
-- Conversation created date
-- Total messages exchanged
-- Link to customer profile
-
-**More Options Button** — Dropdown menu with:
-- Archive conversation
-- Block/unblock customer (backend already supports: `isBlocked`, `blockedBy` fields in conversations table)
-- Mark as resolved
-
-Implementation:
-- Add `useState` for info panel visibility and dropdown open state
-- Wire `onClick` handlers to toggle state
-- Create `ConversationInfoPanel` sub-component
-- Create `ConversationOptionsMenu` dropdown sub-component
-
-#### Step 2: MessagesTab Action Buttons
-
-**Filter Button** — Open filter popover with:
-- Status filter (already exists in MessageInbox — reuse same logic)
-- Date range filter
-- Customer name search
-- This may be redundant with MessageInbox's built-in filters. **Consider removing** if the inbox filters are sufficient.
-
-**Export Button** — Export conversation history:
-- Fetch all messages for selected conversation
-- Generate CSV or text file download
-- Include: timestamp, sender, message text
-
-#### Step 3: BookingMessageTab Quick Replies Edit
-
-**Edit Quick Replies Button** — Either:
-- **Option A**: Open a modal to manage canned responses (add/edit/delete)
-- **Option B**: Remove the button if quick replies are hardcoded intentionally
-- **Note**: This component uses mock data. Either integrate with real messaging or document it as a future feature.
-
-### Priority Order
-
-1. **Info + More Options** (ConversationThread) — Most visible, users expect these to work
-2. **Export** (MessagesTab) — Useful for shops keeping records
-3. **Filter** (MessagesTab) — May be redundant with inbox filters
-4. **Edit Quick Replies** (BookingMessageTab) — Lowest priority, uses mock data
-
-### Files to Modify
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `frontend/src/components/messaging/ConversationThread.tsx` | Add onClick handlers, info panel, options menu |
-| `frontend/src/components/shop/tabs/MessagesTab.tsx` | Add filter popover, export functionality |
-| `frontend/src/components/shop/bookings/tabs/BookingMessageTab.tsx` | Wire edit button or remove it |
+| `frontend/src/components/messaging/ConversationThread.tsx` | Add `booking_link` card renderer (after line 308) |
+| `frontend/src/components/shop/bookings/BookingDetailsPanel.tsx` | Replace `BookingMessageTab` render with real `ConversationThread`, call `getOrCreateConversation`, auto-send `booking_link` on first open |
+| `frontend/src/components/shop/bookings/BookingsTabV2.tsx` | Remove fake `handleSendMessage`, pass `shopId` |
 
----
+## Files to Keep (Do NOT Delete or Modify)
 
-## Recommended Execution Order
+| File | Reason |
+|------|--------|
+| `frontend/src/components/shop/bookings/tabs/BookingMessageTab.tsx` | Quick Replies UI — will be updated in auto-responses strategy |
+| `frontend/src/components/shop/bookings/mockData.ts` | Mock data reference — needed for Quick Replies migration |
 
-| Phase | Gap | Effort | Impact |
-|-------|-----|--------|--------|
-| 1 | Gap 2: `getUnreadCount()` | ~15 min | Quick win — 2 files, no backend changes |
-| 2 | Gap 3: Non-functional buttons | ~2-3 hours | UX polish — buttons users click expecting results |
-| 3 | Gap 1: WebSocket real-time | ~4-6 hours | Performance — new frontend hook + backend events |
+## Message Flow
+
+```
+Shop clicks booking → Booking Detail Panel → "Message" tab
+    ↓
+getOrCreateConversation(customerAddress)
+    ↓
+Auto-send booking_link message (if first time for this booking):
+  messageType: "booking_link"
+  messageText: "Regarding your booking for Hand Wraps on Dec 26, 2025 at 2:00 PM"
+  metadata: { serviceName, servicePrice, bookingDate, serviceImage, ... }
+    ↓
+ConversationThread renders booking card in chat:
+  ┌─────────────────────────────────┐
+  │  [Service Image]                │
+  ├─────────────────────────────────┤
+  │  MBG.life                       │
+  │  Service: Hand Wraps            │
+  │  Price: $129.98                 │
+  │  Category: Fitness & Gyms       │
+  │  Dec 26, 2025 at 2:00 PM       │
+  └─────────────────────────────────┘
+    ↓
+Customer sees rich booking card in /customer?tab=messages
+Shop can continue chatting in same thread
+```
+
+## Impact
+
+- Messages sent from booking details actually reach the customer
+- Customer sees a rich card with booking context (service, price, date/time)
+- Same conversation visible in both booking detail panel AND `/shop?tab=messages`
+- No new backend work needed — `booking_link` message type already supported in DB
+- Mirrors the existing customer → shop `service_link` pattern
+- Quick Replies UI preserved for next strategy update
+
+**Effort:** ~2-3 hours
 
 ## Testing Checklist
 
-### Gap 1: WebSocket
-- [ ] WebSocket connects and authenticates on page load
-- [ ] New message appears instantly without polling
-- [ ] Unread badge updates in real-time
-- [ ] Typing indicator shows via WebSocket
-- [ ] Graceful fallback to polling on WS disconnect
-- [ ] Reconnects automatically after disconnect
-- [ ] No duplicate messages on reconnect
-
-### Gap 2: Unread Count
-- [ ] `getUnreadCount()` returns correct count
-- [ ] MessageIcon uses lightweight endpoint
-- [ ] Badge updates correctly when messages arrive
-- [ ] Badge clears when conversation is read
-
-### Gap 3: Buttons
-- [ ] Info button opens conversation details panel
-- [ ] More Options shows dropdown with archive/block
-- [ ] Archive removes conversation from active list
-- [ ] Block prevents further messages
-- [ ] Export downloads conversation as file
-- [ ] Filter button opens filter UI (or is removed if redundant)
+- [ ] Send message from booking detail panel → customer receives it with rich booking card
+- [ ] Booking card shows: service name, price, category, date/time, image
+- [ ] Customer can reply and shop sees it in booking detail panel
+- [ ] Same conversation appears in `/shop?tab=messages`
+- [ ] Multiple bookings for same customer use same conversation (not new ones)
+- [ ] Customer-side "Message Shop" from Service Details still works (no regression)
+- [ ] `service_link` cards still render correctly
+- [ ] `booking_link` cards render correctly for both sender and receiver
+- [ ] Rollback works: `git checkout` reverts cleanly to previous state
