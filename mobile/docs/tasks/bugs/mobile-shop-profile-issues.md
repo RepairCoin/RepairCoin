@@ -1,9 +1,10 @@
 # Bug: Mobile Shop Profile Issues
 
-**Status:** Open
+**Status:** N/A (By Design)
 **Priority:** MEDIUM
 **Est. Effort:** 2-3 hours
 **Created:** 2026-03-10
+**Closed:** 2026-03-11
 
 ---
 
@@ -16,12 +17,6 @@ Shop profile data not persisting correctly in mobile app.
 1. Country field not saving/persisting
 2. Address autocomplete needed for better UX
 
-## Action Required
+## Resolution
 
-Fix profile persistence issues and implement address autocomplete.
-
-## Verification Checklist
-
-- [ ] Country field saves and persists correctly
-- [ ] Address autocomplete works
-- [ ] All profile fields save correctly
+**N/A - By Design**: Country and city fields were intentionally removed from the shop profile. The street address field is sufficient for shop location. No fix required.
