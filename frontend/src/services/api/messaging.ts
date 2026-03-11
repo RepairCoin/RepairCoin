@@ -44,6 +44,15 @@ export interface Message {
   senderName?: string;
 }
 
+export interface MessageAttachment {
+  url: string;
+  key: string;
+  type: 'image' | 'file';
+  name: string;
+  size: number;
+  mimetype: string;
+}
+
 export interface SendMessageRequest {
   conversationId?: string;
   customerAddress?: string;
@@ -51,6 +60,7 @@ export interface SendMessageRequest {
   messageText: string;
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
   metadata?: Record<string, any>;
+  attachments?: MessageAttachment[];
 }
 
 export interface PaginatedResponse<T> {
@@ -69,6 +79,18 @@ export interface PaginatedResponse<T> {
  */
 export const sendMessage = async (request: SendMessageRequest): Promise<Message> => {
   const response = await apiClient.post('/messages/send', request);
+  return response.data;
+};
+
+/**
+ * Upload message attachments (images or PDF, up to 5 files, 5MB each)
+ */
+export const uploadAttachments = async (files: File[]): Promise<MessageAttachment[]> => {
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+  const response = await apiClient.post('/messages/attachments/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 
@@ -123,6 +145,13 @@ export const getMessages = async (
  */
 export const markConversationAsRead = async (conversationId: string): Promise<void> => {
   await apiClient.post(`/messages/conversations/${conversationId}/read`);
+};
+
+/**
+ * Archive (resolve) or reopen a conversation
+ */
+export const archiveConversation = async (conversationId: string, archived: boolean): Promise<void> => {
+  await apiClient.patch(`/messages/conversations/${conversationId}/archive`, { archived });
 };
 
 /**

@@ -1193,6 +1193,10 @@ export default function ShopDashboardClient() {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tab);
     url.searchParams.delete("filter");
+    // Clean up conversation param when leaving messages tab
+    if (tab !== "messages") {
+      url.searchParams.delete("conversation");
+    }
     window.history.pushState({}, "", url);
   };
 

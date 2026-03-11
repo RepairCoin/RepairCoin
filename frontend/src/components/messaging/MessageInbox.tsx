@@ -93,39 +93,41 @@ export const MessageInbox: React.FC<MessageInboxProps> = ({
           />
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilterStatus("all")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterStatus === "all"
-                ? "bg-[#FFCC00] text-black"
-                : "bg-[#0A0A0A] text-gray-400 hover:text-white"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilterStatus("active")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterStatus === "active"
-                ? "bg-[#FFCC00] text-black"
-                : "bg-[#0A0A0A] text-gray-400 hover:text-white"
-            }`}
-          >
-            Active
-          </button>
-          <button
-            onClick={() => setFilterStatus("resolved")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterStatus === "resolved"
-                ? "bg-[#FFCC00] text-black"
-                : "bg-[#0A0A0A] text-gray-400 hover:text-white"
-            }`}
-          >
-            Resolved
-          </button>
-        </div>
+        {/* Filter Buttons - Shop only (customers can't resolve conversations) */}
+        {userType === "shop" && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterStatus("all")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterStatus === "all"
+                  ? "bg-[#FFCC00] text-black"
+                  : "bg-[#0A0A0A] text-gray-400 hover:text-white"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilterStatus("active")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterStatus === "active"
+                  ? "bg-[#FFCC00] text-black"
+                  : "bg-[#0A0A0A] text-gray-400 hover:text-white"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setFilterStatus("resolved")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterStatus === "resolved"
+                  ? "bg-[#FFCC00] text-black"
+                  : "bg-[#0A0A0A] text-gray-400 hover:text-white"
+              }`}
+            >
+              Resolved
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Conversation List */}

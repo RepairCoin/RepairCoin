@@ -67,6 +67,7 @@ export interface CreateMessageParams {
   messageText: string;
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
   metadata?: Record<string, any>;
+  attachments?: any[];
 }
 
 export class MessageRepository extends BaseRepository {
@@ -164,7 +165,7 @@ export class MessageRepository extends BaseRepository {
       const countQuery = `
         SELECT COUNT(*) as total
         FROM conversations
-        WHERE customer_address = $1 AND is_archived_customer = FALSE
+        WHERE customer_address = $1
       `;
       const countResult = await this.pool.query(countQuery, [customerAddress.toLowerCase()]);
       const total = parseInt(countResult.rows[0].total);
@@ -177,7 +178,7 @@ export class MessageRepository extends BaseRepository {
           s.logo_url as shop_image_url
         FROM conversations c
         LEFT JOIN shops s ON c.shop_id = s.shop_id
-        WHERE c.customer_address = $1 AND c.is_archived_customer = FALSE
+        WHERE c.customer_address = $1
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
         LIMIT $2 OFFSET $3
       `;
@@ -216,7 +217,7 @@ export class MessageRepository extends BaseRepository {
       const countQuery = `
         SELECT COUNT(*) as total
         FROM conversations
-        WHERE shop_id = $1 AND is_archived_shop = FALSE
+        WHERE shop_id = $1
       `;
       const countResult = await this.pool.query(countQuery, [shopId]);
       const total = parseInt(countResult.rows[0].total);
@@ -228,7 +229,7 @@ export class MessageRepository extends BaseRepository {
           cust.name as customer_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
-        WHERE c.shop_id = $1 AND c.is_archived_shop = FALSE
+        WHERE c.shop_id = $1
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
         LIMIT $2 OFFSET $3
       `;
@@ -264,8 +265,9 @@ export class MessageRepository extends BaseRepository {
           sender_type,
           message_text,
           message_type,
-          metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          metadata,
+          attachments
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
 
@@ -276,7 +278,8 @@ export class MessageRepository extends BaseRepository {
         params.senderType,
         params.messageText,
         params.messageType || 'text',
-        JSON.stringify(params.metadata || {})
+        JSON.stringify(params.metadata || {}),
+        JSON.stringify(params.attachments || [])
       ]);
 
       logger.info('Message created', {
@@ -453,6 +456,24 @@ export class MessageRepository extends BaseRepository {
       return parseInt(result.rows[0].total) || 0;
     } catch (error) {
       logger.error('Error in getTotalUnreadCount:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set archived status on a conversation for a specific user type
+   */
+  async setConversationArchived(
+    conversationId: string,
+    userType: 'customer' | 'shop',
+    archived: boolean
+  ): Promise<void> {
+    try {
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `UPDATE conversations SET ${column} = $1, updated_at = NOW() WHERE conversation_id = $2`;
+      await this.pool.query(query, [archived, conversationId]);
+    } catch (error) {
+      logger.error('Error in setConversationArchived:', error);
       throw error;
     }
   }

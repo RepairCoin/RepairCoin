@@ -1,5 +1,6 @@
 // backend/src/domains/messaging/routes.ts
 import { Router } from 'express';
+import multer from 'multer';
 import { MessageController } from './controllers/MessageController';
 import { AutoMessageController } from './controllers/AutoMessageController';
 import { authMiddleware } from '../../middleware/auth';
@@ -7,6 +8,23 @@ import { authMiddleware } from '../../middleware/auth';
 const router = Router();
 const messageController = new MessageController();
 const autoMessageController = new AutoMessageController();
+
+// Multer config for message attachments
+const attachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF'));
+    }
+  },
+});
 
 // All messaging routes require authentication
 router.use(authMiddleware);
@@ -17,6 +35,13 @@ router.use(authMiddleware);
  * @access Authenticated users (Customer or Shop)
  */
 router.post('/send', messageController.sendMessage);
+
+/**
+ * @route POST /api/messages/attachments/upload
+ * @description Upload message attachments (images or PDF, up to 5 files, 5MB each)
+ * @access Authenticated users (Customer or Shop)
+ */
+router.post('/attachments/upload', attachmentUpload.array('files', 5), messageController.uploadAttachments);
 
 /**
  * @route GET /api/messages/conversations
@@ -52,6 +77,15 @@ router.get('/conversations/:conversationId/messages', messageController.getMessa
  * @access Authenticated users (must be part of conversation)
  */
 router.post('/conversations/:conversationId/read', messageController.markAsRead);
+
+/**
+ * @route PATCH /api/messages/conversations/:conversationId/archive
+ * @description Archive (resolve) or reopen a conversation
+ * @param conversationId - The conversation ID
+ * @body archived - true to resolve, false to reopen
+ * @access Authenticated users (must be part of conversation)
+ */
+router.patch('/conversations/:conversationId/archive', messageController.archiveConversation);
 
 /**
  * @route GET /api/messages/unread/count

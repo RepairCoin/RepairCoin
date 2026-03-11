@@ -13,6 +13,7 @@ export interface SendMessageRequest {
   messageText: string;
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
   metadata?: Record<string, any>;
+  attachments?: any[];
 }
 
 export class MessageService {
@@ -62,9 +63,11 @@ export class MessageService {
         throw new Error('Cannot send message: conversation is blocked');
       }
 
-      // Validate message content
-      if (!request.messageText || request.messageText.trim().length === 0) {
-        throw new Error('Message text is required');
+      // Validate message content (text or attachments required)
+      const hasText = request.messageText && request.messageText.trim().length > 0;
+      const hasAttachments = request.attachments && request.attachments.length > 0;
+      if (!hasText && !hasAttachments) {
+        throw new Error('Message text or attachments required');
       }
 
       if (request.messageText.length > 2000) {
@@ -78,19 +81,23 @@ export class MessageService {
         conversationId: conversation.conversationId,
         senderAddress: request.senderIdentifier, // This stores the identifier (wallet or shopId)
         senderType: request.senderType,
-        messageText: request.messageText.trim(),
+        messageText: (request.messageText || '').trim(),
         messageType: request.messageType || 'text',
-        metadata: request.metadata || {}
+        metadata: request.metadata || {},
+        attachments: request.attachments || []
       };
 
       const message = await this.messageRepo.createMessage(messageParams);
 
       // Increment unread count for the receiver and update last message preview
       try {
+        const preview = hasText
+          ? request.messageText.trim()
+          : `Sent ${request.attachments!.length} attachment(s)`;
         await this.messageRepo.incrementUnreadCount(
           conversation.conversationId,
           request.senderType === 'customer' ? 'shop' : 'customer',
-          request.messageText.trim() // Pass message text as preview
+          preview
         );
       } catch (unreadError) {
         logger.error('Failed to increment unread count:', unreadError);
@@ -257,6 +264,36 @@ export class MessageService {
       return await this.messageRepo.getTotalUnreadCount(userIdentifier, userType);
     } catch (error) {
       logger.error('Error in getTotalUnreadCount:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Archive or reopen a conversation
+   */
+  async setConversationArchived(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop',
+    archived: boolean
+  ): Promise<void> {
+    try {
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      await this.messageRepo.setConversationArchived(conversationId, userType, archived);
+      logger.info(`Conversation ${archived ? 'archived' : 'reopened'}`, { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in setConversationArchived:', error);
       throw error;
     }
   }

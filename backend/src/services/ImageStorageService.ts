@@ -215,6 +215,74 @@ export class ImageStorageService {
   }
 
   /**
+   * Upload a file (images + PDF) to DigitalOcean Spaces.
+   * Used for message attachments where PDFs are also allowed.
+   */
+  async uploadFile(
+    file: MulterFile,
+    folder: string = 'files'
+  ): Promise<UploadResult> {
+    try {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return {
+          success: false,
+          error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF.',
+        };
+      }
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        return {
+          success: false,
+          error: 'File size exceeds 5MB limit.',
+        };
+      }
+
+      const fileName = this.generateFileName(file.originalname, folder);
+      const contentType = file.mimetype;
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: contentType,
+        ACL: 'public-read',
+        CacheControl: 'max-age=31536000',
+      });
+
+      await this.s3Client.send(command);
+
+      const publicUrl = this.cdnEndpoint
+        ? `${this.cdnEndpoint}/${fileName}`
+        : `https://${this.region}.digitaloceanspaces.com/${this.bucketName}/${fileName}`;
+
+      logger.info('File uploaded successfully', {
+        fileName,
+        size: file.size,
+        mimetype: file.mimetype,
+        url: publicUrl,
+      });
+
+      return {
+        success: true,
+        url: publicUrl,
+        key: fileName,
+      };
+    } catch (error: any) {
+      logger.error('Error uploading file:', {
+        message: error.message,
+        code: error.code,
+        bucket: this.bucketName,
+      });
+      return {
+        success: false,
+        error: `Failed to upload file: ${error.message}`,
+      };
+    }
+  }
+
+  /**
    * Upload shop logo
    */
   async uploadShopLogo(file: MulterFile, shopId: string): Promise<UploadResult> {
