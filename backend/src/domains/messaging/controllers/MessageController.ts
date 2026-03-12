@@ -581,4 +581,115 @@ export class MessageController {
       });
     }
   };
+
+  /**
+   * Block a conversation
+   * POST /api/messages/conversations/:conversationId/block
+   */
+  blockConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      await this.messageService.blockConversation(conversationId, identifier, userType as 'customer' | 'shop');
+
+      res.json({
+        success: true,
+        message: 'Conversation blocked'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in blockConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to block conversation'
+      });
+    }
+  };
+
+  /**
+   * Unblock a conversation
+   * POST /api/messages/conversations/:conversationId/unblock
+   */
+  unblockConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      await this.messageService.unblockConversation(conversationId, identifier, userType as 'customer' | 'shop');
+
+      res.json({
+        success: true,
+        message: 'Conversation unblocked'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in unblockConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to unblock conversation'
+      });
+    }
+  };
+
+  /**
+   * Delete a conversation (soft delete)
+   * DELETE /api/messages/conversations/:conversationId
+   */
+  deleteConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      await this.messageService.deleteConversation(conversationId, identifier, userType as 'customer' | 'shop');
+
+      res.json({
+        success: true,
+        message: 'Conversation deleted'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in deleteConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete conversation'
+      });
+    }
+  };
 }

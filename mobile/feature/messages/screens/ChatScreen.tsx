@@ -1,4 +1,5 @@
-import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { useState } from "react";
+import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat } from "../hooks";
 import {
@@ -8,8 +9,11 @@ import {
   MessageBubble,
   MessageInput,
   EmptyChat,
+  ConversationMoreMenu,
+  ConversationInfoModal,
 } from "../components";
 import { Message } from "../types";
+import { messageApi } from "../services/message.services";
 
 export default function ChatScreen() {
   const {
@@ -26,6 +30,57 @@ export default function ChatScreen() {
     handleGoBack,
     scrollToEnd,
   } = useChat();
+
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
+  const handleArchive = async () => {
+    if (!conversation) return;
+    try {
+      const isArchived = isCustomer
+        ? conversation.isArchivedCustomer
+        : conversation.isArchivedShop;
+
+      if (isArchived) {
+        await messageApi.unarchiveConversation(conversation.conversationId);
+        Alert.alert("Success", "Conversation unarchived");
+      } else {
+        await messageApi.archiveConversation(conversation.conversationId);
+        Alert.alert("Success", "Conversation archived");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to update conversation");
+    }
+  };
+
+  const handleBlock = async () => {
+    if (!conversation) return;
+    try {
+      const blockedByMe = conversation.blockedBy === (isCustomer ? "customer" : "shop");
+
+      if (conversation.isBlocked && blockedByMe) {
+        await messageApi.unblockConversation(conversation.conversationId);
+        Alert.alert("Success", "User unblocked");
+      } else {
+        await messageApi.blockConversation(conversation.conversationId);
+        Alert.alert("Success", "User blocked");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to update block status");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!conversation) return;
+    try {
+      await messageApi.deleteConversation(conversation.conversationId);
+      Alert.alert("Success", "Conversation deleted", [
+        { text: "OK", onPress: handleGoBack },
+      ]);
+    } catch (error) {
+      Alert.alert("Error", "Failed to delete conversation");
+    }
+  };
 
   const shouldShowDateDivider = (currentMessage: Message, previousMessage?: Message) => {
     if (!previousMessage) return true;
@@ -79,6 +134,7 @@ export default function ChatScreen() {
           name={otherPartyName}
           subtitle={isCustomer ? "Shop" : "Customer"}
           onBack={handleGoBack}
+          onMorePress={() => setShowMoreMenu(true)}
           shopImageUrl={conversation?.shopImageUrl}
           shopId={conversation?.shopId}
           customerImageUrl={conversation?.customerImageUrl}
@@ -107,6 +163,27 @@ export default function ChatScreen() {
           isSending={isSending}
         />
       </KeyboardAvoidingView>
+
+      {/* More Options Menu */}
+      <ConversationMoreMenu
+        visible={showMoreMenu}
+        onClose={() => setShowMoreMenu(false)}
+        conversation={conversation}
+        isCustomer={isCustomer}
+        onViewInfo={() => setShowInfoModal(true)}
+        onArchive={handleArchive}
+        onBlock={handleBlock}
+        onDelete={handleDelete}
+      />
+
+      {/* Conversation Info Modal */}
+      <ConversationInfoModal
+        visible={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        conversation={conversation}
+        isCustomer={isCustomer}
+        messageCount={messages.length}
+      />
     </SafeAreaView>
   );
 }

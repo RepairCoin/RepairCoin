@@ -6,6 +6,7 @@ type ChatHeaderProps = {
   name?: string;
   subtitle: string;
   onBack: () => void;
+  onMorePress?: () => void;
   shopImageUrl?: string;
   shopId?: string;
   customerImageUrl?: string;
@@ -17,6 +18,7 @@ export default function ChatHeader({
   name,
   subtitle,
   onBack,
+  onMorePress,
   shopImageUrl,
   shopId,
   customerImageUrl,
@@ -71,7 +73,10 @@ export default function ChatHeader({
         <Text className="text-zinc-400 text-xs">{subtitle}</Text>
       </View>
 
-      <Pressable className="w-10 h-10 items-center justify-center">
+      <Pressable
+        onPress={onMorePress}
+        className="w-10 h-10 items-center justify-center"
+      >
         <Ionicons name="ellipsis-vertical" size={20} color="white" />
       </Pressable>
     </View>

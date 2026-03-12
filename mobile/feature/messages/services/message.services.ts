@@ -156,6 +156,70 @@ class MessageApi {
       throw error;
     }
   }
+
+  /**
+   * Archive a conversation
+   */
+  async archiveConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/archive`
+      );
+    } catch (error) {
+      console.error("Failed to archive conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unarchive a conversation
+   */
+  async unarchiveConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/unarchive`
+      );
+    } catch (error) {
+      console.error("Failed to unarchive conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Block a conversation
+   */
+  async blockConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/block`
+      );
+    } catch (error) {
+      console.error("Failed to block conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unblock a conversation
+   */
+  async unblockConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/unblock`
+      );
+    } catch (error) {
+      console.error("Failed to unblock conversation:", error);
+      throw error;
+    }
+  }
 }
 
 export const messageApi = new MessageApi();

@@ -111,6 +111,30 @@ router.post('/conversations/:conversationId/typing', messageController.setTyping
 router.get('/conversations/:conversationId/typing', messageController.getTyping);
 
 /**
+ * @route POST /api/messages/conversations/:conversationId/block
+ * @description Block a conversation
+ * @param conversationId - The conversation ID
+ * @access Authenticated users (must be part of conversation)
+ */
+router.post('/conversations/:conversationId/block', messageController.blockConversation);
+
+/**
+ * @route POST /api/messages/conversations/:conversationId/unblock
+ * @description Unblock a conversation
+ * @param conversationId - The conversation ID
+ * @access Authenticated users (must be part of conversation)
+ */
+router.post('/conversations/:conversationId/unblock', messageController.unblockConversation);
+
+/**
+ * @route DELETE /api/messages/conversations/:conversationId
+ * @description Delete a conversation (soft delete)
+ * @param conversationId - The conversation ID
+ * @access Authenticated users (must be part of conversation)
+ */
+router.delete('/conversations/:conversationId', messageController.deleteConversation);
+
+/**
  * @route GET /api/messages/quick-replies
  * @description Get all quick replies for the authenticated shop
  * @access Authenticated shop users
@@ -120,27 +144,27 @@ router.get('/quick-replies', messageController.getQuickReplies);
 /**
  * @route POST /api/messages/quick-replies
  * @description Create a new quick reply
- * @body title - Short label for the reply
- * @body content - Full message content
- * @body category - Optional category (general, booking, payment, greeting)
+ * @body title - Quick reply title
+ * @body content - Quick reply content
+ * @body category - Optional category
  * @access Authenticated shop users
  */
 router.post('/quick-replies', messageController.createQuickReply);
 
 /**
  * @route PUT /api/messages/quick-replies/:id
- * @description Update an existing quick reply
+ * @description Update a quick reply
  * @param id - Quick reply ID
- * @body title? - Updated title
- * @body content? - Updated content
- * @body category? - Updated category
+ * @body title - New title (optional)
+ * @body content - New content (optional)
+ * @body category - New category (optional)
  * @access Authenticated shop users
  */
 router.put('/quick-replies/:id', messageController.updateQuickReply);
 
 /**
  * @route DELETE /api/messages/quick-replies/:id
- * @description Delete a quick reply (soft delete)
+ * @description Delete a quick reply
  * @param id - Quick reply ID
  * @access Authenticated shop users
  */
@@ -148,71 +172,10 @@ router.delete('/quick-replies/:id', messageController.deleteQuickReply);
 
 /**
  * @route POST /api/messages/quick-replies/:id/use
- * @description Increment usage count when a quick reply is sent
+ * @description Increment usage count for a quick reply
  * @param id - Quick reply ID
  * @access Authenticated shop users
  */
 router.post('/quick-replies/:id/use', messageController.useQuickReply);
-
-// ============ Auto-Messages ============
-
-/**
- * @route GET /api/messages/auto-messages
- * @description Get all auto-message rules for the authenticated shop
- * @access Authenticated shop users
- */
-router.get('/auto-messages', autoMessageController.getAutoMessages);
-
-/**
- * @route POST /api/messages/auto-messages
- * @description Create a new auto-message rule
- * @body name - Rule name
- * @body messageTemplate - Message template with {{variable}} placeholders
- * @body triggerType - 'schedule' or 'event'
- * @body scheduleType? - 'daily' | 'weekly' | 'monthly' (for schedule triggers)
- * @body scheduleDayOfWeek? - 0-6 (for weekly)
- * @body scheduleDayOfMonth? - 1-31 (for monthly)
- * @body scheduleHour? - 0-23 (default: 10)
- * @body eventType? - 'booking_completed' | 'booking_cancelled' | 'first_visit' | 'inactive_30_days'
- * @body delayHours? - Hours after event to send (default: 0)
- * @body targetAudience? - 'all' | 'active' | 'inactive_30d' | 'has_balance' | 'completed_booking'
- * @body maxSendsPerCustomer? - Max sends per customer (default: 1)
- * @access Authenticated shop users
- */
-router.post('/auto-messages', autoMessageController.createAutoMessage);
-
-/**
- * @route PUT /api/messages/auto-messages/:id
- * @description Update an existing auto-message rule
- * @param id - Auto-message rule ID
- * @access Authenticated shop users
- */
-router.put('/auto-messages/:id', autoMessageController.updateAutoMessage);
-
-/**
- * @route DELETE /api/messages/auto-messages/:id
- * @description Delete an auto-message rule and its send history
- * @param id - Auto-message rule ID
- * @access Authenticated shop users
- */
-router.delete('/auto-messages/:id', autoMessageController.deleteAutoMessage);
-
-/**
- * @route PATCH /api/messages/auto-messages/:id/toggle
- * @description Enable/disable an auto-message rule
- * @param id - Auto-message rule ID
- * @access Authenticated shop users
- */
-router.patch('/auto-messages/:id/toggle', autoMessageController.toggleAutoMessage);
-
-/**
- * @route GET /api/messages/auto-messages/:id/history
- * @description Get send history for an auto-message rule
- * @param id - Auto-message rule ID
- * @query page - Page number (default: 1)
- * @query limit - Items per page (default: 20)
- * @access Authenticated shop users
- */
-router.get('/auto-messages/:id/history', autoMessageController.getAutoMessageHistory);
 
 export default router;

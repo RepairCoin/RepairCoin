@@ -531,6 +531,112 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Archive a conversation for a user
+   */
+  async archiveConversation(
+    conversationId: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `
+        UPDATE conversations
+        SET ${column} = TRUE, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation archived', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in archiveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unarchive a conversation for a user
+   */
+  async unarchiveConversation(
+    conversationId: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `
+        UPDATE conversations
+        SET ${column} = FALSE, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation unarchived', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in unarchiveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Block a conversation
+   */
+  async blockConversation(
+    conversationId: string,
+    blockedBy: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET is_blocked = TRUE, blocked_by = $2, blocked_at = NOW(), updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId, blockedBy]);
+      logger.info('Conversation blocked', { conversationId, blockedBy });
+    } catch (error) {
+      logger.error('Error in blockConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unblock a conversation
+   */
+  async unblockConversation(conversationId: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET is_blocked = FALSE, blocked_by = NULL, blocked_at = NULL, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation unblocked', { conversationId });
+    } catch (error) {
+      logger.error('Error in unblockConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Soft delete a conversation for a user (archive it)
+   */
+  async deleteConversation(
+    conversationId: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Soft delete by archiving for the user
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `
+        UPDATE conversations
+        SET ${column} = TRUE, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation deleted (soft)', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in deleteConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map conversation database row to Conversation object
    */
   private mapConversationRow(row: any): Conversation {

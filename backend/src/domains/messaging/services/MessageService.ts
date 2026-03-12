@@ -332,4 +332,166 @@ export class MessageService {
   async cleanupExpiredTypingIndicators(): Promise<void> {
     await this.messageRepo.cleanupExpiredTypingIndicators();
   }
+
+  /**
+   * Archive a conversation
+   */
+  async archiveConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      await this.messageRepo.archiveConversation(conversationId, userType);
+      logger.info('Conversation archived', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in archiveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unarchive a conversation
+   */
+  async unarchiveConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      await this.messageRepo.unarchiveConversation(conversationId, userType);
+      logger.info('Conversation unarchived', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in unarchiveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Block a conversation
+   */
+  async blockConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      if (conversation.isBlocked) {
+        throw new Error('Conversation is already blocked');
+      }
+
+      await this.messageRepo.blockConversation(conversationId, userType);
+      logger.info('Conversation blocked', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in blockConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unblock a conversation
+   */
+  async unblockConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      // Only the person who blocked can unblock
+      if (!conversation.isBlocked) {
+        throw new Error('Conversation is not blocked');
+      }
+      if (conversation.blockedBy !== userType) {
+        throw new Error('Only the user who blocked can unblock');
+      }
+
+      await this.messageRepo.unblockConversation(conversationId);
+      logger.info('Conversation unblocked', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in unblockConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a conversation (soft delete)
+   */
+  async deleteConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      await this.messageRepo.deleteConversation(conversationId, userType);
+      logger.info('Conversation deleted', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in deleteConversation:', error);
+      throw error;
+    }
+  }
 }
