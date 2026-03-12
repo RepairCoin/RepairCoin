@@ -131,7 +131,7 @@ export class MessageController {
 
   /**
    * Get user's conversations
-   * GET /api/messages/conversations?page=1&limit=20
+   * GET /api/messages/conversations?page=1&limit=20&archived=false
    */
   getConversations = async (req: Request, res: Response) => {
     try {
@@ -150,6 +150,7 @@ export class MessageController {
 
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const archived = req.query.archived === 'true';
 
       const userType = userRole === 'shop' ? 'shop' : 'customer';
 
@@ -159,7 +160,7 @@ export class MessageController {
       const result = await this.messageService.getConversations(
         identifier,
         userType as 'customer' | 'shop',
-        { page, limit }
+        { page, limit, archived }
       );
 
       res.json({

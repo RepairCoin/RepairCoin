@@ -14,14 +14,18 @@ import {
 class MessageApi {
   /**
    * Get paginated list of conversations for the current user
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 20)
+   * @param archived - Filter by archived status (default: false)
    */
   async getConversations(
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    archived: boolean = false
   ): Promise<GetConversationsResponse> {
     try {
       return await apiClient.get<GetConversationsResponse>(
-        `/messages/conversations?page=${page}&limit=${limit}`
+        `/messages/conversations?page=${page}&limit=${limit}&archived=${archived}`
       );
     } catch (error) {
       console.error("Failed to get conversations:", error);

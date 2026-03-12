@@ -29,6 +29,7 @@ export default function ChatScreen() {
     handleSend,
     handleGoBack,
     scrollToEnd,
+    refetchConversation,
   } = useChat();
 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -43,10 +44,14 @@ export default function ChatScreen() {
 
       if (isArchived) {
         await messageApi.unarchiveConversation(conversation.conversationId);
-        Alert.alert("Success", "Conversation unarchived");
+        Alert.alert("Success", "Conversation unarchived", [
+          { text: "OK", onPress: handleGoBack },
+        ]);
       } else {
         await messageApi.archiveConversation(conversation.conversationId);
-        Alert.alert("Success", "Conversation archived");
+        Alert.alert("Success", "Conversation archived", [
+          { text: "OK", onPress: handleGoBack },
+        ]);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to update conversation");
@@ -60,9 +65,11 @@ export default function ChatScreen() {
 
       if (conversation.isBlocked && blockedByMe) {
         await messageApi.unblockConversation(conversation.conversationId);
+        await refetchConversation();
         Alert.alert("Success", "User unblocked");
       } else {
         await messageApi.blockConversation(conversation.conversationId);
+        await refetchConversation();
         Alert.alert("Success", "User blocked");
       }
     } catch (error) {
@@ -161,6 +168,14 @@ export default function ChatScreen() {
           onChangeText={setMessageText}
           onSend={handleSend}
           isSending={isSending}
+          disabled={conversation?.isBlocked}
+          disabledMessage={
+            conversation?.isBlocked
+              ? conversation.blockedBy === (isCustomer ? "customer" : "shop")
+                ? "You blocked this conversation. Unblock to send messages."
+                : "This conversation has been blocked."
+              : undefined
+          }
         />
       </KeyboardAvoidingView>
 

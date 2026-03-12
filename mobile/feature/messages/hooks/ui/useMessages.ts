@@ -4,17 +4,20 @@ import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { Conversation } from "../../types";
 
+export type MessageFilter = "active" | "archived";
+
 export function useMessages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filter, setFilter] = useState<MessageFilter>("active");
   const { userType } = useAuthStore();
 
   const isCustomer = userType === "customer";
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (archived: boolean = false) => {
     try {
-      const response = await messageApi.getConversations();
+      const response = await messageApi.getConversations(1, 20, archived);
       setConversations(response.data || []);
     } catch (error) {
       setConversations([]);
@@ -26,13 +29,21 @@ export function useMessages() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchConversations();
-    }, [fetchConversations])
+      fetchConversations(filter === "archived");
+    }, [fetchConversations, filter])
   );
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchConversations();
+    fetchConversations(filter === "archived");
+  };
+
+  const handleFilterChange = (newFilter: MessageFilter) => {
+    if (newFilter !== filter) {
+      setFilter(newFilter);
+      setIsLoading(true);
+      fetchConversations(newFilter === "archived");
+    }
   };
 
   const navigateToChat = (conversationId: string) => {
@@ -45,7 +56,9 @@ export function useMessages() {
     isLoading,
     isRefreshing,
     isCustomer,
+    filter,
     handleRefresh,
+    handleFilterChange,
     navigateToChat,
   };
 }

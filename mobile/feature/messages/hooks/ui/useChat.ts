@@ -116,5 +116,6 @@ export function useChat() {
     handleSend,
     handleGoBack,
     scrollToEnd,
+    refetchConversation: fetchConversation,
   };
 }

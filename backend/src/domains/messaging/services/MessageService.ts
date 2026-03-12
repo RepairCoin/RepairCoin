@@ -159,12 +159,12 @@ export class MessageService {
    * Get conversations for a user
    * @param userIdentifier - For customers: wallet address, For shops: shopId
    * @param userType - 'customer' or 'shop'
-   * @param options - Pagination options
+   * @param options - Pagination and filter options
    */
   async getConversations(
     userIdentifier: string,
     userType: 'customer' | 'shop',
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; archived?: boolean } = {}
   ): Promise<any> {
     try {
       if (userType === 'customer') {

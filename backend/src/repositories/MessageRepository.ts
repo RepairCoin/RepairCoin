@@ -154,20 +154,21 @@ export class MessageRepository extends BaseRepository {
    */
   async getCustomerConversations(
     customerAddress: string,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; archived?: boolean } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
+      const archived = options.archived || false;
 
       // Count total
       const countQuery = `
         SELECT COUNT(*) as total
         FROM conversations
-        WHERE customer_address = $1
+        WHERE customer_address = $1 AND is_archived_customer = $2
       `;
-      const countResult = await this.pool.query(countQuery, [customerAddress.toLowerCase()]);
+      const countResult = await this.pool.query(countQuery, [customerAddress.toLowerCase(), archived]);
       const total = parseInt(countResult.rows[0].total);
 
       // Get conversations
@@ -178,12 +179,12 @@ export class MessageRepository extends BaseRepository {
           s.logo_url as shop_image_url
         FROM conversations c
         LEFT JOIN shops s ON c.shop_id = s.shop_id
-        WHERE c.customer_address = $1
+        WHERE c.customer_address = $1 AND c.is_archived_customer = $2
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $3 OFFSET $4
       `;
 
-      const result = await this.pool.query(query, [customerAddress.toLowerCase(), limit, offset]);
+      const result = await this.pool.query(query, [customerAddress.toLowerCase(), archived, limit, offset]);
 
       return {
         items: result.rows.map(row => this.mapConversationRow(row)),
@@ -206,20 +207,21 @@ export class MessageRepository extends BaseRepository {
    */
   async getShopConversations(
     shopId: string,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; archived?: boolean } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
+      const archived = options.archived || false;
 
       // Count total
       const countQuery = `
         SELECT COUNT(*) as total
         FROM conversations
-        WHERE shop_id = $1
+        WHERE shop_id = $1 AND is_archived_shop = $2
       `;
-      const countResult = await this.pool.query(countQuery, [shopId]);
+      const countResult = await this.pool.query(countQuery, [shopId, archived]);
       const total = parseInt(countResult.rows[0].total);
 
       // Get conversations
@@ -229,12 +231,12 @@ export class MessageRepository extends BaseRepository {
           cust.name as customer_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
-        WHERE c.shop_id = $1
+        WHERE c.shop_id = $1 AND c.is_archived_shop = $2
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $3 OFFSET $4
       `;
 
-      const result = await this.pool.query(query, [shopId, limit, offset]);
+      const result = await this.pool.query(query, [shopId, archived, limit, offset]);
 
       return {
         items: result.rows.map(row => this.mapConversationRow(row)),
