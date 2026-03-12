@@ -9,6 +9,7 @@ import { AppointmentController } from './controllers/AppointmentController';
 import { DiscoveryController } from './controllers/DiscoveryController';
 import { ServiceGroupController } from './controllers/ServiceGroupController';
 import NoShowPolicyController from './controllers/NoShowPolicyController';
+import EmailPreferencesController from './controllers/EmailPreferencesController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscriptionGuard';
@@ -3209,6 +3210,146 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop', 'admin']),
     NoShowPolicyController.updateShopPolicy.bind(NoShowPolicyController)
+  );
+
+  // ==================== EMAIL PREFERENCES ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/email-preferences:
+   *   get:
+   *     summary: Get shop's email notification preferences
+   *     description: Retrieve email notification settings for a shop (Shop owner or Admin only)
+   *     tags: [Email Preferences]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Shop ID
+   *     responses:
+   *       200:
+   *         description: Email preferences retrieved successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     shopId:
+   *                       type: string
+   *                     newBooking:
+   *                       type: boolean
+   *                     bookingCancellation:
+   *                       type: boolean
+   *                     customerReview:
+   *                       type: boolean
+   *                     dailyDigest:
+   *                       type: boolean
+   *                     weeklyReport:
+   *                       type: boolean
+   *       403:
+   *         description: Unauthorized
+   *       404:
+   *         description: Shop not found
+   */
+  router.get(
+    '/shops/:shopId/email-preferences',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    EmailPreferencesController.getShopPreferences.bind(EmailPreferencesController)
+  );
+
+  /**
+   * @swagger
+   * /api/services/shops/{shopId}/email-preferences:
+   *   put:
+   *     summary: Update shop's email notification preferences
+   *     description: Update email notification settings for a shop (Shop owner or Admin only)
+   *     tags: [Email Preferences]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               newBooking:
+   *                 type: boolean
+   *               bookingCancellation:
+   *                 type: boolean
+   *               bookingReschedule:
+   *                 type: boolean
+   *               appointmentReminder:
+   *                 type: boolean
+   *               noShowAlert:
+   *                 type: boolean
+   *               newCustomer:
+   *                 type: boolean
+   *               customerReview:
+   *                 type: boolean
+   *               customerMessage:
+   *                 type: boolean
+   *               paymentReceived:
+   *                 type: boolean
+   *               refundProcessed:
+   *                 type: boolean
+   *               subscriptionRenewal:
+   *                 type: boolean
+   *               subscriptionExpiring:
+   *                 type: boolean
+   *               marketingUpdates:
+   *                 type: boolean
+   *               featureAnnouncements:
+   *                 type: boolean
+   *               platformNews:
+   *                 type: boolean
+   *               dailyDigest:
+   *                 type: boolean
+   *               weeklyReport:
+   *                 type: boolean
+   *               monthlyReport:
+   *                 type: boolean
+   *               digestTime:
+   *                 type: string
+   *                 enum: [morning, afternoon, evening]
+   *               weeklyReportDay:
+   *                 type: string
+   *                 enum: [monday, friday]
+   *               monthlyReportDay:
+   *                 type: integer
+   *                 minimum: 1
+   *                 maximum: 28
+   *     responses:
+   *       200:
+   *         description: Preferences updated successfully
+   *       400:
+   *         description: Invalid request
+   *       403:
+   *         description: Unauthorized
+   *       404:
+   *         description: Shop not found
+   */
+  router.put(
+    '/shops/:shopId/email-preferences',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    EmailPreferencesController.updateShopPreferences.bind(EmailPreferencesController)
   );
 
   // ==================== TESTING ENDPOINTS (DEVELOPMENT ONLY) ====================

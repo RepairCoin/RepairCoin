@@ -129,6 +129,18 @@ export class PaymentService {
         throw new Error('Service is not available for booking');
       }
 
+      // Check no-show policy restrictions for the customer
+      const noShowPolicyService = new (await import('../../../services/NoShowPolicyService')).NoShowPolicyService();
+      const customerStatus = await noShowPolicyService.getCustomerStatus(request.customerAddress, service.shopId);
+
+      // Check if customer is suspended from booking
+      if (!customerStatus.canBook) {
+        const suspensionEnd = customerStatus.bookingSuspendedUntil
+          ? new Date(customerStatus.bookingSuspendedUntil).toLocaleDateString()
+          : 'unknown';
+        throw new Error(`Your booking privileges are temporarily suspended until ${suspensionEnd} due to repeated no-shows. Please contact support if you believe this is an error.`);
+      }
+
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
       let bookingDateStr: string | undefined;
@@ -170,8 +182,15 @@ export class PaymentService {
         const now = new Date();
         const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-        if (hoursUntilSlot < config.minBookingHours) {
-          throw new Error(`Bookings require at least ${config.minBookingHours} hours advance notice. Please select a later time.`);
+        // Apply the greater of shop's min booking hours or customer's tier-based requirement
+        const requiredAdvanceHours = Math.max(config.minBookingHours, customerStatus.minimumAdvanceHours);
+
+        if (hoursUntilSlot < requiredAdvanceHours) {
+          if (customerStatus.minimumAdvanceHours > 0) {
+            throw new Error(`Due to your no-show history, bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
+          } else {
+            throw new Error(`Bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
+          }
         }
 
         logger.info('Time slot validated', {
@@ -190,8 +209,21 @@ export class PaymentService {
       let finalAmountUsd = service.priceUsd;
       let customerRcnBalance = 0;
 
+      // Get shop policy to determine deposit amount and RCN redemption cap
+      const shopPolicy = await noShowPolicyService.getShopPolicy(service.shopId);
+
       // Handle RCN redemption if requested
       if (request.rcnToRedeem && request.rcnToRedeem > 0) {
+        // Check RCN redemption cap for deposit_required tier
+        if (customerStatus.tier === 'deposit_required') {
+          const maxRedemptionAmount = service.priceUsd * (shopPolicy.maxRcnRedemptionPercent / 100);
+          const maxRedeemableRcn = maxRedemptionAmount / 0.10; // RCN value is $0.10
+
+          if (request.rcnToRedeem > maxRedeemableRcn) {
+            throw new Error(`Due to your no-show history, you can only redeem up to ${shopPolicy.maxRcnRedemptionPercent}% of the service cost (${Math.floor(maxRedeemableRcn)} RCN). Please adjust your redemption amount.`);
+          }
+        }
+
         const redemption = await this.rcnRedemptionService.calculateRedemption({
           customerAddress: request.customerAddress,
           servicePriceUsd: service.priceUsd,
@@ -209,39 +241,21 @@ export class PaymentService {
         customerRcnBalance = redemption.remainingBalance;
       }
 
-      // Check no-show status and deposit requirement
+      // Check deposit requirement based on customer status
       let depositAmount = 0;
       let requiresDeposit = false;
-      try {
-        const noShowStatus = await this.noShowPolicyService.getCustomerStatus(
-          request.customerAddress,
-          service.shopId
-        );
 
-        // Block booking if suspended
-        if (noShowStatus.tier === 'suspended' && !noShowStatus.canBook) {
-          throw new Error(`Booking suspended until ${noShowStatus.bookingSuspendedUntil ? new Date(noShowStatus.bookingSuspendedUntil).toLocaleDateString() : 'unknown date'}`);
-        }
+      if (customerStatus.requiresDeposit || customerStatus.tier === 'deposit_required') {
+        requiresDeposit = true;
+        depositAmount = shopPolicy.depositAmount;
+        finalAmountUsd += depositAmount;
 
-        // Add deposit for tier 3 customers
-        if (noShowStatus.tier === 'deposit_required' || noShowStatus.requiresDeposit) {
-          requiresDeposit = true;
-          depositAmount = 25.00; // Default deposit amount
-          finalAmountUsd += depositAmount;
-
-          logger.info('Deposit required for customer', {
-            customerAddress: request.customerAddress,
-            tier: noShowStatus.tier,
-            depositAmount,
-            noShowCount: noShowStatus.noShowCount
-          });
-        }
-      } catch (error) {
-        logger.warn('Failed to check no-show status, proceeding without deposit', {
-          error: error instanceof Error ? error.message : String(error),
-          customerAddress: request.customerAddress
+        logger.info('Deposit required for customer', {
+          customerAddress: request.customerAddress,
+          tier: customerStatus.tier,
+          depositAmount,
+          noShowCount: customerStatus.noShowCount
         });
-        // Non-blocking: If no-show check fails, proceed without deposit
       }
 
       // Generate order ID (will be used when order is created after payment)

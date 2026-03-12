@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { logger } from '../utils/logger';
+import { EmailPreferencesService } from './EmailPreferencesService';
 
 export interface EmailConfig {
   host?: string;
@@ -90,8 +91,10 @@ export class EmailService {
   private config: EmailConfig | null = null;
   private isConfigured: boolean = false;
   private initialized: boolean = false;
+  private emailPrefsService: EmailPreferencesService;
 
   constructor(config?: EmailConfig) {
+    this.emailPrefsService = new EmailPreferencesService();
     // Store explicit config if provided, otherwise will load from env on first use
     if (config) {
       this.config = config;
@@ -1743,6 +1746,174 @@ export class EmailService {
     `;
 
     return this.sendEmail(adminEmail, subject, html);
+  }
+
+  /**
+   * Send new booking notification to shop (with preference check)
+   */
+  async sendNewBookingNotification(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      serviceName: string;
+      bookingDate: string;
+      bookingTime: string;
+    }
+  ): Promise<boolean> {
+    const subject = `New Booking Received - ${data.serviceName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">New Booking! 🎉</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>You have a new booking!</p>
+
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Date:</strong> ${data.bookingDate}</p>
+            <p style="margin: 5px 0;"><strong>Time:</strong> ${data.bookingTime}</p>
+          </div>
+
+          <p>Log in to your shop dashboard to view details and manage the booking.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'newBooking');
+  }
+
+  /**
+   * Send customer review notification to shop (with preference check)
+   */
+  async sendCustomerReviewNotification(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      serviceName: string;
+      rating: number;
+      comment: string;
+    }
+  ): Promise<boolean> {
+    const subject = `New Review - ${data.rating} Stars`;
+    const stars = '⭐'.repeat(data.rating);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">New Review Received</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>${data.customerName} left a review for <strong>${data.serviceName}</strong>:</p>
+
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0; font-size: 20px;">${stars}</p>
+            <p style="margin: 10px 0; font-style: italic;">"${data.comment}"</p>
+            <p style="margin: 5px 0; color: #666; font-size: 12px;">- ${data.customerName}</p>
+          </div>
+
+          <p>You can respond to this review from your shop dashboard.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'customerReview');
+  }
+
+  /**
+   * Send payment received notification to shop (with preference check)
+   */
+  async sendPaymentReceivedNotification(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      serviceName: string;
+      amount: number;
+      rcnRedeemed: number;
+    }
+  ): Promise<boolean> {
+    const subject = `Payment Received - $${data.amount.toFixed(2)}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #4caf50; padding: 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0;">Payment Received 💰</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>You received a payment for <strong>${data.serviceName}</strong>:</p>
+
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Amount:</strong> $${data.amount.toFixed(2)}</p>
+            ${data.rcnRedeemed > 0 ? `<p style="margin: 5px 0;"><strong>RCN Redeemed:</strong> ${data.rcnRedeemed} 🪙</p>` : ''}
+          </div>
+
+          <p>View details in your shop dashboard.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'paymentReceived');
+  }
+
+  /**
+   * Send email with preference check for shop notifications
+   * Use this for shop-related emails that can be disabled by preferences
+   */
+  private async sendEmailWithPreferenceCheck(
+    to: string,
+    subject: string,
+    html: string,
+    shopId: string,
+    notificationType: keyof Omit<
+      import('./EmailPreferencesService').EmailPreferences,
+      'shopId' | 'digestTime' | 'weeklyReportDay' | 'monthlyReportDay' | 'createdAt' | 'updatedAt'
+    >
+  ): Promise<boolean> {
+    // Check if shop has this notification enabled
+    const shouldSend = await this.emailPrefsService.shouldSendNotification(shopId, notificationType);
+
+    if (!shouldSend) {
+      logger.info('Email skipped due to shop preferences', {
+        shopId,
+        notificationType,
+        to,
+        subject
+      });
+      return true; // Return true since this is intentional skipping, not an error
+    }
+
+    return this.sendEmail(to, subject, html);
   }
 
   /**

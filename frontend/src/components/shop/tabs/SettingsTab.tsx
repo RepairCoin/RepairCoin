@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
+import { EmailSettings } from "../EmailSettings";
 // import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
@@ -788,15 +789,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Emails Tab Content */}
           {activeTab === "emails" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Emails
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Configure email preferences and notifications
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">Email settings coming soon...</p>
-              </div>
+              <EmailSettings />
             </div>
           )}
 
