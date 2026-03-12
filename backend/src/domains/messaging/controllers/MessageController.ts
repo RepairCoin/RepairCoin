@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { MessageService } from '../services/MessageService';
 import { QuickReplyRepository } from '../../../repositories/QuickReplyRepository';
+import { imageStorageService } from '../../../services/ImageStorageService';
 import { logger } from '../../../utils/logger';
 
 export class MessageController {
@@ -33,10 +34,10 @@ export class MessageController {
         return res.status(401).json({ success: false, error: 'Shop ID required' });
       }
 
-      const { conversationId, customerAddress, shopId, messageText, messageType, metadata } = req.body;
+      const { conversationId, customerAddress, shopId, messageText, messageType, metadata, attachments } = req.body;
 
-      if (!messageText) {
-        return res.status(400).json({ success: false, error: 'Message text is required' });
+      if (!messageText && (!attachments || attachments.length === 0)) {
+        return res.status(400).json({ success: false, error: 'Message text or attachments required' });
       }
 
       // Determine sender type based on role
@@ -51,9 +52,10 @@ export class MessageController {
         shopId,
         senderIdentifier,
         senderType: senderType as 'customer' | 'shop',
-        messageText,
+        messageText: messageText || '',
         messageType,
-        metadata
+        metadata,
+        attachments
       });
 
       res.status(201).json({
@@ -65,6 +67,64 @@ export class MessageController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to send message'
+      });
+    }
+  };
+
+  /**
+   * Upload message attachments
+   * POST /api/messages/attachments/upload
+   * Body: multipart/form-data with 'files' field (up to 5 files)
+   */
+  uploadAttachments = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      if (!userAddress) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ success: false, error: 'No files provided' });
+      }
+
+      const results = await Promise.all(
+        files.map(file => imageStorageService.uploadFile(file, 'messages/attachments'))
+      );
+
+      const attachments = results
+        .map((result, index) => {
+          if (!result.success) return null;
+          const file = files[index];
+          return {
+            url: result.url,
+            key: result.key,
+            type: file.mimetype.startsWith('image/') ? 'image' : 'file',
+            name: file.originalname,
+            size: file.size,
+            mimetype: file.mimetype,
+          };
+        })
+        .filter(Boolean);
+
+      const failed = results.filter(r => !r.success);
+      if (attachments.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: failed[0]?.error || 'All file uploads failed',
+        });
+      }
+
+      res.json({
+        success: true,
+        data: attachments,
+        ...(failed.length > 0 && { warnings: `${failed.length} file(s) failed to upload` }),
+      });
+    } catch (error: unknown) {
+      logger.error('Error in uploadAttachments controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to upload attachments',
       });
     }
   };
@@ -316,6 +376,55 @@ export class MessageController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get or create conversation'
+      });
+    }
+  };
+
+  /**
+   * Archive or reopen a conversation
+   * PATCH /api/messages/conversations/:conversationId/archive
+   * Body: { archived: boolean }
+   */
+  archiveConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const { archived } = req.body;
+
+      if (typeof archived !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'archived (boolean) is required' });
+      }
+
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      await this.messageService.setConversationArchived(
+        conversationId,
+        identifier,
+        userType as 'customer' | 'shop',
+        archived
+      );
+
+      res.json({
+        success: true,
+        message: archived ? 'Conversation resolved' : 'Conversation reopened'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in archiveConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update conversation'
       });
     }
   };

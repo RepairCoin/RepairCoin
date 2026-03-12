@@ -164,6 +164,10 @@ export default function CustomerDashboardClient() {
     // Update URL with tab query parameter
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tab);
+    // Clean up conversation param when leaving messages tab
+    if (tab !== "messages") {
+      url.searchParams.delete("conversation");
+    }
     window.history.pushState({}, "", url);
   };
 

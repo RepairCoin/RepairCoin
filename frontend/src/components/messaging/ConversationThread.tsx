@@ -11,7 +11,13 @@ import {
   Check,
   CheckCheck,
   Smile,
+  CheckCircle,
+  RotateCcw,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+import type { EmojiClickData } from "emoji-picker-react";
+
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
 export interface Message {
   id: string;
@@ -44,6 +50,17 @@ interface ConversationThreadProps {
   currentUserType: "customer" | "shop";
   onSendMessage: (content: string, attachments?: File[]) => Promise<void>;
   onLoadMore?: () => void;
+  conversationStatus?: "active" | "resolved" | "archived";
+  onArchiveConversation?: (archived: boolean) => Promise<void>;
+  conversationDetails?: {
+    id: string;
+    customerId?: string;
+    customerName?: string;
+    shopId?: string;
+    shopName?: string;
+    lastMessageTime: string;
+    unreadCount: number;
+  };
 }
 
 export const ConversationThread: React.FC<ConversationThreadProps> = ({
@@ -58,14 +75,55 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   currentUserType,
   onSendMessage,
   onLoadMore,
+  conversationStatus,
+  onArchiveConversation,
+  conversationDetails,
 }) => {
   const [messageInput, setMessageInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close emoji picker on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
+
+  // Close more menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    if (showMoreMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMoreMenu]);
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setMessageInput((prev) => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
+    textareaRef.current?.focus();
+  };
 
   // Reset avatar error when participant changes
   useEffect(() => {
@@ -78,6 +136,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
     try {
       setIsSending(true);
+      if (selectedFiles.length > 0) setIsUploading(true);
       setSendError(null);
       await onSendMessage(messageInput.trim(), selectedFiles);
       // Only clear on success
@@ -88,6 +147,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
       setSendError(error?.message || "Failed to send message. Please try again.");
       // Keep the message in the input box for retry
     } finally {
+      setIsUploading(false);
       setIsSending(false);
     }
   };
@@ -99,10 +159,28 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
     }
   };
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILES = 5;
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+
+    // Limit to 5 files
+    if (files.length > MAX_FILES) {
+      setSendError(`Maximum ${MAX_FILES} files allowed.`);
+      return;
     }
+
+    // Validate file sizes
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      setSendError(`${oversized.map(f => f.name).join(', ')} exceed${oversized.length === 1 ? 's' : ''} 5MB limit.`);
+      return;
+    }
+
+    setSendError(null);
+    setSelectedFiles(files);
   };
 
   const removeFile = (index: number) => {
@@ -157,7 +235,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const messageGroups = groupMessagesByDate();
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0A]">
+    <div className="flex flex-col h-full bg-[#0A0A0A] relative">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-[#1A1A1A]">
         <div className="flex items-center gap-3">
@@ -199,14 +277,100 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors">
-            <Info className="w-5 h-5 text-gray-400" />
+          {conversationStatus === "resolved" && (
+            <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">
+              Resolved
+            </span>
+          )}
+          <button
+            onClick={() => setShowInfoPanel(!showInfoPanel)}
+            className={`p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors ${showInfoPanel ? 'bg-[#0A0A0A]' : ''}`}
+          >
+            <Info className={`w-5 h-5 ${showInfoPanel ? 'text-[#FFCC00]' : 'text-gray-400'}`} />
           </button>
-          <button className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors">
-            <MoreVertical className="w-5 h-5 text-gray-400" />
-          </button>
+          {onArchiveConversation && (
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors"
+              >
+                <MoreVertical className="w-5 h-5 text-gray-400" />
+              </button>
+              {showMoreMenu && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-gray-700 rounded-lg shadow-xl z-50 py-1">
+                  {conversationStatus === "resolved" ? (
+                    <button
+                      onClick={() => { onArchiveConversation(false); setShowMoreMenu(false); }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#0A0A0A] hover:text-white flex items-center gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Reopen Conversation
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { onArchiveConversation(true); setShowMoreMenu(false); }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#0A0A0A] hover:text-white flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Resolve Conversation
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Info Panel */}
+      {showInfoPanel && (
+        <div className="border-b border-gray-800 bg-[#111111] p-4 animate-in slide-in-from-top">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Participant</p>
+              <p className="text-sm text-white font-medium">{participantName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Status</p>
+              <p className={`text-sm font-medium ${conversationStatus === 'resolved' ? 'text-green-400' : 'text-[#FFCC00]'}`}>
+                {conversationStatus === 'resolved' ? 'Resolved' : 'Active'}
+              </p>
+            </div>
+            {conversationDetails?.customerId && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Customer Address</p>
+                <p className="text-sm text-gray-300 font-mono truncate">{conversationDetails.customerId}</p>
+              </div>
+            )}
+            {conversationDetails?.shopName && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Shop</p>
+                <p className="text-sm text-gray-300">{conversationDetails.shopName}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Messages</p>
+              <p className="text-sm text-white">{messages.length}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Unread</p>
+              <p className="text-sm text-white">{conversationDetails?.unreadCount ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Last Activity</p>
+              <p className="text-sm text-gray-300">
+                {conversationDetails?.lastMessageTime
+                  ? new Date(conversationDetails.lastMessageTime).toLocaleString()
+                  : '-'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Conversation ID</p>
+              <p className="text-sm text-gray-500 font-mono truncate">{conversationId}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -355,16 +519,34 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                               {message.attachments.map((attachment, index) => (
                                 <div key={index}>
                                   {attachment.type === "image" ? (
-                                    <img
-                                      src={attachment.url}
-                                      alt={attachment.name}
-                                      className="rounded-lg max-w-full max-h-64 object-cover"
-                                    />
+                                    <a
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block cursor-pointer"
+                                    >
+                                      <img
+                                        src={attachment.url}
+                                        alt={attachment.name}
+                                        className="rounded-lg max-w-full max-h-64 object-cover hover:opacity-90 transition-opacity"
+                                      />
+                                    </a>
                                   ) : (
-                                    <div className="flex items-center gap-2 p-2 bg-black/10 rounded-lg">
-                                      <Paperclip className="w-4 h-4" />
+                                    <a
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      download={attachment.name}
+                                      className={`flex items-center gap-2 p-2 rounded-lg hover:opacity-80 transition-opacity ${
+                                        isOwnMessage ? "bg-black/10" : "bg-white/5"
+                                      }`}
+                                    >
+                                      <Paperclip className="w-4 h-4 flex-shrink-0" />
                                       <span className="text-sm truncate">{attachment.name}</span>
-                                    </div>
+                                      <span className={`text-xs ml-auto flex-shrink-0 ${
+                                        isOwnMessage ? "text-black/50" : "text-gray-500"
+                                      }`}>Download</span>
+                                    </a>
                                   )}
                                 </div>
                               ))}
@@ -442,6 +624,12 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
       {/* Selected Files Preview */}
       {selectedFiles.length > 0 && (
         <div className="px-4 py-2 border-t border-gray-800 bg-[#1A1A1A]">
+          {isUploading && (
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-4 h-4 border-2 border-[#FFCC00] border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-[#FFCC00]">Uploading {selectedFiles.length} file(s)...</span>
+            </div>
+          )}
           <div className="flex gap-2 overflow-x-auto">
             {selectedFiles.map((file, index) => (
               <div
@@ -452,22 +640,44 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                   <img
                     src={URL.createObjectURL(file)}
                     alt={file.name}
-                    className="w-full h-full object-cover rounded-lg"
+                    className={`w-full h-full object-cover rounded-lg ${isUploading ? 'opacity-50' : ''}`}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Paperclip className="w-6 h-6 text-gray-500" />
+                  <div className={`w-full h-full flex flex-col items-center justify-center gap-1 ${isUploading ? 'opacity-50' : ''}`}>
+                    <Paperclip className="w-5 h-5 text-gray-500" />
+                    <span className="text-[10px] text-gray-500 truncate w-full text-center px-1">{file.name.split('.').pop()?.toUpperCase()}</span>
                   </div>
                 )}
-                <button
-                  onClick={() => removeFile(index)}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                >
-                  <X className="w-3 h-3 text-white" />
-                </button>
+                {isUploading && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {!isUploading && (
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                )}
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Emoji Picker */}
+      {showEmojiPicker && (
+        <div ref={emojiPickerRef} className="absolute bottom-20 right-4 z-50">
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            theme={"dark" as any}
+            width={320}
+            height={400}
+            searchPlaceholder="Search emoji..."
+            lazyLoadEmojis
+          />
         </div>
       )}
 
@@ -511,6 +721,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
             sendError ? 'border-red-500/50' : 'border-gray-700'
           }`}>
             <textarea
+              ref={textareaRef}
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               onKeyDown={handleKeyPress}

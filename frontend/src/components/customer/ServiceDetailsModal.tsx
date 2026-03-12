@@ -61,7 +61,7 @@ ${service.estimatedDuration ? `⏱️ Duration: ${service.estimatedDuration}` : 
 
 Could you provide more details?`;
 
-      await messagingApi.sendMessage({
+      const sentMessage = await messagingApi.sendMessage({
         shopId: service.shopId,
         customerAddress: userProfile.address,
         messageText: initialMessage,
@@ -77,9 +77,10 @@ Could you provide more details?`;
         }
       });
 
-      // Close modal and navigate to messages tab
+      // Close modal and navigate to messages tab with conversation pre-selected
       onClose();
-      router.push("/customer?tab=messages");
+      const conversationParam = sentMessage?.conversationId ? `&conversation=${sentMessage.conversationId}` : '';
+      router.push(`/customer?tab=messages${conversationParam}`);
     } catch (error) {
       console.error("Error sending message:", error);
       alert("Failed to start conversation. Please try again.");
