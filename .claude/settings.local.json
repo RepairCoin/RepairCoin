@@ -12,7 +12,9 @@
       "Bash(git pull:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(git stash show:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
