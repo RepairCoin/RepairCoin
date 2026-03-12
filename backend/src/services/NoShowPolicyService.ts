@@ -86,47 +86,58 @@ export class NoShowPolicyService {
    * Get shop's no-show policy (with defaults if not found)
    */
   async getShopPolicy(shopId: string): Promise<NoShowPolicy> {
-    const query = `
-      SELECT
-        shop_id as "shopId",
-        enabled,
-        grace_period_minutes as "gracePeriodMinutes",
-        minimum_cancellation_hours as "minimumCancellationHours",
-        auto_detection_enabled as "autoDetectionEnabled",
-        auto_detection_delay_hours as "autoDetectionDelayHours",
-        caution_threshold as "cautionThreshold",
-        caution_advance_booking_hours as "cautionAdvanceBookingHours",
-        deposit_threshold as "depositThreshold",
-        deposit_amount as "depositAmount",
-        deposit_advance_booking_hours as "depositAdvanceBookingHours",
-        deposit_reset_after_successful as "depositResetAfterSuccessful",
-        max_rcn_redemption_percent as "maxRcnRedemptionPercent",
-        suspension_threshold as "suspensionThreshold",
-        suspension_duration_days as "suspensionDurationDays",
-        send_email_tier1 as "sendEmailTier1",
-        send_email_tier2 as "sendEmailTier2",
-        send_email_tier3 as "sendEmailTier3",
-        send_email_tier4 as "sendEmailTier4",
-        send_sms_tier2 as "sendSmsTier2",
-        send_sms_tier3 as "sendSmsTier3",
-        send_sms_tier4 as "sendSmsTier4",
-        send_push_notifications as "sendPushNotifications",
-        allow_disputes as "allowDisputes",
-        dispute_window_days as "disputeWindowDays",
-        auto_approve_first_offense as "autoApproveFirstOffense",
-        require_shop_review as "requireShopReview"
-      FROM shop_no_show_policy
-      WHERE shop_id = $1
-    `;
+    console.log('🔍 [NoShowPolicyService] getShopPolicy called for shopId:', shopId);
 
-    const result = await this.pool.query(query, [shopId]);
+    try {
+      const query = `
+        SELECT
+          shop_id as "shopId",
+          enabled,
+          grace_period_minutes as "gracePeriodMinutes",
+          minimum_cancellation_hours as "minimumCancellationHours",
+          auto_detection_enabled as "autoDetectionEnabled",
+          auto_detection_delay_hours as "autoDetectionDelayHours",
+          caution_threshold as "cautionThreshold",
+          caution_advance_booking_hours as "cautionAdvanceBookingHours",
+          deposit_threshold as "depositThreshold",
+          deposit_amount as "depositAmount",
+          deposit_advance_booking_hours as "depositAdvanceBookingHours",
+          deposit_reset_after_successful as "depositResetAfterSuccessful",
+          max_rcn_redemption_percent as "maxRcnRedemptionPercent",
+          suspension_threshold as "suspensionThreshold",
+          suspension_duration_days as "suspensionDurationDays",
+          send_email_tier1 as "sendEmailTier1",
+          send_email_tier2 as "sendEmailTier2",
+          send_email_tier3 as "sendEmailTier3",
+          send_email_tier4 as "sendEmailTier4",
+          send_sms_tier2 as "sendSmsTier2",
+          send_sms_tier3 as "sendSmsTier3",
+          send_sms_tier4 as "sendSmsTier4",
+          send_push_notifications as "sendPushNotifications",
+          allow_disputes as "allowDisputes",
+          dispute_window_days as "disputeWindowDays",
+          auto_approve_first_offense as "autoApproveFirstOffense",
+          require_shop_review as "requireShopReview"
+        FROM shop_no_show_policy
+        WHERE shop_id = $1
+      `;
 
-    if (result.rows.length === 0) {
-      // Return default policy
-      return this.getDefaultPolicy(shopId);
+      console.log('🔍 [NoShowPolicyService] Executing query...');
+      const result = await this.pool.query(query, [shopId]);
+      console.log('🔍 [NoShowPolicyService] Query result rows:', result.rows.length);
+
+      if (result.rows.length === 0) {
+        console.log('🔍 [NoShowPolicyService] No policy found, returning defaults');
+        // Return default policy
+        return this.getDefaultPolicy(shopId);
+      }
+
+      console.log('✅ [NoShowPolicyService] Policy found in database');
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ [NoShowPolicyService] Error in getShopPolicy:', error);
+      throw error;
     }
-
-    return result.rows[0];
   }
 
   /**

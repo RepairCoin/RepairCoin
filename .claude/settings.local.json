@@ -10,7 +10,9 @@
       "Bash(npm run typecheck:*)",
       "Bash(npm run build:*)",
       "Bash(git pull:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []

@@ -54,46 +54,57 @@ export class EmailPreferencesService {
    * Get shop's email preferences (with defaults if not found)
    */
   async getShopPreferences(shopId: string): Promise<EmailPreferences> {
-    const query = `
-      SELECT
-        shop_id as "shopId",
-        new_booking as "newBooking",
-        booking_cancellation as "bookingCancellation",
-        booking_reschedule as "bookingReschedule",
-        appointment_reminder as "appointmentReminder",
-        no_show_alert as "noShowAlert",
-        new_customer as "newCustomer",
-        customer_review as "customerReview",
-        customer_message as "customerMessage",
-        payment_received as "paymentReceived",
-        refund_processed as "refundProcessed",
-        subscription_renewal as "subscriptionRenewal",
-        subscription_expiring as "subscriptionExpiring",
-        marketing_updates as "marketingUpdates",
-        feature_announcements as "featureAnnouncements",
-        platform_news as "platformNews",
-        daily_digest as "dailyDigest",
-        weekly_report as "weeklyReport",
-        monthly_report as "monthlyReport",
-        digest_time as "digestTime",
-        weekly_report_day as "weeklyReportDay",
-        monthly_report_day as "monthlyReportDay",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM shop_email_preferences
-      WHERE shop_id = $1
-    `;
+    console.log('📧 [EmailPreferencesService] getShopPreferences called for shopId:', shopId);
 
-    const result = await this.pool.query(query, [shopId]);
+    try {
+      const query = `
+        SELECT
+          shop_id as "shopId",
+          new_booking as "newBooking",
+          booking_cancellation as "bookingCancellation",
+          booking_reschedule as "bookingReschedule",
+          appointment_reminder as "appointmentReminder",
+          no_show_alert as "noShowAlert",
+          new_customer as "newCustomer",
+          customer_review as "customerReview",
+          customer_message as "customerMessage",
+          payment_received as "paymentReceived",
+          refund_processed as "refundProcessed",
+          subscription_renewal as "subscriptionRenewal",
+          subscription_expiring as "subscriptionExpiring",
+          marketing_updates as "marketingUpdates",
+          feature_announcements as "featureAnnouncements",
+          platform_news as "platformNews",
+          daily_digest as "dailyDigest",
+          weekly_report as "weeklyReport",
+          monthly_report as "monthlyReport",
+          digest_time as "digestTime",
+          weekly_report_day as "weeklyReportDay",
+          monthly_report_day as "monthlyReportDay",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM shop_email_preferences
+        WHERE shop_id = $1
+      `;
 
-    if (result.rows.length === 0) {
-      // Return default preferences and create entry
-      const defaultPrefs = this.getDefaultPreferences(shopId);
-      await this.createShopPreferences(shopId);
-      return defaultPrefs;
+      console.log('📧 [EmailPreferencesService] Executing query...');
+      const result = await this.pool.query(query, [shopId]);
+      console.log('📧 [EmailPreferencesService] Query result rows:', result.rows.length);
+
+      if (result.rows.length === 0) {
+        console.log('📧 [EmailPreferencesService] No preferences found, creating defaults');
+        // Return default preferences and create entry
+        const defaultPrefs = this.getDefaultPreferences(shopId);
+        await this.createShopPreferences(shopId);
+        return defaultPrefs;
+      }
+
+      console.log('✅ [EmailPreferencesService] Preferences found in database');
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ [EmailPreferencesService] Error in getShopPreferences:', error);
+      throw error;
     }
-
-    return result.rows[0];
   }
 
   /**
