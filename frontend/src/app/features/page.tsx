@@ -9,24 +9,23 @@ import {
   Shield,
   Megaphone,
   Smartphone,
-  Crown,
-  HeartHandshake,
   BarChart3,
   Building2,
   UserCheck,
   DollarSign,
-  CalendarDays,
-  CalendarClock,
   BellRing,
-  BellDot,
   Star,
   SparklesIcon,
   BadgeCheck,
   HandCoins,
   Wallet,
   UserPlus,
-  Receipt,
-  CircleDollarSign
+  MessageCircle,
+  CalendarCog,
+  HandHeart,
+  CreditCard,
+  Coins,
+  Medal
 } from "lucide-react";
 
 type TabType = "shop" | "customer";
@@ -108,7 +107,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <Crown className="w-6 h-6" />,
+      icon: <Medal className="w-6 h-6" />,
       title: "Loyalty Tiers",
       description:
         "Advance through loyalty tiers to unlock bigger and better bonus rewards.",
@@ -133,7 +132,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <CalendarClock className="w-6 h-6" />,
+      icon: <CalendarCog className="w-6 h-6" />,
       title: "Appointment Scheduling",
       description:
         "Book services with easy date and time selection options for flexible scheduling and convenience.",
@@ -146,7 +145,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <BellDot className="w-6 h-6" />,
+      icon: <BellRing className="w-6 h-6" />,
       title: "Smart Notifications",
       description:
         "Stay informed with automated alerts and real-time service updates.",
@@ -175,10 +174,48 @@ export default function FeaturesPage() {
 
   const shopFeatures: Feature[] = [
     {
-      icon: <HeartHandshake className="w-6 h-6" />,
-      title: "Customer Loyalty Platform",
+      icon: <CalendarCog className="w-6 h-6" />,
+      title: "Bookings & Scheduling",
       description:
-        "Reward customers automatically when the service is completed \u2014 no punch cards, no manual math.",
+        "Complete control over scheduling and availability across your business",
+      details: [
+        "Daily hours with break time settings",
+        "Configure slot duration and buffer time",
+        "Manage concurrent booking limits",
+        "Custom hours for holidays and special dates",
+        "Monthly calendar view of all appointments"
+      ]
+    },
+    {
+      icon: <BellRing className="w-6 h-6" />,
+      title: "Automated Notifications",
+      description:
+        "Control your services and bookings with a simple, unified system.",
+      details: [
+        "Instant booking confirmations for customers",
+        "Automated 24-hour appointment reminders",
+        "Get notified when new bookings arrive",
+        "Alerts for upcoming appointments",
+        "Fully automated notifications"
+      ]
+    },
+    {
+      icon: <MessageCircle className="w-6 h-6" />,
+      title: "Customer Messaging",
+      description:
+        "Instantly communicate with customers via chat or SMS.",
+      details: [
+        "Instantly confirm or update appointments with customers",
+        "Use quick reply templates to save time",
+        "Communicate easily through in-app chat and SMS",
+        "Keep customers engaged and coming back"
+      ]
+    },
+    {
+      icon: <HandHeart className="w-6 h-6" />,
+      title: "Rewards & Referrals",
+      description:
+        "Reward customers automatically when the service is completed — no punch cards, no manual math.",
       details: [
         "Reward customers instantly for services",
         "Track customer history and preferences",
@@ -187,8 +224,8 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <Receipt className="w-6 h-6" />,
-      title: "Redemption Processing",
+      icon: <CreditCard className="w-6 h-6" />,
+      title: "Redemptions & Payouts",
       description:
         "Process customer token redemptions seamlessly within your dashboard.",
       details: [
@@ -199,32 +236,8 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <CircleDollarSign className="w-6 h-6" />,
-      title: "RCN Token Management",
-      description:
-        "Purchase, track, and manage your RCN balance with ease.",
-      details: [
-        "Tiered pricing based on RCG holdings",
-        "Standard: $0.10, Premium: $0.08, Elite: $0.06",
-        "Bulk purchase discounts available",
-        "Real-time inventory tracking"
-      ]
-    },
-    {
-      icon: <BarChart3 className="w-6 h-6" />,
-      title: "Analytics & Reports",
-      description:
-        "Monitor business performance while uncovering valuable customer insights.",
-      details: [
-        "Revenue and profit tracking",
-        "Customer retention metrics",
-        "Service popularity analysis",
-        "ROI on token investments"
-      ]
-    },
-    {
       icon: <Megaphone className="w-6 h-6" />,
-      title: "Marketing Tools",
+      title: "Promotions & Re-booking",
       description:
         "Grow your business using built-in marketing and engagement tools.",
       details: [
@@ -249,31 +262,29 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <CalendarDays className="w-6 h-6" />,
-      title: "Appointment Management",
+      icon: <BarChart3 className="w-6 h-6" />,
+      title: "Performance Dashboard",
       description:
-        "Complete control over scheduling and availability across your business.",
+        "Monitor business performance while uncovering valuable customer insights.",
       details: [
-        "Daily hours with break time settings",
-        "Configure slot duration and buffer time",
-        "Manage concurrent booking limits",
-        "Custom hours for holidays and special dates",
-        "Monthly calendar view of all appointments"
+        "Revenue and profit tracking",
+        "Customer retention metrics",
+        "Service popularity analysis",
+        "ROI on token investments"
       ]
     },
     {
-      icon: <BellRing className="w-6 h-6" />,
-      title: "Automated Notifications",
+      icon: <Coins className="w-6 h-6" />,
+      title: "RCN Token Management",
       description:
-        "Control your services and bookings with a simple, unified system.",
+        "Purchase, track, and manage your RCN balance with ease.",
       details: [
-        "Instant booking confirmations for customers",
-        "Automated 24-hour appointment reminders",
-        "Get notified when new bookings arrive",
-        "Alerts for upcoming appointments",
-        "Fully automated notifications"
+        "Tiered pricing based on RCG holdings",
+        "Standard: $0.10, Premium: $0.08, Elite: $0.06",
+        "Bulk purchase discounts available",
+        "Real-time inventory tracking"
       ]
-    }
+    },
   ];
 
   const tokenCards: TokenCard[] = [
