@@ -117,6 +117,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS shop_no_show_policy_updated_at ON shop_no_show_policy;
 CREATE TRIGGER shop_no_show_policy_updated_at
   BEFORE UPDATE ON shop_no_show_policy
   FOR EACH ROW
@@ -130,6 +131,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS shop_email_preferences_updated_at ON shop_email_preferences;
 CREATE TRIGGER shop_email_preferences_updated_at
   BEFORE UPDATE ON shop_email_preferences
   FOR EACH ROW

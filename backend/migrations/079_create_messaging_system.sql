@@ -39,9 +39,9 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 
 -- Indexes for conversations
-CREATE INDEX idx_conversations_customer ON conversations(customer_address, updated_at DESC);
-CREATE INDEX idx_conversations_shop ON conversations(shop_id, updated_at DESC);
-CREATE INDEX idx_conversations_last_message ON conversations(last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_customer ON conversations(customer_address, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_shop ON conversations(shop_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(last_message_at DESC);
 
 -- ============================================================================
 -- MESSAGES TABLE
@@ -91,10 +91,10 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- Indexes for messages
-CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at DESC);
-CREATE INDEX idx_messages_sender ON messages(sender_address, created_at DESC);
-CREATE INDEX idx_messages_unread ON messages(conversation_id, is_read) WHERE is_read = FALSE;
-CREATE INDEX idx_messages_created ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(conversation_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 
 -- ============================================================================
 -- TYPING INDICATORS TABLE
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS typing_indicators (
 );
 
 -- Index for typing indicators
-CREATE INDEX idx_typing_indicators_conversation ON typing_indicators(conversation_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_typing_indicators_conversation ON typing_indicators(conversation_id, expires_at);
 
 -- ============================================================================
 -- FUNCTIONS

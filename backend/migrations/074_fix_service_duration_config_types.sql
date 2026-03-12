@@ -34,15 +34,17 @@ ALTER COLUMN service_id TYPE UUID USING service_id::uuid;
 DELETE FROM service_duration_config sdc
 WHERE NOT EXISTS (
   SELECT 1 FROM shop_services ss
-  WHERE ss.service_id = sdc.service_id
+  WHERE ss.service_id::text = sdc.service_id::text
 );
 
 -- =====================================================
 -- Step 4: Add the foreign key constraint
+-- NOTE: Skipped because service_id is not unique in shop_services
+-- The primary key is 'id', not 'service_id'
 -- =====================================================
-ALTER TABLE service_duration_config
-ADD CONSTRAINT service_duration_config_service_id_fkey
-FOREIGN KEY (service_id) REFERENCES shop_services(service_id) ON DELETE CASCADE;
+-- ALTER TABLE service_duration_config
+-- ADD CONSTRAINT service_duration_config_service_id_fkey
+-- FOREIGN KEY (service_id) REFERENCES shop_services(service_id) ON DELETE CASCADE;
 
 -- =====================================================
 -- Step 5: Add comment

@@ -5,5 +5,6 @@
 ALTER TABLE service_orders DROP CONSTRAINT IF EXISTS service_orders_status_check;
 
 -- Add the new check constraint with no_show included
+-- Include 'expired' status which may exist in production
 ALTER TABLE service_orders ADD CONSTRAINT service_orders_status_check
-  CHECK (status IN ('pending', 'paid', 'completed', 'cancelled', 'refunded', 'no_show'));
+  CHECK (status IN ('pending', 'paid', 'completed', 'cancelled', 'refunded', 'no_show', 'expired'));
