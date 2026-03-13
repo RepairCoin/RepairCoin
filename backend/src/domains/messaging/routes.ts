@@ -61,6 +61,14 @@ router.get('/conversations', messageController.getConversations);
 router.post('/conversations/get-or-create', messageController.getOrCreateConversation);
 
 /**
+ * @route GET /api/messages/conversations/:conversationId
+ * @description Get a single conversation by ID
+ * @param conversationId - The conversation ID
+ * @access Authenticated users (must be part of conversation)
+ */
+router.get('/conversations/:conversationId', messageController.getConversation);
+
+/**
  * @route GET /api/messages/conversations/:conversationId/messages
  * @description Get all messages in a conversation
  * @param conversationId - The conversation ID

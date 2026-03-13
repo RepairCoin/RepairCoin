@@ -47,9 +47,10 @@ class MessageApi {
    */
   async getConversation(conversationId: string): Promise<Conversation> {
     try {
-      return await apiClient.get<Conversation>(
+      const response = await apiClient.get<{ success: boolean; data: Conversation }>(
         `/messages/conversations/${conversationId}`
       );
+      return response.data;
     } catch (error) {
       console.error("Failed to get conversation:", error);
       throw error;

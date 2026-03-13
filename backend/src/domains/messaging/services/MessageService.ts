@@ -26,6 +26,35 @@ export class MessageService {
   }
 
   /**
+   * Get a single conversation by ID with authorization check
+   */
+  async getConversationById(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<Conversation> {
+    try {
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      // Verify user has access to this conversation
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      return conversation;
+    } catch (error) {
+      logger.error('Error in getConversationById:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Send a message
    */
   async sendMessage(request: SendMessageRequest): Promise<Message> {

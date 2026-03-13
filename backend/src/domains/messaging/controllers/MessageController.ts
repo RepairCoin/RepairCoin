@@ -180,6 +180,48 @@ export class MessageController {
   };
 
   /**
+   * Get a single conversation by ID
+   * GET /api/messages/conversations/:conversationId
+   */
+  getConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      const conversation = await this.messageService.getConversationById(
+        conversationId,
+        identifier,
+        userType as 'customer' | 'shop'
+      );
+
+      res.json({
+        success: true,
+        data: conversation
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getConversation controller:', error);
+      const statusCode = error instanceof Error && error.message === 'Conversation not found' ? 404 : 400;
+      res.status(statusCode).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get conversation'
+      });
+    }
+  };
+
+  /**
    * Get messages in a conversation
    * GET /api/messages/conversations/:conversationId/messages?page=1&limit=50
    */
