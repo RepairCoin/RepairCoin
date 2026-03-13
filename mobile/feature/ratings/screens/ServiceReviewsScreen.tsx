@@ -3,11 +3,11 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useServiceReviews } from "../hooks";
 import {
   ReviewsHeader,
@@ -38,8 +38,8 @@ export default function ServiceReviewsScreen() {
       <ReviewsHeader onBack={handleGoBack} />
 
       {isLoading && !refreshing ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FFCC00" />
+        <View className="flex-1 px-4 pt-4">
+          <SkeletonList count={5} variant="list" />
         </View>
       ) : error ? (
         <View className="flex-1 items-center justify-center px-4">

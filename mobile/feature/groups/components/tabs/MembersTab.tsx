@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import {
   useGroupMembers,
   useApproveMember,
@@ -113,9 +114,7 @@ export function MembersTab({ groupId, isAdmin }: MembersTabProps) {
 
       {/* Members List */}
       {isLoading ? (
-        <View className="items-center py-10">
-          <ActivityIndicator size="large" color="#FFCC00" />
-        </View>
+        <SkeletonList count={4} variant="list" />
       ) : members.length === 0 ? (
         <View className="items-center py-10">
           <Ionicons name="people-outline" size={48} color="#333" />

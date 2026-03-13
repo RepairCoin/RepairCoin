@@ -12,6 +12,7 @@ import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
+import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useServicesTab } from "../hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../components";
@@ -156,9 +157,7 @@ export default function ServicesTabContent() {
       )}
 
       {isLoading && !servicesData ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#FFCC00" />
-        </View>
+        <SkeletonServiceGrid count={6} />
       ) : error ? (
         <View className="flex-1 justify-center items-center">
           <Text className="text-red-500">Failed to load services</Text>

@@ -2,13 +2,13 @@ import {
   Text,
   View,
   TouchableOpacity,
-  ActivityIndicator,
   FlatList,
   RefreshControl,
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useFavoritesTab } from "../hooks";
 
@@ -39,12 +39,7 @@ export default function FavoritesTabContent() {
   );
 
   if (isLoading) {
-    return (
-      <View className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="#FFCC00" />
-        <Text className="text-gray-400 mt-4">Loading favorites...</Text>
-      </View>
-    );
+    return <SkeletonServiceGrid count={4} />;
   }
 
   if (error) {

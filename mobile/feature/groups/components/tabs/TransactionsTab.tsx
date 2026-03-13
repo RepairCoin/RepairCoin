@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, FlatList } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { groupsApi } from "../../services";
 import { groupsKeys } from "../../hooks";
 import { AffiliateGroupTokenTransaction } from "../../types";
@@ -135,9 +136,7 @@ export function TransactionsTab({ groupId }: TransactionsTabProps) {
 
       {/* Transactions List */}
       {isLoading ? (
-        <View className="items-center py-10">
-          <ActivityIndicator size="large" color="#FFCC00" />
-        </View>
+        <SkeletonList count={5} variant="transaction" />
       ) : transactions.length === 0 ? (
         <View className="items-center py-10">
           <Ionicons name="receipt-outline" size={48} color="#333" />

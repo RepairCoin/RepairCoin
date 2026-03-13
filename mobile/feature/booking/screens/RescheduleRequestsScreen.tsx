@@ -4,12 +4,12 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { RescheduleRequestCard } from "../components";
 import {
   useRescheduleRequestsQuery,
@@ -135,10 +135,7 @@ export default function RescheduleRequestsScreen() {
         }
       >
         {isLoading ? (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#FFCC00" />
-            <Text className="text-gray-400 mt-4">Loading requests...</Text>
-          </View>
+          <SkeletonList count={4} variant="list" />
         ) : error ? (
           <View className="flex-1 items-center justify-center py-20">
             <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />

@@ -2,7 +2,6 @@ import {
   Text,
   View,
   TouchableOpacity,
-  ActivityIndicator,
   FlatList,
   RefreshControl,
 } from "react-native";
@@ -11,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal } from "@/shared/components/shared/FilterModal";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useBookingsTab } from "../hooks";
 import { TIME_FILTERS, STATUS_FILTERS } from "../constants";
 import { BookingFilterTab, BookingStatusFilter } from "../tab-types";
@@ -54,12 +54,7 @@ export default function BookingsTabContent() {
   );
 
   if (isLoading) {
-    return (
-      <View className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="#FFCC00" />
-        <Text className="text-gray-400 mt-4">Loading appointments...</Text>
-      </View>
-    );
+    return <SkeletonList count={5} variant="list" />;
   }
 
   if (error) {

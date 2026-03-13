@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import CustomerCard from "../components/CustomerCard";
 
 // Hooks
@@ -210,7 +211,7 @@ export default function CustomerListScreen() {
   const renderEmptyMyCustomers = () => (
     <View className="items-center justify-center py-10">
       {isLoadingMyCustomers ? (
-        <ActivityIndicator size="large" color="#ffcc00" />
+        <SkeletonList count={5} variant="list" />
       ) : (
         <>
           <View className="w-16 h-16 rounded-full bg-zinc-800 items-center justify-center mb-4">
@@ -234,7 +235,7 @@ export default function CustomerListScreen() {
   const renderEmptySearchAll = () => (
     <View className="items-center justify-center py-10">
       {isSearchingAll ? (
-        <ActivityIndicator size="large" color="#ffcc00" />
+        <SkeletonList count={5} variant="list" />
       ) : !hasSearchedAll ? (
         <>
           <View className="w-16 h-16 rounded-full bg-zinc-800 items-center justify-center mb-4">

@@ -5,11 +5,11 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  ActivityIndicator,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { GroupCard, CreateGroupModal, JoinGroupModal } from "../components";
 import {
   useMyGroups,
@@ -167,9 +167,7 @@ export default function GroupsScreen() {
         }
       >
         {isLoading ? (
-          <View className="items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#FFCC00" />
-          </View>
+          <SkeletonList count={4} variant="list" />
         ) : groups.length === 0 ? (
           <View className="items-center justify-center py-20">
             <Ionicons name="people-outline" size={64} color="#333" />

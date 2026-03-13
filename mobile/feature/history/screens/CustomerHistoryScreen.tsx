@@ -5,10 +5,10 @@ import {
   FlatList,
   RefreshControl,
   ScrollView,
-  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useCustomerHistoryListUI } from "../hooks";
 import { TRANSACTION_FILTERS, DATE_FILTERS } from "../constants";
 import { TransactionHistoryCard, FilterChip } from "../components";
@@ -110,12 +110,7 @@ export default function CustomerHistoryScreen() {
         )}
         ListEmptyComponent={
           isLoading ? (
-            <View className="items-center justify-center py-20">
-              <ActivityIndicator size="large" color="#FFCC00" />
-              <Text className="text-gray-400 text-base mt-4">
-                Loading transactions...
-              </Text>
-            </View>
+            <SkeletonList count={5} variant="transaction" />
           ) : error ? (
             <View className="items-center justify-center py-12">
               <Feather name="alert-circle" color="#EF4444" size={32} />

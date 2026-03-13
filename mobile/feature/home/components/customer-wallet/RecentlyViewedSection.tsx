@@ -2,7 +2,6 @@ import React from "react";
 import {
   View,
   Text,
-  ActivityIndicator,
   ScrollView,
   TouchableOpacity,
 } from "react-native";
@@ -10,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 
 interface RecentlyViewedSectionProps {
@@ -53,9 +53,7 @@ export default function RecentlyViewedSection({
 
       {/* Recently Viewed Cards - Horizontal Slider */}
       {isLoading ? (
-        <View className="justify-center items-center py-10">
-          <ActivityIndicator size="large" color="#FFCC00" />
-        </View>
+        <SkeletonHorizontalCards count={3} cardWidth={280} />
       ) : data && data.length > 0 ? (
         <View style={{ marginHorizontal: -16 }}>
           <ScrollView

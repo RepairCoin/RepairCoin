@@ -1,6 +1,7 @@
-import { View, FlatList, RefreshControl, ActivityIndicator, Text, Pressable, TextInput } from "react-native";
+import { View, FlatList, RefreshControl, Text, Pressable, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useMessages, MessageFilter } from "../hooks";
 import { EmptyConversations, ConversationItem } from "../components";
 import { Conversation } from "../types";
@@ -119,9 +120,7 @@ export default function MessagesScreen() {
       <FilterTabs filter={filter} onFilterChange={handleFilterChange} />
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FFCC00" />
-        </View>
+        <SkeletonList count={6} variant="list" />
       ) : (
         <FlatList
           data={conversations}

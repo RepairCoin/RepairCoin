@@ -1,5 +1,6 @@
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SkeletonBox } from "@/shared/components/ui/Skeleton";
 import { useGroupAnalytics } from "../../hooks";
 
 interface AnalyticsTabProps {
@@ -11,8 +12,26 @@ export function AnalyticsTab({ groupId }: AnalyticsTabProps) {
 
   if (isLoading) {
     return (
-      <View className="items-center py-10">
-        <ActivityIndicator size="large" color="#FFCC00" />
+      <View className="p-4">
+        <SkeletonBox width="40%" height={16} borderRadius={4} style={{ marginBottom: 12 }} />
+        <View style={{ flexDirection: "row", marginBottom: 16 }}>
+          <View style={{ flex: 1, marginRight: 6 }}>
+            <SkeletonBox width="100%" height={100} borderRadius={12} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 6 }}>
+            <SkeletonBox width="100%" height={100} borderRadius={12} />
+          </View>
+        </View>
+        <View style={{ flexDirection: "row", marginBottom: 24 }}>
+          <View style={{ flex: 1, marginRight: 6 }}>
+            <SkeletonBox width="100%" height={100} borderRadius={12} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 6 }}>
+            <SkeletonBox width="100%" height={100} borderRadius={12} />
+          </View>
+        </View>
+        <SkeletonBox width="40%" height={16} borderRadius={4} style={{ marginBottom: 12 }} />
+        <SkeletonBox width="100%" height={120} borderRadius={12} />
       </View>
     );
   }

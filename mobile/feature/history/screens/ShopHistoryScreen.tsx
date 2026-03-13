@@ -3,13 +3,13 @@ import {
   Text,
   FlatList,
   RefreshControl,
-  ActivityIndicator,
   Pressable,
   ScrollView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
 import { useHistoryListUI } from "../hooks";
 import { STATUS_FILTERS, DATE_FILTERS } from "../constants";
@@ -46,14 +46,7 @@ export default function ShopHistoryScreen() {
 
   const renderEmptyComponent = () => {
     if (isLoading) {
-      return (
-        <View className="items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#FFCC00" />
-          <Text className="text-gray-400 text-base mt-4">
-            Loading transactions...
-          </Text>
-        </View>
-      );
+      return <SkeletonList count={5} variant="transaction" />;
     }
 
     if (error) {

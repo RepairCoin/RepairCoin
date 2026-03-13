@@ -2,13 +2,13 @@ import React from "react";
 import {
   View,
   Text,
-  ActivityIndicator,
   ScrollView,
   TouchableOpacity,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
+import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
 
 interface TrendingSectionProps {
   handleViewAllTrendingServices: () => void;
@@ -42,9 +42,7 @@ export default function TrendingSection({
 
       {/* Trending Cards - Horizontal Slider */}
       {trendingLoading ? (
-        <View className="justify-center items-center py-10">
-          <ActivityIndicator size="large" color="#FFCC00" />
-        </View>
+        <SkeletonHorizontalCards count={3} cardWidth={280} />
       ) : trendingData && trendingData.length > 0 ? (
         <View style={{ marginHorizontal: -16 }}>
           <ScrollView
