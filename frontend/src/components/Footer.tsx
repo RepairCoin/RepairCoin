@@ -28,10 +28,10 @@ const Footer = React.memo(() => {
 
   return (
     <footer className="bg-[#101010] text-white border-t border-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
           {/* Logo and Description */}
-          <div className="space-y-6">
+          <div className="space-y-6 col-span-2 md:col-span-1">
             <div className="relative w-[180px] h-9">
               <Image
                 src="/img/nav-logo.png"
