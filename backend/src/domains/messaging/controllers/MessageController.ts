@@ -83,7 +83,7 @@ export class MessageController {
         return res.status(401).json({ success: false, error: 'Authentication required' });
       }
 
-      const files = req.files as Express.Multer.File[];
+      const files = req.files as { fieldname: string; originalname: string; encoding: string; mimetype: string; size: number; buffer: Buffer; }[];
       if (!files || files.length === 0) {
         return res.status(400).json({ success: false, error: 'No files provided' });
       }
