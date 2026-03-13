@@ -83,15 +83,15 @@ export default function WhosItFor() {
   return (
     <>
       {/* Who It's For Section */}
-      <section className="relative bg-[#0a0a0a] py-20 lg:py-28">
+      <section className="relative bg-[#0a0a0a] py-12 sm:py-20 lg:py-28">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
           {/* Header */}
-          <div className="text-center space-y-4 mb-16">
+          <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
             <div className="flex justify-center">
               <SectionBadge label="Who It's For" />
             </div>
 
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
               Built for Businesses. Loved by Customers.
             </h2>
 
@@ -159,15 +159,15 @@ export default function WhosItFor() {
       </section>
 
       {/* Trust & Security Section */}
-      <section className="relative bg-[#0a0a0a] py-20 lg:py-28">
+      <section className="relative bg-[#0a0a0a] py-12 sm:py-20 lg:py-28">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
           {/* Header */}
-          <div className="text-center space-y-4 mb-16">
+          <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
             <div className="flex justify-center">
               <SectionBadge label="Trust & Security" />
             </div>
 
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
               Built on Security. Designed for Confidence.
             </h2>
 

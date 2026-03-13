@@ -7,15 +7,15 @@ import SectionBadge from "@/components/about/SectionBadge";
 
 export default function Proof() {
   return (
-    <section className="relative bg-[#191919] py-20 lg:py-28">
+    <section className="relative bg-[#191919] py-12 sm:py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         {/* Header */}
-        <div className="text-center space-y-4 mb-16">
+        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
           <div className="flex justify-center">
             <SectionBadge label="Proof" />
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
             Built inside a $40K/month repair business
           </h2>
 
@@ -25,7 +25,7 @@ export default function Proof() {
         </div>
 
         {/* Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left Content */}
           <div className="space-y-6">
             <div>

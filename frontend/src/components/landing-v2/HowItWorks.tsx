@@ -25,15 +25,15 @@ const cards = [
 
 export default function HowItWorks() {
   return (
-    <section className="relative bg-[#0a0a0a] py-20 lg:py-28">
+    <section className="relative bg-[#0a0a0a] py-12 sm:py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         {/* Header */}
-        <div className="text-center space-y-4 mb-16">
+        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
           <div className="flex justify-center">
             <SectionBadge label="From Service to Rewards" />
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
             How RepairCoin Works
           </h2>
 
