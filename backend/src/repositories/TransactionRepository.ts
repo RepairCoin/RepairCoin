@@ -133,24 +133,35 @@ export class TransactionRepository extends BaseRepository {
     customerAddress: string,
     limit: number = 50,
     offset: number = 0
-  ): Promise<TransactionRecord[]> {
+  ): Promise<{ transactions: TransactionRecord[]; totalItems: number }> {
     try {
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM transactions t
+        WHERE t.customer_address = $1
+      `;
+      const countResult = await this.pool.query(countQuery, [customerAddress.toLowerCase()]);
+      const totalItems = parseInt(countResult.rows[0].total, 10);
+
       const query = `
-        SELECT t.*, s.name as shop_name 
+        SELECT t.*, s.name as shop_name
         FROM transactions t
         LEFT JOIN shops s ON t.shop_id = s.shop_id
         WHERE t.customer_address = $1
         ORDER BY t.timestamp DESC
         LIMIT $2 OFFSET $3
       `;
-      
+
       const result = await this.pool.query(query, [
         customerAddress.toLowerCase(),
         limit,
         offset
       ]);
-      
-      return result.rows.map(row => this.mapToTransactionRecord(row));
+
+      return {
+        transactions: result.rows.map(row => this.mapToTransactionRecord(row)),
+        totalItems,
+      };
     } catch (error) {
       logger.error('Error fetching customer transactions:', error);
       throw new Error('Failed to fetch customer transactions');

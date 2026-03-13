@@ -38,7 +38,7 @@ router.get('/:address/export',
       }
 
       // Get transaction history
-      const transactions = await transactionRepository.getTransactionsByCustomer(address, 1000);
+      const { transactions } = await transactionRepository.getTransactionsByCustomer(address, 1000);
 
       // Get referral data
       const referralRepository = new (await import('../../../repositories/ReferralRepository')).ReferralRepository();

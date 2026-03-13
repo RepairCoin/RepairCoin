@@ -148,11 +148,12 @@ export class CustomerController {
   async getTransactionHistory(req: Request, res: Response) {
     try {
       const { address } = req.params;
-      const { limit = '50', offset = '0', type } = req.query;
-      
+      const { limit = '5', page = '1', type } = req.query;
+
       const result = await this.customerService.getTransactionHistory(
         address,
         parseInt(limit as string),
+        parseInt(page as string),
         type as string,
         req.user?.address,
         req.user?.role

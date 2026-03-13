@@ -246,7 +246,7 @@ export class ReferralService {
       }
 
       // Check if this is the customer's first repair
-      const transactions = await this.transactionRepository.getTransactionsByCustomer(customerAddress, 100);
+      const { transactions } = await this.transactionRepository.getTransactionsByCustomer(customerAddress, 100);
       const repairCount = transactions.filter(t => t.type === 'mint' && t.shopId !== 'admin_system').length;
 
       logger.info('Checking repair count for referral eligibility', {
