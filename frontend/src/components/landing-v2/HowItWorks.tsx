@@ -2,7 +2,10 @@
 
 import React from "react";
 import Image from "next/image";
+import { m } from "framer-motion";
 import SectionBadge from "@/components/about/SectionBadge";
+import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import StaggerContainer, { staggerItem } from "@/components/motion/StaggerContainer";
 
 const cards = [
   {
@@ -28,26 +31,30 @@ export default function HowItWorks() {
     <section className="relative bg-[#0a0a0a] py-12 sm:py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         {/* Header */}
-        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
-          <div className="flex justify-center">
-            <SectionBadge label="From Service to Rewards" />
+        <AnimateOnScroll>
+          <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
+            <div className="flex justify-center">
+              <SectionBadge label="From Service to Rewards" />
+            </div>
+
+            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
+              How RepairCoin Works
+            </h2>
+
+            <p className="text-gray-400 italic max-w-lg mx-auto">
+              No extra steps. No complexity. Just smarter rewards.
+            </p>
           </div>
-
-          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
-            How RepairCoin Works
-          </h2>
-
-          <p className="text-gray-400 italic max-w-lg mx-auto">
-            No extra steps. No complexity. Just smarter rewards.
-          </p>
-        </div>
+        </AnimateOnScroll>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {cards.map((card, index) => (
-            <div
+            <m.div
               key={index}
-              className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 transition-transform duration-300 hover:scale-[1.02]"
+              variants={staggerItem}
+              transition={{ duration: 0.5 }}
+              className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 card-hover-glow"
             >
               <div className="relative h-56 sm:h-64">
                 <Image
@@ -66,9 +73,9 @@ export default function HowItWorks() {
                   {card.description}
                 </p>
               </div>
-            </div>
+            </m.div>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

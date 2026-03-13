@@ -2,7 +2,10 @@
 
 import React from "react";
 import Image from "next/image";
+import { m } from "framer-motion";
 import SectionBadge from "@/components/about/SectionBadge";
+import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import StaggerContainer, { staggerItem } from "@/components/motion/StaggerContainer";
 
 const trustFeatures = [
   {
@@ -86,25 +89,31 @@ export default function WhosItFor() {
       <section className="relative bg-[#0a0a0a] py-12 sm:py-20 lg:py-28">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
           {/* Header */}
-          <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
-            <div className="flex justify-center">
-              <SectionBadge label="Who It's For" />
+          <AnimateOnScroll>
+            <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
+              <div className="flex justify-center">
+                <SectionBadge label="Who It's For" />
+              </div>
+
+              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
+                Built for Businesses. Loved by Customers.
+              </h2>
+
+              <p className="text-gray-400 italic max-w-xl mx-auto">
+                A loyalty system that works seamlessly for both sides of every
+                service.
+              </p>
             </div>
-
-            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
-              Built for Businesses. Loved by Customers.
-            </h2>
-
-            <p className="text-gray-400 italic max-w-xl mx-auto">
-              A loyalty system that works seamlessly for both sides of every
-              service.
-            </p>
-          </div>
+          </AnimateOnScroll>
 
           {/* Two Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {/* Business Card */}
-            <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 transition-transform duration-300 hover:scale-[1.02] flex flex-col">
+            <m.div
+              variants={staggerItem}
+              transition={{ duration: 0.5 }}
+              className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 card-hover-glow flex flex-col"
+            >
               <div className="relative h-56 sm:h-64">
                 <Image
                   src="/img/landingv2/whositsfor-card1.png"
@@ -127,10 +136,14 @@ export default function WhosItFor() {
                   </button>
                 </div>
               </div>
-            </div>
+            </m.div>
 
             {/* Customer Card */}
-            <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 transition-transform duration-300 hover:scale-[1.02] flex flex-col">
+            <m.div
+              variants={staggerItem}
+              transition={{ duration: 0.5 }}
+              className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 card-hover-glow flex flex-col"
+            >
               <div className="relative h-56 sm:h-64">
                 <Image
                   src="/img/landingv2/whositsfor-card2.png"
@@ -153,8 +166,8 @@ export default function WhosItFor() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
+            </m.div>
+          </StaggerContainer>
         </div>
       </section>
 
@@ -162,33 +175,51 @@ export default function WhosItFor() {
       <section className="relative bg-[#0a0a0a] py-12 sm:py-20 lg:py-28">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
           {/* Header */}
-          <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
-            <div className="flex justify-center">
-              <SectionBadge label="Trust & Security" />
+          <AnimateOnScroll>
+            <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
+              <div className="flex justify-center">
+                <SectionBadge label="Trust & Security" />
+              </div>
+
+              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
+                Built on Security. Designed for Confidence.
+              </h2>
+
+              <p className="text-gray-400 italic max-w-2xl mx-auto">
+                RepairCoin ensures rewards are secure and transparent, giving
+                everyone confidence in the system.
+              </p>
             </div>
-
-            <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold text-white">
-              Built on Security. Designed for Confidence.
-            </h2>
-
-            <p className="text-gray-400 italic max-w-2xl mx-auto">
-              RepairCoin ensures rewards are secure and transparent, giving
-              everyone confidence in the system.
-            </p>
-          </div>
+          </AnimateOnScroll>
 
           {/* Feature Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {trustFeatures.map((feature, index) => (
-              <div key={index} className="relative pt-6 h-full">
+              <m.div
+                key={index}
+                variants={staggerItem}
+                transition={{ duration: 0.5 }}
+                className="relative pt-6 h-full"
+              >
                 {/* Icon overlapping top of card */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
-                  <div className="w-12 h-12 rounded-full bg-[#F7CC00] text-black flex items-center justify-center shadow-lg">
+                  <m.div
+                    initial={{ scale: 0 }}
+                    whileInView={{ scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 200,
+                      damping: 15,
+                      delay: 0.3 + index * 0.1,
+                    }}
+                    className="w-12 h-12 rounded-full bg-[#F7CC00] text-black flex items-center justify-center shadow-lg"
+                  >
                     {feature.icon}
-                  </div>
+                  </m.div>
                 </div>
                 {/* Card body */}
-                <div className="bg-[#1a1a1a] rounded-2xl pt-10 pb-6 px-5 border border-gray-800/50 text-center space-y-3 transition-transform duration-300 hover:scale-[1.02] h-full">
+                <div className="bg-[#1a1a1a] rounded-2xl pt-10 pb-6 px-5 border border-gray-800/50 text-center space-y-3 card-hover-glow h-full">
                   <h3 className="text-white font-semibold text-base">
                     {feature.title}
                   </h3>
@@ -196,9 +227,9 @@ export default function WhosItFor() {
                     {feature.description}
                   </p>
                 </div>
-              </div>
+              </m.div>
             ))}
-          </div>
+          </StaggerContainer>
         </div>
       </section>
     </>
