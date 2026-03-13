@@ -152,6 +152,7 @@ export class MessageController {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const archived = req.query.archived === 'true';
       const status = req.query.status as 'open' | 'resolved' | undefined;
+      const search = req.query.search as string | undefined;
 
       const userType = userRole === 'shop' ? 'shop' : 'customer';
 
@@ -161,7 +162,7 @@ export class MessageController {
       const result = await this.messageService.getConversations(
         identifier,
         userType as 'customer' | 'shop',
-        { page, limit, archived, status }
+        { page, limit, archived, status, search }
       );
 
       res.json({

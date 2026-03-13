@@ -18,17 +18,22 @@ class MessageApi {
    * @param limit - Items per page (default: 20)
    * @param archived - Filter by archived status (default: false)
    * @param status - Filter by status ('open' | 'resolved')
+   * @param search - Search query for filtering by name/message
    */
   async getConversations(
     page: number = 1,
     limit: number = 20,
     archived: boolean = false,
-    status?: 'open' | 'resolved'
+    status?: 'open' | 'resolved',
+    search?: string
   ): Promise<GetConversationsResponse> {
     try {
       let url = `/messages/conversations?page=${page}&limit=${limit}&archived=${archived}`;
       if (status) {
         url += `&status=${status}`;
+      }
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
       }
       return await apiClient.get<GetConversationsResponse>(url);
     } catch (error) {

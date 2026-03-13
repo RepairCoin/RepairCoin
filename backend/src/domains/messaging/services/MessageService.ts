@@ -164,7 +164,7 @@ export class MessageService {
   async getConversations(
     userIdentifier: string,
     userType: 'customer' | 'shop',
-    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved' } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved'; search?: string } = {}
   ): Promise<any> {
     try {
       if (userType === 'customer') {

@@ -155,7 +155,7 @@ export class MessageRepository extends BaseRepository {
    */
   async getCustomerConversations(
     customerAddress: string,
-    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved' } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved'; search?: string } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
@@ -163,20 +163,27 @@ export class MessageRepository extends BaseRepository {
       const offset = (page - 1) * limit;
       const archived = options.archived || false;
       const status = options.status;
+      const search = options.search;
 
       // Build WHERE clause
-      let whereClause = 'WHERE customer_address = $1 AND is_archived_customer = $2';
+      let whereClause = 'WHERE c.customer_address = $1 AND c.is_archived_customer = $2';
       const params: any[] = [customerAddress.toLowerCase(), archived];
 
       if (status) {
         params.push(status);
-        whereClause += ` AND status = $${params.length}`;
+        whereClause += ` AND c.status = $${params.length}`;
       }
 
-      // Count total
+      if (search) {
+        params.push(`%${search}%`);
+        whereClause += ` AND (s.name ILIKE $${params.length} OR c.last_message_preview ILIKE $${params.length})`;
+      }
+
+      // Count total (need JOIN for search on shop name)
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM conversations
+        FROM conversations c
+        LEFT JOIN shops s ON c.shop_id = s.shop_id
         ${whereClause}
       `;
       const countResult = await this.pool.query(countQuery, params);
@@ -218,7 +225,7 @@ export class MessageRepository extends BaseRepository {
    */
   async getShopConversations(
     shopId: string,
-    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved' } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved'; search?: string } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
@@ -226,20 +233,27 @@ export class MessageRepository extends BaseRepository {
       const offset = (page - 1) * limit;
       const archived = options.archived || false;
       const status = options.status;
+      const search = options.search;
 
       // Build WHERE clause
-      let whereClause = 'WHERE shop_id = $1 AND is_archived_shop = $2';
+      let whereClause = 'WHERE c.shop_id = $1 AND c.is_archived_shop = $2';
       const params: any[] = [shopId, archived];
 
       if (status) {
         params.push(status);
-        whereClause += ` AND status = $${params.length}`;
+        whereClause += ` AND c.status = $${params.length}`;
       }
 
-      // Count total
+      if (search) {
+        params.push(`%${search}%`);
+        whereClause += ` AND (cust.name ILIKE $${params.length} OR c.last_message_preview ILIKE $${params.length})`;
+      }
+
+      // Count total (need JOIN for search on customer name)
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM conversations
+        FROM conversations c
+        LEFT JOIN customers cust ON c.customer_address = cust.address
         ${whereClause}
       `;
       const countResult = await this.pool.query(countQuery, params);

@@ -1,8 +1,39 @@
-import { View, FlatList, RefreshControl, ActivityIndicator, Text, Pressable } from "react-native";
+import { View, FlatList, RefreshControl, ActivityIndicator, Text, Pressable, TextInput } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useMessages, MessageFilter } from "../hooks";
 import { EmptyConversations, ConversationItem } from "../components";
 import { Conversation } from "../types";
+
+function SearchBar({
+  value,
+  onChangeText,
+  onClear,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <View className="flex-row items-center bg-zinc-800 rounded-lg mx-4 my-2 px-3">
+      <Ionicons name="search" size={20} color="#71717A" />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="Search conversations..."
+        placeholderTextColor="#71717A"
+        className="flex-1 text-white py-3 ml-2"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {value.length > 0 && (
+        <Pressable onPress={onClear} hitSlop={8}>
+          <Ionicons name="close-circle" size={20} color="#71717A" />
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 function FilterTabs({
   filter,
@@ -47,6 +78,9 @@ export default function MessagesScreen() {
     isRefreshing,
     isCustomer,
     filter,
+    searchQuery,
+    setSearchQuery,
+    clearSearch,
     handleRefresh,
     handleFilterChange,
     navigateToChat,
@@ -60,9 +94,28 @@ export default function MessagesScreen() {
     />
   );
 
+  const getEmptyMessage = () => {
+    if (searchQuery) {
+      return `No results for "${searchQuery}"`;
+    }
+    switch (filter) {
+      case "archived":
+        return "No archived conversations";
+      case "resolved":
+        return "No resolved conversations";
+      default:
+        return "No active conversations";
+    }
+  };
+
   return (
     <View className="w-full h-full bg-zinc-950">
       <AppHeader title="Messages" />
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onClear={clearSearch}
+      />
       <FilterTabs filter={filter} onFilterChange={handleFilterChange} />
 
       {isLoading ? (
@@ -75,15 +128,7 @@ export default function MessagesScreen() {
           keyExtractor={(item) => item.conversationId}
           renderItem={renderConversation}
           ListEmptyComponent={
-            <EmptyConversations
-              message={
-                filter === "archived"
-                  ? "No archived conversations"
-                  : filter === "resolved"
-                  ? "No resolved conversations"
-                  : "No active conversations"
-              }
-            />
+            <EmptyConversations message={getEmptyMessage()} />
           }
           refreshControl={
             <RefreshControl
