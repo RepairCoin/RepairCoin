@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useShop } from "@/shared/hooks/shop/useShop";
+import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
 
 interface CancelSubscriptionResponse {
@@ -41,6 +42,7 @@ export function useSubscription() {
   const { account } = useAuthStore();
   const { useGetShopByWalletAddress } = useShop();
   const { data: shopData, refetch } = useGetShopByWalletAddress(account?.address || "");
+  const { showSuccess, showError } = useAppToast();
 
   const [isCancelling, setIsCancelling] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
@@ -156,22 +158,18 @@ export function useSubscription() {
       );
 
       if (result.success) {
-        // Refetch data first, then show alert
+        // Refetch data first, then show toast
         await refetch();
         await fetchSubscriptionDetails();
 
-        Alert.alert(
-          "Subscription Cancelled",
-          result.data?.message || "Your subscription has been cancelled successfully. You still have full access until the end of your billing period.",
-          [{ text: "OK" }]
-        );
+        showSuccess(result.data?.message || "Your subscription has been cancelled. You still have full access until the end of your billing period.");
       } else {
         throw new Error(result.error || "Failed to cancel subscription");
       }
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to cancel subscription";
-      Alert.alert("Error", errorMessage);
+      showError(errorMessage);
     } finally {
       setIsCancelling(false);
     }
@@ -203,20 +201,10 @@ export function useSubscription() {
       );
 
       if (result.success) {
-        Alert.alert(
-          "Subscription Reactivated",
-          result.data?.message || "Your subscription has been reactivated successfully.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                refetch();
-                setSubscriptionDetails((prev) =>
-                  prev ? { ...prev, cancelAtPeriodEnd: false } : null
-                );
-              },
-            },
-          ]
+        showSuccess(result.data?.message || "Your subscription has been reactivated successfully.");
+        refetch();
+        setSubscriptionDetails((prev) =>
+          prev ? { ...prev, cancelAtPeriodEnd: false } : null
         );
       } else {
         throw new Error(result.error || "Failed to reactivate subscription");
@@ -224,7 +212,7 @@ export function useSubscription() {
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Failed to reactivate subscription";
-      Alert.alert("Error", errorMessage);
+      showError(errorMessage);
     } finally {
       setIsReactivating(false);
     }

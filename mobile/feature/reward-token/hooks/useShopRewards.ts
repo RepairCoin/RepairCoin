@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreatePromoCodeRequest, RewardRequest } from "@/shared/interfaces/shop.interface";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
-import { Alert } from "react-native";
 import { router } from "expo-router";
 import { shopApi } from "@/shared/services/shop.services";
 import { customerApi } from "@/shared/services/customer.services";
+import { useAppToast } from "@/shared/hooks";
 
 // Tier bonuses constants
 const TIER_BONUSES = {
@@ -57,6 +57,7 @@ export function useIssueReward(resetInputs?: () => void) {
   const queryClient = useQueryClient();
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
   const shopWalletAddress = useAuthStore((state) => state.account?.address);
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (request: RewardRequest) => {
@@ -66,12 +67,8 @@ export function useIssueReward(resetInputs?: () => void) {
       return shopApi.issueReward(shopId, request);
     },
     onSuccess: (data, variables) => {
-      // Show success alert
-      Alert.alert(
-        "Reward Issued!",
-        `Successfully issued ${data.data?.totalReward} RCN to customer!`,
-        [{ text: "OK" }]
-      );
+      // Show success toast
+      showSuccess(`Successfully issued ${data.data?.totalReward} RCN to customer!`);
 
       // Reset all form inputs
       if (resetInputs) {
@@ -107,7 +104,7 @@ export function useIssueReward(resetInputs?: () => void) {
         errorMessage = error.message;
       }
 
-      Alert.alert("Error", errorMessage, [{ text: "OK" }]);
+      showError(errorMessage);
     },
   });
 }
@@ -363,6 +360,7 @@ export function useValidatePromoCode() {
 export function useUpdatePromoCodeStatus() {
   const queryClient = useQueryClient();
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async ({
@@ -384,21 +382,13 @@ export function useUpdatePromoCodeStatus() {
           queryKey: queryKeys.shopPromoCodes(shopId),
         });
 
-        Alert.alert(
-          "Success",
-          variables.isActive ? "Promo code activated successfully!" : "Promo code deactivated successfully!",
-          [{ text: "OK" }]
-        );
+        showSuccess(variables.isActive ? "Promo code activated successfully!" : "Promo code deactivated successfully!");
       }
     },
     onError: (error: any, variables) => {
       console.error("Failed to update promo code status:", error);
       const statusText = variables.isActive ? "activate" : "deactivate";
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || `Failed to ${statusText} promo code`,
-        [{ text: "OK" }]
-      );
+      showError(error.response?.data?.message || `Failed to ${statusText} promo code`);
     },
   });
 }
@@ -407,6 +397,7 @@ export function useUpdatePromoCodeStatus() {
 export function useCreatePromoCode() {
   const queryClient = useQueryClient();
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (promoCodeData: CreatePromoCodeRequest) => {
@@ -416,16 +407,8 @@ export function useCreatePromoCode() {
       return shopApi.createPromoCode(shopId, promoCodeData);
     },
     onSuccess: () => {
-      Alert.alert(
-        "Success",
-        "Promo code created successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => router.back()
-          }
-        ]
-      );
+      showSuccess("Promo code created successfully!");
+      router.back();
 
       // Invalidate promo codes list to refresh
       if (shopId) {
@@ -436,11 +419,7 @@ export function useCreatePromoCode() {
     },
     onError: (error: any) => {
       console.error("Failed to create promo code:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Failed to create promo code",
-        [{ text: "OK" }]
-      );
+      showError(error.response?.data?.error || "Failed to create promo code");
     },
   });
 }

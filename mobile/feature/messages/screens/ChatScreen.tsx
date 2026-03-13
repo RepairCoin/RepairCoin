@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from "react-native";
+import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat } from "../hooks";
+import { useAppToast } from "@/shared/hooks";
 import {
   ChatHeader,
   DateDivider,
@@ -32,6 +33,7 @@ export default function ChatScreen() {
     refetchConversation,
   } = useChat();
 
+  const { showSuccess, showError } = useAppToast();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -44,17 +46,15 @@ export default function ChatScreen() {
 
       if (isArchived) {
         await messageApi.unarchiveConversation(conversation.conversationId);
-        Alert.alert("Success", "Conversation unarchived", [
-          { text: "OK", onPress: handleGoBack },
-        ]);
+        showSuccess("Conversation unarchived");
+        handleGoBack();
       } else {
         await messageApi.archiveConversation(conversation.conversationId);
-        Alert.alert("Success", "Conversation archived", [
-          { text: "OK", onPress: handleGoBack },
-        ]);
+        showSuccess("Conversation archived");
+        handleGoBack();
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to update conversation");
+      showError("Failed to update conversation");
     }
   };
 
@@ -66,14 +66,14 @@ export default function ChatScreen() {
       if (conversation.isBlocked && blockedByMe) {
         await messageApi.unblockConversation(conversation.conversationId);
         await refetchConversation();
-        Alert.alert("Success", "User unblocked");
+        showSuccess("User unblocked");
       } else {
         await messageApi.blockConversation(conversation.conversationId);
         await refetchConversation();
-        Alert.alert("Success", "User blocked");
+        showSuccess("User blocked");
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to update block status");
+      showError("Failed to update block status");
     }
   };
 
@@ -81,11 +81,10 @@ export default function ChatScreen() {
     if (!conversation) return;
     try {
       await messageApi.deleteConversation(conversation.conversationId);
-      Alert.alert("Success", "Conversation deleted", [
-        { text: "OK", onPress: handleGoBack },
-      ]);
+      showSuccess("Conversation deleted");
+      handleGoBack();
     } catch (error) {
-      Alert.alert("Error", "Failed to delete conversation");
+      showError("Failed to delete conversation");
     }
   };
 
@@ -96,14 +95,14 @@ export default function ChatScreen() {
       if (isResolved) {
         await messageApi.reopenConversation(conversation.conversationId);
         await refetchConversation();
-        Alert.alert("Success", "Conversation reopened");
+        showSuccess("Conversation reopened");
       } else {
         await messageApi.resolveConversation(conversation.conversationId);
         await refetchConversation();
-        Alert.alert("Success", "Conversation marked as resolved");
+        showSuccess("Conversation marked as resolved");
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to update conversation status");
+      showError("Failed to update conversation status");
     }
   };
 

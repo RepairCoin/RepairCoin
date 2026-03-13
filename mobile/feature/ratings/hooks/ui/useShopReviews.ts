@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { serviceApi } from "@/shared/services/service.services";
+import { useAppToast } from "@/shared/hooks";
 import { ReviewData } from "@/shared/interfaces/review.interface";
-import { Alert } from "react-native";
 
 export function useShopReviews() {
   const queryClient = useQueryClient();
@@ -10,6 +10,7 @@ export function useShopReviews() {
   const [refreshing, setRefreshing] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [responseText, setResponseText] = useState("");
+  const { showSuccess, showError } = useAppToast();
 
   const {
     data,
@@ -28,13 +29,13 @@ export function useShopReviews() {
     mutationFn: ({ reviewId, response }: { reviewId: string; response: string }) =>
       serviceApi.addShopResponse(reviewId, response),
     onSuccess: () => {
-      Alert.alert("Success", "Response added successfully!");
+      showSuccess("Response added successfully!");
       setRespondingTo(null);
       setResponseText("");
       refetch();
     },
-    onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to add response");
+    onError: (err: any) => {
+      showError(err.message || "Failed to add response");
     },
   });
 
@@ -94,7 +95,7 @@ export function useShopReviews() {
 
   const handleSubmitResponse = (reviewId: string) => {
     if (!responseText.trim()) {
-      Alert.alert("Error", "Please enter a response");
+      showError("Please enter a response");
       return;
     }
     responseMutation.mutate({ reviewId, response: responseText });

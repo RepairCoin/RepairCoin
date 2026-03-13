@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Alert } from "react-native";
 import { appointmentApi } from "@/shared/services/appointment.services";
+import { useAppToast } from "@/shared/hooks";
 
 /**
  * Hook to approve a reschedule request
  */
 export function useApproveRescheduleRequestMutation() {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (requestId: string) => {
@@ -16,20 +17,12 @@ export function useApproveRescheduleRequestMutation() {
       // Invalidate reschedule requests and bookings
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "reschedule-requests"] });
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
-      Alert.alert(
-        "Approved",
-        "The reschedule request has been approved. The appointment has been updated.",
-        [{ text: "OK" }]
-      );
+      showSuccess("The reschedule request has been approved. The appointment has been updated.");
     },
     onError: (error: any) => {
       console.error("Failed to approve reschedule request:", error);
       const errorMessage = error.response?.data?.error || error.message || "";
-      Alert.alert(
-        "Error",
-        errorMessage || "Failed to approve reschedule request. Please try again.",
-        [{ text: "OK" }]
-      );
+      showError(errorMessage || "Failed to approve reschedule request. Please try again.");
     },
   });
 }
@@ -39,6 +32,7 @@ export function useApproveRescheduleRequestMutation() {
  */
 export function useRejectRescheduleRequestMutation() {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async ({ requestId, reason }: { requestId: string; reason?: string }) => {
@@ -47,20 +41,12 @@ export function useRejectRescheduleRequestMutation() {
     onSuccess: () => {
       // Invalidate reschedule requests
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "reschedule-requests"] });
-      Alert.alert(
-        "Rejected",
-        "The reschedule request has been rejected. The customer will be notified.",
-        [{ text: "OK" }]
-      );
+      showSuccess("The reschedule request has been rejected. The customer will be notified.");
     },
     onError: (error: any) => {
       console.error("Failed to reject reschedule request:", error);
       const errorMessage = error.response?.data?.error || error.message || "";
-      Alert.alert(
-        "Error",
-        errorMessage || "Failed to reject reschedule request. Please try again.",
-        [{ text: "OK" }]
-      );
+      showError(errorMessage || "Failed to reject reschedule request. Please try again.");
     },
   });
 }

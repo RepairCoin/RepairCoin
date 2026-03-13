@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/shared/utilities/axios";
+import { useAppToast } from "@/shared/hooks";
 import { queryKeys } from "@/shared/config/queryClient";
 import { SubmitReviewData, RatingLevel } from "../../types";
 import { RATING_LABELS } from "../../constants";
@@ -20,6 +20,7 @@ export function useWriteReview() {
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const queryClient = useQueryClient();
+  const { showSuccess, showError, showWarning } = useAppToast();
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: SubmitReviewData) => {
@@ -29,24 +30,20 @@ export function useWriteReview() {
     onSuccess: () => {
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
-      Alert.alert("Review Submitted", "Thank you for your feedback!", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+      showSuccess("Thank you for your feedback!");
+      router.back();
     },
     onError: (error: any) => {
       const message =
         error?.response?.data?.error ||
         "Failed to submit review. Please try again.";
-      Alert.alert("Error", message);
+      showError(message);
     },
   });
 
   const handleSubmit = () => {
     if (rating === 0) {
-      Alert.alert("Rating Required", "Please select a star rating.");
+      showWarning("Please select a star rating.");
       return;
     }
 

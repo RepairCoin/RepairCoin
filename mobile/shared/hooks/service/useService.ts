@@ -1,7 +1,7 @@
-import { Alert } from "react-native";
 import { useMutation, useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/shared/services/service.services";
+import { useAppToast } from "@/shared/hooks/useAppToast";
 import {
   CreateServiceRequest,
   ServiceFilters,
@@ -11,6 +11,7 @@ import {
 } from "@/shared/interfaces/service.interface";
 
 export function useService() {
+  const { showSuccess, showError } = useAppToast();
   const useGetAllServicesQuery = (filters?: ServiceFilters) => {
     return useQuery({
       queryKey: queryKeys.serviceList(filters),
@@ -80,7 +81,7 @@ export function useService() {
       },
       onError: (error: any) => {
         console.error("Error creating service:", error);
-        Alert.alert("Failed to create service", error.message);
+        showError(`Failed to create service: ${error.message}`);
       },
     });
   };
@@ -99,7 +100,7 @@ export function useService() {
       },
       onError: (error: any) => {
         console.error("Error updating service:", error);
-        Alert.alert("Failed to update service", error.message);
+        showError(`Failed to update service: ${error.message}`);
       },
     });
   };
@@ -111,11 +112,11 @@ export function useService() {
         return response.data;
       },
       onSuccess: () => {
-        Alert.alert("Service deleted successfully!");
+        showSuccess("Service deleted successfully!");
       },
-      onError: (error) => {
+      onError: (error: any) => {
         console.error("Error deleting service:", error);
-        Alert.alert("Failed to delete service", error.message);
+        showError(`Failed to delete service: ${error.message}`);
       },
     });
   };

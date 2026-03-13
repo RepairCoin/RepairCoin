@@ -1,12 +1,14 @@
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { usePaymentStore } from "@/shared/store/payment.store";
+import { useAppToast } from "@/shared/hooks";
 import { purchaseApi } from "@/feature/buy-token/services/purchase.services";
 
 export function useCreateStripeCheckoutMutation() {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId;
+  const { showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (amount: number) => {
@@ -39,11 +41,7 @@ export function useCreateStripeCheckoutMutation() {
           await Linking.openURL(checkoutUrl);
         } else {
           usePaymentStore.getState().clearSession();
-          Alert.alert(
-            "Unable to Open Browser",
-            "Please try again or contact support.",
-            [{ text: "OK" }]
-          );
+          showError("Unable to open browser. Please try again or contact support.");
         }
       }
     },
@@ -51,23 +49,11 @@ export function useCreateStripeCheckoutMutation() {
       console.error("Failed to create Stripe checkout:", error);
 
       if (error.response?.status === 401) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in again to continue with your purchase.",
-          [{ text: "OK" }]
-        );
+        showError("Please log in again to continue with your purchase.");
       } else if (error.response?.status === 400) {
-        Alert.alert(
-          "Invalid Request",
-          error.response?.data?.error || "Invalid purchase amount",
-          [{ text: "OK" }]
-        );
+        showError(error.response?.data?.error || "Invalid purchase amount");
       } else {
-        Alert.alert(
-          "Purchase Failed",
-          error.message || "Failed to initiate purchase. Please try again.",
-          [{ text: "OK" }]
-        );
+        showError(error.message || "Failed to initiate purchase. Please try again.");
       }
     },
   });

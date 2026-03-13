@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { useCustomerProfileQuery } from "../queries";
 import { useUpdateCustomerProfileMutation } from "../mutations";
 import { CustomerEditFormData } from "../../types";
@@ -14,6 +14,7 @@ export const useCustomerEditProfile = () => {
   const { account } = useAuthStore();
   const { data: customerData } = useCustomerProfileQuery(account?.address || "");
   const updateProfileMutation = useUpdateCustomerProfileMutation(account?.address || "");
+  const { showSuccess, showError } = useAppToast();
 
   const [formData, setFormData] = useState<CustomerEditFormData>({
     name: "",
@@ -38,7 +39,7 @@ export const useCustomerEditProfile = () => {
 
   const handleSaveChanges = useCallback(async () => {
     if (!isValidEmail(formData.email)) {
-      Alert.alert("Error", "Please enter a valid email address");
+      showError("Please enter a valid email address");
       return;
     }
 
@@ -49,14 +50,13 @@ export const useCustomerEditProfile = () => {
         phone: formData.phone,
       });
 
-      Alert.alert("Success", "Profile updated successfully", [
-        { text: "OK", onPress: () => goBack() },
-      ]);
+      showSuccess("Profile updated successfully");
+      goBack();
     } catch (error) {
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      showError("Failed to update profile. Please try again.");
       console.error("Error updating profile:", error);
     }
-  }, [formData, updateProfileMutation]);
+  }, [formData, updateProfileMutation, showSuccess, showError]);
 
   return {
     formData,

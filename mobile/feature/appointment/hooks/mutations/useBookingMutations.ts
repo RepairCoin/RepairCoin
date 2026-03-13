@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { BookingFormData, BookingResponse } from "@/shared/interfaces/booking.interfaces";
 import { usePaymentStore } from "@/shared/store/payment.store";
 import { bookingApi } from "@/shared/services/booking.services";
+import { useAppToast } from "@/shared/hooks";
 import { queryKeys } from "@/shared/config/queryClient";
 
 export function useCreateBookingMutation() {
@@ -15,6 +16,8 @@ export function useCreateBookingMutation() {
 }
 
 export function useCreateStripeCheckoutMutation() {
+  const { showError } = useAppToast();
+
   return useMutation({
     mutationFn: async (data: BookingFormData) => {
       return bookingApi.createStripeCheckout(data);
@@ -38,11 +41,7 @@ export function useCreateStripeCheckoutMutation() {
           await Linking.openURL(checkoutUrl);
         } else {
           usePaymentStore.getState().clearSession();
-          Alert.alert(
-            "Unable to Open Browser",
-            "Please try again or contact support.",
-            [{ text: "OK" }]
-          );
+          showError("Unable to open browser. Please try again or contact support.");
         }
       }
     },
@@ -50,23 +49,11 @@ export function useCreateStripeCheckoutMutation() {
       console.error("Failed to create Stripe checkout:", error);
 
       if (error.response?.status === 401) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in again to continue with your booking.",
-          [{ text: "OK" }]
-        );
+        showError("Please log in again to continue with your booking.");
       } else if (error.response?.status === 400) {
-        Alert.alert(
-          "Booking Failed",
-          error.response?.data?.error || "Invalid booking request",
-          [{ text: "OK" }]
-        );
+        showError(error.response?.data?.error || "Invalid booking request");
       } else {
-        Alert.alert(
-          "Booking Failed",
-          error.message || "Failed to initiate booking. Please try again.",
-          [{ text: "OK" }]
-        );
+        showError(error.message || "Failed to initiate booking. Please try again.");
       }
     },
   });
@@ -74,6 +61,7 @@ export function useCreateStripeCheckoutMutation() {
 
 export function useApproveOrderMutation() {
   const queryClient = useQueryClient();
+  const { showSuccess, showError, showInfo } = useAppToast();
 
   return useMutation({
     mutationFn: async (orderId: string) => {
@@ -82,11 +70,7 @@ export function useApproveOrderMutation() {
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
-      Alert.alert(
-        "Success",
-        "Booking has been approved! You can now mark it as complete after the service is done.",
-        [{ text: "OK" }]
-      );
+      showSuccess("Booking has been approved! You can now mark it as complete after the service is done.");
     },
     onError: (error: any) => {
       console.error("Failed to approve order:", error);
@@ -95,26 +79,19 @@ export function useApproveOrderMutation() {
       // If already approved, just refresh the data silently
       if (errorMessage.includes("already approved")) {
         // Invalidate all shop bookings queries (with any filters)
-      queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
-        Alert.alert(
-          "Info",
-          "This booking has already been approved. You can now mark it as complete.",
-          [{ text: "OK" }]
-        );
+        queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
+        showInfo("This booking has already been approved. You can now mark it as complete.");
         return;
       }
 
-      Alert.alert(
-        "Error",
-        errorMessage || "Failed to approve booking. Please try again.",
-        [{ text: "OK" }]
-      );
+      showError(errorMessage || "Failed to approve booking. Please try again.");
     },
   });
 }
 
 export function useCompleteOrderMutation() {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (orderId: string) => {
@@ -123,25 +100,18 @@ export function useCompleteOrderMutation() {
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
-      Alert.alert(
-        "Success",
-        "Booking marked as complete! Customer will receive their RCN rewards.",
-        [{ text: "OK" }]
-      );
+      showSuccess("Booking marked as complete! Customer will receive their RCN rewards.");
     },
     onError: (error: any) => {
       console.error("Failed to complete order:", error);
-      Alert.alert(
-        "Error",
-        error.message || "Failed to complete booking. Please try again.",
-        [{ text: "OK" }]
-      );
+      showError(error.message || "Failed to complete booking. Please try again.");
     },
   });
 }
 
 export function useCancelOrderMutation() {
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (orderId: string) => {
@@ -150,15 +120,11 @@ export function useCancelOrderMutation() {
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
-      Alert.alert("Success", "Booking has been cancelled.", [{ text: "OK" }]);
+      showSuccess("Booking has been cancelled.");
     },
     onError: (error: any) => {
       console.error("Failed to cancel order:", error);
-      Alert.alert(
-        "Error",
-        error.message || "Failed to cancel booking. Please try again.",
-        [{ text: "OK" }]
-      );
+      showError(error.message || "Failed to cancel booking. Please try again.");
     },
   });
 }

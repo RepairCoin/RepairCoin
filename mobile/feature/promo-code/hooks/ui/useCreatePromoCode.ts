@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
+import { useAppToast } from "@/shared/hooks";
 import { useCreatePromoCodeMutation } from "../mutations/usePromoCodeMutations";
 import { PromoCodeFormData, BonusType } from "../../types";
 import {
@@ -11,6 +11,8 @@ import {
 } from "../../constants";
 
 export function useCreatePromoCode() {
+  const { showError } = useAppToast();
+
   const [formData, setFormData] = useState<PromoCodeFormData>({
     code: "",
     name: "",
@@ -42,20 +44,17 @@ export function useCreatePromoCode() {
       formData.code.trim().length < CODE_MIN_LENGTH ||
       formData.code.trim().length > CODE_MAX_LENGTH
     ) {
-      Alert.alert(
-        "Validation Error",
-        `Code must be between ${CODE_MIN_LENGTH} and ${CODE_MAX_LENGTH} characters`
-      );
+      showError(`Code must be between ${CODE_MIN_LENGTH} and ${CODE_MAX_LENGTH} characters`);
       return false;
     }
 
     if (!formData.name.trim()) {
-      Alert.alert("Validation Error", "Name is required");
+      showError("Name is required");
       return false;
     }
 
     if (!formData.bonusValue || parseFloat(formData.bonusValue) <= 0) {
-      Alert.alert("Validation Error", "Bonus value must be greater than 0");
+      showError("Bonus value must be greater than 0");
       return false;
     }
 
@@ -63,22 +62,22 @@ export function useCreatePromoCode() {
       formData.bonusType === "percentage" &&
       parseFloat(formData.bonusValue) > MAX_PERCENTAGE
     ) {
-      Alert.alert("Validation Error", `Percentage bonus cannot exceed ${MAX_PERCENTAGE}%`);
+      showError(`Percentage bonus cannot exceed ${MAX_PERCENTAGE}%`);
       return false;
     }
 
     if (formData.startDate >= formData.endDate) {
-      Alert.alert("Validation Error", "End date must be after start date");
+      showError("End date must be after start date");
       return false;
     }
 
     if (formData.totalUsageLimit && parseInt(formData.totalUsageLimit) <= 0) {
-      Alert.alert("Validation Error", "Total usage limit must be greater than 0");
+      showError("Total usage limit must be greater than 0");
       return false;
     }
 
     if (formData.perCustomerLimit && parseInt(formData.perCustomerLimit) <= 0) {
-      Alert.alert("Validation Error", "Per customer limit must be greater than 0");
+      showError("Per customer limit must be greater than 0");
       return false;
     }
 

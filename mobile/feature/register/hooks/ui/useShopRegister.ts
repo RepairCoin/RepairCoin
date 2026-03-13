@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions, Alert } from "react-native";
+import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { ShopFormData, Slide } from "../../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
@@ -19,6 +20,7 @@ export const useShopRegister = () => {
   const account = useAuthStore((state) => state.account);
   const { useRegisterShop } = useShop();
   const { mutate: registerShop, isPending } = useRegisterShop();
+  const { showError } = useAppToast();
 
   const [index, setIndex] = useState(0);
   const [formData, setFormData] = useState<ShopFormData>({
@@ -69,12 +71,9 @@ export const useShopRegister = () => {
       registerShop(submissionData);
     } catch (error) {
       console.error("Registration error:", error);
-      Alert.alert(
-        "Registration Error",
-        "Unable to complete registration. Please check your connection and try again."
-      );
+      showError("Unable to complete registration. Please check your connection and try again.");
     }
-  }, [formData, account, registerShop]);
+  }, [formData, account, registerShop, showError]);
 
   return {
     // State

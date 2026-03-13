@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Alert } from "react-native";
 import { router } from "expo-router";
 import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/shared/hooks/booking/useBooking";
+import { useAppToast } from "@/shared/hooks";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { BookingFilterTab, BookingStatusFilter } from "../../tab-types";
 import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "../../constants";
@@ -29,6 +29,7 @@ export const canCancelAppointment = (appointment: MyAppointment) => {
 
 export function useBookingsTab() {
   const { startDate, endDate } = getBookingDateRange();
+  const { showSuccess, showError } = useAppToast();
 
   const {
     data: appointmentData,
@@ -147,16 +148,13 @@ export function useBookingsTab() {
       onSuccess: () => {
         setCancelModalVisible(false);
         setSelectedAppointment(null);
-        Alert.alert("Success", "Your appointment has been cancelled.");
+        showSuccess("Your appointment has been cancelled.");
       },
-      onError: (error: any) => {
-        Alert.alert(
-          "Error",
-          error?.message || "Failed to cancel appointment. Please try again."
-        );
+      onError: (err: any) => {
+        showError(err?.message || "Failed to cancel appointment. Please try again.");
       },
     });
-  }, [selectedAppointment, cancelMutation]);
+  }, [selectedAppointment, cancelMutation, showSuccess, showError]);
 
   const closeCancelModal = useCallback(() => {
     setCancelModalVisible(false);

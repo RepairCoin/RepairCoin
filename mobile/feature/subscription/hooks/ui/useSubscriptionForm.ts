@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { apiClient } from "@/shared/utilities/axios";
 import { SubscriptionFormData, SubscriptionResponse } from "../../types";
@@ -13,6 +13,7 @@ export function useSubscriptionForm() {
   const { data: shopData, isLoading: isLoadingShop } = useGetShopByWalletAddress(
     account?.address || ""
   );
+  const { showSuccess, showError } = useAppToast();
 
   const [formData, setFormData] = useState<SubscriptionFormData>({
     shopName: "",
@@ -96,10 +97,7 @@ export function useSubscriptionForm() {
         });
       } else {
         // Fallback: Show success message if no payment required
-        Alert.alert(
-          "Success",
-          result.data?.nextSteps || result.data?.message || "Subscription created successfully!"
-        );
+        showSuccess(result.data?.nextSteps || result.data?.message || "Subscription created successfully!");
 
         // Redirect to dashboard after a delay
         setTimeout(() => {
@@ -110,7 +108,7 @@ export function useSubscriptionForm() {
       const errorMessage =
         err.response?.data?.error || err.message || "Something went wrong";
       setError(errorMessage);
-      Alert.alert("Error", errorMessage);
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }

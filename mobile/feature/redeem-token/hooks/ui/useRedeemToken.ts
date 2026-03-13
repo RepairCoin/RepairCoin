@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { useRedemption } from "./useRedemption";
 
 /**
@@ -9,6 +10,7 @@ import { useRedemption } from "./useRedemption";
  */
 export const useRedeemToken = () => {
   const shopData = useAuthStore((state) => state.userProfile);
+  const { showError } = useAppToast();
 
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -35,7 +37,7 @@ export const useRedeemToken = () => {
         error?.response?.data?.error ||
         error?.message ||
         "Failed to process redemption. Please try again.";
-      Alert.alert("Redemption Error", errorMessage);
+      showError(errorMessage);
     },
   });
 
@@ -72,7 +74,7 @@ export const useRedeemToken = () => {
 
   const handleProcessRedemption = useCallback(() => {
     if (!customerAddress) {
-      Alert.alert("Error", "Please enter a valid customer address");
+      showError("Please enter a valid customer address");
       return;
     }
 
@@ -80,46 +82,34 @@ export const useRedeemToken = () => {
       shopData?.address &&
       customerAddress.toLowerCase() === shopData.address.toLowerCase()
     ) {
-      Alert.alert(
-        "Error",
-        "You cannot process redemption for your own wallet address"
-      );
+      showError("You cannot process redemption for your own wallet address");
       return;
     }
 
     if (!customerData) {
-      Alert.alert(
-        "Error",
-        "Customer not found. Customer must be registered before processing redemption."
-      );
+      showError("Customer not found. Customer must be registered before processing redemption.");
       return;
     }
 
     const amount = parseFloat(redemptionAmount);
     if (!redemptionAmount || isNaN(amount) || amount <= 0) {
-      Alert.alert("Error", "Please enter a valid redemption amount");
+      showError("Please enter a valid redemption amount");
       return;
     }
 
     if (amount > customerData.balance) {
-      Alert.alert(
-        "Error",
-        `Insufficient balance. Customer has ${customerData.balance} RCN, but ${amount} RCN requested.`
-      );
+      showError(`Insufficient balance. Customer has ${customerData.balance} RCN, but ${amount} RCN requested.`);
       return;
     }
 
     // Check cross-shop redemption limit (20% for non-home shops)
     if (!customerData.isHomeShop && amount > customerData.maxRedeemable) {
-      Alert.alert(
-        "Cross-Shop Limit Exceeded",
-        `This customer can only redeem up to ${customerData.maxRedeemable.toFixed(2)} RCN at your shop (20% cross-shop limit).\n\nCustomer can redeem 100% at shops where they earned their RCN.`
-      );
+      showError(`This customer can only redeem up to ${customerData.maxRedeemable.toFixed(2)} RCN at your shop (20% cross-shop limit). Customer can redeem 100% at shops where they earned their RCN.`);
       return;
     }
 
     if (!shopData?.id) {
-      Alert.alert("Error", "Shop ID not found");
+      showError("Shop ID not found");
       return;
     }
 
@@ -128,7 +118,7 @@ export const useRedeemToken = () => {
       shopId: shopData.id,
       amount,
     });
-  }, [customerAddress, customerData, redemptionAmount, shopData, createSession]);
+  }, [customerAddress, customerData, redemptionAmount, shopData, createSession, showError]);
 
   const handleCancelSession = useCallback(() => {
     if (!currentSession) return;

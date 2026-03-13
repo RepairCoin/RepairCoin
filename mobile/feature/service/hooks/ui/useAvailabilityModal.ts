@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Alert } from "react-native";
 import {
   ShopAvailability,
   TimeSlotConfig,
   DateOverride,
 } from "@/shared/interfaces/appointment.interface";
+import { useAppToast } from "@/shared/hooks";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../types";
 import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";
@@ -27,6 +27,7 @@ export function useAvailabilityModal({
   // Tab state
   const [activeTab, setActiveTab] = useState<AvailabilityTab>("hours");
   const [loading, setLoading] = useState(true);
+  const { showError } = useAppToast();
 
   // Availability state
   const [availability, setAvailability] = useState<ShopAvailability[]>([]);
@@ -76,7 +77,7 @@ export function useAvailabilityModal({
       }
     } catch (error) {
       console.error("Failed to load availability data:", error);
-      Alert.alert("Error", "Failed to load availability settings");
+      showError("Failed to load availability settings");
     } finally {
       setLoading(false);
     }

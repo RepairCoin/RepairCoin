@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useQueryClient } from "@tanstack/react-query";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { UpdateServiceData } from "@/shared/interfaces/service.interface";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { queryKeys } from "@/shared/config/queryClient";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import {
@@ -23,6 +23,7 @@ export function useServiceFormUI(
   const queryClient = useQueryClient();
   const createServiceMutation = useCreateServiceMutation();
   const updateServiceMutation = useUpdateServiceMutation();
+  const { showSuccess, showError, showWarning } = useAppToast();
 
   // Form state
   const [formData, setFormData] = useState<ServiceFormData>(INITIAL_FORM_DATA);
@@ -129,7 +130,7 @@ export function useServiceFormUI(
       return result.url;
     } catch (error) {
       console.log("Upload error:", error);
-      Alert.alert("Upload Failed", "Failed to upload image. Please try again.");
+      showError("Failed to upload image. Please try again.");
       return null;
     } finally {
       setIsUploading(false);
@@ -142,10 +143,7 @@ export function useServiceFormUI(
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert(
-        "Permission Required",
-        "Please allow access to your photo library"
-      );
+      showWarning("Please allow access to your photo library");
       return;
     }
 
@@ -179,19 +177,19 @@ export function useServiceFormUI(
   // Validate form
   const validateForm = useCallback((): boolean => {
     if (!formData.serviceName.trim()) {
-      Alert.alert("Error", "Please enter a service name");
+      showError("Please enter a service name");
       return false;
     }
     if (!formData.description.trim()) {
-      Alert.alert("Error", "Please enter a description");
+      showError("Please enter a description");
       return false;
     }
     if (!formData.priceUsd || parseFloat(formData.priceUsd) <= 0) {
-      Alert.alert("Error", "Please enter a valid price");
+      showError("Please enter a valid price");
       return false;
     }
     return true;
-  }, [formData]);
+  }, [formData, showError]);
 
   // Save availability changes to the API
   const saveAvailabilityChanges = useCallback(
@@ -289,9 +287,8 @@ export function useServiceFormUI(
           queryKey: queryKeys.service(shopId!),
         });
 
-        Alert.alert("Success", "Service created successfully", [
-          { text: "OK", onPress: onSuccess },
-        ]);
+        showSuccess("Service created successfully");
+        onSuccess();
       } catch (error) {
         console.error("Failed to create service:", error);
       } finally {
@@ -330,9 +327,8 @@ export function useServiceFormUI(
           queryKey: queryKeys.service(shopId!),
         });
 
-        Alert.alert("Success", "Service updated successfully", [
-          { text: "OK", onPress: onSuccess },
-        ]);
+        showSuccess("Service updated successfully");
+        onSuccess();
       } catch (error) {
         console.error("Failed to update service:", error);
       } finally {

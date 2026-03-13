@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useModalStore } from "@/shared/store/common.store";
+import { useAppToast } from "@/shared/hooks";
 import { PaymentParams } from "../../types";
 import { DEFAULT_SUBSCRIPTION_AMOUNT } from "../../constants";
 
@@ -14,6 +14,7 @@ export function usePayment() {
   const queryClient = useQueryClient();
   const { account } = useAuthStore();
   const { setShowSubscriptionModal } = useModalStore();
+  const { showError } = useAppToast();
 
   const {
     clientSecret,
@@ -42,12 +43,12 @@ export function usePayment() {
 
   const handlePay = async () => {
     if (!clientSecret) {
-      Alert.alert("Error", "Payment session not found. Please try again.");
+      showError("Payment session not found. Please try again.");
       return;
     }
 
     if (!cardComplete) {
-      Alert.alert("Error", "Please complete your card details.");
+      showError("Please complete your card details.");
       return;
     }
 
@@ -64,7 +65,7 @@ export function usePayment() {
 
       if (stripeError) {
         setError(stripeError.message);
-        Alert.alert("Payment Failed", stripeError.message);
+        showError(stripeError.message);
         return;
       }
 
@@ -99,7 +100,7 @@ export function usePayment() {
     } catch (err: any) {
       const errorMessage = err.message || "Payment failed. Please try again.";
       setError(errorMessage);
-      Alert.alert("Error", errorMessage);
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }

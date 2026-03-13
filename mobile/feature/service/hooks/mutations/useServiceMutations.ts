@@ -1,12 +1,14 @@
-import { Alert } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { serviceApi } from "@/shared/services/service.services";
+import { useAppToast } from "@/shared/hooks";
 import {
   CreateServiceRequest,
   UpdateServiceData,
 } from "@/shared/interfaces/service.interface";
 
 export function useCreateServiceMutation() {
+  const { showError } = useAppToast();
+
   return useMutation({
     mutationFn: async ({ serviceData }: { serviceData: CreateServiceRequest }) => {
       const response = await serviceApi.create(serviceData);
@@ -14,12 +16,14 @@ export function useCreateServiceMutation() {
     },
     onError: (error: any) => {
       console.error("Error creating service:", error);
-      Alert.alert("Failed to create service", error.message);
+      showError(`Failed to create service: ${error.message}`);
     },
   });
 }
 
 export function useUpdateServiceMutation() {
+  const { showError } = useAppToast();
+
   return useMutation({
     mutationFn: async ({
       serviceId,
@@ -33,7 +37,7 @@ export function useUpdateServiceMutation() {
     },
     onError: (error: any) => {
       console.error("Error updating service:", error);
-      Alert.alert("Failed to update service", error.message);
+      showError(`Failed to update service: ${error.message}`);
     },
   });
 }
