@@ -15,7 +15,8 @@
       "Bash(kill:*)",
       "Bash(git stash show:*)",
       "Bash(git stash:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
