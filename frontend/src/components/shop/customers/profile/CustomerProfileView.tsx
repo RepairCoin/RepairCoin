@@ -36,18 +36,6 @@ interface CustomerAnalytics {
   monthlyActivity: { month: string; earnings: number; redemptions: number }[];
 }
 
-interface Transaction {
-  id: string;
-  type: string;
-  amount: number;
-  shopId?: string;
-  shopName?: string;
-  createdAt: string;
-  description?: string;
-  transactionHash?: string;
-  status?: string;
-}
-
 interface BookingOrder {
   orderId: string;
   serviceName: string;
@@ -66,11 +54,54 @@ interface BookingOrder {
   shopName?: string;
 }
 
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  shopId?: string;
+  shopName?: string;
+  createdAt: string;
+  description?: string;
+}
+
+interface ProfileData {
+  customer: CustomerDetails;
+  analytics: CustomerAnalytics;
+  bookings: { items: BookingOrder[]; pagination: PaginationMeta };
+  transactions: { items: Transaction[]; pagination: PaginationMeta };
+}
+
 interface CustomerProfileViewProps {
   customerAddress: string;
   shopId: string;
   onBack: () => void;
 }
+
+const mapBookingOrder = (o: any): BookingOrder => ({
+  orderId: o.orderId || o.order_id,
+  serviceName: o.serviceName || o.service_name || "Unknown Service",
+  serviceDescription: o.serviceDescription || o.service_description,
+  serviceCategory: o.serviceCategory || o.service_category,
+  status: o.status,
+  totalPrice: o.totalPrice || o.total_price || 0,
+  rcnDiscount: o.rcnDiscount || o.rcn_discount || 0,
+  finalPrice: o.finalPrice || o.final_price || 0,
+  rcnEarned: o.rcnEarned || o.rcn_earned || 0,
+  paymentMethod: o.paymentMethod || o.payment_method,
+  bookingTimeSlot: o.bookingTimeSlot || o.booking_time_slot,
+  bookingEndTime: o.bookingEndTime || o.booking_end_time,
+  createdAt: o.createdAt || o.created_at,
+  completedAt: o.completedAt || o.completed_at,
+  shopName: o.shopName || o.shop_name,
+});
 
 export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   customerAddress,
@@ -80,11 +111,10 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [customer, setCustomer] = useState<CustomerDetails | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [analytics, setAnalytics] = useState<CustomerAnalytics | null>(null);
-  const [bookings, setBookings] = useState<BookingOrder[]>([]);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  // Keep a flat list of all loaded bookings for the sidebar detail panel
+  const [allBookings, setAllBookings] = useState<BookingOrder[]>([]);
 
   const handleSendMessage = async (address: string) => {
     setSendingMessage(true);
@@ -99,95 +129,56 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
   };
 
   useEffect(() => {
-    loadAllData();
+    loadProfile();
   }, [customerAddress]);
 
-  const loadAllData = async () => {
+  const loadProfile = async () => {
     setLoading(true);
     setSelectedBookingId(null);
 
     try {
-      const [detailsRes, balanceRes, transactionsRes, analyticsRes, bookingsRes] =
-        await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}`, {
-            credentials: "include",
-          }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/balance/${customerAddress}`, {
-            credentials: "include",
-          }),
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/transactions?limit=20`,
-            { credentials: "include" }
-          ),
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/analytics`,
-            { credentials: "include" }
-          ),
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/services/orders/shop?customerAddress=${encodeURIComponent(customerAddress)}&limit=50`,
-            { credentials: "include" }
-          ),
-        ]);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customer-profile/${customerAddress}?bookingsPage=1&bookingsLimit=5&transactionsPage=1&transactionsLimit=5`,
+        { credentials: "include" }
+      );
 
-      if (!detailsRes.ok) throw new Error("Failed to load customer details");
+      if (!res.ok) throw new Error("Failed to load customer profile");
+      const json = await res.json();
+      const d = json.data;
 
-      const detailsData = await detailsRes.json();
-      const balanceData = balanceRes.ok ? await balanceRes.json() : { data: null };
-      const transactionsData = transactionsRes.ok ? await transactionsRes.json() : { data: [] };
-      const analyticsData = analyticsRes.ok ? await analyticsRes.json() : { data: null };
-      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : { data: [] };
+      const bookingItems = (d.bookings?.items || []).map(mapBookingOrder);
 
-      // Extract customer from response
-      const customerData = detailsData.data?.customer || detailsData.data;
+      const data: ProfileData = {
+        customer: d.customer,
+        analytics: d.analytics,
+        bookings: {
+          items: bookingItems,
+          pagination: d.bookings?.pagination || { page: 1, limit: 5, totalItems: 0, totalPages: 1, hasMore: false },
+        },
+        transactions: {
+          items: d.transactions?.items || [],
+          pagination: d.transactions?.pagination || { page: 1, limit: 5, totalItems: 0, totalPages: 1, hasMore: false },
+        },
+      };
 
-      // Use accurate balance from /tokens/balance endpoint
-      if (balanceData.data) {
-        customerData.currentBalance = balanceData.data.availableBalance;
-        customerData.lifetimeEarnings = balanceData.data.lifetimeEarned;
-        customerData.totalRedemptions = balanceData.data.totalRedeemed;
-      }
-
-      setCustomer(customerData);
-      setTransactions(transactionsData.data?.transactions || transactionsData.data || []);
-      setAnalytics(analyticsData.data);
-
-      // Map bookings from API response
-      const orders = (bookingsData.data || []).map((o: any) => ({
-        orderId: o.orderId || o.order_id,
-        serviceName: o.serviceName || o.service_name || "Unknown Service",
-        serviceDescription: o.serviceDescription || o.service_description,
-        serviceCategory: o.serviceCategory || o.service_category,
-        status: o.status,
-        totalPrice: o.totalPrice || o.total_price || 0,
-        rcnDiscount: o.rcnDiscount || o.rcn_discount || 0,
-        finalPrice: o.finalPrice || o.final_price || 0,
-        rcnEarned: o.rcnEarned || o.rcn_earned || 0,
-        paymentMethod: o.paymentMethod || o.payment_method,
-        bookingTimeSlot: o.bookingTimeSlot || o.booking_time_slot,
-        bookingEndTime: o.bookingEndTime || o.booking_end_time,
-        createdAt: o.createdAt || o.created_at,
-        completedAt: o.completedAt || o.completed_at,
-        shopName: o.shopName || o.shop_name,
-      }));
-      setBookings(orders);
+      setProfileData(data);
+      setAllBookings(bookingItems);
     } catch (error) {
-      console.error("Error loading customer profile data:", error);
+      console.error("Error loading customer profile:", error);
+      toast.error("Failed to load customer profile");
     } finally {
       setLoading(false);
     }
   };
 
-  // Compute derived data
-  const selectedBooking = bookings.find((b) => b.orderId === selectedBookingId) || null;
-  const activeBookingsCount = bookings.filter(
-    (b) => b.status === "pending" || b.status === "paid"
-  ).length;
-  const memberDays = customer?.joinDate
-    ? Math.floor(
-        (Date.now() - new Date(customer.joinDate).getTime()) / (1000 * 60 * 60 * 24)
-      )
-    : 0;
-  const lastCompletedBooking = bookings.find((b) => b.status === "completed");
+  // Callback for when tabs load a new page of bookings — accumulate for sidebar
+  const handleBookingsLoaded = (bookings: BookingOrder[]) => {
+    setAllBookings((prev) => {
+      const ids = new Set(prev.map((b) => b.orderId));
+      const newOnes = bookings.filter((b) => !ids.has(b.orderId));
+      return [...prev, ...newOnes];
+    });
+  };
 
   if (loading) {
     return (
@@ -200,7 +191,7 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
     );
   }
 
-  if (!customer) {
+  if (!profileData) {
     return (
       <div className="text-center py-20">
         <p className="text-white text-lg font-medium mb-2">Customer Not Found</p>
@@ -214,6 +205,20 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
       </div>
     );
   }
+
+  const { customer, analytics } = profileData;
+
+  // Derived data from accumulated bookings
+  const selectedBooking = allBookings.find((b) => b.orderId === selectedBookingId) || null;
+  const activeBookingsCount = allBookings.filter(
+    (b) => b.status === "pending" || b.status === "paid"
+  ).length;
+  const memberDays = customer.joinDate
+    ? Math.floor(
+        (Date.now() - new Date(customer.joinDate).getTime()) / (1000 * 60 * 60 * 24)
+      )
+    : 0;
+  const lastCompletedBooking = allBookings.find((b) => b.status === "completed");
 
   return (
     <div className="space-y-6">
@@ -232,21 +237,22 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
         <div className="lg:col-span-7 space-y-6">
           <CustomerInfoCard
             customer={customer}
-            bookingsCount={bookings.length}
+            bookingsCount={profileData.bookings.pagination.totalItems}
             activeBookingsCount={activeBookingsCount}
             onSendMessage={handleSendMessage}
             sendingMessage={sendingMessage}
           />
           <CustomerProfileTabs
-            bookings={bookings}
-            transactions={transactions}
+            shopId={shopId}
+            customerAddress={customerAddress}
             analytics={analytics}
             customerBalance={customer.currentBalance ?? 0}
             customerTier={customer.tier}
-            shopId={shopId}
-            customerAddress={customerAddress}
+            initialBookings={profileData.bookings}
+            initialTransactions={profileData.transactions}
             selectedBookingId={selectedBookingId}
             onSelectBooking={setSelectedBookingId}
+            onBookingsLoaded={handleBookingsLoaded}
           />
         </div>
 

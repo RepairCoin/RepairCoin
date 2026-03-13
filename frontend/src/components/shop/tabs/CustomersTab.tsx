@@ -14,6 +14,8 @@ import {
   X,
   Loader2,
   User,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Select,
@@ -23,8 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LookupIcon } from "@/components/icon";
+import { useRouter } from "next/navigation";
 import CustomerCard from "@/components/shop/customers/CustomerCard";
-import { CustomerProfileView } from "@/components/shop/customers/profile";
 
 interface Customer {
   address: string;
@@ -117,6 +119,8 @@ const TierBadge: React.FC<{ tier: "BRONZE" | "SILVER" | "GOLD" }> = ({ tier }) =
 };
 
 export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
+  const router = useRouter();
+
   // View mode state
   const [viewMode, setViewMode] = useState<"my-customers" | "search-all">("my-customers");
 
@@ -133,6 +137,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
   const [growthStats, setGrowthStats] = useState<GrowthStats | null>(null);
   const [growthPeriod] = useState<"7d" | "30d" | "90d">("7d");
 
+  // Server-side pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Search All Customers state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchState, setSearchState] = useState<SearchState>({
@@ -146,13 +156,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     loadCustomers();
     loadGrowthStats();
-  }, [shopId]);
+  }, [shopId, currentPage, pageSize, searchTerm]);
 
   useEffect(() => {
     if (shopId) {
@@ -164,9 +173,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
     setLoading(true);
 
     try {
-      const result = await apiClient.get(`/shops/${shopId}/customers?limit=100`);
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(pageSize),
+      });
+      if (searchTerm.trim()) {
+        params.set("search", searchTerm.trim());
+      }
+
+      const result = await apiClient.get(`/shops/${shopId}/customers?${params.toString()}`);
 
       const customerData = result.data?.customers || [];
+      setTotalItems(result.data?.totalItems ?? customerData.length);
+      setTotalPages(result.data?.totalPages ?? 1);
 
       const transformedCustomers = customerData.map((c: any) => ({
         address: c.address || c.customer_address,
@@ -281,7 +300,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
   };
 
   const handleViewProfile = (address: string) => {
-    setSelectedCustomer(address);
+    router.push(`/shop/customers/${address}`);
   };
 
   const handleCopyAddress = (address: string) => {
@@ -393,14 +412,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
     }
   };
 
-  const filteredCustomers = customers
+  // Client-side tier filter and sort (applied to server-paginated results)
+  const displayCustomers = customers
     .filter((customer) => {
-      const matchesSearch =
-        searchTerm === "" ||
-        customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesTier = tierFilter === "all" || customer.tier === tierFilter;
-      return matchesSearch && matchesTier;
+      return tierFilter === "all" || customer.tier === tierFilter;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -416,6 +431,11 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
           );
       }
     });
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [tierFilter, sortBy]);
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 8)}...${address.slice(-6)}`;
@@ -434,17 +454,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return lastTransaction > weekAgo;
   }).length;
-
-  // If a customer is selected, show full profile view
-  if (selectedCustomer) {
-    return (
-      <CustomerProfileView
-        customerAddress={selectedCustomer}
-        shopId={shopId}
-        onBack={() => setSelectedCustomer(null)}
-      />
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -587,7 +596,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
               <p className="text-gray-400">Loading customers...</p>
             </div>
           </div>
-        ) : filteredCustomers.length === 0 ? (
+        ) : displayCustomers.length === 0 ? (
           <div className="p-12">
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-800 rounded-full mb-4">
@@ -604,61 +613,141 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-[rgba(229,234,238,0.55)]">
-            {filteredCustomers.map((customer) => (
-              <div
-                key={customer.address}
-                className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
-                onClick={() => handleViewProfile(customer.address)}
-              >
-                <div className="grid grid-cols-4 gap-4 items-center">
-                  {/* Customer Info */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
-                      {customer.profile_image_url ? (
-                        <img
-                          src={customer.profile_image_url}
-                          alt={customer.name || "Customer"}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <User className="w-5 h-5" />
-                        </div>
-                      )}
+          <>
+            <div className="divide-y divide-[rgba(229,234,238,0.55)]">
+              {displayCustomers.map((customer) => (
+                <div
+                  key={customer.address}
+                  className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+                  onClick={() => handleViewProfile(customer.address)}
+                >
+                  <div className="grid grid-cols-4 gap-4 items-center">
+                    {/* Customer Info */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
+                        {customer.profile_image_url ? (
+                          <img
+                            src={customer.profile_image_url}
+                            alt={customer.name || "Customer"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <User className="w-5 h-5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="text-sm font-semibold text-white">
+                          {customer.name || "Anonymous Customer"}
+                        </p>
+                        <p className="text-sm font-medium text-white/55">
+                          {formatAddress(customer.address)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
+
+                    {/* Tier Badge */}
+                    <div>
+                      <TierBadge tier={customer.tier} />
+                    </div>
+
+                    {/* Lifetime RCN */}
+                    <div>
                       <p className="text-sm font-semibold text-white">
-                        {customer.name || "Anonymous Customer"}
-                      </p>
-                      <p className="text-sm font-medium text-white/55">
-                        {formatAddress(customer.address)}
+                        {customer.lifetimeEarnings} RCN
                       </p>
                     </div>
-                  </div>
 
-                  {/* Tier Badge */}
-                  <div>
-                    <TierBadge tier={customer.tier} />
-                  </div>
-
-                  {/* Lifetime RCN */}
-                  <div>
-                    <p className="text-sm font-semibold text-white">
-                      {customer.lifetimeEarnings} RCN
-                    </p>
-                  </div>
-
-                  {/* Transactions */}
-                  <div>
-                    <p className="text-sm font-semibold text-white">
-                      {customer.totalTransactions}
-                    </p>
+                    {/* Transactions */}
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {customer.totalTransactions}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+              <div className="px-7 py-4 border-t border-[#303236] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-400">
+                    Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+                  </span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[80px] h-[32px] bg-[#1a1a1a] border-[#303236] rounded-lg text-sm text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-gray-400">per page</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg bg-[#1a1a1a] border border-[#303236] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#2a2a2a] transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      if (totalPages <= 5) return true;
+                      if (page === 1 || page === totalPages) return true;
+                      return Math.abs(page - currentPage) <= 1;
+                    })
+                    .reduce<(number | "ellipsis")[]>((acc, page, idx, arr) => {
+                      if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                        acc.push("ellipsis");
+                      }
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === "ellipsis" ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">...</span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => setCurrentPage(item)}
+                          className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === item
+                              ? "bg-[#FFCC00] text-[#101010]"
+                              : "bg-[#1a1a1a] border border-[#303236] text-white hover:bg-[#2a2a2a]"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg bg-[#1a1a1a] border border-[#303236] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#2a2a2a] transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
         </>

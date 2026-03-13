@@ -248,7 +248,7 @@ export class VerificationService {
       }
 
       // Get all transactions for this customer
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      const { transactions } = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
 
       // Group by shop and calculate totals
       const shopEarnings = new Map<string, any>();
@@ -382,7 +382,7 @@ export class VerificationService {
     fromTierBonuses: number;
   }> {
     try {
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      const { transactions } = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
       
       const breakdown = {
         fromRepairs: 0,

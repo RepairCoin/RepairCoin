@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useShopProfileStore } from "@/stores/shopProfileStore";
 import { toast } from "react-hot-toast";
 import {
   MapPin,
@@ -38,6 +39,7 @@ import * as messagingApi from "@/services/api/messaging";
 import BookingAnalyticsTab from "@/components/shop/tabs/BookingAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
 import { CustomerGridView } from "@/components/shop/CustomerGridView";
+
 
 interface ShopInfo {
   shopId: string;
@@ -78,7 +80,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [selectedService, setSelectedService] = useState<ShopServiceWithShopInfo | null>(null);
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews" | "analytics" | "appointments" | "customers">("services");
+  const { activeTab, setActiveTab } = useShopProfileStore();
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -87,6 +89,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [isMessaging, setIsMessaging] = useState(false);
   const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
   const [customerCount, setCustomerCount] = useState<number | null>(null);
+
   const [reviews, setReviews] = useState<ServiceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewPage, setReviewPage] = useState(1);
@@ -957,7 +960,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {/* Customers Tab */}
         {activeTab === "customers" && isPreviewMode && (
           <div>
-            <CustomerGridView shopId={shopId} onCustomersLoaded={setCustomerCount} />
+            <CustomerGridView
+                shopId={shopId}
+                onCustomersLoaded={setCustomerCount}
+                onCustomerClick={(address) => router.push(`/shop/customers/${address}`)}
+              />
           </div>
         )}
         </div>

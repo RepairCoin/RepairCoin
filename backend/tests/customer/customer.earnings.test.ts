@@ -131,7 +131,7 @@ describe("Customer Earnings and Redemption Tests", () => {
 
       jest
         .spyOn(TransactionRepository.prototype, "getTransactionsByCustomer")
-        .mockResolvedValue(mockTransactions as any);
+        .mockResolvedValue({ transactions: mockTransactions, totalItems: mockTransactions.length } as any);
 
       const response = await request(app)
         .get(`/api/customers/${customerAddress}/transactions?limit=10`)
@@ -144,7 +144,7 @@ describe("Customer Earnings and Redemption Tests", () => {
     it("should filter transactions by type", async () => {
       jest
         .spyOn(TransactionRepository.prototype, "getTransactionsByCustomer")
-        .mockResolvedValue([] as any);
+        .mockResolvedValue({ transactions: [], totalItems: 0 } as any);
 
       const response = await request(app)
         .get(`/api/customers/${customerAddress}/transactions?type=mint`)
@@ -627,7 +627,7 @@ describe("Customer Earnings and Redemption Tests", () => {
 
       jest
         .spyOn(TransactionRepository.prototype, "getTransactionsByCustomer")
-        .mockResolvedValue(mockTransactions as any);
+        .mockResolvedValue({ transactions: mockTransactions, totalItems: mockTransactions.length } as any);
 
       const response = await request(app)
         .get(
@@ -649,10 +649,10 @@ describe("Customer Earnings and Redemption Tests", () => {
 
       jest
         .spyOn(TransactionRepository.prototype, "getTransactionsByCustomer")
-        .mockResolvedValue(mockTransactions.slice(0, 5) as any);
+        .mockResolvedValue({ transactions: mockTransactions.slice(0, 5), totalItems: 5 } as any);
 
       const response = await request(app)
-        .get(`/api/customers/${customerAddress}/transactions?limit=5&offset=0`)
+        .get(`/api/customers/${customerAddress}/transactions?limit=5&page=1`)
         .set("Authorization", `Bearer ${customerToken}`);
 
       expect(response.status).toBe(200);
