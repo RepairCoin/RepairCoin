@@ -16,7 +16,11 @@
       "Bash(git stash show:*)",
       "Bash(git stash:*)",
       "Bash(git checkout:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(npm run dev:*)",
+      "Bash(PGPASSWORD=\"$DB_PASSWORD\" psql:*)",
+      "Bash(npm run db:migrate:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

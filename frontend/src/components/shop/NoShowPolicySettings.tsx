@@ -52,19 +52,35 @@ export const NoShowPolicySettings: React.FC = () => {
   // Load policy from backend
   useEffect(() => {
     const loadPolicy = async () => {
-      if (!shopId) return;
+      console.log('🔍 [NoShowPolicy Frontend] useEffect triggered');
+      console.log('🔍 [NoShowPolicy Frontend] shopId:', shopId);
+      console.log('🔍 [NoShowPolicy Frontend] userProfile:', userProfile);
+
+      if (!shopId) {
+        console.warn('⚠️ [NoShowPolicy Frontend] No shopId available, aborting');
+        setError("No shop ID found. Please ensure you're logged in as a shop owner.");
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
         setError("");
 
+        console.log('🔍 [NoShowPolicy Frontend] Calling API for shopId:', shopId);
         // Fetch policy from backend
         const fetchedPolicy = await getShopNoShowPolicy(shopId);
+        console.log('✅ [NoShowPolicy Frontend] Policy loaded successfully:', fetchedPolicy);
         setPolicy(fetchedPolicy);
         setOriginalPolicy(fetchedPolicy);
       } catch (err) {
-        console.error("Error loading policy from backend:", err);
-        setError("Failed to load policy settings");
+        console.error("❌ [NoShowPolicy Frontend] Error loading policy:", err);
+        console.error("❌ [NoShowPolicy Frontend] Error details:", {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          response: (err as any)?.response?.data
+        });
+        setError("Failed to load policy settings: " + (err instanceof Error ? err.message : String(err)));
         // Fallback to defaults on error
         const defaultPolicy = getDefaultPolicy(shopId);
         setPolicy(defaultPolicy);

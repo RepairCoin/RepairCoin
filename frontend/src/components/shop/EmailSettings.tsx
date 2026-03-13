@@ -21,18 +21,34 @@ export const EmailSettings: React.FC = () => {
   // Load preferences from backend
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!shopId) return;
+      console.log('📧 [EmailSettings Frontend] useEffect triggered');
+      console.log('📧 [EmailSettings Frontend] shopId:', shopId);
+      console.log('📧 [EmailSettings Frontend] userProfile:', userProfile);
+
+      if (!shopId) {
+        console.warn('⚠️ [EmailSettings Frontend] No shopId available, aborting');
+        setError("No shop ID found. Please ensure you're logged in as a shop owner.");
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
         setError("");
 
+        console.log('📧 [EmailSettings Frontend] Calling API for shopId:', shopId);
         const fetchedPreferences = await getShopEmailPreferences(shopId);
+        console.log('✅ [EmailSettings Frontend] Preferences loaded successfully:', fetchedPreferences);
         setPreferences(fetchedPreferences);
         setOriginalPreferences(fetchedPreferences);
       } catch (err) {
-        console.error("Error loading email preferences:", err);
-        setError("Failed to load email preferences");
+        console.error("❌ [EmailSettings Frontend] Error loading preferences:", err);
+        console.error("❌ [EmailSettings Frontend] Error details:", {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          response: (err as any)?.response?.data
+        });
+        setError("Failed to load email preferences: " + (err instanceof Error ? err.message : String(err)));
       } finally {
         setLoading(false);
       }

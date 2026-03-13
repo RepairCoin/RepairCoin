@@ -157,8 +157,13 @@ export interface NoShowPolicy {
  * Get shop's no-show policy configuration
  */
 export const getShopNoShowPolicy = async (shopId: string): Promise<NoShowPolicy> => {
+  console.log('🌐 [API Client] Calling GET /services/shops/' + shopId + '/no-show-policy');
   const response = await apiClient.get(`/services/shops/${shopId}/no-show-policy`);
-  return response.data.data;
+  console.log('🌐 [API Client] Raw response:', response);
+  console.log('🌐 [API Client] response.data:', response.data);
+  // Backend returns { success: true, data: {...} } but axios already unwraps to response.data
+  // So response.data is already the policy object, not response.data.data
+  return response.data.data || response.data;
 };
 
 /**
@@ -169,7 +174,7 @@ export const updateShopNoShowPolicy = async (
   policy: Partial<NoShowPolicy>
 ): Promise<NoShowPolicy> => {
   const response = await apiClient.put(`/services/shops/${shopId}/no-show-policy`, policy);
-  return response.data.data;
+  return response.data.data || response.data;
 };
 
 // ==================== DISPUTE API ====================
