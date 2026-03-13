@@ -155,21 +155,31 @@ export class MessageRepository extends BaseRepository {
    */
   async getCustomerConversations(
     customerAddress: string,
-    options: { page?: number; limit?: number; archived?: boolean } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved' } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
       const archived = options.archived || false;
+      const status = options.status;
+
+      // Build WHERE clause
+      let whereClause = 'WHERE customer_address = $1 AND is_archived_customer = $2';
+      const params: any[] = [customerAddress.toLowerCase(), archived];
+
+      if (status) {
+        params.push(status);
+        whereClause += ` AND status = $${params.length}`;
+      }
 
       // Count total
       const countQuery = `
         SELECT COUNT(*) as total
         FROM conversations
-        WHERE customer_address = $1 AND is_archived_customer = $2
+        ${whereClause}
       `;
-      const countResult = await this.pool.query(countQuery, [customerAddress.toLowerCase(), archived]);
+      const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
       // Get conversations
@@ -180,12 +190,12 @@ export class MessageRepository extends BaseRepository {
           s.logo_url as shop_image_url
         FROM conversations c
         LEFT JOIN shops s ON c.shop_id = s.shop_id
-        WHERE c.customer_address = $1 AND c.is_archived_customer = $2
+        ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-        LIMIT $3 OFFSET $4
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
 
-      const result = await this.pool.query(query, [customerAddress.toLowerCase(), archived, limit, offset]);
+      const result = await this.pool.query(query, [...params, limit, offset]);
 
       return {
         items: result.rows.map(row => this.mapConversationRow(row)),
@@ -208,21 +218,31 @@ export class MessageRepository extends BaseRepository {
    */
   async getShopConversations(
     shopId: string,
-    options: { page?: number; limit?: number; archived?: boolean } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved' } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
       const archived = options.archived || false;
+      const status = options.status;
+
+      // Build WHERE clause
+      let whereClause = 'WHERE shop_id = $1 AND is_archived_shop = $2';
+      const params: any[] = [shopId, archived];
+
+      if (status) {
+        params.push(status);
+        whereClause += ` AND status = $${params.length}`;
+      }
 
       // Count total
       const countQuery = `
         SELECT COUNT(*) as total
         FROM conversations
-        WHERE shop_id = $1 AND is_archived_shop = $2
+        ${whereClause}
       `;
-      const countResult = await this.pool.query(countQuery, [shopId, archived]);
+      const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
       // Get conversations
@@ -232,12 +252,12 @@ export class MessageRepository extends BaseRepository {
           cust.name as customer_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
-        WHERE c.shop_id = $1 AND c.is_archived_shop = $2
+        ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-        LIMIT $3 OFFSET $4
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
 
-      const result = await this.pool.query(query, [shopId, archived, limit, offset]);
+      const result = await this.pool.query(query, [...params, limit, offset]);
 
       return {
         items: result.rows.map(row => this.mapConversationRow(row)),

@@ -11,36 +11,31 @@ function FilterTabs({
   filter: MessageFilter;
   onFilterChange: (filter: MessageFilter) => void;
 }) {
+  const tabs: { key: MessageFilter; label: string }[] = [
+    { key: "active", label: "Active" },
+    { key: "resolved", label: "Resolved" },
+    { key: "archived", label: "Archived" },
+  ];
+
   return (
     <View className="flex-row px-4 py-2 border-b border-zinc-800">
-      <Pressable
-        onPress={() => onFilterChange("active")}
-        className={`flex-1 py-2 rounded-lg mr-2 ${
-          filter === "active" ? "bg-[#FFCC00]" : "bg-zinc-800"
-        }`}
-      >
-        <Text
-          className={`text-center font-medium ${
-            filter === "active" ? "text-black" : "text-zinc-400"
-          }`}
+      {tabs.map((tab, index) => (
+        <Pressable
+          key={tab.key}
+          onPress={() => onFilterChange(tab.key)}
+          className={`flex-1 py-2 rounded-lg ${
+            index > 0 ? "ml-2" : ""
+          } ${filter === tab.key ? "bg-[#FFCC00]" : "bg-zinc-800"}`}
         >
-          Active
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={() => onFilterChange("archived")}
-        className={`flex-1 py-2 rounded-lg ml-2 ${
-          filter === "archived" ? "bg-[#FFCC00]" : "bg-zinc-800"
-        }`}
-      >
-        <Text
-          className={`text-center font-medium ${
-            filter === "archived" ? "text-black" : "text-zinc-400"
-          }`}
-        >
-          Archived
-        </Text>
-      </Pressable>
+          <Text
+            className={`text-center font-medium ${
+              filter === tab.key ? "text-black" : "text-zinc-400"
+            }`}
+          >
+            {tab.label}
+          </Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -84,7 +79,9 @@ export default function MessagesScreen() {
               message={
                 filter === "archived"
                   ? "No archived conversations"
-                  : "No conversations yet"
+                  : filter === "resolved"
+                  ? "No resolved conversations"
+                  : "No active conversations"
               }
             />
           }
