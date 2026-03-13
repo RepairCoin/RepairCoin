@@ -1,8 +1,10 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useModalStore } from "@/stores/modalStore";
+import SectionBadge from "@/components/about/SectionBadge";
 
 interface HeroSectionProps {
   hasWallet: boolean;
@@ -16,8 +18,6 @@ interface HeroSectionProps {
 export default function HeroSection({
   hasWallet,
   isDetecting,
-  isRegistered,
-  isAuthenticated,
   isRedirecting = false,
   onGetStartedClick,
 }: HeroSectionProps) {
@@ -26,111 +26,116 @@ export default function HeroSection({
 
   const handleGetStartedClick = () => {
     if (!hasWallet) {
-      // If no wallet connected, open the modal
       openWelcomeModal();
     } else {
-      // If wallet is connected, use the default handler
       onGetStartedClick();
     }
   };
 
   return (
-    <section className="relative bg-[#101010] w-full h-screen overflow-hidden flex items-center">
-      {/* Background Gradients */}
+    <section className="relative bg-[#0a0a0a] w-full h-screen overflow-hidden">
+      {/* Dotted background pattern */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Main gradient overlay */}
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 50% at 50% 50%, rgba(255, 204, 0, 0.15), transparent)",
-          }}
-        />
-
-        {/* Top right gradient circle */}
-        <div
-          className="absolute top-[-200px] right-[-200px] w-[800px] h-[800px] rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255, 204, 0, 0.1), transparent 70%)",
-          }}
-        />
-
-        {/* Bottom left gradient circle */}
-        <div
-          className="absolute bottom-[-300px] left-[-300px] w-[1000px] h-[1000px] rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255, 204, 0, 0.08), transparent 70%)",
-          }}
+        <Image
+          src="/img/landingv2/bg-background.png"
+          alt=""
+          fill
+          className="object-cover opacity-30"
+          priority
         />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 relative z-10 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center h-screen">
-          {/* Left Content */}
-          <div className="space-y-6 pt-20 lg:pt-0">
-            <div className="inline-block">
-              <p className="text-[#ffcc00] text-sm sm:text-base md:text-lg font-semibold tracking-wider uppercase">
-                THE REPAIR INDUSTRY&apos;S LOYALTY TOKEN
+      {/* Content wrapper - full width, no max-w constraint on the right */}
+      <div className="relative z-10 h-full flex items-center">
+        <div className="w-full max-w-[1400px] mx-auto px-6 lg:px-12 xl:px-16">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-8 items-center">
+            {/* Left Content */}
+            <div className="space-y-7 pt-20 lg:pt-0">
+              {/* Badge */}
+              <SectionBadge label="Modern Loyalty for Service Businesses" />
+
+              <h1 className="text-[2.75rem] sm:text-[3.25rem] lg:text-[3.5rem] xl:text-[4rem] font-bold text-white leading-[1.08] tracking-tight">
+                <span className="whitespace-nowrap">Connect. Schedule.</span>
+                <br />
+                <span className="whitespace-nowrap"><span className="text-[#F7CC00]">Grow</span> Your Business.</span>
+              </h1>
+
+              <p className="text-base sm:text-lg text-gray-400 leading-relaxed max-w-[460px]">
+                RepairCoin helps service businesses grow with a marketplace,
+                smart scheduling, and loyalty rewards in one powerful platform.
               </p>
+
+              <div className="pt-1">
+                <button
+                  onClick={handleGetStartedClick}
+                  disabled={isLoading}
+                  className="bg-[#F7CC00] hover:bg-[#E5BB00] text-black font-semibold px-10 py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-base"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      {isRedirecting ? "Redirecting..." : "Loading..."}
+                    </>
+                  ) : (
+                    <>Get Started &rarr;</>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-bold text-white leading-tight">
-              The Future of
-              <br />
-              Tokenized Rewards
-            </h1>
-
-            <p className="text-base sm:text-lg text-gray-300 leading-relaxed max-w-[18rem] md:max-w-md">
-              RepairCoin is a blockchain-based loyalty system that connects
-              customers and shops under one transparent, stable-value network.
-              <br />
-              <br />
-              Every repair earns RCN you can actually use.
-            </p>
-
-            <div className="pt-4">
-              <button
-                onClick={handleGetStartedClick}
-                disabled={isLoading}
-                className="bg-[#ffcc00] hover:bg-[#e6b800] text-black font-medium px-8 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            {/* Right Content - Device Mockups */}
+            <div className="relative hidden lg:block h-[550px] xl:h-[600px]">
+              {/* MacBook - positioned to bleed off the right edge */}
+              <div
+                className="absolute top-0 right-[-120px] xl:right-[-180px] w-[700px] xl:w-[800px] h-[420px] xl:h-[470px]"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {isRedirecting ? "Redirecting..." : "Loading..."}
-                  </>
-                ) : (
-                  <>Get Started →</>
-                )}
-              </button>
+                <Image
+                  src="/img/landingv2/MacBookAir.png"
+                  alt="RepairCoin Dashboard on MacBook"
+                  fill
+                  className="object-contain object-right-top"
+                  priority
+                />
+              </div>
+
+              {/* iPhone - overlapping MacBook from center-left */}
+              <div
+                className="absolute left-[60px] xl:left-[40px] bottom-[-20px] w-[220px] xl:w-[260px] h-[430px] xl:h-[480px] z-10"
+              >
+                <Image
+                  src="/img/landingv2/iPhone13.png"
+                  alt="RepairCoin Mobile App"
+                  fill
+                  className="object-contain object-bottom"
+                  priority
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Right Content - Hero Video */}
-          <div className=" h-full flex items-end justify-center lg:justify-end pb-0">
-            <div className="w-full">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                disablePictureInPicture
-                className="absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom"
-                onError={(e) => {
-                  // Fallback to PNG if video fails to load
-                  const fallbackImg = document.createElement("img");
-                  fallbackImg.src = "/img/landing/landing-hero.png";
-                  fallbackImg.alt = "RepairCoin Hero - Person with devices";
-                  fallbackImg.className =
-                    "absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom";
-                  e.currentTarget.replaceWith(fallbackImg);
-                }}
-              >
-                <source src="/img/landing/hero-person.webm" type="video/webm" />
-                Your browser does not support the video tag.
-              </video>
+            {/* Mobile devices - shown only on smaller screens */}
+            <div className="relative lg:hidden flex justify-center pb-8">
+              <div className="relative w-full max-w-md h-[350px] sm:h-[400px]">
+                {/* MacBook */}
+                <div className="absolute right-[-20px] top-0 w-[80%] h-[65%]">
+                  <Image
+                    src="/img/landingv2/MacBookAir.png"
+                    alt="RepairCoin Dashboard on MacBook"
+                    fill
+                    className="object-contain object-right-top"
+                    priority
+                  />
+                </div>
+                {/* iPhone */}
+                <div className="absolute left-[10%] bottom-0 w-[35%] h-[75%] z-10">
+                  <Image
+                    src="/img/landingv2/iPhone13.png"
+                    alt="RepairCoin Mobile App"
+                    fill
+                    className="object-contain object-bottom"
+                    priority
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

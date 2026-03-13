@@ -1,81 +1,70 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Image from 'next/image';
-import { useModalStore } from '@/stores/modalStore';
+import React from "react";
+import Image from "next/image";
+import SectionBadge from "@/components/about/SectionBadge";
 
-const features = [
+const cards = [
   {
-    title: 'Repair or Refer',
-    description: 'Qualifying repairs and successful referrals automatically earn RCN rewards.',
-    image: '/img/landing/Photo.png',
-    fallback: '🔧'
+    image: "/img/landingv2/howrepaircoinworks-card1.png",
+    title: "A service is completed like any other transaction.",
+    description: "RepairCoin works quietly in the background.",
   },
   {
-    title: 'Track & Approve',
-    description: 'See your balance, then approve shop redemption requests with one tap.',
-    image: '/img/landing/Photo (1).png',
-    fallback: '✅'
+    image: "/img/landingv2/howrepaircoinworks-card2.png",
+    title: "Rewards are automatically added after the service.",
+    description:
+      "Both businesses and customers can trust that every reward is accurately tracked.",
   },
   {
-    title: 'Redeem Anywhere',
-    description: 'Use RCN at verified partner shops nationwide at a fixed $0.10 per token.',
-    image: '/img/landing/Photo (2).png',
-    fallback: '🏪'
-  }
+    image: "/img/landingv2/howrepaircoinworks-card3.png",
+    title: "Customers use their rewards across the RepairCoin network.",
+    description: "More reasons to return and explore other shops.",
+  },
 ];
 
 export default function HowItWorks() {
-  const { openWelcomeModal } = useModalStore();
-
   return (
-    <section className="relative bg-[#191919] w-full pb-16 pt-12 lg:pb-20 lg:pt-12">
+    <section className="relative bg-[#0a0a0a] py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
-        {/* Section Header */}
-        <div className="mb-8 lg:mb-12">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-            How It Works
+        {/* Header */}
+        <div className="text-center space-y-4 mb-16">
+          <div className="flex justify-center">
+            <SectionBadge label="From Service to Rewards" />
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+            How RepairCoin Works
           </h2>
-          <p className="text-sm sm:text-base text-gray-300 max-w-3xl">
-            Earn RCN through qualifying repairs and referrals, review & approve redemptions securely, and redeem tokens across the network at a stable $0.10 value.
+
+          <p className="text-gray-400 italic max-w-lg mx-auto">
+            No extra steps. No complexity. Just smarter rewards.
           </p>
         </div>
 
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {features.map((feature, index) => (
+        {/* Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+          {cards.map((card, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300"
+              className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800/50 transition-transform duration-300 hover:scale-[1.02]"
             >
-              {/* Card Image */}
-              <div className="h-48 lg:h-56 bg-gray-100 flex items-center justify-center overflow-hidden relative">
+              <div className="relative h-56 sm:h-64">
                 <Image
-                  src={feature.image}
-                  alt={feature.title}
+                  src={card.image}
+                  alt={card.title}
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  loading="lazy"
                 />
               </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <h3 className="text-lg lg:text-xl font-semibold text-gray-900 mb-3">
-                  {feature.title}
+              <div className="p-6 text-center">
+                <h3 className="text-white font-semibold text-base leading-snug">
+                  {card.title}
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  {feature.description}
+                <div className="w-full h-px bg-gray-700 my-4" />
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  {card.description}
                 </p>
-
-                {/* Get Started Button */}
-                <button
-                  onClick={openWelcomeModal}
-                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors inline-block"
-                >
-                  Get Started →
-                </button>
               </div>
             </div>
           ))}
