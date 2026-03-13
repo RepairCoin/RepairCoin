@@ -20,6 +20,7 @@ interface ConversationMoreMenuProps {
   onArchive: () => void;
   onBlock: () => void;
   onDelete: () => void;
+  onResolve: () => void;
 }
 
 export default function ConversationMoreMenu({
@@ -31,6 +32,7 @@ export default function ConversationMoreMenu({
   onArchive,
   onBlock,
   onDelete,
+  onResolve,
 }: ConversationMoreMenuProps) {
   const isArchived = isCustomer
     ? conversation?.isArchivedCustomer
@@ -38,6 +40,7 @@ export default function ConversationMoreMenu({
 
   const isBlocked = conversation?.isBlocked;
   const blockedByMe = conversation?.blockedBy === (isCustomer ? "customer" : "shop");
+  const isResolved = conversation?.status === "resolved";
 
   const handleArchive = () => {
     onClose();
@@ -79,11 +82,22 @@ export default function ConversationMoreMenu({
     onViewInfo();
   };
 
+  const handleResolve = () => {
+    onClose();
+    onResolve();
+  };
+
   const options: MenuOption[] = [
     {
       key: "info",
       label: "View Info",
       icon: "information-circle-outline",
+    },
+    {
+      key: "resolve",
+      label: isResolved ? "Reopen Conversation" : "Mark as Resolved",
+      icon: isResolved ? "refresh-outline" : "checkmark-circle-outline",
+      color: isResolved ? undefined : "#22C55E",
     },
     {
       key: "archive",
@@ -109,6 +123,9 @@ export default function ConversationMoreMenu({
     switch (key) {
       case "info":
         handleViewInfo();
+        break;
+      case "resolve":
+        handleResolve();
         break;
       case "archive":
         handleArchive();

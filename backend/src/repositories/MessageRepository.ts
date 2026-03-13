@@ -15,6 +15,7 @@ export interface Conversation {
   isBlocked: boolean;
   blockedBy?: string;
   blockedAt?: Date;
+  status: 'open' | 'resolved';
   createdAt: Date;
   updatedAt: Date;
   // Joined data
@@ -639,6 +640,42 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Mark a conversation as resolved
+   */
+  async resolveConversation(conversationId: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET status = 'resolved', updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation resolved', { conversationId });
+    } catch (error) {
+      logger.error('Error in resolveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reopen a resolved conversation
+   */
+  async reopenConversation(conversationId: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET status = 'open', updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation reopened', { conversationId });
+    } catch (error) {
+      logger.error('Error in reopenConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map conversation database row to Conversation object
    */
   private mapConversationRow(row: any): Conversation {
@@ -655,6 +692,7 @@ export class MessageRepository extends BaseRepository {
       isBlocked: row.is_blocked || false,
       blockedBy: row.blocked_by,
       blockedAt: row.blocked_at,
+      status: row.status || 'open',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       customerName: row.customer_name,

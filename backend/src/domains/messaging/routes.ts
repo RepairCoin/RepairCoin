@@ -135,6 +135,22 @@ router.post('/conversations/:conversationId/unblock', messageController.unblockC
 router.delete('/conversations/:conversationId', messageController.deleteConversation);
 
 /**
+ * @route POST /api/messages/conversations/:conversationId/resolve
+ * @description Mark a conversation as resolved
+ * @param conversationId - The conversation ID
+ * @access Authenticated users (must be part of conversation)
+ */
+router.post('/conversations/:conversationId/resolve', messageController.resolveConversation);
+
+/**
+ * @route POST /api/messages/conversations/:conversationId/reopen
+ * @description Reopen a resolved conversation
+ * @param conversationId - The conversation ID
+ * @access Authenticated users (must be part of conversation)
+ */
+router.post('/conversations/:conversationId/reopen', messageController.reopenConversation);
+
+/**
  * @route GET /api/messages/quick-replies
  * @description Get all quick replies for the authenticated shop
  * @access Authenticated shop users

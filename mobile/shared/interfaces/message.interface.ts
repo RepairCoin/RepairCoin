@@ -12,6 +12,7 @@ export interface Conversation {
   isBlocked: boolean;
   blockedBy?: string;
   blockedAt?: string;
+  status: 'open' | 'resolved';
   createdAt: string;
   updatedAt: string;
   // Joined data

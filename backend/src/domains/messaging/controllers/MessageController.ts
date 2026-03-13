@@ -693,4 +693,78 @@ export class MessageController {
       });
     }
   };
+
+  /**
+   * Resolve a conversation
+   * POST /api/messages/conversations/:conversationId/resolve
+   */
+  resolveConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      await this.messageService.resolveConversation(conversationId, identifier, userType as 'customer' | 'shop');
+
+      res.json({
+        success: true,
+        message: 'Conversation resolved'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in resolveConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resolve conversation'
+      });
+    }
+  };
+
+  /**
+   * Reopen a resolved conversation
+   * POST /api/messages/conversations/:conversationId/reopen
+   */
+  reopenConversation = async (req: Request, res: Response) => {
+    try {
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+
+      if (!userAddress || !userRole) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+      }
+
+      if (userRole === 'shop' && !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop ID required' });
+      }
+
+      const { conversationId } = req.params;
+      const userType = userRole === 'shop' ? 'shop' : 'customer';
+      const identifier = userRole === 'shop' ? shopId! : userAddress;
+
+      await this.messageService.reopenConversation(conversationId, identifier, userType as 'customer' | 'shop');
+
+      res.json({
+        success: true,
+        message: 'Conversation reopened'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in reopenConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to reopen conversation'
+      });
+    }
+  };
 }

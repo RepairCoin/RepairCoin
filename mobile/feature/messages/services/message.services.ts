@@ -224,6 +224,38 @@ class MessageApi {
       throw error;
     }
   }
+
+  /**
+   * Resolve a conversation
+   */
+  async resolveConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/resolve`
+      );
+    } catch (error) {
+      console.error("Failed to resolve conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reopen a resolved conversation
+   */
+  async reopenConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/reopen`
+      );
+    } catch (error) {
+      console.error("Failed to reopen conversation:", error);
+      throw error;
+    }
+  }
 }
 
 export const messageApi = new MessageApi();

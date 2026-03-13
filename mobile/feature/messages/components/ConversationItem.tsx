@@ -19,6 +19,7 @@ export default function ConversationItem({
     ? conversation.unreadCountCustomer
     : conversation.unreadCountShop;
   const hasUnread = unreadCount > 0;
+  const isResolved = conversation.status === "resolved";
 
   return (
     <Pressable
@@ -48,11 +49,19 @@ export default function ConversationItem({
       )}
       <View className="flex-1">
         <View className="flex-row justify-between items-center">
-          <Text
-            className={`text-base ${hasUnread ? "font-bold text-white" : "text-zinc-300"}`}
-          >
-            {otherPartyName || "Unknown"}
-          </Text>
+          <View className="flex-row items-center flex-1 mr-2">
+            <Text
+              className={`text-base ${hasUnread ? "font-bold text-white" : "text-zinc-300"}`}
+              numberOfLines={1}
+            >
+              {otherPartyName || "Unknown"}
+            </Text>
+            {isResolved && (
+              <View className="bg-green-500/20 px-2 py-0.5 rounded ml-2">
+                <Text className="text-green-500 text-xs font-medium">Resolved</Text>
+              </View>
+            )}
+          </View>
           <Text className="text-xs text-zinc-500">
             {formatTimestamp(conversation.lastMessageAt)}
           </Text>

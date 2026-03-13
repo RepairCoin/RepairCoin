@@ -1,9 +1,10 @@
 # Feature: Messaging Resolved Status + Badge
 
-**Status:** Open
+**Status:** ✅ Completed
 **Priority:** HIGH
 **Est. Effort:** 2-3 hours
 **Created:** 2026-03-13
+**Completed:** 2026-03-13
 
 ---
 
@@ -133,10 +134,28 @@ Show resolved badge next to name when `status === 'resolved'`
 
 ## Verification Checklist
 
-- [ ] Database migration adds status column
-- [ ] Resolved badge shows in conversation list
-- [ ] Resolved badge shows in chat header
-- [ ] "Mark Resolved" option in more menu
-- [ ] "Reopen" option shows when resolved
-- [ ] Status persists after app restart
-- [ ] Works for both customer and shop views
+- [x] Database migration adds status column
+- [x] Resolved badge shows in conversation list
+- [x] Resolved badge shows in chat header
+- [x] "Mark Resolved" option in more menu
+- [x] "Reopen" option shows when resolved
+- [x] Status persists after app restart (via database)
+- [x] Works for both customer and shop views
+
+## Implementation Summary
+
+### Backend
+- Created migration `074_add_conversation_status.sql` with status column and check constraint
+- Updated `MessageRepository.ts` with status field in interface and mapping
+- Added `resolveConversation()` and `reopenConversation()` methods to repository
+- Added service methods with authorization checks in `MessageService.ts`
+- Added controller endpoints in `MessageController.ts`
+- Added routes: POST `/conversations/:conversationId/resolve` and `/reopen`
+
+### Mobile
+- Added `status: 'open' | 'resolved'` to `Conversation` interface
+- Added `resolveConversation()` and `reopenConversation()` API methods
+- Added green "Resolved" badge to `ConversationItem.tsx`
+- Added resolved badge to `ChatHeader.tsx`
+- Added "Mark as Resolved" / "Reopen Conversation" option to `ConversationMoreMenu.tsx`
+- Added `handleResolve` handler to `ChatScreen.tsx`

@@ -89,6 +89,24 @@ export default function ChatScreen() {
     }
   };
 
+  const handleResolve = async () => {
+    if (!conversation) return;
+    try {
+      const isResolved = conversation.status === "resolved";
+      if (isResolved) {
+        await messageApi.reopenConversation(conversation.conversationId);
+        await refetchConversation();
+        Alert.alert("Success", "Conversation reopened");
+      } else {
+        await messageApi.resolveConversation(conversation.conversationId);
+        await refetchConversation();
+        Alert.alert("Success", "Conversation marked as resolved");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to update conversation status");
+    }
+  };
+
   const shouldShowDateDivider = (currentMessage: Message, previousMessage?: Message) => {
     if (!previousMessage) return true;
     const currentDate = new Date(currentMessage.createdAt).toDateString();
@@ -147,6 +165,7 @@ export default function ChatScreen() {
           customerImageUrl={conversation?.customerImageUrl}
           customerAddress={conversation?.customerAddress}
           isCustomer={isCustomer}
+          isResolved={conversation?.status === "resolved"}
         />
 
         <FlatList
@@ -189,6 +208,7 @@ export default function ChatScreen() {
         onArchive={handleArchive}
         onBlock={handleBlock}
         onDelete={handleDelete}
+        onResolve={handleResolve}
       />
 
       {/* Conversation Info Modal */}

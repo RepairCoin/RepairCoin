@@ -494,4 +494,72 @@ export class MessageService {
       throw error;
     }
   }
+
+  /**
+   * Mark a conversation as resolved
+   */
+  async resolveConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      if (conversation.status === 'resolved') {
+        throw new Error('Conversation is already resolved');
+      }
+
+      await this.messageRepo.resolveConversation(conversationId);
+      logger.info('Conversation resolved', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in resolveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reopen a resolved conversation
+   */
+  async reopenConversation(
+    conversationId: string,
+    userIdentifier: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Verify user has access
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
+        throw new Error('Unauthorized');
+      }
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
+        throw new Error('Unauthorized');
+      }
+
+      if (conversation.status === 'open') {
+        throw new Error('Conversation is already open');
+      }
+
+      await this.messageRepo.reopenConversation(conversationId);
+      logger.info('Conversation reopened', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in reopenConversation:', error);
+      throw error;
+    }
+  }
 }
