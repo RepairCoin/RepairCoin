@@ -11,10 +11,11 @@ export default function WaitlistPage() {
   const [userType, setUserType] = useState<"customer" | "shop" | "">("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedType, setSubmittedType] = useState<"waitlist" | "demo">("waitlist");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, inquiryType: "waitlist" | "demo" = "waitlist") => {
     e.preventDefault();
 
     if (!email || !userType) {
@@ -36,15 +37,19 @@ export default function WaitlistPage() {
         {
           email: email.toLowerCase(),
           userType,
+          inquiryType,
         },
       );
 
       if (response.data.success) {
+        setSubmittedType(inquiryType);
         setSubmitted(true);
-        toast.success("Successfully joined the waitlist!", {
-          duration: 5000,
-          icon: "🎉",
-        });
+        toast.success(
+          inquiryType === "demo"
+            ? "Demo request submitted!"
+            : "Successfully joined the waitlist!",
+          { duration: 5000, icon: inquiryType === "demo" ? "🎬" : "🎉" },
+        );
       }
     } catch (error: any) {
       if (error.response?.status === 409) {
@@ -52,7 +57,7 @@ export default function WaitlistPage() {
       } else {
         toast.error(
           error.response?.data?.error ||
-            "Failed to join waitlist. Please try again.",
+            "Failed to submit. Please try again.",
         );
       }
     } finally {
@@ -115,11 +120,13 @@ export default function WaitlistPage() {
               </svg>
             </div>
             <h2 className="text-3xl font-bold text-white mb-4">
-              You're on the list!
+              {submittedType === "demo" ? "Demo Request Received!" : "You're on the list!"}
             </h2>
             <p className="text-gray-400 mb-8">
-              Thank you for joining RepairCoin. We'll notify you at{" "}
-              <span className="text-yellow-400">{email}</span> when we launch.
+              {submittedType === "demo"
+                ? <>Thank you for requesting a free demo. We'll reach out to <span className="text-yellow-400">{email}</span> to schedule your personalized walkthrough.</>
+                : <>Thank you for joining RepairCoin. We'll notify you at{" "}<span className="text-yellow-400">{email}</span> when we launch.</>
+              }
             </p>
             <Link
               href="/"
@@ -340,22 +347,44 @@ export default function WaitlistPage() {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading || !email || !userType}
-                className="w-full py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                style={{
-                  fontFamily: "Poppins, sans-serif",
-                  fontSize: "16px",
-                  lineHeight: "100%",
-                  background: "rgba(255, 204, 0, 1)",
-                  borderRadius: "8px",
-                  color: "#000",
-                }}
-              >
-                {loading ? "Joining..." : "Join Waitlist →"}
-              </button>
+              {/* Submit Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="submit"
+                  disabled={loading || !email || !userType}
+                  className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontSize: "16px",
+                    lineHeight: "100%",
+                    background: "rgba(255, 204, 0, 1)",
+                    borderRadius: "8px",
+                    color: "#000",
+                  }}
+                >
+                  {loading ? "Joining..." : "Join Waitlist →"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading || !email || !userType}
+                  onClick={(e) => handleSubmit(e as any, "demo")}
+                  className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold flex items-center justify-center gap-2"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontSize: "16px",
+                    lineHeight: "100%",
+                    background: "#fff",
+                    borderRadius: "8px",
+                    color: "#000",
+                  }}
+                >
+                  {loading ? "Submitting..." : "Get Free Demo"}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" stroke="#000" strokeWidth="2" strokeLinejoin="round" fill="none" />
+                  </svg>
+                </button>
+              </div>
 
               <p
                 className="mt-4 text-center"
@@ -1478,22 +1507,44 @@ export default function WaitlistPage() {
                     </div>
                   </div>
 
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={loading || !email || !userType}
-                    className="w-full py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                    style={{
-                      fontFamily: "Poppins, sans-serif",
-                      fontSize: "16px",
-                      lineHeight: "100%",
-                      background: "rgba(255, 204, 0, 1)",
-                      borderRadius: "8px",
-                      color: "#000",
-                    }}
-                  >
-                    {loading ? "Joining..." : "Join Waitlist →"}
-                  </button>
+                  {/* Submit Buttons */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="submit"
+                      disabled={loading || !email || !userType}
+                      className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                      style={{
+                        fontFamily: "Poppins, sans-serif",
+                        fontSize: "16px",
+                        lineHeight: "100%",
+                        background: "rgba(255, 204, 0, 1)",
+                        borderRadius: "8px",
+                        color: "#000",
+                      }}
+                    >
+                      {loading ? "Joining..." : "Join Waitlist →"}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={loading || !email || !userType}
+                      onClick={(e) => handleSubmit(e as any, "demo")}
+                      className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold flex items-center justify-center gap-2"
+                      style={{
+                        fontFamily: "Poppins, sans-serif",
+                        fontSize: "16px",
+                        lineHeight: "100%",
+                        background: "#fff",
+                        borderRadius: "8px",
+                        color: "#000",
+                      }}
+                    >
+                      {loading ? "Submitting..." : "Get Free Demo"}
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5V19L19 12L8 5Z" stroke="#000" strokeWidth="2" strokeLinejoin="round" fill="none" />
+                      </svg>
+                    </button>
+                  </div>
 
                   <p
                     className="mt-4 text-center"
