@@ -20,7 +20,20 @@
       "Bash(npm run dev:*)",
       "Bash(PGPASSWORD=\"$DB_PASSWORD\" psql:*)",
       "Bash(npm run db:migrate:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(tasklist | grep -i node)",
+      "Bash(taskkill //F //IM node.exe 2>&1; sleep 2; rm -rf /c/dev/RepairCoin/frontend/.next)",
+      "Bash(cd C:/dev/RepairCoin/backend && npx ts-node -e \"\nconst { Pool } = require\\('pg'\\);\nrequire\\('dotenv'\\).config\\(\\);\nconst pool = new Pool\\({\n  connectionString: process.env.DATABASE_URL,\n  ssl: { rejectUnauthorized: false }\n}\\);\npool.query\\(\\\\\"SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name = 'waitlist' ORDER BY ordinal_position\\\\\"\\)\n  .then\\(r => { console.log\\(JSON.stringify\\(r.rows, null, 2\\)\\); pool.end\\(\\); }\\)\n  .catch\\(e => { console.error\\(e.message\\); pool.end\\(\\); }\\);\n\" 2>&1)",
+      "Bash(sleep 8 && curl -s http://localhost:4000/api/health 2>&1)",
+      "Bash(sleep 5 && curl -s http://localhost:4000/api/health 2>&1)",
+      "Bash(netstat -ano | grep :3002 | grep LISTEN)",
+      "Bash(taskkill //PID 14116 //F 2>&1)",
+      "Bash(sleep 12 && curl -s http://localhost:3002/api/health 2>&1)",
+      "Bash(sleep 10 && curl -s http://localhost:3002/api/health 2>&1)",
+      "Bash(sleep 15 && curl -s \"http://localhost:3002/api/services/appointments/available-slots?shopId=shop-3&serviceId=srv_2876c867-1322-485d-976e-d035d581c7f1&date=2026-03-16\" 2>&1)"
     ],
     "deny": [],
     "ask": []

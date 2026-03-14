@@ -8,6 +8,7 @@ interface WaitlistEntry {
   id: string;
   email: string;
   userType: "customer" | "shop";
+  inquiryType: "waitlist" | "demo";
   status: "pending" | "contacted" | "approved" | "rejected";
   createdAt: string;
   updatedAt: string;
@@ -29,6 +30,7 @@ export function AdminWaitlistTab() {
   const [filter, setFilter] = useState<{
     status?: string;
     userType?: string;
+    inquiryType?: string;
   }>({});
   const [selectedEntry, setSelectedEntry] = useState<WaitlistEntry | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -50,6 +52,7 @@ export function AdminWaitlistTab() {
         params: {
           status: filter.status,
           userType: filter.userType,
+          inquiryType: filter.inquiryType,
           limit: 100,
         },
       }) as any;
@@ -155,6 +158,18 @@ export function AdminWaitlistTab() {
     );
   };
 
+  const getInquiryBadge = (inquiryType: string) => {
+    return inquiryType === "demo" ? (
+      <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+        🎬 Demo
+      </span>
+    ) : (
+      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+        📋 Waitlist
+      </span>
+    );
+  };
+
   if (loading && !stats) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -233,7 +248,19 @@ export function AdminWaitlistTab() {
           <option value="shop">Shops</option>
         </select>
 
-        {(filter.status || filter.userType) && (
+        <select
+          value={filter.inquiryType || ""}
+          onChange={(e) =>
+            setFilter({ ...filter, inquiryType: e.target.value || undefined })
+          }
+          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
+        >
+          <option value="">All Inquiries</option>
+          <option value="waitlist">Waitlist</option>
+          <option value="demo">Demo Requests</option>
+        </select>
+
+        {(filter.status || filter.userType || filter.inquiryType) && (
           <button
             onClick={() => setFilter({})}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -256,6 +283,9 @@ export function AdminWaitlistTab() {
                   Type
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">
+                  Inquiry
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">
                   Status
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">
@@ -269,7 +299,7 @@ export function AdminWaitlistTab() {
             <tbody className="divide-y divide-gray-700">
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     No entries found
                   </td>
                 </tr>
@@ -285,6 +315,7 @@ export function AdminWaitlistTab() {
                       )}
                     </td>
                     <td className="px-6 py-4">{getUserTypeBadge(entry.userType)}</td>
+                    <td className="px-6 py-4">{getInquiryBadge(entry.inquiryType || "waitlist")}</td>
                     <td className="px-6 py-4">{getStatusBadge(entry.status)}</td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-300">

@@ -1603,8 +1603,12 @@ export class EmailService {
   async sendWaitlistConfirmation(data: {
     email: string;
     userType: 'customer' | 'shop';
+    inquiryType?: 'waitlist' | 'demo';
   }): Promise<boolean> {
-    const subject = '🎉 You\'re on the RepairCoin Waitlist!';
+    const isDemo = data.inquiryType === 'demo';
+    const subject = isDemo
+      ? '🎬 Your Free Demo Request is Confirmed!'
+      : '🎉 You\'re on the RepairCoin Waitlist!';
 
     const userTypeText = data.userType === 'shop' ? 'Shop Owner' : 'Customer';
     const benefitsHtml = data.userType === 'shop' ? `
@@ -1623,23 +1627,30 @@ export class EmailService {
       </ul>
     `;
 
+    const headerText = isDemo ? 'Demo Request Confirmed! 🎬' : 'Welcome to RepairCoin! 🪙';
+    const thankYouText = isDemo
+      ? `Thank you for requesting a free demo of RepairCoin as a <strong>${userTypeText}</strong>.
+         Our team will reach out shortly to schedule a personalized walkthrough of the platform.`
+      : `Thank you for joining the RepairCoin waitlist as a <strong>${userTypeText}</strong>.
+         You're now part of an exclusive group of early adopters who will help shape the future of
+         blockchain loyalty rewards for the repair industry.`;
+    const nextStepsHeader = isDemo ? 'What to Expect' : 'What\'s Next?';
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #FFCC00; padding: 30px; text-align: center;">
-          <h1 style="color: #000; margin: 0; font-size: 28px;">Welcome to RepairCoin! 🪙</h1>
+          <h1 style="color: #000; margin: 0; font-size: 28px;">${headerText}</h1>
         </div>
 
         <div style="padding: 30px; background-color: #ffffff;">
           <p style="font-size: 16px; color: #333;">Hi there!</p>
 
           <p style="font-size: 16px; color: #333;">
-            Thank you for joining the RepairCoin waitlist as a <strong>${userTypeText}</strong>.
-            You're now part of an exclusive group of early adopters who will help shape the future of
-            blockchain loyalty rewards for the repair industry.
+            ${thankYouText}
           </p>
 
           <div style="background-color: #f9f9f9; padding: 20px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #FFCC00;">
-            <h3 style="color: #000; margin: 0 0 15px 0;">What's Next?</h3>
+            <h3 style="color: #000; margin: 0 0 15px 0;">${nextStepsHeader}</h3>
             ${benefitsHtml}
           </div>
 
@@ -1664,7 +1675,7 @@ export class EmailService {
             © 2026 RepairCoin | Blockchain Loyalty for Repair Shops
           </p>
           <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">
-            You received this email because you signed up for the RepairCoin waitlist.
+            You received this email because you ${isDemo ? 'requested a demo of' : 'signed up for the'} RepairCoin${isDemo ? '' : ' waitlist'}.
           </p>
         </div>
       </div>
@@ -1679,16 +1690,19 @@ export class EmailService {
   async sendWaitlistAdminNotification(data: {
     email: string;
     userType: 'customer' | 'shop';
+    inquiryType?: 'waitlist' | 'demo';
     createdAt: Date;
   }): Promise<boolean> {
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+    const isDemo = data.inquiryType === 'demo';
 
     logger.info('sendWaitlistAdminNotification called', {
       adminEmail,
       ADMIN_NOTIFICATION_EMAIL: process.env.ADMIN_NOTIFICATION_EMAIL,
       EMAIL_USER: process.env.EMAIL_USER,
       newSignup: data.email,
-      userType: data.userType
+      userType: data.userType,
+      inquiryType: data.inquiryType
     });
 
     if (!adminEmail) {
@@ -1696,16 +1710,41 @@ export class EmailService {
       return false;
     }
 
-    const subject = `🆕 New Waitlist Signup: ${data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer'}`;
+    const userTypeLabel = data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer';
+    const subject = isDemo
+      ? `🎬 New Demo Request: ${userTypeLabel}`
+      : `🆕 New Waitlist Signup: ${userTypeLabel}`;
+
+    const headerText = isDemo ? 'New Demo Request!' : 'New Waitlist Signup!';
+    const headerColor = isDemo ? '#7c3aed' : '#10b981';
+    const bodyText = isDemo
+      ? 'A new user has requested a free demo of RepairCoin:'
+      : 'A new user has joined the RepairCoin waitlist:';
+    const inquiryTypeLabel = isDemo ? '🎬 Free Demo' : '📋 Waitlist';
+
+    // Show demo callout for shop owners requesting a demo
+    const calloutHtml = isDemo && data.userType === 'shop' ? `
+          <div style="background-color: #ede9fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+            <p style="margin: 0; color: #5b21b6;">
+              <strong>🎬 Demo Request from a Shop Owner!</strong> Schedule a demo call.
+            </p>
+          </div>
+    ` : data.userType === 'shop' ? `
+          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+            <p style="margin: 0; color: #92400e;">
+              <strong>⭐ Shop Owner Signup!</strong> Consider reaching out for early partner onboarding.
+            </p>
+          </div>
+    ` : '';
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #10b981; padding: 20px; text-align: center;">
-          <h2 style="color: #fff; margin: 0;">New Waitlist Signup!</h2>
+        <div style="background-color: ${headerColor}; padding: 20px; text-align: center;">
+          <h2 style="color: #fff; margin: 0;">${headerText}</h2>
         </div>
 
         <div style="padding: 25px; background-color: #ffffff;">
-          <p style="font-size: 16px; color: #333;">A new user has joined the RepairCoin waitlist:</p>
+          <p style="font-size: 16px; color: #333;">${bodyText}</p>
 
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -1716,8 +1755,12 @@ export class EmailService {
               <tr>
                 <td style="padding: 8px 0; color: #666;"><strong>Type:</strong></td>
                 <td style="padding: 8px 0; color: #333;">
-                  ${data.userType === 'shop' ? '🏪 Shop Owner' : '👤 Customer'}
+                  ${userTypeLabel}
                 </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;"><strong>Inquiry:</strong></td>
+                <td style="padding: 8px 0; color: #333;">${inquiryTypeLabel}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 0; color: #666;"><strong>Signed Up:</strong></td>
@@ -1726,13 +1769,7 @@ export class EmailService {
             </table>
           </div>
 
-          ${data.userType === 'shop' ? `
-          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-            <p style="margin: 0; color: #92400e;">
-              <strong>⭐ Shop Owner Signup!</strong> Consider reaching out for early partner onboarding.
-            </p>
-          </div>
-          ` : ''}
+          ${calloutHtml}
 
           <p style="font-size: 14px; color: #666;">
             View all waitlist entries in the <a href="${process.env.FRONTEND_URL || 'https://repaircoin.com'}/admin/waitlist" style="color: #FFCC00;">Admin Dashboard</a>
