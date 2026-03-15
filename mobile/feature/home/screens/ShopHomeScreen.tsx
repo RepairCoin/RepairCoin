@@ -73,7 +73,7 @@ export default function Home() {
           })}
         </View>
         {activeTab === "Wallet" && shopData && (
-          <ShopWalletTab shopData={shopData} growthData={growthData} />
+          <ShopWalletTab shopData={shopData} growthData={growthData} onRefresh={refetch} />
         )}
         {activeTab === "Promo Code" && shopData && <PromoCodeTab />}
         {activeTab === "Analysis" && shopData && <AnalyticsTab />}

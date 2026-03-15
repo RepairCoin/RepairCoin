@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  RefreshControl,
   Text,
   useWindowDimensions,
   View,
@@ -52,6 +53,17 @@ export default function AnalyticsTab() {
   // Analytics data with time range
   const { chartData, metrics, isLoading, error, refetch, timeRange, setTimeRange } =
     useAnalyticsDataUI();
+
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   // Calculate spacing based on screen width and data points
   const dataLength = chartData.profitLoss.length || 6;
@@ -188,6 +200,14 @@ export default function AnalyticsTab() {
         className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FFCC00"
+            colors={["#FFCC00"]}
+          />
+        }
       >
         {/* Metrics Cards */}
         {metrics && (
