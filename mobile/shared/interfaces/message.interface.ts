@@ -69,6 +69,7 @@ export interface SendMessageRequest {
   messageText: string;
   messageType?: MessageType;
   metadata?: Record<string, any>;
+  attachments?: MessageAttachment[];
 }
 
 // Pagination info

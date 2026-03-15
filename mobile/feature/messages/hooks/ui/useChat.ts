@@ -4,8 +4,9 @@ import { useLocalSearchParams, router } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/shared/store/auth.store";
-import { Message, Conversation } from "../../types";
+import { Message, Conversation, MessageAttachment } from "../../types";
 import { MESSAGE_POLL_INTERVAL } from "../../constants";
+import { AttachmentFile } from "../../components/MessageInput";
 
 export function useChat() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
@@ -64,18 +65,39 @@ export function useChat() {
     return () => clearInterval(interval);
   }, [conversationId, fetchMessages]);
 
-  const handleSend = async () => {
-    if (!messageText.trim() || !conversationId || isSending) return;
+  const handleSend = async (attachmentFiles?: AttachmentFile[]) => {
+    const hasText = messageText.trim().length > 0;
+    const hasAttachments = attachmentFiles && attachmentFiles.length > 0;
+
+    if ((!hasText && !hasAttachments) || !conversationId || isSending) return;
 
     const text = messageText.trim();
     setMessageText("");
     setIsSending(true);
 
     try {
+      let uploadedAttachments: MessageAttachment[] = [];
+
+      // Upload attachments first if any
+      if (hasAttachments) {
+        const uploadResponse = await messageApi.uploadAttachments(attachmentFiles);
+        if (uploadResponse.success && uploadResponse.data) {
+          uploadedAttachments = uploadResponse.data.map((att) => ({
+            type: att.type,
+            url: att.url,
+            name: att.name,
+            mimeType: att.mimetype,
+            size: att.size,
+          }));
+        }
+      }
+
+      // Send message with attachments
       const response = await messageApi.sendMessage({
         conversationId,
-        messageText: text,
+        messageText: text || "",
         messageType: "text",
+        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
       });
 
       if (response.data) {

@@ -311,6 +311,47 @@ class MessageApi {
       throw error;
     }
   }
+
+  /**
+   * Upload message attachments (images or PDFs)
+   * @param files - Array of file objects with uri, name, type
+   * @returns Array of uploaded attachment objects
+   */
+  async uploadAttachments(
+    files: Array<{ uri: string; name: string; type: string }>
+  ): Promise<{
+    success: boolean;
+    data: Array<{
+      url: string;
+      key: string;
+      type: "image" | "file";
+      name: string;
+      size: number;
+      mimetype: string;
+    }>;
+    warnings?: string;
+  }> {
+    try {
+      const formData = new FormData();
+
+      files.forEach((file) => {
+        formData.append("files", {
+          uri: file.uri,
+          name: file.name,
+          type: file.type,
+        } as any);
+      });
+
+      return await apiClient.post("/messages/attachments/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    } catch (error) {
+      console.error("Failed to upload attachments:", error);
+      throw error;
+    }
+  }
 }
 
 export const messageApi = new MessageApi();
