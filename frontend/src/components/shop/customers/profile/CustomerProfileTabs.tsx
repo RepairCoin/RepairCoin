@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ClipboardCheck,
   ArrowUpRight,
@@ -8,7 +8,9 @@ import {
   TrendingUp,
   Trophy,
   StickyNote,
-  Coins,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 
 // --- Types ---
@@ -39,8 +41,14 @@ interface Transaction {
   shopName?: string;
   createdAt: string;
   description?: string;
-  transactionHash?: string;
-  status?: string;
+}
+
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+  hasMore: boolean;
 }
 
 interface CustomerAnalytics {
@@ -56,15 +64,16 @@ interface CustomerAnalytics {
 }
 
 interface CustomerProfileTabsProps {
-  bookings: BookingOrder[];
-  transactions: Transaction[];
+  shopId: string;
+  customerAddress: string;
   analytics: CustomerAnalytics | null;
   customerBalance: number;
   customerTier: "BRONZE" | "SILVER" | "GOLD";
-  shopId: string;
-  customerAddress: string;
+  initialBookings: { items: BookingOrder[]; pagination: PaginationMeta };
+  initialTransactions: { items: Transaction[]; pagination: PaginationMeta };
   selectedBookingId: string | null;
   onSelectBooking: (orderId: string | null) => void;
+  onBookingsLoaded?: (bookings: BookingOrder[]) => void;
 }
 
 // --- Helpers ---
@@ -101,14 +110,132 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+// --- Shared Pagination Component ---
+
+const PaginationControls: React.FC<{
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}> = ({ currentPage, totalPages, totalItems, pageSize, onPageChange }) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-between pt-4 mt-2 border-t border-[#303236]">
+      <span className="text-sm text-gray-400">
+        {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="p-1.5 rounded-lg bg-[#1a1a1a] border border-[#303236] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#2a2a2a] transition-colors"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter((page) => {
+            if (totalPages <= 5) return true;
+            if (page === 1 || page === totalPages) return true;
+            return Math.abs(page - currentPage) <= 1;
+          })
+          .reduce<(number | "ellipsis")[]>((acc, page, idx, arr) => {
+            if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+              acc.push("ellipsis");
+            }
+            acc.push(page);
+            return acc;
+          }, [])
+          .map((item, idx) =>
+            item === "ellipsis" ? (
+              <span key={`ellipsis-${idx}`} className="px-1 text-gray-500">...</span>
+            ) : (
+              <button
+                key={item}
+                onClick={() => onPageChange(item)}
+                className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
+                  currentPage === item
+                    ? "bg-[#FFCC00] text-[#101010]"
+                    : "bg-[#1a1a1a] border border-[#303236] text-white hover:bg-[#2a2a2a]"
+                }`}
+              >
+                {item}
+              </button>
+            )
+          )}
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className="p-1.5 rounded-lg bg-[#1a1a1a] border border-[#303236] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#2a2a2a] transition-colors"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // --- Tab Components ---
 
+const mapBookingOrder = (o: any): BookingOrder => ({
+  orderId: o.orderId || o.order_id,
+  serviceName: o.serviceName || o.service_name || "Unknown Service",
+  serviceDescription: o.serviceDescription || o.service_description,
+  serviceCategory: o.serviceCategory || o.service_category,
+  status: o.status,
+  totalPrice: o.totalPrice || o.total_price || 0,
+  rcnDiscount: o.rcnDiscount || o.rcn_discount || 0,
+  finalPrice: o.finalPrice || o.final_price || 0,
+  rcnEarned: o.rcnEarned || o.rcn_earned || 0,
+  paymentMethod: o.paymentMethod || o.payment_method,
+  bookingTimeSlot: o.bookingTimeSlot || o.booking_time_slot,
+  bookingEndTime: o.bookingEndTime || o.booking_end_time,
+  createdAt: o.createdAt || o.created_at,
+  completedAt: o.completedAt || o.completed_at,
+  shopName: o.shopName || o.shop_name,
+});
+
 const BookingsTab: React.FC<{
-  bookings: BookingOrder[];
+  customerAddress: string;
+  initialData: { items: BookingOrder[]; pagination: PaginationMeta };
   selectedBookingId: string | null;
   onSelectBooking: (orderId: string | null) => void;
-}> = ({ bookings, selectedBookingId, onSelectBooking }) => {
-  if (bookings.length === 0) {
+  onBookingsLoaded?: (bookings: BookingOrder[]) => void;
+}> = ({ customerAddress, initialData, selectedBookingId, onSelectBooking, onBookingsLoaded }) => {
+  const [bookings, setBookings] = useState<BookingOrder[]>(initialData.items);
+  const [pagination, setPagination] = useState<PaginationMeta>(initialData.pagination);
+  const [currentPage, setCurrentPage] = useState(initialData.pagination.page);
+  const [loading, setLoading] = useState(false);
+
+  const fetchPage = useCallback(async (page: number) => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/services/orders/shop?customerAddress=${encodeURIComponent(customerAddress)}&page=${page}&limit=${pagination.limit}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      const data = await res.json();
+
+      const items = (data.data || []).map(mapBookingOrder);
+      setBookings(items);
+      setPagination(data.pagination || pagination);
+      onBookingsLoaded?.(items);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [customerAddress, pagination.limit, onBookingsLoaded]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    onSelectBooking(null);
+    fetchPage(page);
+  };
+
+  if (!loading && bookings.length === 0 && currentPage === 1) {
     return (
       <div className="text-center py-12">
         <ClipboardCheck className="w-10 h-10 text-gray-600 mx-auto mb-3" />
@@ -119,56 +246,100 @@ const BookingsTab: React.FC<{
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-[#303236]">
-            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Service</th>
-            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Schedule</th>
-            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Cost</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bookings.map((booking) => (
-            <tr
-              key={booking.orderId}
-              onClick={() =>
-                onSelectBooking(
-                  selectedBookingId === booking.orderId ? null : booking.orderId
-                )
-              }
-              className={`border-b border-[#303236]/50 cursor-pointer transition-colors ${
-                selectedBookingId === booking.orderId
-                  ? "bg-[#FFCC00]/5"
-                  : "hover:bg-[#1a1a1a]"
-              }`}
-            >
-              <td className="py-3 px-4">
-                <p className="text-sm font-medium text-white">{booking.serviceName}</p>
-                <p className="text-xs text-gray-500 font-mono">{booking.orderId.slice(0, 12)}...</p>
-              </td>
-              <td className="py-3 px-4">
-                <p className="text-sm text-white">{formatDate(booking.bookingTimeSlot || booking.createdAt)}</p>
-                {booking.bookingTimeSlot && (
-                  <p className="text-xs text-gray-500">{formatTime(booking.bookingTimeSlot)}</p>
-                )}
-              </td>
-              <td className="py-3 px-4">
-                <StatusBadge status={booking.status} />
-              </td>
-              <td className="py-3 px-4 text-right">
-                <p className="text-sm font-semibold text-white">${booking.totalPrice.toFixed(2)}</p>
-              </td>
+    <div className={loading ? "opacity-50 pointer-events-none" : ""}>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[#303236]">
+              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Service</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Schedule</th>
+              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+              <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Cost</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {bookings.map((booking) => (
+              <tr
+                key={booking.orderId}
+                onClick={() =>
+                  onSelectBooking(
+                    selectedBookingId === booking.orderId ? null : booking.orderId
+                  )
+                }
+                className={`border-b border-[#303236]/50 cursor-pointer transition-colors ${
+                  selectedBookingId === booking.orderId
+                    ? "bg-[#FFCC00]/5"
+                    : "hover:bg-[#1a1a1a]"
+                }`}
+              >
+                <td className="py-3 px-4">
+                  <p className="text-sm font-medium text-white">{booking.serviceName}</p>
+                  <p className="text-xs text-gray-500 font-mono">{booking.orderId.slice(0, 12)}...</p>
+                </td>
+                <td className="py-3 px-4">
+                  <p className="text-sm text-white">{formatDate(booking.bookingTimeSlot || booking.createdAt)}</p>
+                  {booking.bookingTimeSlot && (
+                    <p className="text-xs text-gray-500">{formatTime(booking.bookingTimeSlot)}</p>
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  <StatusBadge status={booking.status} />
+                </td>
+                <td className="py-3 px-4 text-right">
+                  <p className="text-sm font-semibold text-white">${booking.totalPrice.toFixed(2)}</p>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 };
 
-const TransactionsTab: React.FC<{ transactions: Transaction[] }> = ({ transactions }) => {
+const TransactionsTab: React.FC<{
+  customerAddress: string;
+  shopId: string;
+  initialData: { items: Transaction[]; pagination: PaginationMeta };
+}> = ({ customerAddress, shopId, initialData }) => {
+  const [transactions, setTransactions] = useState<Transaction[]>(initialData.items);
+  const [pagination, setPagination] = useState<PaginationMeta>(initialData.pagination);
+  const [currentPage, setCurrentPage] = useState(initialData.pagination.page);
+  const [loading, setLoading] = useState(false);
+
+  const fetchPage = useCallback(async (page: number) => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customer-profile/${customerAddress}?bookingsPage=1&bookingsLimit=0&transactionsPage=${page}&transactionsLimit=${pagination.limit}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      const json = await res.json();
+
+      const txData = json.data?.transactions;
+      setTransactions(txData?.items || []);
+      setPagination(txData?.pagination || pagination);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [customerAddress, shopId, pagination.limit]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchPage(page);
+  };
+
   const formatTxDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
       month: "short",
@@ -179,7 +350,7 @@ const TransactionsTab: React.FC<{ transactions: Transaction[] }> = ({ transactio
     });
   };
 
-  if (transactions.length === 0) {
+  if (!loading && transactions.length === 0 && currentPage === 1) {
     return (
       <div className="text-center py-12">
         <TrendingUp className="w-10 h-10 text-gray-600 mx-auto mb-3" />
@@ -190,43 +361,53 @@ const TransactionsTab: React.FC<{ transactions: Transaction[] }> = ({ transactio
   }
 
   return (
-    <div className="space-y-2">
-      {transactions.map((tx) => {
-        const isEarn = tx.type === "earn" || tx.type === "gift_received" || tx.type === "mint";
-        return (
-          <div
-            key={tx.id}
-            className="flex items-center justify-between p-3 bg-[#0A0A0A] rounded-xl border border-[#303236]"
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isEarn ? "bg-green-900/20" : "bg-blue-900/20"}`}>
-                {isEarn ? (
-                  <ArrowDownRight className="w-4 h-4 text-green-400" />
-                ) : (
-                  <ArrowUpRight className="w-4 h-4 text-blue-400" />
+    <div className={loading ? "opacity-50 pointer-events-none" : ""}>
+      <div className="space-y-2">
+        {transactions.map((tx) => {
+          const isEarn = tx.type === "earn" || tx.type === "earned" || tx.type === "gift_received" || tx.type === "mint";
+          return (
+            <div
+              key={tx.id}
+              className="flex items-center justify-between p-3 bg-[#0A0A0A] rounded-xl border border-[#303236]"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isEarn ? "bg-green-900/20" : "bg-blue-900/20"}`}>
+                  {isEarn ? (
+                    <ArrowDownRight className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <ArrowUpRight className="w-4 h-4 text-blue-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white capitalize">
+                    {tx.type.replace("_", " ")}
+                  </p>
+                  <p className="text-xs text-gray-500">{tx.shopName || "Platform"}</p>
+                  <p className="text-xs text-gray-600">{formatTxDate(tx.createdAt)}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-sm font-bold ${isEarn ? "text-green-400" : "text-blue-400"}`}>
+                  {isEarn ? "+" : "-"}{tx.amount.toFixed(2)} RCN
+                </p>
+                {tx.description && (
+                  <p className="text-[10px] text-gray-500 max-w-[120px] truncate">
+                    {tx.description}
+                  </p>
                 )}
               </div>
-              <div>
-                <p className="text-sm font-medium text-white capitalize">
-                  {tx.type.replace("_", " ")}
-                </p>
-                <p className="text-xs text-gray-500">{tx.shopName || "Platform"}</p>
-                <p className="text-xs text-gray-600">{formatTxDate(tx.createdAt)}</p>
-              </div>
             </div>
-            <div className="text-right">
-              <p className={`text-sm font-bold ${isEarn ? "text-green-400" : "text-blue-400"}`}>
-                {isEarn ? "+" : "-"}{tx.amount.toFixed(2)} RCN
-              </p>
-              {tx.description && (
-                <p className="text-[10px] text-gray-500 max-w-[120px] truncate">
-                  {tx.description}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 };
@@ -244,7 +425,6 @@ const RewardsTab: React.FC<{
 
   return (
     <div className="space-y-4">
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-[#0A0A0A] rounded-xl p-4 border border-[#303236]">
           <p className="text-xs text-gray-500 mb-1">Total Earned</p>
@@ -270,7 +450,6 @@ const RewardsTab: React.FC<{
         </div>
       </div>
 
-      {/* Tier Info */}
       <div className="bg-[#0A0A0A] rounded-xl p-4 border border-[#303236]">
         <div className="flex items-center gap-2 mb-3">
           <Trophy className="w-4 h-4 text-[#FFCC00]" />
@@ -347,21 +526,22 @@ const NotesTab: React.FC<{ shopId: string; customerAddress: string }> = ({
 // --- Main Component ---
 
 export const CustomerProfileTabs: React.FC<CustomerProfileTabsProps> = ({
-  bookings,
-  transactions,
+  shopId,
+  customerAddress,
   analytics,
   customerBalance,
   customerTier,
-  shopId,
-  customerAddress,
+  initialBookings,
+  initialTransactions,
   selectedBookingId,
   onSelectBooking,
+  onBookingsLoaded,
 }) => {
   const [activeTab, setActiveTab] = useState<"bookings" | "transactions" | "rewards" | "notes">("bookings");
 
   const tabs = [
-    { id: "bookings" as const, label: "Bookings", count: bookings.length },
-    { id: "transactions" as const, label: "Transactions", count: transactions.length },
+    { id: "bookings" as const, label: "Bookings", count: initialBookings.pagination.totalItems },
+    { id: "transactions" as const, label: "Transactions", count: initialTransactions.pagination.totalItems },
     { id: "rewards" as const, label: "Rewards" },
     { id: "notes" as const, label: "Notes" },
   ];
@@ -397,12 +577,20 @@ export const CustomerProfileTabs: React.FC<CustomerProfileTabsProps> = ({
       <div className="p-6">
         {activeTab === "bookings" && (
           <BookingsTab
-            bookings={bookings}
+            customerAddress={customerAddress}
+            initialData={initialBookings}
             selectedBookingId={selectedBookingId}
             onSelectBooking={onSelectBooking}
+            onBookingsLoaded={onBookingsLoaded}
           />
         )}
-        {activeTab === "transactions" && <TransactionsTab transactions={transactions} />}
+        {activeTab === "transactions" && (
+          <TransactionsTab
+            customerAddress={customerAddress}
+            shopId={shopId}
+            initialData={initialTransactions}
+          />
+        )}
         {activeTab === "rewards" && (
           <RewardsTab analytics={analytics} balance={customerBalance} tier={customerTier} />
         )}

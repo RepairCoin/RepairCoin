@@ -1,10 +1,13 @@
 import { purchaseApi } from "@/feature/buy-token/services/purchase.services";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { usePaymentStore } from "@/shared/store/payment.store";
+import { useAppToast } from "@/shared/hooks";
 
 export function usePurchase() {
+  const { showError } = useAppToast();
+
   // Hook for creating PaymentIntent (mobile - native card payment)
   const useCreatePaymentIntent = (shopId: string) => {
     return useMutation({
@@ -25,23 +28,11 @@ export function usePurchase() {
 
         // Handle specific error cases
         if (error.response?.status === 401) {
-          Alert.alert(
-            "Authentication Required",
-            "Please log in again to continue with your purchase.",
-            [{ text: "OK" }]
-          );
+          showError("Please log in again to continue with your purchase.");
         } else if (error.response?.status === 400) {
-          Alert.alert(
-            "Invalid Request",
-            error.response?.data?.error || "Invalid purchase amount",
-            [{ text: "OK" }]
-          );
+          showError(error.response?.data?.error || "Invalid purchase amount");
         } else {
-          Alert.alert(
-            "Purchase Failed",
-            error.message || "Failed to initiate purchase. Please try again.",
-            [{ text: "OK" }]
-          );
+          showError(error.message || "Failed to initiate purchase. Please try again.");
         }
       },
     });

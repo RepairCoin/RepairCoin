@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import {
@@ -12,10 +12,12 @@ import {
   Zap,
 } from "lucide-react";
 import apiClient from '@/services/api/client';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function SubscriptionForm() {
   const router = useRouter();
   const account = useActiveAccount();
+  const { userProfile } = useAuthStore();
   const [formData, setFormData] = useState({
     shopName: "",
     email: "",
@@ -36,24 +38,33 @@ export default function SubscriptionForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loadingShopData, setLoadingShopData] = useState(false);
+  const dataLoadedRef = useRef(false);
 
   // Load shop data to pre-fill form
+  // Use shopId from auth store (available immediately from session cookie)
+  // Fall back to wallet address from thirdweb (may take time to restore)
+  const shopId = userProfile?.shopId;
+  const walletAddress = account?.address || userProfile?.address;
+
   useEffect(() => {
-    if (account?.address) {
+    if (dataLoadedRef.current) return;
+    if (shopId || walletAddress) {
       loadShopData();
     }
-  }, [account?.address]);
+  }, [shopId, walletAddress]);
 
   const loadShopData = async () => {
     setLoadingShopData(true);
     try {
-      // First, authenticate (cookie will be set automatically by backend)
-      await apiClient.post('/auth/shop', { address: account?.address });
+      // Prefer shopId (from session) for faster lookup, fall back to wallet address
+      const endpoint = shopId
+        ? `/shops/${shopId}`
+        : `/shops/wallet/${walletAddress}`;
 
-      // Load shop data with authentication
-      const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);
+      const shopResult = await apiClient.get(endpoint);
 
       if (shopResult.success && shopResult.data) {
+        dataLoadedRef.current = true;
         // Pre-fill the form with existing shop data
         setFormData(prev => ({
           ...prev,
@@ -63,8 +74,11 @@ export default function SubscriptionForm() {
           address: shopResult.data.address || ""
         }));
       }
-    } catch (err) {
-      console.error("Error loading shop data:", err);
+    } catch (err: any) {
+      // Only log if it's not a 404 (new shop without existing record)
+      if (err?.status !== 404) {
+        console.error("Error loading shop data:", err);
+      }
     } finally {
       setLoadingShopData(false);
     }

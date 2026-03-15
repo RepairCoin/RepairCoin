@@ -1,6 +1,7 @@
-import { View, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, FlatList, RefreshControl, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useNotifications } from "../hooks";
 import {
   NotificationCard,
@@ -33,8 +34,9 @@ export default function NotificationScreen() {
 
   if (isLoading) {
     return (
-      <View className="w-full h-full bg-zinc-950 items-center justify-center">
-        <ActivityIndicator size="large" color="#FFCC00" />
+      <View className="w-full h-full bg-zinc-950">
+        <AppHeader title="Notifications" />
+        <SkeletonList count={6} variant="notification" />
       </View>
     );
   }

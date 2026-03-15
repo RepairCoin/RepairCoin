@@ -13,10 +13,23 @@ export { useCreateServiceMutation, useUpdateServiceMutation } from "./mutations"
 export {
   useServicesTabUI,
   useServiceFormUI,
-  useServiceDetailUI,
   useServiceNavigation,
   useAvailabilityModal,
-  // Customer-side
-  useServiceDetail,
   useTrendingServices,
+  useUnifiedServiceDetail,
 } from "./ui";
+
+// Tab UI hooks
+export {
+  useServiceTabUI,
+  useShopServiceNavigation,
+  useServiceStatusUI,
+  useCustomerServiceTab,
+  useServicesTab,
+  useFavoritesTab,
+  useBookingsTab,
+  canCancelAppointment,
+} from "./ui";
+
+// Tab mutations
+export { useServiceToggleMutation } from "./mutations";

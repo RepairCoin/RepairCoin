@@ -1,11 +1,25 @@
 import { useState, useCallback, useMemo } from "react";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { ServiceStatusFilter } from "../../types";
-import { useServicesTabQuery } from "../queries/useServiceQueries";
+import { useInfiniteShopServicesQuery } from "../queries/useServiceQueries";
 
 export function useServicesTabUI() {
-  // Query
-  const { data: servicesData, isLoading, error, refetch } = useServicesTabQuery();
+  // Query with infinite loading
+  const {
+    data: servicesPages,
+    isLoading,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteShopServicesQuery();
+
+  // Flatten paginated data into single array
+  const servicesData = useMemo(() => {
+    if (!servicesPages?.pages) return [];
+    return servicesPages.pages.flatMap(page => page.data);
+  }, [servicesPages]);
 
   // UI State
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,6 +90,13 @@ export function useServicesTabUI() {
   const closeFilterModal = useCallback(() => setFilterModalVisible(false), []);
   const clearStatusFilter = useCallback(() => setStatusFilter("all"), []);
 
+  // Load more handler
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   return {
     // Data
     services: filteredServices,
@@ -85,6 +106,10 @@ export function useServicesTabUI() {
     refreshing,
     handleRefresh,
     refetch,
+    // Pagination
+    hasNextPage,
+    isFetchingNextPage,
+    handleLoadMore,
     // Search
     searchQuery,
     setSearchQuery,

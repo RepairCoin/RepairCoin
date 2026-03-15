@@ -15,6 +15,7 @@ export interface Conversation {
   isBlocked: boolean;
   blockedBy?: string;
   blockedAt?: Date;
+  status: 'open' | 'resolved';
   createdAt: Date;
   updatedAt: Date;
   // Joined data
@@ -67,6 +68,7 @@ export interface CreateMessageParams {
   messageText: string;
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
   metadata?: Record<string, any>;
+  attachments?: any[];
 }
 
 export class MessageRepository extends BaseRepository {
@@ -153,20 +155,38 @@ export class MessageRepository extends BaseRepository {
    */
   async getCustomerConversations(
     customerAddress: string,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved'; search?: string } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
+      const archived = options.archived || false;
+      const status = options.status;
+      const search = options.search;
 
-      // Count total
+      // Build WHERE clause
+      let whereClause = 'WHERE c.customer_address = $1 AND c.is_archived_customer = $2';
+      const params: any[] = [customerAddress.toLowerCase(), archived];
+
+      if (status) {
+        params.push(status);
+        whereClause += ` AND c.status = $${params.length}`;
+      }
+
+      if (search) {
+        params.push(`%${search}%`);
+        whereClause += ` AND (s.name ILIKE $${params.length} OR c.last_message_preview ILIKE $${params.length})`;
+      }
+
+      // Count total (need JOIN for search on shop name)
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM conversations
-        WHERE customer_address = $1 AND is_archived_customer = FALSE
+        FROM conversations c
+        LEFT JOIN shops s ON c.shop_id = s.shop_id
+        ${whereClause}
       `;
-      const countResult = await this.pool.query(countQuery, [customerAddress.toLowerCase()]);
+      const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
       // Get conversations
@@ -177,12 +197,12 @@ export class MessageRepository extends BaseRepository {
           s.logo_url as shop_image_url
         FROM conversations c
         LEFT JOIN shops s ON c.shop_id = s.shop_id
-        WHERE c.customer_address = $1 AND c.is_archived_customer = FALSE
+        ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
 
-      const result = await this.pool.query(query, [customerAddress.toLowerCase(), limit, offset]);
+      const result = await this.pool.query(query, [...params, limit, offset]);
 
       return {
         items: result.rows.map(row => this.mapConversationRow(row)),
@@ -205,20 +225,38 @@ export class MessageRepository extends BaseRepository {
    */
   async getShopConversations(
     shopId: string,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; archived?: boolean; status?: 'open' | 'resolved'; search?: string } = {}
   ): Promise<PaginatedResult<Conversation>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
+      const archived = options.archived || false;
+      const status = options.status;
+      const search = options.search;
 
-      // Count total
+      // Build WHERE clause
+      let whereClause = 'WHERE c.shop_id = $1 AND c.is_archived_shop = $2';
+      const params: any[] = [shopId, archived];
+
+      if (status) {
+        params.push(status);
+        whereClause += ` AND c.status = $${params.length}`;
+      }
+
+      if (search) {
+        params.push(`%${search}%`);
+        whereClause += ` AND (cust.name ILIKE $${params.length} OR c.last_message_preview ILIKE $${params.length})`;
+      }
+
+      // Count total (need JOIN for search on customer name)
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM conversations
-        WHERE shop_id = $1 AND is_archived_shop = FALSE
+        FROM conversations c
+        LEFT JOIN customers cust ON c.customer_address = cust.address
+        ${whereClause}
       `;
-      const countResult = await this.pool.query(countQuery, [shopId]);
+      const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
       // Get conversations
@@ -228,12 +266,12 @@ export class MessageRepository extends BaseRepository {
           cust.name as customer_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
-        WHERE c.shop_id = $1 AND c.is_archived_shop = FALSE
+        ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
 
-      const result = await this.pool.query(query, [shopId, limit, offset]);
+      const result = await this.pool.query(query, [...params, limit, offset]);
 
       return {
         items: result.rows.map(row => this.mapConversationRow(row)),
@@ -264,8 +302,9 @@ export class MessageRepository extends BaseRepository {
           sender_type,
           message_text,
           message_type,
-          metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          metadata,
+          attachments
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
 
@@ -276,7 +315,8 @@ export class MessageRepository extends BaseRepository {
         params.senderType,
         params.messageText,
         params.messageType || 'text',
-        JSON.stringify(params.metadata || {})
+        JSON.stringify(params.metadata || {}),
+        JSON.stringify(params.attachments || [])
       ]);
 
       logger.info('Message created', {
@@ -458,6 +498,24 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Set archived status on a conversation for a specific user type
+   */
+  async setConversationArchived(
+    conversationId: string,
+    userType: 'customer' | 'shop',
+    archived: boolean
+  ): Promise<void> {
+    try {
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `UPDATE conversations SET ${column} = $1, updated_at = NOW() WHERE conversation_id = $2`;
+      await this.pool.query(query, [archived, conversationId]);
+    } catch (error) {
+      logger.error('Error in setConversationArchived:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set typing indicator
    */
   async setTypingIndicator(
@@ -510,6 +568,148 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Archive a conversation for a user
+   */
+  async archiveConversation(
+    conversationId: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `
+        UPDATE conversations
+        SET ${column} = TRUE, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation archived', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in archiveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unarchive a conversation for a user
+   */
+  async unarchiveConversation(
+    conversationId: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `
+        UPDATE conversations
+        SET ${column} = FALSE, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation unarchived', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in unarchiveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Block a conversation
+   */
+  async blockConversation(
+    conversationId: string,
+    blockedBy: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET is_blocked = TRUE, blocked_by = $2, blocked_at = NOW(), updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId, blockedBy]);
+      logger.info('Conversation blocked', { conversationId, blockedBy });
+    } catch (error) {
+      logger.error('Error in blockConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unblock a conversation
+   */
+  async unblockConversation(conversationId: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET is_blocked = FALSE, blocked_by = NULL, blocked_at = NULL, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation unblocked', { conversationId });
+    } catch (error) {
+      logger.error('Error in unblockConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Soft delete a conversation for a user (archive it)
+   */
+  async deleteConversation(
+    conversationId: string,
+    userType: 'customer' | 'shop'
+  ): Promise<void> {
+    try {
+      // Soft delete by archiving for the user
+      const column = userType === 'customer' ? 'is_archived_customer' : 'is_archived_shop';
+      const query = `
+        UPDATE conversations
+        SET ${column} = TRUE, updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation deleted (soft)', { conversationId, userType });
+    } catch (error) {
+      logger.error('Error in deleteConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark a conversation as resolved
+   */
+  async resolveConversation(conversationId: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET status = 'resolved', updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation resolved', { conversationId });
+    } catch (error) {
+      logger.error('Error in resolveConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reopen a resolved conversation
+   */
+  async reopenConversation(conversationId: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE conversations
+        SET status = 'open', updated_at = NOW()
+        WHERE conversation_id = $1
+      `;
+      await this.pool.query(query, [conversationId]);
+      logger.info('Conversation reopened', { conversationId });
+    } catch (error) {
+      logger.error('Error in reopenConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map conversation database row to Conversation object
    */
   private mapConversationRow(row: any): Conversation {
@@ -526,6 +726,7 @@ export class MessageRepository extends BaseRepository {
       isBlocked: row.is_blocked || false,
       blockedBy: row.blocked_by,
       blockedAt: row.blocked_at,
+      status: row.status || 'open',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       customerName: row.customer_name,

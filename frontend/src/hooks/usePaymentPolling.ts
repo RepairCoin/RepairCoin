@@ -60,6 +60,14 @@ export function usePaymentPolling({
     return () => clearInterval(elapsedInterval);
   }, [enabled]);
 
+  // Stable refs for callbacks to avoid recreating poll function
+  const onSuccessRef = useRef(onSuccess);
+  const onTimeoutRef = useRef(onTimeout);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onSuccessRef.current = onSuccess; }, [onSuccess]);
+  useEffect(() => { onTimeoutRef.current = onTimeout; }, [onTimeout]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   /**
    * Single poll request
    */
@@ -74,7 +82,7 @@ export function usePaymentPolling({
     if (elapsed >= timeout) {
       console.log('[usePaymentPolling] Timeout reached after', Math.floor(elapsed / 1000), 'seconds');
       setIsPolling(false);
-      onTimeout();
+      onTimeoutRef.current();
       return;
     }
 
@@ -93,7 +101,7 @@ export function usePaymentPolling({
         console.log('[usePaymentPolling] Payment completed!');
         hasCompletedRef.current = true;
         setIsPolling(false);
-        onSuccess(response.data);
+        onSuccessRef.current(response.data);
         return;
       }
 
@@ -102,7 +110,7 @@ export function usePaymentPolling({
         console.log('[usePaymentPolling] Payment failed or expired');
         hasCompletedRef.current = true;
         setIsPolling(false);
-        onError(response.message || 'Payment session has expired. Please create a new purchase.');
+        onErrorRef.current(response.message || 'Payment session has expired. Please create a new purchase.');
         return;
       }
 
@@ -117,7 +125,7 @@ export function usePaymentPolling({
     } finally {
       isPollingRef.current = false;
     }
-  }, [purchaseId, enabled, interval, timeout, onSuccess, onTimeout, onError]);
+  }, [purchaseId, enabled, interval, timeout]);
 
   /**
    * Manual check - useful for retry button

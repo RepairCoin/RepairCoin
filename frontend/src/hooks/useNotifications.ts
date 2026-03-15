@@ -6,7 +6,7 @@ import apiClient from '@/services/api/client';
 // WebSocket URL - explicitly use api.repaircoin.ai subdomain in production
 const WS_URL = typeof window !== 'undefined' && window.location.hostname.includes('repaircoin.ai')
   ? 'wss://api.repaircoin.ai'
-  : 'ws://localhost:3002';
+  : 'ws://localhost:4000';
 
 interface UseNotificationsOptions {
   enabled?: boolean;
@@ -33,7 +33,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     clearNotifications: clearNotificationsFromStore,
   } = useNotificationStore();
 
-  const { userProfile, isAuthenticated } = useAuthStore();
+  const { userProfile, isAuthenticated, switchingAccount } = useAuthStore();
 
   // Fetch initial notifications from API (uses cookies automatically)
   const fetchNotifications = useCallback(async () => {
@@ -247,6 +247,16 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               }
               break;
 
+            case 'manual_booking_payment_completed':
+              // Manual booking payment received (QR code or send_link)
+              console.log('💳 Manual booking payment completed:', message.payload);
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('manual-booking-paid', {
+                  detail: message.payload
+                }));
+              }
+              break;
+
             default:
               console.warn('Unknown WebSocket message type:', message.type);
           }
@@ -329,6 +339,11 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       return;
     }
 
+    if (switchingAccount) {
+      disconnectWebSocket();
+      return;
+    }
+
     if (isAuthenticated && userProfile?.address) {
       // Only connect if we don't already have an open or connecting WebSocket
       const currentState = wsRef.current?.readyState;
@@ -353,7 +368,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isAuthenticated, userProfile?.address]);
+  }, [enabled, isAuthenticated, userProfile?.address, switchingAccount]);
 
   return {
     fetchNotifications,

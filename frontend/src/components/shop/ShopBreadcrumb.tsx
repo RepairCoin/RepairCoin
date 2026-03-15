@@ -22,6 +22,7 @@ import {
   TrendingUp,
   MessageCircle,
   AlertTriangle,
+  User,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -129,6 +130,11 @@ const TAB_CONFIG: Record<string, {
     title: "Affiliate Groups",
     icon: <GlobeIcon className="w-5 h-5" />,
     description: "Manage affiliate group memberships and collaborations",
+  },
+  profile: {
+    title: "Shop Profile",
+    icon: <User className="w-5 h-5" />,
+    description: "Manage your shop profile and how it appears to customers",
   },
 };
 

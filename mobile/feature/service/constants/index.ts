@@ -31,3 +31,16 @@ export { AVAILABILITY_TABS } from "./AVAILABILITY_TABS";
 export { DAYS, FULL_DAYS } from "./DAYS";
 export { TIME_OPTIONS } from "./TIME_OPTIONS";
 export { INITIAL_FORM_DATA } from "./INITIAL_FORM_DATA";
+
+// Tab constants
+export { SERVICE_TABS } from "./SERVICE_TABS";
+export type { ServiceTab } from "./SERVICE_TABS";
+export {
+  CUSTOMER_SERVICE_TABS,
+  TIME_FILTERS,
+  STATUS_FILTERS,
+  BOOKING_DATE_RANGE,
+  getBookingDateRange,
+  STATUS_CONFIG,
+  getStatusConfig,
+} from "./CUSTOMER_SERVICE_TABS";

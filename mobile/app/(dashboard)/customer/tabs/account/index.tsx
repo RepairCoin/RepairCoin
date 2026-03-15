@@ -1,1 +1,1 @@
-export { CustomerAccountScreen as default } from "@/feature/tabs/account/screens";
+export { CustomerAccountScreen as default } from "@/feature/account/screens";

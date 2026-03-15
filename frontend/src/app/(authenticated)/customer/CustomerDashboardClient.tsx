@@ -34,7 +34,7 @@ export default function CustomerDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, userProfile, switchingAccount } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings" | "faq"
@@ -108,7 +108,7 @@ export default function CustomerDashboardClient() {
   // Fetch no-show status (shop-agnostic)
   useEffect(() => {
     const fetchNoShowStatus = async () => {
-      if (!account?.address || !isAuthenticated) return;
+      if (!account?.address || !isAuthenticated || switchingAccount) return;
 
       setLoadingNoShowStatus(true);
       try {
@@ -123,21 +123,33 @@ export default function CustomerDashboardClient() {
     };
 
     fetchNoShowStatus();
-  }, [account?.address, isAuthenticated]);
+  }, [account?.address, isAuthenticated, switchingAccount]);
 
   // Get login function to refresh profile when page becomes visible
   const { login } = useAuthStore();
 
   // Refresh user profile when page becomes visible (catches admin changes like suspension)
+  // Debounced to avoid spamming login() on rapid tab switches which can cause auth failures
   useEffect(() => {
+    let lastRefresh = 0;
+    const REFRESH_COOLDOWN_MS = 30000; // Only refresh once per 30 seconds
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && account?.address && isAuthenticated) {
-        console.log('📋 Page became visible, refreshing customer profile...');
-        // Re-authenticate to get latest profile data (including suspension status)
-        login(account.address).catch(err => {
-          console.warn('Profile refresh failed:', err);
-        });
+      if (document.visibilityState !== 'visible') return;
+      if (!account?.address || !isAuthenticated) return;
+      if (useAuthStore.getState().switchingAccount) return;
+
+      const now = Date.now();
+      if (now - lastRefresh < REFRESH_COOLDOWN_MS) {
+        console.log('📋 Page visible but skipping refresh (cooldown)');
+        return;
       }
+
+      lastRefresh = now;
+      console.log('📋 Page became visible, refreshing customer profile...');
+      login(account.address).catch(err => {
+        console.warn('Profile refresh failed:', err);
+      });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -152,6 +164,10 @@ export default function CustomerDashboardClient() {
     // Update URL with tab query parameter
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tab);
+    // Clean up conversation param when leaving messages tab
+    if (tab !== "messages") {
+      url.searchParams.delete("conversation");
+    }
     window.history.pushState({}, "", url);
   };
 
@@ -201,7 +217,7 @@ export default function CustomerDashboardClient() {
       onTabChange={handleTabChange}
     >
       <div
-        className="min-h-screen py-8 bg-[#0D0D0D] pt-16 lg:pt-8"
+        className="min-h-screen py-8 pt-16 lg:pt-8"
         style={{
           backgroundImage: `url('/img/dashboard-bg.png')`,
           backgroundSize: "cover",

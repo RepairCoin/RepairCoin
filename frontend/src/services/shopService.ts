@@ -1,22 +1,38 @@
 import { ShopRegistrationFormData, ExistingApplication } from '@/types/shop';
 import apiClient from '@/services/api/client';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export class ShopService {
   /**
-   * Get all active shops (public endpoint for customers to find shops)
+   * Get active shops with optional search, category filter, and pagination
    */
-  static async getAllShops(): Promise<any[]> {
+  static async getAllShops(params?: {
+    search?: string;
+    category?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ shops: any[]; pagination?: any }> {
     try {
-      const response = await fetch(`${API_URL}/shops`);
+      const query = new URLSearchParams();
+      if (params?.search) query.set('search', params.search);
+      if (params?.category) query.set('category', params.category);
+      if (params?.page) query.set('page', String(params.page));
+      if (params?.limit) query.set('limit', String(params.limit));
+
+      const qs = query.toString();
+      const url = `${API_URL}/customers/shops${qs ? `?${qs}` : ''}`;
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch shops: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.data?.shops || [];
+      return {
+        shops: data.data?.shops || [],
+        pagination: data.data?.pagination,
+      };
     } catch (error) {
       console.error("Error fetching shops:", error);
       throw error;
@@ -97,7 +113,7 @@ export class ShopService {
       website: formData.website,
       referral: formData.referral,
       facebook: formData.facebook,
-      twitter: formData.twitter,
+      x: formData.x,
       instagram: formData.instagram,
       reimbursementAddress: formData.reimbursementAddress,
       fixflowShopId: formData.fixflowShopId,

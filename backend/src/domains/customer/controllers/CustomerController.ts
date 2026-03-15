@@ -2,9 +2,56 @@
 import { Request, Response } from 'express';
 import { CustomerService } from '../services/CustomerService';
 import { ResponseHelper } from '../../../utils/responseHelper';
+import { shopRepository } from '../../../repositories';
 
 export class CustomerController {
   constructor(private customerService: CustomerService) {}
+
+  /**
+   * Search active shops with pagination (public endpoint)
+   * GET /api/customers/shops?search=&category=&page=&limit=
+   */
+  async searchShops(req: Request, res: Response) {
+    try {
+      const search = req.query.search as string | undefined;
+      const category = req.query.category as string | undefined;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+
+      const result = await shopRepository.searchActiveShops({ search, category, page, limit });
+
+      const shops = result.items.map((shop: any) => ({
+        shopId: shop.shopId,
+        name: shop.name,
+        verified: shop.verified,
+        active: shop.active,
+        address: shop.address,
+        phone: shop.phone,
+        email: shop.email,
+        website: shop.website,
+        category: shop.category,
+        tier: shop.rcg_tier,
+        crossShopEnabled: shop.crossShopEnabled,
+        avgRating: shop.avgRating,
+        totalReviews: shop.totalReviews,
+        facebook: shop.facebook,
+        twitter: shop.twitter,
+        instagram: shop.instagram,
+        joinDate: shop.joinDate,
+        location: {
+          lat: shop.locationLat,
+          lng: shop.locationLng,
+          city: shop.locationCity || shop.city,
+          state: shop.locationState,
+          zipCode: shop.locationZipCode,
+        },
+      }));
+
+      ResponseHelper.success(res, { shops, pagination: result.pagination });
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Failed to fetch shops', 500);
+    }
+  }
 
   async getCustomer(req: Request, res: Response) {
     try {
@@ -101,11 +148,12 @@ export class CustomerController {
   async getTransactionHistory(req: Request, res: Response) {
     try {
       const { address } = req.params;
-      const { limit = '50', offset = '0', type } = req.query;
-      
+      const { limit = '5', page = '1', type } = req.query;
+
       const result = await this.customerService.getTransactionHistory(
         address,
         parseInt(limit as string),
+        parseInt(page as string),
         type as string,
         req.user?.address,
         req.user?.role

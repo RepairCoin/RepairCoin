@@ -70,7 +70,7 @@ router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
-router.use('/', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
+router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;
@@ -1423,6 +1423,22 @@ router.post('/:shopId/redeem',
         await redemptionSessionRepository.updateSessionStatus(sessionId, 'used', undefined, dbClient);
         logger.info('Session marked as used within atomic transaction', { sessionId });
 
+        // 4d. Deduct from customer's available balance and increment total_redemptions
+        await dbClient.query(
+          `UPDATE customers
+           SET
+             current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) - $1),
+             total_redemptions = COALESCE(total_redemptions, 0) + $1,
+             updated_at = NOW()
+           WHERE address = $2`,
+          [amount, customerAddress.toLowerCase()]
+        );
+        logger.info('Customer balance deducted within atomic transaction', {
+          customerAddress,
+          amount,
+          sessionId
+        });
+
         // COMMIT the transaction - all operations succeed together
         await dbClient.query('COMMIT');
 
@@ -1497,8 +1513,7 @@ router.post('/:shopId/redeem',
 
       // Note: Customer is automatically added to shop's customer list via the redeem transaction
       // The getShopCustomers query now includes customers who have earned OR redeemed at the shop
-
-      // Customer balance is updated via the transaction record above
+      // Customer balance (current_rcn_balance, total_redemptions) is updated in step 4d above
 
       logger.info('Token redemption processed', {
         shopId,
@@ -1538,6 +1553,149 @@ router.post('/:shopId/redeem',
         success: false,
         error: 'Failed to process redemption'
       });
+    }
+  }
+);
+
+// Get full customer profile data in a single call (details, balance+analytics, bookings page, transactions page)
+router.get('/:shopId/customer-profile/:customerAddress',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId, customerAddress } = req.params;
+      const {
+        bookingsPage = '1', bookingsLimit = '5',
+        transactionsPage = '1', transactionsLimit = '5',
+      } = req.query;
+
+      const pool = getSharedPool();
+      const addr = customerAddress.toLowerCase();
+
+      // Lazy-init OrderRepository once (cached after first call)
+      if (!(router as any)._orderRepo) {
+        const { OrderRepository } = require('../../../repositories/OrderRepository');
+        (router as any)._orderRepo = new OrderRepository();
+      }
+      const orderRepo = (router as any)._orderRepo;
+
+      // Run all queries in parallel — 4 concurrent operations
+      const [
+        customerRow,
+        balanceAnalyticsRow,
+        bookingsResult,
+        transactionsResult,
+      ] = await Promise.all([
+        // 1. Customer details (uses PK index on address)
+        pool.query(
+          `SELECT * FROM customers WHERE address = $1`,
+          [addr]
+        ),
+        // 2. Balance + Analytics in a single table scan (uses idx_transactions_customer_address)
+        pool.query(
+          `SELECT
+            COUNT(*) as total_transactions,
+            COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) as total_earnings,
+            COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redemptions,
+            COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as available_balance,
+            CASE WHEN COUNT(*) > 0
+              THEN COALESCE(SUM(amount), 0) / COUNT(*)
+              ELSE 0
+            END as average_transaction_value
+           FROM transactions WHERE customer_address = $1`,
+          [addr]
+        ),
+        // 3. Bookings (paginated, scoped to this shop)
+        orderRepo.getOrdersByShop(
+          shopId,
+          { customerAddress: addr },
+          { page: Number(bookingsPage), limit: Number(bookingsLimit) }
+        ),
+        // 4. Transactions (paginated, uses idx_transactions_customer_timestamp)
+        transactionRepository.getTransactionsByCustomer(
+          addr,
+          Number(transactionsLimit),
+          (Number(transactionsPage) - 1) * Number(transactionsLimit)
+        ),
+      ]);
+
+      const customer = customerRow.rows[0];
+      if (!customer) {
+        return res.status(404).json({ success: false, error: 'Customer not found' });
+      }
+
+      const stats = balanceAnalyticsRow.rows[0];
+
+      // Transform transactions
+      const transformedTransactions = transactionsResult.transactions.map((tx: any) => {
+        const isAdminTransfer = tx.type === 'mint' && !tx.shopId &&
+          (tx.metadata?.source === 'admin_manual_transfer' ||
+           tx.reason?.includes('Admin manual transfer'));
+        return {
+          id: tx.id,
+          type: tx.type === 'mint' ? 'earned' : tx.type === 'redeem' ? 'redeemed' : tx.type,
+          amount: parseFloat(tx.amount),
+          shopId: tx.shopId,
+          shopName: isAdminTransfer ? 'RepairCoin Admin' : tx.shopName,
+          description: tx.reason || tx.description ||
+            (tx.type === 'mint' ? 'Repair reward' :
+             tx.type === 'redeem' ? 'Redeemed at shop' :
+             tx.type === 'referral' ? 'Referral bonus' :
+             tx.type === 'tier_bonus' ? 'Tier bonus' : 'Transaction'),
+          createdAt: tx.timestamp,
+          metadata: tx.metadata,
+        };
+      });
+
+      const txLimit = Number(transactionsLimit);
+      const txTotalPages = Math.ceil(transactionsResult.totalItems / txLimit);
+
+      res.json({
+        success: true,
+        data: {
+          customer: {
+            address: customer.address,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            profile_image_url: customer.profile_image_url,
+            tier: customer.tier || 'BRONZE',
+            currentBalance: parseFloat(stats.available_balance) || 0,
+            lifetimeEarnings: parseFloat(stats.total_earnings) || 0,
+            totalRedemptions: parseFloat(stats.total_redemptions) || 0,
+            lastTransaction: customer.last_earned_date,
+            joinDate: customer.created_at,
+            isActive: customer.is_active !== false,
+            suspended: customer.suspended || false,
+          },
+          analytics: {
+            totalTransactions: parseInt(stats.total_transactions) || 0,
+            totalEarnings: parseFloat(stats.total_earnings) || 0,
+            totalRedemptions: parseFloat(stats.total_redemptions) || 0,
+            averageTransactionValue: parseFloat(stats.average_transaction_value) || 0,
+            monthlyActivity: [],
+          },
+          bookings: {
+            items: bookingsResult.items,
+            pagination: bookingsResult.pagination,
+          },
+          transactions: {
+            items: transformedTransactions,
+            pagination: {
+              page: Number(transactionsPage),
+              limit: txLimit,
+              totalItems: transactionsResult.totalItems,
+              totalPages: txTotalPages,
+              hasMore: Number(transactionsPage) < txTotalPages,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      logger.error('Get customer profile error:', error);
+      res.status(500).json({ success: false, error: 'Failed to load customer profile' });
     }
   }
 );

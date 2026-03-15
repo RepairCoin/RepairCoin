@@ -497,6 +497,8 @@ export const mapApiStatus = (apiStatus: OrderStatus, shopApproved?: boolean): Bo
       return 'cancelled';
     case 'refunded':
       return 'cancelled';
+    case 'no_show':
+      return 'cancelled';
     default:
       return 'requested';
   }

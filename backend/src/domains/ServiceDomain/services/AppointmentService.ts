@@ -31,11 +31,11 @@ export class AppointmentService {
     try {
       logger.info('getAvailableTimeSlots called', { shopId, serviceId, date });
 
-      // Get shop configuration
-      const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+      // Get shop configuration (lazy init: auto-create defaults if missing)
+      let config = await this.appointmentRepo.getTimeSlotConfig(shopId);
       if (!config) {
-        logger.warn('No time slot config found for shop', { shopId });
-        throw new Error('Shop time slot configuration not found');
+        logger.warn('No time slot config found, auto-creating defaults', { shopId });
+        config = await this.appointmentRepo.updateTimeSlotConfig({ shopId });
       }
 
       // Get shop's timezone (default to America/New_York if not set)
@@ -79,8 +79,22 @@ export class AppointmentService {
         return [];
       }
 
-      // Get shop availability for this day
-      const availability = await this.appointmentRepo.getShopAvailability(shopId);
+      // Get shop availability for this day (lazy init: auto-create defaults if missing)
+      let availability = await this.appointmentRepo.getShopAvailability(shopId);
+      if (availability.length === 0) {
+        logger.warn('No availability found, auto-creating defaults', { shopId });
+        for (let day = 0; day <= 6; day++) {
+          const isOpen = day >= 1 && day <= 5; // Mon-Fri open
+          await this.appointmentRepo.updateShopAvailability({
+            shopId,
+            dayOfWeek: day,
+            isOpen,
+            openTime: isOpen ? '09:00:00' : null,
+            closeTime: isOpen ? '18:00:00' : null,
+          });
+        }
+        availability = await this.appointmentRepo.getShopAvailability(shopId);
+      }
 
       logger.debug('Shop availability loaded', {
         shopId,

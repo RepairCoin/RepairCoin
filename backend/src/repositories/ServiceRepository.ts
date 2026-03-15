@@ -268,7 +268,7 @@ export class ServiceRepository extends BaseRepository {
             0
           ) as review_count,
           COALESCE(
-            (SELECT duration_minutes FROM service_duration_config WHERE service_id = s.service_id),
+            (SELECT duration_minutes FROM service_duration_config WHERE service_id::text = s.service_id),
             (SELECT slot_duration_minutes FROM shop_time_slot_config WHERE shop_id = s.shop_id),
             s.duration_minutes
           ) as effective_duration

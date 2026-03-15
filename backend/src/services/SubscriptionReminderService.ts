@@ -4,6 +4,7 @@ import { EmailService } from './EmailService';
 import { NotificationService } from '../domains/notification/services/NotificationService';
 import { getExpoPushService, ExpoPushService } from './ExpoPushService';
 import { getSharedPool } from '../utils/database-pool';
+import { generalNotificationPreferencesRepository } from '../repositories/GeneralNotificationPreferencesRepository';
 
 export interface SubscriptionReminderData {
   shopId: string;
@@ -120,11 +121,34 @@ export class SubscriptionReminderService {
   }
 
   /**
+   * Check if shop has enabled payment reminders
+   */
+  async hasPaymentRemindersEnabled(walletAddress: string): Promise<boolean> {
+    try {
+      const prefs = await generalNotificationPreferencesRepository.getPreferences(walletAddress, 'shop');
+      return prefs?.paymentReminders ?? true; // Default to true if no preferences found
+    } catch (error) {
+      logger.error('Error checking payment reminder preferences:', error);
+      return true; // Default to enabled on error
+    }
+  }
+
+  /**
    * Send subscription expiring email to shop
    */
   async sendReminderEmail(data: SubscriptionReminderData): Promise<boolean> {
     if (!data.shopEmail) {
       logger.warn('No shop email for subscription reminder', { shopId: data.shopId });
+      return false;
+    }
+
+    // Check if shop has payment reminders enabled
+    const reminderEnabled = await this.hasPaymentRemindersEnabled(data.walletAddress);
+    if (!reminderEnabled) {
+      logger.info('Payment reminders disabled for shop, skipping email', {
+        shopId: data.shopId,
+        walletAddress: data.walletAddress
+      });
       return false;
     }
 
@@ -190,6 +214,16 @@ export class SubscriptionReminderService {
    */
   async sendInAppNotification(data: SubscriptionReminderData): Promise<void> {
     try {
+      // Check if shop has payment reminders enabled
+      const reminderEnabled = await this.hasPaymentRemindersEnabled(data.walletAddress);
+      if (!reminderEnabled) {
+        logger.info('Payment reminders disabled for shop, skipping in-app notification', {
+          shopId: data.shopId,
+          walletAddress: data.walletAddress
+        });
+        return;
+      }
+
       const urgency = data.daysRemaining <= 1 ? 'tomorrow' : `in ${data.daysRemaining} days`;
       const message = `Your RepairCoin subscription expires ${urgency}. Renew now to keep earning rewards.`;
 
@@ -217,6 +251,16 @@ export class SubscriptionReminderService {
    */
   async sendPushNotification(data: SubscriptionReminderData): Promise<boolean> {
     try {
+      // Check if shop has payment reminders enabled
+      const reminderEnabled = await this.hasPaymentRemindersEnabled(data.walletAddress);
+      if (!reminderEnabled) {
+        logger.info('Payment reminders disabled for shop, skipping push notification', {
+          shopId: data.shopId,
+          walletAddress: data.walletAddress
+        });
+        return false;
+      }
+
       const result = await this.expoPushService.sendSubscriptionExpiringNotification(
         data.walletAddress,
         data.shopName,

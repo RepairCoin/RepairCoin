@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
+import { useAppToast } from "@/shared/hooks";
 import { useToken } from "../useToken";
 import { ValidationResult } from "../../types";
 import {
@@ -14,6 +15,7 @@ export function useGiftToken() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { useTransferToken, useValidateTransfer } = useToken();
+  const { showSuccess } = useAppToast();
 
   const { data: customerData, refetch: refetchCustomer } =
     useGetCustomerByWalletAddress(account?.address || "");
@@ -133,16 +135,8 @@ export function useGiftToken() {
 
               await refetchCustomer();
 
-              Alert.alert(
-                "Success!",
-                `You have successfully sent ${giftAmount} RCN to ${shortAddress}`,
-                [
-                  {
-                    text: "OK",
-                    onPress: () => router.back(),
-                  },
-                ]
-              );
+              showSuccess(`Successfully sent ${giftAmount} RCN to ${shortAddress}`);
+              router.back();
             } catch (err: any) {
               setError(err.message || "Failed to gift tokens");
             }

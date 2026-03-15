@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
+import { EmailSettings } from "../EmailSettings";
 // import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
@@ -30,6 +31,10 @@ import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
 import { ImageUploader} from "../ImageUploader";
 import apiClient from "@/services/api/client";
+import { AccessibilitySettings } from "../../accessibility/AccessibilitySettings";
+import { GeneralNotificationSettings } from "../../notifications/GeneralNotificationSettings";
+import { SubscriptionSettings } from "../../notifications/SubscriptionSettings";
+import { SubscriptionNotificationSettings } from "../../notifications/SubscriptionNotificationSettings";
 
 interface ShopData {
   // crossShopEnabled removed - universal redemption is now always enabled
@@ -41,7 +46,7 @@ interface ShopData {
   phone?: string;
   address?: string;
   facebook?: string;
-  twitter?: string;
+  x?: string;
   instagram?: string;
   website?: string;
   logoUrl?: string;
@@ -96,7 +101,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     phone: "",
     address: "",
     facebook: "",
-    twitter: "",
+    x: "",
     instagram: "",
     website: "",
     logoUrl: "",
@@ -119,7 +124,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopData.phone || "",
         address: shopData.address || "",
         facebook: shopData.facebook || "",
-        twitter: shopData.twitter || "",
+        x: shopData.x || "",
         instagram: shopData.instagram || "",
         website: shopData.website || "",
         logoUrl: shopData.logoUrl || "",
@@ -149,7 +154,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopFormData.phone,
         address: shopFormData.address,
         facebook: shopFormData.facebook,
-        twitter: shopFormData.twitter,
+        x: shopFormData.x,
         instagram: shopFormData.instagram,
         website: shopFormData.website,
         logoUrl: shopFormData.logoUrl,
@@ -186,7 +191,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       phone: shopData?.phone || "",
       address: shopData?.address || "",
       facebook: shopData?.facebook || "",
-      twitter: shopData?.twitter || "",
+      x: shopData?.x || "",
       instagram: shopData?.instagram || "",
       website: shopData?.website || "",
       logoUrl: shopData?.logoUrl || "",
@@ -577,19 +582,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       placeholder="https://yourshop.com"
                     />
                   </div>
-                  {/* Twitter */}
+                  {/* X (formerly Twitter) */}
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      Twitter
+                      X
                     </label>
                     <input
                       type="url"
-                      name="twitter"
-                      value={shopFormData.twitter}
+                      name="x"
+                      value={shopFormData.x}
                       onChange={handleShopInputChange}
                       disabled={!isEditingShop}
                       className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
-                      placeholder="https://twitter.com/yourshop"
+                      placeholder="https://x.com/yourshop"
                     />
                   </div>
                   {/* Instagram */}
@@ -731,54 +736,40 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Accessibility Tab Content */}
           {activeTab === "accessibility" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Accessibility
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Configure accessibility options
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Accessibility settings coming soon...
-                </p>
-              </div>
+              <AccessibilitySettings />
             </div>
           )}
 
           {/* Notifications Tab Content */}
           {activeTab === "notifications" && (
-            <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Notifications
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Manage your notification preferences
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Notification settings coming soon...
-                </p>
-              </div>
+            <div className="space-y-6">
+              <GeneralNotificationSettings userType="shop" />
+              <SubscriptionSettings userType="shop" />
             </div>
           )}
 
           {/* Subscription Tab Content */}
           {activeTab === "subscription" && (
-            <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Subscription
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Manage your RepairCoin subscription
-              </p>
-              {shopData && shopData.operational_status !== "rcg_qualified" && (
-                <SubscriptionManagement
-                  shopId={shopId}
-                  shopWallet={shopData.walletAddress}
-                  isSuspended={isSuspended}
-                  isPaused={isPaused}
-                />
-              )}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
+                  Subscription
+                </h2>
+                <p className="text-sm text-gray-400 mb-6">
+                  Manage your RepairCoin subscription
+                </p>
+                {shopData && shopData.operational_status !== "rcg_qualified" && (
+                  <SubscriptionManagement
+                    shopId={shopId}
+                    shopWallet={shopData.walletAddress}
+                    isSuspended={isSuspended}
+                    isPaused={isPaused}
+                  />
+                )}
+              </div>
+
+              {/* Subscription Notification Settings */}
+              <SubscriptionNotificationSettings userType="shop" />
             </div>
           )}
 
@@ -798,15 +789,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Emails Tab Content */}
           {activeTab === "emails" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Emails
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Configure email preferences and notifications
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">Email settings coming soon...</p>
-              </div>
+              <EmailSettings />
             </div>
           )}
 

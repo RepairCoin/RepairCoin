@@ -1,7 +1,7 @@
 // frontend/src/components/shop/tabs/AppointmentsTab.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,7 +20,8 @@ import {
   Link as LinkIcon,
   Smartphone,
   Copy,
-  Mail
+  Mail,
+  CheckCircle2
 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking, PaymentLinkResponse } from '@/services/api/appointments';
 import { QRCodeSVG } from 'qrcode.react';
@@ -56,6 +57,8 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
 
   // Payment link modal state
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [paymentLinkData, setPaymentLinkData] = useState<{
     paymentLink: string | null;
     booking: CalendarBooking | null;
@@ -245,8 +248,9 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
   };
 
   const isCurrentMonth = (dateStr: string): boolean => {
-    const date = new Date(dateStr);
-    return date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear();
+    // Parse as local date to avoid UTC timezone shift (new Date("YYYY-MM-DD") is UTC)
+    const [year, month] = dateStr.split('-').map(Number);
+    return (month - 1) === currentDate.getMonth() && year === currentDate.getFullYear();
   };
 
   const monthDays = getMonthDays();
@@ -436,9 +440,75 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
 
   // Close payment link modal
   const closePaymentLinkModal = () => {
+    if (pollingTimerRef.current) {
+      clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+    if (paymentConfirmed) {
+      loadBookings(); // Refresh calendar if payment was confirmed
+    }
     setShowPaymentLinkModal(false);
     setPaymentLinkData({ paymentLink: null, booking: null, loading: false, error: null });
+    setPaymentConfirmed(false);
   };
+
+  // Listen for WebSocket payment completed event when payment link modal is open
+  useEffect(() => {
+    if (!showPaymentLinkModal || !paymentLinkData.booking?.orderId || paymentConfirmed) return;
+
+    const targetOrderId = paymentLinkData.booking.orderId;
+
+    const handlePaymentCompleted = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.orderId === targetOrderId) {
+        setPaymentConfirmed(true);
+        toast.success('Payment received!');
+        if (pollingTimerRef.current) {
+          clearTimeout(pollingTimerRef.current);
+          pollingTimerRef.current = null;
+        }
+      }
+    };
+
+    window.addEventListener('manual-booking-paid', handlePaymentCompleted);
+    return () => window.removeEventListener('manual-booking-paid', handlePaymentCompleted);
+  }, [showPaymentLinkModal, paymentLinkData.booking?.orderId, paymentConfirmed]);
+
+  // Polling fallback: check payment status every 5s when payment link modal is open
+  useEffect(() => {
+    if (!showPaymentLinkModal || !paymentLinkData.booking?.orderId || paymentConfirmed || !userProfile?.shopId) return;
+
+    const orderId = paymentLinkData.booking.orderId;
+    const shopId = userProfile.shopId;
+    let cancelled = false;
+
+    const pollStatus = async () => {
+      if (cancelled) return;
+      try {
+        const result = await appointmentsApi.checkOrderPaymentStatus(shopId, orderId);
+        if (cancelled) return;
+        if (result.paymentStatus === 'paid') {
+          setPaymentConfirmed(true);
+          toast.success('Payment received!');
+          return;
+        }
+      } catch {
+        if (cancelled) return;
+      }
+      if (!cancelled) {
+        pollingTimerRef.current = setTimeout(pollStatus, 5000);
+      }
+    };
+
+    pollingTimerRef.current = setTimeout(pollStatus, 5000);
+    return () => {
+      cancelled = true;
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
+    };
+  }, [showPaymentLinkModal, paymentLinkData.booking?.orderId, paymentConfirmed, userProfile?.shopId]);
 
   // Render appointment card
   const renderAppointmentCard = (booking: CalendarBooking) => {
@@ -689,7 +759,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                 {monthDays.map((day, index) => {
                   const isTodayDate = isToday(day.date);
                   const isInCurrentMonth = isCurrentMonth(day.date);
-                  const dayNumber = new Date(day.date).getDate();
+                  const dayNumber = parseInt(day.date.split('-')[2], 10);
                   const uniqueCustomers = new Set(day.bookings.map(b => b.customerAddress)).size;
                   const hasBookings = day.bookings.length > 0;
                   const isSelected = selectedDate === day.date;
@@ -954,13 +1024,25 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
           >
             {/* Modal Header */}
             <div className="border-b border-gray-800 p-6 text-center">
-              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Smartphone className="w-6 h-6 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-1">Payment Link</h3>
-              <p className="text-sm text-gray-400">
-                {paymentLinkData.loading ? 'Getting payment link...' : 'Customer can scan QR or use link to pay'}
-              </p>
+              {paymentConfirmed ? (
+                <>
+                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce">
+                    <CheckCircle2 className="w-6 h-6 text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Payment Received</h3>
+                  <p className="text-sm text-gray-400">Customer payment has been confirmed</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Smartphone className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Payment Link</h3>
+                  <p className="text-sm text-gray-400">
+                    {paymentLinkData.loading ? 'Getting payment link...' : 'Customer can scan QR or use link to pay'}
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Modal Body */}
@@ -985,23 +1067,29 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                 </div>
               ) : paymentLinkData.paymentLink ? (
                 <>
-                  {/* QR Code */}
+                  {/* QR Code or Success State */}
                   <div className="flex flex-col items-center mb-4">
-                    <div className="bg-white p-4 rounded-xl">
-                      <QRCodeSVG
-                        value={paymentLinkData.paymentLink}
-                        size={180}
-                        level="H"
-                        includeMargin={false}
-                      />
-                    </div>
+                    {paymentConfirmed ? (
+                      <div className="w-[200px] h-[200px] bg-green-500/10 border-2 border-green-500/30 rounded-xl flex items-center justify-center">
+                        <CheckCircle2 className="w-20 h-20 text-green-400" />
+                      </div>
+                    ) : (
+                      <div className="bg-white p-4 rounded-xl">
+                        <QRCodeSVG
+                          value={paymentLinkData.paymentLink}
+                          size={180}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Booking Details */}
                   {paymentLinkData.booking && (
                     <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
                       <div className="text-center mb-3">
-                        <div className="text-2xl font-bold text-[#FFCC00]">
+                        <div className={`text-2xl font-bold ${paymentConfirmed ? 'text-green-400' : 'text-[#FFCC00]'}`}>
                           ${paymentLinkData.booking.totalAmount?.toFixed(2) || '0.00'}
                         </div>
                       </div>
@@ -1018,7 +1106,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                           <span className="text-gray-400">Date:</span>
                           <span className="text-white">
                             {paymentLinkData.booking.bookingDate
-                              ? new Date(paymentLinkData.booking.bookingDate).toLocaleDateString()
+                              ? new Date(paymentLinkData.booking.bookingDate + (paymentLinkData.booking.bookingDate.includes('T') ? '' : 'T00:00:00')).toLocaleDateString()
                               : 'TBD'}
                           </span>
                         </div>
@@ -1030,34 +1118,51 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
                               : 'TBD'}
                           </span>
                         </div>
+                        {paymentConfirmed && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Status:</span>
+                            <span className="text-green-400 font-medium">Paid</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="space-y-2">
-                    <button
-                      onClick={copyPaymentLink}
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      Copy Payment Link
-                    </button>
-                    <button
-                      onClick={resendPaymentEmail}
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Mail className="w-4 h-4" />
-                      Send to Customer Email
-                    </button>
-                  </div>
+                  {paymentConfirmed ? (
+                    /* Success Banner */
+                    <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <p className="text-xs text-green-400 text-center">
+                        Appointment confirmed and payment received
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Action Buttons */}
+                      <div className="space-y-2">
+                        <button
+                          onClick={copyPaymentLink}
+                          className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Copy className="w-4 h-4" />
+                          Copy Payment Link
+                        </button>
+                        <button
+                          onClick={resendPaymentEmail}
+                          className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Mail className="w-4 h-4" />
+                          Send to Customer Email
+                        </button>
+                      </div>
 
-                  {/* Expiry Warning */}
-                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                    <p className="text-xs text-amber-400 text-center">
-                      ⏰ Payment link expires in 24 hours
-                    </p>
-                  </div>
+                      {/* Expiry Warning */}
+                      <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <p className="text-xs text-amber-400 text-center">
+                          ⏰ Payment link expires in 24 hours
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </>
               ) : null}
             </div>
@@ -1067,9 +1172,13 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
               <div className="border-t border-gray-800 p-4">
                 <button
                   onClick={closePaymentLinkModal}
-                  className="w-full px-6 py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors"
+                  className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors ${
+                    paymentConfirmed
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-[#FFCC00] text-black hover:bg-[#FFD700]'
+                  }`}
                 >
-                  Done
+                  {paymentConfirmed ? 'View Booking' : 'Done'}
                 </button>
               </div>
             )}

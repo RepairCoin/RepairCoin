@@ -1,1 +1,1 @@
-export { ShopHistoryScreen as default } from "@/feature/tabs/history/screens";
+export { ShopHistoryScreen as default } from "@/feature/history/screens";

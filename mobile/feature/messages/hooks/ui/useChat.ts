@@ -37,8 +37,7 @@ export function useChat() {
     if (!conversationId) return;
 
     try {
-      const response = await messageApi.getConversations();
-      const conv = response.data?.find((c) => c.conversationId === conversationId);
+      const conv = await messageApi.getConversation(conversationId);
       if (conv) {
         setConversation(conv);
       }
@@ -116,5 +115,6 @@ export function useChat() {
     handleSend,
     handleGoBack,
     scrollToEnd,
+    refetchConversation: fetchConversation,
   };
 }

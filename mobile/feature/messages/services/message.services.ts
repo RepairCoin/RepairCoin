@@ -14,15 +14,28 @@ import {
 class MessageApi {
   /**
    * Get paginated list of conversations for the current user
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 20)
+   * @param archived - Filter by archived status (default: false)
+   * @param status - Filter by status ('open' | 'resolved')
+   * @param search - Search query for filtering by name/message
    */
   async getConversations(
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    archived: boolean = false,
+    status?: 'open' | 'resolved',
+    search?: string
   ): Promise<GetConversationsResponse> {
     try {
-      return await apiClient.get<GetConversationsResponse>(
-        `/messages/conversations?page=${page}&limit=${limit}`
-      );
+      let url = `/messages/conversations?page=${page}&limit=${limit}&archived=${archived}`;
+      if (status) {
+        url += `&status=${status}`;
+      }
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+      }
+      return await apiClient.get<GetConversationsResponse>(url);
     } catch (error) {
       console.error("Failed to get conversations:", error);
       throw error;
@@ -34,9 +47,10 @@ class MessageApi {
    */
   async getConversation(conversationId: string): Promise<Conversation> {
     try {
-      return await apiClient.get<Conversation>(
+      const response = await apiClient.get<{ success: boolean; data: Conversation }>(
         `/messages/conversations/${conversationId}`
       );
+      return response.data;
     } catch (error) {
       console.error("Failed to get conversation:", error);
       throw error;
@@ -153,6 +167,102 @@ class MessageApi {
       );
     } catch (error) {
       console.error("Failed to delete conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Archive a conversation
+   */
+  async archiveConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/archive`
+      );
+    } catch (error) {
+      console.error("Failed to archive conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unarchive a conversation
+   */
+  async unarchiveConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/unarchive`
+      );
+    } catch (error) {
+      console.error("Failed to unarchive conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Block a conversation
+   */
+  async blockConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/block`
+      );
+    } catch (error) {
+      console.error("Failed to block conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unblock a conversation
+   */
+  async unblockConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/unblock`
+      );
+    } catch (error) {
+      console.error("Failed to unblock conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve a conversation
+   */
+  async resolveConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/resolve`
+      );
+    } catch (error) {
+      console.error("Failed to resolve conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reopen a resolved conversation
+   */
+  async reopenConversation(
+    conversationId: string
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/reopen`
+      );
+    } catch (error) {
+      console.error("Failed to reopen conversation:", error);
       throw error;
     }
   }

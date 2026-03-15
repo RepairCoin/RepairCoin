@@ -1,8 +1,8 @@
 // frontend/src/components/shop/ManualBookingModal.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle, Smartphone } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle, Smartphone, CheckCircle2 } from 'lucide-react';
 import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig, ManualBookingResponse } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
@@ -78,7 +78,9 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrPaymentLink, setQrPaymentLink] = useState<string | null>(null);
   const [qrBookingDetails, setQrBookingDetails] = useState<ManualBookingResponse | null>(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [notes, setNotes] = useState('');
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Loading states
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -104,6 +106,73 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       console.error('Error loading time slot config:', error);
     }
   };
+
+  // Listen for WebSocket payment completed event when QR modal is open
+  useEffect(() => {
+    if (!showQRModal || !qrBookingDetails?.orderId || paymentConfirmed) return;
+
+    const targetOrderId = qrBookingDetails.orderId;
+    console.log('[ManualBooking] Listening for payment on orderId:', targetOrderId);
+
+    const handlePaymentCompleted = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      console.log('[ManualBooking] Received manual-booking-paid event:', detail);
+      if (detail?.orderId === targetOrderId) {
+        console.log('[ManualBooking] Payment confirmed via WebSocket!');
+        setPaymentConfirmed(true);
+        toast.success('Payment received!');
+        // Stop polling
+        if (pollingTimerRef.current) {
+          clearTimeout(pollingTimerRef.current);
+          pollingTimerRef.current = null;
+        }
+      }
+    };
+
+    window.addEventListener('manual-booking-paid', handlePaymentCompleted);
+    return () => window.removeEventListener('manual-booking-paid', handlePaymentCompleted);
+  }, [showQRModal, qrBookingDetails?.orderId, paymentConfirmed]);
+
+  // Polling fallback: check payment status every 5s when QR modal is open
+  useEffect(() => {
+    if (!showQRModal || !qrBookingDetails?.orderId || paymentConfirmed) return;
+
+    const targetOrderId = qrBookingDetails.orderId;
+    let cancelled = false;
+
+    console.log('[ManualBooking] Starting payment polling for orderId:', targetOrderId);
+
+    const pollStatus = async () => {
+      if (cancelled) return;
+      try {
+        const result = await appointmentsApi.checkOrderPaymentStatus(shopId, targetOrderId);
+        if (cancelled) return;
+        console.log('[ManualBooking] Poll result:', result?.paymentStatus);
+        if (result.paymentStatus === 'paid') {
+          console.log('[ManualBooking] Payment confirmed via polling!');
+          setPaymentConfirmed(true);
+          toast.success('Payment received!');
+          return; // Stop polling
+        }
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('[ManualBooking] Poll error (will retry):', err);
+      }
+      // Schedule next poll only if not cancelled
+      if (!cancelled) {
+        pollingTimerRef.current = setTimeout(pollStatus, 5000);
+      }
+    };
+
+    pollingTimerRef.current = setTimeout(pollStatus, 5000);
+    return () => {
+      cancelled = true;
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
+    };
+  }, [showQRModal, qrBookingDetails?.orderId, paymentConfirmed, shopId]);
 
   // Sync preSelectedDate when modal opens
   useEffect(() => {
@@ -330,12 +399,20 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
       const response = await appointmentsApi.createManualBooking(shopId, bookingData);
 
       // If QR code payment, show QR modal instead of closing
+      // Don't call onSuccess() yet - wait until payment is confirmed or modal is closed
       if (paymentStatus === 'qr_code' && response.paymentLink) {
         setQrPaymentLink(response.paymentLink);
         setQrBookingDetails(response);
         setShowQRModal(true);
         toast.success('Appointment created! Show QR code to customer.');
+      } else if (paymentStatus === 'send_link') {
+        if (response.emailSent) {
+          toast.success(`Payment link sent to ${bookingData.customerEmail}`);
+        } else {
+          toast.error('Booking created but email failed to send. Copy the payment link manually.');
+        }
         onSuccess();
+        handleClose();
       } else {
         toast.success('Appointment booked successfully!');
         onSuccess();
@@ -351,14 +428,25 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   };
 
   const handleCloseQRModal = () => {
+    if (pollingTimerRef.current) {
+      clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+    // Always refresh bookings when closing QR modal (booking was already created)
+    onSuccess();
     setShowQRModal(false);
     setQrPaymentLink(null);
     setQrBookingDetails(null);
+    setPaymentConfirmed(false);
     handleClose();
   };
 
   const handleClose = () => {
     // Reset all state
+    if (pollingTimerRef.current) {
+      clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
     setSearchQuery('');
     setSearchResults([]);
     setSelectedCustomer(null);
@@ -372,6 +460,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
     setShowQRModal(false);
     setQrPaymentLink(null);
     setQrBookingDetails(null);
+    setPaymentConfirmed(false);
     onClose();
   };
 
@@ -780,28 +869,46 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
           >
             {/* QR Modal Header */}
             <div className="border-b border-gray-800 p-6 text-center">
-              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Smartphone className="w-6 h-6 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-1">Scan to Pay</h3>
-              <p className="text-sm text-gray-400">Customer scans QR code with their phone</p>
+              {paymentConfirmed ? (
+                <>
+                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce">
+                    <CheckCircle2 className="w-6 h-6 text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Payment Received</h3>
+                  <p className="text-sm text-gray-400">Customer payment has been confirmed</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Smartphone className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Scan to Pay</h3>
+                  <p className="text-sm text-gray-400">Customer scans QR code with their phone</p>
+                </>
+              )}
             </div>
 
-            {/* QR Code */}
+            {/* QR Code or Success State */}
             <div className="p-6 flex flex-col items-center">
-              <div className="bg-white p-4 rounded-xl mb-4">
-                <QRCodeSVG
-                  value={qrPaymentLink}
-                  size={200}
-                  level="H"
-                  includeMargin={false}
-                />
-              </div>
+              {paymentConfirmed ? (
+                <div className="w-[200px] h-[200px] bg-green-500/10 border-2 border-green-500/30 rounded-xl flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-20 h-20 text-green-400" />
+                </div>
+              ) : (
+                <div className="bg-white p-4 rounded-xl mb-4">
+                  <QRCodeSVG
+                    value={qrPaymentLink}
+                    size={200}
+                    level="H"
+                    includeMargin={false}
+                  />
+                </div>
+              )}
 
               {/* Booking Details */}
               <div className="w-full bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
                 <div className="text-center mb-3">
-                  <div className="text-3xl font-bold text-[#FFCC00]">
+                  <div className={`text-3xl font-bold ${paymentConfirmed ? 'text-green-400' : 'text-[#FFCC00]'}`}>
                     ${qrBookingDetails.totalAmount.toFixed(2)}
                   </div>
                 </div>
@@ -818,29 +925,49 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
                     <span className="text-gray-400">Time:</span>
                     <span className="text-white">{formatTime12Hour(qrBookingDetails.bookingTimeSlot.substring(0, 5))}</span>
                   </div>
+                  {paymentConfirmed && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Status:</span>
+                      <span className="text-green-400 font-medium">Paid</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Expiry Warning */}
-              <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
-                <p className="text-xs text-amber-400 text-center">
-                  ⏰ This QR code expires in 24 hours
-                </p>
-              </div>
+              {/* Expiry Warning or Success Banner */}
+              {paymentConfirmed ? (
+                <div className="w-full bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-green-400 text-center">
+                    Appointment confirmed and payment received
+                  </p>
+                </div>
+              ) : (
+                <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-amber-400 text-center">
+                    ⏰ This QR code expires in 24 hours
+                  </p>
+                </div>
+              )}
 
               {/* Status Info */}
-              <div className="text-center text-sm text-gray-400 mb-4">
-                <p>Appointment will auto-confirm when payment is complete</p>
-              </div>
+              {!paymentConfirmed && (
+                <div className="text-center text-sm text-gray-400 mb-4">
+                  <p>Appointment will auto-confirm when payment is complete</p>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
             <div className="border-t border-gray-800 p-4">
               <button
                 onClick={handleCloseQRModal}
-                className="w-full px-6 py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors"
+                className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors ${
+                  paymentConfirmed
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-[#FFCC00] text-black hover:bg-[#FFD700]'
+                }`}
               >
-                Done
+                {paymentConfirmed ? 'View Booking' : 'Done'}
               </button>
             </div>
           </div>

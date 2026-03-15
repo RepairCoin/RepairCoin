@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useShopProfileStore } from "@/stores/shopProfileStore";
 import { toast } from "react-hot-toast";
 import {
   MapPin,
@@ -20,11 +21,14 @@ import {
   Navigation,
   Plus,
   MessageCircle,
+  User,
 } from "lucide-react";
-import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { ShopService } from "@/services/shopService";
-import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
+import { getAllServices, getShopServices, getPublicShopReviews, ShopServiceWithShopInfo, ServiceReview } from "@/services/api/services";
 import { getGalleryPhotos, getShopCustomers, type GalleryPhoto } from "@/services/api/shop";
+import { StarRating } from "./StarRating";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
@@ -36,6 +40,7 @@ import BookingAnalyticsTab from "@/components/shop/tabs/BookingAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
 import { CustomerGridView } from "@/components/shop/CustomerGridView";
 
+
 interface ShopInfo {
   shopId: string;
   name: string;
@@ -45,7 +50,7 @@ interface ShopInfo {
   website?: string;
   category?: string;
   facebook?: string;
-  twitter?: string;
+  x?: string;
   instagram?: string;
   verified: boolean;
   logoUrl?: string;
@@ -75,7 +80,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [selectedService, setSelectedService] = useState<ShopServiceWithShopInfo | null>(null);
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews" | "analytics" | "appointments" | "customers">("services");
+  const { activeTab, setActiveTab } = useShopProfileStore();
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -84,11 +89,50 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [isMessaging, setIsMessaging] = useState(false);
   const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
   const [customerCount, setCustomerCount] = useState<number | null>(null);
+
+  const [reviews, setReviews] = useState<ServiceReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewTotalPages, setReviewTotalPages] = useState(1);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewRatingFilter, setReviewRatingFilter] = useState<number | undefined>(undefined);
   const { userProfile } = useAuthStore();
 
   useEffect(() => {
     loadShopData();
   }, [shopId]);
+
+  // Fetch reviews when tab becomes active or filter changes
+  useEffect(() => {
+    if (activeTab === "reviews") {
+      loadReviews(1);
+    }
+  }, [activeTab, reviewRatingFilter]);
+
+  const loadReviews = async (page: number) => {
+    setReviewsLoading(true);
+    try {
+      const result = await getPublicShopReviews(shopId, {
+        page,
+        limit: 10,
+        rating: reviewRatingFilter,
+      });
+      if (result) {
+        if (page === 1) {
+          setReviews(result.data);
+        } else {
+          setReviews((prev) => [...prev, ...result.data]);
+        }
+        setReviewPage(result.pagination.page);
+        setReviewTotalPages(result.pagination.totalPages);
+        setReviewTotal(result.pagination?.totalItems);
+      }
+    } catch (error) {
+      console.error("Error loading reviews:", error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   const loadShopData = async () => {
     setLoading(true);
@@ -319,7 +363,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
 
         {/* Banner Image */}
         {shopInfo?.bannerUrl && (
-          <div className="w-full h-64 md:h-80 relative overflow-hidden mt-6">
+          <div className="w-full h-64 md:h-80 relative overflow-hidden">
             <img
               src={shopInfo.bannerUrl}
               alt={`${shopInfo.name} banner`}
@@ -378,16 +422,25 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
               {averageRating > 0 && (
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`w-5 h-5 ${
-                          star <= Math.round(averageRating)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-600"
-                        }`}
-                      />
-                    ))}
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const fullStars = Math.floor(averageRating);
+                      const fraction = averageRating - fullStars;
+
+                      if (star <= fullStars) {
+                        return <Star key={star} className="w-5 h-5 fill-yellow-400 text-yellow-400" />;
+                      } else if (star === fullStars + 1 && fraction > 0) {
+                        return (
+                          <div key={star} className="relative w-5 h-5">
+                            <Star className="w-5 h-5 text-gray-600 absolute inset-0" />
+                            <div className="absolute inset-0" style={{ clipPath: `inset(0 ${(1 - fraction) * 100}% 0 0)` }}>
+                              <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        return <Star key={star} className="w-5 h-5 text-gray-600" />;
+                      }
+                    })}
                   </div>
                   <span className="text-white font-semibold">{averageRating.toFixed(1)}</span>
                   <span className="text-gray-400">({totalReviews} reviews)</span>
@@ -434,24 +487,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   </div>
                 )}
 
-                {shopInfo.website && (
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-[#FFCC00]" />
-                    <a
-                      href={shopInfo.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-300 hover:text-[#FFCC00] transition-colors"
-                    >
-                      Visit Website
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Sidebar: Operating Hours, Stats & Social Media */}
-            <div className="lg:w-80 space-y-6">
+            <div className="lg:w-80 flex flex-col gap-6">
               {/* Operating Hours */}
               {operatingHours && (
                 <div className="bg-[#0A0A0A] rounded-xl p-6">
@@ -489,9 +529,10 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
               </div>
 
               {/* Social Media */}
-              <div>
-                <h3 className="text-sm font-semibold text-white mb-3">Follow Us</h3>
-                <div className="flex items-center gap-3">
+              <div className="mt-auto flex flex-col lg:items-end gap-2">
+                <div className="mt-auto flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-white">Follow Us</span>
+                  <div className="flex items-center gap-3">
                   {shopInfo.facebook ? (
                     <a
                       href={shopInfo.facebook}
@@ -504,21 +545,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   ) : (
                     <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
                       <FaFacebook className="w-5 h-5 text-gray-400" />
-                    </div>
-                  )}
-
-                  {shopInfo.twitter ? (
-                    <a
-                      href={shopInfo.twitter}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center w-10 h-10 bg-sky-500 hover:bg-sky-600 rounded-full transition-all duration-200 group shadow hover:shadow-sky-500/25 hover:scale-105"
-                    >
-                      <FaTwitter className="w-5 h-5 text-white" />
-                    </a>
-                  ) : (
-                    <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
-                      <FaTwitter className="w-5 h-5 text-gray-400" />
                     </div>
                   )}
 
@@ -536,6 +562,37 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                       <FaInstagram className="w-5 h-5 text-gray-400" />
                     </div>
                   )}
+
+                  {shopInfo.x ? (
+                    <a
+                      href={shopInfo.x}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center w-10 h-10 bg-black hover:bg-gray-900 rounded-full transition-all duration-200 group shadow hover:shadow-gray-500/25 hover:scale-105 border border-gray-700"
+                    >
+                      <FaXTwitter className="w-5 h-5 text-white" />
+                    </a>
+                  ) : (
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
+                      <FaXTwitter className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+
+                  {shopInfo.website ? (
+                    <a
+                      href={shopInfo.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center w-10 h-10 bg-emerald-600 hover:bg-emerald-700 rounded-full transition-all duration-200 group shadow hover:shadow-emerald-600/25 hover:scale-105"
+                    >
+                      <Globe className="w-5 h-5 text-white" />
+                    </a>
+                  ) : (
+                    <div className="flex items-center justify-center w-10 h-10 bg-gray-600 opacity-50 rounded-full cursor-not-allowed">
+                      <Globe className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -674,7 +731,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                     : "text-gray-400 hover:text-gray-300"
                 }`}
               >
-                Reviews
+                Reviews {totalReviews > 0 ? `(${totalReviews})` : "(0)"}
                 {activeTab === "reviews" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
                 )}
@@ -768,12 +825,121 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         )}
 
         {activeTab === "reviews" && (
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
-            <Star className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-            <h3 className="text-xl font-semibold text-white mb-2">Reviews Coming Soon</h3>
-            <p className="text-gray-400">
-              Shop reviews will be available in a future update.
-            </p>
+          <div>
+            {/* Rating Filter */}
+            <div className="flex items-center gap-2 mb-6 flex-wrap">
+              {[undefined, 5, 4, 3, 2, 1].map((r) => (
+                <button
+                  key={r ?? "all"}
+                  onClick={() => setReviewRatingFilter(r)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    reviewRatingFilter === r
+                      ? "bg-[#FFCC00] text-black"
+                      : "bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-gray-500"
+                  }`}
+                >
+                  {r ? `${r} Stars` : "All"}
+                </button>
+              ))}
+            </div>
+
+            {/* Reviews List */}
+            {reviewsLoading && reviews.length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-[#FFCC00]" />
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
+                <Star className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+                <h3 className="text-xl font-semibold text-white mb-2">No Reviews Yet</h3>
+                <p className="text-gray-400">
+                  This shop hasn&apos;t received any reviews yet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => (
+                  <div
+                    key={review.reviewId}
+                    className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-5"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Avatar */}
+                      <div className="flex-shrink-0">
+                        {review.customerProfileImageUrl ? (
+                          <img
+                            src={review.customerProfileImageUrl}
+                            alt={review.customerName || "Reviewer"}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center">
+                            <User className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {review.customerName || "Anonymous"}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                              {review.serviceName}
+                              {" \u00B7 "}
+                              {new Date(review.createdAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Stars */}
+                        <div className="mt-2">
+                          <StarRating value={review.rating} size="sm" />
+                        </div>
+
+                        {/* Comment */}
+                        {review.comment && (
+                          <p className="mt-3 text-gray-300 text-sm leading-relaxed">
+                            {review.comment}
+                          </p>
+                        )}
+
+                        {/* Shop Response */}
+                        {review.shopResponse && (
+                          <div className="mt-3 bg-[#111] border border-gray-700 rounded-xl p-3">
+                            <p className="text-xs text-gray-500 mb-1 font-medium">Shop Response</p>
+                            <p className="text-sm text-gray-300">{review.shopResponse}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Load More */}
+                {reviewPage < reviewTotalPages && (
+                  <div className="flex justify-center pt-4">
+                    <button
+                      onClick={() => loadReviews(reviewPage + 1)}
+                      disabled={reviewsLoading}
+                      className="px-6 py-3 bg-[#1A1A1A] border border-gray-700 rounded-full text-gray-300 hover:text-white hover:border-gray-500 transition-colors text-sm font-medium disabled:opacity-50"
+                    >
+                      {reviewsLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                      ) : (
+                        "Load More"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -794,7 +960,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {/* Customers Tab */}
         {activeTab === "customers" && isPreviewMode && (
           <div>
-            <CustomerGridView shopId={shopId} onCustomersLoaded={setCustomerCount} />
+            <CustomerGridView
+                shopId={shopId}
+                onCustomersLoaded={setCustomerCount}
+                onCustomerClick={(address) => router.push(`/shop/customers/${address}`)}
+              />
           </div>
         )}
         </div>

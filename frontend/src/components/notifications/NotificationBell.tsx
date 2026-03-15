@@ -613,7 +613,7 @@ export const NotificationBell: React.FC = () => {
         {/* Bell Icon Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2 text-gray-400 hover:text-[#FFCC00] transition-colors"
+          className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]"
           aria-label="Notifications"
         >
           {/* Bell Icon */}
@@ -634,7 +634,7 @@ export const NotificationBell: React.FC = () => {
 
           {/* Unread Count Badge */}
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}

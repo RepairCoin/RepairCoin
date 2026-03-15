@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../../../middleware/errorHandler';
 import { ResponseHelper } from '../../../utils/responseHelper';
+import { authMiddleware, requireRole } from '../../../middleware/auth';
 import { TokenService } from '../services/TokenService';
 import { TransactionRepository } from '../../../repositories/TransactionRepository';
 import { CustomerRepository } from '../../../repositories/CustomerRepository';
 import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 const tokenService = new TokenService();
@@ -17,7 +19,7 @@ interface TransferTokensRequest {
   toAddress: string;
   amount: number;
   message?: string;
-  transactionHash: string; // Hash of the on-chain transfer
+  transactionHash?: string; // Optional — server generates UUID if not provided
 }
 
 /**
@@ -98,13 +100,21 @@ interface TransferTokensRequest {
  *       500:
  *         description: Transfer failed
  */
-router.post('/transfer', asyncHandler(async (req: Request, res: Response) => {
-  const { fromAddress, toAddress, amount, message, transactionHash }: TransferTokensRequest = req.body;
+router.post('/transfer', authMiddleware, requireRole(['customer']), asyncHandler(async (req: Request, res: Response) => {
+  const { fromAddress, toAddress, amount, message }: TransferTokensRequest = req.body;
 
   // Validate required fields
-  if (!fromAddress || !toAddress || !amount || !transactionHash) {
-    return ResponseHelper.badRequest(res, 'Missing required fields: fromAddress, toAddress, amount, transactionHash');
+  if (!fromAddress || !toAddress || !amount) {
+    return ResponseHelper.badRequest(res, 'Missing required fields: fromAddress, toAddress, amount');
   }
+
+  // Verify the authenticated user owns the fromAddress
+  if (req.user?.address?.toLowerCase() !== fromAddress.toLowerCase()) {
+    return ResponseHelper.forbidden(res, 'Cannot transfer from another wallet');
+  }
+
+  // Generate server-side transaction ID (no fake client-side hash)
+  const transactionHash = `transfer_${uuidv4()}`;
 
   // Validate addresses are different
   if (fromAddress.toLowerCase() === toAddress.toLowerCase()) {
@@ -131,8 +141,10 @@ router.post('/transfer', asyncHandler(async (req: Request, res: Response) => {
     });
 
     // Check if sender exists and has sufficient balance
+    // Use databaseBalance (calculated: earnings + net_transfers - redemptions - pending - minted_to_wallet)
+    // This accounts for gift tokens AND prevents spending already-minted tokens
     const senderBalance = await customerRepository.getCustomerBalance(fromAddress);
-    if (!senderBalance || senderBalance.totalBalance < amount) {
+    if (!senderBalance || senderBalance.databaseBalance < amount) {
       return ResponseHelper.badRequest(res, 'Insufficient balance for transfer');
     }
 
@@ -334,8 +346,13 @@ router.post('/transfer', asyncHandler(async (req: Request, res: Response) => {
  *       500:
  *         description: Failed to retrieve transfer history
  */
-router.get('/transfer-history/:address', asyncHandler(async (req: Request, res: Response) => {
+router.get('/transfer-history/:address', authMiddleware, requireRole(['customer']), asyncHandler(async (req: Request, res: Response) => {
   const { address } = req.params;
+
+  // Verify the authenticated user is requesting their own history
+  if (req.user?.address?.toLowerCase() !== address.toLowerCase()) {
+    return ResponseHelper.forbidden(res, 'Cannot view transfer history of another wallet');
+  }
   const { limit = 50, offset = 0 } = req.query;
 
   // Validate address format
@@ -444,7 +461,7 @@ router.get('/transfer-history/:address', asyncHandler(async (req: Request, res: 
  *       400:
  *         description: Invalid request parameters
  */
-router.post('/validate-transfer', asyncHandler(async (req: Request, res: Response) => {
+router.post('/validate-transfer', authMiddleware, requireRole(['customer']), asyncHandler(async (req: Request, res: Response) => {
   const { fromAddress, toAddress, amount } = req.body;
 
   // Validate required fields
@@ -483,11 +500,11 @@ router.post('/validate-transfer', asyncHandler(async (req: Request, res: Respons
       });
     }
 
-    if (senderBalance.totalBalance < amount) {
+    if (senderBalance.databaseBalance < amount) {
       return ResponseHelper.success(res, {
         valid: false,
         message: 'Insufficient balance',
-        senderBalance: senderBalance.totalBalance,
+        senderBalance: senderBalance.databaseBalance,
         recipientExists: false
       });
     }
@@ -503,7 +520,7 @@ router.post('/validate-transfer', asyncHandler(async (req: Request, res: Respons
     ResponseHelper.success(res, {
       valid: true,
       message: recipientExists ? 'Transfer is valid' : 'Transfer is valid (new recipient will be created)',
-      senderBalance: senderBalance.totalBalance,
+      senderBalance: senderBalance.databaseBalance,
       recipientExists
     });
 

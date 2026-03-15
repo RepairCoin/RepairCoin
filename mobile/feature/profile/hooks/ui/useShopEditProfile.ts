@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { useShopProfileByWalletQuery } from "../queries";
 import { useUpdateShopProfileMutation } from "../mutations";
 import { ShopEditFormData } from "../../types";
@@ -15,6 +16,7 @@ export const useShopEditProfile = () => {
   const { account, accessToken } = useAuthStore();
   const { data: shopData } = useShopProfileByWalletQuery(account?.address || "");
   const updateShopMutation = useUpdateShopProfileMutation(account?.address || "");
+  const { showSuccess, showError, showWarning } = useAppToast();
 
   const [formData, setFormData] = useState<ShopEditFormData>({
     name: "",
@@ -140,7 +142,7 @@ export const useShopEditProfile = () => {
       return result.url;
     } catch (error) {
       console.error(`Upload ${type} error:`, error);
-      Alert.alert("Upload Failed", `Failed to upload ${type}. Please try again.`);
+      showError(`Failed to upload ${type}. Please try again.`);
       return null;
     } finally {
       if (type === "logo") {
@@ -156,7 +158,7 @@ export const useShopEditProfile = () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert("Permission Required", "Please allow access to your photo library");
+      showWarning("Please allow access to your photo library");
       return;
     }
 
@@ -187,7 +189,7 @@ export const useShopEditProfile = () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert("Permission Required", "Please allow access to your photo library");
+      showWarning("Please allow access to your photo library");
       return;
     }
 
@@ -227,12 +229,12 @@ export const useShopEditProfile = () => {
 
   const handleSaveChanges = useCallback(async () => {
     if (!shopData?.shopId) {
-      Alert.alert("Error", "Shop ID not found");
+      showError("Shop ID not found");
       return;
     }
 
     if (!isValidEmail(formData.email)) {
-      Alert.alert("Error", "Please enter a valid email address");
+      showError("Please enter a valid email address");
       return;
     }
 
@@ -241,13 +243,12 @@ export const useShopEditProfile = () => {
         shopId: shopData.shopId,
         shopData: formData as any,
       });
-      Alert.alert("Success", "Shop details updated successfully", [
-        { text: "OK", onPress: () => goBack() },
-      ]);
+      showSuccess("Shop details updated successfully");
+      goBack();
     } catch (error: any) {
-      Alert.alert("Error", "Failed to update shop details");
+      showError("Failed to update shop details");
     }
-  }, [formData, shopData, updateShopMutation]);
+  }, [formData, shopData, updateShopMutation, showSuccess, showError]);
 
   return {
     formData,

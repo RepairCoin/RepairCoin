@@ -59,21 +59,22 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     const shopAdminAddress = req.user?.address;
     console.log('Step 1: shopId =', shopId, ', shopAdminAddress =', shopAdminAddress);
 
-    if (!shopAdminAddress) {
-      res.status(401).json({ error: 'Unauthorized' });
+    // Validate shop authorization using shopId from JWT (works for both wallet and social login)
+    if (!req.user?.shopId || req.user.shopId !== shopId) {
+      res.status(403).json({ error: 'You do not have permission to create bookings for this shop' });
       return;
     }
 
-    // Validate shop authorization
+    // Get shop data
     const shopCheck = await pool.query(
-      'SELECT shop_id, name FROM shops WHERE shop_id = $1 AND LOWER(wallet_address) = LOWER($2)',
-      [shopId, shopAdminAddress]
+      'SELECT shop_id, name FROM shops WHERE shop_id = $1',
+      [shopId]
     );
 
     console.log('Step 2: Shop check result:', shopCheck.rows.length, 'rows');
 
     if (shopCheck.rows.length === 0) {
-      res.status(403).json({ error: 'You do not have permission to create bookings for this shop' });
+      res.status(404).json({ error: 'Shop not found' });
       return;
     }
 
@@ -258,6 +259,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
 
     // Handle payment link generation for 'send_link' or 'qr_code' options
     let paymentLinkUrl: string | null = null;
+    let emailSent = false;
     if (paymentStatus === 'send_link' || paymentStatus === 'qr_code') {
       // Check if Stripe is configured
       if (!process.env.STRIPE_SECRET_KEY) {
@@ -280,8 +282,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
               quantity: 1,
             }],
             mode: 'payment',
-            success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer/bookings?payment=success&orderId=${order.order_id}`,
-            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer/bookings?payment=cancelled&orderId=${order.order_id}`,
+            success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=success&orderId=${order.order_id}`,
+            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=cancelled&orderId=${order.order_id}`,
             customer_email: customerEmail || undefined,
             metadata: {
               orderId: order.order_id,
@@ -299,27 +301,43 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
             `UPDATE service_orders SET stripe_session_id = $1 WHERE order_id = $2`,
             [session.id, order.order_id]
           );
+        } catch (stripeError: any) {
+          console.error('Error creating Stripe session:', stripeError);
+          // Continue with booking even if payment link fails
+        }
 
-          // Send payment link email to customer (only for send_link, not qr_code)
-          if (paymentStatus === 'send_link' && customerEmail) {
-            await emailService.sendPaymentLinkEmail(
+        // Send payment link email to customer (separate from Stripe error handling)
+        if (paymentStatus === 'send_link' && customerEmail && paymentLinkUrl) {
+          try {
+            // Format date and time for email (e.g., "Mar 9, 2026" and "3:15 PM")
+            const formattedDate = new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+            const formattedTime = new Date(`2000-01-01T${bookingTimeSlot}`).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+
+            emailSent = await emailService.sendPaymentLinkEmail(
               customerEmail,
               customerData.name || 'Customer',
               {
                 shopName: shop.name,
                 serviceName: service.service_name,
-                bookingDate: bookingDate,
-                bookingTime: bookingTimeSlot.substring(0, 5),
-                amount: service.price_usd,
-                paymentLink: paymentLinkUrl || '',
+                bookingDate: formattedDate,
+                bookingTime: formattedTime,
+                amount: parseFloat(service.price_usd),
+                paymentLink: paymentLinkUrl,
                 expiresIn: '24 hours',
               }
             );
+            console.log('Payment link email result:', { emailSent, to: customerEmail });
+          } catch (emailError) {
+            console.error('Error sending payment link email:', emailError);
           }
-        } catch (stripeError: any) {
-          console.error('Error creating payment link:', stripeError);
-          // Continue with booking even if payment link fails
-          // The booking is created, shop can resend link later
         }
       }
     }
@@ -386,7 +404,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
         bookedBy: shopAdminAddress,
         notes: notes,
         createdAt: order.created_at,
-        paymentLink: paymentLinkUrl // Include payment link for QR code or send_link options
+        paymentLink: paymentLinkUrl, // Include payment link for QR code or send_link options
+        emailSent: emailSent
       }
     });
 
@@ -409,20 +428,8 @@ export const searchCustomers = async (req: Request, res: Response): Promise<void
   try {
     const { shopId } = req.params;
     const { q } = req.query;
-    const shopAdminAddress = req.user?.address;
-
-    if (!shopAdminAddress) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    // Validate shop authorization
-    const shopCheck = await pool.query(
-      'SELECT shop_id FROM shops WHERE shop_id = $1 AND LOWER(wallet_address) = LOWER($2)',
-      [shopId, shopAdminAddress]
-    );
-
-    if (shopCheck.rows.length === 0) {
+    // Validate shop authorization using shopId from JWT (works for both wallet and social login)
+    if (!req.user?.shopId || req.user.shopId !== shopId) {
       res.status(403).json({ error: 'You do not have permission to search customers for this shop' });
       return;
     }
@@ -492,20 +499,9 @@ export const searchCustomers = async (req: Request, res: Response): Promise<void
 export const getPaymentLink = async (req: Request, res: Response): Promise<void> => {
   try {
     const { shopId, orderId } = req.params;
-    const shopAdminAddress = req.user?.address;
 
-    if (!shopAdminAddress) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    // Validate shop authorization
-    const shopCheck = await pool.query(
-      'SELECT shop_id, name FROM shops WHERE shop_id = $1 AND LOWER(wallet_address) = LOWER($2)',
-      [shopId, shopAdminAddress]
-    );
-
-    if (shopCheck.rows.length === 0) {
+    // Validate shop authorization using shopId from JWT (works for both wallet and social login)
+    if (!req.user?.shopId || req.user.shopId !== shopId) {
       res.status(403).json({ error: 'You do not have permission to access this shop' });
       return;
     }
@@ -615,6 +611,46 @@ export const getPaymentLink = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * Get payment status for an order (lightweight polling endpoint)
+ * GET /api/shops/:shopId/appointments/:orderId/payment-status
+ */
+export const getOrderPaymentStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { shopId, orderId } = req.params;
+
+    if (!req.user?.shopId || req.user.shopId !== shopId) {
+      res.status(403).json({ error: 'You do not have permission to access this shop' });
+      return;
+    }
+
+    const result = await pool.query(
+      `SELECT order_id, status, payment_status, updated_at FROM service_orders WHERE order_id = $1 AND shop_id = $2`,
+      [orderId, shopId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const order = result.rows[0];
+    res.json({
+      success: true,
+      orderId: order.order_id,
+      status: order.status,
+      paymentStatus: order.payment_status,
+      updatedAt: order.updated_at
+    });
+  } catch (error) {
+    console.error('Error getting order payment status:', error);
+    res.status(500).json({
+      error: 'Failed to get payment status',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
  * Regenerate payment link for an unpaid manual booking
  * POST /api/shops/:shopId/appointments/:orderId/regenerate-payment-link
  */
@@ -624,19 +660,20 @@ export const regeneratePaymentLink = async (req: Request, res: Response): Promis
     const { sendEmail } = req.body; // Optional: send email to customer
     const shopAdminAddress = req.user?.address;
 
-    if (!shopAdminAddress) {
-      res.status(401).json({ error: 'Unauthorized' });
+    // Validate shop authorization using shopId from JWT (works for both wallet and social login)
+    if (!req.user?.shopId || req.user.shopId !== shopId) {
+      res.status(403).json({ error: 'You do not have permission to access this shop' });
       return;
     }
 
-    // Validate shop authorization
+    // Get shop data
     const shopCheck = await pool.query(
-      'SELECT shop_id, name FROM shops WHERE shop_id = $1 AND LOWER(wallet_address) = LOWER($2)',
-      [shopId, shopAdminAddress]
+      'SELECT shop_id, name FROM shops WHERE shop_id = $1',
+      [shopId]
     );
 
     if (shopCheck.rows.length === 0) {
-      res.status(403).json({ error: 'You do not have permission to access this shop' });
+      res.status(404).json({ error: 'Shop not found' });
       return;
     }
 
@@ -701,8 +738,8 @@ export const regeneratePaymentLink = async (req: Request, res: Response): Promis
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer/bookings?payment=success&orderId=${orderId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer/bookings?payment=cancelled&orderId=${orderId}`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=success&orderId=${orderId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=cancelled&orderId=${orderId}`,
       customer_email: order.customer_email || undefined,
       metadata: {
         orderId: orderId,
@@ -722,15 +759,26 @@ export const regeneratePaymentLink = async (req: Request, res: Response): Promis
     // Send email if requested and customer has email
     if (sendEmail && order.customer_email && session.url) {
       try {
+        const formattedDate = new Date(order.booking_date + 'T00:00:00').toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        const formattedTime = new Date(`2000-01-01T${order.booking_time_slot}`).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+
         await emailService.sendPaymentLinkEmail(
           order.customer_email,
           order.customer_name || 'Customer',
           {
             shopName: shop.name,
             serviceName: order.service_name,
-            bookingDate: order.booking_date,
-            bookingTime: order.booking_time_slot.substring(0, 5),
-            amount: order.total_amount,
+            bookingDate: formattedDate,
+            bookingTime: formattedTime,
+            amount: parseFloat(order.total_amount),
             paymentLink: session.url,
             expiresIn: '24 hours',
           }

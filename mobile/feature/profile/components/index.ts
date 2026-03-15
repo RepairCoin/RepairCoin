@@ -5,6 +5,5 @@ export { CustomerProfileHeader } from "./CustomerProfileHeader";
 export { CustomerStats } from "./CustomerStats";
 export { ShopDetailsTab } from "./ShopDetailsTab";
 export { ShopServicesTab } from "./ShopServicesTab";
-export { ShopReviewsTab } from "./ShopReviewsTab";
 export { ContactInfoCard } from "./ContactInfoCard";
 export { CustomerContactInfo } from "./CustomerContactInfo";

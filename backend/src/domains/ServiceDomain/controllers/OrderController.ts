@@ -438,6 +438,25 @@ export class OrderController {
 
       await this.paymentService.cancelOrder(id, cancellationReason, cancellationNotes);
 
+      // Emit order cancelled event for auto-messages and other subscribers
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_cancelled',
+          order.customerAddress,
+          {
+            orderId: order.orderId,
+            customerAddress: order.customerAddress,
+            shopId: order.shopId,
+            serviceId: order.serviceId,
+            cancellationReason,
+            cancelledBy: 'customer',
+          },
+          'ServiceDomain'
+        ));
+      } catch (eventError) {
+        logger.error('Error publishing order_cancelled event (customer):', eventError);
+      }
+
       res.json({
         success: true,
         message: 'Order cancelled successfully'
@@ -696,6 +715,24 @@ export class OrderController {
         `shop:${cancellationReason}`,
         cancellationNotes
       );
+
+      // Emit order cancelled event for auto-messages and other subscribers
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_cancelled',
+          order.customerAddress,
+          {
+            orderId: order.orderId,
+            customerAddress: order.customerAddress,
+            shopId: order.shopId,
+            serviceId: order.serviceId,
+            cancellationReason,
+          },
+          'ServiceDomain'
+        ));
+      } catch (eventError) {
+        logger.error('Error publishing order_cancelled event:', eventError);
+      }
 
       res.json({
         success: true,

@@ -2,14 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { TrendingUp, TrendingDown, History, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, History } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
+import { LoadingSpinner, Pagination, EmptyState, FilterTabs, SectionHeader } from "./shared";
+import { formatDateTime, formatAddress, formatTransactionId } from "./utils/formatters";
+import { TRANSACTIONS_PER_PAGE } from "./constants";
+import type { TransactionFilterType, FilterOption } from "./types";
 
 interface GroupTransactionsTabProps {
   groupId: string;
   tokenSymbol: string;
   refreshKey?: number;
 }
+
+const FILTER_OPTIONS: FilterOption<TransactionFilterType>[] = [
+  { value: "all", label: "All", activeColor: "bg-[#FFCC00]" },
+  { value: "earn", label: "Issued", activeColor: "bg-green-600" },
+  { value: "redeem", label: "Redeemed", activeColor: "bg-orange-600" },
+];
 
 export default function GroupTransactionsTab({
   groupId,
@@ -20,7 +30,7 @@ export default function GroupTransactionsTab({
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filterType, setFilterType] = useState<"all" | "earn" | "redeem">("all");
+  const [filterType, setFilterType] = useState<TransactionFilterType>("all");
 
   useEffect(() => {
     loadTransactions();
@@ -31,21 +41,15 @@ export default function GroupTransactionsTab({
       setLoading(true);
       const result = await shopGroupsAPI.getGroupTransactions(groupId, {
         page,
-        limit: 20,
+        limit: TRANSACTIONS_PER_PAGE,
         type: filterType === "all" ? undefined : filterType,
       });
 
-      console.log("📦 Transactions result:", result);
-      console.log("📦 Transactions items:", result?.items);
-      console.log("📦 Is array?:", Array.isArray(result));
-
       // Handle both response formats
       if (Array.isArray(result)) {
-        // Backend returned array directly
         setTransactions(result);
         setTotalPages(1);
       } else {
-        // Backend returned { items: [], pagination: {} }
         setTransactions(result?.items || []);
         setTotalPages(result?.pagination?.totalPages || 1);
       }
@@ -59,78 +63,32 @@ export default function GroupTransactionsTab({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const handleFilterChange = (value: TransactionFilterType) => {
+    setFilterType(value);
+    setPage(1);
   };
 
   return (
     <div className="bg-[#101010] rounded-xl p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <History className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-[#FFCC00] font-semibold">Transaction History</h3>
-        </div>
+      <SectionHeader
+        icon={History}
+        title="Transaction History"
+        action={
+          <FilterTabs
+            options={FILTER_OPTIONS}
+            value={filterType}
+            onChange={handleFilterChange}
+          />
+        }
+      />
 
-        {/* Filter */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setFilterType("all");
-              setPage(1);
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filterType === "all"
-                ? "bg-[#FFCC00] text-[#101010]"
-                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => {
-              setFilterType("earn");
-              setPage(1);
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filterType === "earn"
-                ? "bg-green-600 text-white"
-                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
-            }`}
-          >
-            Issued
-          </button>
-          <button
-            onClick={() => {
-              setFilterType("redeem");
-              setPage(1);
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filterType === "redeem"
-                ? "bg-orange-600 text-white"
-                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
-            }`}
-          >
-            Redeemed
-          </button>
-        </div>
-      </div>
-
-      {/* Transactions List */}
       {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFCC00] mx-auto"></div>
-          <p className="mt-4 text-gray-400">Loading transactions...</p>
-        </div>
+        <LoadingSpinner message="Loading transactions..." />
       ) : transactions.length === 0 ? (
-        <div className="text-center py-12">
-          <History className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400">No transactions yet</p>
-        </div>
+        <EmptyState
+          icon={History}
+          title="No transactions yet"
+        />
       ) : (
         <>
           <div className="space-y-3">
@@ -177,14 +135,14 @@ export default function GroupTransactionsTab({
                           <span className="text-gray-500">Reason:</span> {tx.reason}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500">{formatDate(tx.createdAt)}</p>
+                      <p className="text-xs text-gray-500">{formatDateTime(tx.createdAt)}</p>
                     </div>
                   </div>
 
                   {/* Transaction ID */}
                   <div className="text-right">
                     <p className="text-xs text-gray-500 font-mono">
-                      {tx.id.slice(0, 12)}...
+                      {formatTransactionId(tx.id)}
                     </p>
                   </div>
                 </div>
@@ -192,32 +150,12 @@ export default function GroupTransactionsTab({
             ))}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-gray-800">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </button>
-
-              <span className="text-gray-400 text-sm">
-                Page {page} of {totalPages}
-              </span>
-
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            showPageNumbers={false}
+          />
         </>
       )}
     </div>

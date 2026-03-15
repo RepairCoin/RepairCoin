@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import {
@@ -28,6 +28,13 @@ import { BookingDetailsModal } from "./BookingDetailsModal";
 import { BookingCard } from "./BookingCard";
 import { CancelBookingModal } from "./CancelBookingModal";
 import { formatBookingId } from "@/utils/formatters";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 export const ServiceOrdersTab: React.FC = () => {
   const router = useRouter();
@@ -37,7 +44,7 @@ export const ServiceOrdersTab: React.FC = () => {
   const [reviewingOrder, setReviewingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<Map<string, boolean>>(new Map());
   const [showHelp, setShowHelp] = useState(false);
-  const [sortBy, setSortBy] = useState<"date" | "status">("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewingOrder, setViewingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const filterScrollRef = useRef<HTMLDivElement>(null);
@@ -247,6 +254,14 @@ export const ServiceOrdersTab: React.FC = () => {
     };
   };
 
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+  }, [orders, sortOrder]);
+
   const summary = getSummary();
 
   if (loading) {
@@ -353,12 +368,24 @@ export const ServiceOrdersTab: React.FC = () => {
         </div>
 
         {/* Sort Dropdown - Hidden on mobile */}
-        <div className="hidden sm:flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
           <span className="text-sm text-gray-500">Sort by:</span>
-          <button className="px-3 py-1.5 bg-transparent border border-gray-700 rounded-lg text-white text-sm hover:border-gray-500 transition-colors flex items-center gap-2">
-            Date
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          </button>
+          <Select
+            value={sortOrder}
+            onValueChange={(value) => setSortOrder(value as "asc" | "desc")}
+          >
+            <SelectTrigger className="w-[100px] bg-transparent border border-gray-700 text-white h-9 rounded-lg hover:border-gray-500 transition-colors">
+              <SelectValue placeholder="Date" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1A1A1A] border-gray-800">
+              <SelectItem value="desc" className="text-white hover:bg-gray-800 focus:bg-gray-800 focus:text-white">
+                Date ↓
+              </SelectItem>
+              <SelectItem value="asc" className="text-white hover:bg-gray-800 focus:bg-gray-800 focus:text-white">
+                Date ↑
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -383,7 +410,7 @@ export const ServiceOrdersTab: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Bookings Cards */}
           <div className="lg:col-span-2 space-y-4">
-            {orders.map((order) => {
+            {sortedOrders.map((order) => {
               const effectiveStatus = getEffectiveStatus(order);
               const statusInfo = getStatusInfo(effectiveStatus);
               const progress = getProgressPercentage(effectiveStatus);

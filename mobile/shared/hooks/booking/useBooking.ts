@@ -8,8 +8,9 @@ import {
 } from "@/shared/interfaces/booking.interfaces";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { usePaymentStore } from "@/shared/store/payment.store";
+import { useAppToast } from "@/shared/hooks/useAppToast";
 
 interface QueryOptions {
   enabled?: boolean;
@@ -69,6 +70,8 @@ export function useCreateBookingMutation() {
 }
 
 export function useCreateStripeCheckoutMutation() {
+  const { showError } = useAppToast();
+
   return useMutation({
     mutationFn: async (data: BookingFormData) => {
       return bookingApi.createStripeCheckout(data);
@@ -96,11 +99,7 @@ export function useCreateStripeCheckoutMutation() {
         } else {
           // Clear the session since we couldn't open the browser
           usePaymentStore.getState().clearSession();
-          Alert.alert(
-            "Unable to Open Browser",
-            "Please try again or contact support.",
-            [{ text: "OK" }]
-          );
+          showError("Unable to open browser. Please try again or contact support.");
         }
       }
     },
@@ -108,23 +107,11 @@ export function useCreateStripeCheckoutMutation() {
       console.error("Failed to create Stripe checkout:", error);
 
       if (error.response?.status === 401) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in again to continue with your booking.",
-          [{ text: "OK" }]
-        );
+        showError("Please log in again to continue with your booking.");
       } else if (error.response?.status === 400) {
-        Alert.alert(
-          "Booking Failed",
-          error.response?.data?.error || "Invalid booking request",
-          [{ text: "OK" }]
-        );
+        showError(error.response?.data?.error || "Invalid booking request");
       } else {
-        Alert.alert(
-          "Booking Failed",
-          error.message || "Failed to initiate booking. Please try again.",
-          [{ text: "OK" }]
-        );
+        showError(error.message || "Failed to initiate booking. Please try again.");
       }
     },
   });

@@ -3,7 +3,38 @@
 import React, { useState, useEffect } from "react";
 import { Save, X, AlertCircle, CheckCircle, Shield, Bell, Scale, Clock } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
-import { getShopNoShowPolicy, updateShopNoShowPolicy, NoShowPolicy } from "@/services/api/noShow";
+import { NoShowPolicy, getShopNoShowPolicy, updateShopNoShowPolicy } from "@/services/api/noShow";
+
+// Default policy settings (used as fallback only)
+const getDefaultPolicy = (shopId: string): NoShowPolicy => ({
+  shopId,
+  enabled: true,
+  cautionThreshold: 2,
+  cautionAdvanceBookingHours: 24,
+  depositThreshold: 4,
+  depositAmount: 20,
+  depositAdvanceBookingHours: 48,
+  depositResetAfterSuccessful: 3,
+  maxRcnRedemptionPercent: 50,
+  suspensionThreshold: 6,
+  suspensionDurationDays: 30,
+  gracePeriodMinutes: 15,
+  autoDetectionEnabled: true,
+  autoDetectionDelayHours: 2,
+  minimumCancellationHours: 24,
+  sendEmailTier1: true,
+  sendEmailTier2: true,
+  sendEmailTier3: true,
+  sendEmailTier4: true,
+  sendSmsTier2: false,
+  sendSmsTier3: false,
+  sendSmsTier4: false,
+  sendPushNotifications: true,
+  allowDisputes: true,
+  disputeWindowDays: 7,
+  autoApproveFirstOffense: true,
+  requireShopReview: false,
+});
 
 export const NoShowPolicySettings: React.FC = () => {
   const { userProfile } = useAuthStore();
@@ -18,18 +49,42 @@ export const NoShowPolicySettings: React.FC = () => {
   const [policy, setPolicy] = useState<NoShowPolicy | null>(null);
   const [originalPolicy, setOriginalPolicy] = useState<NoShowPolicy | null>(null);
 
-  // Load policy on mount
+  // Load policy from backend
   useEffect(() => {
     const loadPolicy = async () => {
-      if (!shopId) return;
+      console.log('🔍 [NoShowPolicy Frontend] useEffect triggered');
+      console.log('🔍 [NoShowPolicy Frontend] shopId:', shopId);
+      console.log('🔍 [NoShowPolicy Frontend] userProfile:', userProfile);
+
+      if (!shopId) {
+        console.warn('⚠️ [NoShowPolicy Frontend] No shopId available, aborting');
+        setError("No shop ID found. Please ensure you're logged in as a shop owner.");
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
-        const data = await getShopNoShowPolicy(shopId);
-        setPolicy(data);
-        setOriginalPolicy(data);
+        setError("");
+
+        console.log('🔍 [NoShowPolicy Frontend] Calling API for shopId:', shopId);
+        // Fetch policy from backend
+        const fetchedPolicy = await getShopNoShowPolicy(shopId);
+        console.log('✅ [NoShowPolicy Frontend] Policy loaded successfully:', fetchedPolicy);
+        setPolicy(fetchedPolicy);
+        setOriginalPolicy(fetchedPolicy);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load policy");
+        console.error("❌ [NoShowPolicy Frontend] Error loading policy:", err);
+        console.error("❌ [NoShowPolicy Frontend] Error details:", {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          response: (err as any)?.response?.data
+        });
+        setError("Failed to load policy settings: " + (err instanceof Error ? err.message : String(err)));
+        // Fallback to defaults on error
+        const defaultPolicy = getDefaultPolicy(shopId);
+        setPolicy(defaultPolicy);
+        setOriginalPolicy(defaultPolicy);
       } finally {
         setLoading(false);
       }
@@ -65,7 +120,10 @@ export const NoShowPolicySettings: React.FC = () => {
     try {
       setSaving(true);
       setError("");
+
+      // Save to backend
       const updatedPolicy = await updateShopNoShowPolicy(shopId, policy);
+
       setPolicy(updatedPolicy);
       setOriginalPolicy(updatedPolicy);
       setSuccess(true);
@@ -105,6 +163,19 @@ export const NoShowPolicySettings: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Info Notice */}
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm text-blue-300">
+              <strong>Note:</strong> No-show policy settings are stored in the database and apply to all customers booking at your shop.
+              Changes take effect immediately.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

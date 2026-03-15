@@ -73,6 +73,9 @@ export class NotificationDomain implements DomainModule {
     // Listen to shop direct reschedule events
     eventBus.subscribe('booking:rescheduled_by_shop', this.handleBookingRescheduledByShop.bind(this), 'NotificationDomain');
 
+    // Listen to manual booking payment completion events
+    eventBus.subscribe('manual_booking:payment_completed', this.handleManualBookingPaymentCompleted.bind(this), 'NotificationDomain');
+
     logger.info('Notification domain event subscriptions set up');
   }
 
@@ -240,6 +243,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'subscription_cancelled' }
+        });
       }
     } catch (error: any) {
       logger.error('Error handling subscription cancelled event:', error);
@@ -296,6 +305,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'paused' }
+        });
       }
     } catch (error: any) {
       logger.error('Error handling subscription paused event:', error);
@@ -315,6 +330,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'resumed' }
+        });
       }
     } catch (error: any) {
       logger.error('Error handling subscription resumed event:', error);
@@ -334,6 +355,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket to the shop
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'reactivated' }
+        });
 
         // Also notify admins so their dashboard can refresh
         const adminAddresses = this.getAdminAddresses();
@@ -371,6 +398,12 @@ export class NotificationDomain implements DomainModule {
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
 
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'suspended' }
+        });
+
         // Also notify admins so their dashboard can refresh
         const adminAddresses = this.getAdminAddresses();
         if (adminAddresses.length > 0) {
@@ -403,6 +436,12 @@ export class NotificationDomain implements DomainModule {
       // Send real-time notification via WebSocket
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Send shop_status_changed to the shop owner so dashboard refreshes immediately
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'shop_status_changed',
+          payload: { shopAddress, action: 'unsuspended' }
+        });
 
         // Also notify admins so their dashboard can refresh
         const adminAddresses = this.getAdminAddresses();
@@ -691,6 +730,33 @@ export class NotificationDomain implements DomainModule {
       logger.info('Booking rescheduled by shop notification sent', { orderId, customerAddress });
     } catch (error: any) {
       logger.error('Error handling booking rescheduled by shop event:', error);
+    }
+  }
+
+  // Manual Booking Payment Completed Handler
+
+  private async handleManualBookingPaymentCompleted(event: any): Promise<void> {
+    try {
+      const { orderId, shopId, shopAddress, customerName, serviceName, amount } = event.data;
+
+      logger.info(`Sending manual booking payment completed WS event to shop ${shopAddress}`, { orderId });
+
+      // Send dedicated WebSocket message so the QR modal can transition to success state
+      if (this.wsManager) {
+        this.wsManager.sendToAddresses([shopAddress], {
+          type: 'manual_booking_payment_completed',
+          payload: {
+            orderId,
+            shopId,
+            customerName,
+            serviceName,
+            amount
+          }
+        });
+        logger.info('Sent manual_booking_payment_completed WS event', { orderId, shopAddress });
+      }
+    } catch (error: any) {
+      logger.error('Error handling manual booking payment completed event:', error);
     }
   }
 }

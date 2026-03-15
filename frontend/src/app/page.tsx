@@ -4,26 +4,23 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
+import { LazyMotion, domAnimation } from "framer-motion";
 import { useWalletDetection } from "@/hooks/useWalletDetection";
 import { useAuthStore } from "@/stores/authStore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ScrollProgress from "@/components/motion/ScrollProgress";
 
 // Critical above-the-fold sections - load immediately
-import NewHeroSection from "@/components/landing-v2/HeroSection";
+import HeroSection from "@/components/landing-v2/HeroSection";
 import WhatIsRepairCoin from "@/components/landing-v2/WhatIsRepairCoin";
 
 // Below-the-fold sections - lazy load with dynamic imports
 const HowItWorks = dynamic(() => import("@/components/landing-v2/HowItWorks"), { ssr: true });
-const ShareRewards = dynamic(() => import("@/components/landing-v2/ShareRewards"), { ssr: true });
-const LoyaltyTiers = dynamic(() => import("@/components/landing-v2/LoyaltyTiers"), { ssr: true });
-const FindAndRedeem = dynamic(() => import("@/components/landing-v2/FindAndRedeem"), { ssr: true });
-const RedemptionControl = dynamic(() => import("@/components/landing-v2/RedemptionControl"), { ssr: true });
-const ShopTiers = dynamic(() => import("@/components/landing-v2/ShopTiers"), { ssr: true });
-const UseRewardsAnywhere = dynamic(() => import("@/components/landing-v2/UseRewardsAnywhere"), { ssr: true });
-const WalletControl = dynamic(() => import("@/components/landing-v2/WalletControl"), { ssr: true });
-const CommunityDriven = dynamic(() => import("@/components/landing-v2/CommunityDriven"), { ssr: true });
-const FAQ = dynamic(() => import("@/components/landing-v2/FAQ"), { ssr: true });
+const WhosItFor = dynamic(() => import("@/components/landing-v2/WhosItFor"), { ssr: true });
+const Proof = dynamic(() => import("@/components/landing-v2/Proof"), { ssr: true });
+const IndustriesAndWhy = dynamic(() => import("@/components/landing-v2/IndustriesAndWhy"), { ssr: true });
+const CTASection = dynamic(() => import("@/components/landing-v2/CTASection"), { ssr: true });
 
 export default function LandingPageNew() {
   const router = useRouter();
@@ -82,53 +79,46 @@ export default function LandingPageNew() {
   }, [account, isRegistered, isRateLimited, rateLimitMessage, walletType, router]);
 
   return (
-    <main className="bg-[#191919] min-h-screen overflow-x-clip">
-      <Header />
+    <LazyMotion features={domAnimation}>
+      <main className="bg-[#0a0a0a] min-h-screen overflow-x-clip">
+        <ScrollProgress />
+        <Header />
 
-      {/* Hero Section */}
-      <NewHeroSection
-        hasWallet={!!account}
-        isDetecting={isDetecting}
-        isRegistered={isRegistered}
-        isAuthenticated={isAuthenticated}
-        isRedirecting={isRedirecting}
-        onGetStartedClick={handleGetStarted}
-      />
+        {/* Section 1: Hero */}
+        <HeroSection
+          hasWallet={!!account}
+          isDetecting={isDetecting}
+          isRegistered={isRegistered}
+          isAuthenticated={isAuthenticated}
+          isRedirecting={isRedirecting}
+          onGetStartedClick={handleGetStarted}
+        />
 
-      {/* What is RepairCoin */}
-      <WhatIsRepairCoin />
+        {/* Section 2: What is RepairCoin */}
+        <WhatIsRepairCoin />
 
-      {/* How It Works */}
-      <HowItWorks />
+        {/* Section 3: How RepairCoin Works */}
+        <div id="how-it-works">
+          <HowItWorks />
+        </div>
 
-      {/* Share the Rewards */}
-      <ShareRewards />
+        {/* Section 4: Who's It For + Trust & Security */}
+        <div id="security">
+          <WhosItFor />
+        </div>
 
-      {/* Loyalty Tiers */}
-      <LoyaltyTiers />
+        {/* Section 5: Proof */}
+        <Proof />
 
-      {/* Find and Redeem at Partner Shops */}
-      <FindAndRedeem />
+        {/* Section 6: Industries & Why RepairCoin */}
+        <div id="why-repaircoin">
+          <IndustriesAndWhy />
+        </div>
 
-      {/* You Control Every Redemption */}
-      <RedemptionControl />
-
-      {/* Verified by Governance - Shop Tiers */}
-      <ShopTiers />
-
-      {/* Use Your Rewards Anywhere */}
-      <UseRewardsAnywhere />
-
-      {/* Your Wallet. Your Control */}
-      <WalletControl />
-
-      {/* Community Driven */}
-      <CommunityDriven />
-
-      {/* FAQ */}
-      <FAQ />
-
-      <Footer />
-    </main>
+        {/* Section 7: CTA + Footer */}
+        <CTASection />
+        <Footer />
+      </main>
+    </LazyMotion>
   );
 }

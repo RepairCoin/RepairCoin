@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import { router } from "expo-router";
 import MapView, { Region, LatLng } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import { useShop } from "@/shared/hooks/shop/useShop";
+import { useAppToast } from "@/shared/hooks";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { serviceApi } from "@/shared/services/service.services";
 import {
   getCurrentLocation,
   geocodeAddress,
   Coordinates,
-} from "@/shared/services/geocoding.service";
+} from "@/shared/services/geocoding.services";
 import {
   fetchRoute,
   metersToMiles,
@@ -39,6 +40,7 @@ export function useFindShop() {
   const mapRef = useRef<MapView>(null);
   const webViewMapRef = useRef<WebViewMapRef>(null);
   const isAndroid = Platform.OS === "android";
+  const { showWarning, showError } = useAppToast();
 
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,6 +86,8 @@ export function useFindShop() {
 
   // Fetch availability for shops (batch load when shops are available)
   useEffect(() => {
+    let isCancelled = false;
+
     const loadAvailabilities = async () => {
       if (!shops?.shops) return;
 
@@ -93,20 +97,36 @@ export function useFindShop() {
       // Load availability for each shop (in parallel with limit)
       const batchSize = 5;
       for (let i = 0; i < shopIds.length; i += batchSize) {
+        // Check if component unmounted before each batch
+        if (isCancelled) return;
+
         const batch = shopIds.slice(i, i + batchSize);
         const results = await Promise.allSettled(
           batch.map((shopId: string) => appointmentApi.getShopAvailability(shopId))
         );
+
+        // Check again after async operation
+        if (isCancelled) return;
+
         results.forEach((result, index) => {
           if (result.status === "fulfilled" && result.value?.data) {
             newAvailabilities[batch[index]] = result.value.data;
           }
         });
       }
-      setShopAvailabilities(newAvailabilities);
+
+      // Only update state if still mounted
+      if (!isCancelled) {
+        setShopAvailabilities(newAvailabilities);
+      }
     };
 
     loadAvailabilities();
+
+    // Cleanup function - cancel pending operations on unmount
+    return () => {
+      isCancelled = true;
+    };
   }, [shops]);
 
   // Request location permission and get user's location
@@ -299,11 +319,7 @@ export function useFindShop() {
     }
 
     if (!item.address) {
-      Alert.alert(
-        "Location Unavailable",
-        (item.name || "This shop") + " doesn't have an address to locate.",
-        [{ text: "OK" }]
-      );
+      showWarning((item.name || "This shop") + " doesn't have an address to locate.");
       return;
     }
 
@@ -334,22 +350,18 @@ export function useFindShop() {
       const updatedShop = { ...item, lat: cachedCoords.lat, lng: cachedCoords.lng, hasValidLocation: true };
       navigateToShopOnMap(cachedCoords.lat, cachedCoords.lng, updatedShop);
     } else {
-      Alert.alert(
-        "Location Not Found",
-        "Could not find the location for " + (item.name || "this shop") + ". The address \"" + fullAddress + "\" may be incomplete or invalid.",
-        [{ text: "OK" }]
-      );
+      showError("Could not find the location for " + (item.name || "this shop") + ". The address may be incomplete or invalid.");
     }
   };
 
   const openDirections = async (shop: ShopWithLocation) => {
     if (!shop.lat || !shop.lng) {
-      Alert.alert("Location Unavailable", "Cannot get directions without coordinates.");
+      showWarning("Cannot get directions without coordinates.");
       return;
     }
 
     if (!userLocation) {
-      Alert.alert("Location Unavailable", "Your location is not available. Please enable location services.");
+      showWarning("Your location is not available. Please enable location services.");
       return;
     }
 
@@ -402,7 +414,7 @@ export function useFindShop() {
 
   const viewShop = (shop: ShopWithLocation) => {
     if (!shop.shopId) {
-      Alert.alert("Error", "Shop information is not available.");
+      showError("Shop information is not available.");
       return;
     }
     router.push(`/customer/profile/shop-profile/${shop.shopId}`);

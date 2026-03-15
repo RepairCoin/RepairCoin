@@ -53,7 +53,7 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
 
   const isDateSelectable = (date: Date): boolean => {
     const now = new Date();
-    const today = new Date();
+    const today = new Date(now);
     today.setHours(0, 0, 0, 0);
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);

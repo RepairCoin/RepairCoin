@@ -63,7 +63,8 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   additionalSections,
 }) => {
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Append T00:00:00 to YYYY-MM-DD strings to avoid UTC parsing
+    const date = new Date(dateString.includes('T') ? dateString : dateString + 'T00:00:00');
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",

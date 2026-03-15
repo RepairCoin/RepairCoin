@@ -442,7 +442,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
                       setSelectedGroupId(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full px-4 py-3 bg-[#0A0A0A] border border-purple-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-purple-400/70 transition-colors"
+                    className="w-full px-4 py-3 bg-[#1A1A1A] border border-purple-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 hover:border-purple-400/70 cursor-pointer transition-colors"
                   >
                     <option value="">🌐 All Services (with or without group rewards)</option>
                     {customerGroups.map(group => (
@@ -545,7 +545,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
             )}
 
             {/* Map View */}
-            {viewMode === "map" && !showFavoritesOnly ? (
+            {viewMode === "map" ? (
               <ShopMapView
                 services={services}
                 loading={loading}

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopRewards, RepairType } from "../useShopRewards";
+import { useShopRewards, useShopBalance, RepairType } from "../useShopRewards";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 
 export function useRewardToken() {
   const shopData = useAuthStore((state) => state.userProfile);
+  const { showError } = useAppToast();
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -38,8 +39,9 @@ export function useRewardToken() {
     isIssuingReward,
   } = useShopRewards();
 
-  // Get shop's available RCN balance
-  const availableBalance = shopData?.purchasedRcnBalance ?? 0;
+  // Get shop's available RCN balance with real-time query
+  const { data: realTimeBalance, refetch: refetchBalance } = useShopBalance();
+  const availableBalance = realTimeBalance ?? shopData?.purchasedRcnBalance ?? 0;
 
   const isSelfReward = Boolean(
     shopData?.address &&
@@ -69,31 +71,28 @@ export function useRewardToken() {
 
   const handleIssueReward = () => {
     if (!customerAddress) {
-      Alert.alert("Error", "Please enter a valid customer address");
+      showError("Please enter a valid customer address");
       return;
     }
 
     if (isSelfReward) {
-      Alert.alert("Error", "You cannot issue rewards to your own wallet address");
+      showError("You cannot issue rewards to your own wallet address");
       return;
     }
 
     if (!customerInfo) {
-      Alert.alert(
-        "Error",
-        "Customer not found. Customer must be registered before receiving rewards."
-      );
+      showError("Customer not found. Must be registered to receive rewards.");
       return;
     }
 
     if (repairType === "custom") {
       const amount = parseFloat(customAmount);
       if (!customAmount || isNaN(amount) || amount <= 0) {
-        Alert.alert("Error", "Please enter a valid repair amount");
+        showError("Please enter a valid repair amount");
         return;
       }
       if (!customRcn || parseFloat(customRcn) <= 0) {
-        Alert.alert("Error", "Please enter a valid RCN reward amount");
+        showError("Please enter a valid RCN reward amount");
         return;
       }
     }
@@ -113,7 +112,11 @@ export function useRewardToken() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      await refetchBalance();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleRepairTypeSelect = (type: RepairType) => {

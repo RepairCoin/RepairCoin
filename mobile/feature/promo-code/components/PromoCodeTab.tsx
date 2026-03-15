@@ -2,12 +2,12 @@ import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { PromoCodeCard } from "@/feature/promo-code/components/PromoCodeCard";
 import { LoadingOverlay } from "@/shared/components/ui/LoadingOverlay";
+import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import ActionCard from "@/shared/components/shared/ActionCard";
 import { usePromoCodeUI } from "../hooks";
 
@@ -37,9 +37,7 @@ export default function PromoCodeTab() {
       
       <View className="flex-1">
         {isLoading ? (
-          <View className="flex-1 justify-center items-center">
-            <ActivityIndicator size="large" color="#FFCC00" />
-          </View>
+          <SkeletonList count={4} variant="list" />
         ) : (
           <FlatList
             data={promoCodes}

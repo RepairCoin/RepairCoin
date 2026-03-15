@@ -283,7 +283,7 @@ export class CustomerService {
     }
   }
 
-  async getTransactionHistory(address: string, limit: number = 50, type?: string, requestingUserAddress?: string, userRole?: string) {
+  async getTransactionHistory(address: string, limit: number = 50, page: number = 1, type?: string, requestingUserAddress?: string, userRole?: string) {
     try {
       // Check if customer exists
       const customer = await customerRepository.getCustomer(address);
@@ -296,42 +296,53 @@ export class CustomerService {
         throw new Error('Can only view your own transaction history');
       }
 
+      const offset = (page - 1) * limit;
+
       // Get transactions from repository
-      const transactions = await transactionRepository.getTransactionsByCustomer(address, limit);
-      
+      const { transactions, totalItems } = await transactionRepository.getTransactionsByCustomer(address, limit, offset);
+
       // Transform transaction types for frontend expectations
       const transformedTransactions = transactions.map((tx: any) => {
         // Check if this is an admin manual transfer
-        const isAdminTransfer = tx.type === 'mint' && !tx.shopId && 
-          (tx.metadata?.source === 'admin_manual_transfer' || 
+        const isAdminTransfer = tx.type === 'mint' && !tx.shopId &&
+          (tx.metadata?.source === 'admin_manual_transfer' ||
            tx.reason?.includes('Admin manual transfer'));
-        
+
         return {
           id: tx.id,
           type: tx.type === 'mint' ? 'earned' : tx.type === 'redeem' ? 'redeemed' : tx.type,
           amount: parseFloat(tx.amount),
           shopId: tx.shopId,
           shopName: isAdminTransfer ? 'RepairCoin Admin' : tx.shopName,
-          description: tx.reason || tx.description || 
-            (tx.type === 'mint' ? 'Repair reward' : 
-             tx.type === 'redeem' ? 'Redeemed at shop' : 
-             tx.type === 'referral' ? 'Referral bonus' : 
+          description: tx.reason || tx.description ||
+            (tx.type === 'mint' ? 'Repair reward' :
+             tx.type === 'redeem' ? 'Redeemed at shop' :
+             tx.type === 'referral' ? 'Referral bonus' :
              tx.type === 'tier_bonus' ? 'Tier bonus' :
              'Transaction'),
           createdAt: tx.timestamp,
           metadata: tx.metadata
         };
       });
-      
+
       // Filter by type if specified
       let filteredTransactions = transformedTransactions;
       if (type && ['earned', 'redeemed', 'bonus', 'referral'].includes(type)) {
         filteredTransactions = transformedTransactions.filter((t: any) => t.type === type);
       }
 
+      const totalPages = Math.ceil(totalItems / limit);
+
       return {
         transactions: filteredTransactions,
         count: filteredTransactions.length,
+        pagination: {
+          page,
+          limit,
+          totalItems,
+          totalPages,
+          hasMore: page < totalPages,
+        },
         customer: {
           address: customer.address,
           tier: customer.tier,

@@ -192,13 +192,14 @@ export class VerificationService {
       // Get transaction totals using efficient SQL aggregation (single query)
       const totals = await transactionRepository.getCustomerTransactionTotals(customerAddress);
       const totalRedeemed = totals.totalRedeemed;
-      const totalMintedToWallet = totals.totalMintedToWallet;
 
       const lifetimeEarnings = customer.lifetimeEarnings || 0;
       const pendingMintBalance = customer.pendingMintBalance || 0;
 
-      // Calculate available balance
-      const availableBalance = Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance - totalMintedToWallet);
+      // Use the unified calculated balance from getCustomerBalance() which accounts for
+      // ALL operations: earnings, transfers, redemptions, pending mints, and minted-to-wallet.
+      const balanceInfo = await customerRepository.getCustomerBalance(customerAddress);
+      const availableBalance = balanceInfo ? balanceInfo.databaseBalance : 0;
 
       // Note: Removed slow getCustomerRcnBySource call that was taking ~2 seconds
       // The earningHistory breakdown is nice-to-have but not critical for balance display
@@ -247,7 +248,7 @@ export class VerificationService {
       }
 
       // Get all transactions for this customer
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      const { transactions } = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
 
       // Group by shop and calculate totals
       const shopEarnings = new Map<string, any>();
@@ -360,8 +361,9 @@ export class VerificationService {
         return 0;
       }
 
-      // Return the databaseBalance which is:
-      // lifetime_earnings - total_redemptions - pending_mint - minted_to_wallet
+      // Use the calculated available balance that accounts for ALL operations:
+      // available = lifetime_earnings + net_transfers - total_redemptions - pending_mint - minted_to_wallet
+      // This includes gift tokens (transfers) and prevents redeeming minted-to-wallet tokens.
       return balanceInfo.databaseBalance;
 
     } catch (error) {
@@ -380,7 +382,7 @@ export class VerificationService {
     fromTierBonuses: number;
   }> {
     try {
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      const { transactions } = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
       
       const breakdown = {
         fromRepairs: 0,

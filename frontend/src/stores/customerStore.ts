@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import apiClient, { isAccountSwitchError } from "@/services/api/client";
+import { useAuthStore } from "@/stores/authStore";
 
 export interface CustomerData {
   address: string;
@@ -42,12 +43,13 @@ export interface BalanceData {
 
 export interface TransactionHistory {
   id: string;
-  type: "earned" | "redeemed" | "bonus" | "referral" | "tier_bonus";
+  type: "earned" | "redeemed" | "bonus" | "referral" | "tier_bonus" | "transfer" | "transfer_in" | "transfer_out" | "shop_purchase" | "rejected_redemption" | "cancelled_redemption" | "cross_shop_verification" | "service_redemption" | "service_redemption_refund";
   amount: number;
   shopId?: string;
   shopName?: string;
   description: string;
   createdAt: string;
+  metadata?: any;
 }
 
 export interface CustomerStore {
@@ -130,6 +132,12 @@ export const useCustomerStore = create<CustomerStore>()(
 
       // Fetch customer data
       fetchCustomerData: async (address: string, force: boolean = false) => {
+        // Block fetches during account switch to prevent requests with wrong wallet
+        if (useAuthStore.getState().switchingAccount) {
+          console.log('[customerStore] Account switch in progress, skipping fetch');
+          return;
+        }
+
         const state = get();
         const newAddress = address.toLowerCase();
 

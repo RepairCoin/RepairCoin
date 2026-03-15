@@ -939,12 +939,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                   Want to continue using RepairCoin?
                 </h4>
                 <p className="text-gray-300 mb-4">
-                  You can resubscribe at any time by clicking the button below.
-                  Alternatively, holding 10,000+ RCG tokens grants you full platform
-                  access without a monthly subscription.
+                  You can resubscribe at any time to regain full platform access.
                 </p>
-                <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
-                  <Link href="/shop/subscription-form">Subscribe Again</Link>
+                <Button
+                  onClick={() => setShowSubscribeModal(true)}
+                  className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+                >
+                  Resubscribe Now
                 </Button>
               </div>
             </>
@@ -1020,18 +1021,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
 
       {/* Subscribe Modal */}
       <Dialog open={showSubscribeModal} onOpenChange={setShowSubscribeModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1A1A1A] border-gray-800 text-white">
           <DialogHeader>
-            <DialogTitle>Subscribe to Monthly Plan</DialogTitle>
-            <DialogDescription className="pt-4">
+            <DialogTitle className="text-2xl font-bold text-white">Subscribe to Monthly Plan</DialogTitle>
+            <DialogDescription className="pt-2 text-gray-400">
               Subscribe for $500/month to operate your shop without RCG tokens.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="bg-gray-100 rounded-lg p-4">
-              <h4 className="font-semibold mb-2">What's Included:</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
+            <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+              <h4 className="font-semibold mb-2 text-green-400">What's Included:</h4>
+              <ul className="space-y-2 text-sm text-gray-300">
                 <li>• Full operational status</li>
                 <li>• Issue RCN rewards</li>
                 <li>• Process redemptions</li>
@@ -1041,8 +1042,8 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
+                <p className="text-sm text-red-400">{error}</p>
               </div>
             )}
 
@@ -1050,7 +1051,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               <div>
                 <label
                   htmlFor="billingContact"
-                  className="block text-sm font-medium mb-1"
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Billing Contact Name <span className="text-red-500">*</span>
                 </label>
@@ -1064,7 +1065,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                       billingContact: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                  className="w-full px-3 py-2 bg-[#2F2F2F] border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500"
                   placeholder="John Doe"
                   required
                 />
@@ -1073,7 +1074,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               <div>
                 <label
                   htmlFor="billingEmail"
-                  className="block text-sm font-medium mb-1"
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Billing Email <span className="text-red-500">*</span>
                 </label>
@@ -1087,7 +1088,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                       billingEmail: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                  className="w-full px-3 py-2 bg-[#2F2F2F] border border-gray-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500"
                   placeholder="billing@example.com"
                   required
                 />
@@ -1096,7 +1097,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               <div>
                 <label
                   htmlFor="billingPhone"
-                  className="block text-sm font-medium mb-1"
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Phone Number
                 </label>
@@ -1115,37 +1116,38 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               <div>
                 <label
                   htmlFor="paymentMethod"
-                  className="block text-sm font-medium mb-1"
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Payment Method
                 </label>
-                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                  <CreditCard className="w-5 h-5 text-gray-600" />
-                  <span className="text-gray-700 font-medium">
+                <div className="flex items-center gap-2 p-3 bg-[#2F2F2F] border border-gray-600 rounded-lg">
+                  <CreditCard className="w-5 h-5 text-gray-400" />
+                  <span className="text-gray-300 font-medium">
                     Credit Card (via Stripe)
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-400">
               You'll be redirected to Stripe to securely complete your
               subscription setup.
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex gap-3 sm:gap-3">
             <Button
               variant="outline"
               onClick={() => setShowSubscribeModal(false)}
               disabled={subscribing}
+              className="flex-1 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubscribe}
               disabled={subscribing}
-              className="bg-[#FFCC00] hover:bg-[#FFD700] text-black"
+              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-semibold disabled:opacity-50"
             >
               {subscribing ? "Creating..." : "Create Subscription"}
             </Button>

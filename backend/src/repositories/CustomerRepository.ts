@@ -315,10 +315,12 @@ export class CustomerRepository extends BaseRepository {
     amount: number
   ): Promise<void> {
     try {
+      // Only update current_rcn_balance — NOT lifetime_earnings.
+      // lifetime_earnings is cumulative from repairs/bonuses and must never be
+      // reduced by gifting (would corrupt tier calculations).
       const query = `
         UPDATE customers
         SET
-          lifetime_earnings = GREATEST(0, COALESCE(lifetime_earnings, 0) + $1),
           current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) + $1),
           updated_at = NOW()
         WHERE address = $2
@@ -609,12 +611,14 @@ export class CustomerRepository extends BaseRepository {
    * Get customer's enhanced balance information for hybrid database/blockchain system
    */
   async getCustomerBalance(address: string): Promise<{
+    currentRcnBalance: number;
     databaseBalance: number;
     pendingMintBalance: number;
     totalBalance: number;
     lifetimeEarnings: number;
     totalRedemptions: number;
     totalMintedToWallet: number;
+    netTransfers: number;
     lastBlockchainSync: string | null;
     balanceSynced: boolean;
   } | null> {
@@ -637,9 +641,24 @@ export class CustomerRepository extends BaseRepository {
                 t.metadata->>'source' = 'customer_dashboard'
               )
           ), 0) as total_minted_to_wallet,
-          -- Calculate available balance: lifetime - redemptions - pending - minted_to_wallet
+          -- Get net transfer balance (transfer_in positive, transfer_out negative)
+          COALESCE((
+            SELECT SUM(amount)
+            FROM transactions t
+            WHERE t.customer_address = c.address
+              AND t.type IN ('transfer_in', 'transfer_out', 'tier_bonus')
+              AND t.status = 'completed'
+          ), 0) as net_transfers,
+          -- Calculate available balance: lifetime + net_transfers - redemptions - pending - minted_to_wallet
           GREATEST(0,
-            COALESCE(c.lifetime_earnings, 0) -
+            COALESCE(c.lifetime_earnings, 0) +
+            COALESCE((
+              SELECT SUM(amount)
+              FROM transactions t
+              WHERE t.customer_address = c.address
+                AND t.type IN ('transfer_in', 'transfer_out', 'tier_bonus')
+                AND t.status = 'completed'
+            ), 0) -
             COALESCE(c.total_redemptions, 0) -
             COALESCE(c.pending_mint_balance, 0) -
             COALESCE((
@@ -666,22 +685,26 @@ export class CustomerRepository extends BaseRepository {
       }
 
       const row = result.rows[0];
+      const currentRcnBalance = parseFloat(row.current_rcn_balance || '0');
       const pendingMintBalance = parseFloat(row.pending_mint_balance || '0');
       const lifetimeEarnings = parseFloat(row.lifetime_earnings || '0');
       const totalRedemptions = parseFloat(row.total_redemptions || '0');
       const totalMintedToWallet = parseFloat(row.total_minted_to_wallet || '0');
+      const netTransfers = parseFloat(row.net_transfers || '0');
 
-      // Use calculated available balance (earnings - redemptions - pending mint - minted to wallet)
-      // This ensures consistency with VerificationService.calculateAvailableBalance()
+      // Use calculated available balance: earnings + net_transfers - redemptions - pending - minted_to_wallet
+      // This accounts for gift tokens (transfer_in/transfer_out) in the balance calculation
       const calculatedAvailableBalance = parseFloat(row.calculated_available_balance || '0');
 
       return {
+        currentRcnBalance: currentRcnBalance,
         databaseBalance: calculatedAvailableBalance,
         pendingMintBalance: pendingMintBalance,
-        totalBalance: lifetimeEarnings - totalRedemptions - totalMintedToWallet, // Total tokens customer owns (excluding already minted)
+        totalBalance: lifetimeEarnings + netTransfers - totalRedemptions - totalMintedToWallet,
         lifetimeEarnings: lifetimeEarnings,
         totalRedemptions: totalRedemptions,
         totalMintedToWallet: totalMintedToWallet,
+        netTransfers: netTransfers,
         lastBlockchainSync: row.last_blockchain_sync ? new Date(row.last_blockchain_sync).toISOString() : null,
         balanceSynced: row.balance_synced
       };
@@ -738,6 +761,35 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error updating balance after redemption:', error);
       throw new Error('Failed to update balance after redemption');
+    }
+  }
+
+  /**
+   * Decrease customer's database balance after minting to wallet (database → blockchain).
+   * Only decreases current_rcn_balance — does NOT touch lifetime_earnings or total_redemptions
+   * since minting to wallet is not a redemption, it's a balance transfer to blockchain.
+   */
+  async decreaseBalanceAfterMint(address: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers
+        SET
+          current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) - $1),
+          updated_at = NOW()
+        WHERE address = $2
+          AND COALESCE(current_rcn_balance, 0) >= $1
+      `;
+
+      const result = await this.pool.query(query, [amount, address.toLowerCase()]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Insufficient balance for minting or customer not found');
+      }
+
+      logger.info('Customer balance decreased after mint to wallet', { address, amount });
+    } catch (error) {
+      logger.error('Error decreasing balance after mint:', error);
+      throw new Error('Failed to decrease balance after mint');
     }
   }
 
@@ -883,18 +935,29 @@ export class CustomerRepository extends BaseRepository {
    */
   async syncCustomerBalance(address: string): Promise<void> {
     try {
-      // Calculate balance from transactions
+      // Calculate balance from transactions, accounting for transfers and minted-to-wallet tokens
       const balanceQuery = `
         WITH balance_calculation AS (
-          SELECT 
+          SELECT
             COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) as total_earned,
-            COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redeemed
-          FROM transactions 
+            COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redeemed,
+            COALESCE(SUM(CASE WHEN type IN ('transfer_in', 'transfer_out', 'tier_bonus') AND status = 'completed' THEN amount ELSE 0 END), 0) as net_transfers,
+            COALESCE((
+              SELECT SUM(ABS(amount))
+              FROM transactions
+              WHERE customer_address = $1
+                AND type = 'mint'
+                AND (
+                  metadata->>'mintType' = 'instant_mint' OR
+                  metadata->>'source' = 'customer_dashboard'
+                )
+            ), 0) as total_minted_to_wallet
+          FROM transactions
           WHERE customer_address = $1
         )
-        UPDATE customers 
-        SET 
-          current_rcn_balance = GREATEST(0, bc.total_earned - bc.total_redeemed),
+        UPDATE customers
+        SET
+          current_rcn_balance = GREATEST(0, bc.total_earned + bc.net_transfers - bc.total_redeemed - bc.total_minted_to_wallet),
           total_redemptions = bc.total_redeemed,
           updated_at = NOW()
         FROM balance_calculation bc

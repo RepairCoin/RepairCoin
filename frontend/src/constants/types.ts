@@ -102,7 +102,7 @@ export interface Shop {
 // Transaction Types
 export interface Transaction {
   id: string | number;
-  type: 'earned' | 'redeemed' | 'bonus' | 'referral' | 'mint' | 'purchase' | 'redemption';
+  type: 'earned' | 'redeemed' | 'bonus' | 'referral' | 'tier_bonus' | 'mint' | 'purchase' | 'redemption' | 'transfer' | 'transfer_in' | 'transfer_out' | 'shop_purchase' | 'rejected_redemption' | 'cancelled_redemption' | 'cross_shop_verification' | 'service_redemption' | 'service_redemption_refund';
   amount: number;
   shopId?: string;
   shopName?: string;
@@ -114,6 +114,7 @@ export interface Transaction {
   status?: 'completed' | 'pending' | 'failed';
   txHash?: string;
   details?: any;
+  metadata?: any;
 }
 
 // Referral Types
@@ -352,4 +353,104 @@ export interface AppointmentNotificationPreferences {
 
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+// General Notification Preferences (for all user types)
+export interface GeneralNotificationPreferences {
+  id: string;
+  userAddress: string;
+  userType: 'customer' | 'shop' | 'admin';
+
+  // Platform & System Updates
+  platformUpdates: boolean;
+  maintenanceAlerts: boolean;
+  newFeatures: boolean;
+
+  // Account & Security
+  securityAlerts: boolean;
+  loginNotifications: boolean;
+  passwordChanges: boolean;
+
+  // Tokens & Rewards (Customer only)
+  tokenReceived: boolean;
+  tokenRedeemed: boolean;
+  rewardsEarned: boolean;
+
+  // Orders & Services (Customer only)
+  orderUpdates: boolean;
+  serviceApproved: boolean;
+  reviewRequests: boolean;
+
+  // Shop Operations (Shop only)
+  newOrders: boolean;
+  customerMessages: boolean;
+  lowTokenBalance: boolean;
+  subscriptionReminders: boolean;
+
+  // Subscription Notifications (Shop only)
+  paymentReminders: boolean;
+  paymentFailureAlerts: boolean;
+  subscriptionRenewalNotices: boolean;
+  subscriptionExpirationWarnings: boolean;
+  paymentMethodExpiring: boolean;
+  billingReceiptNotifications: boolean;
+
+  // Admin Alerts (Admin only)
+  systemAlerts: boolean;
+  userReports: boolean;
+  treasuryChanges: boolean;
+
+  // Marketing & Promotions (All users)
+  promotions: boolean;
+  newsletter: boolean;
+  surveys: boolean;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UpdateGeneralNotificationPreferences {
+  // Platform & System Updates
+  platformUpdates?: boolean;
+  maintenanceAlerts?: boolean;
+  newFeatures?: boolean;
+
+  // Account & Security
+  securityAlerts?: boolean;
+  loginNotifications?: boolean;
+  passwordChanges?: boolean;
+
+  // Tokens & Rewards (Customer only)
+  tokenReceived?: boolean;
+  tokenRedeemed?: boolean;
+  rewardsEarned?: boolean;
+
+  // Orders & Services (Customer only)
+  orderUpdates?: boolean;
+  serviceApproved?: boolean;
+  reviewRequests?: boolean;
+
+  // Shop Operations (Shop only)
+  newOrders?: boolean;
+  customerMessages?: boolean;
+  lowTokenBalance?: boolean;
+  subscriptionReminders?: boolean;
+
+  // Subscription Notifications (Shop only)
+  paymentReminders?: boolean;
+  paymentFailureAlerts?: boolean;
+  subscriptionRenewalNotices?: boolean;
+  subscriptionExpirationWarnings?: boolean;
+  paymentMethodExpiring?: boolean;
+  billingReceiptNotifications?: boolean;
+
+  // Admin Alerts (Admin only)
+  systemAlerts?: boolean;
+  userReports?: boolean;
+  treasuryChanges?: boolean;
+
+  // Marketing & Promotions (All users)
+  promotions?: boolean;
+  newsletter?: boolean;
+  surveys?: boolean;
 }

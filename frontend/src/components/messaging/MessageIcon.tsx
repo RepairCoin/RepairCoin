@@ -7,32 +7,22 @@ import * as messagingApi from '@/services/api/messaging';
 import { MessagePreviewDropdown } from './MessagePreviewDropdown';
 
 export const MessageIcon: React.FC = () => {
-  const { userType } = useAuthStore();
+  const { userType, switchingAccount } = useAuthStore();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Fetch unread message count
   useEffect(() => {
-    // Don't fetch if userType is not set
-    if (!userType || (userType !== 'customer' && userType !== 'shop')) {
+    // Don't fetch if userType is not set or during account switch
+    if (!userType || (userType !== 'customer' && userType !== 'shop') || switchingAccount) {
       return;
     }
 
     const fetchUnreadCount = async () => {
       try {
-        const response = await messagingApi.getConversations({ page: 1, limit: 100 });
-
-        // Calculate total unread count based on user type
-        const totalUnread = response.data.reduce((sum, conv) => {
-          if (userType === 'customer') {
-            return sum + (conv.unreadCountCustomer || 0);
-          } else if (userType === 'shop') {
-            return sum + (conv.unreadCountShop || 0);
-          }
-          return sum;
-        }, 0);
-
-        setUnreadCount(totalUnread);
+        // Use lightweight endpoint instead of fetching all conversations
+        const count = await messagingApi.getUnreadCount();
+        setUnreadCount(count);
       } catch (err) {
         console.error('[MessageIcon] Error fetching unread message count:', err);
       }
@@ -46,7 +36,7 @@ export const MessageIcon: React.FC = () => {
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [userType]);
+  }, [userType, switchingAccount]);
 
   const handleClick = () => {
     setIsDropdownOpen(!isDropdownOpen);
@@ -57,7 +47,7 @@ export const MessageIcon: React.FC = () => {
       {/* Message Icon Button */}
       <button
         onClick={handleClick}
-        className="relative p-2 text-gray-400 hover:text-[#FFCC00] transition-colors"
+        className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]"
         aria-label="Messages"
       >
         {/* Message Icon */}
@@ -65,7 +55,7 @@ export const MessageIcon: React.FC = () => {
 
         {/* Unread Count Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-blue-600 rounded-full">
+          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

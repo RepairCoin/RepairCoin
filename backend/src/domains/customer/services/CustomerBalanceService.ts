@@ -66,9 +66,13 @@ export class CustomerBalanceService {
         return null;
       }
 
+      // Use the unified calculated balance from getCustomerBalance() which accounts for
+      // ALL operations: earnings, transfers, redemptions, pending mints, and minted-to-wallet.
+      const availableBalance = balanceInfo.databaseBalance;
+
       return {
         address: customer.address,
-        databaseBalance: balanceInfo.databaseBalance,
+        databaseBalance: availableBalance,
         pendingMintBalance: balanceInfo.pendingMintBalance,
         totalBalance: balanceInfo.totalBalance,
         lifetimeEarnings: balanceInfo.lifetimeEarnings,
@@ -77,7 +81,7 @@ export class CustomerBalanceService {
         lastBlockchainSync: balanceInfo.lastBlockchainSync,
         balanceSynced: balanceInfo.balanceSynced,
         tier: customer.tier,
-        canMintToWallet: balanceInfo.databaseBalance > 0
+        canMintToWallet: availableBalance > 0
       };
     } catch (error) {
       logger.error('Error getting customer balance info:', error);
@@ -324,7 +328,21 @@ export class CustomerBalanceService {
         };
       }
 
-      // Step 3: Record the mint transaction for balance tracking
+      // Step 3: Decrease available balance (current_rcn_balance) since tokens are now on-chain
+      try {
+        await customerRepository.decreaseBalanceAfterMint(address, amount);
+      } catch (balanceError) {
+        // Log but don't fail - the blockchain mint already succeeded
+        // The balance will be out of sync but tokens are safely on-chain
+        logger.error('Failed to decrease balance after mint, but blockchain mint succeeded', {
+          address,
+          amount,
+          transactionHash: mintResult.transactionHash,
+          error: balanceError
+        });
+      }
+
+      // Step 4: Record the mint transaction for balance tracking
       try {
         await transactionRepository.recordTransaction({
           type: 'mint' as any,

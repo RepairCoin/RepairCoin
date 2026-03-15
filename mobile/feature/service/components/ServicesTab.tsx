@@ -9,9 +9,13 @@ import {
   Pressable,
   Modal,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;
 
 // Components
 import ServiceCard from "@/shared/components/shared/ServiceCard";
@@ -47,6 +51,10 @@ export default function ServicesTab({
     refreshing,
     handleRefresh,
     refetch,
+    // Pagination
+    hasNextPage,
+    isFetchingNextPage,
+    handleLoadMore,
     // Search
     searchQuery,
     setSearchQuery,
@@ -73,21 +81,23 @@ export default function ServicesTab({
   };
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
-    <ServiceCard
-      imageUrl={item.imageUrl}
-      category={getCategoryLabel(item.category)}
-      title={item.serviceName}
-      description={item.description}
-      price={item.priceUsd}
-      badgeStatus={{
-        label: item.active ? "Active" : "Inactive",
-        active: item.active,
-      }}
-      onPress={() => router.push(`/shop/service/${item.serviceId}`)}
-      showMenu
-      menuPosition="footer"
-      onMenuPress={() => handleMenuPress(item)}
-    />
+    <View style={{ width: CARD_WIDTH, marginHorizontal: 4, marginVertical: 8 }}>
+      <ServiceCard
+        imageUrl={item.imageUrl}
+        category={getCategoryLabel(item.category)}
+        title={item.serviceName}
+        description={item.description}
+        price={item.priceUsd}
+        badgeStatus={{
+          label: item.active ? "Active" : "Inactive",
+          active: item.active,
+        }}
+        onPress={() => router.push(`/shop/service/${item.serviceId}`)}
+        showMenu
+        menuPosition="footer"
+        onMenuPress={() => handleMenuPress(item)}
+      />
+    </View>
   );
 
   return (
@@ -172,16 +182,33 @@ export default function ServicesTab({
       ) : (
         <FlatList
           data={services}
-          keyExtractor={(item, index) => `${item.serviceId}-${index}`}
+          keyExtractor={(item) => item.serviceId}
           renderItem={renderServiceItem}
           numColumns={2}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          columnWrapperStyle={{ paddingHorizontal: 12 }}
+          extraData={services.length}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={refreshing && !isFetchingNextPage}
               onRefresh={handleRefresh}
               tintColor="#FFCC00"
             />
+          }
+          ListFooterComponent={
+            hasNextPage ? (
+              <View className="py-4 items-center">
+                {isFetchingNextPage ? (
+                  <ActivityIndicator size="small" color="#FFCC00" />
+                ) : (
+                  <Pressable
+                    onPress={handleLoadMore}
+                    className="bg-zinc-800 px-6 py-3 rounded-full"
+                  >
+                    <Text className="text-[#FFCC00] font-semibold">Load More</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center pt-20">

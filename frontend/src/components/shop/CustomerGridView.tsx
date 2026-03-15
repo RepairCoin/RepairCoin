@@ -10,9 +10,10 @@ import { toast } from "react-hot-toast";
 interface CustomerGridViewProps {
   shopId: string;
   onCustomersLoaded?: (count: number) => void;
+  onCustomerClick?: (address: string) => void;
 }
 
-export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCustomersLoaded }) => {
+export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCustomersLoaded, onCustomerClick }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -163,7 +164,8 @@ export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCu
           {filteredCustomers.map((customer) => (
             <div
               key={customer.address}
-              className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 hover:border-[#FFCC00] transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group"
+              className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 hover:border-[#FFCC00] transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group cursor-pointer"
+              onClick={() => onCustomerClick?.(customer.address)}
             >
               {/* Circular Avatar */}
               <div className="flex flex-col items-center">

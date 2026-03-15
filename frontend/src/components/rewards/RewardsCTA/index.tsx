@@ -3,58 +3,96 @@
 import Link from "next/link";
 import Image from "next/image";
 
-const RewardsCTA = () => {
+interface RewardsCTAProps {
+  activeTab: "shopowner" | "customers";
+}
+
+const content = {
+  shopowner: {
+    line1: "Bring smart rewards",
+    line2: "to your services",
+    subtitle:
+      "Join RepairCoin and start rewarding customers, managing loyalty, and tracking growth—all in one platform.",
+    cta: "Join as Shop Owner →",
+    href: "/choose?role=shop",
+  },
+  customers: {
+    line1: "Loyalty That Grows",
+    line2: "With You",
+    subtitle:
+      "Earn from your first service and unlock higher RCN rewards as your activity increases.",
+    cta: "Join as Customer →",
+    href: "/choose?role=customer",
+  },
+};
+
+const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
+  const { line1, line2, subtitle, cta, href } = content[activeTab];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
-      <div className="relative overflow-hidden rounded-3xl min-h-[300px]">
-        {/* Background image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/img/community-chain.png')" }}
-        />
-        {/* Dark overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/40" />
+    <section className="relative overflow-hidden bg-[#0D0D0D] py-16 md:py-28">
+      {/* Background wave pattern */}
+      <div
+        className="absolute inset-0 bg-no-repeat bg-right-bottom opacity-40"
+        style={{
+          backgroundImage: "url(/img/about/bg-design.png)",
+          backgroundSize: "contain",
+        }}
+      />
 
-        {/* Content */}
-        <div className="relative flex flex-col lg:flex-row items-center justify-between h-full">
-          {/* Text content */}
-          <div className="px-8 md:px-16 py-12 lg:max-w-[60%]">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4">
-              Ready to plug into RepairCoin rewards?
-            </h2>
-            <p className="text-base text-[#E8E8E8] mb-8 max-w-xl leading-relaxed">
-              Whether you are a customer or a shop owner, your next repair or purchase could already
-              be earning RCN. Create your account and see your tier in action inside the dashboard.
-            </p>
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center justify-center text-center px-4">
+        <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight">
+          {line1}
+          <br />
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/choose?role=customer"
-                className="bg-[#FFCC00] text-black px-8 py-3 rounded-lg font-medium hover:bg-[#e6b800] transition-colors inline-flex items-center justify-center"
+          <span className="relative inline-block">
+            <span className="relative inline-block">{line2}</span>
+            <span className="relative inline-block w-2/3">
+              {/* Yellow curved underline */}
+              <svg
+                className="absolute bottom-4 md:bottom-5 -left-[3%] w-[106%] h-[18px]"
+                viewBox="0 0 311 8"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                preserveAspectRatio="none"
               >
-                Join as Customer →
-              </Link>
-              <Link
-                href="/choose?role=shop"
-                className="bg-white text-black px-8 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors inline-flex items-center justify-center"
-              >
-                Join as Shop Owner →
-              </Link>
-            </div>
-          </div>
+                <path
+                  d="M2 5.5C80 1.5 230 1.5 309 5.5"
+                  stroke="#ffcc00"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </span>
+        </h2>
 
-          {/* Persons image - visible on larger screens */}
-          <div className="hidden lg:block absolute right-0 bottom-0 h-full w-[40%]">
-            <Image
-              src="/img/rewards-people-2.png"
-              alt="Happy customers"
-              fill
-              className="object-contain object-right-bottom"
-            />
-          </div>
+        <p className="mt-10 text-white/50 text-base max-w-md leading-relaxed">
+          {subtitle}
+        </p>
+
+        <Link
+          href={href}
+          className="mt-8 bg-[#FFCC00] text-black hover:bg-[#e6b800] transition-all duration-200 px-8 py-3 rounded-lg font-semibold"
+        >
+          {cta}
+        </Link>
+      </div>
+
+      {/* RepairCoin logo — bottom left (full nav-logo includes icon + wordmark) */}
+      <div className="absolute bottom-6 left-8 z-10">
+        <div className="relative w-[150px] h-[34px] opacity-75">
+          <Image
+            src="/img/nav-logo.png"
+            alt="RepairCoin"
+            fill
+            className="object-contain object-left"
+          />
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

@@ -6,22 +6,26 @@ type ChatHeaderProps = {
   name?: string;
   subtitle: string;
   onBack: () => void;
+  onMorePress?: () => void;
   shopImageUrl?: string;
   shopId?: string;
   customerImageUrl?: string;
   customerAddress?: string;
   isCustomer?: boolean;
+  isResolved?: boolean;
 };
 
 export default function ChatHeader({
   name,
   subtitle,
   onBack,
+  onMorePress,
   shopImageUrl,
   shopId,
   customerImageUrl,
   customerAddress,
   isCustomer,
+  isResolved,
 }: ChatHeaderProps) {
   const router = useRouter();
 
@@ -67,11 +71,21 @@ export default function ChatHeader({
       </Pressable>
 
       <View className="flex-1">
-        <Text className="text-white font-semibold">{name || "Conversation"}</Text>
+        <View className="flex-row items-center">
+          <Text className="text-white font-semibold">{name || "Conversation"}</Text>
+          {isResolved && (
+            <View className="bg-green-500/20 px-2 py-0.5 rounded ml-2">
+              <Text className="text-green-500 text-xs font-medium">Resolved</Text>
+            </View>
+          )}
+        </View>
         <Text className="text-zinc-400 text-xs">{subtitle}</Text>
       </View>
 
-      <Pressable className="w-10 h-10 items-center justify-center">
+      <Pressable
+        onPress={onMorePress}
+        className="w-10 h-10 items-center justify-center"
+      >
         <Ionicons name="ellipsis-vertical" size={20} color="white" />
       </Pressable>
     </View>

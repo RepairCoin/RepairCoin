@@ -44,11 +44,21 @@ interface ShopData {
   rcg_balance?: number;
 }
 
+type PaymentMethod = 'credit_card' | 'bank_transfer' | 'usdc' | 'eth' | 'manual';
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  credit_card: 'Credit Card',
+  bank_transfer: 'Bank Transfer',
+  usdc: 'USDC',
+  eth: 'ETH',
+  manual: 'Manual',
+};
+
 interface PurchaseHistory {
   id: string | number;
   amount: number;
   totalCost?: number;
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   paymentReference?: string;
   status: string;
   createdAt: string;
@@ -585,7 +595,7 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({
                       ${purchase.totalCost?.toFixed(2) || "0.00"}
                     </td>
                     <td className="py-4 px-4 text-white uppercase text-sm">
-                      {purchase.paymentMethod?.replace(/_/g, "_") || "N/A"}
+                      {PAYMENT_METHOD_LABELS[purchase.paymentMethod] || purchase.paymentMethod || "N/A"}
                     </td>
                     <td className="py-4 px-4">
                       <span className={`${statusBadge.className} text-sm`}>

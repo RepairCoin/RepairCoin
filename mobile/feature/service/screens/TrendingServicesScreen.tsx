@@ -1,7 +1,8 @@
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, FlatList, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useTrendingServices } from "../hooks";
 
@@ -40,8 +41,9 @@ export default function TrendingServicesScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-zinc-950 items-center justify-center">
-        <ActivityIndicator size="large" color="#FFCC00" />
+      <View className="flex-1 bg-zinc-950">
+        <AppHeader title="Trending Services" />
+        <SkeletonServiceGrid count={6} />
       </View>
     );
   }

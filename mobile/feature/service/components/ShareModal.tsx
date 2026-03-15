@@ -79,12 +79,12 @@ export function ShareModal({
               <Text className="text-gray-400 text-xs mt-2">WhatsApp</Text>
             </TouchableOpacity>
 
-            {/* Twitter/X */}
+            {/* X (formerly Twitter) */}
             <TouchableOpacity onPress={onShareTwitter} className="items-center">
               <View className="w-14 h-14 bg-black rounded-full items-center justify-center border border-zinc-700">
-                <Ionicons name="logo-twitter" size={24} color="white" />
+                <Text className="text-white text-xl font-bold">𝕏</Text>
               </View>
-              <Text className="text-gray-400 text-xs mt-2">Twitter</Text>
+              <Text className="text-gray-400 text-xs mt-2">X</Text>
             </TouchableOpacity>
 
             {/* Facebook */}

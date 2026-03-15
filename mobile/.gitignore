@@ -30,11 +30,14 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Environment files
+.env
+env.local
+env.staging
+env.production
 
 # Firebase/Google Services (sensitive credentials)
-google-services.json
+# google-services.json is tracked for EAS Build (contains only public Firebase config)
 GoogleService-Info.plist
 *-firebase-adminsdk-*.json
 
@@ -42,3 +45,4 @@ GoogleService-Info.plist
 *.tsbuildinfo
 
 app-example
+google-play-service-account.json

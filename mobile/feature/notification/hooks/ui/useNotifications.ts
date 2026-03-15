@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import { notificationApi } from "@/shared/services/notification.services";
 import { usePushNotificationContext } from "@/shared/providers/PushNotificationProvider";
+import { useAppToast } from "@/shared/hooks";
 import { Notification, TabType } from "../../types";
 import { NOTIFICATIONS_PER_PAGE } from "../../constants";
 
@@ -14,6 +15,8 @@ export function useNotifications() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("unread");
   const [showMenu, setShowMenu] = useState(false);
+
+  const { showSuccess, showWarning } = useAppToast();
 
   const {
     unregisterPushNotifications,
@@ -106,7 +109,7 @@ export function useNotifications() {
           style: "destructive",
           onPress: async () => {
             await unregisterPushNotifications();
-            Alert.alert("Success", "Push notifications have been turned off.");
+            showSuccess("Push notifications have been turned off.");
           },
         },
       ]
@@ -117,10 +120,9 @@ export function useNotifications() {
     setShowMenu(false);
     const token = await registerForPushNotifications();
     if (token) {
-      Alert.alert("Success", "Push notifications have been turned on.");
+      showSuccess("Push notifications have been turned on.");
     } else {
-      Alert.alert(
-        "Permission Required",
+      showWarning(
         "Please enable notifications in your device settings to receive push notifications."
       );
     }

@@ -6,7 +6,7 @@ import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { Wallet, CircleCheck, TrendingUp, Gift } from "lucide-react";
 import { useCustomer } from "@/hooks/useCustomer";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useCustomerStore, type TransactionHistory } from "@/stores/customerStore";
 import { useAuthStore } from "@/stores/authStore";
 import { DataTable, type Column } from "../ui/DataTable";
 import { Coins, X, Loader2, CheckCircle, ExternalLink } from "lucide-react";
@@ -65,7 +65,7 @@ const CompactStatCard: React.FC<CompactStatCardProps> = ({
 export const OverviewTab: React.FC = () => {
   const router = useRouter();
   const account = useActiveAccount();
-  const { userProfile } = useAuthStore();
+  const { userProfile, switchingAccount } = useAuthStore();
   const {
     customerData,
     balanceData,
@@ -98,7 +98,7 @@ export const OverviewTab: React.FC = () => {
     {
       key: "date",
       header: "Date",
-      accessor: (transaction: any) => (
+      accessor: (transaction: TransactionHistory) => (
         <div>
           <div className="font-medium text-gray-300 text-xs">
             {new Date(transaction.createdAt).toLocaleDateString("en-US", {
@@ -122,7 +122,7 @@ export const OverviewTab: React.FC = () => {
     {
       key: "description",
       header: "Description",
-      accessor: (transaction: any) => (
+      accessor: (transaction: TransactionHistory) => (
         <div className="text-gray-200 text-xs truncate max-w-[120px]">
           {transaction.type === "earned"
             ? "Service"
@@ -136,7 +136,7 @@ export const OverviewTab: React.FC = () => {
     {
       key: "shop",
       header: "Shop",
-      accessor: (transaction: any) => (
+      accessor: (transaction: TransactionHistory) => (
         <span className="text-gray-400 text-xs truncate block max-w-[80px]">
           {transaction.shopName || "—"}
         </span>
@@ -147,42 +147,52 @@ export const OverviewTab: React.FC = () => {
     {
       key: "type",
       header: "Type",
-      accessor: (transaction: any) => (
-        <span
-          className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-            transaction.type === "redeemed"
-              ? "bg-red-900/30 text-red-400 border border-red-800/50"
-              : transaction.type === "rejected_redemption"
-              ? "bg-orange-900/30 text-orange-400 border border-orange-800/50"
-              : transaction.type === "cancelled_redemption"
-              ? "bg-gray-900/30 text-gray-400 border border-gray-800/50"
-              : transaction.type === "tier_bonus"
-              ? "bg-purple-900/30 text-purple-400 border border-purple-800/50"
-              : transaction.type === "referral"
-              ? "bg-blue-900/30 text-blue-400 border border-blue-800/50"
-              : "bg-green-900/30 text-green-400 border border-green-800/50"
-          }`}
-        >
-          {transaction.type === "earned"
-            ? "Repair"
-            : transaction.type === "tier_bonus"
-            ? "Bonus"
-            : transaction.type === "referral"
-            ? "Referral"
-            : transaction.type === "redeemed"
-            ? "Redeemed"
-            : transaction.type === "rejected_redemption"
-            ? "Rejected"
-            : transaction.type === "cancelled_redemption"
-            ? "Cancelled"
-            : transaction.type}
-        </span>
-      ),
+      accessor: (transaction: TransactionHistory) => {
+        const badgeColor: Record<string, string> = {
+          earned: "bg-green-900/30 text-green-400 border border-green-800/50",
+          tier_bonus: "bg-purple-900/30 text-purple-400 border border-purple-800/50",
+          referral: "bg-blue-900/30 text-blue-400 border border-blue-800/50",
+          redeemed: "bg-red-900/30 text-red-400 border border-red-800/50",
+          rejected_redemption: "bg-orange-900/30 text-orange-400 border border-orange-800/50",
+          cancelled_redemption: "bg-gray-900/30 text-gray-400 border border-gray-800/50",
+          transfer: "bg-cyan-900/30 text-cyan-400 border border-cyan-800/50",
+          transfer_in: "bg-cyan-900/30 text-cyan-400 border border-cyan-800/50",
+          transfer_out: "bg-orange-900/30 text-orange-400 border border-orange-800/50",
+          shop_purchase: "bg-yellow-900/30 text-yellow-400 border border-yellow-800/50",
+          cross_shop_verification: "bg-teal-900/30 text-teal-400 border border-teal-800/50",
+          service_redemption: "bg-red-900/30 text-red-400 border border-red-800/50",
+          service_redemption_refund: "bg-green-900/30 text-green-400 border border-green-800/50",
+        };
+        const typeLabel: Record<string, string> = {
+          earned: "Earned",
+          tier_bonus: "Bonus",
+          referral: "Referral",
+          redeemed: "Redeemed",
+          rejected_redemption: "Rejected",
+          cancelled_redemption: "Cancelled",
+          transfer: "Transfer",
+          transfer_in: "Received",
+          transfer_out: "Sent",
+          shop_purchase: "Purchase",
+          cross_shop_verification: "Verified",
+          service_redemption: "Service",
+          service_redemption_refund: "Refund",
+        };
+        return (
+          <span
+            className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+              badgeColor[transaction.type] || "bg-green-900/30 text-green-400 border border-green-800/50"
+            }`}
+          >
+            {typeLabel[transaction.type] || transaction.type}
+          </span>
+        );
+      },
     },
     {
       key: "amount",
       header: "Amount",
-      accessor: (transaction: any) => {
+      accessor: (transaction: TransactionHistory) => {
         if (
           transaction.type === "rejected_redemption" ||
           transaction.type === "cancelled_redemption"
@@ -193,13 +203,15 @@ export const OverviewTab: React.FC = () => {
             </span>
           );
         }
+        const isNegative = transaction.type === "redeemed" || transaction.type === "service_redemption" || transaction.type === "transfer_out";
+        const isPositive = transaction.type === "earned" || transaction.type === "tier_bonus" || transaction.type === "referral" || transaction.type === "transfer_in" || transaction.type === "service_redemption_refund";
         return (
           <span
             className={`text-xs font-bold ${
-              transaction.type === "redeemed" ? "text-red-400" : "text-green-400"
+              isNegative ? "text-red-400" : isPositive ? "text-green-400" : "text-gray-300"
             }`}
           >
-            {transaction.type === "redeemed" ? "-" : "+"}
+            {isNegative ? "-" : isPositive ? "+" : ""}
             {transaction.amount} RCN
           </span>
         );
@@ -210,7 +222,7 @@ export const OverviewTab: React.FC = () => {
   ];
 
   // Read token balance from contract
-  const { data: tokenBalance } = useReadContract({
+  const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
     contract,
     method: "function balanceOf(address) view returns (uint256)",
     params: customerData?.address ? [customerData.address] : [""],
@@ -223,6 +235,8 @@ export const OverviewTab: React.FC = () => {
   // Fetch data when wallet address becomes available (from either source)
   // This is critical for page refresh where Thirdweb takes time to restore wallet
   useEffect(() => {
+    if (switchingAccount) return;
+
     if (walletAddress) {
       // Check if we need to fetch - either no data or data is for different address
       const currentDataAddress = customerData?.address?.toLowerCase();
@@ -233,7 +247,7 @@ export const OverviewTab: React.FC = () => {
         fetchCustomerData(true); // Force fetch to ensure fresh data
       }
     }
-  }, [walletAddress, customerData, fetchCustomerData, account?.address]);
+  }, [walletAddress, customerData, fetchCustomerData, account?.address, switchingAccount]);
 
   // Update blockchain balance from contract
   useEffect(() => {
@@ -245,7 +259,7 @@ export const OverviewTab: React.FC = () => {
 
   // Mint to Wallet functionality
   const handleMintToWallet = async () => {
-    if (!account?.address) {
+    if (!walletAddress) {
       toast.error("Please connect your wallet first");
       return;
     }
@@ -271,7 +285,7 @@ export const OverviewTab: React.FC = () => {
 
     try {
       const result = (await apiClient.post(
-        `/customers/balance/${account.address}/instant-mint`,
+        `/customers/balance/${walletAddress}/instant-mint`,
         { amount }
       )) as {
         success: boolean;
@@ -288,6 +302,8 @@ export const OverviewTab: React.FC = () => {
         toast.success(`Successfully minted ${amount} RCN to your wallet!`);
         setMintAmount("");
         fetchCustomerData(true);
+        // Refresh wallet balance from blockchain after short delay for confirmation
+        setTimeout(() => refetchTokenBalance(), 3000);
       } else {
         toast.error(result.error || "Failed to mint tokens");
         setMintResult(null);

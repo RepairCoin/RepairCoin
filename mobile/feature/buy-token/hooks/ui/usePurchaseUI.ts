@@ -1,10 +1,11 @@
 import { useCallback } from "react";
-import { Alert } from "react-native";
+import { useAppToast } from "@/shared/hooks";
 import { useCreateStripeCheckoutMutation } from "../mutations";
 
 export function usePurchaseUI() {
   const { mutateAsync: createStripeCheckout, isPending: isCreatingCheckout } =
     useCreateStripeCheckoutMutation();
+  const { showError } = useAppToast();
 
   const handlePurchase = useCallback(
     async (
@@ -20,7 +21,7 @@ export function usePurchaseUI() {
       }
 
       if (!isValidAmount) {
-        Alert.alert("Invalid Amount", "Minimum purchase amount is 5 RCN");
+        showError("Minimum purchase amount is 5 RCN");
         return;
       }
 
@@ -31,7 +32,7 @@ export function usePurchaseUI() {
         console.error("Purchase initiation failed:", err);
       }
     },
-    [createStripeCheckout]
+    [createStripeCheckout, showError]
   );
 
   return {

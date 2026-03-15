@@ -162,7 +162,7 @@ export interface ShopData {
   rcg_tier?: string;
   rcg_balance?: number;
   facebook?: string;
-  twitter?: string;
+  x?: string;
   instagram?: string;
   website?: string;
   suspended_at?: string;
@@ -209,6 +209,8 @@ export default function ShopDashboardClient() {
 
   // Prevent multiple concurrent background refreshes (thundering herd prevention)
   const backgroundRefreshInProgressRef = useRef(false);
+  // Ref to always hold the latest loadShopData (prevents stale closures in event listeners)
+  const loadShopDataRef = useRef<(forceRefresh?: boolean) => Promise<void>>(async () => {});
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -404,7 +406,7 @@ export default function ShopDashboardClient() {
   }, [account?.address, userProfile?.address, userProfile?.shopId, shopData]);
 
   // Listen for subscription-related notifications and refresh data
-  const { notifications } = useNotificationStore();
+  const { notifications, isConnected: isWsConnected } = useNotificationStore();
   const lastProcessedNotificationRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -433,25 +435,37 @@ export default function ShopDashboardClient() {
       lastProcessedNotificationRef.current = latestNotification.id;
       // Add small delay to let modal animations complete and prevent flicker
       setTimeout(() => {
-        // Refresh shop data to update the warning banner
+        // Force refresh (skip cache) to get latest status from API
         const walletAddress = account?.address || userProfile?.address;
         if (walletAddress) {
-          loadShopData();
+          loadShopDataRef.current(true);
         }
       }, 500);
     }
   }, [notifications, account?.address, userProfile?.address]);
 
   // Refresh shop data when page becomes visible (catches changes missed via WebSocket)
+  // Debounced to avoid spamming API on rapid tab switches which can cause auth failures
   useEffect(() => {
+    let lastRefresh = 0;
+    const REFRESH_COOLDOWN_MS = 30000; // Only refresh once per 30 seconds
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const walletAddress = account?.address || userProfile?.address;
-        if (walletAddress && shopData) {
-          console.log('📋 Page became visible, refreshing shop data...');
-          loadShopData();
-        }
+      if (document.visibilityState !== 'visible') return;
+      if (useAuthStore.getState().switchingAccount) return;
+
+      const walletAddress = account?.address || userProfile?.address;
+      if (!walletAddress || !shopData) return;
+
+      const now = Date.now();
+      if (now - lastRefresh < REFRESH_COOLDOWN_MS) {
+        console.log('📋 Page visible but skipping shop refresh (cooldown)');
+        return;
       }
+
+      lastRefresh = now;
+      console.log('📋 Page became visible, refreshing shop data...');
+      loadShopDataRef.current(true);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -460,14 +474,14 @@ export default function ShopDashboardClient() {
     };
   }, [account?.address, userProfile?.address, shopData]);
 
-  // Listen for shop status changes via WebSocket DOM events (suspend/unsuspend)
+  // Listen for shop status changes via WebSocket DOM events (suspend/unsuspend/pause/resume)
   useEffect(() => {
     const handleShopStatusChange = (event: CustomEvent) => {
       console.log('🏪 Shop status changed event received:', event.detail);
       const walletAddress = account?.address || userProfile?.address;
       if (walletAddress) {
-        // Refresh shop data to reflect the new status
-        setTimeout(() => loadShopData(), 500);
+        // Force refresh (skip cache) to get latest status from API
+        setTimeout(() => loadShopDataRef.current(true), 500);
       }
     };
 
@@ -477,6 +491,22 @@ export default function ShopDashboardClient() {
     };
   }, [account?.address, userProfile?.address]);
 
+  // Polling fallback: periodically refresh shop data when WebSocket is not connected
+  // This ensures the overlay guard fires even without real-time WebSocket delivery
+  useEffect(() => {
+    if (isWsConnected || !shopData) return; // Skip if WebSocket is working or no shop data yet
+
+    console.log('[ShopDashboard] ⚠️ WebSocket not connected, starting status polling fallback');
+    const pollInterval = setInterval(() => {
+      const walletAddress = account?.address || userProfile?.address;
+      if (walletAddress) {
+        loadShopDataRef.current(true);
+      }
+    }, 15000); // Poll every 15 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isWsConnected, shopData, account?.address, userProfile?.address]);
+
   // Check if shop is suspended or rejected
   const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
   // Check if shop is pending (not yet verified) - must check this BEFORE rejected
@@ -485,12 +515,17 @@ export default function ShopDashboardClient() {
   // Only verified shops can be "rejected" - unverified shops are "pending"
   const isRejected = shopData && shopData.verified && !shopData.active && !isSuspended;
 
+  // Check if subscription has expired (period end date is in the past)
+  // This catches stale operational_status when Stripe webhook fails after self-cancel
+  const isSubscriptionExpired = !!(shopData?.subscriptionEndsAt &&
+    new Date(shopData.subscriptionEndsAt) < new Date());
+
   // Check if shop is operational
   // If operational_status is not available (legacy), assume operational if shop is active and verified
   const isOperational =
     shopData &&
     (shopData.operational_status === "rcg_qualified" ||
-      shopData.operational_status === "subscription_qualified" ||
+      (shopData.operational_status === "subscription_qualified" && !isSubscriptionExpired) ||
       // Fallback: If operational_status is missing but shop is active and verified, assume operational
       (!shopData.operational_status && shopData.active && shopData.verified));
 
@@ -718,6 +753,9 @@ export default function ShopDashboardClient() {
       setLoading(false);
     }
   };
+
+  // Keep ref in sync so event listeners always call the latest version
+  loadShopDataRef.current = loadShopData;
 
   // Background refresh - doesn't show loading spinner
   // Uses ref to prevent multiple concurrent refreshes (thundering herd prevention)
@@ -1155,6 +1193,10 @@ export default function ShopDashboardClient() {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tab);
     url.searchParams.delete("filter");
+    // Clean up conversation param when leaving messages tab
+    if (tab !== "messages") {
+      url.searchParams.delete("conversation");
+    }
     window.history.pushState({}, "", url);
   };
 

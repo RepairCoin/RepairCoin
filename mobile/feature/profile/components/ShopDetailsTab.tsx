@@ -130,8 +130,10 @@ export function ShopDetailsTab({
                 onPress={() => onLinkPress("social", shopData.twitter, "twitter")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
-                <Ionicons name="logo-twitter" size={28} color="#1DA1F2" />
-                <Text className="text-gray-400 text-xs mt-2">Twitter</Text>
+                <View className="w-7 h-7 bg-black rounded-full items-center justify-center border border-zinc-700">
+                  <Text className="text-white text-base font-bold">𝕏</Text>
+                </View>
+                <Text className="text-gray-400 text-xs mt-2">X</Text>
               </TouchableOpacity>
             )}
             {shopData.instagram && (

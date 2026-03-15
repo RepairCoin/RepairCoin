@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+
+// Fixed height for grid cards
+const CARD_HEIGHT = 240;
 
 interface ServiceCardProps {
   imageUrl?: string | null;
@@ -66,13 +69,21 @@ function ServiceCard({
     setLocalFavorited(initialFavorited);
   }, [initialFavorited]);
 
-  const handleFavoritePress = () => {
+  // Memoize image source to prevent re-renders
+  const imageSource = useMemo(
+    () => (imageUrl ? { uri: imageUrl } : null),
+    [imageUrl]
+  );
+
+  const handleFavoritePress = useCallback(() => {
     if (!serviceId) return;
     // Update UI instantly
-    setLocalFavorited(!localFavorited);
-    // Then make API call in background
-    toggleFavorite(serviceId, !!localFavorited);
-  };
+    setLocalFavorited((prev) => {
+      // Then make API call in background
+      toggleFavorite(serviceId, !!prev);
+      return !prev;
+    });
+  }, [serviceId, toggleFavorite]);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not scheduled";
@@ -92,9 +103,9 @@ function ServiceCard({
           <View className="bg-gray-900 rounded-xl overflow-hidden flex-row">
             {/* Image */}
             <View className="relative">
-              {imageUrl ? (
+              {imageSource ? (
                 <Image
-                  source={{ uri: imageUrl }}
+                  source={imageSource}
                   className="w-24 h-24"
                   resizeMode="cover"
                 />
@@ -172,19 +183,19 @@ function ServiceCard({
 
   // Grid View Layout (default)
   return (
-    <View className="flex-1 mx-2 my-2">
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8} className="flex-1">
+    <View style={{ width: "100%" }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         <LinearGradient
           colors={["#27272a", "#18181b"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ borderRadius: 12, overflow: "hidden", flex: 1 }}
+          style={{ borderRadius: 12, overflow: "hidden", height: CARD_HEIGHT }}
         >
           {imageUrl !== undefined && (
             <View className="relative">
-              {imageUrl ? (
+              {imageSource ? (
                 <Image
-                  source={{ uri: imageUrl }}
+                  source={imageSource}
                   className="w-full h-28"
                   resizeMode="cover"
                 />
@@ -251,7 +262,7 @@ function ServiceCard({
             </View>
           )}
 
-          <View className="p-3 flex-1 justify-between">
+          <View className="p-3">
             <View>
               <View className="flex-row items-center justify-between mb-1">
                 <Text className="text-xs text-gray-500 uppercase tracking-wide">

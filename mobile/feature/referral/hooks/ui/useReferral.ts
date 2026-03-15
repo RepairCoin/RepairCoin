@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { Share, Alert, Linking } from "react-native";
+import { Share, Linking } from "react-native";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
+import { useAppToast } from "@/shared/hooks";
 import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "../../constants";
 
 export function useReferral() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
+  const { showWarning } = useAppToast();
 
   const [codeCopied, setCodeCopied] = useState(false);
 
@@ -52,7 +54,7 @@ export function useReferral() {
         if (supported) {
           Linking.openURL(url);
         } else {
-          Alert.alert("WhatsApp not installed", "Please install WhatsApp to share.");
+          showWarning("WhatsApp not installed. Please install WhatsApp to share.");
         }
       })
       .catch((err) => console.log("WhatsApp error:", err));

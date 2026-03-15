@@ -248,8 +248,12 @@ export class ShopRepository extends BaseRepository {
 
       logger.info('Created default time slot config and availability', { shopId });
     } catch (error) {
-      // Log but don't fail shop creation - time slot config is not critical
-      logger.warn('Failed to create default time slot config (non-fatal)', { shopId, error });
+      // Don't fail shop creation, but log as ERROR - lazy init in AppointmentService will recover
+      logger.error('CRITICAL: Failed to create default time slot config for new shop (lazy init will recover)', {
+        shopId,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
     }
   }
 
@@ -499,6 +503,133 @@ export class ShopRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting paginated shops:', error);
       throw new Error('Failed to get shops');
+    }
+  }
+
+  async searchActiveShops(filters: {
+    search?: string;
+    category?: string;
+    page: number;
+    limit: number;
+  }): Promise<PaginatedResult<ShopData>> {
+    try {
+      const { search, category, page, limit } = filters;
+      const offset = this.getPaginationOffset(page, limit);
+      const whereClauses: string[] = ['s.active = true', 's.verified = true'];
+      const params: any[] = [];
+      let paramCount = 0;
+
+      if (search) {
+        paramCount++;
+        whereClauses.push(
+          `(s.name ILIKE $${paramCount} OR s.address ILIKE $${paramCount} OR s.location_city ILIKE $${paramCount} OR s.category ILIKE $${paramCount})`
+        );
+        params.push(`%${search}%`);
+      }
+
+      if (category) {
+        paramCount++;
+        whereClauses.push(`s.category = $${paramCount}`);
+        params.push(category);
+      }
+
+      const whereSQL = whereClauses.join(' AND ');
+
+      // Count query
+      const countQuery = `SELECT COUNT(*) FROM shops s WHERE ${whereSQL}`;
+      const countResult = await this.pool.query(countQuery, params);
+      const totalItems = parseInt(countResult.rows[0].count, 10);
+
+      // Data query
+      paramCount++;
+      const limitParam = paramCount;
+      paramCount++;
+      const offsetParam = paramCount;
+
+      const dataQuery = `
+        SELECT s.*,
+          COALESCE(r.avg_rating, 0) as shop_avg_rating,
+          COALESCE(r.total_reviews, 0) as shop_total_reviews
+        FROM shops s
+        LEFT JOIN (
+          SELECT ss.shop_id,
+            AVG(sr.rating)::numeric(3,2) as avg_rating,
+            COUNT(sr.review_id) as total_reviews
+          FROM shop_services ss
+          INNER JOIN service_reviews sr ON ss.service_id = sr.service_id
+          GROUP BY ss.shop_id
+        ) r ON s.shop_id = r.shop_id
+        WHERE ${whereSQL}
+        ORDER BY COALESCE(r.avg_rating, 0) DESC, COALESCE(r.total_reviews, 0) DESC
+        LIMIT $${limitParam} OFFSET $${offsetParam}
+      `;
+      const dataResult = await this.pool.query(dataQuery, [...params, limit, offset]);
+
+      const totalPages = Math.ceil(totalItems / limit);
+      const items = dataResult.rows.map(row => ({
+        shopId: row.shop_id,
+        name: row.name,
+        address: row.address,
+        phone: row.phone,
+        email: row.email,
+        walletAddress: row.wallet_address,
+        reimbursementAddress: row.reimbursement_address,
+        verified: row.verified,
+        active: row.active,
+        crossShopEnabled: row.cross_shop_enabled,
+        totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
+        totalRedemptions: parseFloat(row.total_redemptions || 0),
+        totalReimbursements: parseFloat(row.total_reimbursements || 0),
+        joinDate: row.join_date,
+        lastActivity: row.last_activity,
+        fixflowShopId: row.fixflow_shop_id,
+        location: row.location,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason,
+        verifiedAt: row.verified_at,
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status || 'pending',
+        rcg_tier: row.rcg_tier || 'standard',
+        rcg_balance: parseFloat(row.rcg_balance || 0),
+        tier_updated_at: row.tier_updated_at,
+        locationLat: row.location_lat,
+        locationLng: row.location_lng,
+        locationCity: row.location_city,
+        locationState: row.location_state,
+        locationZipCode: row.location_zip_code,
+        facebook: row.facebook,
+        twitter: row.twitter,
+        instagram: row.instagram,
+        website: row.website,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        companySize: row.company_size,
+        monthlyRevenue: row.monthly_revenue,
+        referral: row.referral,
+        acceptTerms: row.accept_terms,
+        country: row.country,
+        city: row.location_city,
+        category: row.category,
+        logoUrl: row.logo_url,
+        avgRating: parseFloat(row.shop_avg_rating || 0),
+        totalReviews: parseInt(row.shop_total_reviews || 0),
+      }));
+
+      return {
+        items,
+        pagination: {
+          page,
+          limit,
+          totalItems,
+          totalPages,
+          hasMore: page < totalPages,
+        },
+      };
+    } catch (error) {
+      logger.error('Error searching active shops:', error);
+      throw new Error('Failed to search active shops');
     }
   }
 

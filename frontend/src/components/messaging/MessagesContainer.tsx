@@ -1,20 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MessageInbox, type Conversation } from "./MessageInbox";
 import { ConversationThread, type Message } from "./ConversationThread";
 import { MessageCircle, ArrowLeft } from "lucide-react";
 import * as messagingApi from "@/services/api/messaging";
+import { useAuthStore } from "@/stores/authStore";
 
 interface MessagesContainerProps {
   userType: "customer" | "shop";
   currentUserId: string;
+  initialConversationId?: string | null;
+  filterUnread?: boolean;
+  filterDateRange?: 'all' | '7d' | '30d' | '90d';
 }
 
 export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   userType,
   currentUserId,
+  initialConversationId,
+  filterUnread,
+  filterDateRange,
 }) => {
+  const appliedInitialId = useRef<string | null>(null);
+
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showMobileThread, setShowMobileThread] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -22,9 +31,12 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { switchingAccount } = useAuthStore();
 
   // Fetch conversations from API
   useEffect(() => {
+    if (switchingAccount) return;
+
     const fetchConversations = async (isInitialLoad = true) => {
       try {
         if (isInitialLoad) {
@@ -34,7 +46,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         const response = await messagingApi.getConversations({ page: 1, limit: 50 });
 
         // Transform API response to match Conversation type
-        const transformedConversations: Conversation[] = response.data.map((conv) => ({
+        const transformedConversations: Conversation[] = (response.data || []).map((conv: any) => ({
           id: conv.conversationId,
           serviceId: "", // Will need to fetch from service orders if needed
           serviceName: "", // Will need to fetch from service orders if needed
@@ -84,7 +96,23 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval);
-  }, [userType]);
+  }, [userType, switchingAccount]);
+
+  // Auto-select conversation from prop (passed from URL query param)
+  useEffect(() => {
+    if (
+      initialConversationId &&
+      conversations.length > 0 &&
+      appliedInitialId.current !== initialConversationId
+    ) {
+      const exists = conversations.find((c) => c.id === initialConversationId);
+      if (exists) {
+        setSelectedConversationId(initialConversationId);
+        setShowMobileThread(true);
+        appliedInitialId.current = initialConversationId;
+      }
+    }
+  }, [initialConversationId, conversations]);
 
   // Fetch messages when conversation is selected
   useEffect(() => {
@@ -104,7 +132,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         });
 
         // Transform API response to match Message type
-        const transformedMessages: Message[] = response.data.map((msg) => ({
+        const transformedMessages: Message[] = (response.data || []).map((msg: any) => ({
           id: msg.messageId,
           conversationId: msg.conversationId,
           senderId: msg.senderAddress,
@@ -116,7 +144,9 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
           isSystemMessage: msg.messageType === "system",
           messageType: msg.messageType,
           metadata: msg.metadata,
-          attachments: msg.attachments?.length > 0 ? msg.attachments : undefined,
+          attachments: msg.attachments?.length > 0
+            ? msg.attachments.map((a: any) => ({ type: a.type || 'file', url: a.url, name: a.name || 'attachment' }))
+            : undefined,
         }));
 
         setMessages(transformedMessages);
@@ -146,6 +176,19 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     return () => clearInterval(pollInterval);
   }, [selectedConversationId, currentUserId]);
 
+  const filteredConversations = useMemo(() => {
+    let filtered = conversations;
+    if (filterUnread) {
+      filtered = filtered.filter(c => c.unreadCount > 0);
+    }
+    if (filterDateRange && filterDateRange !== 'all') {
+      const days = filterDateRange === '7d' ? 7 : filterDateRange === '30d' ? 30 : 90;
+      const cutoff = new Date(Date.now() - days * 86400000);
+      filtered = filtered.filter(c => new Date(c.lastMessageTime) >= cutoff);
+    }
+    return filtered;
+  }, [conversations, filterUnread, filterDateRange]);
+
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
   const handleSelectConversation = (conversationId: string) => {
@@ -158,13 +201,33 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     setSelectedConversationId(null);
   };
 
+  const handleArchiveConversation = async (archived: boolean): Promise<void> => {
+    if (!selectedConversationId) return;
+    await messagingApi.archiveConversation(selectedConversationId, archived);
+    // Update local state
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === selectedConversationId
+          ? { ...c, status: archived ? 'resolved' as const : 'active' as const }
+          : c
+      )
+    );
+  };
+
   const handleSendMessage = async (content: string, attachments?: File[]): Promise<void> => {
-    if (!selectedConversationId || !content.trim()) return;
+    if (!selectedConversationId || (!content.trim() && (!attachments || attachments.length === 0))) return;
+
+    // Upload attachments first if any
+    let uploadedAttachments: messagingApi.MessageAttachment[] = [];
+    if (attachments && attachments.length > 0) {
+      uploadedAttachments = await messagingApi.uploadAttachments(attachments);
+    }
 
     const newMessage = await messagingApi.sendMessage({
       conversationId: selectedConversationId,
-      messageText: content,
+      messageText: content || '',
       messageType: "text",
+      ...(uploadedAttachments.length > 0 && { attachments: uploadedAttachments }),
     });
 
     // Add the new message to the messages list
@@ -178,6 +241,11 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       timestamp: newMessage.createdAt,
       status: "delivered",
       isSystemMessage: false,
+      attachments: (newMessage.attachments || []).map((a: any) => ({
+        type: a.type || 'file',
+        url: a.url,
+        name: a.name || 'attachment',
+      })),
     };
 
     setMessages((prev) => [...prev, transformedMessage]);
@@ -211,7 +279,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         {/* Inbox Sidebar */}
         <div className="w-96 flex-shrink-0">
           <MessageInbox
-            conversations={conversations}
+            conversations={filteredConversations}
             selectedConversationId={selectedConversationId}
             onSelectConversation={handleSelectConversation}
             userType={userType}
@@ -247,6 +315,17 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               currentUserId={currentUserId}
               currentUserType={userType}
               onSendMessage={handleSendMessage}
+              conversationStatus={selectedConversation.status}
+              {...(userType === "shop" && { onArchiveConversation: handleArchiveConversation })}
+              conversationDetails={{
+                id: selectedConversation.id,
+                customerId: selectedConversation.customerId,
+                customerName: selectedConversation.customerName,
+                shopId: selectedConversation.shopId,
+                shopName: selectedConversation.shopName,
+                lastMessageTime: selectedConversation.lastMessageTime,
+                unreadCount: selectedConversation.unreadCount,
+              }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -257,6 +336,8 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               <p className="text-gray-400 max-w-md">
                 {conversations.length === 0
                   ? "No conversations yet. Book a service to start messaging with shops!"
+                  : filteredConversations.length === 0
+                  ? "No conversations match the current filters"
                   : `Choose a conversation from the list to start messaging with ${userType === "customer" ? "shops" : "customers"}`}
               </p>
             </div>
@@ -287,11 +368,22 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               currentUserId={currentUserId}
               currentUserType={userType}
               onSendMessage={handleSendMessage}
+              conversationStatus={selectedConversation.status}
+              {...(userType === "shop" && { onArchiveConversation: handleArchiveConversation })}
+              conversationDetails={{
+                id: selectedConversation.id,
+                customerId: selectedConversation.customerId,
+                customerName: selectedConversation.customerName,
+                shopId: selectedConversation.shopId,
+                shopName: selectedConversation.shopName,
+                lastMessageTime: selectedConversation.lastMessageTime,
+                unreadCount: selectedConversation.unreadCount,
+              }}
             />
           </div>
         ) : (
           <MessageInbox
-            conversations={conversations}
+            conversations={filteredConversations}
             selectedConversationId={selectedConversationId}
             onSelectConversation={handleSelectConversation}
             userType={userType}

@@ -385,8 +385,9 @@ export const useAuthStore = create<AuthState>()(
         // Reset state regardless of API call result
         get().resetAuth();
 
-        // Redirect to home page for better UX
+        // Clear any pending switch intent (explicit logout = cancel everything)
         if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('rc_switch_intent');
           window.location.href = '/';
         }
       },
@@ -394,6 +395,10 @@ export const useAuthStore = create<AuthState>()(
       // Auto-switch account when MetaMask wallet changes
       // Login-first, redirect-second approach: authenticate BEFORE navigating
       // This eliminates race conditions where the new page loads without a valid session
+      //
+      // SWITCH INTENT PERSISTENCE: Before logout, we save the switch intent to sessionStorage.
+      // If the browser throttles the background tab (user switches away mid-switch),
+      // the intent survives. When the user returns, useAuthInitializer detects and resumes it.
       switchAccount: async (newAddress: string, email?: string) => {
         const state = get();
 
@@ -405,6 +410,10 @@ export const useAuthStore = create<AuthState>()(
 
         console.log('[authStore] 🔄 Starting account switch to:', newAddress);
         set({ switchingAccount: true }, false, 'switchAccount:start');
+
+        // Block non-essential API calls immediately to prevent stale requests
+        // This must happen before any async work so useEffect hooks see the flag
+        setAccountSwitchingState(true);
 
         try {
           // 1. Check if new wallet is registered (non-destructive, determines target role)
@@ -422,8 +431,18 @@ export const useAuthStore = create<AuthState>()(
             ? dashboards[userCheck.type] || '/'
             : '/choose';
 
-          // 3. Block non-essential API calls to prevent stale requests
-          setAccountSwitchingState(true);
+          // 3. PERSIST SWITCH INTENT before logout — survives tab backgrounding/page reload
+          if (typeof window !== 'undefined') {
+            const switchIntent = {
+              newAddress,
+              email: email || null,
+              targetType: userCheck.type || null,
+              targetPath,
+              timestamp: Date.now(),
+            };
+            sessionStorage.setItem('rc_switch_intent', JSON.stringify(switchIntent));
+            console.log('[authStore] 💾 Switch intent saved to sessionStorage');
+          }
 
           // 4. Logout current session (await to ensure it completes before re-auth)
           console.log('[authStore] 🔄 Logging out current session...');
@@ -452,23 +471,24 @@ export const useAuthStore = create<AuthState>()(
               console.log('[authStore] 🔄 Authentication successful for:', userCheck.type);
             } catch (authError: any) {
               console.error('[authStore] 🔄 Authentication failed during switch:', authError);
-              // Auth failed after logout - redirect to home as fallback
+              // Don't clear switch intent here — let useAuthInitializer retry on visibility change
               setAccountSwitchingState(false);
               set({ switchingAccount: false }, false, 'switchAccount:authFailed');
-              if (typeof window !== 'undefined') {
-                clearAllAuthCaches();
-                window.location.replace('/');
-              }
               return;
             }
           }
 
-          // 6. Clear caches so new page loads fresh data for the new user
+          // 6. Clear switch intent — switch completed successfully
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('rc_switch_intent');
+          }
+
+          // 7. Clear caches so new page loads fresh data for the new user
           if (typeof window !== 'undefined') {
             clearAllAuthCaches();
           }
 
-          // 7. Redirect - session cookie is already set by authenticate call above
+          // 8. Redirect — session cookie is already set by authenticate call above
           // The new page will find a valid session immediately via getSession()
           console.log('[authStore] 🔄 Redirecting to:', targetPath);
           if (typeof window !== 'undefined') {

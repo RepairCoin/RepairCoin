@@ -1,9 +1,17 @@
 export { useServicesTabUI } from "./useServicesTabUI";
 export { useServiceFormUI } from "./useServiceFormUI";
-export { useServiceDetailUI } from "./useServiceDetailUI";
 export { useServiceNavigation } from "./useServiceNavigation";
 export { useAvailabilityModal } from "./useAvailabilityModal";
-
-// Customer-side hooks
-export { useServiceDetail } from "./useServiceDetail";
 export { useTrendingServices } from "./useTrendingServices";
+export { useUnifiedServiceDetail } from "./useUnifiedServiceDetail";
+
+// Shop tab hooks
+export { useServiceTabUI } from "./useServiceTabUI";
+export { useShopServiceNavigation } from "./useShopServiceNavigation";
+export { useServiceStatusUI } from "./useServiceStatusUI";
+
+// Customer tab hooks
+export { useCustomerServiceTab } from "./useCustomerServiceTab";
+export { useServicesTab } from "./useServicesTab";
+export { useFavoritesTab } from "./useFavoritesTab";
+export { useBookingsTab, canCancelAppointment } from "./useBookingsTab";

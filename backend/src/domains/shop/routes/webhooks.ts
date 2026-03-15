@@ -9,6 +9,9 @@ import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { EmailService } from '../../../services/EmailService';
+import { generalNotificationPreferencesRepository } from '../../../repositories/GeneralNotificationPreferencesRepository';
+import { shopRepository } from '../../../repositories';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -660,6 +663,14 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
       }
     });
 
+    // Send billing receipt notification if shop has it enabled
+    if (subscriptionId) {
+      const shopId = await getShopIdFromSubscription(subscriptionId);
+      if (shopId) {
+        await sendBillingReceiptNotification(shopId, invoice);
+      }
+    }
+
     // IMPORTANT: Sync subscription dates after successful payment (renewal)
     // This ensures shop_subscriptions.next_payment_date stays in sync with Stripe
     if (subscriptionId) {
@@ -694,6 +705,225 @@ async function handlePaymentSucceeded(event: Stripe.Event, subscriptionService: 
   } catch (error) {
     logger.error('Failed to record successful payment', {
       invoiceId: invoice.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Send billing receipt notification to shop owner
+ */
+async function sendBillingReceiptNotification(shopId: string, invoice: any): Promise<void> {
+  try {
+    // Get shop details
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      logger.warn('Shop not found for billing receipt notification', { shopId });
+      return;
+    }
+
+    // Check if shop has billing receipt notifications enabled
+    const prefs = await generalNotificationPreferencesRepository.getPreferences(shop.walletAddress, 'shop');
+    if (prefs && !prefs.billingReceiptNotifications) {
+      logger.info('Billing receipt notifications disabled for shop, skipping notification', {
+        shopId,
+        walletAddress: shop.walletAddress
+      });
+      return;
+    }
+
+    const amountPaid = invoice.amount_paid ? (invoice.amount_paid / 100).toFixed(2) : '500.00';
+    const paidDate = invoice.status_transitions?.paid_at
+      ? new Date(invoice.status_transitions.paid_at * 1000).toLocaleDateString()
+      : new Date().toLocaleDateString();
+
+    // Send in-app notification
+    const notificationService = new NotificationService();
+    await notificationService.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shop.walletAddress,
+      notificationType: 'payment_received',
+      message: `Payment of $${amountPaid} received successfully. Thank you for your subscription!`,
+      metadata: {
+        shopId,
+        invoiceId: invoice.id,
+        amountPaid,
+        paidDate,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    // Send email receipt if shop has email
+    if (shop.email) {
+      const emailService = new EmailService();
+      const subject = 'RepairCoin Subscription Payment Receipt';
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #28a745; padding: 20px; text-align: center;">
+            <h1 style="color: #fff; margin: 0;">Payment Received</h1>
+          </div>
+
+          <div style="padding: 20px;">
+            <p>Hi ${shop.name},</p>
+
+            <p>Thank you for your payment! This email confirms that we have successfully processed your RepairCoin subscription payment.</p>
+
+            <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="margin-top: 0;">Payment Details</h3>
+              <p style="margin: 5px 0;"><strong>Amount Paid:</strong> $${amountPaid}</p>
+              <p style="margin: 5px 0;"><strong>Date:</strong> ${paidDate}</p>
+              <p style="margin: 5px 0;"><strong>Invoice ID:</strong> ${invoice.id}</p>
+              <p style="margin: 5px 0;"><strong>Shop:</strong> ${shop.name}</p>
+            </div>
+
+            <div style="background-color: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #c3e6cb;">
+              <p style="margin: 0; color: #155724;">
+                ✓ Your subscription is active and all features are available.
+              </p>
+            </div>
+
+            <p>Thank you for being a valued RepairCoin partner!</p>
+
+            <p style="margin-top: 30px; font-size: 12px; color: #666;">
+              If you have any questions about this payment, please contact support@repaircoin.com
+            </p>
+          </div>
+
+          <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+            <p style="margin: 5px 0;">This is an automated receipt from RepairCoin.</p>
+          </div>
+        </div>
+      `;
+
+      await emailService['sendEmail'](shop.email, subject, html);
+    }
+
+    logger.info('Billing receipt notification sent', {
+      shopId,
+      amountPaid,
+      email: !!shop.email
+    });
+  } catch (error) {
+    logger.error('Error sending billing receipt notification:', {
+      shopId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Send payment failure notification to shop owner
+ */
+async function sendPaymentFailureNotification(shopId: string, invoice: any, attemptCount: number, maxRetries: number): Promise<void> {
+  try {
+    // Get shop details
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      logger.warn('Shop not found for payment failure notification', { shopId });
+      return;
+    }
+
+    // Check if shop has payment failure alerts enabled
+    const prefs = await generalNotificationPreferencesRepository.getPreferences(shop.walletAddress, 'shop');
+    if (prefs && !prefs.paymentFailureAlerts) {
+      logger.info('Payment failure alerts disabled for shop, skipping notification', {
+        shopId,
+        walletAddress: shop.walletAddress
+      });
+      return;
+    }
+
+    const isLastAttempt = attemptCount >= maxRetries;
+    const amountDue = invoice.amount_due ? (invoice.amount_due / 100).toFixed(2) : '500.00';
+
+    // Send in-app notification
+    const notificationService = new NotificationService();
+    await notificationService.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shop.walletAddress,
+      notificationType: 'payment_failed',
+      message: isLastAttempt
+        ? `Payment of $${amountDue} failed after ${maxRetries} attempts. Your subscription may be cancelled soon.`
+        : `Payment of $${amountDue} failed (attempt ${attemptCount}/${maxRetries}). Please update your payment method.`,
+      metadata: {
+        shopId,
+        invoiceId: invoice.id,
+        attemptCount,
+        maxRetries,
+        amountDue,
+        isLastAttempt,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    // Send email if shop has email
+    if (shop.email) {
+      const emailService = new EmailService();
+      const subject = isLastAttempt
+        ? 'Urgent: Subscription Payment Failed - Action Required'
+        : 'Subscription Payment Failed - Please Update Payment Method';
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: ${isLastAttempt ? '#dc3545' : '#ffc107'}; padding: 20px; text-align: center;">
+            <h1 style="color: ${isLastAttempt ? '#fff' : '#000'}; margin: 0;">
+              ${isLastAttempt ? 'Subscription Payment Failed' : 'Payment Attempt Failed'}
+            </h1>
+          </div>
+
+          <div style="padding: 20px;">
+            <p>Hi ${shop.name},</p>
+
+            <p>We were unable to process your RepairCoin subscription payment of <strong>$${amountDue}</strong>.</p>
+
+            <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${isLastAttempt ? '#dc3545' : '#ffc107'};">
+              <p style="margin: 5px 0;"><strong>Amount Due:</strong> $${amountDue}</p>
+              <p style="margin: 5px 0;"><strong>Attempt:</strong> ${attemptCount} of ${maxRetries}</p>
+              <p style="margin: 5px 0;"><strong>Invoice ID:</strong> ${invoice.id}</p>
+            </div>
+
+            ${isLastAttempt ? `
+            <div style="background-color: #f8d7da; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #f5c6cb;">
+              <p style="margin: 0; color: #721c24;">
+                <strong>Critical:</strong> This was the final payment attempt. If payment is not received soon, your subscription will be cancelled and you will lose access to:
+              </p>
+              <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #721c24;">
+                <li>Issuing RCN rewards to customers</li>
+                <li>Processing redemptions</li>
+                <li>Service bookings</li>
+                <li>Customer management features</li>
+              </ul>
+            </div>
+            ` : `
+            <p>We will automatically retry the payment. Please ensure your payment method is up to date to avoid service interruption.</p>
+            `}
+
+            <div style="text-align: center; margin: 30px 0;">
+              <p><strong>Please update your payment method immediately to continue your service.</strong></p>
+            </div>
+
+            <p>If you need assistance, please contact support@repaircoin.com</p>
+          </div>
+
+          <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666;">
+            <p style="margin: 5px 0;">This is an automated alert from RepairCoin.</p>
+          </div>
+        </div>
+      `;
+
+      await emailService['sendEmail'](shop.email, subject, html);
+    }
+
+    logger.info('Payment failure notification sent', {
+      shopId,
+      attemptCount,
+      isLastAttempt,
+      email: !!shop.email
+    });
+  } catch (error) {
+    logger.error('Error sending payment failure notification:', {
+      shopId,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -780,6 +1010,9 @@ async function handlePaymentFailed(event: Stripe.Event, subscriptionService: any
         webhookEventId: event.id
       }
     });
+
+    // Send payment failure alert notification if shop has it enabled
+    await sendPaymentFailureNotification(shopId, invoice, attemptCount, maxRetries);
   } catch (error) {
     logger.error('Failed to process payment failure', {
       invoiceId: invoice.id,
@@ -1221,6 +1454,23 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
                 customerName: order.customer_name,
                 amount: order.total_amount,
                 serviceName: order.service_name
+              }
+            });
+
+            // Publish event so NotificationDomain can send WebSocket message to shop
+            eventBus.publish({
+              type: 'manual_booking:payment_completed',
+              aggregateId: shopId,
+              timestamp: new Date(),
+              source: 'StripeWebhook',
+              version: 1,
+              data: {
+                orderId,
+                shopId,
+                shopAddress: shopResult.rows[0].wallet_address,
+                customerName: order.customer_name,
+                serviceName: order.service_name,
+                amount: order.total_amount
               }
             });
           }

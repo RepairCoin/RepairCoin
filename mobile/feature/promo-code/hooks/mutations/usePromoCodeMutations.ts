@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { Alert } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useAppToast } from "@/shared/hooks";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
 import { shopApi } from "@/shared/services/shop.services";
@@ -30,6 +30,7 @@ export function useUpdatePromoCodeStatusMutation() {
 
 export function useCreatePromoCodeMutation() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
+  const { showSuccess, showError } = useAppToast();
 
   return useMutation({
     mutationFn: async (promoCodeData: CreatePromoCodeRequest) => {
@@ -39,16 +40,8 @@ export function useCreatePromoCodeMutation() {
       return shopApi.createPromoCode(shopId, promoCodeData);
     },
     onSuccess: () => {
-      Alert.alert(
-        "Success",
-        "Promo code created successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => router.back()
-          }
-        ]
-      );
+      showSuccess("Promo code created successfully!");
+      router.back();
 
       // Invalidate promo codes list to refresh
       if (shopId) {
@@ -59,11 +52,7 @@ export function useCreatePromoCodeMutation() {
     },
     onError: (error: any) => {
       console.error("Failed to create promo code:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Failed to create promo code",
-        [{ text: "OK" }]
-      );
+      showError(error.response?.data?.error || "Failed to create promo code");
     },
   });
 }

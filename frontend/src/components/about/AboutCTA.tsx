@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function AboutCTA() {
   return (
     <section className="relative w-full bg-[#0D0D0D] overflow-hidden">
@@ -22,7 +20,7 @@ export default function AboutCTA() {
               early partner
               {/* Yellow underline curve */}
               <svg
-                className="absolute -bottom-4 -left-[3%] w-[106%] h-[18px]"
+                className="absolute -bottom-8 -left-[3%] w-[106%] h-[18px]"
                 viewBox="0 0 311 8"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -39,16 +37,10 @@ export default function AboutCTA() {
             </span>
           </h2>
 
-          <p className="mt-6 max-w-xl mx-auto text-gray-400 text-base leading-relaxed">
+          <p className="mt-10 mx-auto text-gray-400 text-base leading-relaxed whitespace-nowrap">
             Be among the first to launch, test, and grow with RepairCoin from day one.
           </p>
 
-          <Link
-            href="/waitlist"
-            className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
-          >
-            Join Waitlist &rarr;
-          </Link>
         </div>
       </div>
     </section>
