@@ -5,6 +5,7 @@ export interface WaitlistEntry {
   id: string;
   email: string;
   userType: 'customer' | 'shop';
+  inquiryType: 'waitlist' | 'demo';
   status: 'pending' | 'contacted' | 'approved' | 'rejected';
   createdAt: Date;
   updatedAt: Date;
@@ -15,6 +16,7 @@ export interface WaitlistEntry {
 export interface CreateWaitlistEntryParams {
   email: string;
   userType: 'customer' | 'shop';
+  inquiryType?: 'waitlist' | 'demo';
 }
 
 export interface UpdateWaitlistStatusParams {
@@ -35,12 +37,13 @@ export class WaitlistRepository {
    */
   async create(params: CreateWaitlistEntryParams): Promise<WaitlistEntry> {
     const query = `
-      INSERT INTO waitlist (email, user_type)
-      VALUES ($1, $2)
+      INSERT INTO waitlist (email, user_type, inquiry_type)
+      VALUES ($1, $2, $3)
       RETURNING
         id,
         email,
         user_type as "userType",
+        inquiry_type as "inquiryType",
         status,
         created_at as "createdAt",
         updated_at as "updatedAt",
@@ -48,7 +51,7 @@ export class WaitlistRepository {
         notes
     `;
 
-    const result = await this.pool.query(query, [params.email, params.userType]);
+    const result = await this.pool.query(query, [params.email, params.userType, params.inquiryType || 'waitlist']);
     return result.rows[0];
   }
 
@@ -69,8 +72,9 @@ export class WaitlistRepository {
     offset?: number;
     status?: string;
     userType?: string;
+    inquiryType?: string;
   }): Promise<{ entries: WaitlistEntry[]; total: number }> {
-    const { limit = 50, offset = 0, status, userType } = params;
+    const { limit = 50, offset = 0, status, userType, inquiryType } = params;
 
     let whereConditions: string[] = [];
     let queryParams: any[] = [];
@@ -85,6 +89,12 @@ export class WaitlistRepository {
     if (userType) {
       whereConditions.push(`user_type = $${paramCount}`);
       queryParams.push(userType);
+      paramCount++;
+    }
+
+    if (inquiryType) {
+      whereConditions.push(`inquiry_type = $${paramCount}`);
+      queryParams.push(inquiryType);
       paramCount++;
     }
 
@@ -103,6 +113,7 @@ export class WaitlistRepository {
         id,
         email,
         user_type as "userType",
+        inquiry_type as "inquiryType",
         status,
         created_at as "createdAt",
         updated_at as "updatedAt",
@@ -138,6 +149,7 @@ export class WaitlistRepository {
         id,
         email,
         user_type as "userType",
+        inquiry_type as "inquiryType",
         status,
         created_at as "createdAt",
         updated_at as "updatedAt",
@@ -178,6 +190,7 @@ export class WaitlistRepository {
     total: number;
     byStatus: Record<string, number>;
     byUserType: Record<string, number>;
+    byInquiryType: { waitlist: number; demo: number };
     recent24h: number;
   }> {
     const query = `
@@ -189,6 +202,8 @@ export class WaitlistRepository {
         COUNT(*) FILTER (WHERE status = 'rejected') as rejected,
         COUNT(*) FILTER (WHERE user_type = 'customer') as customers,
         COUNT(*) FILTER (WHERE user_type = 'shop') as shops,
+        COUNT(*) FILTER (WHERE inquiry_type = 'waitlist') as inquiry_waitlist,
+        COUNT(*) FILTER (WHERE inquiry_type = 'demo') as inquiry_demo,
         COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as recent_24h
       FROM waitlist
     `;
@@ -207,6 +222,10 @@ export class WaitlistRepository {
       byUserType: {
         customer: parseInt(row.customers),
         shop: parseInt(row.shops)
+      },
+      byInquiryType: {
+        waitlist: parseInt(row.inquiry_waitlist),
+        demo: parseInt(row.inquiry_demo)
       },
       recent24h: parseInt(row.recent_24h)
     };

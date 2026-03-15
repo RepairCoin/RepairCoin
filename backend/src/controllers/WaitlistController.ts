@@ -9,7 +9,7 @@ const emailService = new EmailService();
  */
 export const submitWaitlist = async (req: Request, res: Response) => {
   try {
-    const { email, userType } = req.body;
+    const { email, userType, inquiryType } = req.body;
 
     // Validation
     if (!email || !userType) {
@@ -36,6 +36,15 @@ export const submitWaitlist = async (req: Request, res: Response) => {
       });
     }
 
+    // Validate inquiry type if provided
+    const resolvedInquiryType = inquiryType || 'waitlist';
+    if (!['waitlist', 'demo'].includes(resolvedInquiryType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Inquiry type must be either "waitlist" or "demo"'
+      });
+    }
+
     // Check if email already exists
     const exists = await WaitlistRepository.existsByEmail(email.toLowerCase());
     if (exists) {
@@ -48,13 +57,15 @@ export const submitWaitlist = async (req: Request, res: Response) => {
     // Create waitlist entry
     const entry = await WaitlistRepository.create({
       email: email.toLowerCase(),
-      userType
+      userType,
+      inquiryType: resolvedInquiryType
     });
 
     // Send confirmation email to user (non-blocking)
     emailService.sendWaitlistConfirmation({
       email: entry.email,
-      userType: entry.userType
+      userType: entry.userType,
+      inquiryType: entry.inquiryType
     }).then(success => {
       console.log(`Waitlist confirmation email ${success ? 'sent' : 'failed'} to ${entry.email}`);
     }).catch(err => console.error('Failed to send waitlist confirmation email:', err));
@@ -66,6 +77,7 @@ export const submitWaitlist = async (req: Request, res: Response) => {
     emailService.sendWaitlistAdminNotification({
       email: entry.email,
       userType: entry.userType,
+      inquiryType: entry.inquiryType,
       createdAt: entry.createdAt
     }).then(success => {
       console.log(`Waitlist admin notification ${success ? 'sent' : 'failed'} to ${adminEmail}`);
@@ -73,11 +85,12 @@ export const submitWaitlist = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Successfully added to waitlist',
+      message: resolvedInquiryType === 'demo' ? 'Demo request submitted successfully' : 'Successfully added to waitlist',
       data: {
         id: entry.id,
         email: entry.email,
         userType: entry.userType,
+        inquiryType: entry.inquiryType,
         status: entry.status,
         createdAt: entry.createdAt
       }
@@ -100,14 +113,16 @@ export const getWaitlistEntries = async (req: Request, res: Response) => {
       limit = '50',
       offset = '0',
       status,
-      userType
+      userType,
+      inquiryType
     } = req.query;
 
     const result = await WaitlistRepository.getAll({
       limit: parseInt(limit as string),
       offset: parseInt(offset as string),
       status: status as string,
-      userType: userType as string
+      userType: userType as string,
+      inquiryType: inquiryType as string
     });
 
     return res.json({

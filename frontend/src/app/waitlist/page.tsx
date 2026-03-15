@@ -11,10 +11,11 @@ export default function WaitlistPage() {
   const [userType, setUserType] = useState<"customer" | "shop" | "">("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedType, setSubmittedType] = useState<"waitlist" | "demo">("waitlist");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [showModal, setShowModal] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent, inquiryType: "waitlist" | "demo" = "waitlist") => {
     e.preventDefault();
 
     if (!email || !userType) {
@@ -36,16 +37,19 @@ export default function WaitlistPage() {
         {
           email: email.toLowerCase(),
           userType,
+          inquiryType,
         },
       );
 
       if (response.data.success) {
+        setSubmittedType(inquiryType);
         setSubmitted(true);
-        setShowModal(false);
-        toast.success("Successfully joined the waitlist!", {
-          duration: 5000,
-          icon: "🎉",
-        });
+        toast.success(
+          inquiryType === "demo"
+            ? "Demo request submitted!"
+            : "Successfully joined the waitlist!",
+          { duration: 5000, icon: inquiryType === "demo" ? "🎬" : "🎉" },
+        );
       }
     } catch (error: any) {
       if (error.response?.status === 409) {
@@ -53,7 +57,7 @@ export default function WaitlistPage() {
       } else {
         toast.error(
           error.response?.data?.error ||
-            "Failed to join waitlist. Please try again.",
+            "Failed to submit. Please try again.",
         );
       }
     } finally {
@@ -116,11 +120,13 @@ export default function WaitlistPage() {
               </svg>
             </div>
             <h2 className="text-3xl font-bold text-white mb-4">
-              You're on the list!
+              {submittedType === "demo" ? "Demo Request Received!" : "You're on the list!"}
             </h2>
             <p className="text-gray-400 mb-8">
-              Thank you for joining RepairCoin. We'll notify you at{" "}
-              <span className="text-yellow-400">{email}</span> when we launch.
+              {submittedType === "demo"
+                ? <>Thank you for requesting a free demo. We'll reach out to <span className="text-yellow-400">{email}</span> to schedule your personalized walkthrough.</>
+                : <>Thank you for joining RepairCoin. We'll notify you at{" "}<span className="text-yellow-400">{email}</span> when we launch.</>
+              }
             </p>
             <Link
               href="/"
@@ -135,7 +141,7 @@ export default function WaitlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#101010] text-white">
+    <div className="min-h-screen bg-[#101010] text-white scroll-smooth">
       {/* Header */}
       <header className="py-6 px-6 md:px-12">
         <div className="max-w-6xl mx-auto">
@@ -193,9 +199,9 @@ export default function WaitlistPage() {
             <svg
               className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
               style={{
-                bottom: "-2px",
+                bottom: "-10px",
                 width: "311px",
-                height: "8px",
+                height: "14px",
               }}
               viewBox="0 0 312 14"
               fill="none"
@@ -226,14 +232,175 @@ export default function WaitlistPage() {
             repeat customers, smarter growth and long-term loyalty.
           </p>
 
-          {/* CTA Button - Last element of hero section */}
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-[#FFCC00] hover:bg-[#E6B800] text-black font-semibold py-3.5 rounded-lg transition-all text-base hover:scale-105 hover:shadow-lg hover:shadow-[#FFCC00]/20"
-            style={{ paddingLeft: "32px", paddingRight: "32px" }}
+          {/* Inline Waitlist Form */}
+          <div
+            className="max-w-lg mx-auto w-full rounded-2xl p-6 md:p-8 text-left"
+            style={{
+              background: "#0D0D0D",
+              border: "1px solid rgba(221, 221, 221, 0.44)",
+            }}
           >
-            Join Waitlist →
-          </button>
+            <form onSubmit={handleSubmit}>
+              {/* Email Input */}
+              <div className="mb-6">
+                <label
+                  className="block mb-2"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    lineHeight: "22px",
+                    color: "#fff",
+                  }}
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Address"
+                  className="w-full px-4 py-3.5 text-black placeholder-gray-400 focus:outline-none transition-colors"
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(151, 151, 151, 0.55)",
+                    borderRadius: "5px",
+                  }}
+                  required
+                />
+              </div>
+
+              {/* User Type Selection */}
+              <div className="mb-8">
+                <label
+                  className="block mb-3"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    lineHeight: "22px",
+                    color: "#fff",
+                  }}
+                >
+                  I'm joining as
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setUserType("shop")}
+                    className={`p-5 transition-all text-left flex items-start gap-3 ${
+                      userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
+                    }`}
+                    style={{
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      background:
+                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
+                      borderRadius: "16px",
+                    }}
+                  >
+                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                      <img
+                        src="/img/waitlist/section10/store.svg"
+                        alt=""
+                        className="w-5 h-5"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-white font-semibold block text-sm">
+                        Shop Owner
+                      </span>
+                      <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                        Early partner access & onboarding process
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUserType("customer")}
+                    className={`p-5 transition-all text-left flex items-start gap-3 ${
+                      userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
+                    }`}
+                    style={{
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      background:
+                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
+                      borderRadius: "16px",
+                    }}
+                  >
+                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                      <img
+                        src="/img/waitlist/section10/user.svg"
+                        alt=""
+                        className="w-5 h-5"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-white font-semibold block text-sm">
+                        Customer
+                      </span>
+                      <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                        Get notified when rewards go live near you.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="submit"
+                  disabled={loading || !email || !userType}
+                  className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontSize: "16px",
+                    lineHeight: "100%",
+                    background: "rgba(255, 204, 0, 1)",
+                    borderRadius: "8px",
+                    color: "#000",
+                  }}
+                >
+                  {loading ? "Joining..." : "Join Waitlist →"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading || !email || !userType}
+                  onClick={(e) => handleSubmit(e as any, "demo")}
+                  className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold flex items-center justify-center gap-2"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontSize: "16px",
+                    lineHeight: "100%",
+                    background: "#fff",
+                    borderRadius: "8px",
+                    color: "#000",
+                  }}
+                >
+                  {loading ? "Submitting..." : "Get Free Demo"}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" stroke="#000" strokeWidth="2" strokeLinejoin="round" fill="none" />
+                  </svg>
+                </button>
+              </div>
+
+              <p
+                className="mt-4 text-center"
+                style={{
+                  fontFamily:
+                    'var(--font-inria-sans), "Inria Sans", sans-serif',
+                  fontWeight: 400,
+                  fontSize: "12px",
+                  lineHeight: "17px",
+                  color: "rgba(232, 232, 232, 1)",
+                }}
+              >
+                We respect your inbox. No spam. Only updates about RepairCoin.
+              </p>
+            </form>
+          </div>
         </div>
       </section>
 
@@ -540,7 +707,7 @@ export default function WaitlistPage() {
       </section>
 
       {/* Built for Businesses */}
-      <section className="pt-16 pb-20 px-6 md:px-12">
+      <section id="when-its-for" className="pt-16 pb-20 px-6 md:px-12">
         <div className="max-w-4xl mx-auto">
           {/* Badge - same style as hero */}
           <div className="text-center mb-6">
@@ -558,7 +725,7 @@ export default function WaitlistPage() {
                 className="w-5 h-5"
               />
               <span className="text-sm font-semibold text-[#FFCC00]">
-                Why It's For
+                Who It's For
               </span>
             </div>
           </div>
@@ -616,6 +783,7 @@ export default function WaitlistPage() {
               </div>
               <div className="p-6">
                 <h3
+                  className="text-center"
                   style={{
                     fontFamily: "Poppins, sans-serif",
                     fontWeight: 600,
@@ -715,6 +883,7 @@ export default function WaitlistPage() {
               </div>
               <div className="p-6">
                 <h3
+                  className="text-center"
                   style={{
                     fontFamily: "Poppins, sans-serif",
                     fontWeight: 600,
@@ -798,7 +967,10 @@ export default function WaitlistPage() {
       </section>
 
       {/* Trust & Security */}
-      <section className="pt-16 pb-20 px-6 md:px-12 bg-[#101010]">
+      <section
+        id="trust-security"
+        className="pt-16 pb-20 px-6 md:px-12 bg-[#101010]"
+      >
         <div className="max-w-6xl mx-auto">
           {/* Badge - same style as hero */}
           <div className="text-center mb-6">
@@ -928,7 +1100,7 @@ export default function WaitlistPage() {
       </section>
 
       {/* Industries */}
-      <section className="pt-16 pb-20 px-6 md:px-12">
+      <section id="industries" className="pt-16 pb-20 px-6 md:px-12">
         <div className="max-w-6xl mx-auto">
           {/* Badge - same style as hero */}
           <div className="text-center mb-6">
@@ -1028,7 +1200,7 @@ export default function WaitlistPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="pt-16 pb-20 px-6 md:px-12 bg-[#101010]">
+      <section id="faq" className="pt-16 pb-20 px-6 md:px-12 bg-[#101010]">
         <div className="max-w-3xl mx-auto">
           {/* Badge - same style as hero */}
           <div className="text-center mb-6">
@@ -1183,9 +1355,9 @@ export default function WaitlistPage() {
                     <svg
                       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
                       style={{
-                        bottom: "-4px",
+                        bottom: "-10px",
                         width: "90%",
-                        height: "8px",
+                        height: "14px",
                       }}
                       viewBox="0 0 312 14"
                       fill="none"
@@ -1247,7 +1419,7 @@ export default function WaitlistPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder="Address"
                       className="w-full px-4 py-3 text-black placeholder-gray-400 focus:outline-none transition-colors"
                       style={{
                         background: "#fff",
@@ -1259,7 +1431,7 @@ export default function WaitlistPage() {
                   </div>
 
                   {/* User Type Selection */}
-                  <div className="mb-6">
+                  <div className="mb-8">
                     <label
                       className="block mb-3"
                       style={{
@@ -1272,11 +1444,11 @@ export default function WaitlistPage() {
                     >
                       I'm joining as
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setUserType("shop")}
-                        className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
+                        className={`p-5 transition-all text-left flex items-start gap-3 ${
                           userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
                         }`}
                         style={{
@@ -1297,8 +1469,8 @@ export default function WaitlistPage() {
                           <span className="text-white font-semibold block text-sm">
                             Shop Owner
                           </span>
-                          <p className="text-gray-400 text-xs mt-0.5">
-                            Early partner access & onboarding
+                          <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                            Early partner access & onboarding process
                           </p>
                         </div>
                       </button>
@@ -1306,7 +1478,7 @@ export default function WaitlistPage() {
                       <button
                         type="button"
                         onClick={() => setUserType("customer")}
-                        className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
+                        className={`p-5 transition-all text-left flex items-start gap-3 ${
                           userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
                         }`}
                         style={{
@@ -1327,57 +1499,22 @@ export default function WaitlistPage() {
                           <span className="text-white font-semibold block text-sm">
                             Customer
                           </span>
-                          <p className="text-gray-400 text-xs mt-0.5">
-                            Get notified when rewards go live
+                          <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                            Get notified when rewards go live near you.
                           </p>
                         </div>
                       </button>
                     </div>
-
-                    {/* Helper text */}
-                    <p
-                      className="mt-6"
-                      style={{
-                        fontFamily:
-                          'var(--font-inria-sans), "Inria Sans", sans-serif',
-                        fontWeight: 400,
-                        fontSize: "12px",
-                        lineHeight: "100%",
-                        color: "rgba(232, 232, 232, 1)",
-                      }}
-                    >
-                      We'll tailor updates based on your selection.
-                    </p>
                   </div>
 
-                  {/* Buttons */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail("");
-                        setUserType("");
-                      }}
-                      className="py-4 px-6 transition-colors"
-                      style={{
-                        fontFamily: "Poppins, sans-serif",
-                        fontWeight: 500,
-                        fontSize: "16px",
-                        lineHeight: "100%",
-                        background: "rgba(232, 232, 232, 1)",
-                        borderRadius: "8px",
-                        color: "#000",
-                      }}
-                    >
-                      Cancel
-                    </button>
+                  {/* Submit Buttons */}
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="submit"
                       disabled={loading || !email || !userType}
-                      className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                       style={{
                         fontFamily: "Poppins, sans-serif",
-                        fontWeight: 500,
                         fontSize: "16px",
                         lineHeight: "100%",
                         background: "rgba(255, 204, 0, 1)",
@@ -1387,10 +1524,30 @@ export default function WaitlistPage() {
                     >
                       {loading ? "Joining..." : "Join Waitlist →"}
                     </button>
+
+                    <button
+                      type="button"
+                      disabled={loading || !email || !userType}
+                      onClick={(e) => handleSubmit(e as any, "demo")}
+                      className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold flex items-center justify-center gap-2"
+                      style={{
+                        fontFamily: "Poppins, sans-serif",
+                        fontSize: "16px",
+                        lineHeight: "100%",
+                        background: "#fff",
+                        borderRadius: "8px",
+                        color: "#000",
+                      }}
+                    >
+                      {loading ? "Submitting..." : "Get Free Demo"}
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 5V19L19 12L8 5Z" stroke="#000" strokeWidth="2" strokeLinejoin="round" fill="none" />
+                      </svg>
+                    </button>
                   </div>
 
                   <p
-                    className="text-left"
+                    className="mt-4 text-center"
                     style={{
                       fontFamily:
                         'var(--font-inria-sans), "Inria Sans", sans-serif',
@@ -1400,10 +1557,7 @@ export default function WaitlistPage() {
                       color: "rgba(232, 232, 232, 1)",
                     }}
                   >
-                    Your information is secure and will only be used for
-                    RepairCoin updates.
-                    <br />
-                    No spam, unsubscribe anytime.
+                    We respect your inbox. No spam. Only updates about RepairCoin.
                   </p>
                 </form>
               </div>
@@ -1432,7 +1586,7 @@ export default function WaitlistPage() {
               {/* Nav Links */}
               <nav className="flex items-center gap-6">
                 <a
-                  href="#"
+                  href="#when-its-for"
                   className="hover:opacity-80 transition-opacity"
                   style={{
                     fontFamily: "Poppins, sans-serif",
@@ -1442,10 +1596,10 @@ export default function WaitlistPage() {
                     color: "#fff",
                   }}
                 >
-                  When It's For
+                  Who It's For
                 </a>
                 <a
-                  href="#"
+                  href="#trust-security"
                   className="hover:opacity-80 transition-opacity"
                   style={{
                     fontFamily: "Poppins, sans-serif",
@@ -1458,7 +1612,7 @@ export default function WaitlistPage() {
                   Trust & Security
                 </a>
                 <a
-                  href="#"
+                  href="#industries"
                   className="hover:opacity-80 transition-opacity"
                   style={{
                     fontFamily: "Poppins, sans-serif",
@@ -1471,7 +1625,7 @@ export default function WaitlistPage() {
                   Industries
                 </a>
                 <a
-                  href="#"
+                  href="#faq"
                   className="hover:opacity-80 transition-opacity"
                   style={{
                     fontFamily: "Poppins, sans-serif",
@@ -1513,43 +1667,54 @@ export default function WaitlistPage() {
               {/* Social Icons - right aligned */}
               <div className="flex items-center gap-4">
                 <a
-                  href="#"
+                  href="https://x.com/Repaircoin2025"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="#fff"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
-                  </svg>
+                  <img
+                    src="/img/waitlist/footer/socialicon2.svg"
+                    alt="X"
+                    className="w-[17px] h-[17px]"
+                  />
+                </a>
+                <a
+                  href="https://www.instagram.com/repaircoin/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
+                  style={{ background: "rgba(43, 43, 45, 1)" }}
+                >
+                  <img
+                    src="/img/waitlist/footer/socialicon3.svg"
+                    alt="Instagram"
+                    className="w-[18px] h-[18px]"
+                  />
                 </a>
                 <a
                   href="#"
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="#fff"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-                  </svg>
+                  <img
+                    src="/img/waitlist/footer/socialicon4.svg"
+                    alt="Telegram"
+                    className="w-[18px] h-[15px]"
+                  />
                 </a>
                 <a
-                  href="#"
+                  href="https://www.facebook.com/repaircoin"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
                   style={{ background: "rgba(43, 43, 45, 1)" }}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="#fff"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
-                  </svg>
+                  <img
+                    src="/img/waitlist/footer/socialicon1.svg"
+                    alt="Facebook"
+                    className="w-[9px] h-[17px]"
+                  />
                 </a>
               </div>
             </div>
@@ -1557,230 +1722,6 @@ export default function WaitlistPage() {
         </footer>
       </div>
 
-      {/* Modal for Join Waitlist (triggered by hero button) */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/80"
-            onClick={() => setShowModal(false)}
-          ></div>
-          <div
-            className="relative rounded-2xl p-8 max-w-md w-full"
-            style={{
-              background: "#0D0D0D",
-              border: "1px solid rgba(221, 221, 221, 0.44)",
-            }}
-          >
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-
-            <h3
-              className="mb-6"
-              style={{
-                fontFamily: "Poppins, sans-serif",
-                fontWeight: 600,
-                fontSize: "24px",
-                lineHeight: "140%",
-                color: "#fff",
-              }}
-            >
-              Join the Waitlist
-            </h3>
-
-            <form onSubmit={handleSubmit}>
-              {/* Email Input */}
-              <div className="mb-6">
-                <label
-                  className="block mb-2"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    lineHeight: "22px",
-                    color: "#fff",
-                  }}
-                >
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-3 text-black placeholder-gray-400 focus:outline-none transition-colors"
-                  style={{
-                    background: "#fff",
-                    border: "1px solid rgba(151, 151, 151, 0.55)",
-                    borderRadius: "5px",
-                  }}
-                  required
-                />
-              </div>
-
-              {/* User Type Selection */}
-              <div className="mb-6">
-                <label
-                  className="block mb-3"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    lineHeight: "22px",
-                    color: "#fff",
-                  }}
-                >
-                  I'm joining as
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setUserType("shop")}
-                    className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
-                      userType === "shop" ? "ring-2 ring-[#FFCC00]" : ""
-                    }`}
-                    style={{
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
-                      background:
-                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
-                      borderRadius: "16px",
-                    }}
-                  >
-                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
-                      <img
-                        src="/img/waitlist/section10/store.svg"
-                        alt=""
-                        className="w-5 h-5"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-white font-semibold block text-sm">
-                        Shop Owner
-                      </span>
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        Early partner access & onboarding
-                      </p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setUserType("customer")}
-                    className={`px-4 py-4 transition-all text-left flex items-center gap-3 ${
-                      userType === "customer" ? "ring-2 ring-[#FFCC00]" : ""
-                    }`}
-                    style={{
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
-                      background:
-                        "linear-gradient(80.42deg, rgba(0, 0, 0, 0.16) 25.25%, rgba(58, 58, 76, 0.16) 98.05%)",
-                      borderRadius: "16px",
-                    }}
-                  >
-                    <div className="w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
-                      <img
-                        src="/img/waitlist/section10/user.svg"
-                        alt=""
-                        className="w-5 h-5"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-white font-semibold block text-sm">
-                        Customer
-                      </span>
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        Get notified when rewards go live
-                      </p>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Helper text */}
-                <p
-                  className="mt-6"
-                  style={{
-                    fontFamily:
-                      'var(--font-inria-sans), "Inria Sans", sans-serif',
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    lineHeight: "100%",
-                    color: "rgba(232, 232, 232, 1)",
-                  }}
-                >
-                  We'll tailor updates based on your selection.
-                </p>
-              </div>
-
-              {/* Buttons */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="py-4 px-6 transition-colors"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 500,
-                    fontSize: "16px",
-                    lineHeight: "100%",
-                    background: "rgba(232, 232, 232, 1)",
-                    borderRadius: "8px",
-                    color: "#000",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || !email || !userType}
-                  className="py-4 px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{
-                    fontFamily: "Poppins, sans-serif",
-                    fontWeight: 500,
-                    fontSize: "16px",
-                    lineHeight: "100%",
-                    background: "rgba(255, 204, 0, 1)",
-                    borderRadius: "8px",
-                    color: "#000",
-                  }}
-                >
-                  {loading ? "Joining..." : "Join Waitlist →"}
-                </button>
-              </div>
-
-              <p
-                className="text-left"
-                style={{
-                  fontFamily:
-                    'var(--font-inria-sans), "Inria Sans", sans-serif',
-                  fontWeight: 400,
-                  fontSize: "12px",
-                  lineHeight: "17px",
-                  color: "rgba(232, 232, 232, 1)",
-                }}
-              >
-                Your information is secure and will only be used for RepairCoin
-                updates.
-                <br />
-                No spam, unsubscribe anytime.
-              </p>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
