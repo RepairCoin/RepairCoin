@@ -172,19 +172,32 @@ class MessageApi {
   }
 
   /**
+   * Set conversation archived status
+   * @param conversationId - The conversation ID
+   * @param archived - true to archive, false to unarchive
+   */
+  async setConversationArchived(
+    conversationId: string,
+    archived: boolean
+  ): Promise<{ message: string }> {
+    try {
+      return await apiClient.patch<{ message: string }>(
+        `/messages/conversations/${conversationId}/archive`,
+        { archived }
+      );
+    } catch (error) {
+      console.error("Failed to update conversation archive status:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Archive a conversation
    */
   async archiveConversation(
     conversationId: string
   ): Promise<{ message: string }> {
-    try {
-      return await apiClient.post<{ message: string }>(
-        `/messages/conversations/${conversationId}/archive`
-      );
-    } catch (error) {
-      console.error("Failed to archive conversation:", error);
-      throw error;
-    }
+    return this.setConversationArchived(conversationId, true);
   }
 
   /**
@@ -193,14 +206,7 @@ class MessageApi {
   async unarchiveConversation(
     conversationId: string
   ): Promise<{ message: string }> {
-    try {
-      return await apiClient.post<{ message: string }>(
-        `/messages/conversations/${conversationId}/unarchive`
-      );
-    } catch (error) {
-      console.error("Failed to unarchive conversation:", error);
-      throw error;
-    }
+    return this.setConversationArchived(conversationId, false);
   }
 
   /**
@@ -263,6 +269,45 @@ class MessageApi {
       );
     } catch (error) {
       console.error("Failed to reopen conversation:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set typing indicator for a conversation
+   * Call this when user starts typing (debounced)
+   */
+  async setTyping(conversationId: string): Promise<{ message: string }> {
+    try {
+      return await apiClient.post<{ message: string }>(
+        `/messages/conversations/${conversationId}/typing`
+      );
+    } catch (error) {
+      console.error("Failed to set typing indicator:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get active typing indicators for a conversation
+   * Returns list of users currently typing
+   */
+  async getTyping(conversationId: string): Promise<{
+    success: boolean;
+    data: Array<{
+      conversationId: string;
+      userAddress: string;
+      userType: "customer" | "shop";
+      startedAt: string;
+      expiresAt: string;
+    }>;
+  }> {
+    try {
+      return await apiClient.get(
+        `/messages/conversations/${conversationId}/typing`
+      );
+    } catch (error) {
+      console.error("Failed to get typing indicators:", error);
       throw error;
     }
   }

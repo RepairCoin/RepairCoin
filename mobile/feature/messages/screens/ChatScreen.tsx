@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useChat } from "../hooks";
+import { useChat, useTypingIndicator } from "../hooks";
 import { useAppToast } from "@/shared/hooks";
 import {
   ChatHeader,
@@ -12,6 +12,7 @@ import {
   EmptyChat,
   ConversationMoreMenu,
   ConversationInfoModal,
+  TypingIndicator,
 } from "../components";
 import { Message } from "../types";
 import { messageApi } from "../services/message.services";
@@ -36,6 +37,23 @@ export default function ChatScreen() {
   const { showSuccess, showError } = useAppToast();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+
+  // Typing indicator
+  const { isOtherTyping, onUserTyping } = useTypingIndicator({
+    conversationId: conversation?.conversationId || "",
+    enabled: !!conversation?.conversationId && !conversation?.isBlocked,
+  });
+
+  // Handle text change with typing indicator
+  const handleTextChange = useCallback(
+    (text: string) => {
+      setMessageText(text);
+      if (text.length > 0) {
+        onUserTyping();
+      }
+    },
+    [setMessageText, onUserTyping]
+  );
 
   const handleArchive = async () => {
     if (!conversation) return;
@@ -179,11 +197,19 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToEnd}
           ListEmptyComponent={EmptyChat}
+          ListFooterComponent={
+            isOtherTyping ? (
+              <TypingIndicator
+                senderName={otherPartyName}
+                senderInitial={otherPartyName?.charAt(0) || "?"}
+              />
+            ) : null
+          }
         />
 
         <MessageInput
           value={messageText}
-          onChangeText={setMessageText}
+          onChangeText={handleTextChange}
           onSend={handleSend}
           isSending={isSending}
           disabled={conversation?.isBlocked}
