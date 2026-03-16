@@ -29,7 +29,7 @@
     "clean": "rm -rf dist || true",
     "prebuild": "npm run clean",
     "postbuild": "cp package.json dist/",
-    "prestart": "npm run db:migrate",
+    "prestart": "npm run db:migrate || echo 'Migration warning: db:migrate failed but app will start anyway'",
     "typecheck": "tsc --noEmit",
     "healthcheck": "curl http://localhost:3000/api/health",
     "_comment_migrations": "# Database Migration Commands",
