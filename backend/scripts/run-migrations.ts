@@ -28,7 +28,16 @@ class MigrationRunner {
   private migrationsDir: string;
 
   constructor() {
-    this.migrationsDir = path.join(__dirname, '..', 'migrations');
+    // When running compiled JS from dist/scripts/, we need to go up to the project root
+    // __dirname with ts-node: scripts/ → ../migrations works
+    // __dirname compiled:     dist/scripts/ → ../../migrations needed
+    const projectRoot = path.resolve(__dirname, '..');
+    const candidate = path.join(projectRoot, 'migrations');
+    if (fs.existsSync(candidate)) {
+      this.migrationsDir = candidate;
+    } else {
+      this.migrationsDir = path.resolve(__dirname, '..', '..', 'migrations');
+    }
 
     // Build connection config
     const host = process.env.DB_HOST || 'localhost';
