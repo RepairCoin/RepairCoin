@@ -9,7 +9,7 @@ const emailService = new EmailService();
  */
 export const submitWaitlist = async (req: Request, res: Response) => {
   try {
-    const { email, userType, inquiryType } = req.body;
+    const { email, userType, inquiryType, source } = req.body;
 
     // Validation
     if (!email || !userType) {
@@ -58,7 +58,8 @@ export const submitWaitlist = async (req: Request, res: Response) => {
     const entry = await WaitlistRepository.create({
       email: email.toLowerCase(),
       userType,
-      inquiryType: resolvedInquiryType
+      inquiryType: resolvedInquiryType,
+      source: source || 'direct'
     });
 
     // Send confirmation email to user (non-blocking)
@@ -95,20 +96,11 @@ export const submitWaitlist = async (req: Request, res: Response) => {
         createdAt: entry.createdAt
       }
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error submitting waitlist:', error);
     return res.status(500).json({
       success: false,
-      error: 'Failed to submit waitlist entry',
-      // Temporary debug info - remove after fixing
-      debug: {
-        message: error?.message,
-        code: error?.code,
-        detail: error?.detail,
-        table: error?.table,
-        column: error?.column,
-        constraint: error?.constraint
-      }
+      error: 'Failed to submit waitlist entry'
     });
   }
 };
@@ -123,7 +115,8 @@ export const getWaitlistEntries = async (req: Request, res: Response) => {
       offset = '0',
       status,
       userType,
-      inquiryType
+      inquiryType,
+      source
     } = req.query;
 
     const result = await WaitlistRepository.getAll({
@@ -131,7 +124,8 @@ export const getWaitlistEntries = async (req: Request, res: Response) => {
       offset: parseInt(offset as string),
       status: status as string,
       userType: userType as string,
-      inquiryType: inquiryType as string
+      inquiryType: inquiryType as string,
+      source: source as string
     });
 
     return res.json({
@@ -235,6 +229,32 @@ export const deleteWaitlistEntry = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to delete waitlist entry'
+    });
+  }
+};
+
+/**
+ * Track a waitlist page visit (public endpoint)
+ */
+export const trackVisit = async (req: Request, res: Response) => {
+  try {
+    const { source } = req.body;
+
+    await WaitlistRepository.trackVisit({
+      source: source || 'direct',
+      userAgent: req.headers['user-agent'] as string | undefined,
+      referrer: (req.headers['referer'] || req.headers['referrer']) as string | undefined
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Visit tracked'
+    });
+  } catch (error) {
+    console.error('Error tracking visit:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to track visit'
     });
   }
 };

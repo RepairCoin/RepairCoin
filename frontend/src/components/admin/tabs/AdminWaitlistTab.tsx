@@ -10,17 +10,27 @@ interface WaitlistEntry {
   userType: "customer" | "shop";
   inquiryType: "waitlist" | "demo";
   status: "pending" | "contacted" | "approved" | "rejected";
+  source: string;
   createdAt: string;
   updatedAt: string;
   notifiedAt?: string;
   notes?: string;
 }
 
+interface CampaignPerformance {
+  source: string;
+  visits: number;
+  signups: number;
+  conversionRate: number;
+}
+
 interface WaitlistStats {
   total: number;
   byStatus: Record<string, number>;
   byUserType: Record<string, number>;
+  bySource: Record<string, number>;
   recent24h: number;
+  campaignPerformance: CampaignPerformance[];
 }
 
 export function AdminWaitlistTab() {
@@ -31,6 +41,7 @@ export function AdminWaitlistTab() {
     status?: string;
     userType?: string;
     inquiryType?: string;
+    source?: string;
   }>({});
   const [selectedEntry, setSelectedEntry] = useState<WaitlistEntry | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -53,6 +64,7 @@ export function AdminWaitlistTab() {
           status: filter.status,
           userType: filter.userType,
           inquiryType: filter.inquiryType,
+          source: filter.source,
           limit: 100,
         },
       }) as any;
@@ -149,11 +161,11 @@ export function AdminWaitlistTab() {
   const getUserTypeBadge = (userType: string) => {
     return userType === "shop" ? (
       <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
-        🏪 Shop
+        Shop
       </span>
     ) : (
       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-        👤 Customer
+        Customer
       </span>
     );
   };
@@ -161,11 +173,35 @@ export function AdminWaitlistTab() {
   const getInquiryBadge = (inquiryType: string) => {
     return inquiryType === "demo" ? (
       <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
-        🎬 Demo
+        Demo
       </span>
     ) : (
       <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
-        📋 Waitlist
+        Waitlist
+      </span>
+    );
+  };
+
+  const getSourceBadge = (source: string) => {
+    const sourceStyles: Record<string, string> = {
+      direct: "bg-gray-100 text-gray-700",
+      organic: "bg-green-100 text-green-700",
+      fb: "bg-blue-100 text-blue-700",
+    };
+
+    const sourceLabels: Record<string, string> = {
+      direct: "Direct",
+      organic: "Organic",
+      fb: "Facebook",
+    };
+
+    return (
+      <span
+        className={`px-2 py-1 rounded text-xs font-medium ${
+          sourceStyles[source] || "bg-gray-100 text-gray-700"
+        }`}
+      >
+        {sourceLabels[source] || source}
       </span>
     );
   };
@@ -222,6 +258,70 @@ export function AdminWaitlistTab() {
         </div>
       )}
 
+      {/* Campaign Performance */}
+      {stats && stats.campaignPerformance && stats.campaignPerformance.length > 0 && (
+        <div className="bg-gray-800 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Campaign Performance
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {stats.campaignPerformance.map((campaign) => {
+              const sourceLabels: Record<string, string> = {
+                direct: "Direct",
+                organic: "Organic",
+                fb: "Facebook",
+              };
+              return (
+                <div
+                  key={campaign.source}
+                  className="bg-gray-700/50 rounded-lg p-4 border border-gray-600"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-white font-medium">
+                      {sourceLabels[campaign.source] || campaign.source}
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        campaign.conversionRate >= 20
+                          ? "text-green-400"
+                          : campaign.conversionRate >= 10
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {campaign.conversionRate}% CVR
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-2xl font-bold text-white">
+                        {campaign.visits}
+                      </div>
+                      <div className="text-xs text-gray-400">Visits</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-white">
+                        {campaign.signups}
+                      </div>
+                      <div className="text-xs text-gray-400">Signups</div>
+                    </div>
+                  </div>
+                  {/* Conversion bar */}
+                  <div className="mt-3 h-2 bg-gray-600 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(campaign.conversionRate, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-gray-800 rounded-xl p-4 flex flex-wrap gap-4">
         <select
@@ -260,7 +360,20 @@ export function AdminWaitlistTab() {
           <option value="demo">Demo Requests</option>
         </select>
 
-        {(filter.status || filter.userType || filter.inquiryType) && (
+        <select
+          value={filter.source || ""}
+          onChange={(e) =>
+            setFilter({ ...filter, source: e.target.value || undefined })
+          }
+          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
+        >
+          <option value="">All Sources</option>
+          <option value="direct">Direct</option>
+          <option value="organic">Organic</option>
+          <option value="fb">Facebook</option>
+        </select>
+
+        {(filter.status || filter.userType || filter.inquiryType || filter.source) && (
           <button
             onClick={() => setFilter({})}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -283,6 +396,9 @@ export function AdminWaitlistTab() {
                   Type
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">
+                  Source
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">
                   Inquiry
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">
@@ -299,7 +415,7 @@ export function AdminWaitlistTab() {
             <tbody className="divide-y divide-gray-700">
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     No entries found
                   </td>
                 </tr>
@@ -315,6 +431,7 @@ export function AdminWaitlistTab() {
                       )}
                     </td>
                     <td className="px-6 py-4">{getUserTypeBadge(entry.userType)}</td>
+                    <td className="px-6 py-4">{getSourceBadge(entry.source || "direct")}</td>
                     <td className="px-6 py-4">{getInquiryBadge(entry.inquiryType || "waitlist")}</td>
                     <td className="px-6 py-4">{getStatusBadge(entry.status)}</td>
                     <td className="px-6 py-4">

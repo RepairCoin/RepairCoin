@@ -4,7 +4,8 @@ import {
   getWaitlistEntries,
   getWaitlistStats,
   updateWaitlistStatus,
-  deleteWaitlistEntry
+  deleteWaitlistEntry,
+  trackVisit
 } from '../controllers/WaitlistController';
 import { authMiddleware, requireAdmin } from '../middleware/auth';
 
@@ -16,6 +17,13 @@ const router = express.Router();
  * @access Public
  */
 router.post('/submit', submitWaitlist);
+
+/**
+ * @route POST /api/waitlist/track-visit
+ * @desc Track a waitlist page visit (public)
+ * @access Public
+ */
+router.post('/track-visit', trackVisit);
 
 /**
  * @route GET /api/waitlist/entries
