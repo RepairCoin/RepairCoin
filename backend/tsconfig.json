@@ -22,7 +22,8 @@
   },
   "include": [
     "src/**/*",
-    "src/types/**/*"
+    "src/types/**/*",
+    "scripts/run-migrations.ts"
   ],
   "exclude": [
     "node_modules",
