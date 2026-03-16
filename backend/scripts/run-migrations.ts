@@ -111,8 +111,8 @@ class MigrationRunner {
       await this.showMigrationStatus();
 
     } catch (error) {
-      console.error('\n❌ Migration error:', error);
-      process.exit(1);
+      console.error('\n⚠️ Migration error (non-fatal, app will continue):', error);
+      // Don't exit - let the app start even if migrations fail
     } finally {
       await this.pool.end();
     }
