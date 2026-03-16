@@ -50,6 +50,7 @@ import { WebSocketManager } from './services/WebSocketManager';
 import healthRoutes from './routes/health';
 import metricsRoutes from './routes/metrics';
 import authRoutes from './routes/auth';
+import securityRoutes from './routes/security';
 import referralRoutes from './routes/referral';
 import setupRoutes from './routes/setup';
 import uploadRoutes from './routes/upload';
@@ -318,7 +319,10 @@ class RepairCoinApp {
     
     // Authentication routes
     this.app.use('/api/auth', authRoutes);
-    
+
+    // Security routes (session management, activity logs)
+    this.app.use('/api/security', securityRoutes);
+
     // Referral routes
     this.app.use('/api/referrals', referralRoutes);
 
