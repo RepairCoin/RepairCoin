@@ -95,11 +95,20 @@ export const submitWaitlist = async (req: Request, res: Response) => {
         createdAt: entry.createdAt
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error submitting waitlist:', error);
     return res.status(500).json({
       success: false,
-      error: 'Failed to submit waitlist entry'
+      error: 'Failed to submit waitlist entry',
+      // Temporary debug info - remove after fixing
+      debug: {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+        table: error?.table,
+        column: error?.column,
+        constraint: error?.constraint
+      }
     });
   }
 };
