@@ -7,6 +7,7 @@ export interface WaitlistEntry {
   userType: 'customer' | 'shop';
   inquiryType: 'waitlist' | 'demo';
   status: 'pending' | 'contacted' | 'approved' | 'rejected';
+  source: string;
   createdAt: Date;
   updatedAt: Date;
   notifiedAt?: Date;
@@ -17,6 +18,13 @@ export interface CreateWaitlistEntryParams {
   email: string;
   userType: 'customer' | 'shop';
   inquiryType?: 'waitlist' | 'demo';
+  source?: string;
+}
+
+export interface TrackVisitParams {
+  source: string;
+  userAgent?: string;
+  referrer?: string;
 }
 
 export interface UpdateWaitlistStatusParams {
@@ -37,21 +45,27 @@ export class WaitlistRepository {
    */
   async create(params: CreateWaitlistEntryParams): Promise<WaitlistEntry> {
     const query = `
-      INSERT INTO waitlist (email, user_type, inquiry_type)
-      VALUES ($1, $2, $3)
+      INSERT INTO waitlist (email, user_type, inquiry_type, source)
+      VALUES ($1, $2, $3, $4)
       RETURNING
         id,
         email,
         user_type as "userType",
         inquiry_type as "inquiryType",
         status,
+        source,
         created_at as "createdAt",
         updated_at as "updatedAt",
         notified_at as "notifiedAt",
         notes
     `;
 
-    const result = await this.pool.query(query, [params.email, params.userType, params.inquiryType || 'waitlist']);
+    const result = await this.pool.query(query, [
+      params.email,
+      params.userType,
+      params.inquiryType || 'waitlist',
+      params.source || 'direct'
+    ]);
     return result.rows[0];
   }
 
@@ -73,8 +87,9 @@ export class WaitlistRepository {
     status?: string;
     userType?: string;
     inquiryType?: string;
+    source?: string;
   }): Promise<{ entries: WaitlistEntry[]; total: number }> {
-    const { limit = 50, offset = 0, status, userType, inquiryType } = params;
+    const { limit = 50, offset = 0, status, userType, inquiryType, source } = params;
 
     let whereConditions: string[] = [];
     let queryParams: any[] = [];
@@ -98,6 +113,12 @@ export class WaitlistRepository {
       paramCount++;
     }
 
+    if (source) {
+      whereConditions.push(`source = $${paramCount}`);
+      queryParams.push(source);
+      paramCount++;
+    }
+
     const whereClause = whereConditions.length > 0
       ? `WHERE ${whereConditions.join(' AND ')}`
       : '';
@@ -115,6 +136,7 @@ export class WaitlistRepository {
         user_type as "userType",
         inquiry_type as "inquiryType",
         status,
+        source,
         created_at as "createdAt",
         updated_at as "updatedAt",
         notified_at as "notifiedAt",
@@ -151,6 +173,7 @@ export class WaitlistRepository {
         user_type as "userType",
         inquiry_type as "inquiryType",
         status,
+        source,
         created_at as "createdAt",
         updated_at as "updatedAt",
         notified_at as "notifiedAt",
@@ -191,8 +214,16 @@ export class WaitlistRepository {
     byStatus: Record<string, number>;
     byUserType: Record<string, number>;
     byInquiryType: { waitlist: number; demo: number };
+    bySource: Record<string, number>;
     recent24h: number;
+    campaignPerformance: Array<{
+      source: string;
+      visits: number;
+      signups: number;
+      conversionRate: number;
+    }>;
   }> {
+    // Basic stats
     const query = `
       SELECT
         COUNT(*) as total,
@@ -211,6 +242,43 @@ export class WaitlistRepository {
     const result = await this.pool.query(query);
     const row = result.rows[0];
 
+    // Per-source signup counts
+    const sourceQuery = `
+      SELECT source, COUNT(*) as count
+      FROM waitlist
+      GROUP BY source
+    `;
+    const sourceResult = await this.pool.query(sourceQuery);
+    const bySource: Record<string, number> = {};
+    for (const r of sourceResult.rows) {
+      bySource[r.source] = parseInt(r.count);
+    }
+
+    // Campaign performance: visits vs signups per source
+    const campaignQuery = `
+      SELECT
+        COALESCE(v.source, s.source) as source,
+        COALESCE(v.visits, 0) as visits,
+        COALESCE(s.signups, 0) as signups
+      FROM
+        (SELECT source, COUNT(*) as visits FROM waitlist_page_views GROUP BY source) v
+      FULL OUTER JOIN
+        (SELECT source, COUNT(*) as signups FROM waitlist GROUP BY source) s
+      ON v.source = s.source
+      ORDER BY COALESCE(v.visits, 0) DESC
+    `;
+    const campaignResult = await this.pool.query(campaignQuery);
+    const campaignPerformance = campaignResult.rows.map((r: any) => {
+      const visits = parseInt(r.visits);
+      const signups = parseInt(r.signups);
+      return {
+        source: r.source,
+        visits,
+        signups,
+        conversionRate: visits > 0 ? Math.round((signups / visits) * 10000) / 100 : 0
+      };
+    });
+
     return {
       total: parseInt(row.total),
       byStatus: {
@@ -227,8 +295,26 @@ export class WaitlistRepository {
         waitlist: parseInt(row.inquiry_waitlist),
         demo: parseInt(row.inquiry_demo)
       },
-      recent24h: parseInt(row.recent_24h)
+      bySource,
+      recent24h: parseInt(row.recent_24h),
+      campaignPerformance
     };
+  }
+
+  /**
+   * Track a page visit
+   */
+  async trackVisit(params: TrackVisitParams): Promise<void> {
+    const query = `
+      INSERT INTO waitlist_page_views (source, user_agent, referrer)
+      VALUES ($1, $2, $3)
+    `;
+
+    await this.pool.query(query, [
+      params.source || 'direct',
+      params.userAgent || null,
+      params.referrer || null
+    ]);
   }
 
   /**
