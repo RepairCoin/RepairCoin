@@ -9,6 +9,7 @@ interface CustomerCardProps {
   lastTransactionDate?: string;
   total_transactions?: number;
   onPress?: () => void;
+  onMessagePress?: () => void;
 }
 
 const getTierConfig = (tier: string) => {
@@ -69,6 +70,7 @@ export default function CustomerCard({
   lastTransactionDate,
   total_transactions,
   onPress,
+  onMessagePress,
 }: CustomerCardProps) {
   const tierConfig = getTierConfig(tier);
   const formattedDate = lastTransactionDate ? formatDate(lastTransactionDate) : null;
@@ -104,7 +106,7 @@ export default function CustomerCard({
 
             {/* Info Section */}
             <View className="flex-1">
-              {/* Name & Arrow */}
+              {/* Name & Actions */}
               <View className="flex-row items-center justify-between mb-2">
                 <Text
                   className="text-white font-semibold text-base flex-1 mr-2"
@@ -112,8 +114,22 @@ export default function CustomerCard({
                 >
                   {name || "Unknown Customer"}
                 </Text>
-                <View className="bg-zinc-800 rounded-full p-1.5">
-                  <Feather name="chevron-right" size={14} color="#9CA3AF" />
+                <View className="flex-row items-center gap-2">
+                  {onMessagePress && (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        onMessagePress();
+                      }}
+                      activeOpacity={0.7}
+                      className="bg-blue-500/20 rounded-full p-1.5"
+                    >
+                      <Ionicons name="chatbubble" size={14} color="#3B82F6" />
+                    </TouchableOpacity>
+                  )}
+                  <View className="bg-zinc-800 rounded-full p-1.5">
+                    <Feather name="chevron-right" size={14} color="#9CA3AF" />
+                  </View>
                 </View>
               </View>
 

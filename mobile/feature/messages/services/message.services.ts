@@ -9,6 +9,18 @@ import {
   SendMessageRequest,
   SendMessageResponse,
   StartConversationResponse,
+  GetOrCreateConversationResponse,
+  QuickReply,
+  CreateQuickReplyRequest,
+  UpdateQuickReplyRequest,
+  GetQuickRepliesResponse,
+  QuickReplyResponse,
+  AutoMessage,
+  CreateAutoMessageRequest,
+  UpdateAutoMessageRequest,
+  GetAutoMessagesResponse,
+  AutoMessageResponse,
+  GetAutoMessageHistoryResponse,
 } from "@/shared/interfaces/message.interface";
 
 class MessageApi {
@@ -349,6 +361,204 @@ class MessageApi {
       });
     } catch (error) {
       console.error("Failed to upload attachments:", error);
+      throw error;
+    }
+  }
+
+  // ============ Get or Create Conversation ============
+
+  /**
+   * Get or create a conversation with a customer (shop only)
+   * Returns existing conversation or creates a new one
+   * @param customerAddress - The customer's wallet address
+   */
+  async getOrCreateConversation(
+    customerAddress: string
+  ): Promise<GetOrCreateConversationResponse> {
+    try {
+      return await apiClient.post<GetOrCreateConversationResponse>(
+        "/messages/conversations/get-or-create",
+        { customerAddress }
+      );
+    } catch (error) {
+      console.error("Failed to get or create conversation:", error);
+      throw error;
+    }
+  }
+
+  // ============ Quick Replies ============
+
+  /**
+   * Get all quick replies for the authenticated shop
+   */
+  async getQuickReplies(): Promise<GetQuickRepliesResponse> {
+    try {
+      return await apiClient.get<GetQuickRepliesResponse>(
+        "/messages/quick-replies"
+      );
+    } catch (error) {
+      console.error("Failed to get quick replies:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new quick reply
+   */
+  async createQuickReply(
+    params: CreateQuickReplyRequest
+  ): Promise<QuickReplyResponse> {
+    try {
+      return await apiClient.post<QuickReplyResponse>(
+        "/messages/quick-replies",
+        params
+      );
+    } catch (error) {
+      console.error("Failed to create quick reply:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing quick reply
+   */
+  async updateQuickReply(
+    id: string,
+    params: UpdateQuickReplyRequest
+  ): Promise<QuickReplyResponse> {
+    try {
+      return await apiClient.put<QuickReplyResponse>(
+        `/messages/quick-replies/${id}`,
+        params
+      );
+    } catch (error) {
+      console.error("Failed to update quick reply:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a quick reply
+   */
+  async deleteQuickReply(id: string): Promise<{ success: boolean }> {
+    try {
+      return await apiClient.delete<{ success: boolean }>(
+        `/messages/quick-replies/${id}`
+      );
+    } catch (error) {
+      console.error("Failed to delete quick reply:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Increment usage count for a quick reply
+   * Call this when a quick reply is used in a message
+   */
+  async useQuickReply(id: string): Promise<QuickReplyResponse> {
+    try {
+      return await apiClient.post<QuickReplyResponse>(
+        `/messages/quick-replies/${id}/use`
+      );
+    } catch (error) {
+      console.error("Failed to track quick reply usage:", error);
+      throw error;
+    }
+  }
+
+  // ============ Auto-Messages ============
+
+  /**
+   * Get all auto-message rules for the authenticated shop
+   */
+  async getAutoMessages(): Promise<GetAutoMessagesResponse> {
+    try {
+      return await apiClient.get<GetAutoMessagesResponse>(
+        "/messages/auto-messages"
+      );
+    } catch (error) {
+      console.error("Failed to get auto-messages:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new auto-message rule
+   */
+  async createAutoMessage(
+    params: CreateAutoMessageRequest
+  ): Promise<AutoMessageResponse> {
+    try {
+      return await apiClient.post<AutoMessageResponse>(
+        "/messages/auto-messages",
+        params
+      );
+    } catch (error) {
+      console.error("Failed to create auto-message:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing auto-message rule
+   */
+  async updateAutoMessage(
+    id: string,
+    params: UpdateAutoMessageRequest
+  ): Promise<AutoMessageResponse> {
+    try {
+      return await apiClient.put<AutoMessageResponse>(
+        `/messages/auto-messages/${id}`,
+        params
+      );
+    } catch (error) {
+      console.error("Failed to update auto-message:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an auto-message rule and its send history
+   */
+  async deleteAutoMessage(id: string): Promise<{ success: boolean }> {
+    try {
+      return await apiClient.delete<{ success: boolean }>(
+        `/messages/auto-messages/${id}`
+      );
+    } catch (error) {
+      console.error("Failed to delete auto-message:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Toggle an auto-message rule enabled/disabled
+   */
+  async toggleAutoMessage(id: string): Promise<AutoMessageResponse> {
+    try {
+      return await apiClient.patch<AutoMessageResponse>(
+        `/messages/auto-messages/${id}/toggle`
+      );
+    } catch (error) {
+      console.error("Failed to toggle auto-message:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get send history for an auto-message rule
+   */
+  async getAutoMessageHistory(
+    id: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<GetAutoMessageHistoryResponse> {
+    try {
+      return await apiClient.get<GetAutoMessageHistoryResponse>(
+        `/messages/auto-messages/${id}/history?page=${page}&limit=${limit}`
+      );
+    } catch (error) {
+      console.error("Failed to get auto-message history:", error);
       throw error;
     }
   }

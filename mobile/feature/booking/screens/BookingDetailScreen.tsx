@@ -25,6 +25,7 @@ import { MarkNoShowModal, RescheduleModal } from "../components";
 import { getStatusColor } from "../utils";
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { messageApi } from "@/feature/messages/services/message.services";
 
 const formatDate = (dateString: string) => {
   if (!dateString) return "N/A";
@@ -359,6 +360,25 @@ export default function BookingDetailScreen() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showNoShowModal, setShowNoShowModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [isMessaging, setIsMessaging] = useState(false);
+
+  const handleMessageCustomer = useCallback(async (customerAddress: string) => {
+    if (isMessaging) return;
+
+    try {
+      setIsMessaging(true);
+      const response = await messageApi.getOrCreateConversation(customerAddress);
+
+      if (response.success && response.data) {
+        router.push(`/shop/messages/${response.data.conversationId}` as any);
+      }
+    } catch (error) {
+      console.error("Failed to open conversation:", error);
+      Alert.alert("Error", "Failed to open conversation. Please try again.");
+    } finally {
+      setIsMessaging(false);
+    }
+  }, [isMessaging]);
 
   const booking = useMemo(() => {
     if (!bookings || !id) return null;
@@ -849,6 +869,21 @@ export default function BookingDetailScreen() {
                 </>
               )}
             </View>
+            {/* Message Customer Button - Shop View Only */}
+            {isShopView && booking.customerAddress && (
+              <TouchableOpacity
+                onPress={() => handleMessageCustomer(booking.customerAddress)}
+                disabled={isMessaging}
+                activeOpacity={0.7}
+                className="bg-blue-500/20 rounded-full p-3"
+              >
+                {isMessaging ? (
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                ) : (
+                  <Ionicons name="chatbubble" size={18} color="#3B82F6" />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 

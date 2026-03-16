@@ -1,5 +1,5 @@
 // Libraries
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+// Services
+import { messageApi } from "@/feature/messages/services/message.services";
 
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -165,6 +169,26 @@ function FilterDropdown<T extends string>({
 }
 
 export default function CustomerListScreen() {
+  const [messagingCustomer, setMessagingCustomer] = useState<string | null>(null);
+
+  const handleMessageCustomer = useCallback(async (customerAddress: string) => {
+    if (messagingCustomer) return; // Prevent double tap
+
+    try {
+      setMessagingCustomer(customerAddress);
+      const response = await messageApi.getOrCreateConversation(customerAddress);
+
+      if (response.success && response.data) {
+        router.push(`/shop/messages/${response.data.conversationId}` as any);
+      }
+    } catch (error) {
+      console.error("Failed to open conversation:", error);
+      Alert.alert("Error", "Failed to open conversation. Please try again.");
+    } finally {
+      setMessagingCustomer(null);
+    }
+  }, [messagingCustomer]);
+
   const {
     // View mode
     viewMode,
@@ -205,6 +229,7 @@ export default function CustomerListScreen() {
       onPress={() => {
         router.push(`/shop/profile/customer-profile/${item?.address}` as any);
       }}
+      onMessagePress={() => handleMessageCustomer(item?.address)}
     />
   );
 
