@@ -59,11 +59,19 @@ export function AdminWaitlistTab() {
   const [viewEntry, setViewEntry] = useState<WaitlistEntry | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [emailSearch, setEmailSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ENTRIES_PER_PAGE = 10;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
+    setCurrentPage(1);
   }, [filter]);
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [emailSearch]);
 
   const loadData = async () => {
     try {
@@ -321,6 +329,11 @@ export function AdminWaitlistTab() {
         e.email.toLowerCase().includes(emailSearch.trim().toLowerCase())
       )
     : entries;
+
+  // Pagination
+  const totalPages = Math.ceil(filteredEntries.length / ENTRIES_PER_PAGE);
+  const startIndex = (currentPage - 1) * ENTRIES_PER_PAGE;
+  const paginatedEntries = filteredEntries.slice(startIndex, startIndex + ENTRIES_PER_PAGE);
 
   if (loading && !stats) {
     return (
@@ -595,14 +608,14 @@ export function AdminWaitlistTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
-              {filteredEntries.length === 0 ? (
+              {paginatedEntries.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center text-gray-400">
                     No entries found
                   </td>
                 </tr>
               ) : (
-                filteredEntries.map((entry) => (
+                paginatedEntries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="text-white font-medium">{entry.email}</div>
@@ -703,6 +716,92 @@ export function AdminWaitlistTab() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-4 px-6 pb-4">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline">Previous</span>
+            </button>
+
+            <div className="flex items-center gap-1">
+              {currentPage > 3 && (
+                <>
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    className="w-10 h-10 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                  >
+                    1
+                  </button>
+                  {currentPage > 4 && (
+                    <span className="text-gray-500 px-2">...</span>
+                  )}
+                </>
+              )}
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page =>
+                  page === currentPage ||
+                  page === currentPage - 1 ||
+                  page === currentPage + 1 ||
+                  page === currentPage - 2 ||
+                  page === currentPage + 2
+                )
+                .map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-10 h-10 rounded-lg transition-colors ${
+                      page === currentPage
+                        ? "bg-[#FFCC00] text-black font-bold"
+                        : "bg-gray-700 text-white hover:bg-gray-600"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+              {currentPage < totalPages - 2 && (
+                <>
+                  {currentPage < totalPages - 3 && (
+                    <span className="text-gray-500 px-2">...</span>
+                  )}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    className="w-10 h-10 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Showing count */}
+        {filteredEntries.length > 0 && (
+          <div className="text-center text-sm text-gray-400 pb-2">
+            Showing {startIndex + 1}–{Math.min(startIndex + ENTRIES_PER_PAGE, filteredEntries.length)} of {filteredEntries.length} entries
+          </div>
+        )}
       </div>
 
       {/* Update Modal */}
