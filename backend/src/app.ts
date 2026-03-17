@@ -158,6 +158,70 @@ class RepairCoinApp {
         )
       `);
 
+      // Backfill missing schema_migrations records for migrations whose objects already exist
+      // Production DB was restored from backup so early migrations were never recorded
+      await pool.query(`
+        INSERT INTO schema_migrations (version, name) VALUES
+          (4, 'add_completed_at_to_purchases'),
+          (6, 'remove_obsolete_columns'),
+          (8, 'create_appointment_scheduling_tables'),
+          (16, 'add_social_media_fields'),
+          (17, 'create_notifications_table'),
+          (18, 'create_affiliate_shop_groups'),
+          (19, 'rename_to_affiliate_shop_groups'),
+          (20, 'migrate_promo_codes_schema'),
+          (21, 'add_max_bonus_to_validation'),
+          (22, 'emergency_freeze_audit'),
+          (23, 'hotfix_platform_stats'),
+          (24, 'add_shop_subscriptions_fixed_v2'),
+          (25, 'add_stripe_email_column'),
+          (26, 'add_unique_constraints'),
+          (27, 'add_shop_category'),
+          (28, 'set_default_shop_categories'),
+          (29, 'create_refresh_tokens_table'),
+          (30, 'add_revoked_by_admin_column'),
+          (34, 'add_group_rcn_allocation'),
+          (35, 'add_icon_to_affiliate_shop_groups'),
+          (36, 'create_shop_services'),
+          (37, 'create_service_orders'),
+          (38, 'add_tags_to_shop_services'),
+          (39, 'create_service_favorites'),
+          (40, 'create_service_reviews'),
+          (41, 'fix_stripe_subscriptions_constraint'),
+          (42, 'create_marketing_campaigns'),
+          (43, 'create_subscription_enforcement_log'),
+          (44, 'add_name_columns_to_customers'),
+          (45, 'create_idempotency_keys'),
+          (46, 'create_review_helpful_votes'),
+          (47, 'add_row_locking_to_promo_validation'),
+          (48, 'add_promo_code_stats_trigger'),
+          (49, 'add_max_bonus_constraints'),
+          (50, 'add_shop_logo'),
+          (51, 'add_cancellation_fields_to_service_orders'),
+          (52, 'add_no_show_tracking'),
+          (53, 'create_appointment_reschedule_requests'),
+          (54, 'add_multi_reminder_tracking'),
+          (55, 'add_customer_notification_preferences'),
+          (56, 'add_shop_timezone'),
+          (57, 'add_performance_indexes'),
+          (58, 'fix_shop_availability_constraint'),
+          (59, 'add_shop_registration_fields'),
+          (60, 'create_waitlist'),
+          (61, 'fix_materialized_view_refresh'),
+          (62, 'create_support_chat'),
+          (63, 'add_no_show_penalty_system'),
+          (65, 'recreate_no_show_tables'),
+          (66, 'add_manual_booking_fields'),
+          (67, 'add_expired_status'),
+          (68, 'add_shop_rating_indexes'),
+          (1000, 'complete_production_sync_20250919'),
+          (1016, 'add_eth_payment_method'),
+          (1017, 'cleanup_admins_table_columns'),
+          (1018, 'cleanup_all_tables_schema'),
+          (1020, 'fix_lifetime_earnings')
+        ON CONFLICT (version) DO NOTHING
+      `);
+
       logger.info('✅ Critical schema verified');
     } catch (error) {
       logger.warn('⚠️ Schema verification warning (non-fatal):', error);
