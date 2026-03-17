@@ -16,6 +16,8 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [userType, setUserType] = useState<"customer" | "shop" | "">("");
+  const [businessCategory, setBusinessCategory] = useState("");
+  const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
@@ -67,6 +69,8 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
           userType,
           inquiryType,
           source: config.source,
+          ...(businessCategory && { businessCategory }),
+          ...(city.trim() && { city: city.trim() }),
         }
       );
 
@@ -330,6 +334,71 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
                     </div>
                   </button>
                 </div>
+              </div>
+
+              {/* Business Category (shown for shop owners) */}
+              {userType === "shop" && (
+                <div className="mb-6">
+                  <label
+                    className="block mb-2"
+                    style={{
+                      fontFamily: "Poppins, sans-serif",
+                      fontWeight: 600,
+                      fontSize: "14px",
+                      lineHeight: "22px",
+                      color: "#fff",
+                    }}
+                  >
+                    What type of business? <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    value={businessCategory}
+                    onChange={(e) => setBusinessCategory(e.target.value)}
+                    className="w-full px-4 py-3.5 text-black focus:outline-none transition-colors"
+                    style={{
+                      background: "#fff",
+                      border: "1px solid rgba(151, 151, 151, 0.55)",
+                      borderRadius: "5px",
+                    }}
+                  >
+                    <option value="">Select category</option>
+                    <option value="repair">Auto Repair</option>
+                    <option value="barber">Barber / Salon</option>
+                    <option value="nails">Nail Salon</option>
+                    <option value="gym">Gym / Fitness</option>
+                    <option value="restaurant">Restaurant</option>
+                    <option value="retail">Retail</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              )}
+
+              {/* City (optional) */}
+              <div className="mb-8">
+                <label
+                  className="block mb-2"
+                  style={{
+                    fontFamily: "Poppins, sans-serif",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    lineHeight: "22px",
+                    color: "#fff",
+                  }}
+                >
+                  City / State <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Los Angeles, CA"
+                  className="w-full px-4 py-3.5 text-black placeholder-gray-400 focus:outline-none transition-colors"
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(151, 151, 151, 0.55)",
+                    borderRadius: "5px",
+                  }}
+                />
               </div>
 
               {/* Submit Buttons */}
@@ -835,6 +904,45 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
                         </div>
                       </button>
                     </div>
+                  </div>
+
+                  {/* Business Category (shown for shop owners) */}
+                  {userType === "shop" && (
+                    <div className="mb-6">
+                      <label className="block mb-2" style={{ fontFamily: "Poppins, sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "22px", color: "#fff" }}>
+                        What type of business? <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <select
+                        value={businessCategory}
+                        onChange={(e) => setBusinessCategory(e.target.value)}
+                        className="w-full px-4 py-3.5 text-black focus:outline-none transition-colors"
+                        style={{ background: "#fff", border: "1px solid rgba(151, 151, 151, 0.55)", borderRadius: "5px" }}
+                      >
+                        <option value="">Select category</option>
+                        <option value="repair">Auto Repair</option>
+                        <option value="barber">Barber / Salon</option>
+                        <option value="nails">Nail Salon</option>
+                        <option value="gym">Gym / Fitness</option>
+                        <option value="restaurant">Restaurant</option>
+                        <option value="retail">Retail</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* City / State */}
+                  <div className="mb-8">
+                    <label className="block mb-2" style={{ fontFamily: "Poppins, sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "22px", color: "#fff" }}>
+                      City / State <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. Los Angeles, CA"
+                      className="w-full px-4 py-3.5 text-black placeholder-gray-400 focus:outline-none transition-colors"
+                      style={{ background: "#fff", border: "1px solid rgba(151, 151, 151, 0.55)", borderRadius: "5px" }}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
