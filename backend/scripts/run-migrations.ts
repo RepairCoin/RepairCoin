@@ -180,38 +180,14 @@ class MigrationRunner {
   }
 
   private async cleanStaleRecords(): Promise<void> {
-    // Check if key tables/columns from migrations 069-086 actually exist
-    // If a migration is recorded but its changes are missing, delete the record
-    const checks: { version: number; query: string; description: string }[] = [
-      { version: 69, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'general_notification_preferences' LIMIT 1", description: 'general_notification_preferences table' },
-      { version: 72, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'shop_quick_replies' LIMIT 1", description: 'shop_quick_replies table' },
-      { version: 73, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'auto_messages' LIMIT 1", description: 'auto_messages table' },
-      { version: 76, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'device_push_tokens' LIMIT 1", description: 'device_push_tokens table' },
-      { version: 79, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'conversations' LIMIT 1", description: 'conversations table' },
-      { version: 82, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'shop_email_preferences' LIMIT 1", description: 'shop_email_preferences table' },
-      { version: 85, query: "SELECT 1 FROM information_schema.columns WHERE table_name = 'waitlist' AND column_name = 'inquiry_type' LIMIT 1", description: 'waitlist.inquiry_type column' },
-    ];
-
-    let staleCount = 0;
-    for (const check of checks) {
-      // Is this migration recorded as applied?
-      const recorded = await this.pool.query('SELECT 1 FROM schema_migrations WHERE version = $1', [check.version]);
-      if (recorded.rows.length === 0) continue;
-
-      // Does the expected schema change actually exist?
-      const result = await this.pool.query(check.query);
-      if (result.rows.length === 0) {
-        console.log(`⚠️  Migration ${check.version} recorded but ${check.description} is missing — will re-run`);
-        await this.pool.query('DELETE FROM schema_migrations WHERE version = $1', [check.version]);
-        staleCount++;
-      }
-    }
-
-    if (staleCount > 0) {
-      // Clear all migrations 69-87 so they re-run in order (all use IF NOT EXISTS, safe to re-run)
-      await this.pool.query('DELETE FROM schema_migrations WHERE version BETWEEN 69 AND 87');
-      console.log(`🔧 Cleared stale migration records (69-87) — will re-apply all\n`);
-    }
+    // DISABLED: The stale record cleanup was deleting migration records 69-87 on every deploy,
+    // forcing them to re-run. This caused migration 072 to fail repeatedly because
+    // CREATE TABLE with REFERENCES shops(shop_id) requires a unique constraint that
+    // may not be detected correctly. The ensureCriticalSchema safety net in app.ts
+    // handles missing schema objects directly.
+    //
+    // Individual stale records should only be cleaned manually when needed.
+    console.log('ℹ️  Stale record cleanup disabled — using ensureCriticalSchema safety net');
   }
 
   private async ensureMigrationsTable(): Promise<void> {
