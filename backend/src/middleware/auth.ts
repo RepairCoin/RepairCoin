@@ -33,6 +33,7 @@ declare global {
         address: string;
         role: string;
         shopId?: string;
+        tokenId?: string;
       };
     }
   }
@@ -332,11 +333,26 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       });
     }
     
+    // Extract tokenId from refresh token if available (needed by security routes)
+    let tokenId: string | undefined;
+    const currentRefreshToken = req.cookies?.refresh_token;
+    if (currentRefreshToken) {
+      try {
+        const refreshDecoded = jwt.decode(currentRefreshToken) as RefreshTokenPayload;
+        if (refreshDecoded && refreshDecoded.tokenId) {
+          tokenId = refreshDecoded.tokenId;
+        }
+      } catch {
+        // Ignore decode errors - tokenId is optional
+      }
+    }
+
     // Set user in request object
     req.user = {
       address: decoded.address,
       role: decoded.role,
-      shopId: decoded.shopId
+      shopId: decoded.shopId,
+      tokenId
     };
     
     logger.info(`Authenticated ${decoded.role}: ${decoded.address}`, {

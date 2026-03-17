@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
+import { PasswordAuthSettings } from "../PasswordAuthSettings";
 // import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
@@ -802,11 +803,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <p className="text-sm text-gray-400 mb-6">
                 Manage your security settings
               </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Password and authentication settings coming soon...
-                </p>
-              </div>
+              <PasswordAuthSettings />
             </div>
           )}
 

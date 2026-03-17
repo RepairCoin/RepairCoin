@@ -9,8 +9,8 @@ interface BookingStatsCardsProps {
 }
 
 export const BookingStatsCards: React.FC<BookingStatsCardsProps> = ({ bookings }) => {
-  const pendingCount = bookings.filter(b => b.status === 'requested' || b.status === 'paid').length;
-  const paidCount = bookings.filter(b => b.status === 'paid').length;
+  const pendingCount = bookings.filter(b => b.status === 'requested').length;
+  const paidCount = bookings.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled').length;
   const completedCount = bookings.filter(b => b.status === 'completed').length;
   const totalRevenue = bookings
     .filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled' || b.status === 'completed')

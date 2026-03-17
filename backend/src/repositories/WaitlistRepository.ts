@@ -8,6 +8,9 @@ export interface WaitlistEntry {
   inquiryType: 'waitlist' | 'demo';
   status: 'pending' | 'contacted' | 'approved' | 'rejected';
   source: string;
+  businessCategory?: string;
+  city?: string;
+  assignedTo?: string;
   createdAt: Date;
   updatedAt: Date;
   notifiedAt?: Date;
@@ -19,6 +22,8 @@ export interface CreateWaitlistEntryParams {
   userType: 'customer' | 'shop';
   inquiryType?: 'waitlist' | 'demo';
   source?: string;
+  businessCategory?: string;
+  city?: string;
 }
 
 export interface TrackVisitParams {
@@ -31,6 +36,20 @@ export interface UpdateWaitlistStatusParams {
   id: string;
   status: 'pending' | 'contacted' | 'approved' | 'rejected';
   notes?: string;
+  assignedTo?: string;
+}
+
+/**
+ * Calculate conversion rate from visits and signups.
+ * Returns null only when visits = 0 (no data).
+ * When signups > visits, returns the real CVR (>100%) so admin
+ * can see that visit tracking is incomplete.
+ */
+export function calculateCVR(visits: number, signups: number): number | null {
+  if (visits <= 0) {
+    return null;
+  }
+  return Math.round((signups / visits) * 10000) / 100;
 }
 
 export class WaitlistRepository {
@@ -45,8 +64,8 @@ export class WaitlistRepository {
    */
   async create(params: CreateWaitlistEntryParams): Promise<WaitlistEntry> {
     const query = `
-      INSERT INTO waitlist (email, user_type, inquiry_type, source)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO waitlist (email, user_type, inquiry_type, source, business_category, city)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING
         id,
         email,
@@ -54,6 +73,9 @@ export class WaitlistRepository {
         inquiry_type as "inquiryType",
         status,
         source,
+        business_category as "businessCategory",
+        city,
+        assigned_to as "assignedTo",
         created_at as "createdAt",
         updated_at as "updatedAt",
         notified_at as "notifiedAt",
@@ -64,7 +86,9 @@ export class WaitlistRepository {
       params.email,
       params.userType,
       params.inquiryType || 'waitlist',
-      params.source || 'direct'
+      params.source || 'direct',
+      params.businessCategory || null,
+      params.city || null
     ]);
     return result.rows[0];
   }
@@ -88,8 +112,9 @@ export class WaitlistRepository {
     userType?: string;
     inquiryType?: string;
     source?: string;
+    businessCategory?: string;
   }): Promise<{ entries: WaitlistEntry[]; total: number }> {
-    const { limit = 50, offset = 0, status, userType, inquiryType, source } = params;
+    const { limit = 50, offset = 0, status, userType, inquiryType, source, businessCategory } = params;
 
     let whereConditions: string[] = [];
     let queryParams: any[] = [];
@@ -119,6 +144,12 @@ export class WaitlistRepository {
       paramCount++;
     }
 
+    if (businessCategory) {
+      whereConditions.push(`business_category = $${paramCount}`);
+      queryParams.push(businessCategory);
+      paramCount++;
+    }
+
     const whereClause = whereConditions.length > 0
       ? `WHERE ${whereConditions.join(' AND ')}`
       : '';
@@ -137,6 +168,9 @@ export class WaitlistRepository {
         inquiry_type as "inquiryType",
         status,
         source,
+        business_category as "businessCategory",
+        city,
+        assigned_to as "assignedTo",
         created_at as "createdAt",
         updated_at as "updatedAt",
         notified_at as "notifiedAt",
@@ -165,8 +199,9 @@ export class WaitlistRepository {
       SET
         status = $1,
         notes = COALESCE($2, notes),
+        assigned_to = COALESCE($3, assigned_to),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3
+      WHERE id = $4
       RETURNING
         id,
         email,
@@ -174,6 +209,9 @@ export class WaitlistRepository {
         inquiry_type as "inquiryType",
         status,
         source,
+        business_category as "businessCategory",
+        city,
+        assigned_to as "assignedTo",
         created_at as "createdAt",
         updated_at as "updatedAt",
         notified_at as "notifiedAt",
@@ -183,6 +221,7 @@ export class WaitlistRepository {
     const result = await this.pool.query(query, [
       params.status,
       params.notes,
+      params.assignedTo,
       params.id
     ]);
 
@@ -216,11 +255,13 @@ export class WaitlistRepository {
     byInquiryType: { waitlist: number; demo: number };
     bySource: Record<string, number>;
     recent24h: number;
+    demoRequests24h: number;
+    waitlistSignups24h: number;
     campaignPerformance: Array<{
       source: string;
       visits: number;
       signups: number;
-      conversionRate: number;
+      conversionRate: number | null;
     }>;
   }> {
     // Basic stats
@@ -235,7 +276,9 @@ export class WaitlistRepository {
         COUNT(*) FILTER (WHERE user_type = 'shop') as shops,
         COUNT(*) FILTER (WHERE inquiry_type = 'waitlist') as inquiry_waitlist,
         COUNT(*) FILTER (WHERE inquiry_type = 'demo') as inquiry_demo,
-        COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as recent_24h
+        COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as recent_24h,
+        COUNT(*) FILTER (WHERE inquiry_type = 'demo' AND created_at > NOW() - INTERVAL '24 hours') as demo_requests_24h,
+        COUNT(*) FILTER (WHERE inquiry_type = 'waitlist' AND created_at > NOW() - INTERVAL '24 hours') as waitlist_signups_24h
       FROM waitlist
     `;
 
@@ -254,7 +297,7 @@ export class WaitlistRepository {
       bySource[r.source] = parseInt(r.count);
     }
 
-    // Campaign performance: visits vs signups per source
+    // Campaign performance: unique visits vs unique signups per source
     const campaignQuery = `
       SELECT
         COALESCE(v.source, s.source) as source,
@@ -263,7 +306,7 @@ export class WaitlistRepository {
       FROM
         (SELECT source, COUNT(*) as visits FROM waitlist_page_views GROUP BY source) v
       FULL OUTER JOIN
-        (SELECT source, COUNT(*) as signups FROM waitlist GROUP BY source) s
+        (SELECT source, COUNT(DISTINCT email) as signups FROM waitlist GROUP BY source) s
       ON v.source = s.source
       ORDER BY COALESCE(v.visits, 0) DESC
     `;
@@ -275,7 +318,7 @@ export class WaitlistRepository {
         source: r.source,
         visits,
         signups,
-        conversionRate: visits > 0 ? Math.round((signups / visits) * 10000) / 100 : 0
+        conversionRate: calculateCVR(visits, signups)
       };
     });
 
@@ -297,6 +340,8 @@ export class WaitlistRepository {
       },
       bySource,
       recent24h: parseInt(row.recent_24h),
+      demoRequests24h: parseInt(row.demo_requests_24h),
+      waitlistSignups24h: parseInt(row.waitlist_signups_24h),
       campaignPerformance
     };
   }
