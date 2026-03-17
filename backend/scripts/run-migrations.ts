@@ -36,19 +36,55 @@ class MigrationRunner {
       path.join(process.cwd(), 'migrations'),
       path.resolve(__dirname, '..', 'migrations'),
       path.resolve(__dirname, '..', '..', 'migrations'),
+      // DigitalOcean App Platform may use /workspace as root
+      '/workspace/backend/migrations',
+      '/workspace/migrations',
     ];
+
+    console.log(`\n📂 Migration path resolution (DEBUG):`);
+    console.log(`   __dirname:     ${__dirname}`);
+    console.log(`   process.cwd(): ${process.cwd()}`);
+    console.log(`   NODE_ENV:      ${process.env.NODE_ENV || 'not set'}`);
+    console.log(`   Platform:      ${process.platform}`);
+
+    // Log every candidate path and whether it exists
+    console.log(`   Candidates:`);
+    for (const c of candidates) {
+      const exists = fs.existsSync(c);
+      console.log(`     ${exists ? '✅' : '❌'} ${c}`);
+      if (exists) {
+        try {
+          const files = fs.readdirSync(c).filter(f => f.endsWith('.sql'));
+          console.log(`        → ${files.length} SQL files`);
+        } catch (e: any) {
+          console.log(`        → readdir error: ${e.message}`);
+        }
+      }
+    }
+
+    // Also list what's in cwd and parent to understand container layout
+    try {
+      const cwdContents = fs.readdirSync(process.cwd());
+      console.log(`   process.cwd() contents: ${cwdContents.slice(0, 20).join(', ')}`);
+    } catch (e: any) {
+      console.log(`   process.cwd() readdir error: ${e.message}`);
+    }
+    try {
+      const parentContents = fs.readdirSync(path.resolve(process.cwd(), '..'));
+      console.log(`   parent dir contents:    ${parentContents.slice(0, 20).join(', ')}`);
+    } catch (e: any) {
+      console.log(`   parent dir readdir error: ${e.message}`);
+    }
 
     const resolved = candidates.find(c => fs.existsSync(c));
     this.migrationsDir = resolved || candidates[0];
 
-    console.log(`📂 Migration path resolution:`);
-    console.log(`   __dirname:    ${__dirname}`);
-    console.log(`   process.cwd(): ${process.cwd()}`);
-    console.log(`   Resolved:     ${this.migrationsDir}`);
-    console.log(`   Exists:       ${fs.existsSync(this.migrationsDir)}`);
+    console.log(`   ✨ Using: ${this.migrationsDir} (exists: ${fs.existsSync(this.migrationsDir)})`);
     if (fs.existsSync(this.migrationsDir)) {
       const files = fs.readdirSync(this.migrationsDir).filter(f => f.endsWith('.sql'));
-      console.log(`   SQL files:    ${files.length}`);
+      console.log(`   SQL files: ${files.length}\n`);
+    } else {
+      console.log(`   ⚠️ NO MIGRATIONS DIRECTORY FOUND — migrations will be skipped\n`);
     }
 
     // Build connection config
