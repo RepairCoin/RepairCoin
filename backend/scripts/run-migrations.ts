@@ -150,12 +150,25 @@ class MigrationRunner {
 
       console.log(`🔄 Running ${pendingMigrations.length} pending migration(s):\n`);
 
-      // Run each pending migration
+      // Run each pending migration — continue on error so one failure doesn't block the rest
+      let successCount = 0;
+      let failCount = 0;
       for (const file of pendingMigrations) {
-        await this.runMigration(file);
+        try {
+          await this.runMigration(file);
+          successCount++;
+        } catch (error: any) {
+          failCount++;
+          console.error(`   ⚠️ Skipping ${file} due to error: ${error.message}`);
+          // Continue with next migration instead of stopping
+        }
       }
 
-      console.log('\n✅ All migrations completed successfully!\n');
+      if (failCount > 0) {
+        console.log(`\n⚠️ Migrations completed with ${failCount} failure(s), ${successCount} succeeded\n`);
+      } else {
+        console.log(`\n✅ All ${successCount} migrations completed successfully!\n`);
+      }
       await this.showMigrationStatus();
 
     } catch (error) {
