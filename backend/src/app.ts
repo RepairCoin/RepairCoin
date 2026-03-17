@@ -110,9 +110,21 @@ class RepairCoinApp {
       const { getSharedPool } = require('./utils/database-pool');
       const pool = getSharedPool();
 
-      // Ensure waitlist.inquiry_type column exists
+      // Ensure waitlist columns exist (migrations 085, 090, 091)
       await pool.query(`
         ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS inquiry_type VARCHAR(20) DEFAULT 'waitlist'
+      `);
+      await pool.query(`
+        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS business_category VARCHAR(50)
+      `);
+      await pool.query(`
+        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS city VARCHAR(100)
+      `);
+      await pool.query(`
+        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(100)
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_waitlist_business_category ON waitlist(business_category)
       `);
 
       // Ensure shop_email_preferences table exists
