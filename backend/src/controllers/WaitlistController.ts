@@ -9,7 +9,7 @@ const emailService = new EmailService();
  */
 export const submitWaitlist = async (req: Request, res: Response) => {
   try {
-    const { email, userType, inquiryType, source } = req.body;
+    const { email, userType, inquiryType, source, businessCategory, city } = req.body;
 
     // Validation
     if (!email || !userType) {
@@ -54,12 +54,23 @@ export const submitWaitlist = async (req: Request, res: Response) => {
       });
     }
 
+    // Validate business category if provided
+    const validCategories = ['repair', 'barber', 'nails', 'gym', 'restaurant', 'retail', 'other'];
+    if (businessCategory && !validCategories.includes(businessCategory)) {
+      return res.status(400).json({
+        success: false,
+        error: `Business category must be one of: ${validCategories.join(', ')}`
+      });
+    }
+
     // Create waitlist entry
     const entry = await WaitlistRepository.create({
       email: email.toLowerCase(),
       userType,
       inquiryType: resolvedInquiryType,
-      source: source || 'direct'
+      source: source || 'direct',
+      businessCategory: businessCategory || undefined,
+      city: city?.trim() || undefined
     });
 
     // Send confirmation email to user (non-blocking)
@@ -116,7 +127,8 @@ export const getWaitlistEntries = async (req: Request, res: Response) => {
       status,
       userType,
       inquiryType,
-      source
+      source,
+      businessCategory
     } = req.query;
 
     const result = await WaitlistRepository.getAll({
@@ -125,7 +137,8 @@ export const getWaitlistEntries = async (req: Request, res: Response) => {
       status: status as string,
       userType: userType as string,
       inquiryType: inquiryType as string,
-      source: source as string
+      source: source as string,
+      businessCategory: businessCategory as string
     });
 
     return res.json({
@@ -167,7 +180,7 @@ export const getWaitlistStats = async (req: Request, res: Response) => {
 export const updateWaitlistStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, notes } = req.body;
+    const { status, notes, assignedTo } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -186,7 +199,8 @@ export const updateWaitlistStatus = async (req: Request, res: Response) => {
     const entry = await WaitlistRepository.updateStatus({
       id,
       status,
-      notes
+      notes,
+      assignedTo: assignedTo?.trim() || undefined
     });
 
     return res.json({

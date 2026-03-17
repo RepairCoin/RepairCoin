@@ -441,33 +441,38 @@ export const searchCustomers = async (req: Request, res: Response): Promise<void
 
     const searchQuery = `%${q.toLowerCase()}%`;
 
-    // Search customers by name, email, phone, or wallet address
+    // Search customers scoped to this shop only (customers who have placed orders here)
     const customers = await pool.query(
       `SELECT
-        address,
-        wallet_address,
-        email,
-        name,
-        phone,
-        no_show_count,
-        no_show_tier,
-        created_at
-      FROM customers
+        c.address,
+        c.wallet_address,
+        c.email,
+        c.name,
+        c.phone,
+        c.no_show_count,
+        c.no_show_tier,
+        c.created_at
+      FROM customers c
       WHERE
-        LOWER(name) LIKE $1 OR
-        LOWER(email) LIKE $1 OR
-        LOWER(phone) LIKE $1 OR
-        LOWER(address) LIKE $1
+        (LOWER(c.name) LIKE $1 OR
+        LOWER(c.email) LIKE $1 OR
+        LOWER(c.phone) LIKE $1 OR
+        LOWER(c.address) LIKE $1)
+        AND EXISTS (
+          SELECT 1 FROM service_orders so
+          WHERE so.customer_address = c.address
+          AND so.shop_id = $2
+        )
       ORDER BY
         CASE
-          WHEN LOWER(name) LIKE $1 THEN 1
-          WHEN LOWER(email) LIKE $1 THEN 2
-          WHEN LOWER(phone) LIKE $1 THEN 3
+          WHEN LOWER(c.name) LIKE $1 THEN 1
+          WHEN LOWER(c.email) LIKE $1 THEN 2
+          WHEN LOWER(c.phone) LIKE $1 THEN 3
           ELSE 4
         END,
-        name ASC
+        c.name ASC
       LIMIT 20`,
-      [searchQuery]
+      [searchQuery, shopId]
     );
 
     res.json({

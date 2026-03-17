@@ -291,10 +291,12 @@ describe('Waitlist Controller E2E Tests', () => {
       await submitWaitlist(req, res);
 
       // Should create with lowercase email
-      expect(mockCreate).toHaveBeenCalledWith({
-        email: 'test-mixed@example.com',
-        userType: 'customer',
-      });
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'test-mixed@example.com',
+          userType: 'customer',
+        })
+      );
       expect(res.status).toHaveBeenCalledWith(201);
     });
   });
