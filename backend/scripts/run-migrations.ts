@@ -36,19 +36,55 @@ class MigrationRunner {
       path.join(process.cwd(), 'migrations'),
       path.resolve(__dirname, '..', 'migrations'),
       path.resolve(__dirname, '..', '..', 'migrations'),
+      // DigitalOcean App Platform may use /workspace as root
+      '/workspace/backend/migrations',
+      '/workspace/migrations',
     ];
+
+    console.log(`\n📂 Migration path resolution (DEBUG):`);
+    console.log(`   __dirname:     ${__dirname}`);
+    console.log(`   process.cwd(): ${process.cwd()}`);
+    console.log(`   NODE_ENV:      ${process.env.NODE_ENV || 'not set'}`);
+    console.log(`   Platform:      ${process.platform}`);
+
+    // Log every candidate path and whether it exists
+    console.log(`   Candidates:`);
+    for (const c of candidates) {
+      const exists = fs.existsSync(c);
+      console.log(`     ${exists ? '✅' : '❌'} ${c}`);
+      if (exists) {
+        try {
+          const files = fs.readdirSync(c).filter(f => f.endsWith('.sql'));
+          console.log(`        → ${files.length} SQL files`);
+        } catch (e: any) {
+          console.log(`        → readdir error: ${e.message}`);
+        }
+      }
+    }
+
+    // Also list what's in cwd and parent to understand container layout
+    try {
+      const cwdContents = fs.readdirSync(process.cwd());
+      console.log(`   process.cwd() contents: ${cwdContents.slice(0, 20).join(', ')}`);
+    } catch (e: any) {
+      console.log(`   process.cwd() readdir error: ${e.message}`);
+    }
+    try {
+      const parentContents = fs.readdirSync(path.resolve(process.cwd(), '..'));
+      console.log(`   parent dir contents:    ${parentContents.slice(0, 20).join(', ')}`);
+    } catch (e: any) {
+      console.log(`   parent dir readdir error: ${e.message}`);
+    }
 
     const resolved = candidates.find(c => fs.existsSync(c));
     this.migrationsDir = resolved || candidates[0];
 
-    console.log(`📂 Migration path resolution:`);
-    console.log(`   __dirname:    ${__dirname}`);
-    console.log(`   process.cwd(): ${process.cwd()}`);
-    console.log(`   Resolved:     ${this.migrationsDir}`);
-    console.log(`   Exists:       ${fs.existsSync(this.migrationsDir)}`);
+    console.log(`   ✨ Using: ${this.migrationsDir} (exists: ${fs.existsSync(this.migrationsDir)})`);
     if (fs.existsSync(this.migrationsDir)) {
       const files = fs.readdirSync(this.migrationsDir).filter(f => f.endsWith('.sql'));
-      console.log(`   SQL files:    ${files.length}`);
+      console.log(`   SQL files: ${files.length}\n`);
+    } else {
+      console.log(`   ⚠️ NO MIGRATIONS DIRECTORY FOUND — migrations will be skipped\n`);
     }
 
     // Build connection config
@@ -114,12 +150,25 @@ class MigrationRunner {
 
       console.log(`🔄 Running ${pendingMigrations.length} pending migration(s):\n`);
 
-      // Run each pending migration
+      // Run each pending migration — continue on error so one failure doesn't block the rest
+      let successCount = 0;
+      let failCount = 0;
       for (const file of pendingMigrations) {
-        await this.runMigration(file);
+        try {
+          await this.runMigration(file);
+          successCount++;
+        } catch (error: any) {
+          failCount++;
+          console.error(`   ⚠️ Skipping ${file} due to error: ${error.message}`);
+          // Continue with next migration instead of stopping
+        }
       }
 
-      console.log('\n✅ All migrations completed successfully!\n');
+      if (failCount > 0) {
+        console.log(`\n⚠️ Migrations completed with ${failCount} failure(s), ${successCount} succeeded\n`);
+      } else {
+        console.log(`\n✅ All ${successCount} migrations completed successfully!\n`);
+      }
       await this.showMigrationStatus();
 
     } catch (error) {
@@ -131,38 +180,14 @@ class MigrationRunner {
   }
 
   private async cleanStaleRecords(): Promise<void> {
-    // Check if key tables/columns from migrations 069-086 actually exist
-    // If a migration is recorded but its changes are missing, delete the record
-    const checks: { version: number; query: string; description: string }[] = [
-      { version: 69, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'general_notification_preferences' LIMIT 1", description: 'general_notification_preferences table' },
-      { version: 72, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'shop_quick_replies' LIMIT 1", description: 'shop_quick_replies table' },
-      { version: 73, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'auto_messages' LIMIT 1", description: 'auto_messages table' },
-      { version: 76, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'device_push_tokens' LIMIT 1", description: 'device_push_tokens table' },
-      { version: 79, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'conversations' LIMIT 1", description: 'conversations table' },
-      { version: 82, query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'shop_email_preferences' LIMIT 1", description: 'shop_email_preferences table' },
-      { version: 85, query: "SELECT 1 FROM information_schema.columns WHERE table_name = 'waitlist' AND column_name = 'inquiry_type' LIMIT 1", description: 'waitlist.inquiry_type column' },
-    ];
-
-    let staleCount = 0;
-    for (const check of checks) {
-      // Is this migration recorded as applied?
-      const recorded = await this.pool.query('SELECT 1 FROM schema_migrations WHERE version = $1', [check.version]);
-      if (recorded.rows.length === 0) continue;
-
-      // Does the expected schema change actually exist?
-      const result = await this.pool.query(check.query);
-      if (result.rows.length === 0) {
-        console.log(`⚠️  Migration ${check.version} recorded but ${check.description} is missing — will re-run`);
-        await this.pool.query('DELETE FROM schema_migrations WHERE version = $1', [check.version]);
-        staleCount++;
-      }
-    }
-
-    if (staleCount > 0) {
-      // Clear all migrations 69-87 so they re-run in order (all use IF NOT EXISTS, safe to re-run)
-      await this.pool.query('DELETE FROM schema_migrations WHERE version BETWEEN 69 AND 87');
-      console.log(`🔧 Cleared stale migration records (69-87) — will re-apply all\n`);
-    }
+    // DISABLED: The stale record cleanup was deleting migration records 69-87 on every deploy,
+    // forcing them to re-run. This caused migration 072 to fail repeatedly because
+    // CREATE TABLE with REFERENCES shops(shop_id) requires a unique constraint that
+    // may not be detected correctly. The ensureCriticalSchema safety net in app.ts
+    // handles missing schema objects directly.
+    //
+    // Individual stale records should only be cleaned manually when needed.
+    console.log('ℹ️  Stale record cleanup disabled — using ensureCriticalSchema safety net');
   }
 
   private async ensureMigrationsTable(): Promise<void> {
