@@ -70,6 +70,9 @@ class RepairCoinApp {
 
   async initialize(): Promise<void> {
     try {
+      // Run critical schema fixes before anything else
+      await this.ensureCriticalSchema();
+
       // Validate configuration
       Config.validate();
       
@@ -97,6 +100,55 @@ class RepairCoinApp {
     } catch (error) {
       logger.error('Failed to initialize application:', error);
       throw error;
+    }
+  }
+
+  private async ensureCriticalSchema(): Promise<void> {
+    // Direct schema fixes that must exist before the app starts
+    // This bypasses the migration runner which may have path issues in production
+    try {
+      const { getSharedPool } = require('./utils/database-pool');
+      const pool = getSharedPool();
+
+      // Ensure waitlist.inquiry_type column exists
+      await pool.query(`
+        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS inquiry_type VARCHAR(20) DEFAULT 'waitlist'
+      `);
+
+      // Ensure shop_email_preferences table exists
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS shop_email_preferences (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          shop_id UUID NOT NULL,
+          new_booking BOOLEAN DEFAULT true,
+          booking_cancellation BOOLEAN DEFAULT true,
+          booking_reschedule BOOLEAN DEFAULT true,
+          appointment_reminder BOOLEAN DEFAULT true,
+          no_show_alert BOOLEAN DEFAULT true,
+          new_customer BOOLEAN DEFAULT true,
+          customer_review BOOLEAN DEFAULT true,
+          customer_message BOOLEAN DEFAULT true,
+          payment_received BOOLEAN DEFAULT true,
+          refund_processed BOOLEAN DEFAULT true,
+          subscription_renewal BOOLEAN DEFAULT true,
+          subscription_expiring BOOLEAN DEFAULT true,
+          marketing_updates BOOLEAN DEFAULT false,
+          feature_announcements BOOLEAN DEFAULT true,
+          platform_news BOOLEAN DEFAULT false,
+          daily_digest BOOLEAN DEFAULT false,
+          digest_time VARCHAR(20) DEFAULT 'morning',
+          weekly_report BOOLEAN DEFAULT true,
+          weekly_report_day INTEGER DEFAULT 1,
+          monthly_report BOOLEAN DEFAULT true,
+          monthly_report_day INTEGER DEFAULT 1,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+      `);
+
+      logger.info('✅ Critical schema verified');
+    } catch (error) {
+      logger.warn('⚠️ Schema verification warning (non-fatal):', error);
     }
   }
 

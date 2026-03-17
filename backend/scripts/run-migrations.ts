@@ -28,15 +28,27 @@ class MigrationRunner {
   private migrationsDir: string;
 
   constructor() {
-    // When running compiled JS from dist/scripts/, we need to go up to the project root
-    // __dirname with ts-node: scripts/ → ../migrations works
-    // __dirname compiled:     dist/scripts/ → ../../migrations needed
-    const projectRoot = path.resolve(__dirname, '..');
-    const candidate = path.join(projectRoot, 'migrations');
-    if (fs.existsSync(candidate)) {
-      this.migrationsDir = candidate;
-    } else {
-      this.migrationsDir = path.resolve(__dirname, '..', '..', 'migrations');
+    // Resolve migrations directory using multiple strategies:
+    // 1. process.cwd()/migrations — works on production (cwd = /workspace/backend/) and local (cwd = backend/)
+    // 2. __dirname/../migrations — works with ts-node (scripts/ → ../migrations)
+    // 3. __dirname/../../migrations — works with compiled JS (dist/scripts/ → ../../migrations)
+    const candidates = [
+      path.join(process.cwd(), 'migrations'),
+      path.resolve(__dirname, '..', 'migrations'),
+      path.resolve(__dirname, '..', '..', 'migrations'),
+    ];
+
+    const resolved = candidates.find(c => fs.existsSync(c));
+    this.migrationsDir = resolved || candidates[0];
+
+    console.log(`📂 Migration path resolution:`);
+    console.log(`   __dirname:    ${__dirname}`);
+    console.log(`   process.cwd(): ${process.cwd()}`);
+    console.log(`   Resolved:     ${this.migrationsDir}`);
+    console.log(`   Exists:       ${fs.existsSync(this.migrationsDir)}`);
+    if (fs.existsSync(this.migrationsDir)) {
+      const files = fs.readdirSync(this.migrationsDir).filter(f => f.endsWith('.sql'));
+      console.log(`   SQL files:    ${files.length}`);
     }
 
     // Build connection config
