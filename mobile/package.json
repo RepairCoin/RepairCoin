@@ -16,11 +16,14 @@
     "ios:staging": "./scripts/switch-env.sh staging && npx expo run:ios --device",
     "ios:production": "./scripts/switch-env.sh production && npx expo run:ios --device",
     "deploy": "./scripts/deploy.sh",
-    "deploy:staging": "./scripts/deploy.sh staging",
-    "deploy:testflight": "./scripts/deploy.sh testflight",
-    "deploy:production": "./scripts/deploy.sh production",
-    "submit:testflight": "eas submit --profile testflight --platform ios",
-    "submit:production": "eas submit --profile production --platform ios"
+    "deploy:ios:staging": "./scripts/deploy.sh staging",
+    "deploy:ios:testflight": "./scripts/deploy.sh testflight",
+    "deploy:ios:production": "./scripts/deploy.sh production",
+    "deploy:android:apk": "eas build --profile preview --platform android",
+    "deploy:android:staging": "eas build --profile testflight --platform android",
+    "deploy:android:production": "eas build --profile production --platform android",
+    "submit:ios:testflight": "eas submit --profile testflight --platform ios",
+    "submit:ios:production": "eas submit --profile production --platform ios"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.921.0",

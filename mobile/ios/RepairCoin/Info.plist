@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>repaircoin</string>
-          <string>com.repaircoin.staging</string>
+          <string>com.repaircoin.app</string>
         </array>
       </dict>
       <dict>

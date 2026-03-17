@@ -10,8 +10,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.repaircoin.staging",
+      "supportsTablet": false,
+      "bundleIdentifier": "com.repaircoin.app",
       "runtimeVersion": "1.0.0",
       "buildNumber": "1.0.0",
       "infoPlist": {
@@ -29,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "googleServicesFile": "./google-services.json",
-      "package": "com.repaircoin.staging",
+      "package": "com.repaircoin.app",
       "runtimeVersion": {
         "policy": "appVersion"
       },

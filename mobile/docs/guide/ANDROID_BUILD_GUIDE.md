@@ -153,7 +153,7 @@ Production (`production` profile):
 ### Build fails with "google-services.json missing"
 - Ensure `google-services.json` is at `mobile/google-services.json`
 - Ensure it's tracked in git (not gitignored)
-- Package name must match: `com.repaircoin.staging`
+- Package name must match: `com.repaircoin.app`
 
 ### Auto-submit fails
 - Ensure `google-play-service-account.json` exists
