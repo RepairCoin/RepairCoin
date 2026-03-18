@@ -5,6 +5,7 @@ import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
 import { PasswordAuthSettings } from "../PasswordAuthSettings";
+import { SocialMediaSettings } from "../SocialMediaSettings";
 // import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
@@ -810,17 +811,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Social Media Tab Content */}
           {activeTab === "social-media" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Social Media
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Connect and manage your social media accounts
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Social media settings coming soon...
-                </p>
-              </div>
+              <SocialMediaSettings
+                shopId={shopId}
+                initialLinks={{
+                  facebook: shopData?.facebook,
+                  instagram: shopData?.instagram,
+                  x: shopData?.x,
+                  website: shopData?.website,
+                }}
+                onUpdate={onSettingsUpdate}
+              />
             </div>
           )}
 
