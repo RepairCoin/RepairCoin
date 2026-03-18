@@ -30,6 +30,67 @@ export function useApproveRescheduleRequestMutation() {
 /**
  * Hook to reject a reschedule request
  */
+/**
+ * Hook for customer to request a reschedule
+ */
+export function useCreateRescheduleRequestMutation() {
+  const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
+
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      requestedDate,
+      requestedTimeSlot,
+      reason,
+    }: {
+      orderId: string;
+      requestedDate: string;
+      requestedTimeSlot: string;
+      reason?: string;
+    }) => {
+      return appointmentApi.createRescheduleRequest(
+        orderId,
+        requestedDate,
+        requestedTimeSlot,
+        reason
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "customer"] });
+      showSuccess("Reschedule request sent. The shop will review it shortly.");
+    },
+    onError: (error: any) => {
+      console.error("Failed to create reschedule request:", error);
+      const errorMessage = error.response?.data?.error || error.message || "";
+      showError(errorMessage || "Failed to send reschedule request. Please try again.");
+    },
+  });
+}
+
+/**
+ * Hook for customer to cancel their pending reschedule request
+ */
+export function useCancelRescheduleRequestMutation() {
+  const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
+
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      return appointmentApi.cancelRescheduleRequest(requestId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "customer"] });
+      showSuccess("Reschedule request cancelled.");
+    },
+    onError: (error: any) => {
+      console.error("Failed to cancel reschedule request:", error);
+      const errorMessage = error.response?.data?.error || error.message || "";
+      showError(errorMessage || "Failed to cancel reschedule request. Please try again.");
+    },
+  });
+}
+
 export function useRejectRescheduleRequestMutation() {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useAppToast();

@@ -270,6 +270,65 @@ class AppointmentApi {
   }
 
   // ============================================
+  // Reschedule Requests (Customer)
+  // ============================================
+
+  /**
+   * Customer requests a reschedule for their booking
+   */
+  async createRescheduleRequest(
+    orderId: string,
+    requestedDate: string,
+    requestedTimeSlot: string,
+    reason?: string
+  ): Promise<RescheduleRequest> {
+    try {
+      const response = await apiClient.post(
+        `/services/appointments/reschedule-request`,
+        { orderId, requestedDate, requestedTimeSlot, reason }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to create reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Customer cancels their pending reschedule request
+   */
+  async cancelRescheduleRequest(requestId: string): Promise<boolean> {
+    try {
+      await apiClient.delete(
+        `/services/appointments/reschedule-request/${requestId}`
+      );
+      return true;
+    } catch (error: any) {
+      console.error("Failed to cancel reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get reschedule request for a specific order (Customer)
+   */
+  async getRescheduleRequestForOrder(
+    orderId: string
+  ): Promise<RescheduleRequest | null> {
+    try {
+      const response = await apiClient.get(
+        `/services/appointments/reschedule-request/order/${orderId}`
+      );
+      return response.data || null;
+    } catch (error: any) {
+      // 404 means no request exists
+      if (error.response?.status === 404) return null;
+      console.error("Failed to get reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  // ============================================
   // Manual Booking (Walk-in/Phone)
   // ============================================
 

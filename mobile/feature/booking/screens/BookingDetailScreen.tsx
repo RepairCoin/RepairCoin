@@ -20,6 +20,7 @@ import {
   useCancelOrderMutation,
   useMarkNoShowMutation,
   useRescheduleMutation,
+  useCreateRescheduleRequestMutation,
 } from "../hooks/mutations";
 import { MarkNoShowModal, RescheduleModal } from "../components";
 import { getStatusColor } from "../utils";
@@ -356,10 +357,12 @@ export default function BookingDetailScreen() {
   const cancelOrderMutation = useCancelOrderMutation();
   const markNoShowMutation = useMarkNoShowMutation();
   const rescheduleMutation = useRescheduleMutation();
+  const createRescheduleRequestMutation = useCreateRescheduleRequestMutation();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showNoShowModal, setShowNoShowModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showCustomerRescheduleModal, setShowCustomerRescheduleModal] = useState(false);
   const [isMessaging, setIsMessaging] = useState(false);
 
   const handleMessageCustomer = useCallback(async (customerAddress: string) => {
@@ -466,12 +469,24 @@ export default function BookingDetailScreen() {
     });
   }, [booking, rescheduleMutation]);
 
+  const handleCustomerRescheduleRequest = useCallback((newDate: string, newTimeSlot: string, reason?: string) => {
+    if (!booking) return;
+    setShowCustomerRescheduleModal(false);
+    createRescheduleRequestMutation.mutate({
+      orderId: booking.orderId,
+      requestedDate: newDate,
+      requestedTimeSlot: newTimeSlot,
+      reason,
+    });
+  }, [booking, createRescheduleRequestMutation]);
+
   const isActionLoading =
     approveOrderMutation.isPending ||
     completeOrderMutation.isPending ||
     cancelOrderMutation.isPending ||
     markNoShowMutation.isPending ||
-    rescheduleMutation.isPending;
+    rescheduleMutation.isPending ||
+    createRescheduleRequestMutation.isPending;
 
   if (isLoading) {
     return (
@@ -699,7 +714,7 @@ export default function BookingDetailScreen() {
 
   // Customer action buttons
   const renderCustomerActionButtons = () => {
-    // Paid (not yet approved or approved) - show Cancel button
+    // Paid (not yet approved or approved) - show Reschedule and Cancel buttons
     if (booking.status === "paid") {
       return (
         <View className="space-y-3 gap-2">
@@ -712,6 +727,20 @@ export default function BookingDetailScreen() {
                 : "Payment received. Waiting for shop to approve your booking."}
             </Text>
           </View>
+
+          {/* Request Reschedule Button */}
+          <TouchableOpacity
+            onPress={() => setShowCustomerRescheduleModal(true)}
+            disabled={isActionLoading}
+            className="py-4 rounded-xl items-center border border-[#FFCC00]/50 bg-[#FFCC00]/10"
+          >
+            <View className="flex-row items-center">
+              <Feather name="calendar" size={20} color="#FFCC00" />
+              <Text className="text-[#FFCC00] font-semibold text-base ml-2">
+                Request Reschedule
+              </Text>
+            </View>
+          </TouchableOpacity>
 
           {/* Cancel Button */}
           <TouchableOpacity
@@ -1133,13 +1162,27 @@ export default function BookingDetailScreen() {
         customerName={booking?.customerName || undefined}
       />
 
-      {/* Reschedule Modal */}
+      {/* Reschedule Modal - Shop */}
       {booking && (
         <RescheduleModal
           visible={showRescheduleModal}
           onClose={() => setShowRescheduleModal(false)}
           onConfirm={handleReschedule}
           isLoading={rescheduleMutation.isPending}
+          shopId={booking.shopId}
+          serviceId={booking.serviceId}
+          currentDate={booking.bookingDate || undefined}
+          currentTime={booking.bookingDate ? new Date(booking.bookingDate).toTimeString().slice(0, 5) : undefined}
+        />
+      )}
+
+      {/* Reschedule Modal - Customer Request */}
+      {booking && (
+        <RescheduleModal
+          visible={showCustomerRescheduleModal}
+          onClose={() => setShowCustomerRescheduleModal(false)}
+          onConfirm={handleCustomerRescheduleRequest}
+          isLoading={createRescheduleRequestMutation.isPending}
           shopId={booking.shopId}
           serviceId={booking.serviceId}
           currentDate={booking.bookingDate || undefined}
