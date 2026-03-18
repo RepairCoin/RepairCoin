@@ -34,8 +34,9 @@ function PaymentSuccessContent() {
 
     const fetchSummary = async () => {
       try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/services/orders/${orderId}/payment-summary`
+          `${apiUrl}/services/orders/${orderId}/payment-summary`
         );
         if (response.data.success) {
           setSummary(response.data.data);

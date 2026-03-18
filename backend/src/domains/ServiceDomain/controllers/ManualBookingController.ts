@@ -841,7 +841,7 @@ export const getPaymentSummary = async (req: Request, res: Response): Promise<vo
         so.status,
         so.payment_status,
         so.total_amount,
-        so.rcn_discount,
+        so.rcn_discount_usd,
         so.booking_date,
         so.booking_time_slot,
         so.created_at,
@@ -891,7 +891,7 @@ export const getPaymentSummary = async (req: Request, res: Response): Promise<vo
         serviceName: order.service_name,
         shopName: order.shop_name,
         amount: parseFloat(order.total_amount),
-        rcnDiscount: parseFloat(order.rcn_discount || '0'),
+        rcnDiscount: parseFloat(order.rcn_discount_usd || '0'),
         bookingDate,
         bookingTime,
       }
