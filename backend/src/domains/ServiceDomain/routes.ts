@@ -2660,6 +2660,33 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/orders/{orderId}/payment-summary:
+   *   get:
+   *     summary: Get payment summary (Public - no auth)
+   *     description: Returns limited order data for the standalone payment success page. No authentication required.
+   *     tags: [Orders]
+   *     parameters:
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Payment summary
+   *       404:
+   *         description: Order not found
+   */
+  router.get(
+    '/orders/:orderId/payment-summary',
+    async (req, res) => {
+      const { getPaymentSummary } = await import('./controllers/ManualBookingController');
+      return getPaymentSummary(req, res);
+    }
+  );
+
+  /**
+   * @swagger
    * /api/services/bookings/{orderId}/direct-reschedule:
    *   post:
    *     summary: Direct reschedule by shop (Shop only)

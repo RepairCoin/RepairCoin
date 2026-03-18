@@ -282,8 +282,8 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
               quantity: 1,
             }],
             mode: 'payment',
-            success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=success&orderId=${order.order_id}`,
-            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=cancelled&orderId=${order.order_id}`,
+            success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/success?orderId=${order.order_id}`,
+            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/cancelled?orderId=${order.order_id}`,
             customer_email: customerEmail || undefined,
             metadata: {
               orderId: order.order_id,
@@ -743,8 +743,8 @@ export const regeneratePaymentLink = async (req: Request, res: Response): Promis
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=success&orderId=${orderId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/customer?tab=orders&payment=cancelled&orderId=${orderId}`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/success?orderId=${orderId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/payment/cancelled?orderId=${orderId}`,
       customer_email: order.customer_email || undefined,
       metadata: {
         orderId: orderId,
@@ -814,6 +814,92 @@ export const regeneratePaymentLink = async (req: Request, res: Response): Promis
     console.error('Error regenerating payment link:', error);
     res.status(500).json({
       error: 'Failed to regenerate payment link',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Get payment summary for standalone success page (NO AUTH REQUIRED)
+ * GET /api/services/orders/:orderId/payment-summary
+ *
+ * Returns limited, non-sensitive order data for the payment success page.
+ * This endpoint is public because the paying customer may not have a RepairCoin account.
+ */
+export const getPaymentSummary = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      res.status(400).json({ error: 'Order ID is required' });
+      return;
+    }
+
+    const result = await pool.query(
+      `SELECT
+        so.order_id,
+        so.status,
+        so.payment_status,
+        so.total_amount,
+        so.rcn_discount_usd,
+        so.booking_date,
+        so.booking_time_slot,
+        so.created_at,
+        ss.service_name,
+        s.name as shop_name
+      FROM service_orders so
+      JOIN shop_services ss ON so.service_id = ss.service_id
+      JOIN shops s ON so.shop_id = s.shop_id
+      WHERE so.order_id = $1`,
+      [orderId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const order = result.rows[0];
+
+    // Format booking time for display
+    let bookingTime = '';
+    if (order.booking_time_slot) {
+      const [hours, minutes] = order.booking_time_slot.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      bookingTime = `${hour12}:${minutes} ${ampm}`;
+    }
+
+    // Format booking date
+    let bookingDate = '';
+    if (order.booking_date) {
+      bookingDate = new Date(order.booking_date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        orderId: order.order_id,
+        status: order.status,
+        paymentStatus: order.payment_status,
+        serviceName: order.service_name,
+        shopName: order.shop_name,
+        amount: parseFloat(order.total_amount),
+        rcnDiscount: parseFloat(order.rcn_discount_usd || '0'),
+        bookingDate,
+        bookingTime,
+      }
+    });
+  } catch (error) {
+    console.error('Error getting payment summary:', error);
+    res.status(500).json({
+      error: 'Failed to get payment summary',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
