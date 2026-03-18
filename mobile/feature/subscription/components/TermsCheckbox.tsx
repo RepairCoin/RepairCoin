@@ -1,5 +1,6 @@
 import { View, Text } from "react-native";
 import { Checkbox } from "expo-checkbox";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 type TermsCheckboxProps = {
   value: boolean;
@@ -7,11 +8,13 @@ type TermsCheckboxProps = {
 };
 
 export default function TermsCheckbox({ value, onValueChange }: TermsCheckboxProps) {
+  const haptics = useHaptics();
+
   return (
     <View className="flex-row items-start mt-8">
       <Checkbox
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={(v) => { haptics.selection(); onValueChange(v); }}
         style={{
           borderRadius: 4,
           backgroundColor: value ? "#c8f7c5" : "#f5f5f5",

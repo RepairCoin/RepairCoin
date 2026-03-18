@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 import { CreateGroupData } from "../types";
 
 const ICON_OPTIONS = [
@@ -58,6 +59,7 @@ export function CreateGroupModal({
   const [selectedIcon, setSelectedIcon] = useState("🏪");
   const [isPrivate, setIsPrivate] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const haptics = useHaptics();
 
   const resetForm = () => {
     setGroupName("");
@@ -215,7 +217,7 @@ export function CreateGroupModal({
 
           {/* Private Toggle */}
           <Pressable
-            onPress={() => setIsPrivate(!isPrivate)}
+            onPress={() => { haptics.selection(); setIsPrivate(!isPrivate); }}
             className="flex-row items-center justify-between bg-zinc-900 rounded-lg p-4 mb-6 border border-zinc-800"
           >
             <View className="flex-row items-center flex-1">
@@ -273,7 +275,7 @@ export function CreateGroupModal({
         {/* Submit Button */}
         <View className="px-4 py-4 border-t border-zinc-800">
           <Pressable
-            onPress={handleSubmit}
+            onPress={() => { haptics.medium(); handleSubmit(); }}
             disabled={!isValid || isSubmitting}
             className={`rounded-lg p-4 items-center ${
               isValid && !isSubmitting ? "bg-yellow-500" : "bg-zinc-700"

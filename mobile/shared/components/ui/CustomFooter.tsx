@@ -9,6 +9,7 @@ import {
 } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface TabItem {
   id: string;
@@ -20,6 +21,7 @@ interface TabItem {
 export default function CustomFooter() {
   const pathname = usePathname();
   const { userType } = useAuthStore();
+  const haptics = useHaptics();
   const [active, setActive] = useState("Home");
 
   // Define tabs based on user role
@@ -166,6 +168,7 @@ export default function CustomFooter() {
 
   const handleTabPress = (tab: TabItem) => {
     if (active !== tab.id) {
+      haptics.selection();
       setActive(tab.id);
       router.push(tab.route as any);
     }

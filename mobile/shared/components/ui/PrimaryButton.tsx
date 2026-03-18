@@ -1,4 +1,5 @@
 import { Pressable, Text, ActivityIndicator, View } from "react-native";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 type Props = {
   title: string;
@@ -11,9 +12,16 @@ type Props = {
 export default function PrimaryButton({
   title, onPress, disabled, className, loading
 }: Props) {
+  const haptics = useHaptics();
+
+  const handlePress = () => {
+    haptics.medium();
+    onPress?.();
+  };
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled || loading}
       className={`w-full items-center justify-center rounded-2xl py-4 ${disabled || loading ? 'bg-[#FFCC00]/20' : 'bg-[#FFCC00]'} ${className}`}
       style={{ minHeight: 50 }}

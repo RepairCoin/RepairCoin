@@ -6,6 +6,7 @@ import {
   Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface ShareModalProps {
   visible: boolean;
@@ -28,6 +29,8 @@ export function ShareModal({
   onShareFacebook,
   onNativeShare,
 }: ShareModalProps) {
+  const haptics = useHaptics();
+
   return (
     <Modal
       visible={visible}
@@ -56,7 +59,7 @@ export function ShareModal({
           {/* Share Options */}
           <View className="flex-row justify-around mb-6">
             {/* Copy Link */}
-            <TouchableOpacity onPress={onCopyLink} className="items-center">
+            <TouchableOpacity onPress={() => { haptics.selection(); onCopyLink(); }} className="items-center">
               <View
                 className={`w-14 h-14 rounded-full items-center justify-center ${copySuccess ? "bg-green-500" : "bg-zinc-800"}`}
               >
@@ -72,7 +75,7 @@ export function ShareModal({
             </TouchableOpacity>
 
             {/* WhatsApp */}
-            <TouchableOpacity onPress={onShareWhatsApp} className="items-center">
+            <TouchableOpacity onPress={() => { haptics.light(); onShareWhatsApp(); }} className="items-center">
               <View className="w-14 h-14 bg-[#25D366] rounded-full items-center justify-center">
                 <Ionicons name="logo-whatsapp" size={24} color="white" />
               </View>
@@ -80,7 +83,7 @@ export function ShareModal({
             </TouchableOpacity>
 
             {/* X (formerly Twitter) */}
-            <TouchableOpacity onPress={onShareTwitter} className="items-center">
+            <TouchableOpacity onPress={() => { haptics.light(); onShareTwitter(); }} className="items-center">
               <View className="w-14 h-14 bg-black rounded-full items-center justify-center border border-zinc-700">
                 <Text className="text-white text-xl font-bold">𝕏</Text>
               </View>
@@ -88,7 +91,7 @@ export function ShareModal({
             </TouchableOpacity>
 
             {/* Facebook */}
-            <TouchableOpacity onPress={onShareFacebook} className="items-center">
+            <TouchableOpacity onPress={() => { haptics.light(); onShareFacebook(); }} className="items-center">
               <View className="w-14 h-14 bg-[#1877F2] rounded-full items-center justify-center">
                 <Ionicons name="logo-facebook" size={24} color="white" />
               </View>

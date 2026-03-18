@@ -1,4 +1,5 @@
 import { Pressable, Text, ActivityIndicator, View } from "react-native";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 type SubscriptionActionButtonProps = {
   isSubscribed: boolean;
@@ -17,11 +18,13 @@ export default function SubscriptionActionButton({
   onCancel,
   onResubscribe,
 }: SubscriptionActionButtonProps) {
+  const haptics = useHaptics();
+
   // Show resubscribe button when pending cancellation
   if (isSubscribed && isPendingCancellation) {
     return (
       <Pressable
-        onPress={onResubscribe}
+        onPress={() => { haptics.medium(); onResubscribe?.(); }}
         disabled={isLoading}
         className={`bg-[#FFCC00] rounded-xl py-4 items-center ${isLoading ? "opacity-60" : "active:opacity-80"}`}
       >
@@ -38,7 +41,7 @@ export default function SubscriptionActionButton({
   if (isSubscribed) {
     return (
       <Pressable
-        onPress={onCancel}
+        onPress={() => { haptics.error(); onCancel(); }}
         disabled={isLoading}
         className={`bg-[#E74C4C] rounded-xl py-4 items-center ${isLoading ? "opacity-60" : "active:opacity-80"}`}
       >
@@ -54,7 +57,7 @@ export default function SubscriptionActionButton({
   // Show subscribe button when not subscribed
   return (
     <Pressable
-      onPress={onSubscribe}
+      onPress={() => { haptics.medium(); onSubscribe(); }}
       className="bg-[#FFCC00] rounded-xl py-4 items-center active:opacity-80"
     >
       <Text className="text-black text-lg font-bold">Subscribe Now</Text>

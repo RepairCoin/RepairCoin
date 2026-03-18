@@ -8,6 +8,7 @@ import {
   Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 
 interface ServiceActionModalProps {
@@ -29,6 +30,8 @@ export function ServiceActionModal({
   onToggleStatus,
   onViewDetails,
 }: ServiceActionModalProps) {
+  const haptics = useHaptics();
+
   return (
     <Modal
       animationType="slide"
@@ -81,7 +84,7 @@ export function ServiceActionModal({
                 ) : (
                   <Switch
                     value={service?.active || false}
-                    onValueChange={onToggleStatus}
+                    onValueChange={(value) => { haptics.selection(); onToggleStatus(value); }}
                     trackColor={{ false: "#374151", true: "#10B981" }}
                     thumbColor={service?.active ? "#fff" : "#9CA3AF"}
                     disabled={isUpdating}

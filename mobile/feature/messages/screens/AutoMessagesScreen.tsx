@@ -14,6 +14,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { messageApi } from "../services/message.services";
 import { AutoMessage } from "@/shared/interfaces/message.interface";
@@ -57,6 +58,7 @@ const getTargetLabel = (target: string): string => {
 
 export default function AutoMessagesScreen() {
   const queryClient = useQueryClient();
+  const haptics = useHaptics();
   const [refreshing, setRefreshing] = useState(false);
   const [historyModalId, setHistoryModalId] = useState<string | null>(null);
 
@@ -104,7 +106,7 @@ export default function AutoMessagesScreen() {
           {
             text: "Delete",
             style: "destructive",
-            onPress: () => deleteMutation.mutate(autoMessage.id),
+            onPress: () => { haptics.warning(); deleteMutation.mutate(autoMessage.id); },
           },
         ]
       );
@@ -144,7 +146,7 @@ export default function AutoMessagesScreen() {
         {/* Toggle Switch */}
         <Switch
           value={item.isEnabled}
-          onValueChange={() => toggleMutation.mutate(item.id)}
+          onValueChange={() => { haptics.selection(); toggleMutation.mutate(item.id); }}
           trackColor={{ false: "#3f3f46", true: "#22c55e40" }}
           thumbColor={item.isEnabled ? "#22c55e" : "#71717a"}
           disabled={toggleMutation.isPending}

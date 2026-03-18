@@ -1,15 +1,18 @@
 import React from "react";
 import { TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface AddServiceFabProps {
   onPress: () => void;
 }
 
 export function AddServiceFab({ onPress }: AddServiceFabProps) {
+  const haptics = useHaptics();
+
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => { haptics.medium(); onPress(); }}
       className="bg-[#FFCC00] w-14 h-14 rounded-full items-center justify-center"
       style={{
         position: "absolute",

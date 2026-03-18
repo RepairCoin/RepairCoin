@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 
@@ -37,6 +38,7 @@ export default function MessageInput({
 }: MessageInputProps) {
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const haptics = useHaptics();
 
   const canSend = (value.trim() || attachments.length > 0) && !isSending && !disabled;
 
@@ -110,6 +112,7 @@ export default function MessageInput({
   };
 
   const handleSend = () => {
+    haptics.light();
     onSend(attachments.length > 0 ? attachments : undefined);
     setAttachments([]);
   };

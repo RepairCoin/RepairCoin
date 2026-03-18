@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface MarkNoShowModalProps {
   visible: boolean;
@@ -25,8 +26,10 @@ export default function MarkNoShowModal({
   customerName,
 }: MarkNoShowModalProps) {
   const [notes, setNotes] = useState("");
+  const haptics = useHaptics();
 
   const handleConfirm = () => {
+    haptics.warning();
     onConfirm(notes.trim() || undefined);
     setNotes("");
   };
