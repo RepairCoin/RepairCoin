@@ -57,11 +57,12 @@ shared/                # Shared code across features
 
 ## Task Tracking
 
-Tasks are tracked in `docs/tasks/`:
-- `week-YYYY-MM-DD.md` - Weekly summary
-- `bugs/` - Bug reports
-- `features/` - Feature specs
-- `refactor/` - Refactor tasks
+Tasks are tracked in `docs/tasks/` (see `docs/tasks/RULES.md` for full guidelines):
+- `week-YYYY-MM-DD.md` - Weekly summaries
+- `bugs/` - Bug reports and fixes
+- `enhancements/` - Features, improvements, and new functionality
+- `refactor/` - Code refactoring and UI/UX improvements
+- Each category has a `completed/` subfolder for finished tasks
 
 ## API Integration
 
