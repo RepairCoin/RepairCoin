@@ -488,6 +488,12 @@ export default function BookingDetailScreen() {
     rescheduleMutation.isPending ||
     createRescheduleRequestMutation.isPending;
 
+  // Memoize image source - must be before early returns to follow Rules of Hooks
+  const imageSource = useMemo(
+    () => (booking?.serviceImageUrl ? { uri: booking.serviceImageUrl } : null),
+    [booking?.serviceImageUrl]
+  );
+
   if (isLoading) {
     return (
       <ThemedView className="flex-1">
@@ -521,11 +527,6 @@ export default function BookingDetailScreen() {
   }
 
   const isApproved = booking.shopApproved === true;
-  // Memoize image source to prevent re-renders
-  const imageSource = useMemo(
-    () => (booking.serviceImageUrl ? { uri: booking.serviceImageUrl } : null),
-    [booking.serviceImageUrl]
-  );
   // Use appropriate status color
   const effectiveStatus = booking.status === "expired"
     ? "expired"
