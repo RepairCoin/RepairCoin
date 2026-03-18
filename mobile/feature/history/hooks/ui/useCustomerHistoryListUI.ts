@@ -55,7 +55,7 @@ export function useCustomerHistoryListUI() {
           case "earned":
             return ["earned", "bonus", "referral", "tier_bonus"].includes(type);
           case "redeemed":
-            return ["redeemed", "redemption"].includes(type);
+            return ["redeemed", "redemption", "service_redemption"].includes(type);
           case "gifts":
             return ["transfer_in", "transfer_out", "gift"].includes(type);
           default:
@@ -100,7 +100,7 @@ export function useCustomerHistoryListUI() {
 
     const redeemed = rawTransactions
       .filter((tx) =>
-        ["redeemed", "redemption", "transfer_out"].includes(tx.type?.toLowerCase())
+        ["redeemed", "redemption", "service_redemption", "transfer_out"].includes(tx.type?.toLowerCase())
       )
       .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 

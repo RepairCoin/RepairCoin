@@ -42,6 +42,18 @@ const getTransactionConfig = (type: string) => {
     };
   }
 
+  // Service redemption
+  if (lowerType === "service_redemption") {
+    return {
+      isPositive: false,
+      bgColor: "bg-[#FDE8D0]",
+      iconColor: "#EA580C",
+      icon: <MaterialIcons name="discount" color="#EA580C" size={18} />,
+      label: "Service Discount",
+      amountColor: "text-orange-400",
+    };
+  }
+
   // Redeemed types
   if (["redeemed", "redemption"].includes(lowerType)) {
     return {
