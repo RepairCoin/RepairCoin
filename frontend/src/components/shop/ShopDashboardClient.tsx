@@ -688,7 +688,11 @@ export default function ShopDashboardClient() {
       const shopResult = await apiClient.get(shopEndpoint);
 
       if (shopResult.success && shopResult.data) {
-        let enhancedShopData = shopResult.data;
+        let enhancedShopData = {
+          ...shopResult.data,
+          // Backend returns 'twitter', frontend uses 'x'
+          x: shopResult.data.twitter || shopResult.data.x,
+        };
 
         // Load additional data if we have a shopId
         if (shopResult.data.shopId) {
@@ -774,7 +778,11 @@ export default function ShopDashboardClient() {
       const shopResult = await apiClient.get(shopEndpoint);
 
       if (shopResult.success && shopResult.data) {
-        let enhancedShopData = shopResult.data;
+        let enhancedShopData = {
+          ...shopResult.data,
+          // Backend returns 'twitter', frontend uses 'x'
+          x: shopResult.data.twitter || shopResult.data.x,
+        };
 
         // Load subscription details
         if (shopResult.data.shopId) {

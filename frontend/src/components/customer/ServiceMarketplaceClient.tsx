@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getAllServices, ShopServiceWithShopInfo, servicesApi } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceFilters, FilterState } from "./ServiceFilters";
@@ -436,21 +437,22 @@ export const ServiceMarketplaceClient: React.FC = () => {
                   <p className="text-xs text-purple-200 mb-3">
                     Filter services by affiliate groups to earn bonus tokens on top of RCN!
                   </p>
-                  <select
-                    value={selectedGroupId}
-                    onChange={(e) => {
-                      setSelectedGroupId(e.target.value);
+                  <Select value={selectedGroupId || "all"} onValueChange={(value) => {
+                      setSelectedGroupId(value === "all" ? "" : value);
                       setPage(1);
-                    }}
-                    className="w-full px-4 py-3 bg-[#1A1A1A] border border-purple-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 hover:border-purple-400/70 cursor-pointer transition-colors"
-                  >
-                    <option value="">🌐 All Services (with or without group rewards)</option>
-                    {customerGroups.map(group => (
-                      <option key={group.groupId} value={group.groupId}>
-                        {group.icon || '🏪'} {group.groupName} - Earn {group.customTokenSymbol} tokens
-                      </option>
-                    ))}
-                  </select>
+                    }}>
+                    <SelectTrigger variant="dark" className="w-full px-4 py-3 h-auto bg-[#1A1A1A] border-purple-500/50 rounded-lg text-white hover:border-purple-400/70 cursor-pointer transition-colors">
+                      <SelectValue placeholder="All Services (with or without group rewards)" />
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      <SelectItem variant="dark" value="all">All Services (with or without group rewards)</SelectItem>
+                      {customerGroups.map(group => (
+                        <SelectItem variant="dark" key={group.groupId} value={group.groupId}>
+                          {group.icon || '🏪'} {group.groupName} - Earn {group.customTokenSymbol} tokens
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {selectedGroupId && (
                     <div className="mt-3 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
                       <p className="text-xs text-purple-200">

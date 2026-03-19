@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Tag, Plus, Trash2, BarChart3, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import apiClient from '@/services/api/client';
 
 interface PromoCode {
@@ -530,19 +531,23 @@ export default function PromoCodesTab({ shopId }: PromoCodesTabProps) {
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                       Bonus Type
                     </label>
-                    <select
+                    <Select
                       value={formData.bonus_type}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          bonus_type: e.target.value as "fixed" | "percentage",
+                          bonus_type: value as "fixed" | "percentage",
                         })
                       }
-                      className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     >
-                      <option value="fixed">Fixed Amount</option>
-                      <option value="percentage">Percentage</option>
-                    </select>
+                      <SelectTrigger variant="dark" className="w-full h-auto py-3">
+                        <SelectValue placeholder="Bonus Type" />
+                      </SelectTrigger>
+                      <SelectContent variant="dark">
+                        <SelectItem variant="dark" value="fixed">Fixed Amount</SelectItem>
+                        <SelectItem variant="dark" value="percentage">Percentage</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>

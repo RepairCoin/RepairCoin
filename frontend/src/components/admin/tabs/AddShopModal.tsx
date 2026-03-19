@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { toast } from "react-hot-toast";
 import { X } from "lucide-react";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AddShopModalProps {
   isOpen: boolean;
@@ -395,38 +396,36 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Company Size
                     </label>
-                    <select
-                      name="companySize"
-                      value={formData.companySize}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                      disabled={loading}
-                    >
-                      <option value="">Select size</option>
-                      <option value="1-10">1-10 employees</option>
-                      <option value="11-50">11-50 employees</option>
-                      <option value="51-100">51-100 employees</option>
-                      <option value="100+">100+ employees</option>
-                    </select>
+                    <Select value={formData.companySize || "none"} onValueChange={(value) => setFormData((prev) => ({ ...prev, companySize: value === "none" ? "" : value }))} disabled={loading}>
+                      <SelectTrigger variant="dark" className="w-full">
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent variant="dark">
+                        <SelectItem variant="dark" value="none">Select size</SelectItem>
+                        <SelectItem variant="dark" value="1-10">1-10 employees</SelectItem>
+                        <SelectItem variant="dark" value="11-50">11-50 employees</SelectItem>
+                        <SelectItem variant="dark" value="51-100">51-100 employees</SelectItem>
+                        <SelectItem variant="dark" value="100+">100+ employees</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Monthly Revenue
                     </label>
-                    <select
-                      name="monthlyRevenue"
-                      value={formData.monthlyRevenue}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                      disabled={loading}
-                    >
-                      <option value="">Select revenue</option>
-                      <option value="<$10k">Less than $10k</option>
-                      <option value="$10k-$50k">$10k - $50k</option>
-                      <option value="$50k-$100k">$50k - $100k</option>
-                      <option value="$100k+">$100k+</option>
-                    </select>
+                    <Select value={formData.monthlyRevenue || "none"} onValueChange={(value) => setFormData((prev) => ({ ...prev, monthlyRevenue: value === "none" ? "" : value }))} disabled={loading}>
+                      <SelectTrigger variant="dark" className="w-full">
+                        <SelectValue placeholder="Select revenue" />
+                      </SelectTrigger>
+                      <SelectContent variant="dark">
+                        <SelectItem variant="dark" value="none">Select revenue</SelectItem>
+                        <SelectItem variant="dark" value="<$10k">Less than $10k</SelectItem>
+                        <SelectItem variant="dark" value="$10k-$50k">$10k - $50k</SelectItem>
+                        <SelectItem variant="dark" value="$50k-$100k">$50k - $100k</SelectItem>
+                        <SelectItem variant="dark" value="$100k+">$100k+</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

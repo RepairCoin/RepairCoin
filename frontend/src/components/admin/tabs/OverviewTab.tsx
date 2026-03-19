@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RecentActivityTimeline } from './RecentActivityTimeline';
 import { useOverviewData } from '@/hooks/useOverviewData';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -199,16 +200,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
             </p>
             <div className="flex justify-between items-center">
               <div className="flex gap-2">
-                <select
-                  className="px-3 py-1.5 bg-black border border-gray-600 rounded-3xl text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
-                  value={transactionFilter}
-                  onChange={(e) => setTransactionFilter(e.target.value)}
-                >
-                  <option value="all">All Types</option>
-                  <option value="purchase">RCN Purchases</option>
-                  <option value="mint">Token Mints</option>
-                  <option value="redemption">Redemptions</option>
-                </select>
+                <Select value={transactionFilter} onValueChange={(value) => setTransactionFilter(value)}>
+                  <SelectTrigger variant="dark" className="text-sm">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="all">All Types</SelectItem>
+                    <SelectItem variant="dark" value="purchase">RCN Purchases</SelectItem>
+                    <SelectItem variant="dark" value="mint">Token Mints</SelectItem>
+                    <SelectItem variant="dark" value="redemption">Redemptions</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

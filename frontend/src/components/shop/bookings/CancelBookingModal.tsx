@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "react-hot-toast";
 import { cancelOrderByShop } from "@/services/api/services";
 
@@ -96,19 +97,22 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Cancellation Reason <span className="text-red-400">*</span>
             </label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:border-[#FFCC00] focus:outline-none"
-              required
+            <Select
+              value={reason || "all"}
+              onValueChange={(value) => setReason(value === "all" ? "" : value)}
             >
-              <option value="">Select a reason...</option>
-              {CANCELLATION_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger variant="dark" className="w-full h-auto py-3">
+                <SelectValue placeholder="Select a reason..." />
+              </SelectTrigger>
+              <SelectContent variant="dark">
+                <SelectItem variant="dark" value="all">Select a reason...</SelectItem>
+                {CANCELLATION_REASONS.map((r) => (
+                  <SelectItem variant="dark" key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Notes */}

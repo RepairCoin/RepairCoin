@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Activity,
   Store,
@@ -232,17 +233,18 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = () 
           Recent Activity
         </p>
         <div className="flex items-center gap-2">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-1.5 bg-black border border-gray-600 rounded-3xl text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
-          >
-            <option value="all">All Events</option>
-            <option value="shop_registration">Registrations</option>
-            <option value="shop_approval">Approvals</option>
-            <option value="rcn_purchase">Purchases</option>
-            <option value="tier_upgrade">Upgrades</option>
-          </select>
+          <Select value={filter} onValueChange={(value) => setFilter(value)}>
+            <SelectTrigger variant="dark" className="text-sm">
+              <SelectValue placeholder="All Events" />
+            </SelectTrigger>
+            <SelectContent variant="dark">
+              <SelectItem variant="dark" value="all">All Events</SelectItem>
+              <SelectItem variant="dark" value="shop_registration">Registrations</SelectItem>
+              <SelectItem variant="dark" value="shop_approval">Approvals</SelectItem>
+              <SelectItem variant="dark" value="rcn_purchase">Purchases</SelectItem>
+              <SelectItem variant="dark" value="tier_upgrade">Upgrades</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

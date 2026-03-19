@@ -26,6 +26,7 @@ import {
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Customer {
   address: string;
@@ -760,27 +761,29 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             {/* Filter controls - only show for customer views */}
             {viewMode !== "unsuspend-requests" && (
               <div className="flex flex-col sm:flex-row gap-3">
-                <select
-                  value={selectedTier}
-                  onChange={(e) => setSelectedTier(e.target.value)}
-                  className="w-full sm:w-auto px-3 md:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm md:text-base"
-                >
-                  <option value="all">All Tiers</option>
-                  <option value="GOLD">Gold Tier</option>
-                  <option value="SILVER">Silver Tier</option>
-                  <option value="BRONZE">Bronze Tier</option>
-                </select>
+                <Select value={selectedTier} onValueChange={(value) => setSelectedTier(value)}>
+                  <SelectTrigger variant="dark" className="w-full sm:w-auto px-3 md:px-4 py-2 text-sm md:text-base">
+                    <SelectValue placeholder="All Tiers" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="all">All Tiers</SelectItem>
+                    <SelectItem variant="dark" value="GOLD">Gold Tier</SelectItem>
+                    <SelectItem variant="dark" value="SILVER">Silver Tier</SelectItem>
+                    <SelectItem variant="dark" value="BRONZE">Bronze Tier</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full sm:w-auto px-3 md:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm md:text-base"
-                >
-                  <option value="earnings">Sort by Earnings</option>
-                  <option value="transactions">Sort by Transactions</option>
-                  <option value="date">Sort by Last Activity</option>
-                  <option value="name">Sort by Name</option>
-                </select>
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as any)}>
+                  <SelectTrigger variant="dark" className="w-full sm:w-auto px-3 md:px-4 py-2 text-sm md:text-base">
+                    <SelectValue placeholder="Sort by Earnings" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="earnings">Sort by Earnings</SelectItem>
+                    <SelectItem variant="dark" value="transactions">Sort by Transactions</SelectItem>
+                    <SelectItem variant="dark" value="date">Sort by Last Activity</SelectItem>
+                    <SelectItem variant="dark" value="name">Sort by Name</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>

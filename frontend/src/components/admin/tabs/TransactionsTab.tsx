@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Coins, BarChart3, CheckCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Transaction {
   id: number;
@@ -187,16 +188,17 @@ export function TransactionsTab({ generateAdminToken, onError }: TransactionsTab
             <p className="text-gray-600 mt-1">View all platform transactions</p>
           </div>
           <div className="flex gap-2">
-            <select 
-              className="px-3 py-2 border rounded-lg text-sm"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="all">All Types</option>
-              <option value="purchase">RCN Purchases</option>
-              <option value="mint">Token Mints</option>
-              <option value="redemption">Redemptions</option>
-            </select>
+            <Select value={filter} onValueChange={(value) => setFilter(value)}>
+              <SelectTrigger variant="dark" className="text-sm">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent variant="dark">
+                <SelectItem variant="dark" value="all">All Types</SelectItem>
+                <SelectItem variant="dark" value="purchase">RCN Purchases</SelectItem>
+                <SelectItem variant="dark" value="mint">Token Mints</SelectItem>
+                <SelectItem variant="dark" value="redemption">Redemptions</SelectItem>
+              </SelectContent>
+            </Select>
             <button 
               onClick={exportToCSV}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"

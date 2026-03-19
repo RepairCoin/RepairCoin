@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Activity, Store, Users, Coins, ArrowRight, Gift, ShoppingCart, UserPlus, CheckCircle, XCircle, Clock, Building2, DollarSign, UserCheck, MapPin, User, CreditCard, Target, Globe, ClipboardList } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, Column } from '@/components/ui/DataTable';
 
 interface ActivityItem {
@@ -299,17 +300,18 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
             </h2>
             <p className="text-gray-400 text-sm mt-1">Real-time platform activities</p>
           </div>
-          <select
-            className="px-3 py-1.5 bg-gray-700/50 border border-gray-600 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Activities</option>
-            <option value="shop_registration">Shop Applications</option>
-            <option value="shop_approval">Shop Approvals</option>
-            <option value="rcn_purchase">RCN Purchases</option>
-            <option value="new_customer">New Customers</option>
-          </select>
+          <Select value={filter} onValueChange={(value) => setFilter(value)}>
+            <SelectTrigger variant="dark" className="text-sm">
+              <SelectValue placeholder="All Activities" />
+            </SelectTrigger>
+            <SelectContent variant="dark">
+              <SelectItem variant="dark" value="all">All Activities</SelectItem>
+              <SelectItem variant="dark" value="shop_registration">Shop Applications</SelectItem>
+              <SelectItem variant="dark" value="shop_approval">Shop Approvals</SelectItem>
+              <SelectItem variant="dark" value="rcn_purchase">RCN Purchases</SelectItem>
+              <SelectItem variant="dark" value="new_customer">New Customers</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

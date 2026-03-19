@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, DollarSign, Tag, Image as ImageIcon, Plus, XCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CreateServiceData,
   UpdateServiceData,
@@ -188,20 +189,24 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                   <label className="block text-sm font-semibold text-white mb-2">
                     Category <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={formData.category || ""}
-                    onChange={(e) => handleChange("category", e.target.value || undefined)}
-                    className={`w-full bg-[#1A1A1A] border ${
-                      errors.category ? "border-red-500" : "border-gray-700"
-                    } rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FFCC00] transition-colors appearance-none cursor-pointer`}
+                  <Select
+                    value={formData.category || "all"}
+                    onValueChange={(value) => handleChange("category", value === "all" ? undefined : value)}
                   >
-                    <option value="">Select a category</option>
-                    {SERVICE_CATEGORIES.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger variant="dark" className={`w-full h-auto py-3 ${
+                      errors.category ? "border-red-500" : ""
+                    }`}>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      <SelectItem variant="dark" value="all">Select a category</SelectItem>
+                      {SERVICE_CATEGORIES.map((cat) => (
+                        <SelectItem variant="dark" key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.category && (
                     <p className="mt-1 text-sm text-red-500">{errors.category}</p>
                   )}

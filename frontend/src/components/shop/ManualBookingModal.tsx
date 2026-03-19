@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Search, User, Calendar as CalendarIcon, Clock, DollarSign, FileText, Loader2, AlertCircle, CheckCircle, Smartphone, CheckCircle2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { appointmentsApi, CustomerSearchResult, TimeSlot, TimeSlotConfig, ManualBookingResponse } from '@/services/api/appointments';
 import { servicesApi } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
@@ -633,18 +634,22 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
                 <Loader2 className="w-6 h-6 animate-spin text-[#FFCC00]" />
               </div>
             ) : (
-              <select
-                value={selectedServiceId}
-                onChange={(e) => setSelectedServiceId(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-800 rounded-lg text-white focus:outline-none focus:border-[#FFCC00]"
+              <Select
+                value={selectedServiceId || "all"}
+                onValueChange={(value) => setSelectedServiceId(value === "all" ? "" : value)}
               >
-                <option value="">Select a service...</option>
-                {services.map((service) => (
-                  <option key={service.serviceId} value={service.serviceId}>
-                    {service.serviceName} - ${service.priceUsd.toFixed(2)} ({service.durationMinutes} min)
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger variant="dark" className="w-full h-auto py-3">
+                  <SelectValue placeholder="Select a service..." />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">Select a service...</SelectItem>
+                  {services.map((service) => (
+                    <SelectItem variant="dark" key={service.serviceId} value={service.serviceId}>
+                      {service.serviceName} - ${service.priceUsd.toFixed(2)} ({service.durationMinutes} min)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
 

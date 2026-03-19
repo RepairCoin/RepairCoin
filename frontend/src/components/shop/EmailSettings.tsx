@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Save, X, AlertCircle, CheckCircle, Mail, Bell, Clock, Settings } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/stores/authStore";
 import { EmailPreferences, getShopEmailPreferences, updateShopEmailPreferences } from "@/services/api/emailPreferences";
 
@@ -342,15 +343,19 @@ export const EmailSettings: React.FC = () => {
             {preferences.dailyDigest && (
               <div className="ml-4 pl-4 border-l-2 border-gray-700">
                 <label className="block text-sm text-gray-400 mb-2">Delivery Time</label>
-                <select
+                <Select
                   value={preferences.digestTime}
-                  onChange={(e) => handleUpdate("digestTime", e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  onValueChange={(value) => handleUpdate("digestTime", value as "morning" | "afternoon" | "evening")}
                 >
-                  <option value="morning">Morning (8:00 AM)</option>
-                  <option value="afternoon">Afternoon (2:00 PM)</option>
-                  <option value="evening">Evening (6:00 PM)</option>
-                </select>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Delivery Time" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="morning">Morning (8:00 AM)</SelectItem>
+                    <SelectItem variant="dark" value="afternoon">Afternoon (2:00 PM)</SelectItem>
+                    <SelectItem variant="dark" value="evening">Evening (6:00 PM)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
@@ -378,14 +383,18 @@ export const EmailSettings: React.FC = () => {
             {preferences.weeklyReport && (
               <div className="ml-4 pl-4 border-l-2 border-gray-700">
                 <label className="block text-sm text-gray-400 mb-2">Delivery Day</label>
-                <select
+                <Select
                   value={preferences.weeklyReportDay}
-                  onChange={(e) => handleUpdate("weeklyReportDay", e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  onValueChange={(value) => handleUpdate("weeklyReportDay", value as "monday" | "friday")}
                 >
-                  <option value="monday">Monday</option>
-                  <option value="friday">Friday</option>
-                </select>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Delivery Day" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="monday">Monday</SelectItem>
+                    <SelectItem variant="dark" value="friday">Friday</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
@@ -413,14 +422,18 @@ export const EmailSettings: React.FC = () => {
             {preferences.monthlyReport && (
               <div className="ml-4 pl-4 border-l-2 border-gray-700">
                 <label className="block text-sm text-gray-400 mb-2">Day of Month</label>
-                <select
-                  value={preferences.monthlyReportDay}
-                  onChange={(e) => handleUpdate("monthlyReportDay", parseInt(e.target.value))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                <Select
+                  value={String(preferences.monthlyReportDay)}
+                  onValueChange={(value) => handleUpdate("monthlyReportDay", parseInt(value))}
                 >
-                  <option value="1">1st of the month</option>
-                  <option value="15">15th of the month</option>
-                </select>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Day of Month" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="1">1st of the month</SelectItem>
+                    <SelectItem variant="dark" value="15">15th of the month</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>

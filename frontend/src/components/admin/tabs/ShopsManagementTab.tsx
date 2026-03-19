@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
 import { AddShopModal } from "./AddShopModal";
@@ -1080,18 +1081,18 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
             {viewMode !== "unsuspend-requests" && (
               <div className="flex gap-2 sm:gap-3">
                 {/* Filter Select */}
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
-                  title="Filter shops"
-                >
-                  <option value="all">All Shops</option>
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+                <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as any)}>
+                  <SelectTrigger variant="dark" className="flex-1 sm:flex-none text-sm" title="Filter shops">
+                    <SelectValue placeholder="All Shops" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="all">All Shops</SelectItem>
+                    <SelectItem variant="dark" value="active">Active</SelectItem>
+                    <SelectItem variant="dark" value="pending">Pending</SelectItem>
+                    <SelectItem variant="dark" value="suspended">Suspended</SelectItem>
+                    <SelectItem variant="dark" value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {/* Add Shop Button */}
                 <button
