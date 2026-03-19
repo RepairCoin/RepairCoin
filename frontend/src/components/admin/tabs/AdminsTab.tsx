@@ -19,6 +19,7 @@ import apiClient from "@/services/api/client";
 import { showToast } from "@/utils/toast";
 import { DataTable } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Admin {
   id: number;
@@ -450,16 +451,15 @@ export default function AdminsTab() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Role <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value as 'admin' | 'moderator' })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="admin">Admin - Full control (except admin management)</option>
-                  <option value="moderator">Moderator - Read-only access</option>
-                </select>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'moderator' })}>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="admin">Admin - Full control (except admin management)</SelectItem>
+                    <SelectItem variant="dark" value="moderator">Moderator - Read-only access</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="mt-2 p-3 bg-gray-800/50 rounded-lg">
                   <p className="text-xs text-gray-400 flex items-center gap-1">
                     {formData.role === 'admin'

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { adminApi } from "@/services/api/admin";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Session {
   id: string;
@@ -555,27 +556,29 @@ export function SessionManagementTab() {
 
             {/* Filters and Refresh */}
             <div className="flex flex-wrap gap-2 sm:gap-3">
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="shop">Shop</option>
-                <option value="customer">Customer</option>
-              </select>
+              <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value)}>
+                <SelectTrigger variant="dark" className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">All Roles</SelectItem>
+                  <SelectItem variant="dark" value="admin">Admin</SelectItem>
+                  <SelectItem variant="dark" value="shop">Shop</SelectItem>
+                  <SelectItem variant="dark" value="customer">Customer</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="expired">Expired</option>
-                <option value="revoked">Revoked</option>
-              </select>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value)}>
+                <SelectTrigger variant="dark" className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">All Status</SelectItem>
+                  <SelectItem variant="dark" value="active">Active</SelectItem>
+                  <SelectItem variant="dark" value="expired">Expired</SelectItem>
+                  <SelectItem variant="dark" value="revoked">Revoked</SelectItem>
+                </SelectContent>
+              </Select>
 
               <button
                 onClick={handleRefresh}

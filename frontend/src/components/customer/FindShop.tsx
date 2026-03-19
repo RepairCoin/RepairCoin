@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShopService } from "@/services/shopService";
 import { getShopServices } from "@/services/api/services";
 import type { ShopService as ShopServiceType } from "@/services/api/services";
@@ -373,16 +374,17 @@ export function FindShop() {
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500 text-xs">Filter by:</span>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="bg-[#212121] border border-gray-700 text-gray-300 text-xs rounded-md px-2 py-1 focus:border-[#FFCC00] focus:outline-none"
-                  >
-                    <option value="all">All</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                  <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value)}>
+                    <SelectTrigger variant="dark" className="bg-[#212121] border-gray-700 text-gray-300 text-xs rounded-md px-2 py-1 h-auto min-w-[100px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      <SelectItem variant="dark" value="all">All</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem variant="dark" key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

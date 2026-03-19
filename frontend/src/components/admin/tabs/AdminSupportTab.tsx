@@ -18,6 +18,7 @@ import { ChatMessage } from '@/components/support/ChatMessage';
 import { ChatInput } from '@/components/support/ChatInput';
 import { TicketList } from '@/components/support/TicketList';
 import { useAuthStore } from '@/stores/authStore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function AdminSupportTab() {
   const { account } = useAuthStore();
@@ -243,30 +244,32 @@ export function AdminSupportTab() {
           <div className="bg-[#1A1A1A] rounded-lg p-4 border border-gray-800">
             {/* Filters */}
             <div className="space-y-3 mb-4">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
-              >
-                <option value="">All Statuses</option>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="waiting_shop">Waiting for Shop</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
-              </select>
+              <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}>
+                <SelectTrigger variant="dark" className="w-full">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">All Statuses</SelectItem>
+                  <SelectItem variant="dark" value="open">Open</SelectItem>
+                  <SelectItem variant="dark" value="in_progress">In Progress</SelectItem>
+                  <SelectItem variant="dark" value="waiting_shop">Waiting for Shop</SelectItem>
+                  <SelectItem variant="dark" value="resolved">Resolved</SelectItem>
+                  <SelectItem variant="dark" value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
-              >
-                <option value="">All Priorities</option>
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
+              <Select value={priorityFilter || "all"} onValueChange={(value) => setPriorityFilter(value === "all" ? "" : value)}>
+                <SelectTrigger variant="dark" className="w-full">
+                  <SelectValue placeholder="All Priorities" />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">All Priorities</SelectItem>
+                  <SelectItem variant="dark" value="urgent">Urgent</SelectItem>
+                  <SelectItem variant="dark" value="high">High</SelectItem>
+                  <SelectItem variant="dark" value="medium">Medium</SelectItem>
+                  <SelectItem variant="dark" value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <TicketList
@@ -417,17 +420,18 @@ export function AdminSupportTab() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Status
                 </label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
-                >
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="waiting_shop">Waiting for Shop</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
-                </select>
+                <Select value={newStatus} onValueChange={(value) => setNewStatus(value)}>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="open">Open</SelectItem>
+                    <SelectItem variant="dark" value="in_progress">In Progress</SelectItem>
+                    <SelectItem variant="dark" value="waiting_shop">Waiting for Shop</SelectItem>
+                    <SelectItem variant="dark" value="resolved">Resolved</SelectItem>
+                    <SelectItem variant="dark" value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex gap-4">

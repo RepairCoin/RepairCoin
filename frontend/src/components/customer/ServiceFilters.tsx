@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, MapPin, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import { SERVICE_CATEGORIES, ServiceCategory } from "@/services/api/services";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteSearch } from "./AutocompleteSearch";
 
 export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'rating_desc' | 'oldest';
@@ -113,31 +114,33 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
         {/* Dropdowns + Buttons Row */}
         <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
           {/* Category */}
-          <select
-            value={filters.category || ""}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-            className="bg-[#1A1A1A] border border-gray-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#FFCC00] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 cursor-pointer transition-colors w-full sm:min-w-[140px]"
-          >
-            <option value="">All Categories</option>
-            {SERVICE_CATEGORIES.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
+          <Select value={filters.category || "all"} onValueChange={(value) => handleCategoryChange(value === "all" ? "" : value)}>
+            <SelectTrigger variant="dark" className="bg-[#1A1A1A] border-gray-800 rounded-lg px-4 py-3 h-auto text-sm text-white cursor-pointer transition-colors w-full sm:min-w-[140px]">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent variant="dark">
+              <SelectItem variant="dark" value="all">All Categories</SelectItem>
+              {SERVICE_CATEGORIES.map((cat) => (
+                <SelectItem variant="dark" key={cat.value} value={cat.value}>
+                  {cat.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Sort By */}
-          <select
-            value={filters.sortBy || "newest"}
-            onChange={(e) => handleSortChange(e.target.value)}
-            className="bg-[#1A1A1A] border border-gray-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-[#FFCC00] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10 cursor-pointer transition-colors w-full sm:min-w-[150px]"
-          >
-            <option value="newest">Newest First</option>
-            <option value="rating_desc">Highest Rated</option>
-            <option value="price_asc">Price: Low to High</option>
-            <option value="price_desc">Price: High to Low</option>
-            <option value="oldest">Oldest First</option>
-          </select>
+          <Select value={filters.sortBy || "newest"} onValueChange={(value) => handleSortChange(value)}>
+            <SelectTrigger variant="dark" className="bg-[#1A1A1A] border-gray-800 rounded-lg px-4 py-3 h-auto text-sm text-white cursor-pointer transition-colors w-full sm:min-w-[150px]">
+              <SelectValue placeholder="Newest First" />
+            </SelectTrigger>
+            <SelectContent variant="dark">
+              <SelectItem variant="dark" value="newest">Newest First</SelectItem>
+              <SelectItem variant="dark" value="rating_desc">Highest Rated</SelectItem>
+              <SelectItem variant="dark" value="price_asc">Price: Low to High</SelectItem>
+              <SelectItem variant="dark" value="price_desc">Price: High to Low</SelectItem>
+              <SelectItem variant="dark" value="oldest">Oldest First</SelectItem>
+            </SelectContent>
+          </Select>
 
           {/* Advanced Filters Toggle */}
           <button

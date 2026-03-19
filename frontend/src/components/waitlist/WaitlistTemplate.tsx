@@ -7,6 +7,7 @@ import axios from "axios";
 import Link from "next/link";
 import Image from "next/image";
 import { CampaignConfig } from "@/app/waitlist/[source]/config";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface WaitlistTemplateProps {
   config: CampaignConfig;
@@ -351,25 +352,21 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
                   >
                     What type of business? <span className="text-gray-400 font-normal">(optional)</span>
                   </label>
-                  <select
-                    value={businessCategory}
-                    onChange={(e) => setBusinessCategory(e.target.value)}
-                    className="w-full px-4 py-3.5 text-black focus:outline-none transition-colors"
-                    style={{
-                      background: "#fff",
-                      border: "1px solid rgba(151, 151, 151, 0.55)",
-                      borderRadius: "5px",
-                    }}
-                  >
-                    <option value="">Select category</option>
-                    <option value="repair">Auto Repair</option>
-                    <option value="barber">Barber / Salon</option>
-                    <option value="nails">Nail Salon</option>
-                    <option value="gym">Gym / Fitness</option>
-                    <option value="restaurant">Restaurant</option>
-                    <option value="retail">Retail</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <Select value={businessCategory || "all"} onValueChange={(value) => setBusinessCategory(value === "all" ? "" : value)}>
+                    <SelectTrigger variant="dark" className="w-full px-4 py-3.5 h-auto rounded-[5px]">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      <SelectItem variant="dark" value="all">Select category</SelectItem>
+                      <SelectItem variant="dark" value="repair">Auto Repair</SelectItem>
+                      <SelectItem variant="dark" value="barber">Barber / Salon</SelectItem>
+                      <SelectItem variant="dark" value="nails">Nail Salon</SelectItem>
+                      <SelectItem variant="dark" value="gym">Gym / Fitness</SelectItem>
+                      <SelectItem variant="dark" value="restaurant">Restaurant</SelectItem>
+                      <SelectItem variant="dark" value="retail">Retail</SelectItem>
+                      <SelectItem variant="dark" value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
@@ -912,21 +909,21 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
                       <label className="block mb-2" style={{ fontFamily: "Poppins, sans-serif", fontWeight: 600, fontSize: "14px", lineHeight: "22px", color: "#fff" }}>
                         What type of business? <span className="text-gray-400 font-normal">(optional)</span>
                       </label>
-                      <select
-                        value={businessCategory}
-                        onChange={(e) => setBusinessCategory(e.target.value)}
-                        className="w-full px-4 py-3.5 text-black focus:outline-none transition-colors"
-                        style={{ background: "#fff", border: "1px solid rgba(151, 151, 151, 0.55)", borderRadius: "5px" }}
-                      >
-                        <option value="">Select category</option>
-                        <option value="repair">Auto Repair</option>
-                        <option value="barber">Barber / Salon</option>
-                        <option value="nails">Nail Salon</option>
-                        <option value="gym">Gym / Fitness</option>
-                        <option value="restaurant">Restaurant</option>
-                        <option value="retail">Retail</option>
-                        <option value="other">Other</option>
-                      </select>
+                      <Select value={businessCategory || "all"} onValueChange={(value) => setBusinessCategory(value === "all" ? "" : value)}>
+                        <SelectTrigger variant="dark" className="w-full px-4 py-3.5 h-auto rounded-[5px]">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent variant="dark">
+                          <SelectItem variant="dark" value="all">Select category</SelectItem>
+                          <SelectItem variant="dark" value="repair">Auto Repair</SelectItem>
+                          <SelectItem variant="dark" value="barber">Barber / Salon</SelectItem>
+                          <SelectItem variant="dark" value="nails">Nail Salon</SelectItem>
+                          <SelectItem variant="dark" value="gym">Gym / Fitness</SelectItem>
+                          <SelectItem variant="dark" value="restaurant">Restaurant</SelectItem>
+                          <SelectItem variant="dark" value="retail">Retail</SelectItem>
+                          <SelectItem variant="dark" value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 

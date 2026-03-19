@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Loader2, Zap, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AutoMessage, CreateAutoMessageRequest, UpdateAutoMessageRequest } from "@/services/api/messaging";
 
 const SCHEDULE_TYPES = [
@@ -188,60 +189,64 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <div className="space-y-3 p-4 bg-[#0D0D0D] border border-gray-800 rounded-lg">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Frequency</label>
-                <select
-                  value={scheduleType}
-                  onChange={(e) => setScheduleType(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                >
-                  {SCHEDULE_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <Select value={scheduleType} onValueChange={(value) => setScheduleType(value)}>
+                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                    <SelectValue placeholder="Select frequency" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    {SCHEDULE_TYPES.map((t) => (
+                      <SelectItem variant="dark" key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {scheduleType === "weekly" && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Day of Week</label>
-                  <select
-                    value={scheduleDayOfWeek}
-                    onChange={(e) => setScheduleDayOfWeek(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                  >
-                    {DAYS_OF_WEEK.map((day, i) => (
-                      <option key={i} value={i}>{day}</option>
-                    ))}
-                  </select>
+                  <Select value={String(scheduleDayOfWeek)} onValueChange={(value) => setScheduleDayOfWeek(parseInt(value))}>
+                    <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      {DAYS_OF_WEEK.map((day, i) => (
+                        <SelectItem variant="dark" key={i} value={String(i)}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
               {scheduleType === "monthly" && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Day of Month</label>
-                  <select
-                    value={scheduleDayOfMonth}
-                    onChange={(e) => setScheduleDayOfMonth(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+                  <Select value={String(scheduleDayOfMonth)} onValueChange={(value) => setScheduleDayOfMonth(parseInt(value))}>
+                    <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent variant="dark">
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem variant="dark" key={d} value={String(d)}>{String(d)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Send at (UTC Hour)</label>
-                <select
-                  value={scheduleHour}
-                  onChange={(e) => setScheduleHour(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                >
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>
-                      {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`} (UTC)
-                    </option>
-                  ))}
-                </select>
+                <Select value={String(scheduleHour)} onValueChange={(value) => setScheduleHour(parseInt(value))}>
+                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                    <SelectValue placeholder="Select hour" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem variant="dark" key={i} value={String(i)}>
+                        {i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`} (UTC)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -251,15 +256,16 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
             <div className="space-y-3 p-4 bg-[#0D0D0D] border border-gray-800 rounded-lg">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Event</label>
-                <select
-                  value={eventType}
-                  onChange={(e) => setEventType(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                >
-                  {EVENT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <Select value={eventType} onValueChange={(value) => setEventType(value)}>
+                  <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                    <SelectValue placeholder="Select event" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    {EVENT_TYPES.map((t) => (
+                      <SelectItem variant="dark" key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Delay (hours after event)</label>
@@ -278,15 +284,16 @@ export const AutoMessageRuleModal: React.FC<AutoMessageRuleModalProps> = ({
           {/* Target Audience */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Target Audience</label>
-            <select
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value)}
-              className="w-full px-3 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-            >
-              {TARGET_AUDIENCES.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
-              ))}
-            </select>
+            <Select value={targetAudience} onValueChange={(value) => setTargetAudience(value)}>
+              <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#0D0D0D] border-gray-700 rounded-lg text-white text-sm">
+                <SelectValue placeholder="Select audience" />
+              </SelectTrigger>
+              <SelectContent variant="dark">
+                {TARGET_AUDIENCES.map((a) => (
+                  <SelectItem variant="dark" key={a.value} value={a.value}>{a.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Max Sends */}

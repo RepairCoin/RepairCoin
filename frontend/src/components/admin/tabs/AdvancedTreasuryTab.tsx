@@ -23,6 +23,7 @@ import {
   getFreezeAuditHistory
 } from '@/services/api/admin';
 import { WorkingChart } from '@/components/admin/charts/WorkingChart';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TreasuryStats {
   totalSupply: number | string;
@@ -700,16 +701,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
               <h2 className="text-lg sm:text-xl font-bold text-white">Treasury Analytics</h2>
               <div className="flex items-center gap-2 sm:gap-4">
                 <label className="text-xs sm:text-sm text-gray-400">Period:</label>
-                <select
-                  value={analyticsPeriod}
-                  onChange={(e) => setAnalyticsPeriod(e.target.value as any)}
-                  className="bg-gray-700 text-white rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-600 text-sm"
-                >
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="60d">Last 60 days</option>
-                  <option value="90d">Last 90 days</option>
-                </select>
+                <Select value={analyticsPeriod} onValueChange={(value) => setAnalyticsPeriod(value as any)}>
+                  <SelectTrigger variant="dark" className="px-2 sm:px-3 py-1.5 sm:py-2 text-sm w-auto">
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="7d">Last 7 days</SelectItem>
+                    <SelectItem variant="dark" value="30d">Last 30 days</SelectItem>
+                    <SelectItem variant="dark" value="60d">Last 60 days</SelectItem>
+                    <SelectItem variant="dark" value="90d">Last 90 days</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -1177,15 +1179,16 @@ export const AdvancedTreasuryTab: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Tier</label>
-                <select
-                  value={pricingForm.tier}
-                  onChange={(e) => setPricingForm(prev => ({ ...prev, tier: e.target.value as any }))}
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 focus:border-blue-500"
-                >
-                  <option value="standard">Standard</option>
-                  <option value="premium">Premium</option>
-                  <option value="elite">Elite</option>
-                </select>
+                <Select value={pricingForm.tier} onValueChange={(value) => setPricingForm(prev => ({ ...prev, tier: value as any }))}>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Select tier" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="standard">Standard</SelectItem>
+                    <SelectItem variant="dark" value="premium">Premium</SelectItem>
+                    <SelectItem variant="dark" value="elite">Elite</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>

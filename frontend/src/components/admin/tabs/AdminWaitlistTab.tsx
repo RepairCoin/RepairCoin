@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/services/api/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface WaitlistEntry {
   id: string;
@@ -482,71 +483,68 @@ export function AdminWaitlistTab() {
           />
         </div>
 
-        <select
-          value={filter.status || ""}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
-        >
-          <option value="">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="contacted">Contacted</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
+        <Select value={filter.status || "all"} onValueChange={(value) => setFilter({ ...filter, status: value === "all" ? undefined : value })}>
+          <SelectTrigger variant="dark" className="px-4 py-2 w-auto">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent variant="dark">
+            <SelectItem variant="dark" value="all">All Statuses</SelectItem>
+            <SelectItem variant="dark" value="pending">Pending</SelectItem>
+            <SelectItem variant="dark" value="contacted">Contacted</SelectItem>
+            <SelectItem variant="dark" value="approved">Approved</SelectItem>
+            <SelectItem variant="dark" value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          value={filter.userType || ""}
-          onChange={(e) =>
-            setFilter({ ...filter, userType: e.target.value || undefined })
-          }
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
-        >
-          <option value="">All Types</option>
-          <option value="customer">Customers</option>
-          <option value="shop">Shops</option>
-        </select>
+        <Select value={filter.userType || "all"} onValueChange={(value) => setFilter({ ...filter, userType: value === "all" ? undefined : value })}>
+          <SelectTrigger variant="dark" className="px-4 py-2 w-auto">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent variant="dark">
+            <SelectItem variant="dark" value="all">All Types</SelectItem>
+            <SelectItem variant="dark" value="customer">Customers</SelectItem>
+            <SelectItem variant="dark" value="shop">Shops</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          value={filter.inquiryType || ""}
-          onChange={(e) =>
-            setFilter({ ...filter, inquiryType: e.target.value || undefined })
-          }
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
-        >
-          <option value="">All Inquiries</option>
-          <option value="waitlist">Waitlist</option>
-          <option value="demo">Demo Requests</option>
-        </select>
+        <Select value={filter.inquiryType || "all"} onValueChange={(value) => setFilter({ ...filter, inquiryType: value === "all" ? undefined : value })}>
+          <SelectTrigger variant="dark" className="px-4 py-2 w-auto">
+            <SelectValue placeholder="All Inquiries" />
+          </SelectTrigger>
+          <SelectContent variant="dark">
+            <SelectItem variant="dark" value="all">All Inquiries</SelectItem>
+            <SelectItem variant="dark" value="waitlist">Waitlist</SelectItem>
+            <SelectItem variant="dark" value="demo">Demo Requests</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          value={filter.source || ""}
-          onChange={(e) =>
-            setFilter({ ...filter, source: e.target.value || undefined })
-          }
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
-        >
-          <option value="">All Sources</option>
-          <option value="direct">Direct</option>
-          <option value="organic">Organic</option>
-          <option value="fb">Facebook</option>
-        </select>
+        <Select value={filter.source || "all"} onValueChange={(value) => setFilter({ ...filter, source: value === "all" ? undefined : value })}>
+          <SelectTrigger variant="dark" className="px-4 py-2 w-auto">
+            <SelectValue placeholder="All Sources" />
+          </SelectTrigger>
+          <SelectContent variant="dark">
+            <SelectItem variant="dark" value="all">All Sources</SelectItem>
+            <SelectItem variant="dark" value="direct">Direct</SelectItem>
+            <SelectItem variant="dark" value="organic">Organic</SelectItem>
+            <SelectItem variant="dark" value="fb">Facebook</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
-          value={filter.businessCategory || ""}
-          onChange={(e) =>
-            setFilter({ ...filter, businessCategory: e.target.value || undefined })
-          }
-          className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
-        >
-          <option value="">All Categories</option>
-          <option value="repair">Auto Repair</option>
-          <option value="barber">Barber / Salon</option>
-          <option value="nails">Nail Salon</option>
-          <option value="gym">Gym / Fitness</option>
-          <option value="restaurant">Restaurant</option>
-          <option value="retail">Retail</option>
-          <option value="other">Other</option>
-        </select>
+        <Select value={filter.businessCategory || "all"} onValueChange={(value) => setFilter({ ...filter, businessCategory: value === "all" ? undefined : value })}>
+          <SelectTrigger variant="dark" className="px-4 py-2 w-auto">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent variant="dark">
+            <SelectItem variant="dark" value="all">All Categories</SelectItem>
+            <SelectItem variant="dark" value="repair">Auto Repair</SelectItem>
+            <SelectItem variant="dark" value="barber">Barber / Salon</SelectItem>
+            <SelectItem variant="dark" value="nails">Nail Salon</SelectItem>
+            <SelectItem variant="dark" value="gym">Gym / Fitness</SelectItem>
+            <SelectItem variant="dark" value="restaurant">Restaurant</SelectItem>
+            <SelectItem variant="dark" value="retail">Retail</SelectItem>
+            <SelectItem variant="dark" value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
 
         <div className="flex gap-2 ml-auto">
           <button
@@ -824,18 +822,17 @@ export function AdminWaitlistTab() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Status
                 </label>
-                <select
-                  value={updateForm.status}
-                  onChange={(e) =>
-                    setUpdateForm({ ...updateForm, status: e.target.value })
-                  }
-                  className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-yellow-500 outline-none"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+                <Select value={updateForm.status} onValueChange={(value) => setUpdateForm({ ...updateForm, status: value })}>
+                  <SelectTrigger variant="dark" className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent variant="dark">
+                    <SelectItem variant="dark" value="pending">Pending</SelectItem>
+                    <SelectItem variant="dark" value="contacted">Contacted</SelectItem>
+                    <SelectItem variant="dark" value="approved">Approved</SelectItem>
+                    <SelectItem variant="dark" value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

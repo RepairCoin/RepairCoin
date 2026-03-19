@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Plus, Pencil, Trash2, Loader2, MessageSquare } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "react-hot-toast";
 import * as messagingApi from "@/services/api/messaging";
 import type { QuickReply } from "@/services/api/messaging";
@@ -245,17 +246,18 @@ export const QuickReplyManager: React.FC<QuickReplyManagerProps> = ({
                       <label className="block text-xs text-gray-400 mb-1">
                         Category
                       </label>
-                      <select
-                        value={formCategory}
-                        onChange={(e) => setFormCategory(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:border-[#FFCC00] focus:outline-none"
-                      >
-                        {CATEGORIES.map((cat) => (
-                          <option key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={formCategory} onValueChange={(value) => setFormCategory(value)}>
+                        <SelectTrigger variant="dark" className="w-full px-3 py-2 h-auto bg-[#1A1A1A] border-gray-700 rounded-lg text-white text-sm">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent variant="dark">
+                          {CATEGORIES.map((cat) => (
+                            <SelectItem variant="dark" key={cat.value} value={cat.value}>
+                              {cat.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 

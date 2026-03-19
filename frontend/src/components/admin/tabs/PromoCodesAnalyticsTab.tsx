@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import apiClient from '@/services/api/client';
 import { toast } from 'react-hot-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PromoCodeSummary {
   total_codes: number;
@@ -407,17 +408,18 @@ export default function PromoCodesAnalyticsTab() {
 
             {/* Filter and Refresh */}
             <div className="flex gap-2 sm:gap-3">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
-              >
-                <option value="all">All Codes</option>
-                <option value="active">Active</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="expired">Expired</option>
-                <option value="deactivated">Deactivated</option>
-              </select>
+              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
+                <SelectTrigger variant="dark" className="flex-1 sm:flex-none text-sm">
+                  <SelectValue placeholder="All Codes" />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">All Codes</SelectItem>
+                  <SelectItem variant="dark" value="active">Active</SelectItem>
+                  <SelectItem variant="dark" value="scheduled">Scheduled</SelectItem>
+                  <SelectItem variant="dark" value="expired">Expired</SelectItem>
+                  <SelectItem variant="dark" value="deactivated">Deactivated</SelectItem>
+                </SelectContent>
+              </Select>
 
               <button
                 onClick={handleRefresh}
