@@ -3,14 +3,25 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Home, ChevronRight, Loader2, RefreshCw } from "lucide-react";
-import { mockBookings, MockBooking, transformApiOrder, formatTime12Hour } from "./mockData";
+import {
+  mockBookings,
+  MockBooking,
+  transformApiOrder,
+  formatTime12Hour,
+} from "./mockData";
 import { BookingStatsCards } from "./BookingStatsCards";
 import { BookingFilters } from "./BookingFilters";
 import { BookingCard } from "./BookingCard";
+import Pagination from "../groups/shared/Pagination";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
 import { CancelBookingModal } from "./CancelBookingModal";
 import { toast } from "react-hot-toast";
-import { getShopOrders, updateOrderStatus, approveBooking, ServiceOrderWithDetails } from "@/services/api/services";
+import {
+  getShopOrders,
+  updateOrderStatus,
+  approveBooking,
+  ServiceOrderWithDetails,
+} from "@/services/api/services";
 import { appointmentsApi } from "@/services/api/appointments";
 import { RescheduleModal } from "../modals/RescheduleModal";
 
@@ -20,39 +31,114 @@ interface BookingsTabV2Props {
   blockReason?: string;
 }
 
-export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked = false, blockReason = "Action blocked" }) => {
+const BookingCardList: React.FC<{
+  bookings: MockBooking[];
+  searchQuery: string;
+  selectedBookingId: string | null;
+  onSelect: (id: string) => void;
+  onApprove: (id: string) => void;
+  onReschedule: (id: string) => void;
+  onSchedule: (id: string) => void;
+  onComplete: (id: string) => void;
+  onCancel: (id: string) => void;
+  isBlocked?: boolean;
+  blockReason?: string;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  loading?: boolean;
+}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
+  if (bookings.length === 0) {
+    return (
+      <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8 text-center">
+        <div className="text-5xl mb-4">📦</div>
+        <h3 className="text-white font-medium mb-2">No Bookings Found</h3>
+        <p className="text-gray-500 text-sm">
+          {searchQuery
+            ? "Try adjusting your search query"
+            : "No bookings match the current filter"}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {bookings.map((booking) => (
+        <BookingCard
+          key={booking.bookingId}
+          booking={booking}
+          isSelected={selectedBookingId === booking.bookingId}
+          onSelect={() => onSelect(booking.bookingId)}
+          onApprove={() => onApprove(booking.bookingId)}
+          onReschedule={() => onReschedule(booking.bookingId)}
+          onSchedule={() => onSchedule(booking.bookingId)}
+          onComplete={() => onComplete(booking.bookingId)}
+          onCancel={() => onCancel(booking.bookingId)}
+          isBlocked={isBlocked}
+          blockReason={blockReason}
+        />
+      ))}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        disabled={loading}
+      />
+    </div>
+  );
+};
+
+export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
+  shopId,
+  isBlocked = false,
+  blockReason = "Action blocked",
+}) => {
   const searchParams = useSearchParams();
 
   // State
   const [bookings, setBookings] = useState<MockBooking[]>([]);
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'bookings' | 'messages'>('bookings');
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  );
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"bookings" | "messages">(
+    "bookings",
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cancelModalBooking, setCancelModalBooking] = useState<MockBooking | null>(null);
-  const [rescheduleModalBooking, setRescheduleModalBooking] = useState<MockBooking | null>(null);
+  const [cancelModalBooking, setCancelModalBooking] =
+    useState<MockBooking | null>(null);
+  const [rescheduleModalBooking, setRescheduleModalBooking] =
+    useState<MockBooking | null>(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Load bookings from API
-  const loadBookings = async () => {
+  const loadBookings = async (page: number = currentPage) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getShopOrders({ limit: 100 });
+      const response = await getShopOrders({ limit: ITEMS_PER_PAGE, page });
       if (response && response.data) {
         // Transform API data to UI format
         const transformedBookings = response.data.map(transformApiOrder);
         setBookings(transformedBookings);
+        if (response.pagination) {
+          setTotalPages(response.pagination.totalPages);
+          setCurrentPage(response.pagination.page);
+        }
         // Select first booking if none selected
         if (!selectedBookingId && transformedBookings.length > 0) {
           setSelectedBookingId(transformedBookings[0].bookingId);
         }
       }
     } catch (err) {
-      console.error('Error loading bookings:', err);
-      setError('Failed to load bookings');
+      console.error("Error loading bookings:", err);
+      setError("Failed to load bookings");
       // Fall back to mock data for demo
       setBookings(mockBookings);
       if (!selectedBookingId && mockBookings.length > 0) {
@@ -63,14 +149,19 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
     }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    loadBookings(page);
+  };
+
   // Load bookings on mount
   useEffect(() => {
-    loadBookings();
+    loadBookings(1);
   }, [shopId]);
 
   // Handle URL search parameter for filtering and selecting booking
   useEffect(() => {
-    const searchParam = searchParams.get('search');
+    const searchParam = searchParams.get("search");
 
     if (searchParam && searchParam !== searchQuery) {
       // Set the search query to filter bookings
@@ -78,8 +169,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
 
       // Clear the URL param after handling
       const url = new URL(window.location.href);
-      url.searchParams.delete('search');
-      window.history.replaceState({}, '', url.toString());
+      url.searchParams.delete("search");
+      window.history.replaceState({}, "", url.toString());
     }
   }, [searchParams, searchQuery]);
 
@@ -88,8 +179,8 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
     if (bookings.length === 0 || !searchQuery) return;
 
     // Find booking that matches the search query (by bookingId)
-    const matchingBooking = bookings.find(b =>
-      b.bookingId.toLowerCase() === searchQuery.toLowerCase()
+    const matchingBooking = bookings.find(
+      (b) => b.bookingId.toLowerCase() === searchQuery.toLowerCase(),
     );
 
     if (matchingBooking) {
@@ -107,23 +198,29 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
     let filtered = [...bookings];
 
     // Apply status filter
-    if (activeFilter !== 'all') {
-      if (activeFilter === 'pending') {
-        filtered = filtered.filter(b => b.status === 'requested');
-      } else if (activeFilter === 'paid') {
-        filtered = filtered.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled');
+    if (activeFilter !== "all") {
+      if (activeFilter === "pending") {
+        filtered = filtered.filter((b) => b.status === "requested");
+      } else if (activeFilter === "paid") {
+        filtered = filtered.filter(
+          (b) =>
+            b.status === "paid" ||
+            b.status === "approved" ||
+            b.status === "scheduled",
+        );
       } else {
-        filtered = filtered.filter(b => b.status === activeFilter);
+        filtered = filtered.filter((b) => b.status === activeFilter);
       }
     }
 
     // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(b =>
-        b.bookingId.toLowerCase().includes(query) ||
-        b.customerName.toLowerCase().includes(query) ||
-        b.serviceName.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (b) =>
+          b.bookingId.toLowerCase().includes(query) ||
+          b.customerName.toLowerCase().includes(query) ||
+          b.serviceName.toLowerCase().includes(query),
       );
     }
 
@@ -132,13 +229,13 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
 
   // Get selected booking
   const selectedBooking = useMemo(() => {
-    return bookings.find(b => b.bookingId === selectedBookingId) || null;
+    return bookings.find((b) => b.bookingId === selectedBookingId) || null;
   }, [bookings, selectedBookingId]);
 
   // Handlers
   const handleApprove = async (bookingId: string) => {
     // Find the original order ID from the booking
-    const booking = bookings.find(b => b.bookingId === bookingId);
+    const booking = bookings.find((b) => b.bookingId === bookingId);
     if (!booking) return;
 
     try {
@@ -146,37 +243,44 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
       await approveBooking(booking.orderId);
 
       // Update local state after successful API call
-      setBookings(prev => prev.map(b => {
-        if (b.bookingId === bookingId) {
-          const newTimeline = [
-            ...b.timeline,
-            {
-              id: `tl-${Date.now()}`,
-              type: 'approved' as const,
-              timestamp: new Date().toISOString(),
-              description: 'Booking approved by shop'
-            }
-          ];
-          return { ...b, status: 'approved' as const, timeline: newTimeline };
-        }
-        return b;
-      }));
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.bookingId === bookingId) {
+            const newTimeline = [
+              ...b.timeline,
+              {
+                id: `tl-${Date.now()}`,
+                type: "approved" as const,
+                timestamp: new Date().toISOString(),
+                description: "Booking approved by shop",
+              },
+            ];
+            return { ...b, status: "approved" as const, timeline: newTimeline };
+          }
+          return b;
+        }),
+      );
       toast.success(`Booking ${bookingId} approved!`);
     } catch (error: unknown) {
-      console.error('Error approving booking:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Error approving booking:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to approve booking: ${errorMessage}`);
     }
   };
 
   const handleReschedule = (bookingId: string) => {
-    const booking = bookings.find(b => b.bookingId === bookingId);
+    const booking = bookings.find((b) => b.bookingId === bookingId);
     if (booking) {
       setRescheduleModalBooking(booking);
     }
   };
 
-  const handleRescheduleComplete = async (newDate: string, newTime: string, reason?: string) => {
+  const handleRescheduleComplete = async (
+    newDate: string,
+    newTime: string,
+    reason?: string,
+  ) => {
     if (!rescheduleModalBooking) return;
 
     setIsRescheduling(true);
@@ -185,36 +289,41 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
         rescheduleModalBooking.orderId,
         newDate,
         newTime,
-        reason
+        reason,
       );
 
       // Update local state
-      setBookings(prev => prev.map(b => {
-        if (b.bookingId === rescheduleModalBooking.bookingId) {
-          const newTimeline = [
-            ...b.timeline,
-            {
-              id: `tl-${Date.now()}`,
-              type: 'scheduled' as const,
-              timestamp: new Date().toISOString(),
-              description: `Appointment rescheduled to ${newDate} at ${newTime}`
-            }
-          ];
-          return {
-            ...b,
-            serviceDate: newDate,
-            serviceTime: newTime,
-            timeline: newTimeline
-          };
-        }
-        return b;
-      }));
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.bookingId === rescheduleModalBooking.bookingId) {
+            const newTimeline = [
+              ...b.timeline,
+              {
+                id: `tl-${Date.now()}`,
+                type: "scheduled" as const,
+                timestamp: new Date().toISOString(),
+                description: `Appointment rescheduled to ${newDate} at ${newTime}`,
+              },
+            ];
+            return {
+              ...b,
+              serviceDate: newDate,
+              serviceTime: newTime,
+              timeline: newTimeline,
+            };
+          }
+          return b;
+        }),
+      );
 
-      toast.success('Appointment rescheduled successfully! Customer has been notified.');
+      toast.success(
+        "Appointment rescheduled successfully! Customer has been notified.",
+      );
       setRescheduleModalBooking(null);
     } catch (error: unknown) {
-      console.error('Error rescheduling booking:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Error rescheduling booking:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to reschedule: ${errorMessage}`);
     } finally {
       setIsRescheduling(false);
@@ -222,79 +331,90 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
   };
 
   const handleSchedule = (bookingId: string) => {
-    setBookings(prev => prev.map(b => {
-      if (b.bookingId === bookingId) {
-        const newTimeline = [
-          ...b.timeline,
-          {
-            id: `tl-${Date.now()}`,
-            type: 'scheduled' as const,
-            timestamp: new Date().toISOString(),
-            description: `Service scheduled for ${b.serviceDate} at ${formatTime12Hour(b.serviceTime)}`
-          }
-        ];
-        return { ...b, status: 'scheduled' as const, timeline: newTimeline };
-      }
-      return b;
-    }));
+    setBookings((prev) =>
+      prev.map((b) => {
+        if (b.bookingId === bookingId) {
+          const newTimeline = [
+            ...b.timeline,
+            {
+              id: `tl-${Date.now()}`,
+              type: "scheduled" as const,
+              timestamp: new Date().toISOString(),
+              description: `Service scheduled for ${b.serviceDate} at ${formatTime12Hour(b.serviceTime)}`,
+            },
+          ];
+          return { ...b, status: "scheduled" as const, timeline: newTimeline };
+        }
+        return b;
+      }),
+    );
     toast.success(`Booking ${bookingId} marked as scheduled!`);
   };
 
   const handleComplete = async (bookingId: string) => {
     // Find the original order ID from the booking
-    const booking = bookings.find(b => b.bookingId === bookingId);
+    const booking = bookings.find((b) => b.bookingId === bookingId);
     if (!booking || !booking.orderId) {
-      toast.error('Could not find order to complete');
+      toast.error("Could not find order to complete");
       return;
     }
 
     // Update local state optimistically
-    setBookings(prev => prev.map(b => {
-      if (b.bookingId === bookingId) {
-        const newTimeline = [
-          ...b.timeline,
-          {
-            id: `tl-${Date.now()}`,
-            type: 'completed' as const,
-            timestamp: new Date().toISOString(),
-            description: 'Service completed successfully. RCN rewards issued.'
-          }
-        ];
-        return { ...b, status: 'completed' as const, timeline: newTimeline };
-      }
-      return b;
-    }));
+    setBookings((prev) =>
+      prev.map((b) => {
+        if (b.bookingId === bookingId) {
+          const newTimeline = [
+            ...b.timeline,
+            {
+              id: `tl-${Date.now()}`,
+              type: "completed" as const,
+              timestamp: new Date().toISOString(),
+              description:
+                "Service completed successfully. RCN rewards issued.",
+            },
+          ];
+          return { ...b, status: "completed" as const, timeline: newTimeline };
+        }
+        return b;
+      }),
+    );
 
     try {
       // Call the API to persist the status change
-      const result = await updateOrderStatus(booking.orderId, 'completed');
+      const result = await updateOrderStatus(booking.orderId, "completed");
       if (result) {
-        toast.success(`Booking ${bookingId} marked as completed! Customer will receive their RCN rewards.`);
+        toast.success(
+          `Booking ${bookingId} marked as completed! Customer will receive their RCN rewards.`,
+        );
       } else {
         // Revert optimistic update on failure
-        setBookings(prev => prev.map(b => {
-          if (b.bookingId === bookingId) {
-            return { ...b, status: 'scheduled' as const };
-          }
-          return b;
-        }));
-        toast.error('Failed to mark order as complete. Please try again.');
+        setBookings((prev) =>
+          prev.map((b) => {
+            if (b.bookingId === bookingId) {
+              return { ...b, status: "scheduled" as const };
+            }
+            return b;
+          }),
+        );
+        toast.error("Failed to mark order as complete. Please try again.");
       }
     } catch (error) {
-      console.error('Error completing order:', error);
+      console.error("Error completing order:", error);
       // Revert optimistic update on error
-      setBookings(prev => prev.map(b => {
-        if (b.bookingId === bookingId) {
-          return { ...b, status: 'scheduled' as const };
-        }
-        return b;
-      }));
-      toast.error('Failed to mark order as complete. Please try again.');
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.bookingId === bookingId) {
+            return { ...b, status: "scheduled" as const };
+          }
+          return b;
+        }),
+      );
+      toast.error("Failed to mark order as complete. Please try again.");
     }
   };
 
   const handleCancel = (bookingId: string) => {
-    const booking = bookings.find(b => b.bookingId === bookingId);
+    const booking = bookings.find((b) => b.bookingId === bookingId);
     if (booking) {
       setCancelModalBooking(booking);
     }
@@ -302,28 +422,33 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
 
   const handleCancelComplete = () => {
     if (cancelModalBooking) {
-      setBookings(prev => prev.map(b => {
-        if (b.bookingId === cancelModalBooking.bookingId) {
-          const newTimeline = [
-            ...b.timeline,
-            {
-              id: `tl-${Date.now()}`,
-              type: 'cancelled' as const,
-              timestamp: new Date().toISOString(),
-              description: 'Booking cancelled by shop'
-            }
-          ];
-          return { ...b, status: 'cancelled' as const, timeline: newTimeline };
-        }
-        return b;
-      }));
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.bookingId === cancelModalBooking.bookingId) {
+            const newTimeline = [
+              ...b.timeline,
+              {
+                id: `tl-${Date.now()}`,
+                type: "cancelled" as const,
+                timestamp: new Date().toISOString(),
+                description: "Booking cancelled by shop",
+              },
+            ];
+            return {
+              ...b,
+              status: "cancelled" as const,
+              timeline: newTimeline,
+            };
+          }
+          return b;
+        }),
+      );
     }
     setCancelModalBooking(null);
   };
 
   return (
     <div className="space-y-6">
-
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -335,7 +460,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-gray-300 hover:border-gray-600 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </button>
       </div>
@@ -354,7 +479,9 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
       {error && (
         <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-4 mb-4">
           <p className="text-red-400">{error}</p>
-          <p className="text-gray-400 text-sm mt-1">Showing demo data instead.</p>
+          <p className="text-gray-400 text-sm mt-1">
+            Showing demo data instead.
+          </p>
         </div>
       )}
 
@@ -374,54 +501,48 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
       />
 
       {/* Main Content - Split Panel Layout */}
-      {activeTab === 'bookings' && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {activeTab === "bookings" && (
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Panel - Booking Cards */}
-          <div className="lg:col-span-2 space-y-4">
-            {filteredBookings.length === 0 ? (
-              <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8 text-center">
-                <div className="text-5xl mb-4">📦</div>
-                <h3 className="text-white font-medium mb-2">No Bookings Found</h3>
-                <p className="text-gray-500 text-sm">
-                  {searchQuery
-                    ? 'Try adjusting your search query'
-                    : 'No bookings match the current filter'}
-                </p>
-              </div>
-            ) : (
-              filteredBookings.map((booking) => (
-                <BookingCard
-                  key={booking.bookingId}
-                  booking={booking}
-                  isSelected={selectedBookingId === booking.bookingId}
-                  onSelect={() => setSelectedBookingId(booking.bookingId)}
-                  onApprove={() => handleApprove(booking.bookingId)}
-                  onReschedule={() => handleReschedule(booking.bookingId)}
-                  onSchedule={() => handleSchedule(booking.bookingId)}
-                  onComplete={() => handleComplete(booking.bookingId)}
-                  onCancel={() => handleCancel(booking.bookingId)}
-                  isBlocked={isBlocked}
-                  blockReason={blockReason}
-                />
-              ))
-            )}
+          <div className="w-full lg:w-2/5">
+            <div className="sticky top-0">
+              <BookingCardList
+                bookings={filteredBookings}
+                searchQuery={searchQuery}
+                selectedBookingId={selectedBookingId}
+                onSelect={setSelectedBookingId}
+                onApprove={handleApprove}
+                onReschedule={handleReschedule}
+                onSchedule={handleSchedule}
+                onComplete={handleComplete}
+                onCancel={handleCancel}
+                isBlocked={isBlocked}
+                blockReason={blockReason}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                loading={loading}
+              />
+            </div>
           </div>
 
           {/* Right Panel - Booking Details */}
-          <div className="lg:col-span-3 lg:sticky lg:top-4 lg:h-[calc(100vh-200px)]">
-            <BookingDetailsPanel
-              booking={selectedBooking}
-              onClose={() => setSelectedBookingId(null)}
-              shopId={shopId}
-              isBlocked={isBlocked}
-              blockReason={blockReason}
-            />
+          <div className="w-full lg:w-3/5">
+            <div className="sticky top-0">
+              <BookingDetailsPanel
+                booking={selectedBooking}
+                onClose={() => setSelectedBookingId(null)}
+                shopId={shopId}
+                isBlocked={isBlocked}
+                blockReason={blockReason}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* Messages Tab Content */}
-      {activeTab === 'messages' && (
+      {activeTab === "messages" && (
         <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8">
           <div className="text-center">
             <div className="text-5xl mb-4">💬</div>
@@ -432,20 +553,23 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
             {/* Messages list view */}
             <div className="space-y-3 max-w-2xl mx-auto">
               {bookings
-                .filter(b => b.messages.length > 0)
+                .filter((b) => b.messages.length > 0)
                 .sort((a, b) => {
-                  const aLast = a.messages[a.messages.length - 1]?.timestamp || '';
-                  const bLast = b.messages[b.messages.length - 1]?.timestamp || '';
+                  const aLast =
+                    a.messages[a.messages.length - 1]?.timestamp || "";
+                  const bLast =
+                    b.messages[b.messages.length - 1]?.timestamp || "";
                   return new Date(bLast).getTime() - new Date(aLast).getTime();
                 })
                 .map((booking) => {
-                  const lastMessage = booking.messages[booking.messages.length - 1];
+                  const lastMessage =
+                    booking.messages[booking.messages.length - 1];
                   return (
                     <button
                       key={booking.bookingId}
                       onClick={() => {
                         setSelectedBookingId(booking.bookingId);
-                        setActiveTab('bookings');
+                        setActiveTab("bookings");
                       }}
                       className="w-full p-4 bg-[#0D0D0D] border border-gray-800 rounded-xl hover:border-[#FFCC00]/50 transition-colors text-left"
                     >
@@ -455,14 +579,18 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-white font-medium">{booking.customerName}</span>
+                            <span className="text-white font-medium">
+                              {booking.customerName}
+                            </span>
                             {booking.unreadCount > 0 && (
                               <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                                 {booking.unreadCount}
                               </span>
                             )}
                           </div>
-                          <p className="text-gray-400 text-sm truncate">{lastMessage?.content}</p>
+                          <p className="text-gray-400 text-sm truncate">
+                            {lastMessage?.content}
+                          </p>
                           <p className="text-gray-600 text-xs mt-1">
                             {booking.serviceName} • {booking.bookingId}
                           </p>
@@ -491,13 +619,15 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId, isBlocked 
       {/* Reschedule Booking Modal */}
       {rescheduleModalBooking && (
         <RescheduleModal
-          order={{
-            orderId: rescheduleModalBooking.orderId,
-            serviceId: rescheduleModalBooking.serviceId,
-            bookingDate: rescheduleModalBooking.serviceDate,
-            bookingTime: rescheduleModalBooking.serviceTime,
-            bookingTimeSlot: rescheduleModalBooking.serviceTime,
-          } as ServiceOrderWithDetails}
+          order={
+            {
+              orderId: rescheduleModalBooking.orderId,
+              serviceId: rescheduleModalBooking.serviceId,
+              bookingDate: rescheduleModalBooking.serviceDate,
+              bookingTime: rescheduleModalBooking.serviceTime,
+              bookingTimeSlot: rescheduleModalBooking.serviceTime,
+            } as ServiceOrderWithDetails
+          }
           shopId={shopId}
           onReschedule={handleRescheduleComplete}
           onClose={() => setRescheduleModalBooking(null)}
