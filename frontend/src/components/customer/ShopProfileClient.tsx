@@ -152,7 +152,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
       console.log("🔍 [ShopProfile] Gallery photos:", gallery?.length || 0);
 
       if (shopData) {
-        setShopInfo(shopData);
+        // Backend returns 'twitter', frontend uses 'x'
+        setShopInfo({ ...shopData, x: shopData.twitter || shopData.x });
       }
 
       if (servicesData && servicesData.data && shopData) {
