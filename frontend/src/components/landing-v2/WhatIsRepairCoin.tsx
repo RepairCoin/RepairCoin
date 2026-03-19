@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import SectionBadge from "@/components/about/SectionBadge";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import RepairCoin3DModel from "./RepairCoin3DModel";
 
 export default function WhatIsRepairCoin() {
   return (
@@ -56,12 +56,7 @@ export default function WhatIsRepairCoin() {
           <AnimateOnScroll delay={0.2}>
             <div className="flex items-center justify-center">
               <div className="relative w-[280px] h-[280px] sm:w-[350px] sm:h-[350px] lg:w-[420px] lg:h-[420px] animate-[gentleFloat_6s_ease-in-out_infinite]">
-                <Image
-                  src="/img/landingv2/RepaircoinLogo.png"
-                  alt="RepairCoin"
-                  fill
-                  className="object-contain"
-                />
+               <RepairCoin3DModel />
               </div>
             </div>
           </AnimateOnScroll>
