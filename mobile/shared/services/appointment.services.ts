@@ -11,6 +11,22 @@ import {
 // Types
 // ============================================
 
+export type NoShowTier = 'normal' | 'warning' | 'caution' | 'deposit_required' | 'suspended';
+
+export interface CustomerNoShowStatus {
+  customerAddress: string;
+  noShowCount: number;
+  tier: NoShowTier;
+  depositRequired: boolean;
+  lastNoShowAt?: string;
+  bookingSuspendedUntil?: string;
+  successfulAppointmentsSinceTier3: number;
+  canBook: boolean;
+  requiresDeposit: boolean;
+  minimumAdvanceHours: number;
+  restrictions: string[];
+}
+
 export type RescheduleRequestStatus =
   | "pending"
   | "approved"
@@ -169,6 +185,44 @@ class AppointmentApi {
     } catch (error: any) {
       console.error("Failed to mark order as no-show:", error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Get customer's overall no-show status (dashboard banner)
+   */
+  async getCustomerNoShowStatus(
+    customerAddress: string
+  ): Promise<CustomerNoShowStatus | null> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/overall-no-show-status`
+      );
+      return response.data || response;
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get no-show status:", error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get customer's no-show status for a specific shop
+   */
+  async getCustomerNoShowStatusForShop(
+    customerAddress: string,
+    shopId: string
+  ): Promise<CustomerNoShowStatus | null> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/no-show-status`,
+        { params: { shopId } }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get shop no-show status:", error.message);
+      return null;
     }
   }
 
