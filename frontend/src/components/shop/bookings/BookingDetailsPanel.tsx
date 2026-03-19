@@ -233,7 +233,7 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
   ];
 
   return (
-    <div className="h-full flex flex-col bg-[#1A1A1A] rounded-2xl border border-gray-800 overflow-hidden">
+    <div className="flex flex-col bg-[#1A1A1A] rounded-2xl border border-gray-800">
       {/* Header */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center justify-between mb-3">
@@ -274,9 +274,9 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-hidden">
+      <div>
         {activeTab === 'overview' && (
-          <div className="h-full overflow-y-auto p-4">
+          <div className="p-4">
             <BookingOverviewTab booking={booking} />
           </div>
         )}
@@ -519,7 +519,7 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
           )
         )}
         {activeTab === 'timeline' && (
-          <div className="h-full overflow-y-auto p-4">
+          <div className="p-4">
             <BookingTimelineTab booking={booking} />
           </div>
         )}
