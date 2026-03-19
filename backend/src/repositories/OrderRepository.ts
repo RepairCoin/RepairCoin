@@ -411,6 +411,29 @@ export class OrderRepository extends BaseRepository {
   }
 
   /**
+   * Get order counts by status for a shop
+   */
+  async getOrderCountsByShop(shopId: string): Promise<Record<string, number>> {
+    try {
+      const query = `
+        SELECT status, COUNT(*)::int as count
+        FROM service_orders
+        WHERE shop_id = $1
+        GROUP BY status
+      `;
+      const result = await this.pool.query(query, [shopId]);
+      const counts: Record<string, number> = {};
+      for (const row of result.rows) {
+        counts[row.status] = row.count;
+      }
+      return counts;
+    } catch (error) {
+      logger.error('Error fetching order counts by shop:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update order status
    */
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<ServiceOrder> {
