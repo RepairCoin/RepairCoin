@@ -143,3 +143,63 @@ export interface MarkAsReadResponse {
   message: string;
   notification?: Notification;
 }
+
+// Appointment notification preferences
+export interface AppointmentNotificationPreferences {
+  id?: string;
+  customerAddress?: string;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  inAppEnabled: boolean;
+  reminder24hEnabled: boolean;
+  reminder2hEnabled: boolean;
+  reminder30mEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// General notification preferences
+export interface GeneralNotificationPreferences {
+  id?: string;
+  userAddress?: string;
+  userType?: 'customer' | 'shop' | 'admin';
+  // Platform Updates
+  platformUpdates: boolean;
+  maintenanceAlerts: boolean;
+  newFeatures: boolean;
+  // Account & Security
+  securityAlerts: boolean;
+  loginNotifications: boolean;
+  passwordChanges: boolean;
+  // Tokens & Rewards (Customer)
+  tokenReceived: boolean;
+  tokenRedeemed: boolean;
+  rewardsEarned: boolean;
+  // Orders & Services (Customer)
+  orderUpdates: boolean;
+  serviceApproved: boolean;
+  reviewRequests: boolean;
+  // Shop Operations
+  newOrders: boolean;
+  customerMessages: boolean;
+  lowTokenBalance: boolean;
+  subscriptionReminders: boolean;
+  // Admin
+  systemAlerts: boolean;
+  userReports: boolean;
+  treasuryChanges: boolean;
+  // Marketing
+  promotions: boolean;
+  newsletter: boolean;
+  surveys: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Update payload for general preferences (partial)
+export type UpdateGeneralNotificationPreferences = Partial<
+  Omit<GeneralNotificationPreferences, 'id' | 'userAddress' | 'userType' | 'createdAt' | 'updatedAt'>
+>;

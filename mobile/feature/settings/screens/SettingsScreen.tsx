@@ -25,6 +25,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     handleBuyTokens,
     handleRedeemTokens,
     handleGroups,
+    handleNotificationPreferences,
   } = useSettings(role);
 
   return (
@@ -110,6 +111,22 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
             />
           </SettingsSection>
         )}
+
+        {/* Notifications Section */}
+        <SettingsSection title="Notifications">
+          <SettingsItem
+            icon={
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color="#FFCC00"
+              />
+            }
+            title="Notification Preferences"
+            subtitle="Manage your notification settings"
+            onPress={handleNotificationPreferences}
+          />
+        </SettingsSection>
 
         {/* Support Section */}
         <SettingsSection title="Support">
