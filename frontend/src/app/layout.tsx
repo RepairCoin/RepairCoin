@@ -10,8 +10,16 @@ const GA_MEASUREMENT_ID = 'G-JSDJ8WLV27'
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
+})
+
+const poppinsExtended = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '800'],
+  display: 'swap',
+  variable: '--font-poppins-extended',
+  preload: false,
 })
 
 const inriaSans = Inria_Sans({
@@ -39,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inriaSans.variable}>
+    <html lang="en" className={`${inriaSans.variable} ${poppinsExtended.variable}`}>
       {/* Google Analytics */}
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
