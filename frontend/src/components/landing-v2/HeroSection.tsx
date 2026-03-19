@@ -63,7 +63,7 @@ export default function HeroSection({
       <div className="h-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 ">
         <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8 h-full">
           {/* Left Content */}
-          <div className="lg:flex-1 space-y-4 sm:space-y-7 pt-20 sm:pt-28 lg:pt-0 pb-8 md:pb-0">
+          <div className="relative lg:flex-1 space-y-4 sm:space-y-7 pt-20 sm:pt-28 lg:pt-0 pb-8 md:pb-0">
             {/* Badge */}
             <m.div
               {...fadeUp(0.1)}
