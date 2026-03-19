@@ -622,6 +622,26 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/orders/shop/counts:
+   *   get:
+   *     summary: Get shop order counts by status
+   *     description: Returns count of orders grouped by status for the authenticated shop
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Order counts by status
+   */
+  router.get(
+    '/orders/shop/counts',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.getShopOrderCounts
+  );
+
+  /**
+   * @swagger
    * /api/services/orders/{id}:
    *   get:
    *     summary: Get order by ID

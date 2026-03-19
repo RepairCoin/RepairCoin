@@ -18,6 +18,7 @@ import { CancelBookingModal } from "./CancelBookingModal";
 import { toast } from "react-hot-toast";
 import {
   getShopOrders,
+  getShopOrderCounts,
   updateOrderStatus,
   approveBooking,
   ServiceOrderWithDetails,
@@ -115,14 +116,38 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const ITEMS_PER_PAGE = 5;
+
+  // Map frontend filter key to backend status value
+  const getApiStatus = (filter: string): string | undefined => {
+    if (filter === "all") return undefined;
+    return filter; // "pending", "paid", "completed", "cancelled" map directly
+  };
+
+  // Load status counts from API
+  const loadCounts = async () => {
+    try {
+      const counts = await getShopOrderCounts();
+      if (counts) {
+        setStatusCounts(counts);
+      }
+    } catch (err) {
+      console.error("Error loading order counts:", err);
+    }
+  };
 
   // Load bookings from API
-  const loadBookings = async (page: number = currentPage) => {
+  const loadBookings = async (page: number = currentPage, filter: string = activeFilter) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getShopOrders({ limit: ITEMS_PER_PAGE, page });
+      const apiStatus = getApiStatus(filter);
+      const response = await getShopOrders({
+        limit: ITEMS_PER_PAGE,
+        page,
+        ...(apiStatus ? { status: apiStatus as 'pending' | 'paid' | 'completed' | 'cancelled' } : {}),
+      });
       if (response && response.data) {
         // Transform API data to UI format
         const transformedBookings = response.data.map(transformApiOrder);
@@ -131,9 +156,11 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
           setTotalPages(response.pagination.totalPages);
           setCurrentPage(response.pagination.page);
         }
-        // Select first booking if none selected
-        if (!selectedBookingId && transformedBookings.length > 0) {
+        // Select first booking automatically
+        if (transformedBookings.length > 0) {
           setSelectedBookingId(transformedBookings[0].bookingId);
+        } else {
+          setSelectedBookingId(null);
         }
       }
     } catch (err) {
@@ -154,9 +181,17 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     loadBookings(page);
   };
 
-  // Load bookings on mount
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter);
+    setCurrentPage(1);
+    setSelectedBookingId(null);
+    loadBookings(1, filter);
+  };
+
+  // Load bookings and counts on mount
   useEffect(() => {
     loadBookings(1);
+    loadCounts();
   }, [shopId]);
 
   // Handle URL search parameter for filtering and selecting booking
@@ -193,39 +228,33 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     return bookings.reduce((sum, b) => sum + b.unreadCount, 0);
   }, [bookings]);
 
-  // Filter bookings based on filter and search
+  // Compute filter counts from API status counts
+  const filterCounts = useMemo(() => {
+    const pending = statusCounts["pending"] || 0;
+    const paid = statusCounts["paid"] || 0;
+    const completed = statusCounts["completed"] || 0;
+    const cancelled = (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0) + (statusCounts["no_show"] || 0);
+    return {
+      all: pending + paid + completed + cancelled,
+      pending,
+      paid,
+      completed,
+      cancelled,
+    };
+  }, [statusCounts]);
+
+  // Filter bookings by search only (status filtering is done server-side)
   const filteredBookings = useMemo(() => {
-    let filtered = [...bookings];
+    if (!searchQuery.trim()) return bookings;
 
-    // Apply status filter
-    if (activeFilter !== "all") {
-      if (activeFilter === "pending") {
-        filtered = filtered.filter((b) => b.status === "requested");
-      } else if (activeFilter === "paid") {
-        filtered = filtered.filter(
-          (b) =>
-            b.status === "paid" ||
-            b.status === "approved" ||
-            b.status === "scheduled",
-        );
-      } else {
-        filtered = filtered.filter((b) => b.status === activeFilter);
-      }
-    }
-
-    // Apply search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (b) =>
-          b.bookingId.toLowerCase().includes(query) ||
-          b.customerName.toLowerCase().includes(query) ||
-          b.serviceName.toLowerCase().includes(query),
-      );
-    }
-
-    return filtered;
-  }, [bookings, activeFilter, searchQuery]);
+    const query = searchQuery.toLowerCase();
+    return bookings.filter(
+      (b) =>
+        b.bookingId.toLowerCase().includes(query) ||
+        b.customerName.toLowerCase().includes(query) ||
+        b.serviceName.toLowerCase().includes(query),
+    );
+  }, [bookings, searchQuery]);
 
   // Get selected booking
   const selectedBooking = useMemo(() => {
@@ -261,6 +290,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
         }),
       );
       toast.success(`Booking ${bookingId} approved!`);
+      loadCounts();
     } catch (error: unknown) {
       console.error("Error approving booking:", error);
       const errorMessage =
@@ -386,6 +416,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
         toast.success(
           `Booking ${bookingId} marked as completed! Customer will receive their RCN rewards.`,
         );
+        loadCounts();
       } else {
         // Revert optimistic update on failure
         setBookings((prev) =>
@@ -443,6 +474,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
           return b;
         }),
       );
+      loadCounts();
     }
     setCancelModalBooking(null);
   };
@@ -456,7 +488,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
           <p className="text-gray-400">View and manage your bookings</p>
         </div>
         <button
-          onClick={loadBookings}
+          onClick={() => { loadBookings(); loadCounts(); }}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-gray-300 hover:border-gray-600 transition-colors disabled:opacity-50"
         >
@@ -486,18 +518,26 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
       )}
 
       {/* Stats Cards */}
-      <BookingStatsCards bookings={bookings} />
+      <BookingStatsCards
+        bookings={bookings}
+        statusCounts={{
+          pending: filterCounts.pending,
+          paid: filterCounts.paid,
+          completed: filterCounts.completed,
+        }}
+      />
 
       {/* Filters */}
       <BookingFilters
         activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
+        onFilterChange={handleFilterChange}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         bookings={bookings}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         unreadMessagesCount={unreadMessagesCount}
+        filterCounts={filterCounts}
       />
 
       {/* Main Content - Split Panel Layout */}

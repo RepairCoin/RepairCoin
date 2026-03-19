@@ -373,6 +373,19 @@ export const getShopOrders = async (
 };
 
 /**
+ * Get shop order counts by status (Shop only)
+ */
+export const getShopOrderCounts = async (): Promise<Record<string, number> | null> => {
+  try {
+    const response = await apiClient.get<Record<string, number>>('/services/orders/shop/counts');
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting shop order counts:', error);
+    return null;
+  }
+};
+
+/**
  * Get order by ID (Customer or Shop)
  */
 export const getOrderById = async (orderId: string): Promise<ServiceOrderWithDetails | null> => {

@@ -4,14 +4,21 @@ import React from "react";
 import { Clock, CheckCircle, DollarSign, Receipt } from "lucide-react";
 import { MockBooking } from "./mockData";
 
-interface BookingStatsCardsProps {
-  bookings: MockBooking[];
+interface StatusCounts {
+  pending: number;
+  paid: number;
+  completed: number;
 }
 
-export const BookingStatsCards: React.FC<BookingStatsCardsProps> = ({ bookings }) => {
-  const pendingCount = bookings.filter(b => b.status === 'requested').length;
-  const paidCount = bookings.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled').length;
-  const completedCount = bookings.filter(b => b.status === 'completed').length;
+interface BookingStatsCardsProps {
+  bookings: MockBooking[];
+  statusCounts?: StatusCounts;
+}
+
+export const BookingStatsCards: React.FC<BookingStatsCardsProps> = ({ bookings, statusCounts }) => {
+  const pendingCount = statusCounts?.pending ?? bookings.filter(b => b.status === 'requested').length;
+  const paidCount = statusCounts?.paid ?? bookings.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled').length;
+  const completedCount = statusCounts?.completed ?? bookings.filter(b => b.status === 'completed').length;
   const totalRevenue = bookings
     .filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled' || b.status === 'completed')
     .reduce((sum, b) => sum + b.amount, 0);

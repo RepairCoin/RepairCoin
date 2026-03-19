@@ -224,6 +224,32 @@ export class OrderController {
   };
 
   /**
+   * Get shop order counts by status (Shop only)
+   * GET /api/services/orders/shop/counts
+   */
+  getShopOrderCounts = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const counts = await this.orderRepository.getOrderCountsByShop(shopId);
+
+      res.json({
+        success: true,
+        data: counts
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getShopOrderCounts controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get order counts'
+      });
+    }
+  };
+
+  /**
    * Get order by ID (Customer or Shop)
    * GET /api/services/orders/:id
    */

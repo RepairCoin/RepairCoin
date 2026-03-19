@@ -4,6 +4,14 @@ import React from "react";
 import { Search, MessageSquare } from "lucide-react";
 import { BookingStatus, MockBooking } from "./mockData";
 
+interface FilterCounts {
+  all: number;
+  pending: number;
+  paid: number;
+  completed: number;
+  cancelled: number;
+}
+
 interface BookingFiltersProps {
   activeFilter: string;
   onFilterChange: (filter: string) => void;
@@ -13,6 +21,7 @@ interface BookingFiltersProps {
   activeTab: 'bookings' | 'messages';
   onTabChange: (tab: 'bookings' | 'messages') => void;
   unreadMessagesCount: number;
+  filterCounts?: FilterCounts;
 }
 
 export const BookingFilters: React.FC<BookingFiltersProps> = ({
@@ -23,9 +32,10 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
   bookings,
   activeTab,
   onTabChange,
-  unreadMessagesCount
+  unreadMessagesCount,
+  filterCounts: filterCountsProp
 }) => {
-  const filterCounts = {
+  const filterCounts = filterCountsProp || {
     all: bookings.length,
     pending: bookings.filter(b => b.status === 'requested').length,
     paid: bookings.filter(b => b.status === 'paid' || b.status === 'approved' || b.status === 'scheduled').length,
