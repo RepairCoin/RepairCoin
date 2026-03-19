@@ -102,13 +102,14 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
     setError("");
 
     try {
-      // Filter out empty fields
+      // Filter out empty fields and map 'x' to 'twitter' for backend
       const validFields = Object.entries(links).reduce((acc, [key, value]) => {
         if (value && value.trim()) {
-          acc[key as keyof SocialMediaLinks] = value.trim();
+          const fieldName = key === 'x' ? 'twitter' : key;
+          acc[fieldName] = value.trim();
         }
         return acc;
-      }, {} as SocialMediaLinks);
+      }, {} as Record<string, string>);
 
       await apiClient.put(`/shops/${shopId}/details`, validFields);
 

@@ -156,7 +156,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         phone: shopFormData.phone,
         address: shopFormData.address,
         facebook: shopFormData.facebook,
-        x: shopFormData.x,
+        twitter: shopFormData.x,
         instagram: shopFormData.instagram,
         website: shopFormData.website,
         logoUrl: shopFormData.logoUrl,
