@@ -19,6 +19,7 @@ const inriaSans = Inria_Sans({
   weight: ['300', '400', '700'],
   display: 'swap',
   variable: '--font-inria-sans',
+  preload: false,
 })
 
 export const metadata: Metadata = {
