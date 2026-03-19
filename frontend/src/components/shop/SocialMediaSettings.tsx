@@ -8,7 +8,6 @@ import {
   CheckCircle,
   Facebook,
   Instagram,
-  Twitter,
   Linkedin,
   Youtube,
   Globe,
@@ -19,6 +18,7 @@ import {
   Eye,
   Settings,
 } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
 import toast from "react-hot-toast";
 import apiClient from "@/services/api/client";
 
@@ -171,11 +171,11 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
     {
       key: "x" as const,
       label: "X (Twitter)",
-      icon: Twitter,
+      icon: FaXTwitter,
       placeholder: "https://x.com/yourshop",
-      color: "text-sky-500",
-      bgColor: "bg-sky-500/10",
-      borderColor: "border-sky-500/30",
+      color: "text-white",
+      bgColor: "bg-gray-800",
+      borderColor: "border-gray-600",
       description: "Tweet updates and engage on X",
     },
     {
