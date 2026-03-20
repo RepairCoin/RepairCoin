@@ -11,11 +11,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScrollProgress from "@/components/motion/ScrollProgress";
 
-// Critical above-the-fold sections - load immediately
+// Critical above-the-fold - imported directly
 import HeroSection from "@/components/landing-v2/HeroSection";
-import WhatIsRepairCoin from "@/components/landing-v2/WhatIsRepairCoin";
 
 // Below-the-fold sections - lazy load with dynamic imports
+// WhatIsRepairCoin contains a 3D model (Three.js/R3F ~500KB) - must be lazy loaded
+const WhatIsRepairCoin = dynamic(() => import("@/components/landing-v2/WhatIsRepairCoin"), { ssr: true });
 const HowItWorks = dynamic(() => import("@/components/landing-v2/HowItWorks"), { ssr: true });
 const WhosItFor = dynamic(() => import("@/components/landing-v2/WhosItFor"), { ssr: true });
 const Proof = dynamic(() => import("@/components/landing-v2/Proof"), { ssr: true });

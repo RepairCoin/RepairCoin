@@ -1,7 +1,20 @@
+"use client";
+
 import Link from "next/link";
+import { m, useReducedMotion } from "framer-motion";
 import SectionBadge from "./SectionBadge";
 
 export default function AboutHero() {
+  const prefersReducedMotion = useReducedMotion();
+
+  const fadeUp = (delay: number) => ({
+    initial: prefersReducedMotion ? undefined : { opacity: 0, y: 20 },
+    animate: prefersReducedMotion ? undefined : { opacity: 1, y: 0 },
+    transition: prefersReducedMotion
+      ? undefined
+      : { duration: 0.6, delay, ease: "easeOut" as const },
+  });
+
   return (
     <section className="relative h-screen w-full bg-[#0D0D0D] overflow-hidden">
       {/* Background particle wave pattern */}
@@ -15,13 +28,18 @@ export default function AboutHero() {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">
-        <SectionBadge label="About RepairCoin" />
+        <m.div {...fadeUp(0.1)}>
+          <SectionBadge label="About RepairCoin" />
+        </m.div>
 
-        <h1 className="mt-10 text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold text-white leading-tight">
+        <m.h1
+          {...fadeUp(0.2)}
+          className="mt-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight"
+        >
           The story behind
           <br />
           <span className="relative inline-block">
-            RepairCoin
+            <span className="text-gold-gradient">RepairCoin</span>
             {/* Yellow underline curve */}
             <svg
               className="absolute -bottom-4 -left-[3%] w-[106%] h-[18px]"
@@ -30,28 +48,36 @@ export default function AboutHero() {
               xmlns="http://www.w3.org/2000/svg"
               preserveAspectRatio="none"
             >
-              <path
+              <m.path
                 d="M2 5.5C80 1.5 230 1.5 309 5.5"
                 stroke="#ffcc00"
-                strokeWidth="6"
+                strokeWidth="5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
               />
             </svg>
           </span>
-        </h1>
+        </m.h1>
 
-        <p className="mt-10 max-w-2xl text-gray-400 text-lg sm:text-xl leading-relaxed">
+        <m.p
+          {...fadeUp(0.35)}
+          className="mt-10 max-w-2xl text-gray-400 text-lg sm:text-xl leading-relaxed"
+        >
           RepairCoin is a modern loyalty platform for service businesses, created from everyday
           operations and focused on long term customer relationships.
-        </p>
+        </m.p>
 
-        <Link
-          href="/waitlist"
-          className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
-        >
-          Join Waitlist &rarr;
-        </Link>
+        <m.div {...fadeUp(0.5)}>
+          <Link
+            href="/waitlist"
+            className="inline-block mt-8 px-10 py-3.5 bg-[#ffcc00] hover:bg-[#e6b800] text-black font-semibold rounded-lg transition-colors"
+          >
+            Join Waitlist &rarr;
+          </Link>
+        </m.div>
       </div>
     </section>
   );

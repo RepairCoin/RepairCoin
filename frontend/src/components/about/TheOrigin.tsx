@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
 import SectionBadge from "./SectionBadge";
 
 export default function TheOrigin() {
@@ -7,7 +10,7 @@ export default function TheOrigin() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
           {/* Left: Text content */}
-          <div className="flex-1 pt-2">
+          <AnimateOnScroll className="flex-1 pt-2">
             <SectionBadge label="The Origin" />
 
             <h2 className="mt-6 text-3xl sm:text-4xl lg:text-[2.5rem] font-bold text-white leading-tight">
@@ -28,10 +31,10 @@ export default function TheOrigin() {
               RepairCoin was built from daily experience to reward good service, simplify loyalty,
               and make it easier for customers to return.
             </p>
-          </div>
+          </AnimateOnScroll>
 
           {/* Right: Image card */}
-          <div className="flex-shrink-0 w-full lg:w-[420px]">
+          <AnimateOnScroll delay={0.2} className="flex-shrink-0 w-full lg:w-[420px]">
             <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden">
               <Image
                 src="/img/about/the-origin-people-card.png"
@@ -41,7 +44,7 @@ export default function TheOrigin() {
                 sizes="(max-width: 1024px) 100vw, 420px"
               />
             </div>
-          </div>
+          </AnimateOnScroll>
         </div>
       </div>
     </section>
