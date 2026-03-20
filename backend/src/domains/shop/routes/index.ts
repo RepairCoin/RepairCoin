@@ -61,6 +61,7 @@ import tierBonusRoutes from './tierBonus';
 import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
+import moderationRoutes from './moderation';
 
 const router = Router();
 
@@ -71,6 +72,7 @@ router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
+router.use('/moderation', authMiddleware, requireRole(['shop']), moderationRoutes); // Moderation routes
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;

@@ -6,6 +6,7 @@ import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
 import { PasswordAuthSettings } from "../PasswordAuthSettings";
 import { SocialMediaSettings } from "../SocialMediaSettings";
+import { ModerationSettings } from "../ModerationSettings";
 // import { FAQSection } from "../FAQSection"; // TODO: component not yet created
 import {
   Store,
@@ -827,17 +828,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Moderation Tab Content */}
           {activeTab === "moderation" && (
             <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                Moderation
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Configure content moderation settings
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Moderation settings coming soon...
-                </p>
-              </div>
+              <ModerationSettings shopId={shopId} />
             </div>
           )}
 
