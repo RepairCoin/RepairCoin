@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
+  compress: true,
+  output: 'standalone',
+
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -33,6 +37,7 @@ const nextConfig = {
     } : false,
   },
   images: {
+    formats: ['image/webp', 'image/avif'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -44,6 +49,15 @@ const nextConfig = {
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
+  },
+
+  // Performance: cache visited pages so back/forward nav is instant
+  experimental: {
+    staleTimes: {
+      dynamic: 30,   // Cache dynamic pages for 30 seconds
+      static: 180,   // Cache static pages for 3 minutes
+    },
+    optimizePackageImports: ['lucide-react', 'recharts', '@radix-ui/react-icons', 'framer-motion'],
   },
 };
 

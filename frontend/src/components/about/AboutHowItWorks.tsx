@@ -1,4 +1,9 @@
+"use client";
+
 import Image from "next/image";
+import { m } from "framer-motion";
+import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import StaggerContainer, { staggerItem } from "@/components/motion/StaggerContainer";
 import SectionBadge from "./SectionBadge";
 
 const steps = [
@@ -25,21 +30,25 @@ export default function AboutHowItWorks() {
     <section className="w-full bg-[#0D0D0D] px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-14">
-          <SectionBadge label="How it works" />
-          <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            How RepairCoin fits into your workflow
-          </h2>
-          <p className="mt-4 max-w-2xl mx-auto text-gray-400 text-sm sm:text-base leading-relaxed">
-            A simple flow that fits naturally into daily operations, from checkout to repeat visits.
-          </p>
-        </div>
+        <AnimateOnScroll>
+          <div className="text-center mb-14">
+            <SectionBadge label="How it works" />
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
+              How RepairCoin fits into your workflow
+            </h2>
+            <p className="mt-4 max-w-2xl mx-auto text-gray-400 text-sm sm:text-base leading-relaxed">
+              A simple flow that fits naturally into daily operations, from checkout to repeat visits.
+            </p>
+          </div>
+        </AnimateOnScroll>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {steps.map((step) => (
-            <div
+            <m.div
               key={step.title}
+              variants={staggerItem}
+              transition={{ duration: 0.5 }}
               className="rounded-[32px] border border-white/5 overflow-hidden"
               style={{
                 background: "linear-gradient(135deg, rgba(0,0,0,0.16) 0%, rgba(58,58,76,0.16) 100%)",
@@ -64,9 +73,9 @@ export default function AboutHowItWorks() {
                 <div className="w-full h-px bg-white/10 mb-3" />
                 <p className="text-gray-400 text-sm leading-relaxed">{step.description}</p>
               </div>
-            </div>
+            </m.div>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

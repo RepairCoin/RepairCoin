@@ -1,9 +1,24 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import SectionBadge from "@/components/about/SectionBadge";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
-import RepairCoin3DModel from "./RepairCoin3DModel";
+
+// Three.js/R3F is ~500KB - only load when this section is visible
+const RepairCoin3DModel = dynamic(() => import("./RepairCoin3DModel"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64">
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ffcc00]/30 to-[#ff9900]/30 animate-pulse" />
+        <div className="absolute inset-4 rounded-full bg-[#191919] flex items-center justify-center">
+          <span className="text-4xl sm:text-5xl font-bold text-[#ffcc00]/50">RCN</span>
+        </div>
+      </div>
+    </div>
+  ),
+});
 
 export default function WhatIsRepairCoin() {
   return (

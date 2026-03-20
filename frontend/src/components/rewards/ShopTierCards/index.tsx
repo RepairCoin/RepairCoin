@@ -1,7 +1,9 @@
 "use client";
 
 import { Shield, Sparkles, Crown, CheckCircle, Coins } from "lucide-react";
+import { m, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
+import { staggerItem } from "@/components/motion/StaggerContainer";
 
 interface ShopTier {
   name: string;
@@ -80,14 +82,23 @@ const shopTiers: ShopTier[] = [
 ];
 
 const ShopTierCards = () => {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-7 min-h-screen">
+    <m.div
+      initial={prefersReducedMotion ? undefined : "hidden"}
+      animate={prefersReducedMotion ? undefined : "visible"}
+      transition={{ staggerChildren: 0.15 }}
+      className="grid grid-cols-1 md:grid-cols-3 gap-7 min-h-screen"
+    >
       {shopTiers.map((tier) => {
         const Icon = tier.icon;
         return (
-          <div
+          <m.div
             key={tier.name}
-            className="border border-[#2a2a2a] rounded-3xl p-5 md:p-8 flex flex-col"
+            variants={staggerItem}
+            transition={{ duration: 0.5 }}
+            className="card-hover-glow border border-[#2a2a2a] rounded-3xl p-5 md:p-8 flex flex-col"
             style={{
               background:
                 "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
@@ -147,10 +158,10 @@ const ShopTierCards = () => {
               <h4 className="text-base font-bold text-white mb-2">Who It&apos;s For</h4>
               <p className="text-sm text-[#777] leading-relaxed">{tier.whoFor}</p>
             </div>
-          </div>
+          </m.div>
         );
       })}
-    </div>
+    </m.div>
   );
 };
 

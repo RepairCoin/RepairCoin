@@ -1,5 +1,10 @@
+"use client";
+
 import Image from "next/image";
+import { m } from "framer-motion";
 import { Target } from "lucide-react";
+import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import StaggerContainer, { staggerItem } from "@/components/motion/StaggerContainer";
 import SectionBadge from "./SectionBadge";
 
 const trustCards = [
@@ -35,22 +40,26 @@ export default function Trust() {
     <section className="w-full bg-[#0D0D0D] px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-14">
-          <SectionBadge label="Trust" />
-          <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
-            Built to earn confidence, not hype
-          </h2>
-          <p className="mt-4 max-w-2xl mx-auto text-gray-400 text-sm sm:text-base leading-relaxed">
-            RepairCoin is designed to feel responsible, stable, and practical for everyday
-            businesses.
-          </p>
-        </div>
+        <AnimateOnScroll>
+          <div className="text-center mb-14">
+            <SectionBadge label="Trust" />
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
+              Built to earn confidence, not hype
+            </h2>
+            <p className="mt-4 max-w-2xl mx-auto text-gray-400 text-sm sm:text-base leading-relaxed">
+              RepairCoin is designed to feel responsible, stable, and practical for everyday
+              businesses.
+            </p>
+          </div>
+        </AnimateOnScroll>
 
         {/* Trust cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {trustCards.map((card) => (
-            <div
+            <m.div
               key={card.title}
+              variants={staggerItem}
+              transition={{ duration: 0.5 }}
               className="rounded-[32px] border border-white/5 p-8 pt-10"
               style={{
                 background: "linear-gradient(135deg, rgba(0,0,0,0.16) 0%, rgba(58,58,76,0.16) 100%)",
@@ -69,34 +78,37 @@ export default function Trust() {
               <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-line">
                 {card.description}
               </p>
-            </div>
+            </m.div>
           ))}
-        </div>
+        </StaggerContainer>
 
         {/* Signals of credibility */}
-        <div
-          className="rounded-[32px] border border-white/5 p-8 sm:p-10"
-          style={{
-            background: "linear-gradient(135deg, rgba(0,0,0,0.16) 0%, rgba(58,58,76,0.16) 100%)",
-          }}
-        >
-          <h3 className="text-xl font-bold text-white mb-2">Signals of credibility</h3>
-          <p className="text-gray-400 text-sm mb-6">
-            Designed for early-stage trust before big logos.
-          </p>
+        <AnimateOnScroll delay={0.2}>
+          <div
+            className="rounded-[32px] border border-white/5 p-8 sm:p-10"
+            style={{
+              background: "linear-gradient(135deg, rgba(0,0,0,0.16) 0%, rgba(58,58,76,0.16) 100%)",
+            }}
+          >
+            <h3 className="text-xl font-bold text-white mb-2">Signals of credibility</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Designed for early-stage trust before big logos.
+            </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {credibilityBadges.map((badge) => (
-              <div
-                key={badge}
-                className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-5 py-3.5"
-              >
-                <Target className="w-5 h-5 text-[#ffcc00] flex-shrink-0" />
-                <span className="text-white text-sm font-medium">{badge}</span>
-              </div>
-            ))}
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" staggerDelay={0.1}>
+              {credibilityBadges.map((badge) => (
+                <m.div
+                  key={badge}
+                  variants={staggerItem}
+                  className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-5 py-3.5"
+                >
+                  <Target className="w-5 h-5 text-[#ffcc00] flex-shrink-0" />
+                  <span className="text-white text-sm font-medium">{badge}</span>
+                </m.div>
+              ))}
+            </StaggerContainer>
           </div>
-        </div>
+        </AnimateOnScroll>
       </div>
     </section>
   );

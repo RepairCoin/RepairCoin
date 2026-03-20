@@ -1,7 +1,9 @@
 "use client";
 
 import { Shield, Sparkles, Crown, CheckCircle } from "lucide-react";
+import { m, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
+import { staggerItem } from "@/components/motion/StaggerContainer";
 
 interface CustomerTier {
   name: string;
@@ -55,14 +57,23 @@ const customerTiers: CustomerTier[] = [
 ];
 
 const CustomerTierCards = () => {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
+    <m.div
+      initial={prefersReducedMotion ? undefined : "hidden"}
+      animate={prefersReducedMotion ? undefined : "visible"}
+      transition={{ staggerChildren: 0.15 }}
+      className="grid grid-cols-1 md:grid-cols-3 gap-7"
+    >
       {customerTiers.map((tier) => {
         const Icon = tier.icon;
         return (
-          <div
+          <m.div
             key={tier.name}
-            className="border border-[#2a2a2a] rounded-3xl p-5 md:p-8 flex flex-col"
+            variants={staggerItem}
+            transition={{ duration: 0.5 }}
+            className="card-hover-glow border border-[#2a2a2a] rounded-3xl p-5 md:p-8 flex flex-col"
             style={{
               background:
                 "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
@@ -94,10 +105,10 @@ const CustomerTierCards = () => {
                 </li>
               ))}
             </ul>
-          </div>
+          </m.div>
         );
       })}
-    </div>
+    </m.div>
   );
 };
 

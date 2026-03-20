@@ -1,38 +1,19 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { m } from "framer-motion";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import type { TabType } from "./data";
 
-interface RewardsCTAProps {
-  activeTab: "shopowner" | "customers";
+interface FeaturesCTAProps {
+  activeTab: TabType;
 }
 
-const content = {
-  shopowner: {
-    line1: "Bring smart rewards",
-    line2: "your services",
-    subtitle:
-      "Join RepairCoin and start rewarding customers, managing loyalty, and tracking growth—all in one platform.",
-    cta: "Join as Shop Owner",
-    href: "/choose?role=shop",
-  },
-  customers: {
-    line1: "Loyalty That Grows",
-    line2: "With You",
-    subtitle:
-      "Earn from your first service and unlock higher RCN rewards as your activity increases.",
-    cta: "Join as Customer",
-    href: "/choose?role=customer",
-  },
-};
-
-const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
-  const { line1, line2, subtitle, cta, href } = content[activeTab];
-
+export default function FeaturesCTA({ activeTab }: FeaturesCTAProps) {
   return (
-    <section className="relative overflow-hidden bg-[#0D0D0D] py-16 md:py-28">
+    <section className="relative overflow-hidden bg-[#0D0D0D] py-16 md:py-28 pb-24 md:pb-28">
       {/* Background wave pattern */}
       <div
         className="absolute inset-0 bg-no-repeat bg-right-bottom opacity-40"
@@ -45,15 +26,14 @@ const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-4">
         <AnimateOnScroll>
-          <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight">
-            {line1}
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white leading-tight">
+            Bring smart rewards
             <br />
             <span className="relative inline-block">
-              {activeTab === "shopowner" ? "to " : ""}
-              <span className="relative inline-block">
-                <span className="text-gold-gradient">{line2}</span>
+              to <span className="relative inline-block text-gold-gradient">your services</span>
+              <span className="relative inline-block w-2/3">
                 <svg
-                  className="absolute -bottom-2 md:-bottom-4 -left-[3%] w-[106%] h-[10px] md:h-[14px]"
+                  className="absolute bottom-1 md:bottom-5 -left-[3%] w-[106%] h-[12px] md:h-[18px]"
                   viewBox="0 0 311 8"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -78,15 +58,16 @@ const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
 
         <AnimateOnScroll delay={0.3}>
           <p className="mt-10 text-white/50 text-base max-w-md leading-relaxed">
-            {subtitle}
+            Join RepairCoin and start rewarding customers, managing loyalty,
+            and tracking growth&mdash;all in one platform.
           </p>
 
           <div className="flex justify-center mt-8">
             <Link
-              href={href}
+              href={activeTab === "shop" ? "/choose?role=shop" : "/choose?role=customer"}
               className="btn-shimmer bg-[#FFCC00] text-black hover:bg-[#e6b800] transition-all duration-200 px-8 py-3 rounded-lg font-semibold"
             >
-              {cta} &rarr;
+              {activeTab === "shop" ? "Join as Shop Owner" : "Join as Customer"} &rarr;
             </Link>
           </div>
         </AnimateOnScroll>
@@ -105,6 +86,4 @@ const RewardsCTA = ({ activeTab }: RewardsCTAProps) => {
       </AnimateOnScroll>
     </section>
   );
-};
-
-export default RewardsCTA;
+}
