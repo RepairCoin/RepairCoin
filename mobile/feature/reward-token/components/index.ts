@@ -7,3 +7,5 @@ export { default as RewardSummary } from "./RewardSummary";
 export { default as HowItWorksModal } from "./HowItWorksModal";
 export { default as CustomerDetailsSection } from "./CustomerDetailsSection";
 export { default as RepairTypeSection } from "./RepairTypeSection";
+export { default as ConfirmRewardModal } from "./ConfirmRewardModal";
+export { default as RecentRewards } from "./RecentRewards";

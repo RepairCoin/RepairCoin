@@ -31,7 +31,7 @@ const transformCustomer = (customer: any): CustomerData => ({
   monthlyEarnings: getNumericValue(customer.monthly_earnings, customer.monthlyEarnings, 0),
   joinDate: getStringValue(customer.join_date, customer.joinDate, ""),
   isActive: customer.is_active ?? customer.isActive ?? true,
-  isSuspended: customer.is_suspended ?? customer.isSuspended ?? false,
+  isSuspended: customer.suspended ?? customer.is_suspended ?? customer.isSuspended ?? (customer.is_active === false) ?? false,
   suspensionReason: customer.suspension_reason ?? customer.suspensionReason ?? null,
   total_transactions: getNumericValue(customer.total_transactions, undefined, 0),
   last_transaction_date: getStringValue(customer.last_transaction_date, undefined, ""),
@@ -59,11 +59,11 @@ export function useShopCustomersQuery() {
   });
 }
 
-export function useSearchAllCustomersQuery(searchQuery: string, enabled: boolean = false) {
+export function useSearchAllCustomersQuery(searchQuery: string, enabled: boolean = false, page: number = 1) {
   return useQuery({
-    queryKey: ["searchAllCustomers", searchQuery],
+    queryKey: ["searchAllCustomers", searchQuery, page],
     queryFn: async () => {
-      const response = await customerApi.searchAllCustomers(searchQuery);
+      const response = await customerApi.searchAllCustomers(searchQuery, page, 20);
       const data = response?.data;
 
       // Transform customers to ensure camelCase properties

@@ -8,6 +8,8 @@ interface CustomerCardProps {
   lifetimeEarnings: number;
   lastTransactionDate?: string;
   total_transactions?: number;
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
   onPress?: () => void;
   onMessagePress?: () => void;
 }
@@ -69,6 +71,8 @@ export default function CustomerCard({
   lifetimeEarnings,
   lastTransactionDate,
   total_transactions,
+  isSuspended,
+  suspensionReason,
   onPress,
   onMessagePress,
 }: CustomerCardProps) {
@@ -153,8 +157,18 @@ export default function CustomerCard({
                   </Text>
                 </View>
 
+                {/* Suspended Badge */}
+                {isSuspended && (
+                  <View className="flex-row items-center px-2 py-1 rounded-full" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)" }}>
+                    <Ionicons name="ban-outline" size={10} color="#EF4444" />
+                    <Text className="text-xs font-semibold ml-1" style={{ color: "#EF4444" }}>
+                      SUSPENDED
+                    </Text>
+                  </View>
+                )}
+
                 {/* Last Activity */}
-                {formattedDate && (
+                {formattedDate && !isSuspended && (
                   <View className="flex-row items-center bg-zinc-800/50 px-2 py-1 rounded-full">
                     <Feather name="clock" size={10} color="#6B7280" />
                     <Text className="text-gray-500 text-xs ml-1">

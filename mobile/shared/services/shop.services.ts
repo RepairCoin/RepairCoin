@@ -174,6 +174,15 @@ class ShopApi {
       throw error;
     }
   }
+
+  async getRecentRewards(shopId: string, limit: number = 5): Promise<any> {
+    try {
+      return await apiClient.get(`/shops/${shopId}/transactions?type=reward&limit=${limit}`);
+    } catch (error: any) {
+      console.error("Failed to get recent rewards:", error.message);
+      throw error;
+    }
+  }
 }
 
 export const shopApi = new ShopApi();

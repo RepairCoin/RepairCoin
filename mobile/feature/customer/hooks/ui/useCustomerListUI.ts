@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { CustomerData } from "@/shared/interfaces/customer.interface";
 import { useShopCustomersQuery, useSearchAllCustomersQuery } from "../queries/useCustomerQueries";
 import { useCustomerSearch } from "./useCustomerSearch";
@@ -12,6 +12,8 @@ export function useCustomerListUI() {
   const [viewMode, setViewMode] = useState<ViewMode>("my-customers");
   const [searchAllQuery, setSearchAllQuery] = useState("");
   const [hasSearchedAll, setHasSearchedAll] = useState(false);
+  const [searchAllPage, setSearchAllPage] = useState(1);
+  const [accumulatedResults, setAccumulatedResults] = useState<CustomerData[]>([]);
 
   // Filters for My Customers tab
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
@@ -28,8 +30,23 @@ export function useCustomerListUI() {
     data: searchAllData,
     isLoading: isSearchingAll,
     error: searchAllError,
-    refetch: refetchSearchAll
-  } = useSearchAllCustomersQuery(searchAllQuery, hasSearchedAll);
+    refetch: refetchSearchAll,
+    isFetching: isFetchingSearchAll,
+  } = useSearchAllCustomersQuery(searchAllQuery, hasSearchedAll, searchAllPage);
+
+  // Accumulate results when new page data arrives
+  const prevDataRef = useRef(searchAllData);
+  useEffect(() => {
+    if (searchAllData && searchAllData !== prevDataRef.current) {
+      prevDataRef.current = searchAllData;
+      const newCustomers = searchAllData?.customers || [];
+      if (searchAllPage === 1) {
+        setAccumulatedResults(newCustomers);
+      } else {
+        setAccumulatedResults((prev) => [...prev, ...newCustomers]);
+      }
+    }
+  }, [searchAllData, searchAllPage]);
 
   // Filter and sort My Customers
   const myCustomers = useMemo((): CustomerData[] => {
@@ -69,16 +86,12 @@ export function useCustomerListUI() {
     return customers;
   }, [shopCustomerData, searchText, tierFilter, sortBy]);
 
-  // Search All Customers results
-  const searchAllResults = useMemo((): CustomerData[] => {
-    return searchAllData?.customers || [];
-  }, [searchAllData]);
-
   // Customer counts
   const myCustomerCount = myCustomers.length;
   const totalMyCustomerCount = shopCustomerData?.customers?.length || 0;
-  const searchAllResultCount = searchAllResults.length;
+  const searchAllResultCount = accumulatedResults.length;
   const searchAllTotalCount = searchAllData?.pagination?.total || 0;
+  const hasMoreSearchResults = searchAllResultCount < searchAllTotalCount;
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -87,6 +100,8 @@ export function useCustomerListUI() {
       if (viewMode === "my-customers") {
         await refetchMyCustomers();
       } else if (hasSearchedAll) {
+        setSearchAllPage(1);
+        setAccumulatedResults([]);
         await refetchSearchAll();
       }
     } finally {
@@ -97,15 +112,26 @@ export function useCustomerListUI() {
   // Handle search all customers
   const handleSearchAll = useCallback(() => {
     if (searchAllQuery.trim()) {
+      setSearchAllPage(1);
+      setAccumulatedResults([]);
       setHasSearchedAll(true);
       refetchSearchAll();
     }
   }, [searchAllQuery, refetchSearchAll]);
 
+  // Load more search results
+  const handleLoadMore = useCallback(() => {
+    if (hasMoreSearchResults && !isFetchingSearchAll) {
+      setSearchAllPage((prev) => prev + 1);
+    }
+  }, [hasMoreSearchResults, isFetchingSearchAll]);
+
   // Clear search all
   const clearSearchAll = useCallback(() => {
     setSearchAllQuery("");
     setHasSearchedAll(false);
+    setSearchAllPage(1);
+    setAccumulatedResults([]);
   }, []);
 
   // Switch tabs
@@ -149,7 +175,7 @@ export function useCustomerListUI() {
     // Search All Customers
     searchAllQuery,
     setSearchAllQuery,
-    searchAllResults,
+    searchAllResults: accumulatedResults,
     searchAllResultCount,
     searchAllTotalCount,
     isSearchingAll,
@@ -157,6 +183,10 @@ export function useCustomerListUI() {
     hasSearchedAll,
     handleSearchAll,
     clearSearchAll,
+    // Pagination
+    hasMoreSearchResults,
+    isLoadingMore: isFetchingSearchAll && searchAllPage > 1,
+    handleLoadMore,
     // Refresh
     refreshing,
     handleRefresh,
