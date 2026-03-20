@@ -79,7 +79,29 @@ export default function HeroSection({
               <span className="sm:whitespace-nowrap">Connect. Schedule.</span>
               <br />
               <span className="sm:whitespace-nowrap">
-                <span className="text-gold-gradient">Grow</span> Your Business.
+                <span className="relative inline-block">
+                  <span className="text-gold-gradient">Grow</span>
+                  {/* Yellow underline curve - animated draw */}
+                  <svg
+                    className="absolute -bottom-2 sm:-bottom-3 -left-[3%] w-[106%] h-[10px] sm:h-[14px]"
+                    viewBox="0 0 311 8"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    preserveAspectRatio="none"
+                  >
+                    <m.path
+                      d="M2 5.5C80 1.5 230 1.5 309 5.5"
+                      stroke="#ffcc00"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+                    />
+                  </svg>
+                </span>{" "}
+                Your Business.
               </span>
             </m.h1>
 
