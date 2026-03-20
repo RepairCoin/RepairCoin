@@ -453,6 +453,9 @@ export default function CustomerListScreen() {
           contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyMyCustomers}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -470,6 +473,9 @@ export default function CustomerListScreen() {
           contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptySearchAll}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews
           ListFooterComponent={
             hasMoreSearchResults ? (
               <TouchableOpacity

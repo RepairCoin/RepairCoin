@@ -74,7 +74,7 @@ const formatJoinDate = (dateString?: string) => {
   return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 };
 
-export default function CustomerCard({
+function CustomerCard({
   name,
   tier,
   lifetimeEarnings,
@@ -262,3 +262,5 @@ export default function CustomerCard({
     </TouchableOpacity>
   );
 }
+
+export default React.memo(CustomerCard);
