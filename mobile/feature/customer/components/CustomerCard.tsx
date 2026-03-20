@@ -8,6 +8,9 @@ interface CustomerCardProps {
   lifetimeEarnings: number;
   lastTransactionDate?: string;
   total_transactions?: number;
+  referralCount?: number;
+  totalRedemptions?: number;
+  joinDate?: string;
   isSuspended?: boolean;
   suspensionReason?: string | null;
   onPress?: () => void;
@@ -65,12 +68,21 @@ const formatDate = (dateString: string) => {
   return `${Math.floor(diffDays / 365)}y ago`;
 };
 
+const formatJoinDate = (dateString?: string) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+};
+
 export default function CustomerCard({
   name,
   tier,
   lifetimeEarnings,
   lastTransactionDate,
   total_transactions,
+  referralCount,
+  totalRedemptions,
+  joinDate,
   isSuspended,
   suspensionReason,
   onPress,
@@ -215,6 +227,36 @@ export default function CustomerCard({
               </View>
             </View>
           </View>
+
+          {/* Secondary Stats Row */}
+          {(referralCount !== undefined || totalRedemptions !== undefined || joinDate) && (
+            <View className="flex-row items-center mt-2 pt-2 border-t border-zinc-800/50">
+              {totalRedemptions !== undefined && (
+                <View className="flex-row items-center mr-4">
+                  <Ionicons name="arrow-down-circle-outline" size={12} color="#6B7280" />
+                  <Text className="text-gray-500 text-xs ml-1">
+                    {totalRedemptions} redeemed
+                  </Text>
+                </View>
+              )}
+              {referralCount !== undefined && referralCount > 0 && (
+                <View className="flex-row items-center mr-4">
+                  <Ionicons name="people-outline" size={12} color="#6B7280" />
+                  <Text className="text-gray-500 text-xs ml-1">
+                    {referralCount} referral{referralCount !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+              )}
+              {joinDate && (
+                <View className="flex-row items-center ml-auto">
+                  <Ionicons name="calendar-outline" size={12} color="#6B7280" />
+                  <Text className="text-gray-500 text-xs ml-1">
+                    {formatJoinDate(joinDate)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>

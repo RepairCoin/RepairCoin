@@ -233,6 +233,9 @@ export default function CustomerListScreen() {
       lifetimeEarnings={item?.lifetimeEarnings}
       total_transactions={item?.total_transactions}
       lastTransactionDate={item?.last_transaction_date}
+      referralCount={item?.referralCount}
+      totalRedemptions={item?.totalRedemptions}
+      joinDate={item?.joinDate}
       isSuspended={item?.isSuspended}
       suspensionReason={item?.suspensionReason}
       onPress={() => {

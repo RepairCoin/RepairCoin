@@ -20,7 +20,7 @@ export function useCustomerListUI() {
   const [sortBy, setSortBy] = useState<SortBy>("recent");
 
   // Search for My Customers tab
-  const { searchText, setSearchText, hasSearchQuery, clearSearch } = useCustomerSearch();
+  const { searchText, setSearchText, debouncedSearchText, hasSearchQuery, clearSearch } = useCustomerSearch();
 
   // Query for My Customers
   const { data: shopCustomerData, isLoading: isLoadingMyCustomers, error: myCustomersError, refetch: refetchMyCustomers } = useShopCustomersQuery();
@@ -52,9 +52,9 @@ export function useCustomerListUI() {
   const myCustomers = useMemo((): CustomerData[] => {
     let customers = shopCustomerData?.customers || [];
 
-    // Filter by search text
-    if (searchText.trim()) {
-      const query = searchText.toLowerCase();
+    // Filter by search text (debounced)
+    if (debouncedSearchText.trim()) {
+      const query = debouncedSearchText.toLowerCase();
       customers = customers.filter((customer: CustomerData) =>
         customer?.name?.toLowerCase().includes(query) ||
         customer?.address?.toLowerCase().includes(query)
@@ -84,7 +84,7 @@ export function useCustomerListUI() {
     });
 
     return customers;
-  }, [shopCustomerData, searchText, tierFilter, sortBy]);
+  }, [shopCustomerData, debouncedSearchText, tierFilter, sortBy]);
 
   // Customer counts
   const myCustomerCount = myCustomers.length;
