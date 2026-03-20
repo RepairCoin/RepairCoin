@@ -25,17 +25,27 @@ function decodeJWT(token: string): { role?: string; address?: string } | null {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Performance: skip all processing for static public pages that never need auth logic.
+  // Note: /register is excluded because authenticated users hitting /register need to be
+  // redirected to /choose (handled below). /choose is excluded for the same safety reason.
+  const staticPublicPaths = ['/', '/about', '/features', '/rewards', '/contact', '/status'];
+  const isStaticPublic = staticPublicPaths.includes(pathname) ||
+    staticPublicPaths.some(p => p !== '/' && pathname.startsWith(p + '/'));
+  if (isStaticPublic) {
+    return NextResponse.next();
+  }
+
   // Get auth token from cookies
   const authToken = request.cookies.get('auth_token')?.value;
 
   // Debug logging for protected routes
   if (pathname.startsWith('/shop') || pathname.startsWith('/customer') || pathname.startsWith('/admin')) {
-    console.log('[Middleware] Protected route access:', {
-      pathname,
-      hasAuthToken: !!authToken,
-      authTokenPreview: authToken ? `${authToken.substring(0, 20)}...` : 'none',
-      allCookies: request.cookies.getAll().map(c => c.name)
-    });
+    // console.log('[Middleware] Protected route access:', {
+    //   pathname,
+    //   hasAuthToken: !!authToken,
+    //   authTokenPreview: authToken ? `${authToken.substring(0, 20)}...` : 'none',
+    //   allCookies: request.cookies.getAll().map(c => c.name)
+    // });
   }
 
   // Define public routes that don't require authentication
@@ -71,10 +81,10 @@ export function middleware(request: NextRequest) {
   // middleware CAN read cookies because they share the same domain (.repaircoin.ai)
   // This provides server-side protection before the page even loads
   if (isProtectedRoute && !authToken) {
-    console.log('[Middleware] No auth token - redirecting to home:', {
-      pathname,
-      hasToken: !!authToken
-    });
+    // console.log('[Middleware] No auth token - redirecting to home:', {
+    //   pathname,
+    //   hasToken: !!authToken
+    // });
 
     const homeUrl = new URL('/', request.url);
     homeUrl.searchParams.set('redirect', pathname);
@@ -88,11 +98,11 @@ export function middleware(request: NextRequest) {
     const decoded = decodeJWT(authToken);
     const userRole = decoded?.role?.toLowerCase();
 
-    console.log('[Middleware] Role-based access check:', {
-      pathname,
-      userRole,
-      hasRole: !!userRole
-    });
+    // console.log('[Middleware] Role-based access check:', {
+    //   pathname,
+    //   userRole,
+    //   hasRole: !!userRole
+    // });
 
     // Define role-based route mappings
     const roleRouteMap: Record<string, string[]> = {
@@ -108,11 +118,11 @@ export function middleware(request: NextRequest) {
       const hasAccess = allowedRoutes.some(route => pathname.startsWith(route));
 
       if (!hasAccess) {
-        console.log('[Middleware] Role mismatch - redirecting:', {
-          userRole,
-          attemptedPath: pathname,
-          redirectTo: roleRouteMap[userRole]?.[0]
-        });
+        // console.log('[Middleware] Role mismatch - redirecting:', {
+        //   userRole,
+        //   attemptedPath: pathname,
+        //   redirectTo: roleRouteMap[userRole]?.[0]
+        // });
 
         // Redirect to user's appropriate dashboard
         const redirectMap: Record<string, string> = {

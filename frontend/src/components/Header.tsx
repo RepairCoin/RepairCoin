@@ -378,6 +378,7 @@ const Header: React.FC = () => {
                       <li key={item}>
                         <Link
                           href={href}
+                          prefetch={true}
                           className={`${
                             isActive ? "text-[#F7CC00]" : "text-white"
                           } hover:text-[#F7CC00] px-3 py-2 text-sm font-medium transition-colors duration-200`}
@@ -440,6 +441,7 @@ const Header: React.FC = () => {
                         <Link
                           key={`mobile-${item}`}
                           href={href}
+                          prefetch={true}
                           className={`w-full text-center px-4 py-3 text-base font-medium ${
                             isActive ? "text-[#F7CC00]" : "text-black"
                           } hover:text-[#F7CC00] hover:bg-gray-900/50 rounded-lg transition-colors duration-200`}
