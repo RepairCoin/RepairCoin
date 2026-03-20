@@ -34,7 +34,7 @@ const transformCustomer = (customer: any): CustomerData => ({
   isSuspended: customer.suspended ?? customer.is_suspended ?? customer.isSuspended ?? (customer.is_active === false) ?? false,
   suspensionReason: customer.suspension_reason ?? customer.suspensionReason ?? null,
   total_transactions: getNumericValue(customer.total_transactions, undefined, 0),
-  last_transaction_date: getStringValue(customer.last_transaction_date, undefined, ""),
+  last_transaction_date: getStringValue(customer.last_transaction_date, customer.lastEarnedDate, ""),
 });
 
 export function useShopCustomersQuery() {
