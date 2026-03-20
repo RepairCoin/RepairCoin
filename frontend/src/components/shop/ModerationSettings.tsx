@@ -27,11 +27,7 @@ import {
   Report,
 } from "@/services/api/moderation";
 
-interface ModerationSettingsProps {
-  shopId: string;
-}
-
-export const ModerationSettings: React.FC<ModerationSettingsProps> = ({ shopId }) => {
+export const ModerationSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [blockedCustomers, setBlockedCustomers] = useState<BlockedCustomer[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
@@ -60,14 +56,14 @@ export const ModerationSettings: React.FC<ModerationSettingsProps> = ({ shopId }
   // Load data
   useEffect(() => {
     loadData();
-  }, [shopId]);
+  }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [blocked, reportsList] = await Promise.all([
-        getBlockedCustomers(shopId),
-        getReports(shopId),
+        getBlockedCustomers(),
+        getReports(),
       ]);
       setBlockedCustomers(blocked);
       setReports(reportsList);
@@ -87,7 +83,7 @@ export const ModerationSettings: React.FC<ModerationSettingsProps> = ({ shopId }
 
     try {
       setBlocking(true);
-      await blockCustomer(shopId, blockForm);
+      await blockCustomer(blockForm);
       toast.success("Customer blocked successfully");
       setShowBlockModal(false);
       setBlockForm({ customerWalletAddress: "", reason: "" });
@@ -103,7 +99,7 @@ export const ModerationSettings: React.FC<ModerationSettingsProps> = ({ shopId }
     if (!confirm("Are you sure you want to unblock this customer?")) return;
 
     try {
-      await unblockCustomer(shopId, customerWalletAddress);
+      await unblockCustomer(customerWalletAddress);
       toast.success("Customer unblocked successfully");
       loadData();
     } catch (error: any) {
@@ -128,7 +124,7 @@ export const ModerationSettings: React.FC<ModerationSettingsProps> = ({ shopId }
           relatedEntityId: reportForm.relatedEntityId,
         }),
       };
-      await submitReport(shopId, reportData);
+      await submitReport(reportData);
       toast.success("Report submitted successfully. Admins will review it soon.");
       setShowReportModal(false);
       setReportForm({

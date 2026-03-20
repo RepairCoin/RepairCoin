@@ -18,16 +18,14 @@ interface AuthenticatedRequest extends Request {
 // ==================== BLOCKED CUSTOMERS ====================
 
 // Get all blocked customers for a shop
-router.get('/:shopId/blocked-customers', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/blocked-customers', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId } = req.params;
-    const userShopId = req.user?.shopId;
+    const shopId = req.user?.shopId;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 
@@ -47,18 +45,16 @@ router.get('/:shopId/blocked-customers', async (req: AuthenticatedRequest, res: 
 });
 
 // Block a customer
-router.post('/:shopId/block-customer', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/block-customer', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId } = req.params;
+    const shopId = req.user?.shopId;
     const { customerWalletAddress, reason } = req.body;
-    const userShopId = req.user?.shopId;
     const blockedBy = req.user?.address;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 
@@ -108,17 +104,16 @@ router.post('/:shopId/block-customer', async (req: AuthenticatedRequest, res: Re
 });
 
 // Unblock a customer
-router.delete('/:shopId/blocked-customers/:walletAddress', async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/blocked-customers/:walletAddress', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId, walletAddress } = req.params;
-    const userShopId = req.user?.shopId;
+    const shopId = req.user?.shopId;
+    const { walletAddress } = req.params;
     const unblockedBy = req.user?.address;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 
@@ -154,9 +149,17 @@ router.delete('/:shopId/blocked-customers/:walletAddress', async (req: Authentic
 });
 
 // Check if a customer is blocked
-router.get('/:shopId/blocked-customers/:walletAddress/status', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/blocked-customers/:walletAddress/status', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId, walletAddress } = req.params;
+    const shopId = req.user?.shopId;
+    const { walletAddress } = req.params;
+
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop authentication required'
+      });
+    }
 
     const isBlocked = await moderationRepo.isCustomerBlocked(shopId, walletAddress);
 
@@ -180,16 +183,14 @@ router.get('/:shopId/blocked-customers/:walletAddress/status', async (req: Authe
 // ==================== REPORTS ====================
 
 // Get all reports for a shop
-router.get('/:shopId/reports', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/reports', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId } = req.params;
-    const userShopId = req.user?.shopId;
+    const shopId = req.user?.shopId;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 
@@ -209,17 +210,15 @@ router.get('/:shopId/reports', async (req: AuthenticatedRequest, res: Response) 
 });
 
 // Submit a new report
-router.post('/:shopId/reports', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/reports', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId } = req.params;
+    const shopId = req.user?.shopId;
     const { category, description, severity, relatedEntityType, relatedEntityId } = req.body;
-    const userShopId = req.user?.shopId;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 
@@ -287,16 +286,14 @@ router.post('/:shopId/reports', async (req: AuthenticatedRequest, res: Response)
 // ==================== FLAGGED REVIEWS ====================
 
 // Get all flagged reviews for a shop
-router.get('/:shopId/flagged-reviews', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/flagged-reviews', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId } = req.params;
-    const userShopId = req.user?.shopId;
+    const shopId = req.user?.shopId;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 
@@ -316,17 +313,15 @@ router.get('/:shopId/flagged-reviews', async (req: AuthenticatedRequest, res: Re
 });
 
 // Flag a review
-router.post('/:shopId/flag-review', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/flag-review', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { shopId } = req.params;
+    const shopId = req.user?.shopId;
     const { reviewId, reason } = req.body;
-    const userShopId = req.user?.shopId;
 
-    // Verify shop ownership
-    if (userShopId !== shopId) {
-      return res.status(403).json({
+    if (!shopId) {
+      return res.status(401).json({
         success: false,
-        error: 'You do not have permission to access this shop\'s data'
+        error: 'Shop authentication required'
       });
     }
 

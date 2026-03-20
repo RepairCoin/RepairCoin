@@ -828,7 +828,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {/* Moderation Tab Content */}
           {activeTab === "moderation" && (
             <div>
-              <ModerationSettings shopId={shopId} />
+              <ModerationSettings />
             </div>
           )}
 
