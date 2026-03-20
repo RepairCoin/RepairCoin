@@ -198,6 +198,12 @@ cp env.example .env
   - Manage holiday closures and special hours via date overrides
   - View all bookings in monthly calendar view
   - Click bookings to see full customer and order details
+- **Moderation System**:
+  - Block/unblock problematic customers with reason tracking
+  - Search blocked customers by name, wallet, or reason
+  - Submit issue reports to admins (spam, fraud, harassment, inappropriate reviews)
+  - Flag reviews for admin review
+  - Report tracking with status updates (pending/investigating/resolved/dismissed)
 - View purchase history (accessible even without active subscription)
 
 ### Admin Features
@@ -498,3 +504,104 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
   - `frontend/src/utils/authRecovery.ts` - Auto-recovery mechanism
   - `frontend/src/stores/authStore.ts` - Auth state management
   - `frontend/src/services/api/client.ts` - API client with token refresh
+
+### Shop Moderation System (March 20, 2026)
+Complete end-to-end moderation system enabling shops to manage problematic customers, report platform issues, and flag inappropriate reviews.
+
+- **Backend Implementation (Complete)**
+  - **Database Migration** (`092_create_moderation_system.sql` - 159 lines)
+    - 3 tables: blocked_customers, shop_reports, flagged_reviews
+    - 13 optimized indexes with partial indexing for performance
+    - Foreign key constraints with CASCADE delete
+    - Check constraints for data integrity
+    - Auto-update triggers for timestamps
+  - **ModerationRepository** (`ModerationRepository.ts` - 432 lines)
+    - Blocked customers: getBlockedCustomers, isCustomerBlocked, blockCustomer, unblockCustomer
+    - Reports: getReports, createReport, getAllReports (admin), updateReportStatus (admin)
+    - Flagged reviews: getFlaggedReviews, flagReview
+    - Snake_case ↔ camelCase mapping
+    - Parameterized queries for SQL injection prevention
+    - Duplicate prevention with unique constraints
+  - **Moderation Routes** (`moderation.ts` - 387 lines)
+    - 8 RESTful API endpoints with full authentication
+    - JWT authentication + shop role validation
+    - Shop ownership verification (shops only access own data)
+    - Input validation (categories, severity, wallet formats)
+    - Comprehensive error handling (400/401/403/404/409/500)
+
+- **Frontend Implementation (Complete)**
+  - **ModerationSettings Component** (`ModerationSettings.tsx` - 607 lines)
+    - Tabbed interface: Blocked Customers | Reports
+    - Real-time search functionality for blocked customers
+    - Customer cards showing name, wallet, reason, block date
+    - One-click block/unblock actions with confirmations
+    - Empty states with helpful messaging
+  - **Block Customer Modal**
+    - Wallet address input with validation
+    - Reason textarea (required)
+    - Warning about blocking consequences
+    - Form validation and error handling
+    - Toast notifications for success/error
+  - **Report Issue Modal**
+    - Category dropdown: spam, fraud, inappropriate_review, harassment, other
+    - Severity selection: low, medium, high (color-coded buttons)
+    - Description textarea (required)
+    - Optional entity linking (customer, review, order)
+    - Warning about false reports
+  - **Reports Tab**
+    - Display all submitted reports with status tracking
+    - Color-coded severity indicators (red/yellow/blue)
+    - Status badges (pending/investigating/resolved/dismissed)
+    - Timestamp and category display
+  - **API Client** (`moderation.ts` - 122 lines)
+    - Full TypeScript type definitions
+    - 7 API methods with error handling
+    - Consistent response format handling
+
+- **Features**
+  - ✅ Block/unblock customers with reason tracking
+  - ✅ Search blocked customers by name, wallet, or reason
+  - ✅ Submit issue reports to admins (5 categories, 3 severity levels)
+  - ✅ Flag inappropriate reviews for admin review
+  - ✅ Track report status (pending → investigating → resolved/dismissed)
+  - ✅ Duplicate prevention (can't block same customer twice, can't flag same review twice)
+  - ✅ Lowercase wallet address normalization
+  - ✅ Real-time toast notifications
+  - ✅ Responsive design for mobile/desktop
+
+- **Security**
+  - JWT authentication required on all endpoints
+  - Shop role validation
+  - Shop ownership verification (shops can only manage their own data)
+  - Input validation (wallet addresses, enums, required fields)
+  - SQL injection prevention (parameterized queries)
+  - Unique constraints prevent duplicates
+
+- **Database Schema**
+  - **blocked_customers**: Customer blocks with soft delete (is_active flag)
+  - **shop_reports**: Issue reports with admin workflow (assigned_to, admin_notes, resolution)
+  - **flagged_reviews**: Review moderation with admin review tracking
+  - All tables have foreign keys to shops(shop_id) with CASCADE delete
+  - Optimized indexes for fast queries (including partial indexes)
+
+- **UX/UI Design**
+  - Dark theme matching RepairCoin branding (#FFCC00 accents)
+  - Loading spinners for async operations
+  - Form validation with inline error messages
+  - Confirmation dialogs for destructive actions (unblock)
+  - Color-coded severity: Red (high), Yellow (medium), Blue (low)
+  - Empty states encourage action
+  - Mobile responsive layout
+
+- **Bug Fixes**
+  - Fixed 404 errors by correcting API URL structure
+  - Removed non-existent customer_id column from queries
+  - Fixed database query errors in ModerationRepository
+  - Updated frontend API client to match backend route structure
+
+- **Impact**
+  - Shops can protect their business from problematic customers
+  - Reduce no-shows by blocking repeat offenders
+  - Report fraudulent activity to platform admins
+  - Maintain professional reputation by flagging inappropriate reviews
+  - Self-service moderation reduces admin support burden
