@@ -49,7 +49,7 @@ export interface FlaggedReview {
 // Block Customer Management
 export const getBlockedCustomers = async (shopId: string): Promise<BlockedCustomer[]> => {
   try {
-    const response = await apiClient.get<BlockedCustomer[]>(`/shops/${shopId}/moderation/blocked-customers`);
+    const response = await apiClient.get<BlockedCustomer[]>(`/shops/moderation/${shopId}/blocked-customers`);
     return response.data || [];
   } catch (error) {
     console.error('Error fetching blocked customers:', error);
@@ -59,7 +59,7 @@ export const getBlockedCustomers = async (shopId: string): Promise<BlockedCustom
 
 export const blockCustomer = async (shopId: string, data: BlockCustomerData): Promise<BlockedCustomer> => {
   try {
-    const response = await apiClient.post<BlockedCustomer>(`/shops/${shopId}/moderation/block-customer`, data);
+    const response = await apiClient.post<BlockedCustomer>(`/shops/moderation/${shopId}/block-customer`, data);
     return response.data;
   } catch (error) {
     console.error('Error blocking customer:', error);
@@ -69,7 +69,7 @@ export const blockCustomer = async (shopId: string, data: BlockCustomerData): Pr
 
 export const unblockCustomer = async (shopId: string, customerWalletAddress: string): Promise<void> => {
   try {
-    await apiClient.delete(`/shops/${shopId}/moderation/blocked-customers/${customerWalletAddress}`);
+    await apiClient.delete(`/shops/moderation/${shopId}/blocked-customers/${customerWalletAddress}`);
   } catch (error) {
     console.error('Error unblocking customer:', error);
     throw error;
@@ -79,7 +79,7 @@ export const unblockCustomer = async (shopId: string, customerWalletAddress: str
 // Report Management
 export const submitReport = async (shopId: string, data: ReportIssueData): Promise<Report> => {
   try {
-    const response = await apiClient.post<Report>(`/shops/${shopId}/moderation/reports`, data);
+    const response = await apiClient.post<Report>(`/shops/moderation/${shopId}/reports`, data);
     return response.data;
   } catch (error) {
     console.error('Error submitting report:', error);
@@ -89,7 +89,7 @@ export const submitReport = async (shopId: string, data: ReportIssueData): Promi
 
 export const getReports = async (shopId: string): Promise<Report[]> => {
   try {
-    const response = await apiClient.get<Report[]>(`/shops/${shopId}/moderation/reports`);
+    const response = await apiClient.get<Report[]>(`/shops/moderation/${shopId}/reports`);
     return response.data || [];
   } catch (error) {
     console.error('Error fetching reports:', error);
@@ -100,7 +100,7 @@ export const getReports = async (shopId: string): Promise<Report[]> => {
 // Review Moderation
 export const flagReview = async (shopId: string, reviewId: string, reason: string): Promise<FlaggedReview> => {
   try {
-    const response = await apiClient.post<FlaggedReview>(`/shops/${shopId}/moderation/flag-review`, {
+    const response = await apiClient.post<FlaggedReview>(`/shops/moderation/${shopId}/flag-review`, {
       reviewId,
       reason,
     });
@@ -113,7 +113,7 @@ export const flagReview = async (shopId: string, reviewId: string, reason: strin
 
 export const getFlaggedReviews = async (shopId: string): Promise<FlaggedReview[]> => {
   try {
-    const response = await apiClient.get<FlaggedReview[]>(`/shops/${shopId}/moderation/flagged-reviews`);
+    const response = await apiClient.get<FlaggedReview[]>(`/shops/moderation/${shopId}/flagged-reviews`);
     return response.data || [];
   } catch (error) {
     console.error('Error fetching flagged reviews:', error);

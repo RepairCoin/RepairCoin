@@ -75,8 +75,7 @@ export class ModerationRepository extends BaseRepository {
         SELECT
           bc.*,
           c.name as customer_name,
-          c.email as customer_email,
-          c.customer_id
+          c.email as customer_email
         FROM blocked_customers bc
         LEFT JOIN customers c ON c.wallet_address = bc.customer_wallet_address
         WHERE bc.shop_id = $1 AND bc.is_active = true
@@ -88,7 +87,7 @@ export class ModerationRepository extends BaseRepository {
       return result.rows.map(row => ({
         id: row.id,
         shopId: row.shop_id,
-        customerId: row.customer_id,
+        customerId: row.customer_id || null,
         customerWalletAddress: row.customer_wallet_address,
         customerName: row.customer_name,
         customerEmail: row.customer_email,
@@ -136,7 +135,7 @@ export class ModerationRepository extends BaseRepository {
 
       // Get customer data if exists
       const customerQuery = `
-        SELECT customer_id, name, email
+        SELECT name, email
         FROM customers
         WHERE wallet_address = $1
       `;
@@ -147,20 +146,18 @@ export class ModerationRepository extends BaseRepository {
       const query = `
         INSERT INTO blocked_customers (
           shop_id,
-          customer_id,
           customer_wallet_address,
           customer_name,
           customer_email,
           reason,
           blocked_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `;
 
       const result = await this.pool.query(query, [
         data.shopId,
-        customer?.customer_id,
         data.customerWalletAddress.toLowerCase(),
         customer?.name,
         customer?.email,
