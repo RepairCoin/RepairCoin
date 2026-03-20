@@ -1,6 +1,9 @@
 "use client";
 
 import { HelpCircle } from "lucide-react";
+import { m } from "framer-motion";
+import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
+import StaggerContainer, { staggerItem } from "@/components/motion/StaggerContainer";
 
 const columns = [
   {
@@ -23,38 +26,40 @@ const columns = [
 const CustomerHowTiersWork = () => {
   return (
     <section className="max-w-5xl mx-auto px-4 pb-16">
-      <div
-        className="border border-[#2a2a2a] rounded-2xl p-5 md:p-8"
-        style={{
-          background:
-            "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-start gap-4 mb-8">
-          <div className="w-12 h-12 rounded-full bg-[#FFCC00] flex items-center justify-center flex-shrink-0">
-            <HelpCircle className="w-6 h-6 text-black" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-white mb-1.5">
-              How Customer Tiers Are Determined
-            </h3>
-            <p className="text-sm text-[#777] leading-relaxed">
-              Your tier reflects your activity and engagement across the RepairCoin network.
-            </p>
-          </div>
-        </div>
-
-        {/* Three columns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {columns.map((col, i) => (
-            <div key={i}>
-              <h4 className="text-sm font-bold text-white mb-2">{col.title}</h4>
-              <p className="text-sm text-[#777] leading-relaxed">{col.description}</p>
+      <AnimateOnScroll>
+        <div
+          className="card-hover-glow border border-[#2a2a2a] rounded-2xl p-5 md:p-8"
+          style={{
+            background:
+              "linear-gradient(145deg, #0e0e12 0%, #0d0d11 55%, #080809 100%)",
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-4 mb-8">
+            <div className="w-12 h-12 rounded-full bg-[#FFCC00] flex items-center justify-center flex-shrink-0">
+              <HelpCircle className="w-6 h-6 text-black" />
             </div>
-          ))}
+            <div>
+              <h3 className="text-lg font-bold text-white mb-1.5">
+                How Customer Tiers Are Determined
+              </h3>
+              <p className="text-sm text-[#777] leading-relaxed">
+                Your tier reflects your activity and engagement across the RepairCoin network.
+              </p>
+            </div>
+          </div>
+
+          {/* Three columns */}
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {columns.map((col, i) => (
+              <m.div key={i} variants={staggerItem} transition={{ duration: 0.5 }}>
+                <h4 className="text-sm font-bold text-white mb-2">{col.title}</h4>
+                <p className="text-sm text-[#777] leading-relaxed">{col.description}</p>
+              </m.div>
+            ))}
+          </StaggerContainer>
         </div>
-      </div>
+      </AnimateOnScroll>
     </section>
   );
 };
