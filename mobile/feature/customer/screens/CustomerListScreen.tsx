@@ -341,12 +341,9 @@ export default function CustomerListScreen() {
     <ThemedView className="w-full h-full">
       <View className="pt-20 px-4 gap-4 mb-4">
         {/* Header */}
-        <View className="flex-row justify-between items-center">
-          <Text className="text-white text-xl font-semibold">
-            Customers
-          </Text>
-          <View className="w-[25px]" />
-        </View>
+        <Text className="text-white text-xl font-semibold">
+          Customers
+        </Text>
 
         {/* Tab Buttons */}
         <View className="bg-[#1a1a1a] rounded-2xl p-1 flex-row">
