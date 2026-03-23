@@ -214,8 +214,8 @@ export class PaymentService {
 
       // Handle RCN redemption if requested
       if (request.rcnToRedeem && request.rcnToRedeem > 0) {
-        // Check RCN redemption cap for deposit_required tier
-        if (customerStatus.tier === 'deposit_required') {
+        // Check RCN redemption cap for caution and deposit_required tiers
+        if (customerStatus.tier === 'caution' || customerStatus.tier === 'deposit_required') {
           const maxRedemptionAmount = service.priceUsd * (shopPolicy.maxRcnRedemptionPercent / 100);
           const maxRedeemableRcn = maxRedemptionAmount / 0.10; // RCN value is $0.10
 
@@ -333,6 +333,17 @@ export class PaymentService {
         throw new Error('Service is not available for booking');
       }
 
+      // Check no-show policy restrictions for the customer
+      const customerStatus = await this.noShowPolicyService.getCustomerStatus(request.customerAddress, service.shopId);
+
+      // Check if customer is suspended from booking
+      if (!customerStatus.canBook) {
+        const suspensionEnd = customerStatus.bookingSuspendedUntil
+          ? new Date(customerStatus.bookingSuspendedUntil).toLocaleDateString()
+          : 'unknown';
+        throw new Error(`Your booking privileges are temporarily suspended until ${suspensionEnd} due to repeated no-shows. Please contact support if you believe this is an error.`);
+      }
+
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
       let bookingDateStr: string | undefined;
@@ -366,7 +377,7 @@ export class PaymentService {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
         }
 
-        // Validate minimum notice (minBookingHours)
+        // Validate minimum notice — apply the greater of shop config or tier-based requirement
         // Parse booking date and time to create a proper DateTime
         const [bookingYear, bookingMonth, bookingDay] = bookingDateStr.split('-').map(Number);
         const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
@@ -374,8 +385,13 @@ export class PaymentService {
         const now = new Date();
         const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-        if (hoursUntilSlot < config.minBookingHours) {
-          throw new Error(`Bookings require at least ${config.minBookingHours} hours advance notice. Please select a later time.`);
+        const requiredAdvanceHours = Math.max(config.minBookingHours, customerStatus.minimumAdvanceHours);
+        if (hoursUntilSlot < requiredAdvanceHours) {
+          if (customerStatus.minimumAdvanceHours > 0) {
+            throw new Error(`Due to your no-show history, bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
+          } else {
+            throw new Error(`Bookings require at least ${requiredAdvanceHours} hours advance notice. Please select a later time.`);
+          }
         }
 
         logger.info('Time slot validated (checkout)', {
@@ -393,8 +409,21 @@ export class PaymentService {
       let finalAmountUsd = service.priceUsd;
       let customerRcnBalance = 0;
 
+      // Get shop policy for RCN cap and deposit
+      const shopPolicy = await this.noShowPolicyService.getShopPolicy(service.shopId);
+
       // Handle RCN redemption if requested
       if (request.rcnToRedeem && request.rcnToRedeem > 0) {
+        // Enforce RCN redemption cap for caution and deposit_required tiers
+        if (customerStatus.tier === 'caution' || customerStatus.tier === 'deposit_required') {
+          const maxRedemptionAmount = service.priceUsd * (shopPolicy.maxRcnRedemptionPercent / 100);
+          const maxRedeemableRcn = maxRedemptionAmount / 0.10; // RCN value is $0.10
+
+          if (request.rcnToRedeem > maxRedeemableRcn) {
+            throw new Error(`Due to your no-show history, you can only redeem up to ${shopPolicy.maxRcnRedemptionPercent}% of the service cost (${Math.floor(maxRedeemableRcn)} RCN). Please adjust your redemption amount.`);
+          }
+        }
+
         const redemption = await this.rcnRedemptionService.calculateRedemption({
           customerAddress: request.customerAddress,
           servicePriceUsd: service.priceUsd,
@@ -410,6 +439,22 @@ export class PaymentService {
         rcnDiscountUsd = redemption.rcnDiscountUsd;
         finalAmountUsd = redemption.finalAmountUsd;
         customerRcnBalance = redemption.remainingBalance;
+      }
+
+      // Check deposit requirement
+      let depositAmount = 0;
+      let requiresDeposit = false;
+      if (customerStatus.requiresDeposit || customerStatus.tier === 'deposit_required') {
+        requiresDeposit = true;
+        depositAmount = shopPolicy.depositAmount;
+        finalAmountUsd += depositAmount;
+
+        logger.info('Deposit required for customer (checkout)', {
+          customerAddress: request.customerAddress,
+          tier: customerStatus.tier,
+          depositAmount,
+          noShowCount: customerStatus.noShowCount
+        });
       }
 
       // Generate order ID (will be used when order is created after payment)

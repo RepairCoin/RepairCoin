@@ -99,9 +99,9 @@ export async function submitDispute(req: AuthenticatedRequest, res: Response): P
   try {
     // Get the no-show record for this order
     const noShowResult = await pool.query<DisputeRow>(
-      `SELECT nsh.*, s.service_name, sh.shop_name
+      `SELECT nsh.*, s.service_name, sh.name as shop_name
        FROM no_show_history nsh
-       LEFT JOIN services s ON s.service_id = nsh.service_id
+       LEFT JOIN shop_services s ON s.service_id = nsh.service_id
        LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
        WHERE nsh.order_id = $1 AND LOWER(nsh.customer_address) = $2`,
       [orderId, customerAddress]
@@ -170,18 +170,21 @@ export async function submitDispute(req: AuthenticatedRequest, res: Response): P
     const initialStatus = autoApprove && isFirstOffense ? 'approved' : 'pending';
 
     // Submit the dispute
+    // Use $4 as a duplicate of $1 for CASE comparisons to avoid PostgreSQL
+    // "inconsistent types deduced for parameter" error when $1 is used as
+    // both a column value and in a CASE WHEN comparison
     const updateResult = await pool.query<DisputeRow>(
       `UPDATE no_show_history
        SET disputed = TRUE,
            dispute_status = $1,
            dispute_reason = $2,
            dispute_submitted_at = NOW(),
-           dispute_resolved_at = CASE WHEN $1 = 'approved' THEN NOW() ELSE NULL END,
-           dispute_resolved_by = CASE WHEN $1 = 'approved' THEN 'system_auto' ELSE NULL END,
-           dispute_resolution_notes = CASE WHEN $1 = 'approved' THEN 'Auto-approved: first offense policy' ELSE NULL END
+           dispute_resolved_at = CASE WHEN $4 = 'approved' THEN NOW() ELSE NULL END,
+           dispute_resolved_by = CASE WHEN $4 = 'approved' THEN 'system_auto' ELSE NULL END,
+           dispute_resolution_notes = CASE WHEN $4 = 'approved' THEN 'Auto-approved: first offense policy' ELSE NULL END
        WHERE id = $3
        RETURNING *`,
-      [initialStatus, reason.trim(), noShow.id]
+      [initialStatus, reason.trim(), noShow.id, initialStatus]
     );
 
     const updatedDispute = updateResult.rows[0];
@@ -218,9 +221,13 @@ export async function submitDispute(req: AuthenticatedRequest, res: Response): P
         ? 'Your dispute has been automatically approved. The no-show penalty has been reversed.'
         : 'Your dispute has been submitted and is pending shop review.'
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error submitting dispute:', error);
-    res.status(500).json({ success: false, error: 'Failed to submit dispute' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to submit dispute',
+      debug: error?.message || String(error)
+    });
   }
 }
 
@@ -244,23 +251,23 @@ export async function getDisputeStatus(req: AuthenticatedRequest, res: Response)
     let params: (string | undefined)[];
 
     if (userRole === 'admin') {
-      query = `SELECT nsh.*, s.service_name, sh.shop_name
+      query = `SELECT nsh.*, s.service_name, sh.name as shop_name
                FROM no_show_history nsh
-               LEFT JOIN services s ON s.service_id = nsh.service_id
+               LEFT JOIN shop_services s ON s.service_id = nsh.service_id
                LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
                WHERE nsh.order_id = $1`;
       params = [orderId];
     } else if (userRole === 'shop') {
-      query = `SELECT nsh.*, s.service_name, sh.shop_name
+      query = `SELECT nsh.*, s.service_name, sh.name as shop_name
                FROM no_show_history nsh
-               LEFT JOIN services s ON s.service_id = nsh.service_id
+               LEFT JOIN shop_services s ON s.service_id = nsh.service_id
                LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
                WHERE nsh.order_id = $1 AND nsh.shop_id = $2`;
       params = [orderId, req.user?.shopId];
     } else {
-      query = `SELECT nsh.*, s.service_name, sh.shop_name
+      query = `SELECT nsh.*, s.service_name, sh.name as shop_name
                FROM no_show_history nsh
-               LEFT JOIN services s ON s.service_id = nsh.service_id
+               LEFT JOIN shop_services s ON s.service_id = nsh.service_id
                LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
                WHERE nsh.order_id = $1 AND LOWER(nsh.customer_address) = $2`;
       params = [orderId, userAddress];
@@ -307,10 +314,10 @@ export async function getShopDisputes(req: AuthenticatedRequest, res: Response):
     }
 
     const result = await pool.query<DisputeRow>(
-      `SELECT nsh.*, s.service_name, sh.shop_name,
+      `SELECT nsh.*, s.service_name, sh.name as shop_name,
               c.name as customer_name, c.email as customer_email
        FROM no_show_history nsh
-       LEFT JOIN services s ON s.service_id = nsh.service_id
+       LEFT JOIN shop_services s ON s.service_id = nsh.service_id
        LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
        LEFT JOIN customers c ON LOWER(c.address) = LOWER(nsh.customer_address)
        ${whereClause}
@@ -401,7 +408,7 @@ export async function approveDispute(req: AuthenticatedRequest, res: Response): 
 
     // Send email notification to customer (non-blocking)
     const customerResult = await pool.query(
-      `SELECT c.email, c.name, sh.shop_name
+      `SELECT c.email, c.name, sh.name as shop_name
        FROM customers c, shops sh
        WHERE LOWER(c.address) = LOWER($1) AND sh.shop_id = $2`,
       [noShow.customer_address, noShow.shop_id]
@@ -493,7 +500,7 @@ export async function rejectDispute(req: AuthenticatedRequest, res: Response): P
 
     // Send email notification to customer (non-blocking)
     const rejectCustomerResult = await pool.query(
-      `SELECT c.email, c.name, sh.shop_name
+      `SELECT c.email, c.name, sh.name as shop_name
        FROM customers c, shops sh
        WHERE LOWER(c.address) = LOWER($1) AND sh.shop_id = $2`,
       [noShow.customer_address, noShow.shop_id]
@@ -547,10 +554,10 @@ export async function getAdminDisputes(req: AuthenticatedRequest, res: Response)
     }
 
     const result = await pool.query<DisputeRow>(
-      `SELECT nsh.*, s.service_name, sh.shop_name,
+      `SELECT nsh.*, s.service_name, sh.name as shop_name,
               c.name as customer_name, c.email as customer_email
        FROM no_show_history nsh
-       LEFT JOIN services s ON s.service_id = nsh.service_id
+       LEFT JOIN shop_services s ON s.service_id = nsh.service_id
        LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
        LEFT JOIN customers c ON LOWER(c.address) = LOWER(nsh.customer_address)
        ${whereClause}
@@ -710,9 +717,8 @@ async function reverseNoShowPenalty(
         newTier = 'deposit_required';
       } else if (effectiveCount >= policy.caution_threshold) {
         newTier = 'caution';
-      } else if (effectiveCount >= 1) {
-        newTier = 'warning';
       }
+      // Below caution_threshold = normal (no restrictions)
     }
 
     // Update customer no-show stats

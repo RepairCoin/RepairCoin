@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Clock, CheckCircle, Calendar, Package, Info, MoreVertical, XCircle, RefreshCw } from "lucide-react";
+import { Clock, CheckCircle, Calendar, Package, Info, MoreVertical, XCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { MockBooking, getStatusLabel, getStatusColor, formatDate, formatTime12Hour, truncateAddress } from "./mockData";
 
 interface BookingCardProps {
@@ -13,6 +13,7 @@ interface BookingCardProps {
   onSchedule: () => void;
   onComplete: () => void;
   onCancel: () => void;
+  onMarkNoShow: () => void;
   isBlocked?: boolean;
   blockReason?: string;
 }
@@ -29,6 +30,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onSchedule,
   onComplete,
   onCancel,
+  onMarkNoShow,
   isBlocked = false,
   blockReason = "Action blocked"
 }) => {
@@ -153,6 +155,17 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
+            <button
+              onClick={(e) => { e.stopPropagation(); onMarkNoShow(); }}
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as no-show"}
+              className={`px-3 py-1.5 text-sm font-medium text-orange-400 bg-transparent border border-orange-400/50 rounded-lg transition-colors flex items-center gap-1 ${
+                isBlocked ? disabledClass : "hover:bg-orange-400/10"
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              No-Show
+            </button>
             {rescheduleButton}
             <button
               onClick={onComplete}
@@ -251,6 +264,17 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         return (
           <>
             {cancelButton}
+            <button
+              onClick={onMarkNoShow}
+              disabled={isBlocked}
+              title={isBlocked ? blockReason : "Mark as no-show"}
+              className={`${baseButtonClass} text-orange-400 bg-[#0D0D0D] border border-orange-500/50 ${
+                isBlocked ? disabledClass : "hover:bg-orange-900/20 hover:border-orange-400"
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">No-Show</span>
+            </button>
             {rescheduleButton}
             <button
               onClick={onComplete}
@@ -285,6 +309,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         break;
       case 'scheduled':
         actions.push({ label: 'Mark Complete', icon: <CheckCircle className="w-4 h-4" />, onClick: onComplete, variant: 'primary' });
+        actions.push({ label: 'No-Show', icon: <AlertTriangle className="w-4 h-4" />, onClick: onMarkNoShow, variant: 'danger' });
         actions.push({ label: 'Reschedule', icon: <RefreshCw className="w-4 h-4" />, onClick: onReschedule, variant: 'secondary' });
         break;
     }

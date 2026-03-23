@@ -315,19 +315,7 @@ export class CustomerController {
       const noShowPolicyService = require('../../../services/NoShowPolicyService').default;
       const status = await noShowPolicyService.getCustomerStatus(address, shopId as string);
 
-      ResponseHelper.success(res, {
-        customerAddress: status.customerAddress,
-        noShowCount: status.noShowCount,
-        tier: status.tier,
-        depositRequired: status.depositRequired,
-        lastNoShowAt: status.lastNoShowAt,
-        bookingSuspendedUntil: status.bookingSuspendedUntil,
-        successfulAppointmentsSinceTier3: status.successfulAppointmentsSinceTier3,
-        canBook: status.canBook,
-        requiresDeposit: status.requiresDeposit,
-        minimumAdvanceHours: status.minimumAdvanceHours,
-        restrictions: status.restrictions
-      });
+      ResponseHelper.success(res, status);
     } catch (error: any) {
       if (error.message === 'Customer not found') {
         ResponseHelper.notFound(res, error.message);
