@@ -13,6 +13,7 @@ import { getExpoPushService } from '../../../services/ExpoPushService';
 import noShowPolicyService from '../../../services/NoShowPolicyService';
 import { EmailService } from '../../../services/EmailService';
 import { getExpiredOrderService } from '../../../services/ExpiredOrderService';
+import { getStripeService } from '../../../services/StripeService';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -416,6 +417,46 @@ export class OrderController {
         } catch (eventError) {
           logger.error('Failed to publish order completed event:', eventError);
           // Don't fail the request if event publishing fails
+        }
+
+        // Process deposit refund if order had a deposit
+        try {
+          if (updatedOrder.stripePaymentIntentId) {
+            const stripeService = getStripeService();
+            const metadata = await stripeService.getPaymentIntentMetadata(updatedOrder.stripePaymentIntentId);
+
+            if (metadata.requiresDeposit === 'true' && metadata.depositAmount) {
+              const depositAmountUsd = parseFloat(metadata.depositAmount);
+              if (depositAmountUsd > 0) {
+                const depositCents = Math.round(depositAmountUsd * 100);
+                await stripeService.partialRefund(
+                  updatedOrder.stripePaymentIntentId,
+                  depositCents,
+                  'requested_by_customer'
+                );
+                logger.info('Deposit refunded on order completion', {
+                  orderId: updatedOrder.orderId,
+                  customerAddress: updatedOrder.customerAddress,
+                  depositAmount: depositAmountUsd,
+                  paymentIntentId: updatedOrder.stripePaymentIntentId
+                });
+              }
+            }
+          }
+        } catch (depositRefundError) {
+          logger.error('Failed to refund deposit (non-fatal):', depositRefundError);
+          // Don't fail the completion — deposit refund can be handled manually
+        }
+
+        // Record successful appointment for tier reset tracking
+        try {
+          await noShowPolicyService.recordSuccessfulAppointment(updatedOrder.customerAddress);
+          logger.info('Successful appointment recorded', {
+            orderId: updatedOrder.orderId,
+            customerAddress: updatedOrder.customerAddress
+          });
+        } catch (tierError) {
+          logger.error('Failed to record successful appointment (non-fatal):', tierError);
         }
       }
 
