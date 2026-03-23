@@ -12,6 +12,7 @@ interface AuthenticatedRequest extends Request {
     shopId?: string;
   };
   body: any;
+  params: any;
   query: any;
 }
 
