@@ -123,7 +123,12 @@ export default function AppointmentCalendarScreen() {
           <Ionicons name="chevron-back" size={20} color="#fff" />
         </TouchableOpacity>
         <Text className="text-white text-xl font-bold">Appointments</Text>
-        <View className="w-9" />
+        <TouchableOpacity
+          onPress={() => router.push("/shop/availability" as any)}
+          className="w-9 h-9 rounded-full bg-[#1a1a1a] items-center justify-center"
+        >
+          <Ionicons name="settings-outline" size={20} color="#FFCC00" />
+        </TouchableOpacity>
       </View>
 
       {isLoading && !refreshing ? (

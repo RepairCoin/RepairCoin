@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider } from "../components";
 import { useSettings, SettingsRole } from "../hooks/ui/useSettings";
@@ -108,6 +109,25 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               title="Groups"
               subtitle="Manage affiliate shop groups"
               onPress={handleGroups!}
+            />
+          </SettingsSection>
+        )}
+
+        {/* Shop: Appointments Section */}
+        {role === "shop" && (
+          <SettingsSection title="Appointments">
+            <SettingsItem
+              icon={<Ionicons name="calendar" size={20} color="#FFCC00" />}
+              title="Appointment Calendar"
+              subtitle="View and manage bookings"
+              onPress={() => router.push("/shop/appointments" as any)}
+            />
+            <Divider />
+            <SettingsItem
+              icon={<Ionicons name="time-outline" size={20} color="#FFCC00" />}
+              title="Availability Settings"
+              subtitle="Operating hours, slots & overrides"
+              onPress={() => router.push("/shop/availability" as any)}
             />
           </SettingsSection>
         )}

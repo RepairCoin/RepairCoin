@@ -4,3 +4,4 @@ export { default as AppointmentDiscountScreen } from "./AppointmentDiscountScree
 export { default as AppointmentPaymentScreen } from "./AppointmentPaymentScreen";
 export { default as AppointmentShopScreen } from "./AppointmentShopScreen";
 export { default as AppointmentCalendarScreen } from "./AppointmentCalendarScreen";
+export { default as AvailabilitySettingsScreen } from "./AvailabilitySettingsScreen";
