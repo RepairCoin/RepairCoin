@@ -129,6 +129,13 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               subtitle="Operating hours, slots & overrides"
               onPress={() => router.push("/shop/availability" as any)}
             />
+            <Divider />
+            <SettingsItem
+              icon={<Ionicons name="shield-outline" size={20} color="#FFCC00" />}
+              title="No-Show Policy"
+              subtitle="Penalties, detection & disputes"
+              onPress={() => router.push("/shop/no-show-policy" as any)}
+            />
           </SettingsSection>
         )}
 
