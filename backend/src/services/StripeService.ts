@@ -405,6 +405,55 @@ export class StripeService {
   }
 
   /**
+   * Partial refund a payment intent (e.g. deposit refund)
+   */
+  async partialRefund(paymentIntentId: string, amountCents: number, reason?: string): Promise<Stripe.Refund> {
+    try {
+      const refund = await this.stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: amountCents,
+        reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
+        metadata: {
+          environment: this.config.isTestMode ? 'test' : 'production',
+          type: 'deposit_refund'
+        }
+      });
+
+      logger.info('Partial refund processed', {
+        refundId: refund.id,
+        paymentIntentId,
+        amountCents,
+        status: refund.status
+      });
+
+      return refund;
+    } catch (error) {
+      logger.error('Failed to process partial refund', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        paymentIntentId,
+        amountCents
+      });
+      throw new Error(`Failed to process partial refund: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get payment intent metadata
+   */
+  async getPaymentIntentMetadata(paymentIntentId: string): Promise<Stripe.Metadata> {
+    try {
+      const pi = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      return pi.metadata;
+    } catch (error) {
+      logger.error('Failed to retrieve payment intent', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        paymentIntentId
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Create setup intent for saving payment method
    */
   async createSetupIntent(customerId: string): Promise<Stripe.SetupIntent> {

@@ -127,9 +127,12 @@ class RepairCoinApp {
         CREATE INDEX IF NOT EXISTS idx_waitlist_business_category ON waitlist(business_category)
       `);
 
-      // Fix no_show_history.service_id type mismatch (migration 092)
+      // Fix no_show_history type mismatches (migration 093)
       await pool.query(`
         ALTER TABLE no_show_history ALTER COLUMN service_id TYPE VARCHAR(255)
+      `);
+      await pool.query(`
+        ALTER TABLE no_show_history ALTER COLUMN order_id TYPE VARCHAR(255)
       `);
 
       // Ensure shop_email_preferences table exists
