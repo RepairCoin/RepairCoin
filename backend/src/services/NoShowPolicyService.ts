@@ -53,6 +53,8 @@ export interface CustomerNoShowStatus {
   requiresDeposit: boolean;
   minimumAdvanceHours: number;
   restrictions: string[];
+  isHomeShop?: boolean;
+  maxRcnRedemptionPercent?: number;
 }
 
 export interface NoShowHistoryEntry {
@@ -187,7 +189,8 @@ export class NoShowPolicyService {
         deposit_required as "depositRequired",
         last_no_show_at as "lastNoShowAt",
         booking_suspended_until as "bookingSuspendedUntil",
-        successful_appointments_since_tier3 as "successfulAppointmentsSinceTier3"
+        successful_appointments_since_tier3 as "successfulAppointmentsSinceTier3",
+        home_shop_id as "homeShopId"
       FROM customers
       WHERE address = $1
     `;
@@ -232,7 +235,9 @@ export class NoShowPolicyService {
       canBook,
       requiresDeposit: customer.depositRequired || false,
       minimumAdvanceHours,
-      restrictions
+      restrictions,
+      isHomeShop: customer.homeShopId === shopId,
+      maxRcnRedemptionPercent: policy.maxRcnRedemptionPercent,
     };
   }
 

@@ -28,6 +28,145 @@ import { BookingDetailsModal } from "./BookingDetailsModal";
 import { BookingCard } from "./BookingCard";
 import { CancelBookingModal } from "./CancelBookingModal";
 import { formatBookingId } from "@/utils/formatters";
+import DisputeModal from "./DisputeModal";
+import { getDisputeStatus } from "@/services/api/noShow";
+import type { NoShowHistoryEntry } from "@/services/api/noShow";
+import { AlertTriangle } from "lucide-react";
+
+// No-Show banner with dispute status awareness
+const NoShowBanner: React.FC<{
+  order: ServiceOrderWithDetails;
+  onDispute: () => void;
+}> = ({ order, onDispute }) => {
+  const [disputeInfo, setDisputeInfo] = useState<{
+    status: string | null;
+    reason?: string;
+    resolutionNotes?: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDispute = async () => {
+      try {
+        const data = await getDisputeStatus(order.orderId);
+        if (data) {
+          setDisputeInfo({
+            status: data.disputeStatus || null,
+            reason: data.disputeReason,
+            resolutionNotes: data.disputeResolutionNotes,
+          });
+        }
+      } catch {
+        // No dispute exists yet — that's fine
+        setDisputeInfo(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDispute();
+  }, [order.orderId]);
+
+  // Dispute approved — green banner
+  if (disputeInfo?.status === "approved") {
+    return (
+      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-green-400 mb-1 text-base">Dispute Approved</div>
+            <div className="text-sm text-green-200/80">
+              Your no-show dispute has been approved. The penalty has been reversed.
+            </div>
+            {disputeInfo.resolutionNotes && (
+              <div className="text-sm text-green-200/60 mt-1">
+                Shop note: {disputeInfo.resolutionNotes}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Dispute rejected — red banner
+  if (disputeInfo?.status === "rejected") {
+    return (
+      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+            <XCircle className="w-5 h-5 text-red-400" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-red-400 mb-1 text-base">Dispute Rejected</div>
+            <div className="text-sm text-red-200/80">
+              Your no-show dispute was reviewed and rejected by the shop.
+            </div>
+            {disputeInfo.resolutionNotes && (
+              <div className="text-sm text-red-200/60 mt-1">
+                Reason: {disputeInfo.resolutionNotes}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Dispute pending — blue banner
+  if (disputeInfo?.status === "pending") {
+    return (
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-blue-400 mb-1 text-base">Dispute Under Review</div>
+            <div className="text-sm text-blue-200/80">
+              Your dispute has been submitted and is waiting for the shop to review.
+            </div>
+            {disputeInfo.reason && (
+              <div className="text-sm text-blue-200/60 mt-1">
+                Your reason: {disputeInfo.reason}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No dispute yet — orange banner with dispute button
+  return (
+    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-4">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+          <AlertTriangle className="w-5 h-5 text-orange-400" />
+        </div>
+        <div className="flex-1">
+          <div className="font-bold text-orange-400 mb-1 text-base">Marked as No-Show</div>
+          <div className="text-sm text-orange-200/80">
+            This booking was marked as no-show by the shop.
+            {order.noShowNotes && ` Note: ${order.noShowNotes}`}
+          </div>
+          {!loading && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDispute();
+              }}
+              className="mt-3 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-medium rounded-lg transition-colors"
+            >
+              Dispute No-Show
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 import {
   Select,
   SelectContent,
@@ -47,6 +186,7 @@ export const ServiceOrdersTab: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewingOrder, setViewingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const [disputeOrder, setDisputeOrder] = useState<ServiceOrderWithDetails | null>(null);
   const filterScrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -469,20 +609,10 @@ export const ServiceOrdersTab: React.FC = () => {
                   }
                   additionalSections={
                     order.noShow ? (
-                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                            <XCircle className="w-5 h-5 text-orange-400" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-bold text-orange-400 mb-1 text-base">Marked as No-Show</div>
-                            <div className="text-sm text-orange-200/80">
-                              This booking was marked as no-show by the shop.
-                              {order.noShowNotes && ` Note: ${order.noShowNotes}`}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <NoShowBanner
+                        order={order}
+                        onDispute={() => setDisputeOrder(order)}
+                      />
                     ) : undefined
                   }
                   nextActionSection={
@@ -692,6 +822,34 @@ export const ServiceOrdersTab: React.FC = () => {
           loadOrders();
         }}
       />
+
+      {/* Dispute No-Show Modal */}
+      {disputeOrder && (
+        <DisputeModal
+          isOpen={!!disputeOrder}
+          onClose={() => setDisputeOrder(null)}
+          noShowEntry={{
+            id: disputeOrder.orderId,
+            orderId: disputeOrder.orderId,
+            customerAddress: disputeOrder.customerAddress,
+            serviceId: disputeOrder.serviceId,
+            shopId: disputeOrder.shopId,
+            scheduledTime: disputeOrder.bookingDate || new Date().toISOString(),
+            markedNoShowAt: disputeOrder.markedNoShowAt || new Date().toISOString(),
+            markedBy: '',
+            notes: disputeOrder.noShowNotes || '',
+            gracePeriodMinutes: 15,
+            customerTierAtTime: '',
+            disputed: false,
+            createdAt: disputeOrder.createdAt,
+          } as unknown as NoShowHistoryEntry}
+          onDisputeSubmitted={() => {
+            setDisputeOrder(null);
+            loadOrders();
+            toast.success("Dispute submitted successfully");
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -211,4 +211,82 @@ async function checkContractHealth() {
   }
 }
 
+// Temporary diagnostic: test dispute flow step by step
+router.get('/debug-dispute/:orderId', asyncHandler(async (req: Request, res: Response) => {
+  const { getSharedPool } = require('../utils/database-pool');
+  const pool = getSharedPool();
+  const { orderId } = req.params;
+  const customerAddress = '0x6cd036477d1c39da021095a62a32c6bb919993cf';
+  const results: any = { orderId, customerAddress, steps: [] };
+
+  // Step 1: Check no_show_history record
+  try {
+    const r = await pool.query(
+      `SELECT nsh.*, s.service_name, sh.name as shop_name
+       FROM no_show_history nsh
+       LEFT JOIN shop_services s ON s.service_id = nsh.service_id
+       LEFT JOIN shops sh ON sh.shop_id = nsh.shop_id
+       WHERE nsh.order_id = $1 AND LOWER(nsh.customer_address) = $2`,
+      [orderId, customerAddress]
+    );
+    results.steps.push({ step: 'SELECT no_show_history', success: true, rows: r.rows.length, data: r.rows[0] ? { id: r.rows[0].id, disputed: r.rows[0].disputed, dispute_status: r.rows[0].dispute_status, service_name: r.rows[0].service_name, shop_name: r.rows[0].shop_name } : null });
+  } catch (e: any) {
+    results.steps.push({ step: 'SELECT no_show_history', success: false, error: e.message });
+  }
+
+  // Step 2: Check shop policy
+  try {
+    const noShow = (await pool.query(`SELECT shop_id FROM no_show_history WHERE order_id = $1`, [orderId])).rows[0];
+    if (noShow) {
+      const r = await pool.query(`SELECT allow_disputes, dispute_window_days, auto_approve_first_offense FROM shop_no_show_policy WHERE shop_id = $1`, [noShow.shop_id]);
+      results.steps.push({ step: 'SELECT shop_policy', success: true, data: r.rows[0] });
+    }
+  } catch (e: any) {
+    results.steps.push({ step: 'SELECT shop_policy', success: false, error: e.message });
+  }
+
+  // Step 3: Check no-show count
+  try {
+    const noShow = (await pool.query(`SELECT shop_id FROM no_show_history WHERE order_id = $1`, [orderId])).rows[0];
+    if (noShow) {
+      const r = await pool.query(`SELECT COUNT(*) as total FROM no_show_history WHERE LOWER(customer_address) = $1 AND shop_id = $2`, [customerAddress, noShow.shop_id]);
+      results.steps.push({ step: 'COUNT no_shows', success: true, total: parseInt(r.rows[0].total) });
+    }
+  } catch (e: any) {
+    results.steps.push({ step: 'COUNT no_shows', success: false, error: e.message });
+  }
+
+  // Step 4: Test UPDATE
+  try {
+    const noShow = (await pool.query(`SELECT id FROM no_show_history WHERE order_id = $1`, [orderId])).rows[0];
+    if (noShow) {
+      const r = await pool.query(
+        `UPDATE no_show_history SET disputed = TRUE, dispute_status = 'pending', dispute_reason = 'DEBUG TEST', dispute_submitted_at = NOW() WHERE id = $1 RETURNING id, disputed, dispute_status`,
+        [noShow.id]
+      );
+      results.steps.push({ step: 'UPDATE dispute', success: true, data: r.rows[0] });
+      // Rollback
+      await pool.query(`UPDATE no_show_history SET disputed = FALSE, dispute_status = NULL, dispute_reason = NULL, dispute_submitted_at = NULL WHERE id = $1`, [noShow.id]);
+      results.steps.push({ step: 'ROLLBACK', success: true });
+    }
+  } catch (e: any) {
+    results.steps.push({ step: 'UPDATE dispute', success: false, error: e.message });
+  }
+
+  // Step 5: Check which version of DisputeController is loaded
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.resolve(__dirname, '../domains/ServiceDomain/controllers/DisputeController.ts');
+    const content = fs.readFileSync(filePath, 'utf8');
+    const hasShopServices = content.includes('shop_services');
+    const hasOldServices = content.includes('LEFT JOIN services s ON');
+    results.steps.push({ step: 'FILE CHECK', hasShopServices, hasOldServices, filePath });
+  } catch (e: any) {
+    results.steps.push({ step: 'FILE CHECK', error: e.message });
+  }
+
+  res.json({ success: true, data: results });
+}));
+
 export default router;

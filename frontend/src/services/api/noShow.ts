@@ -13,6 +13,8 @@ export interface CustomerNoShowStatus {
   requiresDeposit: boolean;
   minimumAdvanceHours: number;
   restrictions: string[];
+  isHomeShop?: boolean;
+  maxRcnRedemptionPercent?: number;
 }
 
 export interface NoShowHistoryEntry {
@@ -44,8 +46,8 @@ export const getCustomerNoShowStatus = async (
 ): Promise<CustomerNoShowStatus> => {
   const response = await apiClient.get(`/customers/${customerAddress}/no-show-status`, {
     params: { shopId }
-  });
-  return response.data.data;
+  }) as any;
+  return response.data;
 };
 
 /**
@@ -56,8 +58,8 @@ export const getCustomerNoShowStatus = async (
 export const getOverallCustomerNoShowStatus = async (
   customerAddress: string
 ): Promise<CustomerNoShowStatus> => {
-  const response = await apiClient.get(`/customers/${customerAddress}/overall-no-show-status`);
-  return response.data.data;
+  const response = await apiClient.get(`/customers/${customerAddress}/overall-no-show-status`) as any;
+  return response.data;
 };
 
 /**
@@ -69,8 +71,8 @@ export const getCustomerNoShowHistory = async (
 ): Promise<NoShowHistoryEntry[]> => {
   const response = await apiClient.get(`/customers/${customerAddress}/no-show-history`, {
     params: { limit }
-  });
-  return response.data.data.history;
+  }) as any;
+  return response.data?.history || response.data;
 };
 
 /**
@@ -213,11 +215,11 @@ export const submitDispute = async (
   orderId: string,
   reason: string
 ): Promise<{ dispute: DisputeEntry; autoApproved: boolean; message: string }> => {
-  const response = await apiClient.post(`/services/orders/${orderId}/dispute`, { reason });
+  const response = await apiClient.post(`/services/orders/${orderId}/dispute`, { reason }) as any;
   return {
-    dispute: response.data.data,
-    autoApproved: response.data.autoApproved,
-    message: response.data.message
+    dispute: response.data,
+    autoApproved: response.autoApproved,
+    message: response.message
   };
 };
 
@@ -225,8 +227,8 @@ export const submitDispute = async (
  * Get dispute status for an order
  */
 export const getDisputeStatus = async (orderId: string): Promise<DisputeEntry> => {
-  const response = await apiClient.get(`/services/orders/${orderId}/dispute`);
-  return response.data.data;
+  const response = await apiClient.get(`/services/orders/${orderId}/dispute`) as any;
+  return response.data;
 };
 
 /**
@@ -240,8 +242,9 @@ export const getShopDisputes = async (
 ): Promise<DisputeListResponse> => {
   const response = await apiClient.get(`/services/shops/${shopId}/disputes`, {
     params: { status, limit, offset }
-  });
-  return response.data.data;
+  }) as any;
+  // apiClient interceptor returns response.data, so response = { success, data }
+  return response.data;
 };
 
 /**
@@ -254,8 +257,8 @@ export const approveDispute = async (
 ): Promise<DisputeEntry> => {
   const response = await apiClient.put(`/services/shops/${shopId}/disputes/${disputeId}/approve`, {
     resolutionNotes
-  });
-  return response.data.data;
+  }) as any;
+  return response.data;
 };
 
 /**
@@ -268,8 +271,8 @@ export const rejectDispute = async (
 ): Promise<DisputeEntry> => {
   const response = await apiClient.put(`/services/shops/${shopId}/disputes/${disputeId}/reject`, {
     resolutionNotes
-  });
-  return response.data.data;
+  }) as any;
+  return response.data;
 };
 
 /**
@@ -283,8 +286,8 @@ export const getAdminDisputes = async (
 ): Promise<AdminDisputeListResponse> => {
   const response = await apiClient.get(`/services/admin/disputes`, {
     params: { status, shopId, limit, offset }
-  });
-  return response.data.data;
+  }) as any;
+  return response.data;
 };
 
 /**
@@ -298,6 +301,6 @@ export const adminResolveDispute = async (
   const response = await apiClient.put(`/services/admin/disputes/${disputeId}/resolve`, {
     resolution,
     resolutionNotes
-  });
-  return response.data.data;
+  }) as any;
+  return response.data;
 };

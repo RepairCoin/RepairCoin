@@ -161,7 +161,8 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   onSuccess,
 }) => {
   const { balanceData, fetchCustomerData } = useCustomerStore();
-  const { address } = useAuthStore();
+  const address = useAuthStore((state) => state.account?.address);
+  const userProfile = useAuthStore((state) => state.userProfile);
   const [clientSecret, setClientSecret] = useState<string>("");
   const [orderId, setOrderId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -199,13 +200,15 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   }, [service.shopId]);
 
   // Fetch no-show status when modal opens
+  // Use address from account or userProfile (whichever loads first)
+  const customerAddress = address || userProfile?.address;
   useEffect(() => {
     const loadNoShowStatus = async () => {
-      if (!address) return;
+      if (!customerAddress) return;
 
       try {
         setLoadingNoShowStatus(true);
-        const status = await getCustomerNoShowStatus(address, service.shopId);
+        const status = await getCustomerNoShowStatus(customerAddress, service.shopId);
         setNoShowStatus(status);
       } catch (error) {
         console.error('Error loading no-show status:', error);
@@ -215,7 +218,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
       }
     };
     loadNoShowStatus();
-  }, [address, service.shopId]);
+  }, [customerAddress, service.shopId]);
 
   // RCN Redemption State
   const [rcnToRedeem, setRcnToRedeem] = useState(0);
@@ -226,14 +229,21 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const RCN_TO_USD = 0.10;
   const MIN_SERVICE_PRICE = 10;
 
-  // Determine max discount percentage based on tier
-  // Tier 2 (caution) and Tier 3 (deposit_required) have 80% cap
-  // Tier 0 (normal) and Tier 1 (warning) have 20% cap
+  // Determine max discount percentage based on home shop and tier
+  // Home shop: 100% redemption (or 80% if caution/deposit_required tier)
+  // Cross-shop: 20% base redemption
+  const isHomeShop = noShowStatus?.isHomeShop === true;
   const isRestrictedTier = noShowStatus?.tier === 'caution' || noShowStatus?.tier === 'deposit_required';
-  const MAX_DISCOUNT_PCT = isRestrictedTier ? 0.80 : 0.20;
+  const baseRate = isHomeShop ? 1.00 : 0.20;
+  const tierCap = isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent
+    ? noShowStatus.maxRcnRedemptionPercent / 100
+    : 1.00;
+  const MAX_DISCOUNT_PCT = Math.min(baseRate, tierCap);
+
 
   const showRedemptionSection = service.priceUsd >= MIN_SERVICE_PRICE;
-  const canUseRedemption = showRedemptionSection && customerBalance > 0;
+  const rcnDataReady = noShowStatus !== null && !loadingNoShowStatus && customerBalance >= 0 && !!customerAddress;
+  const canUseRedemption = showRedemptionSection && customerBalance > 0 && rcnDataReady;
   const maxDiscountUsd = service.priceUsd * MAX_DISCOUNT_PCT;
   const maxRcnRedeemable = customerBalance > 0 ? Math.floor(Math.min(maxDiscountUsd / RCN_TO_USD, customerBalance)) : 0;
 
@@ -610,7 +620,16 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
               )}
 
               {/* RCN Redemption Section */}
-              {showRedemptionSection && !paymentInitialized && !isSuspended && (
+              {showRedemptionSection && !paymentInitialized && !isSuspended && !rcnDataReady && (
+                <div className="bg-[#0D0D0D] border border-gray-700 rounded-xl p-5 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm text-gray-400">Loading RCN rewards...</span>
+                  </div>
+                </div>
+              )}
+
+              {showRedemptionSection && !paymentInitialized && !isSuspended && rcnDataReady && (
                 <div className="bg-[#0D0D0D] border border-[#FFCC00]/30 rounded-xl p-5 mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">

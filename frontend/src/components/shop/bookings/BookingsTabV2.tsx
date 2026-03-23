@@ -25,6 +25,7 @@ import {
 } from "@/services/api/services";
 import { appointmentsApi } from "@/services/api/appointments";
 import { RescheduleModal } from "../modals/RescheduleModal";
+import { MarkNoShowModal } from "../MarkNoShowModal";
 
 interface BookingsTabV2Props {
   shopId: string;
@@ -42,13 +43,14 @@ const BookingCardList: React.FC<{
   onSchedule: (id: string) => void;
   onComplete: (id: string) => void;
   onCancel: (id: string) => void;
+  onMarkNoShow: (booking: MockBooking) => void;
   isBlocked?: boolean;
   blockReason?: string;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   loading?: boolean;
-}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
+}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, onMarkNoShow, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
   if (bookings.length === 0) {
     return (
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8 text-center">
@@ -76,6 +78,7 @@ const BookingCardList: React.FC<{
           onSchedule={() => onSchedule(booking.bookingId)}
           onComplete={() => onComplete(booking.bookingId)}
           onCancel={() => onCancel(booking.bookingId)}
+          onMarkNoShow={() => onMarkNoShow(booking)}
           isBlocked={isBlocked}
           blockReason={blockReason}
         />
@@ -109,10 +112,9 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cancelModalBooking, setCancelModalBooking] =
-    useState<MockBooking | null>(null);
-  const [rescheduleModalBooking, setRescheduleModalBooking] =
-    useState<MockBooking | null>(null);
+  const [cancelModalBooking, setCancelModalBooking] = useState<MockBooking | null>(null);
+  const [rescheduleModalBooking, setRescheduleModalBooking] = useState<MockBooking | null>(null);
+  const [noShowModalBooking, setNoShowModalBooking] = useState<MockBooking | null>(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -556,6 +558,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
                 onSchedule={handleSchedule}
                 onComplete={handleComplete}
                 onCancel={handleCancel}
+                onMarkNoShow={(booking) => setNoShowModalBooking(booking)}
                 isBlocked={isBlocked}
                 blockReason={blockReason}
                 currentPage={currentPage}
@@ -674,6 +677,24 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
           isProcessing={isRescheduling}
         />
       )}
+
+      {/* Mark No-Show Modal */}
+      <MarkNoShowModal
+        order={noShowModalBooking ? {
+          orderId: noShowModalBooking.orderId,
+          serviceName: noShowModalBooking.serviceName,
+          serviceImageUrl: noShowModalBooking.serviceImageUrl,
+          customerName: noShowModalBooking.customerName,
+          customerAddress: noShowModalBooking.customerAddress,
+          totalAmount: noShowModalBooking.amount,
+        } as ServiceOrderWithDetails : null}
+        isOpen={!!noShowModalBooking}
+        onClose={() => setNoShowModalBooking(null)}
+        onSuccess={() => {
+          setNoShowModalBooking(null);
+          loadBookings();
+        }}
+      />
     </div>
   );
 };
