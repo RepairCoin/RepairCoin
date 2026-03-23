@@ -9,3 +9,4 @@ export { default as AppointmentShopTab } from "./AppointmentShopTab";
 export { default as MonthlyCalendarView } from "./MonthlyCalendarView";
 export { default as CalendarStatsCards } from "./CalendarStatsCards";
 export { default as BookingDetailModal } from "./BookingDetailModal";
+export { default as DisputeModal } from "./DisputeModal";

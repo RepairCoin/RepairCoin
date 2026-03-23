@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -51,6 +52,18 @@ export default function ShopServiceScreen() {
   const handleViewDetails = () => {
     closeActionModal();
     setShowDetailsModal(true);
+  };
+
+  const handleGroupRewards = () => {
+    if (!selectedService) return;
+    closeActionModal();
+    router.push({
+      pathname: "/shop/service-groups" as any,
+      params: {
+        serviceId: selectedService.serviceId,
+        serviceName: selectedService.serviceName,
+      },
+    });
   };
 
   return (
@@ -127,6 +140,7 @@ export default function ShopServiceScreen() {
           handleToggleStatus(selectedService, value, updateSelectedService)
         }
         onViewDetails={handleViewDetails}
+        onGroupRewards={handleGroupRewards}
       />
 
       {/* Service Details Modal */}

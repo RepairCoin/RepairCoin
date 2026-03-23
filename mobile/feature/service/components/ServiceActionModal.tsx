@@ -19,6 +19,7 @@ interface ServiceActionModalProps {
   onEdit: () => void;
   onToggleStatus: (value: boolean) => void;
   onViewDetails?: () => void;
+  onGroupRewards?: () => void;
 }
 
 export function ServiceActionModal({
@@ -29,6 +30,7 @@ export function ServiceActionModal({
   onEdit,
   onToggleStatus,
   onViewDetails,
+  onGroupRewards,
 }: ServiceActionModalProps) {
   const haptics = useHaptics();
 
@@ -113,6 +115,24 @@ export function ServiceActionModal({
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {/* Group Rewards Button */}
+            {onGroupRewards && (
+              <TouchableOpacity
+                onPress={onGroupRewards}
+                className="bg-gray-800 rounded-lg p-4 mb-3 flex-row items-center"
+              >
+                <View className="bg-purple-500/20 rounded-full p-2">
+                  <Ionicons name="people" size={20} color="#a855f7" />
+                </View>
+                <View className="ml-3">
+                  <Text className="text-white font-medium">Group Rewards</Text>
+                  <Text className="text-gray-500 text-xs mt-1">
+                    Link to groups & set reward %
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* View Details Button */}
             {onViewDetails && (
