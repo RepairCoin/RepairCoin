@@ -9,7 +9,7 @@ import {
   ImageBackground,
   Platform,
 } from "react-native";
-import { MaterialIcons, Octicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
 import ActionCard from "@/shared/components/shared/ActionCard";
@@ -104,6 +104,24 @@ export default function ShopWalletTab({
             },
           ]}
         />
+
+        {/* Appointments Quick Link */}
+        <TouchableOpacity
+          onPress={() => router.push("/shop/appointments" as any)}
+          activeOpacity={0.7}
+          className="bg-[#1a1a1a] rounded-2xl p-4 flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-full bg-[#FFCC00]/10 items-center justify-center mr-3">
+              <Ionicons name="calendar" size={22} color="#FFCC00" />
+            </View>
+            <View>
+              <Text className="text-white font-semibold text-base">Appointments</Text>
+              <Text className="text-gray-500 text-xs">View calendar & manage bookings</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
 
         {/* Subscription Card */}
         {shopData?.operational_status !== "subscription_qualified" &&
