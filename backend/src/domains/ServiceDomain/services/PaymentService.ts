@@ -206,7 +206,7 @@ export class PaymentService {
 
       let rcnRedeemed = 0;
       let rcnDiscountUsd = 0;
-      let finalAmountUsd = service.priceUsd;
+      let finalAmountUsd = parseFloat(String(service.priceUsd)) || 0;
       let customerRcnBalance = 0;
 
       // Get shop policy to determine deposit amount and RCN redemption cap
@@ -247,8 +247,8 @@ export class PaymentService {
 
       if (customerStatus.requiresDeposit || customerStatus.tier === 'deposit_required') {
         requiresDeposit = true;
-        depositAmount = shopPolicy.depositAmount;
-        finalAmountUsd += depositAmount;
+        depositAmount = parseFloat(String(shopPolicy.depositAmount)) || 0;
+        finalAmountUsd = parseFloat(String(finalAmountUsd)) + depositAmount;
 
         logger.info('Deposit required for customer', {
           customerAddress: request.customerAddress,
@@ -406,7 +406,7 @@ export class PaymentService {
 
       let rcnRedeemed = 0;
       let rcnDiscountUsd = 0;
-      let finalAmountUsd = service.priceUsd;
+      let finalAmountUsd = parseFloat(String(service.priceUsd)) || 0;
       let customerRcnBalance = 0;
 
       // Get shop policy for RCN cap and deposit
@@ -446,8 +446,8 @@ export class PaymentService {
       let requiresDeposit = false;
       if (customerStatus.requiresDeposit || customerStatus.tier === 'deposit_required') {
         requiresDeposit = true;
-        depositAmount = shopPolicy.depositAmount;
-        finalAmountUsd += depositAmount;
+        depositAmount = parseFloat(String(shopPolicy.depositAmount)) || 0;
+        finalAmountUsd = parseFloat(String(finalAmountUsd)) + depositAmount;
 
         logger.info('Deposit required for customer (checkout)', {
           customerAddress: request.customerAddress,
