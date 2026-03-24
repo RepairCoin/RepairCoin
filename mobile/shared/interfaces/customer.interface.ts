@@ -28,6 +28,7 @@ export interface CustomerData {
   id: number;
   shopId: string;
   stripeCustomerId: string;
+  profileImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   total_transactions: number;

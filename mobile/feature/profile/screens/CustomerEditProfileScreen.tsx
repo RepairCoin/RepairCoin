@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
@@ -16,8 +16,21 @@ export default function CustomerEditProfileScreen() {
     handleSaveChanges,
     isPending,
     walletAddress,
-    goBack
+    goBack,
+    selectedAvatar,
+    isUploadingAvatar,
+    handleAvatarPick,
+    removeAvatar,
   } = useCustomerEditProfile();
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <ThemedView className="h-full w-full">
@@ -29,6 +42,55 @@ export default function CustomerEditProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
         >
+          {/* Avatar Section */}
+          <View className="items-center mt-4 mb-6">
+            <View className="relative">
+              <TouchableOpacity
+                onPress={handleAvatarPick}
+                disabled={isUploadingAvatar}
+                activeOpacity={0.7}
+              >
+                <View className="w-28 h-28 rounded-full overflow-hidden items-center justify-center bg-[#2A2A2C] border-2 border-[#3A3A3C]">
+                  {isUploadingAvatar ? (
+                    <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+                  ) : selectedAvatar ? (
+                    <Image
+                      source={{ uri: selectedAvatar }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text className="text-3xl font-bold" style={{ color: THEME_COLORS.primary }}>
+                      {getInitials(formData.name)}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Camera icon overlay */}
+                <View
+                  className="absolute bottom-0 right-0 w-9 h-9 rounded-full items-center justify-center border-2 border-[#1C1C1E]"
+                  style={{ backgroundColor: THEME_COLORS.primary }}
+                >
+                  <Ionicons name="camera" size={18} color="#000" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Remove button */}
+              {selectedAvatar && !isUploadingAvatar && (
+                <TouchableOpacity
+                  onPress={removeAvatar}
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-red-500 items-center justify-center border-2 border-[#1C1C1E]"
+                >
+                  <Ionicons name="close" size={14} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text className="text-gray-400 text-sm mt-3">
+              {isUploadingAvatar ? "Uploading..." : "Tap to change photo"}
+            </Text>
+          </View>
+
           <SectionHeader
             icon={<Ionicons name="person" size={16} color="#000" />}
             title="Personal Information"
