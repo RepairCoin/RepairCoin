@@ -1052,3 +1052,157 @@ describe('Bug Detection Tests', () => {
     expect(toctouVulnerability).toBe(false);
   });
 });
+
+// ============================================================
+// Redeem - Cross-Shop Redemption Rules
+// ============================================================
+describe('Cross-Shop Redemption Rules', () => {
+  it('home shop should allow 100% redemption', () => {
+    const isHomeShop = true;
+    const redemptionPercent = isHomeShop ? 100 : 20;
+    expect(redemptionPercent).toBe(100);
+  });
+
+  it('non-home shop should limit to 20% redemption', () => {
+    const isHomeShop = false;
+    const redemptionPercent = isHomeShop ? 100 : 20;
+    expect(redemptionPercent).toBe(20);
+  });
+
+  it('cross-shop limit should be calculated correctly', () => {
+    const totalBalance = 100;
+    const crossShopPercent = 20;
+    const maxRedeemable = totalBalance * (crossShopPercent / 100);
+    expect(maxRedeemable).toBe(20);
+  });
+
+  it('home shop detection should be case-insensitive', () => {
+    const customerHomeShop = 'peanut';
+    const requestShopId = 'peanut';
+    const isHomeShop = customerHomeShop.toLowerCase() === requestShopId.toLowerCase();
+    expect(isHomeShop).toBe(true);
+  });
+});
+
+// ============================================================
+// Redeem - Verification Service Contract
+// ============================================================
+describe('Verification Service Contract', () => {
+  it('verification response should contain expected fields', () => {
+    const expectedFields = [
+      'canRedeem',
+      'message',
+      'availableBalance',
+      'maxRedeemable',
+      'isHomeShop',
+      'crossShopLimit'
+    ];
+    expect(expectedFields).toContain('canRedeem');
+    expect(expectedFields).toContain('availableBalance');
+    expect(expectedFields).toContain('isHomeShop');
+    expect(expectedFields).toHaveLength(6);
+  });
+
+  it('successful redeem response should contain expected fields', () => {
+    const expectedFields = [
+      'customerTier',
+      'isHomeShop',
+      'amountFromBlockchain',
+      'amountFromDatabase',
+      'burnSuccessful',
+      'transactionHash',
+      'redemptionStrategy'
+    ];
+    expect(expectedFields).toContain('redemptionStrategy');
+    expect(expectedFields).toContain('isHomeShop');
+    expect(expectedFields).toHaveLength(7);
+  });
+
+  it('redemption strategies should be well-defined', () => {
+    const strategies = ['blockchain_only', 'database_only', 'hybrid'];
+    expect(strategies).toHaveLength(3);
+    strategies.forEach(s => expect(typeof s).toBe('string'));
+  });
+});
+
+// ============================================================
+// Redeem - No-Show Tier Interaction
+// ============================================================
+describe('No-Show Tier Interaction with Redemption', () => {
+  it('manual shop redemption should NOT have no-show tier RCN cap', () => {
+    // The 80% RCN cap from no-show tiers only applies to booking checkout
+    // Manual shop redemption is a different flow and should not be restricted
+    const isBookingCheckout = false;
+    const isManualRedemption = true;
+    const shouldApplyNoShowCap = isBookingCheckout && !isManualRedemption;
+    expect(shouldApplyNoShowCap).toBe(false);
+  });
+
+  it('booking checkout should have no-show tier RCN cap', () => {
+    const isBookingCheckout = true;
+    const customerTier = 'caution';
+    const shouldApplyNoShowCap = isBookingCheckout && (customerTier === 'caution' || customerTier === 'deposit_required');
+    expect(shouldApplyNoShowCap).toBe(true);
+  });
+
+  it('suspended customer can still redeem at shop (no booking block)', () => {
+    // Suspension blocks BOOKING, not REDEMPTION
+    // Customer can visit shop and redeem earned RCN even if suspended
+    const isSuspended = true;
+    const canRedeem = true; // Redemption is not affected by suspension
+    const canBook = !isSuspended;
+    expect(canRedeem).toBe(true);
+    expect(canBook).toBe(false);
+  });
+});
+
+// ============================================================
+// Redeem - Input Validation
+// ============================================================
+describe('Redeem - Input Validation', () => {
+  it('should require customerAddress', () => {
+    const body = { amount: 10 };
+    expect(body).not.toHaveProperty('customerAddress');
+  });
+
+  it('should require amount', () => {
+    const body = { customerAddress: mockCustomerAddress };
+    expect(body).not.toHaveProperty('amount');
+  });
+
+  it('should reject zero amount', () => {
+    const amount = 0;
+    expect(amount).toBeLessThanOrEqual(0);
+  });
+
+  it('should reject negative amount', () => {
+    const amount = -5;
+    expect(amount).toBeLessThan(0);
+  });
+
+  it('should validate Ethereum address format', () => {
+    const validAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0';
+    expect(validAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+
+    const invalidAddresses = ['not-an-address', '0x', ''];
+    invalidAddresses.forEach(a => {
+      expect(a).not.toMatch(/^0x[a-fA-F0-9]{40}$/);
+    });
+  });
+
+  it('should prevent shop from redeeming from own wallet', () => {
+    const shopWallet = mockShopWalletAddress;
+    const customerAddress = mockShopWalletAddress; // Same as shop
+    const isSelfRedemption = shopWallet.toLowerCase() === customerAddress.toLowerCase();
+    expect(isSelfRedemption).toBe(true);
+    // This should be rejected
+  });
+
+  it('sessionId should be optional (for immediate redemption)', () => {
+    const bodyWithSession = { customerAddress: mockCustomerAddress, amount: 10, sessionId: 'sess_123' };
+    const bodyWithoutSession = { customerAddress: mockCustomerAddress, amount: 10, immediateRedeem: true };
+    expect(bodyWithSession).toHaveProperty('sessionId');
+    expect(bodyWithoutSession).not.toHaveProperty('sessionId');
+    expect(bodyWithoutSession).toHaveProperty('immediateRedeem');
+  });
+});

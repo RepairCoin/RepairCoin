@@ -225,8 +225,7 @@ export async function submitDispute(req: AuthenticatedRequest, res: Response): P
     logger.error('Error submitting dispute:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to submit dispute',
-      debug: error?.message || String(error)
+      error: 'Failed to submit dispute'
     });
   }
 }
