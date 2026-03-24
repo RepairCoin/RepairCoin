@@ -104,67 +104,18 @@ class RepairCoinApp {
   }
 
   private async ensureCriticalSchema(): Promise<void> {
-    // Direct schema fixes that must exist before the app starts
-    // This bypasses the migration runner which may have path issues in production
+    // TODO: Remove this entire method after 3+ stable production deploys confirm
+    // the migration runner handles everything. Last reviewed: 2026-03-24.
+    //
+    // Schema fixes have been removed — migrations now handle them:
+    // - Waitlist columns (085, 090, 091) — confirmed applied
+    // - no_show_history type fixes (093) — confirmed applied
+    // - shop_email_preferences table (082) — confirmed applied
+    //
+    // Only the schema_migrations backfill remains (one-time, idempotent).
     try {
       const { getSharedPool } = require('./utils/database-pool');
       const pool = getSharedPool();
-
-      // Ensure waitlist columns exist (migrations 085, 090, 091)
-      await pool.query(`
-        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS inquiry_type VARCHAR(20) DEFAULT 'waitlist'
-      `);
-      await pool.query(`
-        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS business_category VARCHAR(50)
-      `);
-      await pool.query(`
-        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS city VARCHAR(100)
-      `);
-      await pool.query(`
-        ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(100)
-      `);
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_waitlist_business_category ON waitlist(business_category)
-      `);
-
-      // Fix no_show_history type mismatches (migration 093)
-      await pool.query(`
-        ALTER TABLE no_show_history ALTER COLUMN service_id TYPE VARCHAR(255)
-      `);
-      await pool.query(`
-        ALTER TABLE no_show_history ALTER COLUMN order_id TYPE VARCHAR(255)
-      `);
-
-      // Ensure shop_email_preferences table exists
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS shop_email_preferences (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          shop_id UUID NOT NULL,
-          new_booking BOOLEAN DEFAULT true,
-          booking_cancellation BOOLEAN DEFAULT true,
-          booking_reschedule BOOLEAN DEFAULT true,
-          appointment_reminder BOOLEAN DEFAULT true,
-          no_show_alert BOOLEAN DEFAULT true,
-          new_customer BOOLEAN DEFAULT true,
-          customer_review BOOLEAN DEFAULT true,
-          customer_message BOOLEAN DEFAULT true,
-          payment_received BOOLEAN DEFAULT true,
-          refund_processed BOOLEAN DEFAULT true,
-          subscription_renewal BOOLEAN DEFAULT true,
-          subscription_expiring BOOLEAN DEFAULT true,
-          marketing_updates BOOLEAN DEFAULT false,
-          feature_announcements BOOLEAN DEFAULT true,
-          platform_news BOOLEAN DEFAULT false,
-          daily_digest BOOLEAN DEFAULT false,
-          digest_time VARCHAR(20) DEFAULT 'morning',
-          weekly_report BOOLEAN DEFAULT true,
-          weekly_report_day INTEGER DEFAULT 1,
-          monthly_report BOOLEAN DEFAULT true,
-          monthly_report_day INTEGER DEFAULT 1,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-      `);
 
       // Backfill missing schema_migrations records for migrations whose objects already exist
       // Production DB was restored from backup so early migrations were never recorded

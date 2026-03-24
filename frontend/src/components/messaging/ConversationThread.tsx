@@ -441,11 +441,13 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                               }`}>
                                 {/* Service Image */}
                                 {message.metadata.serviceImage && (
-                                  <img
-                                    src={message.metadata.serviceImage}
-                                    alt={message.metadata.serviceName}
-                                    className="w-full h-32 object-cover"
-                                  />
+                                  <div className="w-full aspect-[4/3] overflow-hidden bg-gray-800">
+                                    <img
+                                      src={message.metadata.serviceImage}
+                                      alt={message.metadata.serviceName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
                                 )}
                                 {/* Service Details */}
                                 <div className="p-3">
@@ -480,11 +482,13 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                                   : "border-gray-700 bg-[#0A0A0A]"
                               }`}>
                                 {message.metadata.serviceImage && (
-                                  <img
-                                    src={message.metadata.serviceImage}
-                                    alt={message.metadata.serviceName}
-                                    className="w-full h-32 object-cover"
-                                  />
+                                  <div className="w-full aspect-[4/3] overflow-hidden bg-gray-800">
+                                    <img
+                                      src={message.metadata.serviceImage}
+                                      alt={message.metadata.serviceName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
                                 )}
                                 <div className="p-3">
                                   <h4 className={`font-semibold text-sm mb-1 ${

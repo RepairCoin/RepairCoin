@@ -15,25 +15,19 @@ export class NoShowPolicyController {
    * Get shop's no-show policy configuration
    */
   async getShopPolicy(req: Request, res: Response): Promise<void> {
-    console.log('🔍 [NoShowPolicy] GET /shops/:shopId/no-show-policy called');
     try {
       const { shopId } = req.params;
-      console.log('🔍 [NoShowPolicy] Shop ID:', shopId);
 
       // Authorization: Only shop owner or admin can view policy
       const userAddress = req.user?.address?.toLowerCase();
       const userRole = req.user?.role;
-      console.log('🔍 [NoShowPolicy] User:', { address: userAddress, role: userRole });
 
       if (userRole !== 'admin') {
-        console.log('🔍 [NoShowPolicy] Non-admin user, verifying shop ownership...');
         // Verify shop ownership
         const { shopRepository } = await import('../../../repositories');
         const shop = await shopRepository.getShop(shopId);
-        console.log('🔍 [NoShowPolicy] Shop found:', shop ? 'Yes' : 'No');
 
         if (!shop) {
-          console.log('❌ [NoShowPolicy] Shop not found:', shopId);
           res.status(404).json({
             success: false,
             error: 'Shop not found'
@@ -42,19 +36,15 @@ export class NoShowPolicyController {
         }
 
         if (shop.walletAddress.toLowerCase() !== userAddress) {
-          console.log('❌ [NoShowPolicy] Unauthorized access attempt');
           res.status(403).json({
             success: false,
             error: 'Unauthorized: You can only view your own shop policy'
           });
           return;
         }
-        console.log('✅ [NoShowPolicy] Shop ownership verified');
       }
 
-      console.log('🔍 [NoShowPolicy] Fetching policy from service...');
       const policy = await this.noShowPolicyService.getShopPolicy(shopId);
-      console.log('✅ [NoShowPolicy] Policy retrieved successfully:', JSON.stringify(policy, null, 2));
 
       logger.info('Shop policy retrieved', {
         shopId,

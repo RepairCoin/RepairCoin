@@ -88,8 +88,6 @@ export class NoShowPolicyService {
    * Get shop's no-show policy (with defaults if not found)
    */
   async getShopPolicy(shopId: string): Promise<NoShowPolicy> {
-    console.log('🔍 [NoShowPolicyService] getShopPolicy called for shopId:', shopId);
-
     try {
       const query = `
         SELECT
@@ -124,20 +122,15 @@ export class NoShowPolicyService {
         WHERE shop_id = $1
       `;
 
-      console.log('🔍 [NoShowPolicyService] Executing query...');
       const result = await this.pool.query(query, [shopId]);
-      console.log('🔍 [NoShowPolicyService] Query result rows:', result.rows.length);
 
       if (result.rows.length === 0) {
-        console.log('🔍 [NoShowPolicyService] No policy found, returning defaults');
-        // Return default policy
         return this.getDefaultPolicy(shopId);
       }
 
-      console.log('✅ [NoShowPolicyService] Policy found in database');
       return result.rows[0];
     } catch (error) {
-      console.error('❌ [NoShowPolicyService] Error in getShopPolicy:', error);
+      logger.error('Error in getShopPolicy:', { shopId, error });
       throw error;
     }
   }

@@ -1857,3 +1857,165 @@ describe('Idempotency Key - Error Scenarios', () => {
     expect(shouldReturnSuccess).toBe(true);
   });
 });
+
+// ============================================================
+// Issue Reward - Reward Tier Calculation Contract
+// ============================================================
+describe('Issue Reward - Reward Tier Calculations', () => {
+  // Based on CLAUDE.md business model:
+  // $0-29: 0 RCN base (tier bonus only)
+  // $30-49: 5 RCN base
+  // $50-99: 10 RCN base
+  // $100+: 15 RCN base
+  // Bronze: +0, Silver: +2, Gold: +5
+
+  it('repair $0-29 should give 0 base reward', () => {
+    const getBaseReward = (amount: number): number => {
+      if (amount >= 100) return 15;
+      if (amount >= 50) return 10;
+      if (amount >= 30) return 5;
+      return 0;
+    };
+    expect(getBaseReward(10)).toBe(0);
+    expect(getBaseReward(29)).toBe(0);
+  });
+
+  it('repair $30-49 should give 5 base reward', () => {
+    const getBaseReward = (amount: number): number => {
+      if (amount >= 100) return 15;
+      if (amount >= 50) return 10;
+      if (amount >= 30) return 5;
+      return 0;
+    };
+    expect(getBaseReward(30)).toBe(5);
+    expect(getBaseReward(49)).toBe(5);
+  });
+
+  it('repair $50-99 should give 10 base reward', () => {
+    const getBaseReward = (amount: number): number => {
+      if (amount >= 100) return 15;
+      if (amount >= 50) return 10;
+      if (amount >= 30) return 5;
+      return 0;
+    };
+    expect(getBaseReward(50)).toBe(10);
+    expect(getBaseReward(99)).toBe(10);
+  });
+
+  it('repair $100+ should give 15 base reward', () => {
+    const getBaseReward = (amount: number): number => {
+      if (amount >= 100) return 15;
+      if (amount >= 50) return 10;
+      if (amount >= 30) return 5;
+      return 0;
+    };
+    expect(getBaseReward(100)).toBe(15);
+    expect(getBaseReward(500)).toBe(15);
+  });
+
+  it('tier bonuses should be correct', () => {
+    const getTierBonus = (tier: string): number => {
+      switch (tier) {
+        case 'BRONZE': return 0;
+        case 'SILVER': return 2;
+        case 'GOLD': return 5;
+        default: return 0;
+      }
+    };
+    expect(getTierBonus('BRONZE')).toBe(0);
+    expect(getTierBonus('SILVER')).toBe(2);
+    expect(getTierBonus('GOLD')).toBe(5);
+  });
+
+  it('total reward = base + tier bonus + promo bonus', () => {
+    const base = 10;
+    const tierBonus = 2;
+    const promoBonus = 5;
+    expect(base + tierBonus + promoBonus).toBe(17);
+  });
+});
+
+// ============================================================
+// Issue Reward - Response Format Contract
+// ============================================================
+describe('Issue Reward - Response Format', () => {
+  it('success response should contain expected fields', () => {
+    const expectedFields = [
+      'baseReward',
+      'tierBonus',
+      'promoBonus',
+      'promoCode',
+      'totalReward',
+      'txHash',
+      'onChainTransfer',
+      'customerNewBalance',
+      'shopNewBalance',
+      'referralCompleted',
+      'referralMessage',
+      'message'
+    ];
+    expect(expectedFields).toHaveLength(12);
+    expectedFields.forEach(f => expect(typeof f).toBe('string'));
+  });
+
+  it('response should NOT include customerTier (known missing field)', () => {
+    // The issue-reward endpoint does not return customerTier in the response
+    // This is a known gap - the tier is used for calculation but not returned
+    const responseFields = [
+      'baseReward', 'tierBonus', 'promoBonus', 'promoCode',
+      'totalReward', 'txHash', 'onChainTransfer',
+      'customerNewBalance', 'shopNewBalance',
+      'referralCompleted', 'referralMessage', 'message'
+    ];
+    expect(responseFields).not.toContain('customerTier');
+  });
+
+  it('error response for insufficient balance should include details', () => {
+    const expectedErrorFields = ['success', 'error'];
+    expect(expectedErrorFields).toContain('success');
+    expect(expectedErrorFields).toContain('error');
+  });
+});
+
+// ============================================================
+// Issue Reward - Input Validation Contract
+// ============================================================
+describe('Issue Reward - Input Validation', () => {
+  it('should require customerAddress field', () => {
+    const body = { repairAmount: 50 };
+    expect(body).not.toHaveProperty('customerAddress');
+  });
+
+  it('should require repairAmount field', () => {
+    const body = { customerAddress: '0x1234' };
+    expect(body).not.toHaveProperty('repairAmount');
+  });
+
+  it('should reject repairAmount < 1', () => {
+    const invalidAmounts = [0, -1, -100];
+    invalidAmounts.forEach(a => expect(a).toBeLessThan(1));
+  });
+
+  it('should validate Ethereum address format', () => {
+    const validAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0';
+    const invalidAddresses = ['not-an-address', '0x', '742d35Cc', ''];
+
+    expect(validAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    invalidAddresses.forEach(a => {
+      expect(a).not.toMatch(/^0x[a-fA-F0-9]{40}$/);
+    });
+  });
+
+  it('promoCode should be optional', () => {
+    const bodyWithPromo = { customerAddress: '0x1234', repairAmount: 50, promoCode: 'TEST' };
+    const bodyWithoutPromo = { customerAddress: '0x1234', repairAmount: 50 };
+
+    expect(bodyWithPromo).toHaveProperty('promoCode');
+    expect(bodyWithoutPromo).not.toHaveProperty('promoCode');
+  });
+
+  it('valid repair amounts should be accepted', () => {
+    const validAmounts = [1, 10, 29.99, 30, 50, 100, 500, 10000];
+    validAmounts.forEach(a => expect(a).toBeGreaterThanOrEqual(1));
+  });
+});

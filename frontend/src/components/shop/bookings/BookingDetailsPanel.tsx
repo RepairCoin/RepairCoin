@@ -344,11 +344,13 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
                                     : "border-gray-700 bg-[#0A0A0A]"
                                 }`}>
                                   {message.metadata.serviceImage && (
-                                    <img
-                                      src={message.metadata.serviceImage}
-                                      alt={message.metadata.serviceName}
-                                      className="w-full h-32 object-cover"
-                                    />
+                                    <div className="w-full aspect-[4/3] overflow-hidden bg-gray-800">
+                                      <img
+                                        src={message.metadata.serviceImage}
+                                        alt={message.metadata.serviceName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
                                   )}
                                   <div className="p-3">
                                     <h4 className={`font-semibold text-sm mb-1 ${
@@ -385,11 +387,13 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
                                     : "border-gray-700 bg-[#0A0A0A]"
                                 }`}>
                                   {message.metadata.serviceImage && (
-                                    <img
-                                      src={message.metadata.serviceImage}
-                                      alt={message.metadata.serviceName}
-                                      className="w-full h-32 object-cover"
-                                    />
+                                    <div className="w-full aspect-[4/3] overflow-hidden bg-gray-800">
+                                      <img
+                                        src={message.metadata.serviceImage}
+                                        alt={message.metadata.serviceName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
                                   )}
                                   <div className="p-3">
                                     <h4 className={`font-semibold text-sm mb-1 ${

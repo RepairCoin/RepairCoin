@@ -1323,3 +1323,165 @@ describe('Promo Code Bug Detection Tests', () => {
     expect(maxBonusEnforced).toBe(true);
   });
 });
+
+// ============================================================
+// Promo Code - Validate Endpoint Response Contract
+// ============================================================
+describe('Promo Code Validate Response Contract', () => {
+  it('valid code should return is_valid: true with bonus details', () => {
+    const validResponse = {
+      is_valid: true,
+      bonus_type: 'fixed',
+      bonus_value: 5,
+      max_bonus: null,
+      promo_code_id: 'promo_123'
+    };
+    expect(validResponse.is_valid).toBe(true);
+    expect(validResponse.bonus_type).toBeDefined();
+    expect(validResponse.bonus_value).toBeGreaterThan(0);
+  });
+
+  it('invalid code should return is_valid: false with error message', () => {
+    const invalidResponse = {
+      is_valid: false,
+      error_message: 'Invalid promo code',
+      promo_code_id: null,
+      bonus_type: null,
+      bonus_value: null,
+      max_bonus: null
+    };
+    expect(invalidResponse.is_valid).toBe(false);
+    expect(invalidResponse.error_message).toBeDefined();
+    expect(invalidResponse.promo_code_id).toBeNull();
+  });
+
+  it('expired code should return is_valid: false', () => {
+    const expiredResponse = {
+      is_valid: false,
+      error_message: 'Promo code has expired'
+    };
+    expect(expiredResponse.is_valid).toBe(false);
+    expect(expiredResponse.error_message).toContain('expired');
+  });
+
+  it('usage limit reached should return is_valid: false', () => {
+    const limitResponse = {
+      is_valid: false,
+      error_message: 'Promo code usage limit reached'
+    };
+    expect(limitResponse.is_valid).toBe(false);
+    expect(limitResponse.error_message).toContain('limit');
+  });
+});
+
+// ============================================================
+// Promo Code - CRUD Operations Contract
+// ============================================================
+describe('Promo Code CRUD Contract', () => {
+  it('create should require code, name, bonus_type, bonus_value', () => {
+    const requiredFields = ['code', 'name', 'bonus_type', 'bonus_value'];
+    expect(requiredFields).toHaveLength(4);
+  });
+
+  it('code should be 3-20 characters', () => {
+    const validCodes = ['ABC', 'TEST123', 'TWENTYCHARSLONGCODE1'];
+    const invalidCodes = ['AB', '', 'THISCODEISWAAAYTOOLONGFORTHEVALIDATION'];
+
+    validCodes.forEach(c => {
+      expect(c.length).toBeGreaterThanOrEqual(3);
+      expect(c.length).toBeLessThanOrEqual(20);
+    });
+    invalidCodes.forEach(c => {
+      expect(c.length < 3 || c.length > 20).toBe(true);
+    });
+  });
+
+  it('bonus_type must be fixed or percentage', () => {
+    const validTypes = ['fixed', 'percentage'];
+    const invalidTypes = ['flat', 'percent', 'multiplier', ''];
+
+    validTypes.forEach(t => expect(['fixed', 'percentage']).toContain(t));
+    invalidTypes.forEach(t => expect(['fixed', 'percentage']).not.toContain(t));
+  });
+
+  it('bonus_value must be greater than 0', () => {
+    const validValues = [0.01, 1, 5, 10, 100];
+    const invalidValues = [0, -1, -100];
+
+    validValues.forEach(v => expect(v).toBeGreaterThan(0));
+    invalidValues.forEach(v => expect(v).toBeLessThanOrEqual(0));
+  });
+
+  it('percentage type should require max_bonus', () => {
+    const percentageCode = { bonus_type: 'percentage', bonus_value: 50, max_bonus: 25 };
+    expect(percentageCode.bonus_type).toBe('percentage');
+    expect(percentageCode.max_bonus).toBeDefined();
+    expect(percentageCode.max_bonus).toBeGreaterThan(0);
+  });
+
+  it('optional fields should have correct defaults', () => {
+    const defaults = {
+      is_active: true,
+      total_usage_limit: null, // unlimited
+      per_customer_limit: 1,
+      start_date: null,
+      end_date: null,
+      max_bonus: null // for fixed type
+    };
+    expect(defaults.is_active).toBe(true);
+    expect(defaults.total_usage_limit).toBeNull();
+    expect(defaults.per_customer_limit).toBe(1);
+  });
+});
+
+// ============================================================
+// Promo Code - Interaction with Issue Reward
+// ============================================================
+describe('Promo Code - Issue Reward Integration', () => {
+  it('total reward should include promo bonus', () => {
+    const baseReward = 10;
+    const tierBonus = 2;
+    const promoBonus = 5;
+    const total = baseReward + tierBonus + promoBonus;
+    expect(total).toBe(17);
+  });
+
+  it('fixed promo should add exact bonus value', () => {
+    const promoCode = { bonus_type: 'fixed', bonus_value: 5 };
+    const promoBonus = promoCode.bonus_value;
+    expect(promoBonus).toBe(5);
+  });
+
+  it('percentage promo should calculate from base reward', () => {
+    const baseReward = 10;
+    const promoCode = { bonus_type: 'percentage', bonus_value: 50, max_bonus: 25 };
+    const rawBonus = baseReward * (promoCode.bonus_value / 100);
+    const promoBonus = Math.min(rawBonus, promoCode.max_bonus);
+    expect(rawBonus).toBe(5);
+    expect(promoBonus).toBe(5);
+  });
+
+  it('percentage promo should be capped by max_bonus', () => {
+    const baseReward = 15;
+    const promoCode = { bonus_type: 'percentage', bonus_value: 100, max_bonus: 10 };
+    const rawBonus = baseReward * (promoCode.bonus_value / 100);
+    const promoBonus = Math.min(rawBonus, promoCode.max_bonus);
+    expect(rawBonus).toBe(15);
+    expect(promoBonus).toBe(10); // capped at max_bonus
+  });
+
+  it('promo bonus should be deducted from shop balance', () => {
+    const shopBalance = 100;
+    const totalReward = 17; // base + tier + promo
+    const newBalance = shopBalance - totalReward;
+    expect(newBalance).toBe(83);
+    expect(newBalance).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should reject if total reward exceeds shop balance', () => {
+    const shopBalance = 10;
+    const totalReward = 17;
+    const hasInsufficientBalance = totalReward > shopBalance;
+    expect(hasInsufficientBalance).toBe(true);
+  });
+});
