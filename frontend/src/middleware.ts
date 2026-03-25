@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
   // Performance: skip all processing for static public pages that never need auth logic.
   // Note: /register is excluded because authenticated users hitting /register need to be
   // redirected to /choose (handled below). /choose is excluded for the same safety reason.
-  const staticPublicPaths = ['/', '/about', '/features', '/rewards', '/contact', '/status'];
+  const staticPublicPaths = ['/', '/about', '/features', '/rewards', '/contact', '/status', '/waitlist'];
   const isStaticPublic = staticPublicPaths.includes(pathname) ||
     staticPublicPaths.some(p => p !== '/' && pathname.startsWith(p + '/'));
   if (isStaticPublic) {
