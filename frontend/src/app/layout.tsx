@@ -31,6 +31,7 @@ const inriaSans = Inria_Sans({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.repaircoin.ai'),
   title: 'RepairCoin - Loyalty Tokens for Repair Shops',
   description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
   keywords: ['blockchain', 'loyalty', 'tokens', 'repair', 'cryptocurrency'],
@@ -38,6 +39,26 @@ export const metadata: Metadata = {
     icon: '/img/favicon-logo.png',
     shortcut: '/img/favicon-logo.png',
     apple: '/img/favicon-logo.png',
+  },
+  openGraph: {
+    title: 'RepairCoin - Loyalty Tokens for Repair Shops',
+    description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
+    siteName: 'RepairCoin',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'RepairCoin - Smart Loyalty for Service Businesses',
+      },
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RepairCoin - Loyalty Tokens for Repair Shops',
+    description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
+    images: ['/og-image.png'],
   },
 }
 
