@@ -1,5 +1,9 @@
 import { BaseResponse } from "./base.interface";
 
+export type CustomerTierLower = "bronze" | "silver" | "gold";
+export type CustomerTierUpper = "BRONZE" | "SILVER" | "GOLD";
+export type CustomerTier = CustomerTierLower | CustomerTierUpper;
+
 export interface TierBenefits {
   earningMultiplier: number;
   redemptionRate: number;

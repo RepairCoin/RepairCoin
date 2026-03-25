@@ -66,7 +66,7 @@ export const CustomerDetailsSection: React.FC<CustomerDetailsSectionProps> = ({
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
                 <View
-                  className={`px-3 py-1 rounded-full mr-3 ${TIER_STYLES[customerData.tier]}`}
+                  className={`px-3 py-1 rounded-full mr-3 ${TIER_STYLES[customerData.tier.toUpperCase() as keyof typeof TIER_STYLES] || ""}`}
                 >
                   <Text className="text-white text-xs font-bold">
                     {customerData.tier}

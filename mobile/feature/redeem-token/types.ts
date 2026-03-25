@@ -1,4 +1,5 @@
-export type CustomerTier = "GOLD" | "SILVER" | "BRONZE";
+import type { CustomerTier } from "@/shared/interfaces/customer.interface";
+export type { CustomerTier };
 
 /**
  * Cross-shop redemption limits
