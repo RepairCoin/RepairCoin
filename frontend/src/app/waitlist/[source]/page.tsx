@@ -22,11 +22,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: config.metaTitle,
       description: config.metaDescription,
-      url: `https://repaircoin.ai/waitlist/${source}`,
+      url: `https://www.repaircoin.ai/waitlist/${source}`,
       siteName: 'RepairCoin',
       images: [
         {
-          url: 'https://repaircoin.ai/og-image.png',
+          url: 'https://www.repaircoin.ai/og-image.png',
           width: 1200,
           height: 630,
           alt: 'RepairCoin - Smart Loyalty for Service Businesses',
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: 'summary_large_image',
       title: config.metaTitle,
       description: config.metaDescription,
-      images: ['https://repaircoin.ai/og-image.png'],
+      images: ['https://www.repaircoin.ai/og-image.png'],
     },
   };
 }

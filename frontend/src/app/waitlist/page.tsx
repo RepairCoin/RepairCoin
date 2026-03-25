@@ -1,5 +1,3 @@
-"use client";
-
 import { campaignConfig } from "./[source]/config";
 import WaitlistTemplate from "@/components/waitlist/WaitlistTemplate";
 
