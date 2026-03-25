@@ -17,10 +17,12 @@ import {
   Users,
   Eye,
   Settings,
+  Mail,
 } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import toast from "react-hot-toast";
 import apiClient from "@/services/api/client";
+import { gmailApi } from "@/services/api/gmail";
 
 interface SocialMediaLinks {
   facebook?: string;
@@ -49,6 +51,34 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState(false);
+
+  // Gmail connection state
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState<string>("");
+  const [gmailLoading, setGmailLoading] = useState(true);
+
+  // Load Gmail connection status from backend
+  useEffect(() => {
+    loadGmailStatus();
+  }, [shopId]);
+
+  const loadGmailStatus = async () => {
+    try {
+      setGmailLoading(true);
+      const response = await gmailApi.getConnectionStatus();
+      if (response.success && response.data.connected) {
+        setGmailConnected(true);
+        setGmailEmail(response.data.email);
+      } else {
+        setGmailConnected(false);
+        setGmailEmail("");
+      }
+    } catch (error) {
+      console.error('Failed to load Gmail status:', error);
+    } finally {
+      setGmailLoading(false);
+    }
+  };
 
   const [links, setLinks] = useState<SocialMediaLinks>({
     facebook: initialLinks.facebook || "",
@@ -147,6 +177,45 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
     }
   };
 
+  // Gmail connection handlers (real OAuth integration)
+  const handleConnectGmail = async () => {
+    try {
+      toast.loading("Connecting to Gmail...", { id: "gmail-connect" });
+
+      const response = await gmailApi.connect();
+
+      if (response.success && response.data.authUrl) {
+        // Redirect to Google OAuth
+        window.location.href = response.data.authUrl;
+      } else {
+        throw new Error('Failed to get authorization URL');
+      }
+    } catch (error) {
+      console.error('Gmail connection error:', error);
+      toast.error("Failed to connect Gmail. Please try again.", { id: "gmail-connect" });
+    }
+  };
+
+  const handleDisconnectGmail = async () => {
+    if (!confirm('Are you sure you want to disconnect your Gmail account? You will no longer be able to send emails to customers.')) {
+      return;
+    }
+
+    try {
+      toast.loading("Disconnecting Gmail...", { id: "gmail-disconnect" });
+
+      await gmailApi.disconnect();
+
+      setGmailConnected(false);
+      setGmailEmail("");
+
+      toast.success("Gmail disconnected successfully!", { id: "gmail-disconnect" });
+    } catch (error) {
+      console.error('Gmail disconnect error:', error);
+      toast.error("Failed to disconnect Gmail", { id: "gmail-disconnect" });
+    }
+  };
+
   const socialPlatforms = [
     {
       key: "facebook" as const,
@@ -240,20 +309,6 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Info Notice */}
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-sm text-blue-300">
-              <strong>Tip:</strong> Add your social media links to help customers find and
-              connect with you across multiple platforms. These links will appear on your
-              shop profile and service pages.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -283,6 +338,108 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Info Notice */}
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm text-blue-300">
+              <strong>Tip:</strong> Add your social media links to help customers find and
+              connect with you across multiple platforms. These links will appear on your
+              shop profile and service pages.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Gmail Connection Section (Frontend Only) */}
+      <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="bg-red-500/10 p-3 rounded-lg">
+              <Mail className="w-6 h-6 text-red-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-1">
+                Gmail Integration
+              </h3>
+              {gmailConnected ? (
+                <div className="space-y-1">
+                  <p className="text-sm text-green-400 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Connected to {gmailEmail}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Use Gmail to communicate with customers directly
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  Connect your Gmail account to send notifications and communicate with customers
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-shrink-0">
+            {gmailConnected ? (
+              <button
+                onClick={handleDisconnectGmail}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Disconnect
+              </button>
+            ) : (
+              <button
+                onClick={handleConnectGmail}
+                className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all flex items-center gap-2 font-medium"
+              >
+                <Mail className="w-4 h-4" />
+                Connect Gmail
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Gmail Features Info */}
+        {gmailConnected && (
+          <div className="mt-4 pt-4 border-t border-gray-800">
+            <p className="text-xs text-gray-500 mb-3">
+              <strong className="text-gray-400">Available features:</strong>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-gray-400">Send booking confirmations</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-gray-400">Send appointment reminders</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-gray-400">Customer support emails</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-gray-400">Promotional campaigns</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Gmail Integration Info */}
+        <div className="mt-4 pt-4 border-t border-gray-800">
+          <div className="flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-gray-400">
+              Connect your Gmail account to send booking confirmations, reminders, and communicate with customers directly from RepairCoin.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Success Message */}
