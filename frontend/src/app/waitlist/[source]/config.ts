@@ -10,37 +10,37 @@ export interface CampaignConfig {
 
 export const campaignConfig: Record<string, CampaignConfig> = {
   direct: {
-    source: 'direct',
-    headline: 'Blockchain Loyalty Built for Modern Service Businesses',
+    source: "direct",
+    headline: "Get Discovered. Get Booked. Keep Customers Coming Back.",
     subtext:
-      'Be part of the first wave of shops using blockchain rewards to drive repeat customers, smarter growth and long-term loyalty.',
-    ctaText: 'Join Waitlist',
-    demoCtaText: 'Get Free Demo',
-    metaTitle: 'Join the RepairCoin Waitlist',
+      "RepairCoin helps service businesses grow with a built-in marketplace, booking system, and rewards that turn first-time visitors into repeat customers.",
+    ctaText: "Join Waitlist",
+    demoCtaText: "Get Free Demo",
+    metaTitle: "Join the RepairCoin Waitlist",
     metaDescription:
-      'Be part of the first wave of shops using blockchain rewards to drive repeat customers, smarter growth and long-term loyalty.',
+      "Be part of the first wave of shops using blockchain rewards to drive repeat customers, smarter growth and long-term loyalty.",
   },
   organic: {
-    source: 'organic',
-    headline: 'Turn Every Repair Into Rewards',
+    source: "organic",
+    headline: "Get Discovered. Get Booked. Keep Customers Coming Back.",
     subtext:
-      'RepairCoin is building the first blockchain-powered loyalty network for local repair shops. Earn tokens at any partner shop, redeem them anywhere in the network.',
-    ctaText: 'Join the Waitlist',
-    demoCtaText: 'Get a Free Demo',
-    metaTitle: 'Join RepairCoin - The Future of Repair Shop Loyalty',
+      "RepairCoin helps service businesses grow with a built-in marketplace, booking system, and rewards that turn first-time visitors into repeat customers.",
+    ctaText: "Join Waitlist",
+    demoCtaText: "Get Free Demo",
+    metaTitle: "Join the RepairCoin Waitlist",
     metaDescription:
-      'Be the first to join RepairCoin, the blockchain loyalty network connecting repair shops and customers. Earn and redeem tokens across the network.',
+      "Be part of the first wave of shops using blockchain rewards to drive repeat customers, smarter growth and long-term loyalty.",
   },
   fb: {
-    source: 'fb',
-    headline: 'Your Repair Shop Deserves Better Loyalty',
+    source: "fb",
+    headline: "Get Discovered. Get Booked. Keep Customers Coming Back.",
     subtext:
-      'Stop losing customers to competitors. RepairCoin helps repair shops retain customers with blockchain-powered rewards that work across a growing network of partner shops.',
-    ctaText: 'Claim Your Spot',
-    demoCtaText: 'See It In Action',
-    metaTitle: 'RepairCoin - Smart Loyalty for Repair Shops',
+      "RepairCoin helps service businesses grow with a built-in marketplace, booking system, and rewards that turn first-time visitors into repeat customers.",
+    ctaText: "Join Waitlist",
+    demoCtaText: "Get Free Demo",
+    metaTitle: "Join the RepairCoin Waitlist",
     metaDescription:
-      'Join 50+ repair shops already on the waitlist. RepairCoin gives your customers rewards they can earn and spend across every partner shop in the network.',
+      "Be part of the first wave of shops using blockchain rewards to drive repeat customers, smarter growth and long-term loyalty.",
   },
 };
 
