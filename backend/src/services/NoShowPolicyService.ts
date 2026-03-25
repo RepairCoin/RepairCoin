@@ -208,6 +208,7 @@ export class NoShowPolicyService {
     if (customer.tier === 'caution') {
       minimumAdvanceHours = policy.cautionAdvanceBookingHours;
       restrictions.push(`Must book at least ${policy.cautionAdvanceBookingHours} hours in advance`);
+      restrictions.push(`Maximum ${policy.maxRcnRedemptionPercent}% RCN redemption`);
     } else if (customer.tier === 'deposit_required') {
       minimumAdvanceHours = policy.depositAdvanceBookingHours;
       restrictions.push(`Must book at least ${policy.depositAdvanceBookingHours} hours in advance`);
