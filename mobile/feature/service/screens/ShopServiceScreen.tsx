@@ -25,6 +25,7 @@ import {
 // Feature
 import ServicesTab from "@/feature/service/components/ServicesTab";
 import { BookingShopTab } from "@/feature/booking/components";
+import { BookingAnalyticsTab } from "@/feature/booking-analytics/components";
 
 // Constants
 import { SERVICE_TABS } from "../constants";
@@ -77,7 +78,9 @@ export default function ShopServiceScreen() {
               onPress={() => setActiveTab(tab)}
               className={`flex-1 items-center justify-center ${
                 activeTab === tab ? "bg-[#FFCC00]" : "bg-[#121212]"
-              } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+              } ${i === 0 ? "rounded-l-lg" : ""} ${
+                i === SERVICE_TABS.length - 1 ? "rounded-r-lg" : ""
+              }`}
             >
               <Text
                 className={`text-base font-bold ${
@@ -98,6 +101,7 @@ export default function ShopServiceScreen() {
           />
         )}
         {activeTab === "Booking" && <BookingShopTab />}
+        {activeTab === "Analytics" && <BookingAnalyticsTab />}
       </View>
 
       {/* Add Service FAB - show when Services tab */}

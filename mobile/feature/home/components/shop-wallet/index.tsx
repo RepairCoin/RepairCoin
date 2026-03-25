@@ -123,6 +123,24 @@ export default function ShopWalletTab({
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
 
+        {/* Service Orders Quick Link */}
+        <TouchableOpacity
+          onPress={() => router.push("/shop/service-orders" as any)}
+          activeOpacity={0.7}
+          className="bg-[#1a1a1a] rounded-2xl p-4 flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-full bg-blue-500/10 items-center justify-center mr-3">
+              <Ionicons name="receipt" size={22} color="#60A5FA" />
+            </View>
+            <View>
+              <Text className="text-white font-semibold text-base">Service Orders</Text>
+              <Text className="text-gray-500 text-xs">View & manage all service orders</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
+        </TouchableOpacity>
+
         {/* Subscription Card */}
         {shopData?.operational_status !== "subscription_qualified" &&
           shopData?.operational_status !== "rcg_qualified" && (
