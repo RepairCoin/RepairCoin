@@ -1,4 +1,12 @@
-# Quick Replies for Shop Messaging
+# Feature: Quick Replies for Shop Messaging
+
+**Status:** Pending
+**Priority:** Medium
+**Est. Effort:** 2-3 hrs
+**Created:** 2026-03-10
+**Updated:** 2026-03-10
+
+---
 
 ## Overview
 Allow shop owners to create and use pre-saved message templates for common responses, improving efficiency in customer communication.
@@ -69,9 +77,3 @@ Chat Input with Quick Reply:
 - Management screen: 1 hr
 - Quick reply picker: 1 hr
 - **Total: 2-3 hrs**
-
-## Priority
-MEDIUM - Improves shop efficiency
-
-## Status
-**PENDING**

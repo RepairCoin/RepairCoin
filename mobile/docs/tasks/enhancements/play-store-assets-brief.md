@@ -1,10 +1,17 @@
-# App Store Assets Brief - RepairCoin (Google Play + Apple App Store)
+# Enhancement: App Store Assets Brief
 
-**For:** Graphic Designer
-**Date:** March 17, 2026
-**App Name:** RepairCoin
+**Status:** Open
+**Priority:** High
+**Est. Effort:** Ongoing
+**Created:** 2026-03-17
+**Updated:** 2026-03-17
 
 ---
+
+## Notes
+
+- For: Graphic Designer
+- App Name: RepairCoin (Google Play + Apple App Store)
 
 ## 1. App Icon (REQUIRED - need to create)
 

@@ -1,10 +1,11 @@
 # Bug: Mobile RCN Balance Issues
 
-**Status:** FIXED
-**Priority:** HIGH
+**Status:** Completed
+**Priority:** High
 **Est. Effort:** 3-4 hours
 **Created:** 2026-03-10
-**Fixed:** 2026-03-11
+**Updated:** 2026-03-10
+**Completed:** 2026-03-11
 
 ---
 

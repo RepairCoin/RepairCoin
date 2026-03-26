@@ -1,10 +1,11 @@
 # Feature: Appointment Reschedule
 
-**Status:** ✅ Completed
-**Completed:** 2026-03-19
-**Priority:** MEDIUM
+**Status:** Completed
+**Priority:** Medium
 **Est. Effort:** 4+ days (large feature)
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
+**Completed:** 2026-03-19
 
 ---
 

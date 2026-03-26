@@ -1,3 +1,14 @@
+# Feature: Get or Create Conversation for Shop Chat
+
+**Status:** Completed
+**Priority:** Medium
+**Est. Effort:** 2-3 hours
+**Created:** 2026-03-17
+**Updated:** 2026-03-17
+**Completed:** 2026-03-17
+
+---
+
 # Get or Create Conversation (Shop Initiates Chat)
 
 ## Overview

@@ -1,9 +1,10 @@
 # Feature: Wire Up Messaging Buttons
 
-**Status:** DONE
-**Priority:** MEDIUM
+**Status:** Completed
+**Priority:** Medium
 **Est. Effort:** 2-3 hours
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
 **Completed:** 2026-03-12
 
 ---

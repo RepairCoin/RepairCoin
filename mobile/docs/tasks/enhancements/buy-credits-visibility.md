@@ -1,9 +1,10 @@
-# Refactor: Enhance Buy Credits Visibility
+# Enhancement: Enhance Buy Credits Visibility
 
 **Status:** Open
-**Priority:** MEDIUM
+**Priority:** Medium
 **Est. Effort:** 2-4 hours
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
 
 ---
 

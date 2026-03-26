@@ -1,10 +1,11 @@
 # Bug: Bookings Sort Button Non-Functional
 
-**Status:** N/A - ALREADY IMPLEMENTED
-**Priority:** LOW
+**Status:** Completed
+**Priority:** Low
 **Est. Effort:** 1 hour
 **Created:** 2026-03-10
 **Updated:** 2026-03-10
+**Completed:** 2026-03-10
 
 ---
 

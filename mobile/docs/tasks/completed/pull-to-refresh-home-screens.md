@@ -1,10 +1,11 @@
 # Enhancement: Add Pull-to-Refresh to Home Screens
 
-**Status:** ✅ Completed
-**Completed:** 2026-03-17
-**Priority:** MEDIUM
+**Status:** Completed
+**Priority:** Medium
 **Est. Effort:** 15 min
 **Created:** 2026-03-13
+**Updated:** 2026-03-13
+**Completed:** 2026-03-17
 
 ---
 

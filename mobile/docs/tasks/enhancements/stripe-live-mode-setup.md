@@ -1,11 +1,16 @@
 # Feature: Stripe Live Mode Setup
 
-**Status:** BLOCKED
-**Blocker:** Stripe account verification required
-**Priority:** HIGH
+**Status:** Blocked
+**Priority:** High
+**Est. Effort:** 2-3 hrs
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
 
 ---
+
+## Notes
+
+- Blocker: Stripe account verification required
 
 ## Overview
 

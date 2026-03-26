@@ -13,18 +13,22 @@ mobile/docs/tasks/
 
 ## Task File Format
 
-Every task file must include this header:
+Every task file must include this exact header format:
 
 ```markdown
 # [Type]: [Short descriptive title]
 
-**Status:** [Open | In Progress | Pending | Blocked | Done | Completed]
+**Status:** [Open | In Progress | Pending | Blocked | Completed]
 **Priority:** [Critical | High | Medium | Low]
 **Est. Effort:** [e.g., 1 hour, 2-3 hrs]
 **Created:** YYYY-MM-DD
 **Updated:** YYYY-MM-DD
 **Completed:** YYYY-MM-DD (only when done)
 ```
+
+### Type Values
+
+Use one of: `Bug`, `Feature`, `Enhancement`, `Refactor`
 
 ### Status Definitions
 
@@ -34,9 +38,13 @@ Every task file must include this header:
 | **In Progress** | Currently being worked on |
 | **Pending** | Waiting on dependency (backend API, design, etc.) |
 | **Blocked** | Cannot proceed due to external blocker |
-| **Done / Completed** | Fully implemented and verified |
+| **Completed** | Fully implemented and verified |
+
+**Do NOT use:** `DONE`, `FIXED`, `COMPLETED`, `N/A`, emojis (✅), or any custom status values.
 
 ### Priority Levels
+
+Use title case only: `Critical`, `High`, `Medium`, `Low`
 
 | Priority | When to use |
 |----------|-------------|
@@ -44,6 +52,20 @@ Every task file must include this header:
 | **High** | Important for current sprint/release |
 | **Medium** | Should be done soon, not urgent |
 | **Low** | Nice to have, stretch goal |
+
+**Do NOT use:** `HIGH`, `LOW`, `MEDIUM`, or add extras like `LOW (this week)`.
+
+### Header Field Order
+
+Fields must appear in this exact order:
+1. `**Status:**`
+2. `**Priority:**`
+3. `**Est. Effort:**`
+4. `**Created:**`
+5. `**Updated:**`
+6. `**Completed:**` (only for completed tasks)
+
+**Do NOT add non-standard fields** like `Branch`, `Blocker`, `Type`, `Reported`, `Fixed`, `Closed`, `Affected Customer`, `For`, `Date`, etc. Move that info to the **Notes** section at the bottom of the file.
 
 ## Task File Sections
 
@@ -53,7 +75,7 @@ Each task file should contain:
 2. **Analysis** - Investigation findings, root cause (for bugs)
 3. **Implementation** - Steps, files to modify, approach
 4. **Verification Checklist** - Checkbox list to confirm completion
-5. **Notes** - Any blockers, dependencies, or context
+5. **Notes** - Any blockers, dependencies, or extra context
 
 ## File Naming
 
@@ -77,21 +99,73 @@ Each task file should contain:
 
 ## Completing a Task
 
-1. Update the task file status to `Done` or `✅ Completed`
+1. Update the task file status to `Completed`
 2. Add `**Completed:** YYYY-MM-DD` to the header
 3. Check off all items in the verification checklist
 4. Move the file from `enhancements/` or `bugs/` to the `completed/` folder
 5. Update the weekly summary to reflect the new path in `completed/` and mark as **DONE**
 
-## Weekly Summaries
+## Weekly Summary Format
 
 - File: `week-YYYY-MM-DD.md` (use Monday's date)
-- Tracks what was planned, completed, and carried over
-- References task files by relative path
-- Includes daily breakdown and accomplishments
 - Update throughout the week as tasks are completed
-- **When a task is marked DONE in the weekly summary, its task file must also be moved to `completed/`**
+- **When a task is marked DONE, its task file must also be moved to `completed/`**
 - File paths in the weekly summary must always match the actual file location
+
+Every weekly summary must follow this structure:
+
+```markdown
+# Week of [Month Day, Year] - Task Summary
+
+## Focus: [One-line description of the week's theme]
+
+---
+
+## Completed
+
+| Priority | Task | File | Status |
+|----------|------|------|--------|
+| High | Task name | `completed/task-file.md` | **DONE** |
+| Medium | Inline task (no file) | — | **DONE** |
+
+---
+
+## Pending
+
+| Priority | Task | Effort | Status |
+|----------|------|--------|--------|
+| High | Task name | 2-3 hrs | **PENDING** |
+
+---
+
+## Skipped / Removed (if any)
+
+| Task | Reason |
+|------|--------|
+| Task name | Reason it was skipped |
+
+---
+
+## Carried Over → Week of [Next Monday]
+
+| Priority | Task | File |
+|----------|------|------|
+| High | Task name | `enhancements/task-file.md` |
+
+---
+
+## Daily Breakdown
+
+**Monday (Month Day):**
+- ~~Task name~~ — DONE
+- Task name — PENDING
+
+---
+
+## Notes
+
+- Relevant context, blockers, decisions
+```
 
 ## General Rules
 

@@ -1,11 +1,16 @@
 # Feature: Mobile App Store Preparation
 
 **Status:** In Progress
-**Branch:** `feat/expo-client-setup`
-**Priority:** HIGH
+**Priority:** High
+**Est. Effort:** Ongoing
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
 
 ---
+
+## Notes
+
+- Branch: `feat/expo-client-setup`
 
 ## Recent Commits
 

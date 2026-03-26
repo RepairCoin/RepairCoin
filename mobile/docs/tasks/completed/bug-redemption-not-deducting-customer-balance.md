@@ -1,12 +1,13 @@
-# BUG: RCN Redemption Not Deducting Customer Available Balance
+# Bug: RCN Redemption Not Deducting Customer Available Balance
 
-**Status:** FIXED (Code) / PENDING (Data Migration)
+**Status:** Completed
 **Priority:** Critical
-**Type:** Bug (Regression)
-**Reported:** 2026-03-09
-**Fixed:** 2026-03-10
-**Affected Customer:** 0x150e4A7bCF6204BEbe0EFe08fE7479f2eE30A24e
-**Affected Shop:** 0xb3afc20c0f66e9ec902bd7df2313b57ae8fb1d81
+**Est. Effort:** 2-3 hours
+**Created:** 2026-03-09
+**Updated:** 2026-03-10
+**Completed:** 2026-03-10
+
+> **Notes:** Affected Customer: 0x150e4A7bCF6204BEbe0EFe08fE7479f2eE30A24e | Affected Shop: 0xb3afc20c0f66e9ec902bd7df2313b57ae8fb1d81
 
 ## Fix Summary (2026-03-10)
 

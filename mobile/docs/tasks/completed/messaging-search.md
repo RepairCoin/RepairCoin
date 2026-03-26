@@ -1,9 +1,10 @@
 # Feature: Messaging Search
 
-**Status:** ✅ Completed
-**Priority:** MEDIUM
+**Status:** Completed
+**Priority:** Medium
 **Est. Effort:** 2-3 hours
 **Created:** 2026-03-13
+**Updated:** 2026-03-13
 **Completed:** 2026-03-13
 
 ---

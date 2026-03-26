@@ -1,9 +1,10 @@
 # Feature: WebSocket Real-Time Messaging
 
 **Status:** Open
-**Priority:** LOW (this week) / HIGH (next sprint)
+**Priority:** Low
 **Est. Effort:** 4-6 hours
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
 
 ---
 

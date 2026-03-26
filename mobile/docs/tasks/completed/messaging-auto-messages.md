@@ -1,3 +1,14 @@
+# Feature: Auto-Messages for Shop
+
+**Status:** Completed
+**Priority:** Medium
+**Est. Effort:** 3-4 hours
+**Created:** 2026-03-17
+**Updated:** 2026-03-17
+**Completed:** 2026-03-17
+
+---
+
 # Auto-Messages for Shop (Automated Messaging Rules)
 
 ## Overview

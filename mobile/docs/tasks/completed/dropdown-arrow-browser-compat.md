@@ -1,9 +1,11 @@
 # Bug: Dropdown Arrow Browser Compatibility
 
-**Status:** Open
-**Priority:** LOW
+**Status:** Completed
+**Priority:** Low
 **Est. Effort:** 30 minutes
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
+**Completed:** 2026-03-10
 
 ---
 

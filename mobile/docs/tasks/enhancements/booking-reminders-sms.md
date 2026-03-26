@@ -1,9 +1,10 @@
 # Feature: Booking Reminders via SMS
 
 **Status:** Open
-**Priority:** LOW
+**Priority:** Low
 **Est. Effort:** Large (requires Twilio integration)
 **Created:** 2026-03-10
+**Updated:** 2026-03-10
 
 ---
 

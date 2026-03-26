@@ -1,10 +1,11 @@
 # Bug: Mobile Shop Profile Issues
 
-**Status:** N/A (By Design)
-**Priority:** MEDIUM
+**Status:** Completed
+**Priority:** Medium
 **Est. Effort:** 2-3 hours
 **Created:** 2026-03-10
-**Closed:** 2026-03-11
+**Updated:** 2026-03-10
+**Completed:** 2026-03-11
 
 ---
 
