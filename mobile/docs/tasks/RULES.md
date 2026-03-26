@@ -7,8 +7,7 @@ mobile/docs/tasks/
 ├── RULES.md                    # This file
 ├── week-YYYY-MM-DD.md          # Weekly task summaries
 ├── bugs/                       # Bug reports and fixes
-├── enhancements/               # Feature specs, improvements, and new functionality
-├── refactor/                   # Code refactoring and UI/UX improvements
+├── enhancements/               # Features, improvements, refactors, and new functionality
 └── completed/                  # All completed tasks (from any category)
 ```
 
@@ -68,15 +67,21 @@ Each task file should contain:
 | Type | Folder | Examples |
 |------|--------|----------|
 | Broken functionality, errors, regressions | `bugs/` | API returning wrong data, crash on screen |
-| New features, improvements, integrations | `enhancements/` | New screen, API integration, UX improvement |
-| Code cleanup, renaming, restructuring | `refactor/` | Extract hook, rename component, improve styling |
+| New features, improvements, refactors, integrations | `enhancements/` | New screen, API integration, UX improvement, code cleanup |
+
+## Creating a Task
+
+- **Every new task must have a task file** in `enhancements/` or `bugs/` — not only in the weekly summary
+- The weekly summary references the task file, it does not replace it
+- If a task is small (inline fix, no file needed), note it directly in the weekly summary without a file
 
 ## Completing a Task
 
 1. Update the task file status to `Done` or `✅ Completed`
 2. Add `**Completed:** YYYY-MM-DD` to the header
 3. Check off all items in the verification checklist
-4. Move the file to the top-level `completed/` folder (all categories share one folder)
+4. Move the file from `enhancements/` or `bugs/` to the `completed/` folder
+5. Update the weekly summary to reflect the new path in `completed/` and mark as **DONE**
 
 ## Weekly Summaries
 
@@ -85,6 +90,8 @@ Each task file should contain:
 - References task files by relative path
 - Includes daily breakdown and accomplishments
 - Update throughout the week as tasks are completed
+- **When a task is marked DONE in the weekly summary, its task file must also be moved to `completed/`**
+- File paths in the weekly summary must always match the actual file location
 
 ## General Rules
 
@@ -94,3 +101,4 @@ Each task file should contain:
 - Link related tasks if they depend on each other
 - Use absolute dates (not "next week" or "tomorrow")
 - Weekly summary paths should reflect current folder structure
+- **New tasks go in `enhancements/` or `bugs/` first**, then get referenced in the weekly summary — never only in the weekly summary
