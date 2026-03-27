@@ -5,7 +5,9 @@ import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { m, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { useModalStore } from "@/stores/modalStore";
-import SectionBadge from "@/components/about/SectionBadge";
+import { HeroContent } from "./_component/HeroContent";
+import { DesktopMockups } from "./_component/DesktopMockups";
+import { MobileMockups } from "./_component/MobileMockups";
 
 interface HeroSectionProps {
   hasWallet: boolean;
@@ -15,6 +17,107 @@ interface HeroSectionProps {
   isRedirecting?: boolean;
   onGetStartedClick: () => void;
 }
+
+/* ─── Viewport Ranges ───────────────────────────────
+ *  mobile:  0 - 639px       (default / no prefix)
+ *  tablet:  640px - 1279px  (sm:, md:, lg:)
+ *  desktop: 1280px+         (xl:)
+ *  wide:    1536px+         (2xl:)
+ * ─────────────────────────────────────────────────── */
+const layout = {
+  /* ── Page-level ── */
+  section: [
+    "relative bg-[#0a0a0a]",
+    "min-h-[100svh]",        // at least viewport height, grows with content
+    "overflow-x-hidden",      // prevent MacBook offset from causing scroll
+  ].join(" "),
+
+  container: [
+    "min-h-[100svh]",        // match section height
+    "flex flex-col",          // pass height to row
+    "max-w-7xl mx-auto",     // match site-wide container
+    "px-4 lg:px-8",          // match WhatIsRepairCoin padding
+  ].join(" "),
+
+  row: [
+    "flex-1",                 // fill remaining container height
+    "flex",
+    "flex-row",               // default: 2 columns side by side
+    "items-center",           // center vertically
+    "max-lg:flex-col",        // below lg: stack vertically
+    "max-lg:items-stretch",   // below lg: stretch children
+    "gap-6 lg:gap-8",
+  ].join(" "),
+
+
+  heading: [
+    "font-bold text-white leading-[1.08] tracking-tight",
+    "text-[1.75rem]",         // mobile:  28px
+    "sm:text-[3.25rem]",      // tablet:  52px
+    "xl:text-[3.5rem]",       // desktop: 56px
+    "2xl:text-[4rem]",        // wide:    64px
+  ].join(" "),
+
+  ctaButton: [
+    "btn-shimmer",
+    "bg-[#F7CC00] hover:bg-[#E5BB00]",
+    "text-black font-semibold",
+    "px-7 py-3",              // mobile size
+    "sm:px-10 sm:py-4",       // tablet+ size
+    "rounded-lg shadow-lg hover:shadow-xl",
+    "transition-all duration-200",
+    "disabled:opacity-50 disabled:cursor-not-allowed",
+    "flex items-center gap-2",
+    "text-sm sm:text-base",
+  ].join(" "),
+
+  ctaDesktop: [
+    "pt-1",
+    "hidden",                 // mobile: hidden (shown below iPhone instead)
+    "sm:block",               // tablet+: visible next to text
+  ].join(" "),
+
+  ctaMobile: [
+    "sm:hidden",              // tablet+: hidden (shown next to text instead)
+  ].join(" "),
+  
+  /* ── Left Column (text + CTA) ── */
+  leftColumn: [
+    "relative",
+    "shrink-0",               // text never shrinks, parent grows instead
+    "space-y-4 sm:space-y-7", // spacing between children
+    "pt-20 sm:pt-28",         // top padding (below navbar)
+    "xl:pt-0",                // desktop: no top padding (centered by flex)
+    "pb-4 md:pb-0",
+  ].join(" "),
+
+  /* ── Desktop Mockups (xl: 1280px+) ── */
+  RightgColumn: [
+    "relative",
+    "hidden lg:block",        // only visible on desktop+
+    "w-full",
+  ].join(" "),
+
+  macbook: [
+    // "bg-blue-400"
+  ].join(" "),
+
+  desktopIphone: [
+    "absolute",
+    "bottom-[-20%]",         // peek below container
+    "left-[20%]",            // desktop position
+    "w-[25%] aspect-[9/19]",  // sized relative to parent, iPhone proportions
+  ].join(" "),
+
+  /* ── Mobile / Tablet Mockups (0 - 1279px) ── */
+  mobileWrapper: [
+    "relative",
+    "flex flex-col items-center",
+    // "flex-1 min-h-[200px]",         // fill remaining space, allow shrink
+    "pb-6",
+    "lg:hidden",              // desktop: hidden (DesktopMockups shown instead)
+  ].join(" "),
+};
 
 export default function HeroSection({
   hasWallet,
@@ -46,9 +149,26 @@ export default function HeroSection({
       : { duration: 0.6, delay, ease: "easeOut" as const },
   });
 
+  const ctaButton = (
+    <button
+      onClick={handleGetStartedClick}
+      disabled={isLoading}
+      className={layout.ctaButton}
+    >
+      {isLoading ? (
+        <>
+          <Loader2 className="w-5 h-5 animate-spin" />
+          {isRedirecting ? "Redirecting..." : "Loading..."}
+        </>
+      ) : (
+        <>Get Started &rarr;</>
+      )}
+    </button>
+  );
+
   return (
-    <section className="relative bg-[#0a0a0a] h-screen">
-      {/* Dotted background pattern */}
+    <section className={layout.section}>
+      {/* Background pattern */}
       <div className="absolute inset-0 pointer-events-none">
         <Image
           src="/img/landingv2/bg-background.png"
@@ -59,152 +179,40 @@ export default function HeroSection({
         />
       </div>
 
-      {/* Content wrapper */}
-      <div className="h-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 ">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8 h-full">
-          {/* Left Content */}
-          <div className="relative lg:flex-1 space-y-4 sm:space-y-7 pt-20 sm:pt-28 lg:pt-0 pb-8 md:pb-0">
-            {/* Badge */}
-            <m.div
-              {...fadeUp(0.1)}
-              className="[&>div]:px-3 [&>div]:py-1.5 [&>div]:gap-1.5 sm:[&>div]:px-5 sm:[&>div]:py-2 sm:[&>div]:gap-2.5 [&_span]:text-xs sm:[&_span]:text-sm [&_svg]:w-3 [&_svg]:h-3 sm:[&_svg]:w-4 sm:[&_svg]:h-4"
-            >
-              <SectionBadge label="Modern Loyalty for Service Businesses" />
-            </m.div>
+      <div className={layout.container}>
+        <div className={layout.row}>
 
-            <m.h1
-              {...fadeUp(0.2)}
-              className="text-[1.75rem] sm:text-[3.25rem] lg:text-[3.5rem] xl:text-[4rem] font-bold text-white leading-[1.08] tracking-tight"
-            >
-              <span className="sm:whitespace-nowrap">Connect. Schedule.</span>
-              <br />
-              <span className="sm:whitespace-nowrap">
-                <span className="relative inline-block">
-                  <span className="text-gold-gradient">Grow</span>
-                  {/* Yellow underline curve - animated draw */}
-                  <svg
-                    className="absolute -bottom-2 sm:-bottom-3 -left-[3%] w-[106%] h-[10px] sm:h-[14px]"
-                    viewBox="0 0 311 8"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    preserveAspectRatio="none"
-                  >
-                    <m.path
-                      d="M2 5.5C80 1.5 230 1.5 309 5.5"
-                      stroke="#ffcc00"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-                    />
-                  </svg>
-                </span>{" "}
-                Your Business.
-              </span>
-            </m.h1>
+          {/* ── Left column: text + CTA ── */}
+          <div className={layout.leftColumn}>
+            <HeroContent fadeUp={fadeUp} headingClassName={layout.heading} />
 
-            <m.p
-              {...fadeUp(0.35)}
-              className="text-sm sm:text-lg text-gray-400 leading-relaxed max-w-[460px]"
-            >
-              RepairCoin helps service businesses grow with a marketplace, smart
-              scheduling, and loyalty rewards in one powerful platform.
-            </m.p>
-
-            {/* Get Started - hidden on small mobile, visible sm+ */}
-            <m.div {...fadeUp(0.5)} className="pt-1 hidden sm:block">
-              <button
-                onClick={handleGetStartedClick}
-                disabled={isLoading}
-                className="btn-shimmer bg-[#F7CC00] hover:bg-[#E5BB00] text-black font-semibold px-7 sm:px-10 py-3 sm:py-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {isRedirecting ? "Redirecting..." : "Loading..."}
-                  </>
-                ) : (
-                  <>Get Started &rarr;</>
-                )}
-              </button>
+            {/* CTA — tablet & desktop (sm+) */}
+            <m.div {...fadeUp(0.5)} className={layout.ctaDesktop}>
+              {ctaButton}
             </m.div>
           </div>
 
-          {/* Right Content - Device Mockups (desktop) */}
-          <div className="relative hidden lg:block lg:flex-1 h-[550px] xl:h-[600px]">
-            <m.div
-              initial={prefersReducedMotion ? undefined : { opacity: 0, x: 60 }}
-              animate={prefersReducedMotion ? undefined : { opacity: 1, x: 0 }}
-              transition={
-                prefersReducedMotion
-                  ? undefined
-                  : { duration: 0.8, delay: 0.4, ease: "easeOut" as const }
-              }
-              style={prefersReducedMotion ? undefined : { y: macbookY }}
-              className="absolute top-0 right-[-120px] xl:right-[-180px] w-[700px] xl:w-[800px] h-[420px] xl:h-[470px]"
-            >
-              <Image
-                src="/img/landingv2/MacBookAir.png"
-                alt="RepairCoin Dashboard on MacBook"
-                fill
-                className="object-contain object-right-top"
-                priority
-              />
-            </m.div>
-            <m.div
-              initial={prefersReducedMotion ? undefined : { opacity: 0, y: 40 }}
-              animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
-              transition={
-                prefersReducedMotion
-                  ? undefined
-                  : { duration: 0.8, delay: 0.6, ease: "easeOut" as const }
-              }
-              style={prefersReducedMotion ? undefined : { y: iphoneY }}
-              className="absolute left-[60px] xl:left-[40px] bottom-[-20px] w-[220px] xl:w-[260px] h-[430px] xl:h-[480px] z-10"
-            >
-              <Image
-                src="/img/landingv2/iPhone13.png"
-                alt="RepairCoin Mobile App"
-                fill
-                className="object-contain object-bottom"
-                priority
-              />
+          {/* ── Desktop mockups (xl: 1280px+) ── */}
+          <div className={layout.RightgColumn}>
+            <DesktopMockups
+              prefersReducedMotion={prefersReducedMotion}
+              macbookY={macbookY}
+              iphoneY={iphoneY}
+              macbookClassName={layout.macbook}
+              iphoneClassName={layout.desktopIphone}
+            />
+          </div>
+
+          {/* ── Mobile / Tablet mockups (0 - 1279px) ── */}
+          <div className={layout.mobileWrapper}>
+            <MobileMockups fadeUp={fadeUp} />
+
+            {/* CTA — mobile only (below sm: 640px) */}
+            <m.div {...fadeUp(0.5)} className={layout.ctaMobile}>
+              {ctaButton}
             </m.div>
           </div>
 
-          {/* Mobile/Tablet devices - iPhone only on small, both on md+ */}
-          <div className="relative flex lg:hidden flex-col items-center flex-1 min-h-0 pb-6">
-            <m.div {...fadeUp(0.5)} className="flex-1 min-h-0 flex items-center justify-center w-full">
-              <Image
-                src="/img/landingv2/iPhone13.png"
-                alt="RepairCoin Mobile App"
-                width={640}
-                height={1280}
-                className="h-full w-auto max-h-full object-contain"
-                priority
-              />
-            </m.div>
-
-            {/* Get Started - below iPhone on small mobile only */}
-            <m.div {...fadeUp(0.5)} className="mt-4 shrink-0 sm:hidden">
-              <button
-                onClick={handleGetStartedClick}
-                disabled={isLoading}
-                className="btn-shimmer bg-[#F7CC00] hover:bg-[#E5BB00] text-black font-semibold px-7 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {isRedirecting ? "Redirecting..." : "Loading..."}
-                  </>
-                ) : (
-                  <>Get Started &rarr;</>
-                )}
-              </button>
-            </m.div>
-          </div>
         </div>
       </div>
     </section>
