@@ -24,6 +24,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { appointmentsApi, CalendarBooking, PaymentLinkResponse } from '@/services/api/appointments';
+import { calendarApi } from '@/services/api/calendar';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -51,6 +52,10 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
 
+  // Calendar connection state
+  const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
+  const [calendarEmail, setCalendarEmail] = useState<string | null>(null);
+
   // Manual booking modal state
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);
   const [preSelectedBookingDate, setPreSelectedBookingDate] = useState<string | null>(null);
@@ -66,6 +71,23 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
     error: string | null;
   }>({ paymentLink: null, booking: null, loading: false, error: null });
 
+  // Fetch calendar connection status
+  const fetchCalendarStatus = useCallback(async () => {
+    try {
+      // calendarApi.getConnectionStatus() returns response.data
+      // Backend structure: { success: true, data: { connected, provider, email, ... } }
+      const data = await calendarApi.getConnectionStatus();
+      const status = data.data;
+      setCalendarConnected(status?.connected || false);
+      setCalendarEmail(status?.email || null);
+    } catch (error) {
+      console.error('Error fetching calendar status:', error);
+      // Show banner even on error - assume disconnected
+      setCalendarConnected(false);
+      setCalendarEmail(null);
+    }
+  }, []);
+
   // Fetch pending reschedule count for badge
   const fetchPendingCount = useCallback(async () => {
     try {
@@ -77,12 +99,13 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
   }, []);
 
   useEffect(() => {
+    fetchCalendarStatus();
     fetchPendingCount();
 
     // Refresh count every 30 seconds
     const interval = setInterval(fetchPendingCount, 30000);
     return () => clearInterval(interval);
-  }, [fetchPendingCount]);
+  }, [fetchCalendarStatus, fetchPendingCount]);
 
   // Refresh count when switching away from reschedules tab (user may have approved/rejected)
   useEffect(() => {
@@ -646,6 +669,53 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
 
       {/* Appointments Sub-tab */}
       {activeSubTab === 'appointments' && (<>
+      {/* Calendar Connection Status Banner */}
+      {calendarConnected !== null && (
+        <div className={`rounded-lg border p-4 ${
+          calendarConnected
+            ? 'bg-green-500/10 border-green-500/50'
+            : 'bg-blue-500/10 border-blue-500/50'
+        }`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className={`mt-0.5 ${calendarConnected ? 'text-green-400' : 'text-blue-400'}`}>
+                {calendarConnected ? (
+                  <CheckCircle2 className="w-5 h-5" />
+                ) : (
+                  <Calendar className="w-5 h-5" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className={`font-semibold text-sm ${
+                  calendarConnected ? 'text-green-400' : 'text-blue-400'
+                }`}>
+                  {calendarConnected ? 'Google Calendar Connected' : 'Connect Google Calendar'}
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  {calendarConnected ? (
+                    <>
+                      Appointments are syncing to <span className="text-white">{calendarEmail}</span>
+                    </>
+                  ) : (
+                    'Get mobile notifications and sync appointments across all your devices'
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/shop?tab=settings&section=calendar')}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                calendarConnected
+                  ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
+            >
+              {calendarConnected ? 'Manage' : 'Connect Now'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Pending Booking */}

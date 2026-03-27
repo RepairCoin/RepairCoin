@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { NoShowPolicySettings } from "../NoShowPolicySettings";
 import { EmailSettings } from "../EmailSettings";
@@ -80,6 +81,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   isSuspended = false,
   isPaused = false,
 }) => {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<
     | "shop-profile"
     | "wallet-payouts"
@@ -97,6 +99,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // crossShopEnabled state removed - universal redemption is now always enabled
   const [error] = useState<string | null>(null);
   const [success] = useState<string | null>(null);
+
+  // Handle section parameter from URL
+  useEffect(() => {
+    const section = searchParams?.get('section');
+    if (section && (
+      section === "shop-profile" ||
+      section === "wallet-payouts" ||
+      section === "accessibility" ||
+      section === "notifications" ||
+      section === "subscription" ||
+      section === "no-show-policy" ||
+      section === "emails" ||
+      section === "password" ||
+      section === "social-media" ||
+      section === "calendar" ||
+      section === "moderation" ||
+      section === "faq"
+    )) {
+      setActiveTab(section);
+    }
+  }, [searchParams]);
 
   // Shop Details State
   const [isEditingShop, setIsEditingShop] = useState(false);
