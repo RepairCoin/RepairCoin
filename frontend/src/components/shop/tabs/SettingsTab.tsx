@@ -7,13 +7,13 @@ import { EmailSettings } from "../EmailSettings";
 import { PasswordAuthSettings } from "../PasswordAuthSettings";
 import { SocialMediaSettings } from "../SocialMediaSettings";
 import { ModerationSettings } from "../ModerationSettings";
-// import { FAQSection } from "../FAQSection"; // TODO: component not yet created
+import { ShopFAQSection } from "../ShopFAQSection";
+import CalendarIntegrationSettings from "../CalendarIntegrationSettings";
 import {
   Store,
   Mail,
   Phone,
   MapPin,
-  Globe,
   Camera,
   Wallet,
   Search,
@@ -28,6 +28,7 @@ import {
   Shield,
   HelpCircle,
   Ban,
+  Calendar,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -89,6 +90,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "emails"
     | "password"
     | "social-media"
+    | "calendar"
     | "moderation"
     | "faq"
   >("shop-profile");
@@ -103,10 +105,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     email: "",
     phone: "",
     address: "",
-    facebook: "",
-    x: "",
-    instagram: "",
-    website: "",
     logoUrl: "",
     location: {
       lat: undefined as number | undefined,
@@ -126,10 +124,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         email: shopData.email || "",
         phone: shopData.phone || "",
         address: shopData.address || "",
-        facebook: shopData.facebook || "",
-        x: shopData.x || "",
-        instagram: shopData.instagram || "",
-        website: shopData.website || "",
         logoUrl: shopData.logoUrl || "",
         location: {
           lat: shopData.location?.lat,
@@ -156,10 +150,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         email: shopFormData.email,
         phone: shopFormData.phone,
         address: shopFormData.address,
-        facebook: shopFormData.facebook,
-        twitter: shopFormData.x,
-        instagram: shopFormData.instagram,
-        website: shopFormData.website,
         logoUrl: shopFormData.logoUrl,
         location: {
           lat: shopFormData.location.lat,
@@ -193,10 +183,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       email: shopData?.email || "",
       phone: shopData?.phone || "",
       address: shopData?.address || "",
-      facebook: shopData?.facebook || "",
-      x: shopData?.x || "",
-      instagram: shopData?.instagram || "",
-      website: shopData?.website || "",
       logoUrl: shopData?.logoUrl || "",
       location: {
         lat: shopData?.location?.lat,
@@ -309,6 +295,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       icon: Lock,
     },
     { id: "social-media" as const, label: "Social Media", icon: MessageSquare },
+    { id: "calendar" as const, label: "Calendar Integration", icon: Calendar },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
     { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
   ];
@@ -563,72 +550,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
 
-              {/* Social Media Section - Collapsible */}
+              {/* Social Media Notice */}
               <div className="mt-6 border-t border-[#3F3F3F] pt-6">
-                <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-[#FFCC00]" />
-                  Social Media & Website
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Website */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      Website
-                    </label>
-                    <input
-                      type="url"
-                      name="website"
-                      value={shopFormData.website}
-                      onChange={handleShopInputChange}
-                      disabled={!isEditingShop}
-                      className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
-                      placeholder="https://yourshop.com"
-                    />
-                  </div>
-                  {/* X (formerly Twitter) */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      X
-                    </label>
-                    <input
-                      type="url"
-                      name="x"
-                      value={shopFormData.x}
-                      onChange={handleShopInputChange}
-                      disabled={!isEditingShop}
-                      className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
-                      placeholder="https://x.com/yourshop"
-                    />
-                  </div>
-                  {/* Instagram */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      Instagram
-                    </label>
-                    <input
-                      type="url"
-                      name="instagram"
-                      value={shopFormData.instagram}
-                      onChange={handleShopInputChange}
-                      disabled={!isEditingShop}
-                      className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
-                      placeholder="https://instagram.com/yourshop"
-                    />
-                  </div>
-                  {/* Facebook */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      Facebook
-                    </label>
-                    <input
-                      type="url"
-                      name="facebook"
-                      value={shopFormData.facebook}
-                      onChange={handleShopInputChange}
-                      disabled={!isEditingShop}
-                      className="w-full px-4 py-2 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
-                      placeholder="https://facebook.com/yourshop"
-                    />
+                <div className="bg-blue-900/20 border border-blue-700 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <MessageSquare className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-400 mb-1">
+                        Looking for social media settings?
+                      </h4>
+                      <p className="text-sm text-blue-300">
+                        Visit the <button
+                          onClick={() => setActiveTab("social-media")}
+                          className="underline hover:text-blue-200 transition-colors font-medium"
+                        >
+                          Social Media tab
+                        </button> to connect your Facebook, Instagram, X (Twitter), LinkedIn, YouTube, and other platforms.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -825,6 +764,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           )}
 
+          {/* Calendar Integration Tab Content */}
+          {activeTab === "calendar" && (
+            <div>
+              <CalendarIntegrationSettings />
+            </div>
+          )}
+
           {/* Moderation Tab Content */}
           {activeTab === "moderation" && (
             <div>
@@ -832,12 +778,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           )}
 
-          {/* FAQ Tab Content - TODO: FAQSection component not yet created */}
-          {/* {activeTab === "faq" && (
+          {/* FAQ Tab Content */}
+          {activeTab === "faq" && (
             <div>
-              <FAQSection />
+              <ShopFAQSection />
             </div>
-          )} */}
+          )}
 
           {/* Status Messages */}
           {error && (

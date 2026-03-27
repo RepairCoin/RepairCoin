@@ -62,6 +62,8 @@ import depositRoutes from './deposit';
 import purchaseSyncRoutes from './purchase-sync';
 import paymentMethodsRoutes from './paymentMethods';
 import moderationRoutes from './moderation';
+import calendarRoutes from '../../ShopDomain/routes/calendar.routes';
+import gmailRoutes from '../../ShopDomain/routes/gmail.routes';
 
 const router = Router();
 
@@ -73,6 +75,8 @@ router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); //
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
 router.use('/moderation', authMiddleware, requireRole(['shop']), moderationRoutes); // Moderation routes
+router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
+router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;

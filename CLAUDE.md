@@ -605,3 +605,102 @@ Complete end-to-end moderation system enabling shops to manage problematic custo
   - Report fraudulent activity to platform admins
   - Maintain professional reputation by flagging inappropriate reviews
   - Self-service moderation reduces admin support burden
+
+### Google Calendar Integration (March 24, 2026)
+**Status:** Backend 100% Complete ✅ | Frontend Pending ⏳
+
+Enables shops to sync appointment bookings with their Google Calendar for unified scheduling and mobile notifications.
+
+- **Backend Implementation (Complete)**
+  - **Database Migration** (`095_create_calendar_integration.sql` - 120 lines)
+    - `shop_calendar_connections` table for OAuth token storage
+    - Extended `service_orders` with calendar sync tracking columns
+    - 6 performance indexes for fast lookups
+    - Auto-update triggers and cleanup functions
+    - Support for multiple providers (Google/Outlook/Apple ready)
+
+  - **CalendarRepository** (`CalendarRepository.ts` - 340 lines)
+    - Complete CRUD for calendar connections
+    - Token management (save, refresh, expire)
+    - Sync status tracking and error logging
+    - Order-to-calendar event linking
+    - Query methods for token refresh automation
+    - Full transaction support
+
+  - **GoogleCalendarService** (`GoogleCalendarService.ts` - 460 lines)
+    - **OAuth 2.0 Flow**: Authorization URL generation, callback handling, token exchange
+    - **Token Security**: AES-256-GCM encryption for access/refresh tokens
+    - **Event Management**: Create, update, delete calendar events
+    - **Auto Refresh**: Proactive token refresh before expiry
+    - **Rich Events**: Customer details, service info, pricing, reminders
+    - **Timezone Support**: Shop-specific timezone handling
+
+  - **API Endpoints** (`CalendarController.ts` + Routes - 290 lines)
+    - `GET /api/shops/calendar/connect/google` - Get OAuth URL
+    - `POST /api/shops/calendar/callback/google` - Handle OAuth callback
+    - `GET /api/shops/calendar/status` - Connection status
+    - `DELETE /api/shops/calendar/disconnect/:provider` - Disconnect
+    - `POST /api/shops/calendar/test-sync` - Manual sync (testing)
+    - `POST /api/shops/calendar/refresh-token` - Manual refresh (testing)
+    - Full authentication, authorization, and Swagger docs
+
+- **Features**
+  - ✅ OAuth 2.0 integration with Google Calendar API
+  - ✅ Encrypted token storage with automatic refresh
+  - ✅ Calendar event CRUD operations
+  - ✅ Multi-provider architecture (Google ready, others extensible)
+  - ✅ Comprehensive error handling and logging
+  - ⏳ Auto-sync on appointment booking (pending integration)
+  - ⏳ Event updates on reschedule/cancellation (pending integration)
+  - ⏳ Frontend UI components (pending)
+
+- **Security**
+  - AES-256-GCM encryption for OAuth tokens at rest
+  - PKCE flow support for OAuth security
+  - State parameter for CSRF protection
+  - Tokens never logged or exposed in responses
+  - Scoped permissions (calendar.events, calendar.readonly, userinfo.email)
+  - HTTPS-only redirect URIs for production
+
+- **Documentation**
+  - **Feature Spec**: `docs/features/GOOGLE_CALENDAR_INTEGRATION.md` (400+ lines)
+    - Complete technical architecture and OAuth flow diagrams
+    - Security considerations and best practices
+    - 4-phase implementation plan (16-20 hours estimated)
+  - **Setup Guide**: `docs/setup/GOOGLE_CALENDAR_SETUP.md` (350+ lines)
+    - Step-by-step Google Cloud Platform configuration
+    - Environment variable setup with encryption key generation
+    - Testing procedures and troubleshooting guide
+    - Production deployment checklist
+  - **Next Session Guide**: `docs/setup/NEXT_SESSION_CALENDAR_INTEGRATION.md` (500+ lines)
+    - Complete step-by-step implementation plan for remaining work
+    - Code snippets for payment/appointment integration
+    - Full frontend component implementations
+    - Testing procedures and success criteria
+
+- **NPM Dependencies**
+  - `googleapis` - Official Google API client
+  - `crypto-js` - Token encryption
+  - `@types/crypto-js` - TypeScript definitions
+
+- **Environment Variables Required**
+  ```bash
+  GOOGLE_CALENDAR_CLIENT_ID=your-client-id.apps.googleusercontent.com
+  GOOGLE_CALENDAR_CLIENT_SECRET=your-client-secret
+  GOOGLE_CALENDAR_REDIRECT_URI=https://repaircoin.ai/api/shops/calendar/callback/google
+  GOOGLE_CALENDAR_ENCRYPTION_KEY=<32-byte-hex-key>
+  ```
+
+- **Remaining Work (8-12 hours)**
+  1. Google Cloud Platform setup (30-45 min)
+  2. Integrate with PaymentController for auto-sync (2-3 hours)
+  3. Integrate with AppointmentController for updates (1-2 hours)
+  4. Build frontend UI components (4-5 hours)
+  5. End-to-end testing (2 hours)
+
+- **Impact**
+  - Unified scheduling across RepairCoin and personal calendar
+  - Mobile push notifications via Google Calendar
+  - Reduce no-shows with calendar reminders
+  - Professional customer experience
+  - Multi-device appointment access
