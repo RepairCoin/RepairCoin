@@ -123,10 +123,21 @@ Every weekly summary must follow this structure:
 
 ## Completed
 
-| Priority | Task | File | Status |
-|----------|------|------|--------|
-| High | Task name | `completed/task-file.md` | **DONE** |
-| Medium | Inline task (no file) | — | **DONE** |
+### 1. Task Name
+**Priority:** High | **Status:** DONE | **File:** `completed/task-file.md`
+
+**How to test:**
+- Step-by-step instructions to verify the task works
+- Include: where to navigate, what to interact with, what to verify
+- Cover happy path and edge cases where relevant
+
+---
+
+### 2. Inline Task (no file)
+**Priority:** Medium | **Status:** DONE (inline fix)
+
+**How to test:**
+- Steps to verify
 
 ---
 
