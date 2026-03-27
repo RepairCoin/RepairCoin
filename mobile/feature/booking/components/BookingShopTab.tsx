@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   ScrollView,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
-import { router } from "expo-router";
+import { bookingApi } from "@/shared/services/booking.services";
+import { appointmentApi } from "@/shared/services/appointment.services";
+import EnhancedBookingCard from "./EnhancedBookingCard";
 
 // Hooks
 import {
@@ -20,31 +23,13 @@ import {
 } from "../hooks/ui";
 
 // Utils
-import {
-  getStatusColor,
-  formatBookingTime,
-  isToday,
-  isDateSelected,
-  getDaysInMonth,
-  getScrollableDays,
-} from "../utils";
+import { getStatusColor, isToday, isDateSelected, getDaysInMonth, getScrollableDays } from "../utils";
 import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
 
-// Helper to get display status considering shopApproved
-const getDisplayStatus = (booking: BookingData): string => {
-  if (booking.status === "expired") {
-    return "expired";
-  }
-  if (booking.status === "paid" && booking.shopApproved) {
-    return "approved";
-  }
-  return booking.status;
-};
-
-// Helper to get status color considering shopApproved
+// Helper to get status color considering shopApproved (used for calendar dots)
 const getDisplayStatusColor = (booking: BookingData): string => {
   if (booking.status === "expired") {
     return "#f97316"; // Orange for expired
@@ -55,11 +40,19 @@ const getDisplayStatusColor = (booking: BookingData): string => {
   return getStatusColor(booking.status);
 };
 
-interface BookingCalendarProps {
-  getBookingsForDate: (date: Date) => BookingData[];
+interface BookingActions {
+  onApprove: (orderId: string) => void;
+  onComplete: (orderId: string) => void;
+  onNoShow: (orderId: string) => void;
+  isProcessing: boolean;
 }
 
-function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
+interface BookingCalendarProps {
+  getBookingsForDate: (date: Date) => BookingData[];
+  actions: BookingActions;
+}
+
+function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) {
   const {
     selectedDate,
     setSelectedDate,
@@ -200,48 +193,15 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
           </View>
         ) : (
           selectedBookings.map((booking, idx) => (
-            <TouchableOpacity
-              key={idx}
-              onPress={() => router.push(`/shop/booking/${booking.orderId}`)}
-              className="bg-[#1a1a1a] rounded-xl p-4 mb-3 border-l-4"
-              style={{ borderLeftColor: getDisplayStatusColor(booking) }}
-            >
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1">
-                  <Text className="text-white font-semibold text-base" numberOfLines={1}>
-                    {booking.serviceName}
-                  </Text>
-                  <View className="flex-row items-center mt-1">
-                    <Feather name="user" size={12} color="#666" />
-                    <Text className="text-gray-400 text-sm ml-1">
-                      {booking.customerName || `${booking.customerAddress.slice(0, 6)}...${booking.customerAddress.slice(-4)}`}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center mt-2">
-                    <Ionicons name="time-outline" size={14} color="#FFCC00" />
-                    <Text className="text-[#FFCC00] text-sm ml-1 font-medium">
-                      {formatBookingTime(booking.bookingDate || booking.createdAt)}
-                    </Text>
-                  </View>
-                </View>
-                <View className="items-end">
-                  <View
-                    className="px-2 py-1 rounded-full"
-                    style={{ backgroundColor: getDisplayStatusColor(booking) + "20" }}
-                  >
-                    <Text
-                      className="text-xs font-medium capitalize"
-                      style={{ color: getDisplayStatusColor(booking) }}
-                    >
-                      {getDisplayStatus(booking)}
-                    </Text>
-                  </View>
-                  <Text className="text-[#FFCC00] font-semibold mt-2">
-                    ${booking.totalAmount.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            <EnhancedBookingCard
+              key={booking.orderId || idx}
+              booking={booking}
+              showDate={false}
+              onApprove={actions.onApprove}
+              onComplete={actions.onComplete}
+              onNoShow={actions.onNoShow}
+              isProcessing={actions.isProcessing}
+            />
           ))
         )}
 
@@ -517,10 +477,10 @@ type ViewMode = "calendar" | "list";
 
 interface BookingListProps {
   bookings: BookingData[];
+  actions: BookingActions;
 }
 
-function BookingList({ bookings }: BookingListProps) {
-  // Sort by booking date descending (most recent first)
+function BookingList({ bookings, actions }: BookingListProps) {
   const sortedBookings = [...bookings].sort((a, b) => {
     const dateA = new Date(a.bookingDate || a.createdAt).getTime();
     const dateB = new Date(b.bookingDate || b.createdAt).getTime();
@@ -539,57 +499,15 @@ function BookingList({ bookings }: BookingListProps) {
   return (
     <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
       {sortedBookings.map((booking, idx) => (
-        <TouchableOpacity
+        <EnhancedBookingCard
           key={booking.orderId || idx}
-          onPress={() => router.push(`/shop/booking/${booking.orderId}`)}
-          className="bg-[#1a1a1a] rounded-xl p-4 mb-3 border-l-4"
-          style={{ borderLeftColor: getDisplayStatusColor(booking) }}
-        >
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1">
-              <Text className="text-white font-semibold text-base" numberOfLines={1}>
-                {booking.serviceName}
-              </Text>
-              <View className="flex-row items-center mt-1">
-                <Feather name="user" size={12} color="#666" />
-                <Text className="text-gray-400 text-sm ml-1">
-                  {booking.customerName || `${booking.customerAddress.slice(0, 6)}...${booking.customerAddress.slice(-4)}`}
-                </Text>
-              </View>
-              <View className="flex-row items-center mt-2">
-                <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
-                <Text className="text-gray-400 text-sm ml-1">
-                  {new Date(booking.bookingDate || booking.createdAt).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </Text>
-                <Text className="text-gray-600 mx-2">•</Text>
-                <Ionicons name="time-outline" size={14} color="#FFCC00" />
-                <Text className="text-[#FFCC00] text-sm ml-1 font-medium">
-                  {formatBookingTime(booking.bookingDate || booking.createdAt)}
-                </Text>
-              </View>
-            </View>
-            <View className="items-end">
-              <View
-                className="px-2 py-1 rounded-full"
-                style={{ backgroundColor: getDisplayStatusColor(booking) + "20" }}
-              >
-                <Text
-                  className="text-xs font-medium capitalize"
-                  style={{ color: getDisplayStatusColor(booking) }}
-                >
-                  {getDisplayStatus(booking)}
-                </Text>
-              </View>
-              <Text className="text-[#FFCC00] font-semibold mt-2">
-                ${booking.totalAmount.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+          booking={booking}
+          showDate={true}
+          onApprove={actions.onApprove}
+          onComplete={actions.onComplete}
+          onNoShow={actions.onNoShow}
+          isProcessing={actions.isProcessing}
+        />
       ))}
       <View className="h-24" />
     </ScrollView>
@@ -597,14 +515,53 @@ function BookingList({ bookings }: BookingListProps) {
 }
 
 export default function BookingsTab() {
-  // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
-
-  // UI state
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const { statusFilter, setStatusFilter } = useBookingsFilter();
+  const { isLoading, getBookingsForDate, bookings, refetch } = useBookingsData(statusFilter);
 
-  // Data fetching
-  const { isLoading, getBookingsForDate, bookings } = useBookingsData(statusFilter);
+  const handleApprove = useCallback(async (orderId: string) => {
+    setProcessingId(orderId);
+    try {
+      await bookingApi.approveOrder(orderId);
+      await refetch();
+    } catch {
+      Alert.alert("Error", "Failed to approve booking");
+    } finally {
+      setProcessingId(null);
+    }
+  }, [refetch]);
+
+  const handleComplete = useCallback(async (orderId: string) => {
+    setProcessingId(orderId);
+    try {
+      await bookingApi.updateOrderStatus(orderId, "completed");
+      await refetch();
+    } catch {
+      Alert.alert("Error", "Failed to complete order");
+    } finally {
+      setProcessingId(null);
+    }
+  }, [refetch]);
+
+  const handleNoShow = useCallback(async (orderId: string) => {
+    setProcessingId(orderId);
+    try {
+      await appointmentApi.markOrderAsNoShow(orderId);
+      await refetch();
+    } catch {
+      Alert.alert("Error", "Failed to mark no-show");
+    } finally {
+      setProcessingId(null);
+    }
+  }, [refetch]);
+
+  const actions: BookingActions = {
+    onApprove: handleApprove,
+    onComplete: handleComplete,
+    onNoShow: handleNoShow,
+    isProcessing: !!processingId,
+  };
 
   return (
     <View className="flex-1 bg-zinc-950">
@@ -686,9 +643,9 @@ export default function BookingsTab() {
           <ActivityIndicator size="large" color="#ffcc00" />
         </View>
       ) : viewMode === "calendar" ? (
-        <BookingCalendar getBookingsForDate={getBookingsForDate} />
+        <BookingCalendar getBookingsForDate={getBookingsForDate} actions={actions} />
       ) : (
-        <BookingList bookings={bookings} />
+        <BookingList bookings={bookings} actions={actions} />
       )}
     </View>
   );
