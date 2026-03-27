@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Send,
   Paperclip,
@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
+import { SERVICE_CATEGORIES } from "@/services/api/services";
+
+const CATEGORY_LABEL_MAP = new Map(SERVICE_CATEGORIES.map((c) => [c.value, c.label]));
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -460,7 +463,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                                     <span className={`text-xs ${
                                       isOwnMessage ? "text-black/70" : "text-gray-400"
                                     }`}>
-                                      {message.metadata.serviceCategory}
+                                      {CATEGORY_LABEL_MAP.get(message.metadata.serviceCategory) ?? message.metadata.serviceCategory}
                                     </span>
                                     <span className={`text-sm font-bold ${
                                       isOwnMessage ? "text-black" : "text-[#FFCC00]"
@@ -502,7 +505,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                                     <p>Service: {message.metadata.serviceName}</p>
                                     <p>Price: ${message.metadata.servicePrice}</p>
                                     {message.metadata.serviceCategory && (
-                                      <p>Category: {message.metadata.serviceCategory}</p>
+                                      <p>Category: {CATEGORY_LABEL_MAP.get(message.metadata.serviceCategory) ?? message.metadata.serviceCategory}</p>
                                     )}
                                     {message.metadata.bookingDate && (
                                       <p className={`font-medium ${
