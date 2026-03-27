@@ -117,13 +117,6 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
         {role === "shop" && (
           <SettingsSection title="Appointments">
             <SettingsItem
-              icon={<Ionicons name="calendar" size={20} color="#FFCC00" />}
-              title="Appointment Calendar"
-              subtitle="View and manage bookings"
-              onPress={() => router.push("/shop/appointments" as any)}
-            />
-            <Divider />
-            <SettingsItem
               icon={<Ionicons name="time-outline" size={20} color="#FFCC00" />}
               title="Availability Settings"
               subtitle="Operating hours, slots & overrides"
