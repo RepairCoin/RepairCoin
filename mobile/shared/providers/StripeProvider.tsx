@@ -17,7 +17,7 @@ export function StripeProvider({ children }: StripeProviderProps) {
     <StripeNativeProvider
       publishableKey={STRIPE_PUBLISHABLE_KEY}
       merchantIdentifier="merchant.com.repaircoin"
-      urlScheme="khalid2025"
+      urlScheme="repaircoin"
     >
       {children}
     </StripeNativeProvider>

@@ -159,6 +159,6 @@
     "ignore": [
       "src/**/*.test.ts"
     ],
-    "exec": "ts-node src/app.ts"
+    "exec": "node --max-old-space-size=4096 -r ts-node/register src/app.ts"
   }
 }
