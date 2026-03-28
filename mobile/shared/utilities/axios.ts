@@ -83,8 +83,8 @@ class ApiClient {
       // Call refresh endpoint
       const response = await authApi.getRefreshToken(refreshToken);
 
-      if (response.data.success) {
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      if (response.success) {
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
 
         // Store new tokens in Zustand store
         setAccessToken(accessToken);
@@ -96,7 +96,7 @@ class ApiClient {
         return accessToken;
       }
 
-      console.log('[ApiClient] Token refresh failed:', response.data);
+      console.log('[ApiClient] Token refresh failed:', response);
       return null;
     } catch (error: any) {
       console.error('[ApiClient] Token refresh error:', error.message);
