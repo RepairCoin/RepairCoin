@@ -8,7 +8,13 @@ interface CustomerCardProps {
   lifetimeEarnings: number;
   lastTransactionDate?: string;
   total_transactions?: number;
+  referralCount?: number;
+  totalRedemptions?: number;
+  joinDate?: string;
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
   onPress?: () => void;
+  onMessagePress?: () => void;
 }
 
 const getTierConfig = (tier: string) => {
@@ -62,13 +68,25 @@ const formatDate = (dateString: string) => {
   return `${Math.floor(diffDays / 365)}y ago`;
 };
 
-export default function CustomerCard({
+const formatJoinDate = (dateString?: string) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+};
+
+function CustomerCard({
   name,
   tier,
   lifetimeEarnings,
   lastTransactionDate,
   total_transactions,
+  referralCount,
+  totalRedemptions,
+  joinDate,
+  isSuspended,
+  suspensionReason,
   onPress,
+  onMessagePress,
 }: CustomerCardProps) {
   const tierConfig = getTierConfig(tier);
   const formattedDate = lastTransactionDate ? formatDate(lastTransactionDate) : null;
@@ -104,7 +122,7 @@ export default function CustomerCard({
 
             {/* Info Section */}
             <View className="flex-1">
-              {/* Name & Arrow */}
+              {/* Name & Actions */}
               <View className="flex-row items-center justify-between mb-2">
                 <Text
                   className="text-white font-semibold text-base flex-1 mr-2"
@@ -112,8 +130,22 @@ export default function CustomerCard({
                 >
                   {name || "Unknown Customer"}
                 </Text>
-                <View className="bg-zinc-800 rounded-full p-1.5">
-                  <Feather name="chevron-right" size={14} color="#9CA3AF" />
+                <View className="flex-row items-center gap-2">
+                  {onMessagePress && (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        onMessagePress();
+                      }}
+                      activeOpacity={0.7}
+                      className="bg-blue-500/20 rounded-full p-1.5"
+                    >
+                      <Ionicons name="chatbubble" size={14} color="#3B82F6" />
+                    </TouchableOpacity>
+                  )}
+                  <View className="bg-zinc-800 rounded-full p-1.5">
+                    <Feather name="chevron-right" size={14} color="#9CA3AF" />
+                  </View>
                 </View>
               </View>
 
@@ -137,8 +169,18 @@ export default function CustomerCard({
                   </Text>
                 </View>
 
+                {/* Suspended Badge */}
+                {isSuspended && (
+                  <View className="flex-row items-center px-2 py-1 rounded-full" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)" }}>
+                    <Ionicons name="ban-outline" size={10} color="#EF4444" />
+                    <Text className="text-xs font-semibold ml-1" style={{ color: "#EF4444" }}>
+                      SUSPENDED
+                    </Text>
+                  </View>
+                )}
+
                 {/* Last Activity */}
-                {formattedDate && (
+                {formattedDate && !isSuspended && (
                   <View className="flex-row items-center bg-zinc-800/50 px-2 py-1 rounded-full">
                     <Feather name="clock" size={10} color="#6B7280" />
                     <Text className="text-gray-500 text-xs ml-1">
@@ -185,8 +227,40 @@ export default function CustomerCard({
               </View>
             </View>
           </View>
+
+          {/* Secondary Stats Row */}
+          {(referralCount !== undefined || totalRedemptions !== undefined || joinDate) && (
+            <View className="flex-row items-center mt-2 pt-2 border-t border-zinc-800/50">
+              {totalRedemptions !== undefined && (
+                <View className="flex-row items-center mr-4">
+                  <Ionicons name="arrow-down-circle-outline" size={12} color="#6B7280" />
+                  <Text className="text-gray-500 text-xs ml-1">
+                    {totalRedemptions} redeemed
+                  </Text>
+                </View>
+              )}
+              {referralCount !== undefined && referralCount > 0 && (
+                <View className="flex-row items-center mr-4">
+                  <Ionicons name="people-outline" size={12} color="#6B7280" />
+                  <Text className="text-gray-500 text-xs ml-1">
+                    {referralCount} referral{referralCount !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+              )}
+              {joinDate && (
+                <View className="flex-row items-center ml-auto">
+                  <Ionicons name="calendar-outline" size={12} color="#6B7280" />
+                  <Text className="text-gray-500 text-xs ml-1">
+                    {formatJoinDate(joinDate)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
   );
 }
+
+export default React.memo(CustomerCard);

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -20,13 +20,26 @@ import CustomerDetailSection from "./CustomerDetailSection";
 const subscriptionHomeImage = require("@/assets/images/subsciption_home.png");
 const logoImage = require("@/assets/images/logo.png");
 
+type ShopWalletTabProps = {
+  shopData: ShopData;
+  growthData?: CustomerGrowthData;
+  onRefresh?: () => void;
+};
+
 export default function ShopWalletTab({
   shopData,
   growthData,
-}: {
-  shopData: ShopData;
-  growthData?: CustomerGrowthData;
-}) {
+  onRefresh,
+}: ShopWalletTabProps) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(() => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    onRefresh();
+    // Give a brief delay for visual feedback
+    setTimeout(() => setRefreshing(false), 1000);
+  }, [onRefresh]);
   const router = useRouter();
   const { account } = useAuthStore();
 
@@ -47,8 +60,8 @@ export default function ShopWalletTab({
         showsHorizontalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={false}
-            onRefresh={() => {}}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             colors={["#FFCC00"]}
             tintColor="#FFCC00"
             progressBackgroundColor="#1A1A1C"

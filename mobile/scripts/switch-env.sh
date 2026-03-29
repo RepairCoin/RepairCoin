@@ -14,16 +14,31 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Function to read API URL from env file
+get_api_url_from_file() {
+    local file=$1
+    if [ -f "$MOBILE_DIR/$file" ]; then
+        grep "^EXPO_PUBLIC_API_URL=" "$MOBILE_DIR/$file" | cut -d '=' -f2
+    else
+        echo "not configured"
+    fi
+}
+
 show_usage() {
+    # Read URLs from env files dynamically
+    LOCAL_URL=$(get_api_url_from_file "env.local")
+    STAGING_URL=$(get_api_url_from_file "env.staging")
+    PROD_URL=$(get_api_url_from_file "env.production")
+
     echo ""
     echo -e "${BLUE}RepairCoin Environment Switcher${NC}"
     echo ""
     echo "Usage: npm run env:[environment]"
     echo ""
     echo "Available environments:"
-    echo -e "  ${GREEN}local${NC}       - Local development (http://192.168.1.53:4000/api)"
-    echo -e "  ${YELLOW}staging${NC}     - Staging server (https://api-staging.repaircoin.ai/api)"
-    echo -e "  ${RED}production${NC}  - Production server (https://api.repaircoin.ai/api)"
+    echo -e "  ${GREEN}local${NC}       - Local development ($LOCAL_URL)"
+    echo -e "  ${YELLOW}staging${NC}     - Staging server ($STAGING_URL)"
+    echo -e "  ${RED}production${NC}  - Production server ($PROD_URL)"
     echo ""
     echo "Examples:"
     echo "  npm run env:local       # Switch to local environment"
@@ -50,15 +65,12 @@ fi
 case $ENV in
     local)
         ENV_FILE="env.local"
-        API_URL="http://192.168.1.53:4000/api"
         ;;
     staging)
         ENV_FILE="env.staging"
-        API_URL="https://api-staging.repaircoin.ai/api"
         ;;
     production)
         ENV_FILE="env.production"
-        API_URL="https://api.repaircoin.ai/api"
         ;;
     *)
         echo -e "${RED}Error: Unknown environment '$ENV'${NC}"
@@ -66,6 +78,9 @@ case $ENV in
         exit 1
         ;;
 esac
+
+# Read API URL from the env file
+API_URL=$(get_api_url_from_file "$ENV_FILE")
 
 # Check if source file exists
 if [ ! -f "$MOBILE_DIR/$ENV_FILE" ]; then

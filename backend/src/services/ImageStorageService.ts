@@ -150,12 +150,12 @@ export class ImageStorageService {
         };
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      // Validate file size (10MB max)
+      const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
         return {
           success: false,
-          error: 'File size exceeds 5MB limit.',
+          error: 'File size exceeds 10MB limit.',
         };
       }
 
@@ -231,11 +231,11 @@ export class ImageStorageService {
         };
       }
 
-      const maxSize = 5 * 1024 * 1024;
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
         return {
           success: false,
-          error: 'File size exceeds 5MB limit.',
+          error: 'File size exceeds 10MB limit.',
         };
       }
 

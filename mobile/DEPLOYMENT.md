@@ -123,7 +123,7 @@ TestFlight builds use `distribution: store` and can be distributed without devic
 3. Fill in:
    - **Platform:** iOS
    - **Name:** RepairCoin
-   - **Bundle ID:** com.repaircoin.staging
+   - **Bundle ID:** com.repaircoin.app
    - **SKU:** repaircoin-staging
 4. Note the **Apple ID** number (found in App Information)
 

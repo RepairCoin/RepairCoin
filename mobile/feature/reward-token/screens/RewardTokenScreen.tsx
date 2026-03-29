@@ -8,6 +8,8 @@ import {
   RepairTypeSection,
   RewardSummary,
   HowItWorksModal,
+  ConfirmRewardModal,
+  RecentRewards,
 } from "../components";
 
 export default function RewardTokenScreen() {
@@ -63,9 +65,14 @@ export default function RewardTokenScreen() {
     isIssuingReward,
     isIssueDisabled,
     handleIssueReward,
+    handleConfirmIssue,
     handleQRScan,
     handleGoBack,
     getButtonText,
+
+    // Confirmation modal
+    showConfirmation,
+    setShowConfirmation,
   } = useRewardToken();
 
   return (
@@ -78,7 +85,7 @@ export default function RewardTokenScreen() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -108,6 +115,8 @@ export default function RewardTokenScreen() {
           onPromoSelect={handlePromoCodeSelect}
         />
 
+        <RecentRewards />
+
         <RepairTypeSection
           repairType={repairType}
           customAmount={customAmount}
@@ -116,21 +125,21 @@ export default function RewardTokenScreen() {
           onCustomAmountChange={setCustomAmount}
           onCustomRcnChange={setCustomRcn}
         />
-      </ScrollView>
 
-      <RewardSummary
-        baseReward={baseReward}
-        tierBonus={tierBonus}
-        promoBonus={promoBonus}
-        totalReward={totalReward}
-        customerInfo={customerInfo}
-        isIssuing={isIssuingReward}
-        isDisabled={isIssueDisabled}
-        buttonText={getButtonText()}
-        onIssue={handleIssueReward}
-        availableBalance={availableBalance}
-        hasInsufficientBalance={hasInsufficientBalance}
-      />
+        <RewardSummary
+          baseReward={baseReward}
+          tierBonus={tierBonus}
+          promoBonus={promoBonus}
+          totalReward={totalReward}
+          customerInfo={customerInfo}
+          isIssuing={isIssuingReward}
+          isDisabled={isIssueDisabled}
+          buttonText={getButtonText()}
+          onIssue={handleIssueReward}
+          availableBalance={availableBalance}
+          hasInsufficientBalance={hasInsufficientBalance}
+        />
+      </ScrollView>
 
       <HowItWorksModal
         visible={showHowItWorks}
@@ -141,6 +150,20 @@ export default function RewardTokenScreen() {
         visible={showQRScanner}
         onClose={() => setShowQRScanner(false)}
         onScan={handleQRScan}
+      />
+
+      <ConfirmRewardModal
+        visible={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleConfirmIssue}
+        isIssuing={isIssuingReward}
+        customerName={customerInfo?.name}
+        customerTier={customerInfo?.tier}
+        customerAddress={customerAddress}
+        baseReward={baseReward}
+        tierBonus={tierBonus}
+        promoBonus={promoBonus}
+        totalReward={totalReward}
       />
     </ThemedView>
   );

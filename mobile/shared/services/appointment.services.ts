@@ -11,6 +11,22 @@ import {
 // Types
 // ============================================
 
+export type NoShowTier = 'normal' | 'warning' | 'caution' | 'deposit_required' | 'suspended';
+
+export interface CustomerNoShowStatus {
+  customerAddress: string;
+  noShowCount: number;
+  tier: NoShowTier;
+  depositRequired: boolean;
+  lastNoShowAt?: string;
+  bookingSuspendedUntil?: string;
+  successfulAppointmentsSinceTier3: number;
+  canBook: boolean;
+  requiresDeposit: boolean;
+  minimumAdvanceHours: number;
+  restrictions: string[];
+}
+
 export type RescheduleRequestStatus =
   | "pending"
   | "approved"
@@ -172,6 +188,44 @@ class AppointmentApi {
     }
   }
 
+  /**
+   * Get customer's overall no-show status (dashboard banner)
+   */
+  async getCustomerNoShowStatus(
+    customerAddress: string
+  ): Promise<CustomerNoShowStatus | null> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/overall-no-show-status`
+      );
+      return response.data || response;
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get no-show status:", error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get customer's no-show status for a specific shop
+   */
+  async getCustomerNoShowStatusForShop(
+    customerAddress: string,
+    shopId: string
+  ): Promise<CustomerNoShowStatus | null> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/no-show-status`,
+        { params: { shopId } }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get shop no-show status:", error.message);
+      return null;
+    }
+  }
+
   // ============================================
   // Shop Direct Reschedule
   // ============================================
@@ -265,6 +319,65 @@ class AppointmentApi {
       return true;
     } catch (error: any) {
       console.error("Failed to reject reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  // ============================================
+  // Reschedule Requests (Customer)
+  // ============================================
+
+  /**
+   * Customer requests a reschedule for their booking
+   */
+  async createRescheduleRequest(
+    orderId: string,
+    requestedDate: string,
+    requestedTimeSlot: string,
+    reason?: string
+  ): Promise<RescheduleRequest> {
+    try {
+      const response = await apiClient.post(
+        `/services/appointments/reschedule-request`,
+        { orderId, requestedDate, requestedTimeSlot, reason }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to create reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Customer cancels their pending reschedule request
+   */
+  async cancelRescheduleRequest(requestId: string): Promise<boolean> {
+    try {
+      await apiClient.delete(
+        `/services/appointments/reschedule-request/${requestId}`
+      );
+      return true;
+    } catch (error: any) {
+      console.error("Failed to cancel reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get reschedule request for a specific order (Customer)
+   */
+  async getRescheduleRequestForOrder(
+    orderId: string
+  ): Promise<RescheduleRequest | null> {
+    try {
+      const response = await apiClient.get(
+        `/services/appointments/reschedule-request/order/${orderId}`
+      );
+      return response.data || null;
+    } catch (error: any) {
+      // 404 means no request exists
+      if (error.response?.status === 404) return null;
+      console.error("Failed to get reschedule request:", error.message);
       throw error;
     }
   }

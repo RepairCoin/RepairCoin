@@ -7,7 +7,26 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:854830853827:android:00ed2aab743c50b63bfc76",
+        "mobilesdk_app_id": "1:854830853827:android:f07405d384b9f4e63bfc76",
+        "android_client_info": {
+          "package_name": "com.repaircoin.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-90U8BAESH3kAz_fEuoTuFDHoNw1i88I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:854830853827:android:f07405d384b9f4e63bfc76",
         "android_client_info": {
           "package_name": "com.repaircoin.staging"
         }

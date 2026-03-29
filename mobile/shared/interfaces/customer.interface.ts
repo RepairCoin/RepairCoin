@@ -1,5 +1,9 @@
 import { BaseResponse } from "./base.interface";
 
+export type CustomerTierLower = "bronze" | "silver" | "gold";
+export type CustomerTierUpper = "BRONZE" | "SILVER" | "GOLD";
+export type CustomerTier = CustomerTierLower | CustomerTierUpper;
+
 export interface TierBenefits {
   earningMultiplier: number;
   redemptionRate: number;
@@ -28,6 +32,7 @@ export interface CustomerData {
   id: number;
   shopId: string;
   stripeCustomerId: string;
+  profileImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   total_transactions: number;

@@ -2,12 +2,15 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 export const QuickActions: React.FC = () => {
+  const haptics = useHaptics();
+
   return (
     <View className="mt-6 flex-row">
       <TouchableOpacity
-        onPress={() => router.push("/customer/qrcode")}
+        onPress={() => { haptics.selection(); router.push("/customer/qrcode"); }}
         className="flex-1 bg-[#FFCC00] rounded-xl py-4 mr-2 flex-row items-center justify-center"
         activeOpacity={0.8}
       >
@@ -15,7 +18,7 @@ export const QuickActions: React.FC = () => {
         <Text className="text-black font-bold ml-2">Show QR Code</Text>
       </TouchableOpacity>
       <TouchableOpacity
-        onPress={() => router.push("/customer/tabs/history")}
+        onPress={() => { haptics.selection(); router.push("/customer/tabs/history"); }}
         className="flex-1 bg-zinc-800 rounded-xl py-4 ml-2 flex-row items-center justify-center"
         activeOpacity={0.8}
       >

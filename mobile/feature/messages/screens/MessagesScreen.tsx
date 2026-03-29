@@ -1,5 +1,6 @@
-import { View, FlatList, RefreshControl, Text, Pressable, TextInput } from "react-native";
+import { View, FlatList, RefreshControl, Text, Pressable, TextInput, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useMessages, MessageFilter } from "../hooks";
@@ -109,9 +110,25 @@ export default function MessagesScreen() {
     }
   };
 
+  const handleAutoMessages = () => {
+    router.push("/shop/messages/auto-messages" as any);
+  };
+
   return (
     <View className="w-full h-full bg-zinc-950">
-      <AppHeader title="Messages" />
+      <AppHeader
+        title="Messages"
+        rightElement={
+          !isCustomer ? (
+            <TouchableOpacity
+              onPress={handleAutoMessages}
+              className="flex-row items-center px-3 py-2"
+            >
+              <Ionicons name="timer-outline" size={20} color="#FFCC00" />
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}

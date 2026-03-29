@@ -66,12 +66,19 @@ export default function ConversationItem({
             {formatTimestamp(conversation.lastMessageAt)}
           </Text>
         </View>
-        <Text
-          className={`text-sm mt-1 ${hasUnread ? "text-zinc-300" : "text-zinc-500"}`}
-          numberOfLines={1}
-        >
-          {conversation.lastMessagePreview || "No messages yet"}
-        </Text>
+        {conversation.lastMessagePreview?.includes("Locked message") ? (
+          <View className="flex-row items-center mt-1">
+            <Ionicons name="lock-closed" size={12} color="#F59E0B" />
+            <Text className="text-amber-500 text-sm ml-1">Locked message</Text>
+          </View>
+        ) : (
+          <Text
+            className={`text-sm mt-1 ${hasUnread ? "text-zinc-300" : "text-zinc-500"}`}
+            numberOfLines={1}
+          >
+            {conversation.lastMessagePreview || "No messages yet"}
+          </Text>
+        )}
       </View>
       {hasUnread && (
         <View className="min-w-[20px] h-5 rounded-full bg-[#FFCC00] ml-2 px-1.5 items-center justify-center">

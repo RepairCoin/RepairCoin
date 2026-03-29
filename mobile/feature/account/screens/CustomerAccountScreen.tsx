@@ -6,6 +6,7 @@ import {
   View,
   TouchableOpacity,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -152,12 +153,20 @@ export default function CustomerAccountScreen() {
               className="w-28 h-28 rounded-full border-4 border-zinc-950 overflow-hidden items-center justify-center"
               style={{ backgroundColor: `${tierConfig.color}30` }}
             >
-              <Text
-                className="text-3xl font-bold"
-                style={{ color: tierConfig.color }}
-              >
-                {getInitials(customer?.name || "User")}
-              </Text>
+              {customer?.profileImageUrl ? (
+                <Image
+                  source={{ uri: customer.profileImageUrl }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text
+                  className="text-3xl font-bold"
+                  style={{ color: tierConfig.color }}
+                >
+                  {getInitials(customer?.name || "User")}
+                </Text>
+              )}
             </View>
 
             {/* Name & Tier Badge */}

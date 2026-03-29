@@ -10,6 +10,7 @@ export function useRewardToken() {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const {
     customerAddress,
@@ -67,7 +68,9 @@ export function useRewardToken() {
     totalReward <= 0 ||
     hasInsufficientBalance ||
     (repairType === "custom" &&
-      (!customAmount || !customRcn || parseFloat(customAmount) <= 0));
+      (!customAmount || !customRcn ||
+        parseFloat(customAmount) <= 0 || parseFloat(customAmount) > 100000 ||
+        parseFloat(customRcn) <= 0 || parseFloat(customRcn) > 10000));
 
   const handleIssueReward = () => {
     if (!customerAddress) {
@@ -97,6 +100,11 @@ export function useRewardToken() {
       }
     }
 
+    // Show confirmation modal instead of directly issuing
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmIssue = () => {
     const request = {
       customerAddress,
       repairAmount: getRepairAmount(),
@@ -107,7 +115,9 @@ export function useRewardToken() {
       }),
     };
 
-    issueReward(request);
+    issueReward(request, {
+      onSettled: () => setShowConfirmation(false),
+    });
   };
 
   const handleRefresh = async () => {
@@ -215,8 +225,13 @@ export function useRewardToken() {
     isIssuingReward,
     isIssueDisabled,
     handleIssueReward,
+    handleConfirmIssue,
     handleQRScan,
     handleGoBack,
     getButtonText,
+
+    // Confirmation modal
+    showConfirmation,
+    setShowConfirmation,
   };
 }

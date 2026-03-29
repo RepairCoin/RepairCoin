@@ -30,9 +30,10 @@ export interface Message {
   senderAddress: string;
   senderType: 'customer' | 'shop';
   messageText: string;
-  messageType: 'text' | 'booking_link' | 'service_link' | 'system';
+  messageType: 'text' | 'booking_link' | 'service_link' | 'system' | 'encrypted';
   attachments: any[];
   metadata: Record<string, any>;
+  isEncrypted: boolean;
   isRead: boolean;
   readAt?: Date;
   isDelivered: boolean;
@@ -66,9 +67,10 @@ export interface CreateMessageParams {
   senderAddress: string;
   senderType: 'customer' | 'shop';
   messageText: string;
-  messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
+  messageType?: 'text' | 'booking_link' | 'service_link' | 'system' | 'encrypted';
   metadata?: Record<string, any>;
   attachments?: any[];
+  isEncrypted?: boolean;
 }
 
 export class MessageRepository extends BaseRepository {
@@ -303,8 +305,9 @@ export class MessageRepository extends BaseRepository {
           message_text,
           message_type,
           metadata,
-          attachments
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          attachments,
+          is_encrypted
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `;
 
@@ -316,7 +319,8 @@ export class MessageRepository extends BaseRepository {
         params.messageText,
         params.messageType || 'text',
         JSON.stringify(params.metadata || {}),
-        JSON.stringify(params.attachments || [])
+        JSON.stringify(params.attachments || []),
+        params.isEncrypted || false
       ]);
 
       logger.info('Message created', {
@@ -748,6 +752,7 @@ export class MessageRepository extends BaseRepository {
       messageType: row.message_type,
       attachments: row.attachments || [],
       metadata: row.metadata || {},
+      isEncrypted: row.is_encrypted || false,
       isRead: row.is_read || false,
       readAt: row.read_at,
       isDelivered: row.is_delivered || false,

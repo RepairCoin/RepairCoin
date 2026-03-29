@@ -1,6 +1,7 @@
 import React from "react";
 import { View, TextInput, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface SearchInputProps {
   value: string;
@@ -17,6 +18,8 @@ export function SearchInput({
   variant = "default",
   onSubmitEditing,
 }: SearchInputProps) {
+  const haptics = useHaptics();
+
   const containerStyle =
     variant === "filled"
       ? "bg-zinc-800 rounded-full"
@@ -41,7 +44,7 @@ export function SearchInput({
         returnKeyType={onSubmitEditing ? "search" : "done"}
       />
       {value.length > 0 && (
-        <Pressable onPress={() => onChangeText("")}>
+        <Pressable onPress={() => { haptics.light(); onChangeText(""); }}>
           <Feather name="x-circle" size={20} color={iconColor} />
         </Pressable>
       )}

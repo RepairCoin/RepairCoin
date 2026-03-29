@@ -11,6 +11,8 @@ export {
 export {
   useApproveRescheduleRequestMutation,
   useRejectRescheduleRequestMutation,
+  useCreateRescheduleRequestMutation,
+  useCancelRescheduleRequestMutation,
 } from "./useRescheduleActions";
 
 // Manual booking mutation

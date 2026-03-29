@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { View, FlatList, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChat } from "../hooks";
+import { useUnlockSession } from "../hooks/useUnlockSession";
 import { useAppToast } from "@/shared/hooks";
 import {
   ChatHeader,
@@ -34,8 +35,16 @@ export default function ChatScreen() {
   } = useChat();
 
   const { showSuccess, showError } = useAppToast();
+  const unlockSession = useUnlockSession();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+
+  const handleTextChange = useCallback(
+    (text: string) => {
+      setMessageText(text);
+    },
+    [setMessageText]
+  );
 
   const handleArchive = async () => {
     if (!conversation) return;
@@ -131,6 +140,7 @@ export default function ChatScreen() {
             isOwnMessage={isOwnMessage}
             conversation={conversation}
             isCustomer={isCustomer}
+            unlockSession={unlockSession}
           />
         )}
       </View>
@@ -179,11 +189,12 @@ export default function ChatScreen() {
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToEnd}
           ListEmptyComponent={EmptyChat}
+          ListFooterComponent={null}
         />
 
         <MessageInput
           value={messageText}
-          onChangeText={setMessageText}
+          onChangeText={handleTextChange}
           onSend={handleSend}
           isSending={isSending}
           disabled={conversation?.isBlocked}

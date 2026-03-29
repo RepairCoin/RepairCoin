@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface Tab {
   key: string;
@@ -12,6 +13,8 @@ interface TabButtonsProps {
 }
 
 export function TabButtons({ tabs, activeTab, onTabChange }: TabButtonsProps) {
+  const haptics = useHaptics();
+
   const getTabClassName = (index: number, isActive: boolean) => {
     const baseClass = "flex-1 py-3";
     const bgClass = isActive ? "bg-[#FFCC00]" : "bg-zinc-800";
@@ -32,7 +35,10 @@ export function TabButtons({ tabs, activeTab, onTabChange }: TabButtonsProps) {
         return (
           <TouchableOpacity
             key={tab.key}
-            onPress={() => onTabChange(tab.key)}
+            onPress={() => {
+              haptics.selection();
+              onTabChange(tab.key);
+            }}
             className={getTabClassName(index, isActive)}
           >
             <Text

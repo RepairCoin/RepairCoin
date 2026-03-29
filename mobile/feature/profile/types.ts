@@ -48,7 +48,7 @@ export interface ShopServicesTabProps {
 }
 
 // Customer Profile Types
-export type CustomerTier = "bronze" | "silver" | "gold";
+export type { CustomerTier } from "@/shared/interfaces/customer.interface";
 
 export interface CustomerProfileProps {
   walletAddress: string;
@@ -65,6 +65,7 @@ export interface CustomerEditFormData {
   name: string;
   email: string;
   phone: string;
+  profileImageUrl: string;
 }
 
 export interface ShopEditFormData {

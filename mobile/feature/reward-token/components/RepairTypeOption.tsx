@@ -97,23 +97,54 @@ export function CustomRepairOption({
             <Text className="text-gray-400 text-sm mb-2">Repair Amount ($)</Text>
             <TextInput
               value={customAmount}
-              onChangeText={onAmountChange}
-              placeholder="0"
+              onChangeText={(text) => {
+                const sanitized = text.replace(/[^0-9.]/g, "");
+                // Prevent multiple decimal points
+                const parts = sanitized.split(".");
+                const cleaned = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized;
+                onAmountChange(cleaned);
+              }}
+              placeholder="Min $1"
               placeholderTextColor="#6B7280"
-              keyboardType="numeric"
-              className="w-full px-4 py-3 bg-[#000] border border-gray-600 text-white rounded-xl"
+              keyboardType="decimal-pad"
+              className={`w-full px-4 py-3 bg-[#000] border text-white rounded-xl ${
+                customAmount && (parseFloat(customAmount) <= 0 || parseFloat(customAmount) > 100000)
+                  ? "border-red-500"
+                  : "border-gray-600"
+              }`}
             />
+            {customAmount && parseFloat(customAmount) <= 0 && (
+              <Text className="text-red-400 text-xs mt-1">Amount must be greater than $0</Text>
+            )}
+            {customAmount && parseFloat(customAmount) > 100000 && (
+              <Text className="text-red-400 text-xs mt-1">Amount cannot exceed $100,000</Text>
+            )}
           </View>
           <View className="flex-1">
             <Text className="text-gray-400 text-sm mb-2">RCN Reward</Text>
             <TextInput
               value={customRcn}
-              onChangeText={onRcnChange}
-              placeholder="0"
+              onChangeText={(text) => {
+                const sanitized = text.replace(/[^0-9.]/g, "");
+                const parts = sanitized.split(".");
+                const cleaned = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : sanitized;
+                onRcnChange(cleaned);
+              }}
+              placeholder="Min 1 RCN"
               placeholderTextColor="#6B7280"
-              keyboardType="numeric"
-              className="w-full px-4 py-3 bg-[#000] border border-gray-600 text-white rounded-xl"
+              keyboardType="decimal-pad"
+              className={`w-full px-4 py-3 bg-[#000] border text-white rounded-xl ${
+                customRcn && (parseFloat(customRcn) <= 0 || parseFloat(customRcn) > 10000)
+                  ? "border-red-500"
+                  : "border-gray-600"
+              }`}
             />
+            {customRcn && parseFloat(customRcn) <= 0 && (
+              <Text className="text-red-400 text-xs mt-1">RCN must be greater than 0</Text>
+            )}
+            {customRcn && parseFloat(customRcn) > 10000 && (
+              <Text className="text-red-400 text-xs mt-1">RCN cannot exceed 10,000</Text>
+            )}
           </View>
         </View>
       )}

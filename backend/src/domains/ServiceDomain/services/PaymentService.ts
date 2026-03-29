@@ -469,8 +469,8 @@ export class PaymentService {
       const amountInCents = Math.round(finalAmountUsd * 100);
 
       // Set redirect URLs - use deep links for mobile (shared payment success screen)
-      const successUrl = `khalid2025://shared/payment-sucess?order_id=${orderId}`;
-      const cancelUrl = `khalid2025://shared/payment-cancel?order_id=${orderId}`;
+      const successUrl = `repaircoin://shared/payment-sucess?order_id=${orderId}`;
+      const cancelUrl = `repaircoin://shared/payment-cancel?order_id=${orderId}`;
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],

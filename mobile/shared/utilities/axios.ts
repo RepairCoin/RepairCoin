@@ -25,7 +25,7 @@ class ApiClient {
     
     this.instance = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000,
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -76,15 +76,23 @@ class ApiClient {
       // Get stored refresh token from Zustand store
       const { refreshToken, setAccessToken, setRefreshToken } = useAuthStore.getState();
       if (!refreshToken) {
-        console.log('[ApiClient] No refresh token found');
+        console.log('[ApiClient] No refresh token found in store');
         return null;
       }
+
+      console.log('[ApiClient] Refresh token exists, length:', refreshToken.length);
 
       // Call refresh endpoint
       const response = await authApi.getRefreshToken(refreshToken);
 
-      if (response.data.success) {
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      console.log('[ApiClient] Refresh response:', {
+        success: response?.success,
+        hasData: !!response?.data,
+        hasAccessToken: !!response?.data?.accessToken,
+      });
+
+      if (response.success) {
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
 
         // Store new tokens in Zustand store
         setAccessToken(accessToken);
@@ -92,17 +100,22 @@ class ApiClient {
           setRefreshToken(newRefreshToken);
         }
 
-        console.log('[ApiClient] Token refreshed successfully');
+        console.log('[ApiClient] Token refreshed successfully, new token length:', accessToken?.length);
         return accessToken;
       }
 
-      console.log('[ApiClient] Token refresh failed:', response.data);
+      console.log('[ApiClient] Token refresh failed - success was false:', JSON.stringify(response).substring(0, 200));
       return null;
     } catch (error: any) {
-      console.error('[ApiClient] Token refresh error:', error.message);
+      console.error('[ApiClient] Token refresh error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
 
-      // If refresh fails with 401, clear tokens and redirect to login
+      // If refresh fails with 401, the refresh token itself is invalid
       if (error.response?.status === 401) {
+        console.log('[ApiClient] Refresh token is invalid/expired, clearing auth');
         await this.clearAuthToken();
       }
 
@@ -121,7 +134,7 @@ class ApiClient {
           if (token) {
             // Check if token is expired
             if (this.isTokenExpired(token)) {
-              console.log('[ApiClient] Token expired, attempting refresh...');
+              console.log('[ApiClient] Token expired for:', config.url);
 
               // If not already refreshing, start refresh
               if (!this.isRefreshing) {
@@ -186,25 +199,31 @@ class ApiClient {
           });
         }
 
-        // Handle 401 Unauthorized - Try to refresh token once
+        // Handle 401 Unauthorized - Try to refresh token and retry
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
-          console.log('[ApiClient] Got 401, attempting to refresh token...');
-          
+
+          // Don't log out on TOKEN_EXPIRED — just refresh silently
+          const errorCode = error.response?.data?.code;
+          if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN') {
+            console.log('[ApiClient] Token expired, refreshing...');
+          }
+
           if (!this.isRefreshing) {
             this.isRefreshing = true;
-            
+
             const newToken = await this.refreshToken();
-            
+
             if (newToken) {
               this.onTokenRefreshed(newToken);
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
               this.isRefreshing = false;
               return this.instance(originalRequest);
             } else {
-              // Refresh failed, clear tokens
-              await this.clearAuthToken();
+              // Only clear auth if refresh truly failed (not just a token expiry)
+              if (errorCode !== 'TOKEN_EXPIRED') {
+                await this.clearAuthToken();
+              }
               this.onTokenRefreshed('');
               this.isRefreshing = false;
             }
@@ -216,6 +235,7 @@ class ApiClient {
                   originalRequest.headers.Authorization = `Bearer ${token}`;
                   resolve(this.instance(originalRequest));
                 } else {
+                  // For silent endpoints, just reject without clearing auth
                   reject(error);
                 }
               });

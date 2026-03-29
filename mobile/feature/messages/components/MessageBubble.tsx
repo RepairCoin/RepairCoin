@@ -2,12 +2,19 @@ import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Message, Conversation } from "../types";
 import { formatMessageTime } from "../utils";
+import LockedMessageBubble from "./LockedMessageBubble";
+
+type UnlockSession = {
+  getUnlocked: (messageId: string) => { text: string | null; attachmentUrls: string[] } | undefined;
+  setUnlocked: (messageId: string, data: { text: string | null; attachmentUrls: string[] }) => void;
+};
 
 type MessageBubbleProps = {
   message: Message;
   isOwnMessage: boolean;
   conversation: Conversation | null;
   isCustomer: boolean;
+  unlockSession?: UnlockSession;
 };
 
 export default function MessageBubble({
@@ -15,7 +22,21 @@ export default function MessageBubble({
   isOwnMessage,
   conversation,
   isCustomer,
+  unlockSession,
 }: MessageBubbleProps) {
+  // Route encrypted messages to LockedMessageBubble
+  if (message.isEncrypted || message.messageType === "encrypted") {
+    return (
+      <LockedMessageBubble
+        message={message}
+        isOwnMessage={isOwnMessage}
+        conversation={conversation}
+        isCustomer={isCustomer}
+        unlockSession={unlockSession}
+      />
+    );
+  }
+
   const senderInitial = isCustomer
     ? conversation?.shopName?.charAt(0).toUpperCase()
     : conversation?.customerName?.charAt(0).toUpperCase();

@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider } from "../components";
 import { useSettings, SettingsRole } from "../hooks/ui/useSettings";
@@ -25,6 +26,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     handleBuyTokens,
     handleRedeemTokens,
     handleGroups,
+    handleNotificationPreferences,
   } = useSettings(role);
 
   return (
@@ -110,6 +112,41 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
             />
           </SettingsSection>
         )}
+
+        {/* Shop: Appointments Section */}
+        {role === "shop" && (
+          <SettingsSection title="Appointments">
+            <SettingsItem
+              icon={<Ionicons name="time-outline" size={20} color="#FFCC00" />}
+              title="Availability Settings"
+              subtitle="Operating hours, slots & overrides"
+              onPress={() => router.push("/shop/availability" as any)}
+            />
+            <Divider />
+            <SettingsItem
+              icon={<Ionicons name="shield-outline" size={20} color="#FFCC00" />}
+              title="No-Show Policy"
+              subtitle="Penalties, detection & disputes"
+              onPress={() => router.push("/shop/no-show-policy" as any)}
+            />
+          </SettingsSection>
+        )}
+
+        {/* Notifications Section */}
+        <SettingsSection title="Notifications">
+          <SettingsItem
+            icon={
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color="#FFCC00"
+              />
+            }
+            title="Notification Preferences"
+            subtitle="Manage your notification settings"
+            onPress={handleNotificationPreferences}
+          />
+        </SettingsSection>
 
         {/* Support Section */}
         <SettingsSection title="Support">

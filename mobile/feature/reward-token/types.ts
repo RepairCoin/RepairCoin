@@ -1,9 +1,7 @@
 import { RepairType } from "./hooks/useShopRewards";
-import { CustomerData } from "@/shared/interfaces/customer.interface";
+import { CustomerData, CustomerTier } from "@/shared/interfaces/customer.interface";
 
-export type { RepairType, CustomerData };
-
-export type CustomerTier = "GOLD" | "SILVER" | "BRONZE";
+export type { RepairType, CustomerData, CustomerTier };
 
 export interface RepairOption {
   type: RepairType;

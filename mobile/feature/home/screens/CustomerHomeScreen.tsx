@@ -1,6 +1,7 @@
 import { Image, View, Text } from "react-native";
 import React from "react";
 import { CustomerWalletTab } from "../components";
+import NoShowWarningBanner from "../components/NoShowWarningBanner";
 import { useCustomer } from "@/shared/hooks/customer/useCustomer";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { NotificationBell } from "@/feature/notification/components";
@@ -36,6 +37,7 @@ export default function CustomerDashboard() {
             </Text>
           </View>
         </View>
+        <NoShowWarningBanner />
         <CustomerWalletTab />
       </View>
     </View>

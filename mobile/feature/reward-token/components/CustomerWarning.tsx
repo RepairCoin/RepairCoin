@@ -1,9 +1,18 @@
-import { View, Text } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
+import { View, Text, TouchableOpacity, Share } from "react-native";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 
 interface CustomerWarningProps {
   type: "not-found" | "self-reward";
 }
+
+const handleShareRegistration = async () => {
+  try {
+    await Share.share({
+      message:
+        "Join RepairCoin to earn rewards on your repairs! Download the app and register to start earning RCN tokens. https://repaircoin.com/download",
+    });
+  } catch {}
+};
 
 export default function CustomerWarning({ type }: CustomerWarningProps) {
   if (type === "not-found") {
@@ -19,6 +28,16 @@ export default function CustomerWarning({ type }: CustomerWarningProps) {
           This wallet address is not registered. Customer must register
           before receiving rewards.
         </Text>
+        <TouchableOpacity
+          onPress={handleShareRegistration}
+          activeOpacity={0.7}
+          className="flex-row items-center justify-center mt-3 bg-red-500/20 rounded-lg py-2.5"
+        >
+          <Ionicons name="share-outline" size={16} color="#F87171" />
+          <Text className="text-red-300 font-semibold text-xs ml-1.5">
+            Share Registration Link
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }

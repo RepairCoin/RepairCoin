@@ -1,3 +1,3 @@
-export type ServiceTab = "Services" | "Booking";
+export type ServiceTab = "Services" | "Booking" | "Analytics";
 
-export const SERVICE_TABS: ServiceTab[] = ["Services", "Booking"];
+export const SERVICE_TABS: ServiceTab[] = ["Services", "Booking", "Analytics"];

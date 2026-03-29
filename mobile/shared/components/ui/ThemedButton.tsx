@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { useTheme } from "@/shared/hooks/theme/useTheme";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 export type ThemedButtonProps = {
   onPress?: PressableProps["onPress"];
@@ -18,6 +19,7 @@ export type ThemedButtonProps = {
 export function ThemedButton(props: ThemedButtonProps) {
   const { useThemeColor } = useTheme();
   const { theme } = useThemeColor();
+  const haptics = useHaptics();
   const variant = props.variant ?? "primary";
   const textColor = variant == "secondary" ? theme.text : theme.textInverted;
 
@@ -34,6 +36,7 @@ export function ThemedButton(props: ThemedButtonProps) {
         },
       ]}
       onPress={(e) => {
+        haptics.selection();
         props.onPress?.(e);
       }}
     >

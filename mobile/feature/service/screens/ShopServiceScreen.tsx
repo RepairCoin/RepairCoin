@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -24,6 +25,7 @@ import {
 // Feature
 import ServicesTab from "@/feature/service/components/ServicesTab";
 import { BookingShopTab } from "@/feature/booking/components";
+import { BookingAnalyticsTab } from "@/feature/booking-analytics/components";
 
 // Constants
 import { SERVICE_TABS } from "../constants";
@@ -53,6 +55,18 @@ export default function ShopServiceScreen() {
     setShowDetailsModal(true);
   };
 
+  const handleGroupRewards = () => {
+    if (!selectedService) return;
+    closeActionModal();
+    router.push({
+      pathname: "/shop/service-groups" as any,
+      params: {
+        serviceId: selectedService.serviceId,
+        serviceName: selectedService.serviceName,
+      },
+    });
+  };
+
   return (
     <ThemedView className="w-full h-full">
       <View className="pt-20 px-4 gap-4 flex-1">
@@ -64,7 +78,9 @@ export default function ShopServiceScreen() {
               onPress={() => setActiveTab(tab)}
               className={`flex-1 items-center justify-center ${
                 activeTab === tab ? "bg-[#FFCC00]" : "bg-[#121212]"
-              } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+              } ${i === 0 ? "rounded-l-lg" : ""} ${
+                i === SERVICE_TABS.length - 1 ? "rounded-r-lg" : ""
+              }`}
             >
               <Text
                 className={`text-base font-bold ${
@@ -85,6 +101,7 @@ export default function ShopServiceScreen() {
           />
         )}
         {activeTab === "Booking" && <BookingShopTab />}
+        {activeTab === "Analytics" && <BookingAnalyticsTab />}
       </View>
 
       {/* Add Service FAB - show when Services tab */}
@@ -127,6 +144,7 @@ export default function ShopServiceScreen() {
           handleToggleStatus(selectedService, value, updateSelectedService)
         }
         onViewDetails={handleViewDetails}
+        onGroupRewards={handleGroupRewards}
       />
 
       {/* Service Details Modal */}

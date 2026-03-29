@@ -8,6 +8,9 @@ import {
   GetUnreadCountResponse,
   MarkAsReadResponse,
   Notification,
+  AppointmentNotificationPreferences,
+  GeneralNotificationPreferences,
+  UpdateGeneralNotificationPreferences,
 } from "@/shared/interfaces/notification.interface";
 
 class NotificationApi {
@@ -140,6 +143,79 @@ class NotificationApi {
       );
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
+      throw error;
+    }
+  }
+  // ==========================================
+  // Appointment Notification Preferences
+  // ==========================================
+
+  async getAppointmentPreferences(
+    address: string
+  ): Promise<AppointmentNotificationPreferences | null> {
+    try {
+      return await apiClient.get<AppointmentNotificationPreferences>(
+        `/customers/${address}/notification-preferences`
+      );
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get appointment preferences:", error);
+      throw error;
+    }
+  }
+
+  async updateAppointmentPreferences(
+    address: string,
+    preferences: Partial<AppointmentNotificationPreferences>
+  ): Promise<AppointmentNotificationPreferences> {
+    try {
+      return await apiClient.put<AppointmentNotificationPreferences>(
+        `/customers/${address}/notification-preferences`,
+        preferences
+      );
+    } catch (error) {
+      console.error("Failed to update appointment preferences:", error);
+      throw error;
+    }
+  }
+
+  // ==========================================
+  // General Notification Preferences
+  // ==========================================
+
+  async getGeneralPreferences(): Promise<GeneralNotificationPreferences | null> {
+    try {
+      return await apiClient.get<GeneralNotificationPreferences>(
+        "/notifications/preferences/general"
+      );
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get general preferences:", error);
+      throw error;
+    }
+  }
+
+  async updateGeneralPreferences(
+    preferences: UpdateGeneralNotificationPreferences
+  ): Promise<GeneralNotificationPreferences> {
+    try {
+      return await apiClient.put<GeneralNotificationPreferences>(
+        "/notifications/preferences/general",
+        preferences
+      );
+    } catch (error) {
+      console.error("Failed to update general preferences:", error);
+      throw error;
+    }
+  }
+
+  async resetGeneralPreferences(): Promise<GeneralNotificationPreferences> {
+    try {
+      return await apiClient.post<GeneralNotificationPreferences>(
+        "/notifications/preferences/general/reset"
+      );
+    } catch (error) {
+      console.error("Failed to reset general preferences:", error);
       throw error;
     }
   }

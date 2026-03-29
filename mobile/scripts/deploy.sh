@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # RepairCoin Mobile Deployment Script
-# Usage: ./scripts/deploy.sh [staging|production|testflight]
+# Usage: ./scripts/deploy.sh [preview|production]
 
 set -e
 
@@ -16,25 +16,18 @@ CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 echo -e "${YELLOW}Current branch: ${CURRENT_BRANCH}${NC}"
 
-# Function to deploy staging
-deploy_staging() {
-    echo -e "${GREEN}Deploying to STAGING (preview profile)...${NC}"
+# Function to deploy preview (staging)
+deploy_preview() {
+    echo -e "${GREEN}Deploying to PREVIEW (com.repaircoin.staging)...${NC}"
     eas build --profile preview --platform ios
-    echo -e "${GREEN}Staging build submitted!${NC}"
-}
-
-# Function to deploy testflight
-deploy_testflight() {
-    echo -e "${GREEN}Deploying to TESTFLIGHT...${NC}"
-    eas build --profile testflight --platform ios
     echo ""
     echo -e "${YELLOW}After build completes, run:${NC}"
-    echo "  eas submit --profile testflight --platform ios"
+    echo "  eas submit --profile preview --platform ios"
 }
 
 # Function to deploy production
 deploy_production() {
-    echo -e "${GREEN}Deploying to PRODUCTION...${NC}"
+    echo -e "${GREEN}Deploying to PRODUCTION (com.repaircoin.app)...${NC}"
     eas build --profile production --platform ios
     echo ""
     echo -e "${YELLOW}After build completes, run:${NC}"
@@ -45,8 +38,8 @@ deploy_production() {
 auto_deploy() {
     case $CURRENT_BRANCH in
         main|master)
-            echo -e "${YELLOW}On main branch - deploying to STAGING${NC}"
-            deploy_staging
+            echo -e "${YELLOW}On main branch - deploying to PREVIEW${NC}"
+            deploy_preview
             ;;
         prod|production)
             echo -e "${YELLOW}On prod branch - deploying to PRODUCTION${NC}"
@@ -57,9 +50,8 @@ auto_deploy() {
             echo -e "${YELLOW}Current branch: ${CURRENT_BRANCH}${NC}"
             echo ""
             echo "Options:"
-            echo "  npm run deploy:staging     - Deploy to staging"
-            echo "  npm run deploy:testflight  - Deploy to TestFlight"
-            echo "  npm run deploy:production  - Deploy to production"
+            echo "  npm run deploy:ios:preview     - Deploy to preview (staging)"
+            echo "  npm run deploy:ios:production   - Deploy to production"
             exit 1
             ;;
     esac
@@ -67,11 +59,8 @@ auto_deploy() {
 
 # Parse command line arguments
 case "${1:-auto}" in
-    staging|preview)
-        deploy_staging
-        ;;
-    testflight)
-        deploy_testflight
+    preview|staging)
+        deploy_preview
         ;;
     production|prod)
         if [ "$CURRENT_BRANCH" != "prod" ] && [ "$CURRENT_BRANCH" != "production" ]; then
@@ -89,11 +78,10 @@ case "${1:-auto}" in
         auto_deploy
         ;;
     *)
-        echo "Usage: ./scripts/deploy.sh [staging|testflight|production|auto]"
+        echo "Usage: ./scripts/deploy.sh [preview|production|auto]"
         echo ""
         echo "Commands:"
-        echo "  staging     - Build for staging (preview profile)"
-        echo "  testflight  - Build for TestFlight distribution"
+        echo "  preview     - Build for preview/staging (TestFlight)"
         echo "  production  - Build for App Store (requires prod branch)"
         echo "  auto        - Auto-detect based on current branch (default)"
         exit 1

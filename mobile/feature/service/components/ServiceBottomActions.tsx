@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface ServiceBottomActionsProps {
   isActive: boolean;
@@ -12,6 +13,8 @@ export function ServiceBottomActions({
   onViewShop,
   onBookNow,
 }: ServiceBottomActionsProps) {
+  const haptics = useHaptics();
+
   return (
     <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-4 py-4 border-t border-gray-800 pb-8">
       <View className="flex-row gap-3">
@@ -25,7 +28,7 @@ export function ServiceBottomActions({
         </TouchableOpacity>
         {isActive && (
           <TouchableOpacity
-            onPress={onBookNow}
+            onPress={() => { haptics.medium(); onBookNow(); }}
             className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
             activeOpacity={0.8}
           >

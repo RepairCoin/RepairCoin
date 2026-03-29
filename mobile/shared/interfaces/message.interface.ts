@@ -41,6 +41,7 @@ export interface Message {
   messageType: MessageType;
   attachments: MessageAttachment[];
   metadata: Record<string, any>;
+  isEncrypted: boolean;
   isRead: boolean;
   readAt?: string;
   isDelivered: boolean;
@@ -59,7 +60,8 @@ export type MessageType =
   | "text"
   | "booking_link"
   | "service_link"
-  | "system";
+  | "system"
+  | "encrypted";
 
 // Request to send a message
 export interface SendMessageRequest {
@@ -69,6 +71,8 @@ export interface SendMessageRequest {
   messageText: string;
   messageType?: MessageType;
   metadata?: Record<string, any>;
+  attachments?: MessageAttachment[];
+  isEncrypted?: boolean;
 }
 
 // Pagination info
@@ -110,4 +114,134 @@ export interface MarkAsReadResponse {
 // Response from start conversation
 export interface StartConversationResponse {
   data: Conversation;
+}
+
+// Response from get or create conversation
+export interface GetOrCreateConversationResponse {
+  success: boolean;
+  data: Conversation;
+  created: boolean;
+}
+
+// Quick Reply interfaces
+export interface QuickReply {
+  id: string;
+  shopId: string;
+  title: string;
+  content: string;
+  category?: string;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateQuickReplyRequest {
+  title: string;
+  content: string;
+  category?: string;
+}
+
+export interface UpdateQuickReplyRequest {
+  title?: string;
+  content?: string;
+  category?: string;
+}
+
+export interface GetQuickRepliesResponse {
+  success: boolean;
+  data: QuickReply[];
+}
+
+export interface QuickReplyResponse {
+  success: boolean;
+  data: QuickReply;
+}
+
+// Auto-Message interfaces
+export type AutoMessageTriggerType = "schedule" | "event";
+export type AutoMessageScheduleType = "daily" | "weekly" | "monthly";
+export type AutoMessageEventType =
+  | "booking_completed"
+  | "booking_cancelled"
+  | "first_visit"
+  | "inactive_30_days";
+export type AutoMessageTargetAudience =
+  | "all"
+  | "active"
+  | "inactive_30d"
+  | "has_balance"
+  | "completed_booking";
+
+export interface AutoMessage {
+  id: string;
+  shopId: string;
+  name: string;
+  triggerType: AutoMessageTriggerType;
+  scheduleType?: AutoMessageScheduleType;
+  scheduleDayOfWeek?: number;
+  scheduleDayOfMonth?: number;
+  scheduleHour?: number;
+  eventType?: AutoMessageEventType;
+  delayHours?: number;
+  targetAudience: AutoMessageTargetAudience;
+  messageTemplate: string;
+  maxSendsPerCustomer?: number;
+  isEnabled: boolean;
+  totalSent: number;
+  lastSentAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAutoMessageRequest {
+  name: string;
+  triggerType: AutoMessageTriggerType;
+  messageTemplate: string;
+  scheduleType?: AutoMessageScheduleType;
+  scheduleDayOfWeek?: number;
+  scheduleDayOfMonth?: number;
+  scheduleHour?: number;
+  eventType?: AutoMessageEventType;
+  delayHours?: number;
+  targetAudience?: AutoMessageTargetAudience;
+  maxSendsPerCustomer?: number;
+}
+
+export interface UpdateAutoMessageRequest {
+  name?: string;
+  triggerType?: AutoMessageTriggerType;
+  messageTemplate?: string;
+  scheduleType?: AutoMessageScheduleType;
+  scheduleDayOfWeek?: number;
+  scheduleDayOfMonth?: number;
+  scheduleHour?: number;
+  eventType?: AutoMessageEventType;
+  delayHours?: number;
+  targetAudience?: AutoMessageTargetAudience;
+  maxSendsPerCustomer?: number;
+}
+
+export interface AutoMessageHistory {
+  id: string;
+  autoMessageId: string;
+  customerAddress: string;
+  customerName?: string;
+  sentAt: string;
+  status: "sent" | "delivered" | "failed";
+}
+
+export interface GetAutoMessagesResponse {
+  success: boolean;
+  data: AutoMessage[];
+}
+
+export interface AutoMessageResponse {
+  success: boolean;
+  data: AutoMessage;
+}
+
+export interface GetAutoMessageHistoryResponse {
+  success: boolean;
+  data: AutoMessageHistory[];
+  pagination: PaginationInfo;
 }

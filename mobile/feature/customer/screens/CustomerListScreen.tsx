@@ -1,5 +1,5 @@
 // Libraries
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+// Services
+import { messageApi } from "@/feature/messages/services/message.services";
 
 // Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
@@ -165,6 +169,26 @@ function FilterDropdown<T extends string>({
 }
 
 export default function CustomerListScreen() {
+  const [messagingCustomer, setMessagingCustomer] = useState<string | null>(null);
+
+  const handleMessageCustomer = useCallback(async (customerAddress: string) => {
+    if (messagingCustomer) return; // Prevent double tap
+
+    try {
+      setMessagingCustomer(customerAddress);
+      const response = await messageApi.getOrCreateConversation(customerAddress);
+
+      if (response.success && response.data) {
+        router.push(`/shop/messages/${response.data.conversationId}` as any);
+      }
+    } catch (error) {
+      console.error("Failed to open conversation:", error);
+      Alert.alert("Error", "Failed to open conversation. Please try again.");
+    } finally {
+      setMessagingCustomer(null);
+    }
+  }, [messagingCustomer]);
+
   const {
     // View mode
     viewMode,
@@ -174,6 +198,7 @@ export default function CustomerListScreen() {
     myCustomerCount,
     totalMyCustomerCount,
     isLoadingMyCustomers,
+    myCustomersError,
     searchText,
     setSearchText,
     hasSearchQuery,
@@ -189,8 +214,13 @@ export default function CustomerListScreen() {
     searchAllResultCount,
     searchAllTotalCount,
     isSearchingAll,
+    searchAllError,
     hasSearchedAll,
     handleSearchAll,
+    // Pagination
+    hasMoreSearchResults,
+    isLoadingMore,
+    handleLoadMore,
     // Refresh
     refreshing,
     handleRefresh,
@@ -202,9 +232,16 @@ export default function CustomerListScreen() {
       tier={item?.tier}
       lifetimeEarnings={item?.lifetimeEarnings}
       total_transactions={item?.total_transactions}
+      lastTransactionDate={item?.last_transaction_date}
+      referralCount={item?.referralCount}
+      totalRedemptions={item?.totalRedemptions}
+      joinDate={item?.joinDate}
+      isSuspended={item?.isSuspended}
+      suspensionReason={item?.suspensionReason}
       onPress={() => {
         router.push(`/shop/profile/customer-profile/${item?.address}` as any);
       }}
+      onMessagePress={() => handleMessageCustomer(item?.address)}
     />
   );
 
@@ -212,6 +249,24 @@ export default function CustomerListScreen() {
     <View className="items-center justify-center py-10">
       {isLoadingMyCustomers ? (
         <SkeletonList count={5} variant="list" />
+      ) : myCustomersError ? (
+        <>
+          <View className="w-16 h-16 rounded-full bg-red-500/10 items-center justify-center mb-4">
+            <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
+          </View>
+          <Text className="text-white text-lg font-semibold mb-2">
+            Failed to load customers
+          </Text>
+          <Text className="text-[#666] text-sm text-center px-8 mb-4">
+            Something went wrong. Please try again.
+          </Text>
+          <TouchableOpacity
+            onPress={handleRefresh}
+            className="bg-[#FFCC00] px-6 py-2.5 rounded-xl"
+          >
+            <Text className="text-black font-semibold">Retry</Text>
+          </TouchableOpacity>
+        </>
       ) : (
         <>
           <View className="w-16 h-16 rounded-full bg-zinc-800 items-center justify-center mb-4">
@@ -236,6 +291,24 @@ export default function CustomerListScreen() {
     <View className="items-center justify-center py-10">
       {isSearchingAll ? (
         <SkeletonList count={5} variant="list" />
+      ) : searchAllError ? (
+        <>
+          <View className="w-16 h-16 rounded-full bg-red-500/10 items-center justify-center mb-4">
+            <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
+          </View>
+          <Text className="text-white text-lg font-semibold mb-2">
+            Search failed
+          </Text>
+          <Text className="text-[#666] text-sm text-center px-8 mb-4">
+            Something went wrong. Please try again.
+          </Text>
+          <TouchableOpacity
+            onPress={handleSearchAll}
+            className="bg-[#FFCC00] px-6 py-2.5 rounded-xl"
+          >
+            <Text className="text-black font-semibold">Retry</Text>
+          </TouchableOpacity>
+        </>
       ) : !hasSearchedAll ? (
         <>
           <View className="w-16 h-16 rounded-full bg-zinc-800 items-center justify-center mb-4">
@@ -268,12 +341,9 @@ export default function CustomerListScreen() {
     <ThemedView className="w-full h-full">
       <View className="pt-20 px-4 gap-4 mb-4">
         {/* Header */}
-        <View className="flex-row justify-between items-center">
-          <Text className="text-white text-xl font-semibold">
-            Customers
-          </Text>
-          <View className="w-[25px]" />
-        </View>
+        <Text className="text-white text-xl font-semibold">
+          Customers
+        </Text>
 
         {/* Tab Buttons */}
         <View className="bg-[#1a1a1a] rounded-2xl p-1 flex-row">
@@ -383,6 +453,9 @@ export default function CustomerListScreen() {
           contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyMyCustomers}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -400,6 +473,30 @@ export default function CustomerListScreen() {
           contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptySearchAll}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews
+          ListFooterComponent={
+            hasMoreSearchResults ? (
+              <TouchableOpacity
+                onPress={handleLoadMore}
+                disabled={isLoadingMore}
+                className="items-center py-4 mb-4"
+                activeOpacity={0.7}
+              >
+                {isLoadingMore ? (
+                  <ActivityIndicator size="small" color="#FFCC00" />
+                ) : (
+                  <View className="bg-zinc-800 px-6 py-2.5 rounded-xl flex-row items-center">
+                    <Ionicons name="arrow-down" size={16} color="#FFCC00" />
+                    <Text className="text-[#FFCC00] font-semibold ml-2">
+                      Load More ({searchAllResultCount} of {searchAllTotalCount})
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

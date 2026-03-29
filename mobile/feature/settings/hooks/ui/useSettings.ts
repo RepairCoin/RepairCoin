@@ -12,6 +12,7 @@ export interface SettingsConfig {
     subtitle: string;
     route: string;
   };
+  notificationPreferencesRoute: string;
   roleSpecificHandlers: {
     // Customer-specific
     handleReferFriends?: () => void;
@@ -68,6 +69,7 @@ export function useSettings(role: SettingsRole) {
             subtitle: "Update your personal information",
             route: "/customer/profile/edit-profile",
           },
+          notificationPreferencesRoute: "/customer/notification/preferences",
           roleSpecificHandlers: {
             handleReferFriends: () => router.push("/customer/referral"),
           },
@@ -78,6 +80,7 @@ export function useSettings(role: SettingsRole) {
             subtitle: "Update your shop information",
             route: "/shop/profile/edit-profile",
           },
+          notificationPreferencesRoute: "/shop/notification/preferences",
           roleSpecificHandlers: {
             handleSubscription: () => router.push("/shop/subscription"),
             handleBuyTokens: () => router.push("/shop/buy-token"),
@@ -90,6 +93,10 @@ export function useSettings(role: SettingsRole) {
     router.push(config.editProfile.route as any);
   }, [config.editProfile.route]);
 
+  const handleNotificationPreferences = useCallback(() => {
+    router.push(config.notificationPreferencesRoute as any);
+  }, [config.notificationPreferencesRoute]);
+
   return {
     // UI state
     walletDisplay,
@@ -100,6 +107,7 @@ export function useSettings(role: SettingsRole) {
     handleBack,
     handleLogout,
     handleEditProfile,
+    handleNotificationPreferences,
     handleHelp,
     handleTerms,
     // Role-specific handlers

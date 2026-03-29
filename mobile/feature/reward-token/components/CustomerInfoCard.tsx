@@ -1,19 +1,20 @@
 import { View, Text } from "react-native";
-import { CustomerData, CustomerTier } from "../types";
+import { CustomerData } from "../types";
 import { TIER_STYLES } from "../constants";
+import type { CustomerTierUpper } from "@/shared/interfaces/customer.interface";
 
 interface CustomerInfoCardProps {
   customerInfo: CustomerData;
 }
 
 export default function CustomerInfoCard({ customerInfo }: CustomerInfoCardProps) {
-  const tier = customerInfo.tier as CustomerTier;
+  const tier = (customerInfo.tier?.toUpperCase() || "BRONZE") as CustomerTierUpper;
 
   return (
     <View className="bg-[#0A0A0A] rounded-xl p-4 border border-gray-700">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center">
-          <View className={`px-3 py-1 rounded-full mr-3 ${TIER_STYLES[tier]}`}>
+          <View className={`px-3 py-1 rounded-full mr-3 ${TIER_STYLES[tier] || ""}`}>
             <Text className="text-white text-xs font-bold">
               {customerInfo.tier}
             </Text>

@@ -30,7 +30,7 @@ export default function RewardSummary({
   hasInsufficientBalance,
 }: RewardSummaryProps) {
   return (
-    <View className="absolute bottom-0 left-0 right-0 bg-black border-t border-gray-800">
+    <View className="bg-black border-t border-gray-800 mx-5 mb-6 rounded-2xl overflow-hidden">
       <View className="px-5 py-4">
         {/* Available Balance Display */}
         <View className="flex-row justify-between items-center mb-3">

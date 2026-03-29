@@ -3,6 +3,7 @@ import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { useHaptics } from "@/shared/hooks/useHaptics";
 
 // Fixed height for grid cards
 const CARD_HEIGHT = 240;
@@ -60,6 +61,7 @@ function ServiceCard({
 }: ServiceCardProps) {
   const { useToggleFavorite } = useFavorite();
   const { toggleFavorite } = useToggleFavorite();
+  const haptics = useHaptics();
 
   // Local state for instant UI feedback
   const [localFavorited, setLocalFavorited] = useState(initialFavorited);
@@ -77,13 +79,14 @@ function ServiceCard({
 
   const handleFavoritePress = useCallback(() => {
     if (!serviceId) return;
+    haptics.selection();
     // Update UI instantly
     setLocalFavorited((prev) => {
       // Then make API call in background
       toggleFavorite(serviceId, !!prev);
       return !prev;
     });
-  }, [serviceId, toggleFavorite]);
+  }, [serviceId, toggleFavorite, haptics]);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not scheduled";
