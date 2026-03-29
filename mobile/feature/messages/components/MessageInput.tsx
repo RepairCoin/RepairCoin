@@ -22,7 +22,7 @@ export type AttachmentFile = {
 type MessageInputProps = {
   value: string;
   onChangeText: (text: string) => void;
-  onSend: (attachments?: AttachmentFile[], isLocked?: boolean, password?: string) => void;
+  onSend: (attachments?: AttachmentFile[], isLocked?: boolean, password?: string, hint?: string) => void;
   isSending: boolean;
   disabled?: boolean;
   disabledMessage?: string;
@@ -40,6 +40,7 @@ export default function MessageInput({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [lockPassword, setLockPassword] = useState("");
+  const [lockHint, setLockHint] = useState("");
   const haptics = useHaptics();
 
   const canSend = (value.trim() || attachments.length > 0) && !isSending && !disabled;
@@ -119,6 +120,7 @@ export default function MessageInput({
     if (isLocked) {
       setIsLocked(false);
       setLockPassword("");
+      setLockHint("");
     } else {
       setIsLocked(true);
     }
@@ -129,11 +131,13 @@ export default function MessageInput({
     onSend(
       attachments.length > 0 ? attachments : undefined,
       isLocked,
-      isLocked ? lockPassword : undefined
+      isLocked ? lockPassword : undefined,
+      isLocked && lockHint.trim() ? lockHint.trim() : undefined
     );
     setAttachments([]);
     setIsLocked(false);
     setLockPassword("");
+    setLockHint("");
   };
 
   if (disabled && disabledMessage) {
@@ -164,6 +168,14 @@ export default function MessageInput({
               placeholderTextColor="#71717A"
               secureTextEntry
               className="text-white text-sm bg-zinc-800 rounded-lg px-3 py-2 border border-zinc-700"
+            />
+            <TextInput
+              value={lockHint}
+              onChangeText={setLockHint}
+              placeholder="Password hint (optional)"
+              placeholderTextColor="#71717A"
+              maxLength={100}
+              className="text-white text-sm bg-zinc-800 rounded-lg px-3 py-2 border border-zinc-700 mt-2"
             />
             <Text className="text-zinc-500 text-[10px] mt-1.5">
               Share the password separately. Messages cannot be recovered without it.

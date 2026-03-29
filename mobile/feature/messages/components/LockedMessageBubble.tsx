@@ -14,11 +14,17 @@ import { Message, Conversation } from "../types";
 import { formatMessageTime } from "../utils";
 import { decryptMessage } from "../utils/encryption";
 
+type UnlockSession = {
+  getUnlocked: (messageId: string) => { text: string | null; attachmentUrls: string[] } | undefined;
+  setUnlocked: (messageId: string, data: { text: string | null; attachmentUrls: string[] }) => void;
+};
+
 type LockedMessageBubbleProps = {
   message: Message;
   isOwnMessage: boolean;
   conversation: Conversation | null;
   isCustomer: boolean;
+  unlockSession?: UnlockSession;
 };
 
 export default function LockedMessageBubble({
@@ -26,10 +32,14 @@ export default function LockedMessageBubble({
   isOwnMessage,
   conversation,
   isCustomer,
+  unlockSession,
 }: LockedMessageBubbleProps) {
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [decryptedText, setDecryptedText] = useState<string | null>(null);
-  const [decryptedAttachmentUrls, setDecryptedAttachmentUrls] = useState<string[]>([]);
+  // Check session cache first
+  const cached = unlockSession?.getUnlocked(message.messageId);
+
+  const [isUnlocked, setIsUnlocked] = useState(!!cached);
+  const [decryptedText, setDecryptedText] = useState<string | null>(cached?.text ?? null);
+  const [decryptedAttachmentUrls, setDecryptedAttachmentUrls] = useState<string[]>(cached?.attachmentUrls ?? []);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -39,11 +49,15 @@ export default function LockedMessageBubble({
     : conversation?.customerName?.charAt(0).toUpperCase();
 
   const encryption = message.metadata?.encryption;
+  const hint = encryption?.hint as string | undefined;
 
   const handleUnlock = () => {
     if (!password) return;
 
     setError("");
+
+    let text: string | null = null;
+    let urls: string[] = [];
 
     // Decrypt text if present
     if (message.messageText) {
@@ -52,34 +66,32 @@ export default function LockedMessageBubble({
         setError("Incorrect password");
         return;
       }
-      setDecryptedText(result);
+      text = result;
     } else {
-      setDecryptedText("");
+      text = "";
     }
 
     // Decrypt attachment URLs if present
     if (encryption?.encryptedAttachments && message.attachments?.length) {
-      const urls: string[] = [];
-      let anyFailed = false;
       for (let i = 0; i < message.attachments.length; i++) {
         const decUrl = decryptMessage(message.attachments[i].url, password);
         if (decUrl === null) {
-          anyFailed = true;
-          break;
+          setError("Incorrect password");
+          return;
         }
         urls.push(decUrl);
       }
-      if (anyFailed) {
-        setError("Incorrect password");
-        setDecryptedText(null);
-        return;
-      }
-      setDecryptedAttachmentUrls(urls);
     }
 
+    // Apply state
+    setDecryptedText(text);
+    setDecryptedAttachmentUrls(urls);
     setIsUnlocked(true);
     setShowPasswordModal(false);
     setPassword("");
+
+    // Save to session so it stays unlocked while in conversation
+    unlockSession?.setUnlocked(message.messageId, { text, attachmentUrls: urls });
   };
 
   const handleLock = () => {
@@ -186,6 +198,9 @@ export default function LockedMessageBubble({
                 <Ionicons name="lock-closed" size={20} color="#F59E0B" />
               </View>
               <Text className="text-amber-500 text-xs font-semibold">Locked Message</Text>
+              {hint ? (
+                <Text className="text-zinc-400 text-[10px] mt-1">Hint: {hint}</Text>
+              ) : null}
               <Text className="text-zinc-500 text-[10px] mt-1">Tap to unlock</Text>
             </View>
           </Pressable>
@@ -237,6 +252,11 @@ export default function LockedMessageBubble({
                 <Text className="text-zinc-400 text-sm mt-1 text-center">
                   Enter the password to view this message
                 </Text>
+                {hint ? (
+                  <View className="bg-amber-500/10 rounded-lg px-3 py-2 mt-2">
+                    <Text className="text-amber-400 text-xs text-center">Hint: {hint}</Text>
+                  </View>
+                ) : null}
               </View>
 
               <TextInput

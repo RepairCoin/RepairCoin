@@ -4,11 +4,17 @@ import { Message, Conversation } from "../types";
 import { formatMessageTime } from "../utils";
 import LockedMessageBubble from "./LockedMessageBubble";
 
+type UnlockSession = {
+  getUnlocked: (messageId: string) => { text: string | null; attachmentUrls: string[] } | undefined;
+  setUnlocked: (messageId: string, data: { text: string | null; attachmentUrls: string[] }) => void;
+};
+
 type MessageBubbleProps = {
   message: Message;
   isOwnMessage: boolean;
   conversation: Conversation | null;
   isCustomer: boolean;
+  unlockSession?: UnlockSession;
 };
 
 export default function MessageBubble({
@@ -16,6 +22,7 @@ export default function MessageBubble({
   isOwnMessage,
   conversation,
   isCustomer,
+  unlockSession,
 }: MessageBubbleProps) {
   // Route encrypted messages to LockedMessageBubble
   if (message.isEncrypted || message.messageType === "encrypted") {
@@ -25,6 +32,7 @@ export default function MessageBubble({
         isOwnMessage={isOwnMessage}
         conversation={conversation}
         isCustomer={isCustomer}
+        unlockSession={unlockSession}
       />
     );
   }

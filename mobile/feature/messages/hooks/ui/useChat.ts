@@ -74,7 +74,7 @@ export function useChat() {
     return () => clearInterval(interval);
   }, [conversationId, fetchMessages]);
 
-  const handleSend = async (attachmentFiles?: AttachmentFile[], isLocked?: boolean, password?: string) => {
+  const handleSend = async (attachmentFiles?: AttachmentFile[], isLocked?: boolean, password?: string, hint?: string) => {
     const hasText = messageText.trim().length > 0;
     const hasAttachments = attachmentFiles && attachmentFiles.length > 0;
 
@@ -113,6 +113,7 @@ export function useChat() {
           finalText = encrypted.ciphertext;
           metadata.encryption = {
             algorithm: encrypted.algorithm,
+            ...(hint && { hint }),
           };
         }
 
