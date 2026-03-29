@@ -25,7 +25,8 @@
     "deploy:android:preview": "eas build --profile preview --platform android",
     "deploy:android:production": "eas build --profile production --platform android",
     "submit:ios:preview": "eas submit --profile preview --platform ios",
-    "submit:ios:production": "eas submit --profile production --platform ios"
+    "submit:ios:production": "eas submit --profile production --platform ios",
+    "apk:latest": "eas build:list --platform android --limit 1"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.921.0",
