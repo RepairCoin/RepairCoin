@@ -186,25 +186,31 @@ class ApiClient {
           });
         }
 
-        // Handle 401 Unauthorized - Try to refresh token once
+        // Handle 401 Unauthorized - Try to refresh token and retry
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
-          console.log('[ApiClient] Got 401, attempting to refresh token...');
-          
+
+          // Don't log out on TOKEN_EXPIRED — just refresh silently
+          const errorCode = error.response?.data?.code;
+          if (errorCode === 'TOKEN_EXPIRED' || errorCode === 'INVALID_TOKEN') {
+            console.log('[ApiClient] Token expired, refreshing...');
+          }
+
           if (!this.isRefreshing) {
             this.isRefreshing = true;
-            
+
             const newToken = await this.refreshToken();
-            
+
             if (newToken) {
               this.onTokenRefreshed(newToken);
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
               this.isRefreshing = false;
               return this.instance(originalRequest);
             } else {
-              // Refresh failed, clear tokens
-              await this.clearAuthToken();
+              // Only clear auth if refresh truly failed (not just a token expiry)
+              if (errorCode !== 'TOKEN_EXPIRED') {
+                await this.clearAuthToken();
+              }
               this.onTokenRefreshed('');
               this.isRefreshing = false;
             }
@@ -216,6 +222,7 @@ class ApiClient {
                   originalRequest.headers.Authorization = `Bearer ${token}`;
                   resolve(this.instance(originalRequest));
                 } else {
+                  // For silent endpoints, just reject without clearing auth
                   reject(error);
                 }
               });

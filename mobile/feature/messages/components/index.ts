@@ -10,5 +10,4 @@ export { default as MessageInput } from "./MessageInput";
 export { default as EmptyChat } from "./EmptyChat";
 export { default as ConversationMoreMenu } from "./ConversationMoreMenu";
 export { default as ConversationInfoModal } from "./ConversationInfoModal";
-export { default as TypingIndicator } from "./TypingIndicator";
 export type { AttachmentFile } from "./MessageInput";

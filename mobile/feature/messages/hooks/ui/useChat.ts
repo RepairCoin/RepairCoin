@@ -21,13 +21,20 @@ export function useChat() {
 
   const isCustomer = userType === "customer";
 
+  const hasMarkedRead = useRef(false);
+
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
 
     try {
       const response = await messageApi.getMessages(conversationId);
       setMessages(response.data || []);
-      await messageApi.markConversationAsRead(conversationId);
+
+      // Only mark as read once on first load, not every poll
+      if (!hasMarkedRead.current) {
+        hasMarkedRead.current = true;
+        await messageApi.markConversationAsRead(conversationId);
+      }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     } finally {
@@ -50,6 +57,7 @@ export function useChat() {
 
   useFocusEffect(
     useCallback(() => {
+      hasMarkedRead.current = false;
       fetchConversation();
       fetchMessages();
     }, [fetchConversation, fetchMessages])

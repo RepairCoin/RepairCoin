@@ -1,7 +1,6 @@
 import apiClient from "@/shared/utilities/axios";
 import {
   Conversation,
-  Message,
   GetConversationsResponse,
   GetMessagesResponse,
   GetUnreadCountResponse,
@@ -10,12 +9,10 @@ import {
   SendMessageResponse,
   StartConversationResponse,
   GetOrCreateConversationResponse,
-  QuickReply,
   CreateQuickReplyRequest,
   UpdateQuickReplyRequest,
   GetQuickRepliesResponse,
   QuickReplyResponse,
-  AutoMessage,
   CreateAutoMessageRequest,
   UpdateAutoMessageRequest,
   GetAutoMessagesResponse,
@@ -281,45 +278,6 @@ class MessageApi {
       );
     } catch (error) {
       console.error("Failed to reopen conversation:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Set typing indicator for a conversation
-   * Call this when user starts typing (debounced)
-   */
-  async setTyping(conversationId: string): Promise<{ message: string }> {
-    try {
-      return await apiClient.post<{ message: string }>(
-        `/messages/conversations/${conversationId}/typing`
-      );
-    } catch (error) {
-      console.error("Failed to set typing indicator:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get active typing indicators for a conversation
-   * Returns list of users currently typing
-   */
-  async getTyping(conversationId: string): Promise<{
-    success: boolean;
-    data: Array<{
-      conversationId: string;
-      userAddress: string;
-      userType: "customer" | "shop";
-      startedAt: string;
-      expiresAt: string;
-    }>;
-  }> {
-    try {
-      return await apiClient.get(
-        `/messages/conversations/${conversationId}/typing`
-      );
-    } catch (error) {
-      console.error("Failed to get typing indicators:", error);
       throw error;
     }
   }

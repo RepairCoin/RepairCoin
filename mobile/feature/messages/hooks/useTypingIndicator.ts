@@ -25,7 +25,7 @@ type UseTypingIndicatorReturn = {
 export function useTypingIndicator({
   conversationId,
   enabled = true,
-  pollingInterval = 3000,
+  pollingInterval = 10000,
   debounceDelay = 1000,
 }: UseTypingIndicatorOptions): UseTypingIndicatorReturn {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
