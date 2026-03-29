@@ -7,6 +7,7 @@ import { useAuthStore } from "@/shared/store/auth.store";
 import { Message, Conversation, MessageAttachment } from "../../types";
 import { MESSAGE_POLL_INTERVAL } from "../../constants";
 import { AttachmentFile } from "../../components/MessageInput";
+import { encryptMessage } from "../../utils/encryption";
 
 export function useChat() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
@@ -65,7 +66,7 @@ export function useChat() {
     return () => clearInterval(interval);
   }, [conversationId, fetchMessages]);
 
-  const handleSend = async (attachmentFiles?: AttachmentFile[]) => {
+  const handleSend = async (attachmentFiles?: AttachmentFile[], isLocked?: boolean, password?: string) => {
     const hasText = messageText.trim().length > 0;
     const hasAttachments = attachmentFiles && attachmentFiles.length > 0;
 
@@ -92,12 +93,42 @@ export function useChat() {
         }
       }
 
-      // Send message with attachments
+      // Encrypt if locked
+      let finalText = text || "";
+      let finalAttachments = uploadedAttachments;
+      let metadata: Record<string, any> = {};
+
+      if (isLocked && password) {
+        // Encrypt message text
+        if (finalText) {
+          const encrypted = encryptMessage(finalText, password);
+          finalText = encrypted.ciphertext;
+          metadata.encryption = {
+            algorithm: encrypted.algorithm,
+          };
+        }
+
+        // Encrypt attachment URLs
+        if (uploadedAttachments.length > 0) {
+          finalAttachments = uploadedAttachments.map((att) => {
+            const encUrl = encryptMessage(att.url, password);
+            return { ...att, url: encUrl.ciphertext };
+          });
+          metadata.encryption = {
+            ...metadata.encryption,
+            encryptedAttachments: true,
+          };
+        }
+      }
+
+      // Send message
       const response = await messageApi.sendMessage({
         conversationId,
-        messageText: text || "",
-        messageType: "text",
-        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+        messageText: finalText,
+        messageType: isLocked ? "encrypted" : "text",
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        attachments: finalAttachments.length > 0 ? finalAttachments : undefined,
+        isEncrypted: isLocked || false,
       });
 
       if (response.data) {

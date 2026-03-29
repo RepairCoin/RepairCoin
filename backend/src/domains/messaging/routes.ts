@@ -12,7 +12,7 @@ const autoMessageController = new AutoMessageController();
 // Multer config for message attachments
 const attachmentUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (_req, file, cb) => {
     const allowed = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',

@@ -34,7 +34,7 @@ export class MessageController {
         return res.status(401).json({ success: false, error: 'Shop ID required' });
       }
 
-      const { conversationId, customerAddress, shopId, messageText, messageType, metadata, attachments } = req.body;
+      const { conversationId, customerAddress, shopId, messageText, messageType, metadata, attachments, isEncrypted } = req.body;
 
       if (!messageText && (!attachments || attachments.length === 0)) {
         return res.status(400).json({ success: false, error: 'Message text or attachments required' });
@@ -55,7 +55,8 @@ export class MessageController {
         messageText: messageText || '',
         messageType,
         metadata,
-        attachments
+        attachments,
+        isEncrypted: isEncrypted || false
       });
 
       res.status(201).json({

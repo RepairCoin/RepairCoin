@@ -41,6 +41,7 @@ export interface Message {
   messageType: MessageType;
   attachments: MessageAttachment[];
   metadata: Record<string, any>;
+  isEncrypted: boolean;
   isRead: boolean;
   readAt?: string;
   isDelivered: boolean;
@@ -59,7 +60,8 @@ export type MessageType =
   | "text"
   | "booking_link"
   | "service_link"
-  | "system";
+  | "system"
+  | "encrypted";
 
 // Request to send a message
 export interface SendMessageRequest {
@@ -70,6 +72,7 @@ export interface SendMessageRequest {
   messageType?: MessageType;
   metadata?: Record<string, any>;
   attachments?: MessageAttachment[];
+  isEncrypted?: boolean;
 }
 
 // Pagination info

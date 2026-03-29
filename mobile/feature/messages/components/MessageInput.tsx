@@ -22,7 +22,7 @@ export type AttachmentFile = {
 type MessageInputProps = {
   value: string;
   onChangeText: (text: string) => void;
-  onSend: (attachments?: AttachmentFile[]) => void;
+  onSend: (attachments?: AttachmentFile[], isLocked?: boolean, password?: string) => void;
   isSending: boolean;
   disabled?: boolean;
   disabledMessage?: string;
@@ -38,9 +38,12 @@ export default function MessageInput({
 }: MessageInputProps) {
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockPassword, setLockPassword] = useState("");
   const haptics = useHaptics();
 
   const canSend = (value.trim() || attachments.length > 0) && !isSending && !disabled;
+  const canSendLocked = canSend && (!isLocked || lockPassword.length >= 4);
 
   const pickImage = async () => {
     setShowAttachMenu(false);
@@ -111,10 +114,26 @@ export default function MessageInput({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const toggleLock = () => {
+    haptics.light();
+    if (isLocked) {
+      setIsLocked(false);
+      setLockPassword("");
+    } else {
+      setIsLocked(true);
+    }
+  };
+
   const handleSend = () => {
     haptics.light();
-    onSend(attachments.length > 0 ? attachments : undefined);
+    onSend(
+      attachments.length > 0 ? attachments : undefined,
+      isLocked,
+      isLocked ? lockPassword : undefined
+    );
     setAttachments([]);
+    setIsLocked(false);
+    setLockPassword("");
   };
 
   if (disabled && disabledMessage) {
@@ -129,7 +148,30 @@ export default function MessageInput({
   }
 
   return (
-    <View className="border-t border-zinc-800 bg-zinc-900">
+    <View className={`border-t ${isLocked ? "border-amber-500/50" : "border-zinc-800"} bg-zinc-900`}>
+      {/* Lock Password Input */}
+      {isLocked && (
+        <View className="px-4 pt-3">
+          <View className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+            <View className="flex-row items-center mb-2">
+              <Ionicons name="lock-closed" size={14} color="#F59E0B" />
+              <Text className="text-amber-500 text-xs font-semibold ml-1">SECURE MESSAGE</Text>
+            </View>
+            <TextInput
+              value={lockPassword}
+              onChangeText={setLockPassword}
+              placeholder="Set password (min 4 characters)"
+              placeholderTextColor="#71717A"
+              secureTextEntry
+              className="text-white text-sm bg-zinc-800 rounded-lg px-3 py-2 border border-zinc-700"
+            />
+            <Text className="text-zinc-500 text-[10px] mt-1.5">
+              Share the password separately. Messages cannot be recovered without it.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Attachment Previews */}
       {attachments.length > 0 && (
         <ScrollView
@@ -210,12 +252,29 @@ export default function MessageInput({
             />
           </Pressable>
 
+          {/* Lock Button */}
+          <Pressable
+            onPress={toggleLock}
+            disabled={isSending}
+            className={`w-10 h-10 rounded-full items-center justify-center mr-2 ${
+              isLocked ? "bg-amber-500" : "bg-zinc-800"
+            }`}
+          >
+            <Ionicons
+              name={isLocked ? "lock-closed" : "lock-open-outline"}
+              size={18}
+              color={isLocked ? "#000" : "#71717A"}
+            />
+          </Pressable>
+
           {/* Text Input */}
-          <View className="flex-1 h-12 bg-zinc-800 rounded-full px-4 mr-2 border border-zinc-700 justify-center">
+          <View className={`flex-1 h-12 bg-zinc-800 rounded-full px-4 mr-2 border ${
+            isLocked ? "border-amber-500/50" : "border-zinc-700"
+          } justify-center`}>
             <TextInput
               value={value}
               onChangeText={onChangeText}
-              placeholder="Type a message..."
+              placeholder={isLocked ? "Type a secure message..." : "Type a message..."}
               placeholderTextColor="#71717A"
               className="text-white text-sm"
               editable={!isSending && !disabled}
@@ -225,15 +284,19 @@ export default function MessageInput({
           {/* Send Button */}
           <Pressable
             onPress={handleSend}
-            disabled={!canSend}
+            disabled={!canSendLocked}
             className={`w-12 h-12 rounded-full items-center justify-center ${
-              canSend ? "bg-[#FFCC00]" : "bg-zinc-800"
+              canSendLocked
+                ? isLocked
+                  ? "bg-amber-500"
+                  : "bg-[#FFCC00]"
+                : "bg-zinc-800"
             }`}
           >
             {isSending ? (
               <ActivityIndicator size="small" color="#000" />
             ) : (
-              <Ionicons name="send" size={20} color={canSend ? "#000" : "#71717A"} />
+              <Ionicons name="send" size={20} color={canSendLocked ? "#000" : "#71717A"} />
             )}
           </Pressable>
         </View>

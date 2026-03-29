@@ -2,6 +2,7 @@ import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Message, Conversation } from "../types";
 import { formatMessageTime } from "../utils";
+import LockedMessageBubble from "./LockedMessageBubble";
 
 type MessageBubbleProps = {
   message: Message;
@@ -16,6 +17,18 @@ export default function MessageBubble({
   conversation,
   isCustomer,
 }: MessageBubbleProps) {
+  // Route encrypted messages to LockedMessageBubble
+  if (message.isEncrypted || message.messageType === "encrypted") {
+    return (
+      <LockedMessageBubble
+        message={message}
+        isOwnMessage={isOwnMessage}
+        conversation={conversation}
+        isCustomer={isCustomer}
+      />
+    );
+  }
+
   const senderInitial = isCustomer
     ? conversation?.shopName?.charAt(0).toUpperCase()
     : conversation?.customerName?.charAt(0).toUpperCase();

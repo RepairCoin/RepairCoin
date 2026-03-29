@@ -11,9 +11,10 @@ export interface SendMessageRequest {
   senderIdentifier: string; // For customers: wallet address, For shops: shopId
   senderType: 'customer' | 'shop';
   messageText: string;
-  messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
+  messageType?: 'text' | 'booking_link' | 'service_link' | 'system' | 'encrypted';
   metadata?: Record<string, any>;
   attachments?: any[];
+  isEncrypted?: boolean;
 }
 
 export class MessageService {
@@ -113,16 +114,19 @@ export class MessageService {
         messageText: (request.messageText || '').trim(),
         messageType: request.messageType || 'text',
         metadata: request.metadata || {},
-        attachments: request.attachments || []
+        attachments: request.attachments || [],
+        isEncrypted: request.isEncrypted || false
       };
 
       const message = await this.messageRepo.createMessage(messageParams);
 
       // Increment unread count for the receiver and update last message preview
       try {
-        const preview = hasText
-          ? request.messageText.trim()
-          : `Sent ${request.attachments!.length} attachment(s)`;
+        const preview = request.isEncrypted
+          ? '🔒 Locked message'
+          : hasText
+            ? request.messageText.trim()
+            : `Sent ${request.attachments!.length} attachment(s)`;
         await this.messageRepo.incrementUnreadCount(
           conversation.conversationId,
           request.senderType === 'customer' ? 'shop' : 'customer',

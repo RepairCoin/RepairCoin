@@ -5,6 +5,7 @@ export { default as ChatHeader } from "./ChatHeader";
 export { default as DateDivider } from "./DateDivider";
 export { default as SystemMessage } from "./SystemMessage";
 export { default as MessageBubble } from "./MessageBubble";
+export { default as LockedMessageBubble } from "./LockedMessageBubble";
 export { default as MessageInput } from "./MessageInput";
 export { default as EmptyChat } from "./EmptyChat";
 export { default as ConversationMoreMenu } from "./ConversationMoreMenu";
