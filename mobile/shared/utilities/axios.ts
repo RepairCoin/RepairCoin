@@ -76,12 +76,20 @@ class ApiClient {
       // Get stored refresh token from Zustand store
       const { refreshToken, setAccessToken, setRefreshToken } = useAuthStore.getState();
       if (!refreshToken) {
-        console.log('[ApiClient] No refresh token found');
+        console.log('[ApiClient] No refresh token found in store');
         return null;
       }
 
+      console.log('[ApiClient] Refresh token exists, length:', refreshToken.length);
+
       // Call refresh endpoint
       const response = await authApi.getRefreshToken(refreshToken);
+
+      console.log('[ApiClient] Refresh response:', {
+        success: response?.success,
+        hasData: !!response?.data,
+        hasAccessToken: !!response?.data?.accessToken,
+      });
 
       if (response.success) {
         const { accessToken, refreshToken: newRefreshToken } = response.data;
@@ -92,17 +100,22 @@ class ApiClient {
           setRefreshToken(newRefreshToken);
         }
 
-        console.log('[ApiClient] Token refreshed successfully');
+        console.log('[ApiClient] Token refreshed successfully, new token length:', accessToken?.length);
         return accessToken;
       }
 
-      console.log('[ApiClient] Token refresh failed:', response);
+      console.log('[ApiClient] Token refresh failed - success was false:', JSON.stringify(response).substring(0, 200));
       return null;
     } catch (error: any) {
-      console.error('[ApiClient] Token refresh error:', error.message);
+      console.error('[ApiClient] Token refresh error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
 
-      // If refresh fails with 401, clear tokens and redirect to login
+      // If refresh fails with 401, the refresh token itself is invalid
       if (error.response?.status === 401) {
+        console.log('[ApiClient] Refresh token is invalid/expired, clearing auth');
         await this.clearAuthToken();
       }
 
@@ -121,7 +134,7 @@ class ApiClient {
           if (token) {
             // Check if token is expired
             if (this.isTokenExpired(token)) {
-              console.log('[ApiClient] Token expired, attempting refresh...');
+              console.log('[ApiClient] Token expired for:', config.url);
 
               // If not already refreshing, start refresh
               if (!this.isRefreshing) {

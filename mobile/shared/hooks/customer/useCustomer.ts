@@ -59,7 +59,7 @@ export const useCustomer = () => {
           if (getTokenResult.success) {
             setUserProfile(result.user);
             setAccessToken(getTokenResult.token);
-            setRefreshToken(getTokenResult.refreshToken);
+            setRefreshToken(getTokenResult.data?.refreshToken || getTokenResult.refreshToken);
             setUserType(result.type);
             apiClient.setAuthToken(getTokenResult.token);
 
