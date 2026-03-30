@@ -9,7 +9,7 @@ export interface ShopService {
   description?: string;
   priceUsd: number;
   durationMinutes?: number;
-  category?: string;
+  category: string;
   imageUrl?: string;
   tags?: string[];
   active: boolean;
@@ -47,7 +47,7 @@ export interface CreateServiceParams {
   description?: string;
   priceUsd: number;
   durationMinutes?: number;
-  category?: string;
+  category: string;
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
@@ -115,7 +115,7 @@ export class ServiceRepository extends BaseRepository {
         params.description || null,
         params.priceUsd,
         params.durationMinutes || null,
-        params.category || null,
+        params.category,
         params.imageUrl || null,
         params.tags || [],
         params.active !== undefined ? params.active : true

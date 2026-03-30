@@ -1,7 +1,9 @@
 # Mobile RCN Purchase Qualification Bug
 
 ## Priority: High
-## Status: Open
+
+## Status: Fixed
+
 ## Assignee: Mobile Developer
 
 ## Problem
@@ -16,12 +18,12 @@ The mobile app uses `/auth/check-user` for login which does NOT return `operatio
 
 ### Code Flow Comparison
 
-| Aspect | Web Frontend | Mobile App |
-|--------|-------------|------------|
-| API for shop data | `/shops/wallet/:address` | `/auth/check-user` |
-| Returns `operational_status`? | Yes | **No** |
-| Syncs RCG balance from blockchain? | Yes | No |
-| Result | Shop correctly identified as `rcg_qualified` | `operational_status` is always `undefined` |
+| Aspect                             | Web Frontend                                 | Mobile App                                 |
+| ---------------------------------- | -------------------------------------------- | ------------------------------------------ |
+| API for shop data                  | `/shops/wallet/:address`                     | `/auth/check-user`                         |
+| Returns `operational_status`?      | Yes                                          | **No**                                     |
+| Syncs RCG balance from blockchain? | Yes                                          | No                                         |
+| Result                             | Shop correctly identified as `rcg_qualified` | `operational_status` is always `undefined` |
 
 ### Mobile Code Path
 
@@ -39,43 +41,47 @@ The mobile app uses `/auth/check-user` for login which does NOT return `operatio
 ## Affected Files
 
 ### Backend (needs fix)
+
 - `backend/src/routes/auth.ts` - `/auth/check-user` endpoint (lines 431-456)
   - Missing `operational_status` in shop user response
 
 ### Mobile (alternative fix location)
+
 - `mobile/feature/buy-token/hooks/queries/useBuyTokenQueries.ts`
 - `mobile/hooks/auth/useAuth.ts`
 
 ## Solution Options
 
 ### Option A: Backend Fix (Recommended)
+
 Add `operational_status` to the `/auth/check-user` response for shops in `backend/src/routes/auth.ts`:
 
 ```typescript
 // Around line 435-455 in /auth/check-user endpoint
 return res.json({
   exists: true,
-  type: 'shop',
+  type: "shop",
   user: {
     id: shop.shopId,
     shopId: shop.shopId,
     // ... existing fields ...
-    operational_status: shop.operational_status,  // ADD THIS
-    rcg_balance: shop.rcg_balance,                // ADD THIS for display
-    rcg_tier: shop.rcg_tier,                      // ADD THIS
-    subscriptionActive: shop.subscriptionActive,  // ADD THIS
-  }
+    operational_status: shop.operational_status, // ADD THIS
+    rcg_balance: shop.rcg_balance, // ADD THIS for display
+    rcg_tier: shop.rcg_tier, // ADD THIS
+    subscriptionActive: shop.subscriptionActive, // ADD THIS
+  },
 });
 ```
 
 Note: This won't sync RCG balance from blockchain like the web does. Consider also syncing in this endpoint or calling the sync separately.
 
 ### Option B: Mobile Fix (Call separate endpoint)
+
 After login, have mobile call `/shops/wallet/:address` to get full shop data including synced `operational_status`:
 
 ```typescript
 // In useAuth.ts after successful login for shop type
-if (result.type === 'shop') {
+if (result.type === "shop") {
   // Fetch full shop data with synced operational_status
   const shopData = await apiClient.get(`/shops/wallet/${normalizedAddress}`);
   setUserProfile({
@@ -86,6 +92,7 @@ if (result.type === 'shop') {
 ```
 
 ### Option C: Both (Most robust)
+
 1. Add `operational_status` to `/auth/check-user` for immediate availability
 2. Also have mobile call `/shops/wallet/:address` to ensure RCG balance sync
 
@@ -103,14 +110,17 @@ if (result.type === 'shop') {
 ## Test Scenarios
 
 ### Scenario 1: RCG Qualified Shop
+
 - Use a shop account with RCG balance >= 10,000
 - Expected: Can purchase RCN directly without subscription modal
 
 ### Scenario 2: Subscription Qualified Shop
+
 - Use a shop account with active Stripe subscription
 - Expected: Can purchase RCN directly without subscription modal
 
 ### Scenario 3: Non-Qualified Shop
+
 - Use a shop account with no subscription AND RCG balance < 10,000
 - Expected: Subscription modal appears correctly
 

@@ -1,9 +1,13 @@
 # Bug: Missing Category Validation on Service Creation
 
-## Status: Open
+## Status: Fixed
+
 ## Priority: Medium
+
 ## Date: 2026-03-24
+
 ## Category: Bug - Validation
+
 ## Found by: E2E testing (`backend/tests/shop/shop.services.test.ts`)
 
 ---
@@ -64,10 +68,12 @@ other_local_services
 ## Root Cause
 
 The service creation controller/route does not validate the `category` field:
+
 - No required check (allows null/undefined)
 - No enum validation (allows any string value)
 
 ### Files to check:
+
 - `backend/src/domains/ServiceDomain/controllers/ServiceController.ts` — service creation handler
 - `backend/src/domains/ServiceDomain/routes.ts` — route definition for `POST /api/services`
 - `backend/src/repositories/ServiceRepository.ts` — `createService()` method
@@ -80,20 +86,30 @@ Add validation before inserting into the database:
 
 ```typescript
 const validCategories = [
-  'repairs', 'beauty_personal_care', 'health_wellness', 'fitness_gyms',
-  'automotive_services', 'home_cleaning_services', 'pets_animal_care',
-  'professional_services', 'education_classes', 'tech_it_services',
-  'food_beverage', 'other_local_services'
+  "repairs",
+  "beauty_personal_care",
+  "health_wellness",
+  "fitness_gyms",
+  "automotive_services",
+  "home_cleaning_services",
+  "pets_animal_care",
+  "professional_services",
+  "education_classes",
+  "tech_it_services",
+  "food_beverage",
+  "other_local_services",
 ];
 
 if (!category) {
-  return res.status(400).json({ success: false, error: 'Category is required' });
+  return res
+    .status(400)
+    .json({ success: false, error: "Category is required" });
 }
 
 if (!validCategories.includes(category)) {
   return res.status(400).json({
     success: false,
-    error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
+    error: `Invalid category. Must be one of: ${validCategories.join(", ")}`,
   });
 }
 ```
