@@ -37,8 +37,25 @@ router.get('/connect/google', authMiddleware, requireRole(['shop']), calendarCon
 /**
  * @swagger
  * /api/shops/calendar/callback/google:
+ *   get:
+ *     summary: Handle Google OAuth callback (GET)
+ *     tags: [Calendar]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: state
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Calendar connected successfully - redirects to frontend
  *   post:
- *     summary: Handle Google OAuth callback
+ *     summary: Handle Google OAuth callback (POST)
  *     tags: [Calendar]
  *     security:
  *       - bearerAuth: []
@@ -57,6 +74,13 @@ router.get('/connect/google', authMiddleware, requireRole(['shop']), calendarCon
  *       200:
  *         description: Calendar connected successfully
  */
+// GET handler for Google OAuth callback (Google redirects here after authorization)
+router.get(
+  '/callback/google',
+  calendarController.handleGoogleCallback
+);
+
+// POST handler for manual callback (if frontend wants to call it programmatically)
 router.post(
   '/callback/google',
   authMiddleware,

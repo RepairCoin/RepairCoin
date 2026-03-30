@@ -15,35 +15,42 @@ export default function CalendarCallbackPage() {
   }, []);
 
   const handleCallback = async () => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
+    const success = searchParams.get('success');
     const error = searchParams.get('error');
 
-    if (error) {
-      setStatus('error');
-      toast.error('Google Calendar connection cancelled');
-      setTimeout(() => router.push('/shop/settings?tab=calendar'), 2000);
-      return;
-    }
+    console.log('[CalendarCallback] 📥 Query params:', { success, error });
 
-    if (!code) {
-      setStatus('error');
-      toast.error('Missing authorization code');
-      setTimeout(() => router.push('/shop/settings?tab=calendar'), 2000);
-      return;
-    }
-
-    try {
-      await calendarApi.handleCallback(code, state || '');
+    // Backend already processed the callback, just show status and redirect
+    if (success === 'true') {
+      console.log('[CalendarCallback] ✅ Connection successful');
       setStatus('success');
       toast.success('Google Calendar connected successfully!');
-      setTimeout(() => router.push('/shop/settings?tab=calendar'), 2000);
-    } catch (error) {
-      console.error('Callback error:', error);
-      setStatus('error');
-      toast.error('Failed to connect Google Calendar');
-      setTimeout(() => router.push('/shop/settings?tab=calendar'), 2000);
+      setTimeout(() => {
+        console.log('[CalendarCallback] 🔀 Redirecting to shop dashboard');
+        router.push('/shop');
+      }, 2000);
+      return;
     }
+
+    if (error) {
+      console.error('[CalendarCallback] ❌ Connection error:', error);
+      setStatus('error');
+      toast.error(`Failed to connect: ${error}`);
+      setTimeout(() => {
+        console.log('[CalendarCallback] 🔀 Redirecting to shop dashboard');
+        router.push('/shop');
+      }, 2000);
+      return;
+    }
+
+    // Fallback: no success or error param (shouldn't happen)
+    console.warn('[CalendarCallback] ⚠️ No success or error param, assuming error');
+    setStatus('error');
+    toast.error('Invalid callback state');
+    setTimeout(() => {
+      console.log('[CalendarCallback] 🔀 Redirecting to shop dashboard');
+      router.push('/shop');
+    }, 2000);
   };
 
   return (

@@ -38,8 +38,24 @@ export class GoogleCalendarService {
    */
   async getAuthorizationUrl(shopId: string, state?: string): Promise<string> {
     try {
+      console.log('[GoogleCalendarService] 🔄 getAuthorizationUrl called with shopId:', shopId);
+      console.log('[GoogleCalendarService] 🔧 Environment variables check:', {
+        hasClientId: !!CLIENT_ID,
+        hasClientSecret: !!CLIENT_SECRET,
+        hasRedirectUri: !!REDIRECT_URI,
+        hasEncryptionKey: !!ENCRYPTION_KEY,
+        clientIdLength: CLIENT_ID?.length,
+        clientSecretLength: CLIENT_SECRET?.length,
+        redirectUri: REDIRECT_URI,
+      });
+
+      console.log('[GoogleCalendarService] 🔑 OAuth2 client initialized:', {
+        hasClient: !!this.oauth2Client,
+        clientType: typeof this.oauth2Client,
+      });
+
       // Generate authorization URL with required scopes
-      const authUrl = this.oauth2Client.generateAuthUrl({
+      const authUrlConfig = {
         access_type: 'offline', // Required for refresh token
         scope: [
           'https://www.googleapis.com/auth/calendar.events',
@@ -48,11 +64,24 @@ export class GoogleCalendarService {
         ],
         state: state || shopId, // Use state to track which shop is connecting
         prompt: 'consent', // Force consent screen to get refresh token
-      });
+      };
 
+      console.log('[GoogleCalendarService] 📋 Auth URL config:', authUrlConfig);
+      console.log('[GoogleCalendarService] 📡 Calling oauth2Client.generateAuthUrl...');
+
+      const authUrl = this.oauth2Client.generateAuthUrl(authUrlConfig);
+
+      console.log('[GoogleCalendarService] ✅ Auth URL generated successfully:', authUrl);
       logger.info('Generated OAuth authorization URL', { shopId });
       return authUrl;
     } catch (error) {
+      console.error('[GoogleCalendarService] ❌ Error generating authorization URL:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorType: typeof error,
+        shopId
+      });
       logger.error('Error generating authorization URL:', error);
       throw new Error('Failed to generate authorization URL');
     }

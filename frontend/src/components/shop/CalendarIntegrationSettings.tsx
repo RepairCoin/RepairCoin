@@ -39,18 +39,43 @@ export default function CalendarIntegrationSettings() {
 
   const handleConnect = async () => {
     try {
+      console.log('[CalendarConnect] 🔄 Initiating Google Calendar connection...');
       setConnecting(true);
+
       // calendarApi already returns response.data, so 'data' is the backend response
+      console.log('[CalendarConnect] 📡 Calling calendarApi.connectGoogle()...');
       const data = await calendarApi.connectGoogle();
 
+      console.log('[CalendarConnect] 📦 Response received:', {
+        fullResponse: data,
+        hasSuccess: 'success' in data,
+        successValue: data.success,
+        hasData: 'data' in data,
+        dataValue: data.data,
+        hasAuthUrl: data.data?.authUrl,
+        authUrlValue: data.data?.authUrl
+      });
+
       if (data.success && data.data?.authUrl) {
+        console.log('[CalendarConnect] ✅ Authorization URL received, redirecting to:', data.data.authUrl);
         // Redirect to Google OAuth
         window.location.href = data.data.authUrl;
       } else {
+        console.error('[CalendarConnect] ❌ Invalid response structure:', {
+          success: data.success,
+          data: data.data,
+          expectedStructure: '{ success: true, data: { authUrl: string } }'
+        });
         throw new Error('Failed to get authorization URL');
       }
     } catch (error) {
-      console.error('Failed to initiate connection:', error);
+      console.error('[CalendarConnect] ❌ Failed to initiate connection:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorType: typeof error,
+        errorKeys: error && typeof error === 'object' ? Object.keys(error) : []
+      });
       toast.error('Failed to connect Google Calendar');
       setConnecting(false);
     }
