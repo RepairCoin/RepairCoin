@@ -11,7 +11,7 @@ export interface CreateServiceRequest {
   description?: string;
   priceUsd: number;
   durationMinutes?: number;
-  category?: string;
+  category: string;
   imageUrl?: string;
   tags?: string[];
 }

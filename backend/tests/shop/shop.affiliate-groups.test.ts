@@ -382,10 +382,7 @@ describe('Shop Affiliate Groups Tests', () => {
         expect([400, 403]).toContain(response.status);
       });
 
-      it('BUG: empty group name is accepted instead of rejected', async () => {
-        // KNOWN BUG: Empty groupName returns 201 instead of 400
-        // The API does not validate that groupName is non-empty
-        // This should be fixed: groupName should be required and non-blank
+      it('should reject empty group name', async () => {
         const response = await request(app)
           .post('/api/affiliate-shop-groups')
           .set('Authorization', `Bearer ${shopToken}`)
@@ -395,8 +392,39 @@ describe('Shop Affiliate Groups Tests', () => {
             customTokenSymbol: 'TT'
           });
 
-        // Currently accepts empty name (bug) - should be 400
-        expect([201, 400, 403]).toContain(response.status);
+        expect(response.status).toBe(400);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('Group name is required');
+      });
+
+      it('should reject whitespace-only group name', async () => {
+        const response = await request(app)
+          .post('/api/affiliate-shop-groups')
+          .set('Authorization', `Bearer ${shopToken}`)
+          .send({
+            groupName: '   ',
+            customTokenName: 'TestToken',
+            customTokenSymbol: 'TT'
+          });
+
+        expect(response.status).toBe(400);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('Group name is required');
+      });
+
+      it('should reject group name shorter than 2 characters', async () => {
+        const response = await request(app)
+          .post('/api/affiliate-shop-groups')
+          .set('Authorization', `Bearer ${shopToken}`)
+          .send({
+            groupName: 'A',
+            customTokenName: 'TestToken',
+            customTokenSymbol: 'TT'
+          });
+
+        expect(response.status).toBe(400);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('at least 2 characters');
       });
     });
   });

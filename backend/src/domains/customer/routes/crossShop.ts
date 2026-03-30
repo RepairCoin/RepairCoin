@@ -88,10 +88,26 @@ const router = Router();
  */
 router.post('/verify', async (req: Request, res: Response) => {
   try {
+    const { customerAddress, redemptionShopId, requestedAmount } = req.body;
+
+    if (!customerAddress || !redemptionShopId || !requestedAmount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: customerAddress, redemptionShopId, requestedAmount'
+      });
+    }
+
+    if (requestedAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'requestedAmount must be greater than zero'
+      });
+    }
+
     const redemptionRequest: RedemptionRequest = {
-      customerAddress: req.body.customerAddress,
-      redemptionShopId: req.body.redemptionShopId,
-      requestedAmount: req.body.requestedAmount,
+      customerAddress,
+      redemptionShopId,
+      requestedAmount,
       purpose: req.body.purpose
     };
 

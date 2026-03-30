@@ -2,11 +2,11 @@
 
 ## Date: 2026-03-23
 ## Source: Team code review feedback
-## Status: Open
+## Status: Partially Complete
 
 ---
 
-## Task 1: Clean Up Debug Logs
+## Task 1: Clean Up Debug Logs ✅ DONE
 
 ### Priority: High (before production deploy)
 
@@ -63,10 +63,10 @@ Create a manual regression checklist to verify settings functionality after chan
 
 ---
 
-## Task 3: Fix Migration Numbering (Duplicates)
+## Task 3: Fix Migration Numbering (Duplicates) ✅ DONE
 
 ### Priority: High
-### Status: Fixed locally, needs commit + deploy
+### Status: Fixed — renaming applied. Note: new duplicate 095 exists (095_add_category_check_constraint.sql and 095_create_calendar_integration.sql)
 
 Two duplicate migration numbers were found and renamed:
 
@@ -99,7 +99,7 @@ Two duplicate migration numbers were found and renamed:
 
 ---
 
-## Task 4: Remove Temporary Test Scripts
+## Task 4: Remove Temporary Test Scripts — Partially Done
 
 ### Priority: Low
 
@@ -107,13 +107,13 @@ Debug/test scripts created during dispute development should be removed or moved
 
 | File | Purpose | Action |
 |------|---------|--------|
-| `backend/scripts/debug-dispute.js` | Standalone dispute flow debugger | Remove |
-| `backend/scripts/test-dispute-api.js` | HTTP API endpoint tester | Remove |
-| `backend/scripts/test-noshow-tiers.js` | Tier restriction live tester | Keep (useful for future testing) or move to `tests/` |
+| `backend/scripts/debug-dispute.js` | Standalone dispute flow debugger | ✅ Removed |
+| `backend/scripts/test-dispute-api.js` | HTTP API endpoint tester | ✅ Removed |
+| `backend/scripts/test-noshow-tiers.js` | Tier restriction live tester | Still present — keep or move to `tests/` |
 
 ---
 
-## Task 5: Audit `ensureCriticalSchema` Safety Net
+## Task 5: Audit `ensureCriticalSchema` Safety Net — Open
 
 ### Priority: Low (after migrations are stable)
 

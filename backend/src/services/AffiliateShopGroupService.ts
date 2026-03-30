@@ -58,6 +58,18 @@ export class AffiliateShopGroupService {
         throw new Error('Shop must be active and verified to create a group');
       }
 
+      // Validate group name
+      if (!request.groupName || request.groupName.trim() === '') {
+        throw new Error('Group name is required');
+      }
+      if (request.groupName.trim().length < 2) {
+        throw new Error('Group name must be at least 2 characters');
+      }
+      if (request.groupName.trim().length > 100) {
+        throw new Error('Group name must be 100 characters or less');
+      }
+      request.groupName = request.groupName.trim();
+
       // Require active subscription OR RCG qualification to create affiliate groups
       const isRcgQualified = shop.operational_status === 'rcg_qualified';
       const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';

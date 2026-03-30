@@ -1,0 +1,45 @@
+This looks really good — like “real SaaS admin” good. Clean dark theme, clear cards, filters, and the table layout is readable. You’re close.
+Here’s what I’d tweak to make it feel even more enterprise and avoid confusion:
+What’s strong
+The top KPI cards (Total Entries / Pending / Shops / Last 24 Hours) are exactly what an admin needs first.
+The “Campaign Performance” row is 🔥 — it immediately tells you what’s working.
+Filters are in the right place (above the table), and the badge chips in the table are easy to scan.
+“View Public Page” button is a great admin shortcut.
+Fix these (important)
+1) That “200% CVR” needs to be corrected
+Conversion rate over 100% usually means the formula is off or the counters aren’t aligned.
+Common causes:
+“Visits” counted as unique sessions, but “signups” counted as total submissions (including duplicates).
+Signups coming from sources without visits tracked (e.g., manual entry, direct link shares, cached sessions).
+Best fix:
+Use Unique visits and Unique signups
+Add a small tooltip: “CVR = unique signups / unique visits”
+If visits are missing, show “—” instead of 200%.
+2) Labeling: “Staking Waitlist” might be confusing
+If this page is actually your main lead intake for demo/waitlist, call it:
+Waitlist & Demos or
+Leads (Waitlist / Demo)
+If it’s truly for RCG staking, then make that super clear and separate “platform waitlist” from “staking waitlist.”
+3) Add a “Demo requests today” KPI card
+Since you just added inquiryType (demo vs waitlist), the #1 admin KPI becomes:
+Demo Requests (24h)
+Waitlist Signups (24h)
+That helps you prioritize follow-ups immediately.
+4) Add “Lead quality” fields
+Right now you have Email + Type + Source + Inquiry + Status. That’s solid. To make it sales-ready, add 1–2 more columns:
+Business category (repair/barber/nails/gym/other)
+City/State Optional later: “# locations” or “monthly revenue range”
+5) Table actions: “Update / Delete” is a bit generic
+Rename actions to match admin workflow:
+View
+Mark Contacted
+Mark Booked
+Archive
+And keep Delete behind a confirmation modal (only for true spam).
+Extra “big company” polish
+Add an export button for filtered results (CSV) right next to filters.
+Add “Assigned to” field so you can route leads to a salesperson (even if it’s just you right now).
+Make the source badges color consistent (Facebook always same color, Organic same color, etc.)
+Overall
+This is a very strong admin view. Fix the CVR logic + rename “Staking Waitlist” + add demo KPIs and it becomes a legit growth command center.
+If you want, I can propose the exact KPI cards + what the filters should be for the “best follow-up workflow” (like: Demo + Pending + Last 24h = call list).

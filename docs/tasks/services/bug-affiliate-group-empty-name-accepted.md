@@ -1,6 +1,6 @@
 # Bug: Affiliate Group Accepts Empty Name
 
-## Status: Open
+## Status: Fixed
 ## Priority: Medium
 ## Date: 2026-03-24
 ## Category: Bug - Validation

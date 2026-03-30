@@ -143,21 +143,7 @@ describe("Cross-Shop Verification API Tests (Fixed)", () => {
       expect(response.body.data.denialReason).toContain("Invalid");
     });
 
-    // Around line 145-156
     it("should reject missing required fields", async () => {
-      // Mock the service to return validation error
-      jest
-        .spyOn(crossShopVerificationService, "verifyRedemption")
-        .mockResolvedValue({
-          approved: false,
-          availableBalance: 0,
-          maxCrossShopAmount: 0,
-          requestedAmount: 0,
-          verificationId: "verify-missing",
-          denialReason: "Missing required fields",
-          message: "Validation failed",
-        } as any);
-
       const response = await request(app)
         .post("/api/customers/cross-shop/verify")
         .send({
@@ -165,26 +151,12 @@ describe("Cross-Shop Verification API Tests (Fixed)", () => {
           // Missing redemptionShopId and requestedAmount
         });
 
-      expect(response.status).toBe(200); // Changed from 400
-      expect(response.body.data.approved).toBe(false); // Check approved instead
-      expect(response.body.data.denialReason).toBeDefined(); // Check denialReason
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain("Missing required fields");
     });
 
-    // Around line 158-169
     it("should reject zero or negative amounts", async () => {
-      // Mock the service to return validation error
-      jest
-        .spyOn(crossShopVerificationService, "verifyRedemption")
-        .mockResolvedValue({
-          approved: false,
-          availableBalance: 0,
-          maxCrossShopAmount: 0,
-          requestedAmount: 0,
-          verificationId: "verify-zero",
-          denialReason: "Invalid amount: must be greater than zero",
-          message: "Validation failed",
-        } as any);
-
       const response = await request(app)
         .post("/api/customers/cross-shop/verify")
         .send({
@@ -193,9 +165,8 @@ describe("Cross-Shop Verification API Tests (Fixed)", () => {
           requestedAmount: 0,
         });
 
-      expect(response.status).toBe(200); // Changed from 400
-      expect(response.body.data.approved).toBe(false); // Check approved instead
-      expect(response.body.data.denialReason).toContain("Invalid"); // Check denialReason
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
     });
 
     it("should handle insufficient balance", async () => {
