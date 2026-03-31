@@ -11,17 +11,11 @@ interface HeroContentProps {
 export function HeroContent({ fadeUp, headingClassName }: HeroContentProps) {
   return (
     <>
-      <m.div
-        {...fadeUp(0.1)}
-        className="[&>div]:px-3 [&>div]:py-1.5 [&>div]:gap-1.5 [&_span]:text-xs [&_svg]:w-3 [&_svg]:h-3"
-      >
+      <m.div {...fadeUp(0.1)}>
         <SectionBadge label="Modern Loyalty for Service Businesses" />
       </m.div>
 
-      <m.h1
-        {...fadeUp(0.2)}
-        className={headingClassName}
-      >
+      <m.h1 {...fadeUp(0.2)} className={headingClassName}>
         <span>Connect. Schedule.</span>
         <br />
         <span>
