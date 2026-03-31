@@ -79,7 +79,7 @@ const layout = {
 
   ctaMobile: [
     "sm:hidden",              // tablet+: hidden (shown next to text instead)
-    "pt-3",
+    "pt-10",
   ].join(" "),
   
   /* ── Left Column (text + CTA) ── */
@@ -115,7 +115,8 @@ const layout = {
     "relative",
     "flex flex-col items-center",
     // "flex-1 min-h-[200px]",         // fill remaining space, allow shrink
-    "pb-4",
+    "sm:pb-20",
+    "pb-10",
     "lg:hidden",              // desktop: hidden (DesktopMockups shown instead)
   ].join(" "),
 };
