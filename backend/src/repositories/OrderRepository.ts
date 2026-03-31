@@ -832,4 +832,120 @@ export class OrderRepository extends BaseRepository {
       throw error;
     }
   }
+
+  /**
+   * Get expired unpaid bookings for a shop
+   * Returns bookings where:
+   * - Status is 'pending' (unpaid)
+   * - booking_date is in the past
+   */
+  async getExpiredUnpaidBookings(shopId: string): Promise<ServiceOrderWithDetails[]> {
+    try {
+      const query = `
+        SELECT
+          o.*,
+          s.service_name,
+          s.description as service_description,
+          s.image_url as service_image_url,
+          s.duration_minutes as service_duration,
+          s.category as service_category,
+          c.name as customer_name,
+          c.tier as customer_tier,
+          c.phone as customer_phone
+        FROM service_orders o
+        INNER JOIN shop_services s ON o.service_id = s.service_id
+        LEFT JOIN customers c ON o.customer_address = c.address
+        WHERE o.shop_id = $1
+          AND o.status = 'pending'
+          AND o.booking_date IS NOT NULL
+          AND (o.booking_date + COALESCE(o.booking_end_time, o.booking_time_slot::time)) < NOW()
+        ORDER BY o.booking_date DESC
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+      return result.rows.map(row => this.mapOrderWithDetailsRow(row));
+    } catch (error) {
+      logger.error('Error fetching expired unpaid bookings:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk cancel orders by IDs
+   * @param orderIds Array of order IDs to cancel
+   * @param shopId Shop ID (for security - only cancel orders belonging to this shop)
+   * @param reason Cancellation reason
+   * @returns Number of orders cancelled
+   */
+  async bulkCancelOrders(
+    orderIds: string[],
+    shopId: string,
+    reason: string = 'Bulk cancelled by shop'
+  ): Promise<number> {
+    if (orderIds.length === 0) {
+      return 0;
+    }
+
+    try {
+      const query = `
+        UPDATE service_orders
+        SET
+          status = 'cancelled',
+          updated_at = NOW(),
+          notes = CASE
+            WHEN notes IS NULL THEN $3
+            ELSE notes || E'\\n\\n' || $3
+          END
+        WHERE
+          order_id = ANY($1::uuid[])
+          AND shop_id = $2
+          AND status = 'pending'
+        RETURNING order_id
+      `;
+
+      const result = await this.pool.query(query, [orderIds, shopId, reason]);
+      const cancelledCount = result.rows.length;
+
+      logger.info(`Bulk cancelled ${cancelledCount} orders`, { shopId, orderIds: result.rows.map(r => r.order_id) });
+      return cancelledCount;
+    } catch (error) {
+      logger.error('Error bulk cancelling orders:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel all expired unpaid bookings for a shop
+   * @param shopId Shop ID
+   * @returns Number of orders cancelled
+   */
+  async cancelAllExpiredUnpaid(shopId: string): Promise<number> {
+    try {
+      const query = `
+        UPDATE service_orders
+        SET
+          status = 'cancelled',
+          updated_at = NOW(),
+          notes = CASE
+            WHEN notes IS NULL THEN 'Cancelled: Service date passed without payment'
+            ELSE notes || E'\\n\\nCancelled: Service date passed without payment'
+          END
+        WHERE
+          shop_id = $1
+          AND status = 'pending'
+          AND booking_date IS NOT NULL
+          AND (booking_date + COALESCE(booking_end_time, booking_time_slot::time)) < NOW()
+        RETURNING order_id
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+      const cancelledCount = result.rows.length;
+
+      logger.info(`Cancelled ${cancelledCount} expired unpaid bookings for shop ${shopId}`);
+      return cancelledCount;
+    } catch (error) {
+      logger.error('Error cancelling expired unpaid bookings:', error);
+      throw error;
+    }
+  }
 }

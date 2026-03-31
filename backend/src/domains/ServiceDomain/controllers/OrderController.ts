@@ -1097,4 +1097,113 @@ export class OrderController {
       // Don't throw - log and continue (group tokens are bonus, not critical to order flow)
     }
   }
+
+  /**
+   * Get expired unpaid bookings for a shop
+   * GET /api/services/orders/expired-unpaid
+   */
+  getExpiredUnpaidBookings = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: 'Shop authentication required' });
+        return;
+      }
+
+      const expiredBookings = await this.orderRepository.getExpiredUnpaidBookings(shopId);
+
+      res.json({
+        success: true,
+        data: expiredBookings,
+        count: expiredBookings.length
+      });
+    } catch (error: unknown) {
+      logger.error('Error fetching expired unpaid bookings:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch expired bookings'
+      });
+    }
+  };
+
+  /**
+   * Bulk cancel orders
+   * POST /api/services/orders/bulk-cancel
+   */
+  bulkCancelOrders = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: 'Shop authentication required' });
+        return;
+      }
+
+      const { orderIds, reason } = req.body;
+
+      // Validate input
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'orderIds array is required and must not be empty'
+        });
+        return;
+      }
+
+      // Validate all orderIds are strings
+      if (!orderIds.every((id: unknown) => typeof id === 'string')) {
+        res.status(400).json({
+          success: false,
+          error: 'All orderIds must be strings'
+        });
+        return;
+      }
+
+      const cancelReason = reason || 'Bulk cancelled by shop';
+      const cancelledCount = await this.orderRepository.bulkCancelOrders(
+        orderIds,
+        shopId,
+        cancelReason
+      );
+
+      res.json({
+        success: true,
+        cancelledCount,
+        message: `Successfully cancelled ${cancelledCount} order(s)`
+      });
+    } catch (error: unknown) {
+      logger.error('Error bulk cancelling orders:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to bulk cancel orders'
+      });
+    }
+  };
+
+  /**
+   * Cancel all expired unpaid bookings
+   * POST /api/services/orders/cancel-all-expired
+   */
+  cancelAllExpiredUnpaid = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: 'Shop authentication required' });
+        return;
+      }
+
+      const cancelledCount = await this.orderRepository.cancelAllExpiredUnpaid(shopId);
+
+      res.json({
+        success: true,
+        cancelledCount,
+        message: `Successfully cancelled ${cancelledCount} expired unpaid booking(s)`
+      });
+    } catch (error: unknown) {
+      logger.error('Error cancelling all expired unpaid bookings:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel expired bookings'
+      });
+    }
+  };
 }

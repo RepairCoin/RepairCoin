@@ -938,6 +938,110 @@ export function initializeRoutes(stripe: StripeService): Router {
     orderController.getPendingApprovalBookings
   );
 
+  /**
+   * @swagger
+   * /api/services/orders/expired-unpaid:
+   *   get:
+   *     summary: Get expired unpaid bookings (Shop only)
+   *     description: Get all bookings where service date has passed without payment
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of expired unpaid bookings
+   *       401:
+   *         description: Unauthorized
+   */
+  router.get(
+    '/orders/expired-unpaid',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.getExpiredUnpaidBookings
+  );
+
+  /**
+   * @swagger
+   * /api/services/orders/bulk-cancel:
+   *   post:
+   *     summary: Bulk cancel orders (Shop only)
+   *     description: Cancel multiple pending orders at once
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - orderIds
+   *             properties:
+   *               orderIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: Array of order IDs to cancel
+   *               reason:
+   *                 type: string
+   *                 description: Reason for bulk cancellation
+   *                 default: "Bulk cancelled by shop"
+   *     responses:
+   *       200:
+   *         description: Orders cancelled successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 cancelledCount:
+   *                   type: number
+   *       400:
+   *         description: Invalid request
+   *       401:
+   *         description: Unauthorized
+   */
+  router.post(
+    '/orders/bulk-cancel',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.bulkCancelOrders
+  );
+
+  /**
+   * @swagger
+   * /api/services/orders/cancel-all-expired:
+   *   post:
+   *     summary: Cancel all expired unpaid bookings (Shop only)
+   *     description: Cancel all bookings where service date has passed without payment
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Expired bookings cancelled successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 cancelledCount:
+   *                   type: number
+   *       401:
+   *         description: Unauthorized
+   */
+  router.post(
+    '/orders/cancel-all-expired',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.cancelAllExpiredUnpaid
+  );
+
   // ==================== REVIEWS ROUTES ====================
 
   /**
