@@ -163,7 +163,7 @@ export default function BookingDetailScreen() {
           className="mx-4 mb-4 bg-[#1a1a1a] rounded-xl p-4"
         >
           <Text className="text-gray-500 text-xs uppercase tracking-wider mb-3 font-medium">
-            {isShopView ? "Customer" : "Shop"}
+            {isShopView ? "Customer Information" : "Shop Information"}
           </Text>
           <View className="flex-row items-center">
             <View className="w-12 h-12 rounded-full bg-[#FFCC00]/10 items-center justify-center">
