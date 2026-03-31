@@ -91,11 +91,7 @@ class ServiceApi {
     serviceData: CreateServiceRequest
   ): Promise<{ success: boolean; data?: ServiceData; message?: string }> {
     try {
-      const requestData = {
-        ...serviceData,
-        tags: serviceData.tags ? JSON.stringify(serviceData.tags) : undefined,
-      };
-      return await apiClient.post(`/services`, requestData);
+      return await apiClient.post(`/services`, serviceData);
     } catch (error: any) {
       console.error("Failed to create service:", error.message);
       throw error;
@@ -107,11 +103,7 @@ class ServiceApi {
     updates: UpdateServiceData
   ): Promise<{ success: boolean; data?: ServiceData; message?: string }> {
     try {
-      const requestData = {
-        ...updates,
-        tags: updates.tags ? JSON.stringify(updates.tags) : undefined,
-      };
-      return await apiClient.put(`/services/${serviceId}`, requestData);
+      return await apiClient.put(`/services/${serviceId}`, updates);
     } catch (error: any) {
       console.error("Failed to update service:", error.message);
       throw error;

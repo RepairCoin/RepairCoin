@@ -1,10 +1,11 @@
 # Bug: Create Service fails with 400 error on mobile
 
-**Status:** Open
+**Status:** Completed
 **Priority:** High
 **Est. Effort:** 1-2 hrs
 **Created:** 2026-03-30
-**Updated:** 2026-03-30
+**Updated:** 2026-03-31
+**Completed:** 2026-03-31
 
 ## Problem / Goal
 
