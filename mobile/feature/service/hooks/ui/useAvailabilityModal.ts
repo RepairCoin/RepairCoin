@@ -27,7 +27,7 @@ export function useAvailabilityModal({
   // Tab state
   const [activeTab, setActiveTab] = useState<AvailabilityTab>("hours");
   const [loading, setLoading] = useState(true);
-  const { showError } = useAppToast();
+  const { showError, showSuccess } = useAppToast();
 
   // Availability state
   const [availability, setAvailability] = useState<ShopAvailability[]>([]);
@@ -158,36 +158,104 @@ export function useAvailabilityModal({
     return availChanged || configChanged || overridesChanged;
   }, [availability, originalAvailability, timeSlotConfig, originalTimeSlotConfig, dateOverrides, originalDateOverrides]);
 
-  // Handle done button
-  const handleDone = useCallback(() => {
-    onSave({
-      availability: availability.map((a) => ({
-        dayOfWeek: a.dayOfWeek,
-        isOpen: a.isOpen,
-        openTime: a.openTime,
-        closeTime: a.closeTime,
-        breakStartTime: a.breakStartTime,
-        breakEndTime: a.breakEndTime,
-      })),
-      timeSlotConfig: timeSlotConfig ? {
-        slotDurationMinutes: timeSlotConfig.slotDurationMinutes,
-        bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
-        maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
-        bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
-        minBookingHours: timeSlotConfig.minBookingHours,
-        allowWeekendBooking: timeSlotConfig.allowWeekendBooking,
-      } : null,
-      dateOverrides: dateOverrides.map((o) => ({
-        overrideDate: o.overrideDate,
-        isClosed: o.isClosed,
-        customOpenTime: o.customOpenTime,
-        customCloseTime: o.customCloseTime,
-        reason: o.reason,
-      })),
-      hasChanges: hasChanges(),
-    });
-    onClose();
-  }, [availability, timeSlotConfig, dateOverrides, hasChanges, onSave, onClose]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Handle done button — save to API immediately
+  const handleDone = useCallback(async () => {
+    if (!hasChanges()) {
+      onClose();
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Save availability for each day
+      const availChanged = JSON.stringify(availability) !== JSON.stringify(originalAvailability);
+      if (availChanged) {
+        for (const a of availability) {
+          await appointmentApi.updateShopAvailability({
+            dayOfWeek: a.dayOfWeek,
+            isOpen: a.isOpen,
+            openTime: a.openTime || "09:00",
+            closeTime: a.closeTime || "17:00",
+            breakStartTime: a.breakStartTime || undefined,
+            breakEndTime: a.breakEndTime || undefined,
+          });
+        }
+      }
+
+      // Save time slot config
+      const configChanged = JSON.stringify(timeSlotConfig) !== JSON.stringify(originalTimeSlotConfig);
+      if (configChanged && timeSlotConfig) {
+        await appointmentApi.updateTimeSlotConfig({
+          slotDurationMinutes: timeSlotConfig.slotDurationMinutes,
+          bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
+          maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
+          bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
+          minBookingHours: timeSlotConfig.minBookingHours,
+          allowWeekendBooking: timeSlotConfig.allowWeekendBooking,
+        });
+      }
+
+      // Save new date overrides
+      const overridesChanged = JSON.stringify(dateOverrides) !== JSON.stringify(originalDateOverrides);
+      if (overridesChanged) {
+        const newOverrides = dateOverrides.filter(
+          (o) => !originalDateOverrides.some((orig) => orig.overrideDate === o.overrideDate)
+        );
+        for (const override of newOverrides) {
+          await appointmentApi.createDateOverride({
+            overrideDate: override.overrideDate,
+            isClosed: override.isClosed,
+            customOpenTime: override.customOpenTime || undefined,
+            customCloseTime: override.customCloseTime || undefined,
+            reason: override.reason || undefined,
+          });
+        }
+      }
+
+      // Update originals so reopening shows saved values
+      setOriginalAvailability([...availability]);
+      setOriginalTimeSlotConfig(timeSlotConfig ? { ...timeSlotConfig } : null);
+      setOriginalDateOverrides([...dateOverrides]);
+
+      showSuccess("Availability settings saved");
+
+      // Also notify parent
+      onSave({
+        availability: availability.map((a) => ({
+          dayOfWeek: a.dayOfWeek,
+          isOpen: a.isOpen,
+          openTime: a.openTime,
+          closeTime: a.closeTime,
+          breakStartTime: a.breakStartTime,
+          breakEndTime: a.breakEndTime,
+        })),
+        timeSlotConfig: timeSlotConfig ? {
+          slotDurationMinutes: timeSlotConfig.slotDurationMinutes,
+          bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
+          maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
+          bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
+          minBookingHours: timeSlotConfig.minBookingHours,
+          allowWeekendBooking: timeSlotConfig.allowWeekendBooking,
+        } : null,
+        dateOverrides: dateOverrides.map((o) => ({
+          overrideDate: o.overrideDate,
+          isClosed: o.isClosed,
+          customOpenTime: o.customOpenTime,
+          customCloseTime: o.customCloseTime,
+          reason: o.reason,
+        })),
+        hasChanges: false,
+      });
+      onClose();
+    } catch (error) {
+      console.error("Failed to save availability settings:", error);
+      showError("Failed to save settings. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [availability, originalAvailability, timeSlotConfig, originalTimeSlotConfig, dateOverrides, originalDateOverrides, hasChanges, onSave, onClose, showSuccess, showError]);
 
   // Format time for display
   const formatTime = useCallback((time: string | null) => {
@@ -226,6 +294,7 @@ export function useAvailabilityModal({
     activeTab,
     setActiveTab,
     loading,
+    isSaving,
     // Availability data
     availability,
     timeSlotConfig,

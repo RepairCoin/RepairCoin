@@ -1,10 +1,11 @@
 # Bug: Availability settings changes not persisted in service form modal
 
-**Status:** Open
+**Status:** Completed
 **Priority:** High
 **Est. Effort:** 2-3 hrs
 **Created:** 2026-03-30
-**Updated:** 2026-03-30
+**Updated:** 2026-03-31
+**Completed:** 2026-03-31
 
 ## Problem / Goal
 
