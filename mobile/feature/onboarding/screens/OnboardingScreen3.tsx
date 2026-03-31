@@ -29,7 +29,7 @@ export default function OnboardingScreen3({
           One Community,{"\n"}Endless Rewards
         </Text>
         <Text className="text-gray-400 mt-4">
-          From phones to cars to salons — RepairCoin is{"\n"}changing how the
+          From phones to cars to salons — FixFlow is{"\n"}changing how the
           world sees loyalty.
         </Text>
 

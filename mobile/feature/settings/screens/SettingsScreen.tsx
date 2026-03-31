@@ -197,7 +197,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
 
         {/* App Version */}
         <Text className="text-gray-600 text-xs text-center mt-4">
-          RepairCoin v{APP_VERSION}
+          FixFlow v{APP_VERSION}
         </Text>
       </ScrollView>
     </View>

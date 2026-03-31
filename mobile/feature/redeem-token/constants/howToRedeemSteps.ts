@@ -8,7 +8,7 @@ export const HOW_TO_REDEEM_STEPS: HowToRedeemStep[] = [
   {
     icon: "storefront-outline",
     title: "Visit a Partner Shop",
-    desc: "Go to any RepairCoin partner shop near you",
+    desc: "Go to any FixFlow partner shop near you",
   },
   {
     icon: "qr-code-outline",

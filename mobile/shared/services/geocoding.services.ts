@@ -96,7 +96,7 @@ async function reverseGeocodeNominatim(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
       {
         headers: {
-          "User-Agent": "RepairCoin-Mobile-App",
+          "User-Agent": "FixFlow-Mobile-App",
           Accept: "application/json",
         },
         signal: controller.signal,
@@ -238,7 +238,7 @@ async function geocodeWithNominatim(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
       {
         headers: {
-          "User-Agent": "RepairCoin-Mobile-App",
+          "User-Agent": "FixFlow-Mobile-App",
           Accept: "application/json",
         },
         signal: controller.signal,

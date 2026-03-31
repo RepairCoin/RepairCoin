@@ -112,7 +112,7 @@ export default function WalletSelectionModal({
             {walletAppOptions.map(renderWalletOption)}
 
             <Text className="text-gray-500 text-xs text-center mt-4">
-              By connecting, you agree to RepairCoin's Terms of Service and Privacy Policy
+              By connecting, you agree to FixFlow's Terms of Service and Privacy Policy
             </Text>
 
             {isConnecting && (
@@ -161,7 +161,7 @@ export default function WalletSelectionModal({
 //           One Community,{"\n"}Endless Rewards
 //         </Text>
 //         <Text className="text-gray-400 mt-4">
-//           From phones to cars to salons — RepairCoin is{"\n"}changing how the
+//           From phones to cars to salons — FixFlow is{"\n"}changing how the
 //           world sees loyalty.
 //         </Text>
 

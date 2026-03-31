@@ -9,7 +9,7 @@ const handleShareRegistration = async () => {
   try {
     await Share.share({
       message:
-        "Join RepairCoin to earn rewards on your repairs! Download the app and register to start earning RCN tokens. https://repaircoin.com/download",
+        "Join FixFlow to earn rewards on your repairs! Download the app and register to start earning RCN tokens. https://repaircoin.com/download",
     });
   } catch {}
 };

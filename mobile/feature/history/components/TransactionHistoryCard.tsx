@@ -113,7 +113,7 @@ export default function TransactionHistoryCard(props: Props) {
         <View className="flex-1 px-3">
           <View className="flex-row justify-between items-center">
             <Text className="text-white text-base font-bold flex-1 mr-2" numberOfLines={1}>
-              {props.shopName || "RepairCoin"}
+              {props.shopName || "FixFlow"}
             </Text>
             <Text className={`text-base font-bold ${config.amountColor}`}>
               {config.isPositive ? "+" : "-"}{Math.abs(props.amount)} RCN
