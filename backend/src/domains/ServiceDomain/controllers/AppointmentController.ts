@@ -131,6 +131,14 @@ export class AppointmentController {
         return res.status(400).json({ success: false, error: 'dayOfWeek is required' });
       }
 
+      if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+        return res.status(400).json({ success: false, error: 'Day of week must be between 0 (Sunday) and 6 (Saturday)' });
+      }
+
+      if (isOpen && openTime && closeTime && openTime >= closeTime) {
+        return res.status(400).json({ success: false, error: 'Close time must be after open time' });
+      }
+
       const availability = await this.appointmentRepo.updateShopAvailability({
         shopId,
         dayOfWeek,
