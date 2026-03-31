@@ -12,6 +12,7 @@ import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal"
 import { ServiceAvailabilitySettings } from "@/components/shop/service/ServiceAvailabilitySettings";
 import { ServiceCalendarView } from "@/components/shop/service/ServiceCalendarView";
 import { ServiceReviewsView } from "@/components/shop/service/ServiceReviewsView";
+import { getCategoryLabel } from "@/utils/helper/category";
 
 interface ServiceManagementClientProps {
   serviceId: string;
@@ -276,7 +277,7 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Category</label>
-                    <p className="text-white">{service.category || 'Other'}</p>
+                    <p className="text-white">{getCategoryLabel(service.category) || 'Other'}</p>
                   </div>
 
                   <div>
