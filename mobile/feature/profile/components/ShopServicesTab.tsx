@@ -43,9 +43,9 @@ export function ShopServicesTab({ shopId, onServicePress }: ShopServicesTabProps
 
   return (
     <View className="px-2">
-      <View className="flex-row flex-wrap">
+      <View className="flex-row flex-wrap" style={{ gap: 8 }}>
         {services.map((service: ServiceData) => (
-          <View key={service.serviceId} className="w-1/2">
+          <View key={service.serviceId} style={{ width: '48%' }}>
             <ServiceCard
               imageUrl={service.imageUrl}
               category={service.category}

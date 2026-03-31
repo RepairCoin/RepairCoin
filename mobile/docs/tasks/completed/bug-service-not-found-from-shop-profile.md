@@ -1,10 +1,11 @@
 # Bug: "Service not found" when tapping service card from shop profile
 
-**Status:** Open
+**Status:** Completed
 **Priority:** High
 **Est. Effort:** 1-2 hrs
 **Created:** 2026-03-30
-**Updated:** 2026-03-30
+**Updated:** 2026-03-31
+**Completed:** 2026-03-31
 
 ## Problem / Goal
 
@@ -14,7 +15,7 @@ When a customer navigates to a shop profile and taps a service card under the Se
 1. Login as customer
 2. Go to Service tab
 3. Click any service item
-4. Click "View Shop" to open the shop profile
+4. Click "View Shop" to open thethis shop profile
 5. Click the Services tab on the shop profile
 6. Tap any service card
 7. Shows "Service not found"

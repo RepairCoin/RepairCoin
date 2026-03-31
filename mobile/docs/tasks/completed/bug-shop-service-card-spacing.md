@@ -1,10 +1,11 @@
 # Bug: Improper spacing on shop profile service cards
 
-**Status:** Open
+**Status:** Completed
 **Priority:** Low
 **Est. Effort:** 30 min
 **Created:** 2026-03-30
-**Updated:** 2026-03-30
+**Updated:** 2026-03-31
+**Completed:** 2026-03-31
 
 ## Problem / Goal
 
