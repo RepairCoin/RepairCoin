@@ -279,7 +279,7 @@ function ServiceCard({
             </View>
           )}
 
-          <View className="p-3">
+          <View className="p-3 flex-1 justify-between">
             <View>
               <View className="flex-row items-center justify-between mb-1">
                 <Text className="text-xs text-gray-500 uppercase tracking-wide">
@@ -322,7 +322,7 @@ function ServiceCard({
               </Text>
             </View>
 
-            <View className="border-t border-gray-800 pt-3 mt-3 flex-row items-center justify-between">
+            <View className="border-t border-gray-800 pt-3 mt-auto flex-row items-center justify-between">
               <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
             </View>
           </View>
