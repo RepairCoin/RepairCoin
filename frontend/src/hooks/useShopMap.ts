@@ -97,7 +97,7 @@ export function useShopMap(options: UseShopMapOptions = {}) {
       () => {
         setRequestingLocation(false);
       },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   }, [autoDetectLocation]);
 
