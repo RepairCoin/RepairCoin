@@ -1,10 +1,11 @@
 # Enhancement: Display Ratings on Service Cards
 
-**Status:** Open
+**Status:** Completed
 **Priority:** Medium
 **Est. Effort:** 2-3 hrs
 **Created:** 2026-03-30
-**Updated:** 2026-03-30
+**Updated:** 2026-03-31
+**Completed:** 2026-03-31
 
 ## Problem / Goal
 

@@ -24,6 +24,9 @@ export interface ServiceData {
   shopId: string;
   tags: string[];
   updatedAt: string;
+  // Rating data
+  avgRating?: number;
+  reviewCount?: number;
   // Shop details (available in service detail response)
   shopName?: string;
   shopAddress?: string;

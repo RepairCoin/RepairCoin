@@ -61,7 +61,8 @@ export default function ServiceSection({
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
-                  duration={item.durationMinutes}
+        avgRating={item.avgRating}
+        reviewCount={item.reviewCount}                  duration={item.durationMinutes}
                   onPress={() => handleServicePress(item)}
                   showFavoriteButton
                   serviceId={item.serviceId}

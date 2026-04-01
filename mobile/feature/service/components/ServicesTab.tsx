@@ -88,7 +88,8 @@ export default function ServicesTab({
         title={item.serviceName}
         description={item.description}
         price={item.priceUsd}
-        badgeStatus={{
+        avgRating={item.avgRating}
+        reviewCount={item.reviewCount}        badgeStatus={{
           label: item.active ? "Active" : "Inactive",
           active: item.active,
         }}
