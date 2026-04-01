@@ -529,7 +529,9 @@ export class ShopRepository extends BaseRepository {
 
       if (category) {
         paramCount++;
-        whereClauses.push(`s.category = $${paramCount}`);
+        whereClauses.push(
+          `EXISTS (SELECT 1 FROM shop_services ss WHERE ss.shop_id = s.shop_id AND ss.active = true AND ss.category = $${paramCount})`
+        );
         params.push(category);
       }
 

@@ -388,7 +388,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
         {activeTab === "shops" && (
           <ShopsGridView
             searchTerm={filters.search}
-            selectedCategory={filters.category}
+            selectedCategory=""
           />
         )}
 
@@ -548,16 +548,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
 
             {/* Map View */}
             {viewMode === "map" ? (
-              <ShopMapView
-                services={services}
-                loading={loading}
-                onShopSelect={(shopId) => {
-                  // Switch to grid view and filter by shop
-                  setViewMode("grid");
-                  setFilters({ ...filters, shopId });
-                  setPage(1);
-                }}
-              />
+              <ShopMapView />
             ) : null}
 
             {/* All Services Section */}

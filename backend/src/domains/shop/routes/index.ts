@@ -178,6 +178,84 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Get all shops with map coordinates (for map view - no pagination)
+router.get('/map', async (req: Request, res: Response) => {
+  try {
+    const pool = getSharedPool();
+    const query = `
+      SELECT
+        s.shop_id,
+        s.name,
+        s.address,
+        s.phone,
+        s.email,
+        s.location_lat,
+        s.location_lng,
+        s.location_city,
+        s.location_state,
+        s.verified,
+        s.logo_url,
+        s.category,
+        COALESCE(
+          (SELECT COUNT(*) FROM shop_services ss WHERE ss.shop_id = s.shop_id AND ss.active = true), 0
+        )::int as service_count,
+        COALESCE(
+          (SELECT AVG(sr.rating)::numeric(3,2) FROM service_reviews sr
+           JOIN shop_services ss ON sr.service_id = ss.service_id
+           WHERE ss.shop_id = s.shop_id), 0
+        ) as avg_rating,
+        COALESCE(
+          (SELECT COUNT(sr.review_id) FROM service_reviews sr
+           JOIN shop_services ss ON sr.service_id = ss.service_id
+           WHERE ss.shop_id = s.shop_id), 0
+        )::int as total_reviews,
+        (
+          SELECT COALESCE(json_agg(DISTINCT ss.category) FILTER (WHERE ss.category IS NOT NULL), '[]'::json)
+          FROM shop_services ss WHERE ss.shop_id = s.shop_id AND ss.active = true
+        ) as service_categories
+      FROM shops s
+      WHERE s.active = true
+        AND s.verified = true
+        AND s.location_lat IS NOT NULL
+        AND s.location_lng IS NOT NULL
+      ORDER BY s.name
+    `;
+    const result = await pool.query(query);
+
+    const shops = result.rows.map(row => ({
+      shopId: row.shop_id,
+      name: row.name,
+      address: row.address,
+      phone: row.phone,
+      email: row.email,
+      location: {
+        lat: parseFloat(row.location_lat),
+        lng: parseFloat(row.location_lng),
+        city: row.location_city,
+        state: row.location_state,
+      },
+      verified: row.verified,
+      logoUrl: row.logo_url,
+      category: row.category,
+      serviceCategories: row.service_categories || [],
+      serviceCount: row.service_count,
+      avgRating: row.avg_rating ? parseFloat(row.avg_rating) : 0,
+      totalReviews: row.total_reviews,
+    }));
+
+    res.json({
+      success: true,
+      data: shops
+    });
+  } catch (error: any) {
+    logger.error('Error getting shops for map:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve shops for map'
+    });
+  }
+});
+
 // Get shop by ID
 router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Response) => {
   try {

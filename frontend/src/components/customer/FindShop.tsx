@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CategoryFilter } from "@/components/map/CategoryFilter";
+import { createShopIcon } from "@/components/map/ShopMarker";
+import { getShopsForMap } from "@/services/api/shop";
 import { ShopService } from "@/services/shopService";
 import { getShopServices } from "@/services/api/services";
 import type { ShopService as ShopServiceType } from "@/services/api/services";
@@ -130,6 +132,59 @@ const MapViewController = dynamic(
   { ssr: false }
 );
 
+// Memoized map component — only re-renders when map-related props change
+const FindShopMap = React.memo(function FindShopMap({
+  mapCenter,
+  mapZoom,
+  shops,
+  selectedShopId,
+  onMarkerClick,
+}: {
+  mapCenter: [number, number];
+  mapZoom: number;
+  shops: { shopId: string; name: string; address: string; phone?: string; category?: string; location: { lat: number; lng: number } }[];
+  selectedShopId?: string;
+  onMarkerClick: (shop: any) => void;
+}) {
+  if (typeof window === "undefined") return null;
+
+  return (
+    <MapContainer
+      center={mapCenter}
+      zoom={mapZoom}
+      style={{ height: "100%", width: "100%" }}
+      scrollWheelZoom={true}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <MapViewController center={mapCenter} zoom={mapZoom} />
+      {shops.map((shop) => (
+        <Marker
+          key={shop.shopId}
+          position={[shop.location.lat, shop.location.lng]}
+          icon={createShopIcon(selectedShopId === shop.shopId)}
+          eventHandlers={{ click: () => onMarkerClick(shop) }}
+        >
+          <Popup autoPan={true} autoPanPadding={[50, 100]} keepInView={true}>
+            <div className="p-2">
+              <h4 className="font-semibold">{shop.name}</h4>
+              {shop.category && (
+                <p className="text-xs text-gray-500 mb-1">{shop.category}</p>
+              )}
+              <p className="text-sm text-gray-600">{shop.address}</p>
+              {shop.phone && (
+                <p className="text-sm mt-1">📞 {shop.phone}</p>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
+});
+
 interface Shop {
   shopId: string;
   name: string;
@@ -200,6 +255,24 @@ export function FindShop() {
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
+  // Load all categories from all shops on mount (not just page 1)
+  useEffect(() => {
+    if (categoriesLoaded) return;
+    (async () => {
+      try {
+        const allShops = await getShopsForMap();
+        const cats = new Set<string>();
+        allShops.forEach((s) => { s.serviceCategories?.forEach(c => cats.add(c)); });
+        if (cats.size > 0) {
+          setCategories(Array.from(cats).sort());
+          setCategoriesLoaded(true);
+        }
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    })();
+  }, [categoriesLoaded]);
+
   // Debounce search input by 500ms
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -227,18 +300,7 @@ export function FindShop() {
       setShops(result.shops);
       setPagination(result.pagination || null);
 
-      // On first load with no filters, populate categories list
-      if (!categoriesLoaded && !debouncedSearch && filterCategory === "all" && page === 1) {
-        const cats = new Set<string>();
-        result.shops.forEach((s: Shop) => {
-          if (s.category) cats.add(s.category);
-        });
-        // Only set if we got results — for a more complete list, fetch all on first load
-        if (cats.size > 0) {
-          setCategories(Array.from(cats).sort());
-          setCategoriesLoaded(true);
-        }
-      }
+      // Categories are loaded separately from all shops (see useEffect below)
 
       // Center map on first shop with location (only on first page load)
       if (page === 1 && !debouncedSearch && filterCategory === "all") {
@@ -312,6 +374,12 @@ export function FindShop() {
   // Shops are already sorted by server (avgRating DESC, totalReviews DESC)
   const filteredShops = shops;
 
+  // Memoize shops with valid locations for map markers (avoid recomputing on every render)
+  const mappableShops = useMemo(
+    () => filteredShops.filter((shop) => shop.location?.lat && shop.location?.lng),
+    [filteredShops]
+  );
+
   const handleShopSelect = (shop: Shop) => {
     setSelectedShop(shop);
     if (shop.location?.lat && shop.location?.lng) {
@@ -320,9 +388,9 @@ export function FindShop() {
     }
   };
 
-  const handleMarkerClick = (shop: Shop) => {
+  const handleMarkerClick = useCallback((shop: Shop) => {
     setSelectedShop(shop);
-  };
+  }, []);
 
   const handleViewService = (serviceId: string) => {
     // Navigate to marketplace with the service param to auto-open the modal
@@ -367,25 +435,20 @@ export function FindShop() {
                 </div>
               </div>
 
-              {/* Available Shops Count + Filter */}
-              <div className="flex items-center justify-between mb-4">
+              {/* Category Filter Chips */}
+              <div className="mb-4">
+                <CategoryFilter
+                  categories={categories}
+                  selected={filterCategory === "all" ? null : filterCategory}
+                  onSelect={(cat) => setFilterCategory(cat || "all")}
+                />
+              </div>
+
+              {/* Available Shops Count */}
+              <div className="mb-4">
                 <h3 className="text-white font-semibold text-sm">
                   Available Shops ({loading ? "..." : pagination?.totalItems ?? filteredShops.length})
                 </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500 text-xs">Filter by:</span>
-                  <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value)}>
-                    <SelectTrigger variant="dark" className="bg-[#212121] border-gray-700 text-gray-300 text-xs rounded-md px-2 py-1 h-auto min-w-[100px]">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent variant="dark">
-                      <SelectItem variant="dark" value="all">All</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem variant="dark" key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               {/* Shop List */}
@@ -498,48 +561,13 @@ export function FindShop() {
             <div className="space-y-4">
               {/* Map */}
               <div className="h-[280px] rounded-lg overflow-hidden border border-gray-800">
-                {typeof window !== "undefined" && (
-                  <MapContainer
-                    center={mapCenter}
-                    zoom={mapZoom}
-                    style={{ height: "100%", width: "100%" }}
-                    scrollWheelZoom={true}
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <MapViewController center={mapCenter} zoom={mapZoom} />
-                    {filteredShops
-                      .filter((shop) => shop.location?.lat && shop.location?.lng)
-                      .map((shop) => (
-                        <Marker
-                          key={shop.shopId}
-                          position={[shop.location!.lat!, shop.location!.lng!]}
-                          icon={customIcon || undefined}
-                          eventHandlers={{
-                            click: () => handleMarkerClick(shop),
-                          }}
-                        >
-                          <Popup autoPan={true} autoPanPadding={[50, 100]} keepInView={true}>
-                            <div className="p-2">
-                              <h4 className="font-semibold">{shop.name}</h4>
-                              {shop.category && (
-                                <p className="text-xs text-gray-500 mb-1">{shop.category}</p>
-                              )}
-                              <p className="text-sm text-gray-600">{shop.address}</p>
-                              {shop.phone && (
-                                <p className="text-sm mt-1">
-                                  <Phone className="inline w-3 h-3 mr-1" />
-                                  {shop.phone}
-                                </p>
-                              )}
-                            </div>
-                          </Popup>
-                        </Marker>
-                      ))}
-                  </MapContainer>
-                )}
+                <FindShopMap
+                  mapCenter={mapCenter}
+                  mapZoom={mapZoom}
+                  shops={mappableShops as any}
+                  selectedShopId={selectedShop?.shopId}
+                  onMarkerClick={handleMarkerClick}
+                />
               </div>
 
               {/* Shop Detail Panel */}
