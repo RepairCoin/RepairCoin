@@ -32,7 +32,9 @@ export default function AboutHowItWorks() {
         {/* Header */}
         <AnimateOnScroll>
           <div className="text-center mb-14">
-            <SectionBadge label="How it works" />
+            <SectionBadge label="How it works" 
+              className="mb-6"
+            />
             <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
               How RepairCoin fits into your workflow
             </h2>
