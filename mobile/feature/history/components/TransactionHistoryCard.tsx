@@ -2,6 +2,15 @@ import { Entypo, Octicons, MaterialIcons, Feather, Ionicons } from "@expo/vector
 import { View, Text } from "react-native";
 import { Props } from "../types";
 
+// Convert snake_case to Title Case (e.g., "service_redemption_refund" → "Service Redemption Refund")
+const formatSnakeCase = (text: string): string => {
+  if (!text) return "Transaction";
+  return text
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 // Transaction type configuration
 const getTransactionConfig = (type: string) => {
   const lowerType = type?.toLowerCase() || "";
@@ -66,6 +75,18 @@ const getTransactionConfig = (type: string) => {
     };
   }
 
+  // Refund types
+  if (lowerType.includes("refund")) {
+    return {
+      isPositive: true,
+      bgColor: "bg-blue-100",
+      iconColor: "#3B82F6",
+      icon: <MaterialIcons name="replay" color="#3B82F6" size={18} />,
+      label: formatSnakeCase(type),
+      amountColor: "text-blue-400",
+    };
+  }
+
   // Rejected/Cancelled types
   if (["rejected_redemption", "cancelled_redemption", "rejected", "cancelled"].includes(lowerType)) {
     return {
@@ -84,7 +105,7 @@ const getTransactionConfig = (type: string) => {
     bgColor: "bg-gray-200",
     iconColor: "#666",
     icon: <Feather name="activity" color="#666" size={18} />,
-    label: type || "Transaction",
+    label: formatSnakeCase(type),
     amountColor: "text-green-400",
   };
 };

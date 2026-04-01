@@ -1,10 +1,11 @@
 # Bug: Transaction history shows system variable names instead of readable text
 
-**Status:** Open
+**Status:** Completed
 **Priority:** Medium
 **Est. Effort:** 1 hr
 **Created:** 2026-03-30
-**Updated:** 2026-03-30
+**Updated:** 2026-03-31
+**Completed:** 2026-03-31
 
 ## Problem / Goal
 
