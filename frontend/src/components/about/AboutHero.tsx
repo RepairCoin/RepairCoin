@@ -34,7 +34,7 @@ export default function AboutHero() {
 
         <m.h1
           {...fadeUp(0.2)}
-          className="mt-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight"
+          className="mt-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white !leading-[1.3]"
         >
           The story behind
           <br />
@@ -42,7 +42,7 @@ export default function AboutHero() {
             <span className="text-gold-gradient">RepairCoin</span>
             {/* Yellow underline curve */}
             <svg
-              className="absolute -bottom-4 -left-[3%] w-[106%] h-[18px]"
+              className="absolute -bottom-[13%] -left-[-4%] w-[92%] h-[18px]"
               viewBox="0 0 311 8"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -51,7 +51,7 @@ export default function AboutHero() {
               <m.path
                 d="M2 5.5C80 1.5 230 1.5 309 5.5"
                 stroke="#ffcc00"
-                strokeWidth="5"
+                className="stroke-[2] sm:stroke-[3] md:stroke-[4]"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 initial={{ pathLength: 0 }}

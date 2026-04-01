@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { m } from "framer-motion";
-import { Target } from "lucide-react";
+import { BadgeCheck, Target } from "lucide-react";
 import AnimateOnScroll from "@/components/motion/AnimateOnScroll";
 import StaggerContainer, { staggerItem } from "@/components/motion/StaggerContainer";
 import SectionBadge from "./SectionBadge";
@@ -42,7 +42,9 @@ export default function Trust() {
         {/* Header */}
         <AnimateOnScroll>
           <div className="text-center mb-14">
-            <SectionBadge label="Trust" />
+            <SectionBadge label="Trust" 
+              className="mb-6"
+            />
             <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
               Built to earn confidence, not hype
             </h2>
@@ -100,9 +102,14 @@ export default function Trust() {
                 <m.div
                   key={badge}
                   variants={staggerItem}
-                  className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-5 py-3.5"
+                  className="flex items-center gap-4 border border-white/5 rounded-2xl px-6 py-4"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(0,0,0,0.16) 0%, rgba(58,58,76,0.16) 100%)",
+                  }}
                 >
-                  <Target className="w-5 h-5 text-[#ffcc00] flex-shrink-0" />
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#ffcc00] flex-shrink-0">
+                    <BadgeCheck className="w-5 h-5 text-black" />
+                  </div>
                   <span className="text-white text-sm font-medium">{badge}</span>
                 </m.div>
               ))}

@@ -31,7 +31,9 @@ export default function OurApproach() {
         {/* Header */}
         <AnimateOnScroll>
           <div className="text-center mb-14">
-            <SectionBadge label="Our Approach" />
+            <SectionBadge label="Our Approach" 
+              className="mb-6"
+            />
             <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
               Loyalty designed for how service<br className="hidden sm:block" /> businesses operate
             </h2>
