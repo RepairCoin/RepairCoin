@@ -18,6 +18,7 @@ export interface RefreshToken {
   revokedReason?: string;
   userAgent?: string;
   ipAddress?: string;
+  location?: string;
 }
 
 export interface CreateRefreshTokenParams {
@@ -29,6 +30,7 @@ export interface CreateRefreshTokenParams {
   expiresAt: Date;
   userAgent?: string;
   ipAddress?: string;
+  location?: string;
 }
 
 export class RefreshTokenRepository extends BaseRepository {
@@ -49,8 +51,8 @@ export class RefreshTokenRepository extends BaseRepository {
       const query = `
         INSERT INTO refresh_tokens (
           token_id, user_address, user_role, shop_id, token_hash,
-          expires_at, user_agent, ip_address
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          expires_at, user_agent, ip_address, location
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `;
 
@@ -62,7 +64,8 @@ export class RefreshTokenRepository extends BaseRepository {
         tokenHash,
         params.expiresAt,
         params.userAgent || null,
-        params.ipAddress || null
+        params.ipAddress || null,
+        params.location || null
       ];
 
       const result = await this.pool.query(query, values);

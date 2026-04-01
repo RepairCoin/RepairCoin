@@ -29,7 +29,7 @@ router.get('/sessions', authMiddleware, async (req, res) => {
       browser: parseBrowser(session.userAgent),
       os: parseOS(session.userAgent),
       ipAddress: session.ipAddress || 'Unknown',
-      location: session.ipAddress ? 'Location lookup not yet implemented' : 'Unknown',
+      location: session.location || (session.ipAddress ? 'Unknown location' : 'Unknown'),
       createdAt: session.createdAt,
       lastUsedAt: session.lastUsedAt,
       expiresAt: session.expiresAt,

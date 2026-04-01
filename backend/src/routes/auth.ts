@@ -5,6 +5,7 @@ import { customerRepository, shopRepository, adminRepository, refreshTokenReposi
 import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
+import { getLocationFromIP } from '../utils/geoip';
 
 const router = Router();
 
@@ -108,6 +109,9 @@ const generateAndSetTokens = async (
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
+  // Look up location from IP (non-blocking, fallback to 'Unknown location')
+  const location = await getLocationFromIP(req.ip || '');
+
   await refreshTokenRepository.createRefreshToken({
     tokenId,
     userAddress: payload.address,
@@ -116,7 +120,8 @@ const generateAndSetTokens = async (
     token: refreshToken,
     expiresAt,
     userAgent: req.get('User-Agent'),
-    ipAddress: req.ip
+    ipAddress: req.ip,
+    location
   });
 
   const isProduction = process.env.NODE_ENV === 'production';
