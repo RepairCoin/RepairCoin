@@ -98,6 +98,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     loadDashboardData,
   } = useAdminDashboard();
 
+  const onEditShop = (shop: Shop) => console.log("Edit shop:", shop);
   const onApproveShop = shopActions.approve;
   const onRejectShop = shopActions.reject;
   const onVerifyShop = shopActions.verify;
@@ -105,7 +106,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const onUnsuspendShop = shopActions.unsuspend;
   const onMintBalance = shopActions.mintBalance;
   const onRefresh = loadDashboardData;
-  const onEditShop = (shop: Shop) => console.log("Edit shop:", shop);
   const [viewMode, setViewMode] = useState<
     "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
   >(initialView);
@@ -279,8 +279,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       return (
         <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
           <XCircle className="w-3 h-3 flex-shrink-0" />
-          <span className="hidden sm:inline">Suspended</span>
-          <span className="sm:hidden">Suspended</span>
+          <span>Suspended</span>
         </span>
       );
     }
@@ -289,8 +288,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       return (
         <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
           <XCircle className="w-3 h-3 flex-shrink-0" />
-          <span className="hidden sm:inline">Rejected</span>
-          <span className="sm:hidden">Rejected</span>
+          <span>Rejected</span>
         </span>
       );
     }
@@ -1064,76 +1062,79 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
         </div>
         {/* Controls */}
         <div className="p-4 md:p-6 border-b border-gray-700/50">
-          {/* Search, Filter and Export */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Search - Full width on mobile */}
-            <div className="relative w-full sm:flex-1">
-              <input
-                type="text"
-                placeholder="Search shops..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            {/* Filter and Add Button Row - Hide on unsuspend-requests view */}
-            {viewMode !== "unsuspend-requests" && (
-              <div className="flex gap-2 sm:gap-3">
-                {/* Filter Select */}
-                <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as any)}>
-                  <SelectTrigger variant="dark" className="flex-1 sm:flex-none text-sm" title="Filter shops">
-                    <SelectValue placeholder="All Shops" />
-                  </SelectTrigger>
-                  <SelectContent variant="dark">
-                    <SelectItem variant="dark" value="all">All Shops</SelectItem>
-                    <SelectItem variant="dark" value="active">Active</SelectItem>
-                    <SelectItem variant="dark" value="pending">Pending</SelectItem>
-                    <SelectItem variant="dark" value="suspended">Suspended</SelectItem>
-                    <SelectItem variant="dark" value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Add Shop Button */}
-                <button
-                  onClick={() => setShowAddShopModal(true)}
-                  className="px-3 sm:px-4 py-2 bg-gradient-to-r bg-[#FFCC00] text-black border border-blue-400/30 rounded-3xl transition-all flex items-center justify-center gap-2 shadow-lg whitespace-nowrap text-sm"
-                  title="Add new shop"
-                >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
-                  <span className="hidden sm:inline">Add Shop</span>
-                </button>
-              </div>
-            )}
+          {/* Search */}
+          <div className="relative w-full">
+            <input
+              type="text"
+              placeholder="Search shops..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-700 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
+            />
           </div>
 
-          {/* View Mode Toggle - only for shop data views */}
+          {/* Filter, Actions & View Toggle */}
           {viewMode !== "unsuspend-requests" && (
-            <div className="flex justify-end mt-4">
-              <div className="inline-flex bg-gray-700/50 rounded-lg p-1 gap-1">
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              {/* Filter Select */}
+              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as any)}>
+                <SelectTrigger variant="dark" className="w-[140px] text-sm" title="Filter shops">
+                  <SelectValue placeholder="All Shops" />
+                </SelectTrigger>
+                <SelectContent variant="dark">
+                  <SelectItem variant="dark" value="all">All Shops</SelectItem>
+                  <SelectItem variant="dark" value="active">Active</SelectItem>
+                  <SelectItem variant="dark" value="pending">Pending</SelectItem>
+                  <SelectItem variant="dark" value="suspended">Suspended</SelectItem>
+                  <SelectItem variant="dark" value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Export CSV Button */}
+              <button
+                onClick={exportToCSV}
+                className="p-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-xl hover:bg-gray-700 hover:text-white transition-colors flex-shrink-0"
+                title="Export to CSV"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+
+              {/* Spacer pushes right-side items */}
+              <div className="flex-1" />
+
+              {/* Add Shop Button */}
+              <button
+                onClick={() => setShowAddShopModal(true)}
+                className="px-3 sm:px-4 py-2 bg-[#FFCC00] hover:bg-[#E6B800] text-black border border-yellow-500/30 rounded-3xl transition-all flex items-center justify-center gap-2 shadow-lg whitespace-nowrap text-sm font-medium flex-shrink-0"
+                title="Add new shop"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add Shop</span>
+              </button>
+
+              {/* View Mode Toggle */}
+              <div className="inline-flex bg-gray-700/50 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
                 <button
                   onClick={() => setDisplayMode("table")}
-                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                  className={`p-2 rounded-md transition-all ${
                     displayMode === "table"
-                      ? "bg-[#FFCC00] text-black font-medium shadow-lg"
+                      ? "bg-[#FFCC00] text-black shadow-lg"
                       : "text-gray-400 hover:text-white"
                   }`}
                   title="Table View"
                 >
                   <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">Table</span>
                 </button>
                 <button
                   onClick={() => setDisplayMode("grid")}
-                  className={`px-4 py-2 rounded-md flex items-center gap-2 transition-all ${
+                  className={`p-2 rounded-md transition-all ${
                     displayMode === "grid"
-                      ? "bg-[#FFCC00] text-black font-medium shadow-lg"
+                      ? "bg-[#FFCC00] text-black shadow-lg"
                       : "text-gray-400 hover:text-white"
                   }`}
                   title="Grid View"
                 >
                   <Grid className="w-4 h-4" />
-                  <span className="hidden sm:inline">Cards</span>
                 </button>
               </div>
             </div>

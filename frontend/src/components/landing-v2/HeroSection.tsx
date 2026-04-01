@@ -28,25 +28,22 @@ const layout = {
   /* ── Page-level ── */
   section: [
     "relative bg-[#0a0a0a]",
-    "min-h-[100svh]",        // at least viewport height, grows with content
-    "overflow-x-hidden",      // prevent MacBook offset from causing scroll
+    "min-h-[100svh]",              // at least viewport height, grows with content
+    "overflow-hidden",              // prevent double scrollbar on short viewports
+    "flex items-center",            // vertically center content within viewport
+    "pt-24 pb-12 sm:pt-28 sm:pb-20 lg:py-28", // top clears navbar, bottom padding preserved
   ].join(" "),
 
   container: [
-    "min-h-[100svh]",        // match section height
-    "flex flex-col",          // pass height to row
-    "max-w-7xl mx-auto",     // match site-wide container
-    "px-4 lg:px-8",          // match WhatIsRepairCoin padding
+    "max-w-7xl mx-auto w-full",    // match site-wide container
+    "px-4 lg:px-8",                // match WhatIsRepairCoin padding
   ].join(" "),
 
   row: [
-    "flex-1",                 // fill remaining container height
-    "flex",
-    "flex-row",               // default: 2 columns side by side
-    "items-center",           // center vertically
-    "max-lg:flex-col",        // below lg: stack vertically
-    "max-lg:items-stretch",   // below lg: stretch children
-    "gap-6 lg:gap-8",
+    "grid",
+    "grid-cols-1 lg:grid-cols-2",  // 2-column grid like WhatIsRepairCoin
+    "items-center",                // center vertically within grid
+    "gap-8 lg:gap-16",             // match WhatIsRepairCoin gap
   ].join(" "),
 
 
@@ -54,8 +51,8 @@ const layout = {
     "font-bold text-white leading-[1.08] tracking-tight",
     "text-[1.75rem]",         // mobile:  28px
     "sm:text-[3.25rem]",      // tablet:  52px
-    "xl:text-[3.5rem]",       // desktop: 56px
-    "2xl:text-[4rem]",        // wide:    64px
+    "xl:text-[3.75rem]",      // desktop: 60px
+    "2xl:text-[4.25rem]",     // wide:    68px
   ].join(" "),
 
   ctaButton: [
@@ -85,18 +82,13 @@ const layout = {
   /* ── Left Column (text + CTA) ── */
   leftColumn: [
     "relative",
-    "shrink-0",               // text never shrinks, parent grows instead
-    "space-y-4 sm:space-y-7", // spacing between children
-    "pt-20 sm:pt-28",         // top padding (below navbar)
-    "xl:pt-0",                // desktop: no top padding (centered by flex)
-    "pb-4 md:pb-0",
+    "space-y-4 sm:space-y-7",
   ].join(" "),
 
-  /* ── Desktop Mockups (xl: 1280px+) ── */
+  /* ── Desktop Mockups (lg+) ── */
   RightgColumn: [
     "relative",
-    "hidden lg:block",        // only visible on desktop+
-    "w-full",
+    "hidden lg:block",
   ].join(" "),
 
   macbook: [
@@ -114,10 +106,7 @@ const layout = {
   mobileWrapper: [
     "relative",
     "flex flex-col items-center",
-    // "flex-1 min-h-[200px]",         // fill remaining space, allow shrink
-    "sm:pb-20",
-    "pb-10",
-    "lg:hidden",              // desktop: hidden (DesktopMockups shown instead)
+    "lg:hidden",
   ].join(" "),
 };
 
