@@ -472,8 +472,8 @@ describe('Shop Password & Authentication Settings Tests', () => {
         if (!ua) return 'Unknown OS';
         if (ua.includes('Windows')) return 'Windows';
         if (ua.includes('Mac OS X') || ua.includes('Macintosh')) return 'macOS';
-        if (ua.includes('Linux')) return 'Linux';
         if (ua.includes('Android')) return 'Android';
+        if (ua.includes('Linux')) return 'Linux';
         if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
         return 'Unknown OS';
       };
@@ -490,11 +490,8 @@ describe('Shop Password & Authentication Settings Tests', () => {
         expect(parseOS('Mozilla/5.0 (X11; Linux x86_64)')).toBe('Linux');
       });
 
-      it('BUG: Android UA contains "Linux" so parseOS returns Linux instead of Android', () => {
-        // The parseOS function checks for "Linux" before "Android"
-        // Android UAs contain "Linux; Android" so Linux matches first
-        // This is a bug - Android check should come before Linux
-        expect(parseOS('Mozilla/5.0 (Linux; Android 13)')).toBe('Linux');
+      it('detects Android (not Linux) from Android UA', () => {
+        expect(parseOS('Mozilla/5.0 (Linux; Android 13)')).toBe('Android');
       });
 
       it('detects iOS from iPhone', () => {

@@ -334,8 +334,8 @@ function parseOS(userAgent?: string): string {
 
   if (userAgent.includes('Windows')) return 'Windows';
   if (userAgent.includes('Mac OS X') || userAgent.includes('Macintosh')) return 'macOS';
-  if (userAgent.includes('Linux')) return 'Linux';
   if (userAgent.includes('Android')) return 'Android';
+  if (userAgent.includes('Linux')) return 'Linux';
   if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) return 'iOS';
 
   return 'Unknown OS';
