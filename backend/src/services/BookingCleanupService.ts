@@ -1,6 +1,6 @@
 // backend/src/services/BookingCleanupService.ts
 import { Pool } from 'pg';
-import { pool } from '../utils/database-pool';
+import { getSharedPool } from '../utils/database-pool';
 import { logger } from '../utils/logger';
 
 /**
@@ -17,7 +17,7 @@ export class BookingCleanupService {
   private readonly GRACE_PERIOD_HOURS = 1; // Cancel bookings 1 hour after service date
 
   constructor() {
-    this.pool = pool;
+    this.pool = getSharedPool();
   }
 
   /**

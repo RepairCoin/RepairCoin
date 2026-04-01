@@ -1,53 +1,29 @@
 "use client";
 
+/**
+ * Services Map View — Progressive Disclosure Layout
+ *
+ * State 1: Full-width map with all shop markers + glowing "Update Location" button
+ * State 2: After location obtained → sidebar slides in with Nearby Shops
+ * State 3: Shop selected → Shop Info panel appears above Nearby Shops
+ *
+ * Consumes shared components from components/map/ and useShopMap hook.
+ */
+
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import { MapPin, Navigation, Phone, Mail, Globe, Loader2, Star, Package } from "lucide-react";
-import { FaFacebook, FaInstagram } from "react-icons/fa";
-import { ShopServiceWithShopInfo } from "@/services/api/services";
-import toast from "react-hot-toast";
+import { Loader2, MapPin } from "lucide-react";
+import { ShopMapData } from "@/services/api/shop";
+import { useShopMap } from "@/hooks/useShopMap";
+import { milesToMeters } from "@/utils/distance";
+import { createShopIcon, createUserLocationIcon } from "@/components/map/ShopMarker";
+import { RadiusControl } from "@/components/map/RadiusControl";
+import { LocationButton } from "@/components/map/LocationButton";
+import { ShopInfoPanel } from "@/components/map/ShopInfoPanel";
+import { NearbyShopsList } from "@/components/map/NearbyShopsList";
 import "leaflet/dist/leaflet.css";
 
-// Custom styles for Leaflet popups
-if (typeof window !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = `
-    .leaflet-popup-content-wrapper {
-      background-color: #1F2937 !important;
-      color: white !important;
-      border-radius: 12px !important;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
-      padding: 0 !important;
-      border: 1px solid #374151 !important;
-    }
-    .leaflet-popup-content {
-      margin: 0 !important;
-      min-width: 240px !important;
-    }
-    .leaflet-popup-tip-container {
-      display: none !important;
-    }
-    .leaflet-popup-close-button {
-      color: #9CA3AF !important;
-      font-size: 24px !important;
-      padding: 4px 8px !important;
-      top: 4px !important;
-      right: 4px !important;
-    }
-    .leaflet-popup-close-button:hover {
-      color: #FFCC00 !important;
-      background-color: rgba(255, 204, 0, 0.1) !important;
-      border-radius: 4px !important;
-    }
-  `;
-  if (!document.getElementById("leaflet-custom-popup-styles")) {
-    style.id = "leaflet-custom-popup-styles";
-    document.head.appendChild(style);
-  }
-}
-
-// Dynamic import for map to avoid SSR issues
+// Dynamic imports for Leaflet (avoid SSR)
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false }
@@ -60,41 +36,16 @@ const Marker = dynamic(
   () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
 );
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), {
-  ssr: false,
-});
-const Circle = dynamic(() => import("react-leaflet").then((mod) => mod.Circle), {
-  ssr: false,
-});
+const Circle = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Circle),
+  { ssr: false }
+);
+const Polyline = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Polyline),
+  { ssr: false }
+);
 
-// Custom marker icon configuration
-const L = typeof window !== "undefined" ? require("leaflet") : null;
-let customIcon: any = null;
-let userLocationIcon: any = null;
-
-if (L) {
-  // Shop marker icon (yellow)
-  customIcon = new L.Icon({
-    iconUrl: "/marker-icon.png",
-    iconRetinaUrl: "/marker-icon.png",
-    shadowUrl: "/leaflet/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-    shadowAnchor: [12, 41],
-  });
-
-  // User location marker (blue)
-  userLocationIcon = new L.Icon({
-    iconUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234299e1' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3C/svg%3E",
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
-  });
-}
-
-// Map view controller component
+// Map view controller — flies to new center/zoom
 const MapViewController = dynamic(
   () =>
     import("react-leaflet").then((mod) => {
@@ -107,176 +58,79 @@ const MapViewController = dynamic(
         zoom: number;
       }) {
         const map = useMap();
-
         useEffect(() => {
           if (map && center && zoom) {
-            map.flyTo(center, zoom, {
-              animate: true,
-              duration: 1,
-            });
+            map.flyTo(center, zoom, { animate: true, duration: 1 });
           }
         }, [map, center, zoom]);
-
         return null;
       };
     }),
   { ssr: false }
 );
 
-interface Shop {
-  shopId: string;
-  shopName?: string;
-  shopAddress?: string;
-  shopPhone?: string;
-  shopEmail?: string;
-  location?: {
-    lat: number;
-    lng: number;
-  };
-  serviceCount?: number;
-  categories?: string[];
-  avgRating?: number;
-}
+export const ShopMapView: React.FC = () => {
+  const {
+    shops,
+    shopsLoading,
+    nearbyShops,
+    displayedShops,
+    userLocation,
+    hasLocation,
+    mapCenter,
+    mapZoom,
+    requestingLocation,
+    requestLocation,
+    setMapCenter,
+    setMapZoom,
+    radiusMiles,
+    increaseRadius,
+    decreaseRadius,
+    selectedShop,
+    setSelectedShop,
+    clearSelection,
+    showDirections,
+    routeData,
+    isLoadingRoute,
+    openDirections,
+    closeDirections,
+    isShowingNearest,
+  } = useShopMap({ autoDetectLocation: false, defaultRadius: 1 });
 
-interface ShopMapViewProps {
-  services: ShopServiceWithShopInfo[];
-  loading: boolean;
-  onShopSelect: (shopId: string) => void;
-}
+  const [glowActive, setGlowActive] = useState(true);
 
-export const ShopMapView: React.FC<ShopMapViewProps> = ({
-  services,
-  loading,
-  onShopSelect,
-}) => {
-  const router = useRouter();
-  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([14.5995, 120.9842]); // Manila default
-  const [mapZoom, setMapZoom] = useState(12);
-  const [requestingLocation, setRequestingLocation] = useState(false);
-
-  // Extract unique shops from services with aggregated data
-  const shops: Shop[] = React.useMemo(() => {
-    const shopMap = new Map<string, Shop>();
-
-    services.forEach((service) => {
-      if (!shopMap.has(service.shopId)) {
-        shopMap.set(service.shopId, {
-          shopId: service.shopId,
-          shopName: service.shopName,
-          shopAddress: service.shopAddress,
-          shopPhone: service.shopPhone,
-          shopEmail: service.shopEmail,
-          location:
-            service.shopLocation?.lat && service.shopLocation?.lng
-              ? {
-                  lat: service.shopLocation.lat,
-                  lng: service.shopLocation.lng,
-                }
-              : undefined,
-          serviceCount: 0,
-          categories: [],
-          avgRating: 0,
-        });
-      }
-
-      const shop = shopMap.get(service.shopId)!;
-      shop.serviceCount = (shop.serviceCount || 0) + 1;
-
-      // Collect unique categories
-      if (service.category && !shop.categories?.includes(service.category)) {
-        shop.categories = [...(shop.categories || []), service.category];
-      }
-
-      // Calculate average rating
-      if (service.avgRating && service.avgRating > 0) {
-        const currentAvg = shop.avgRating || 0;
-        const currentCount = shop.serviceCount || 1;
-        shop.avgRating = ((currentAvg * (currentCount - 1)) + service.avgRating) / currentCount;
-      }
-    });
-
-    return Array.from(shopMap.values()).filter((shop) => shop.location);
-  }, [services]);
-
-  // Set initial map center to first shop with location
+  // Stop glow when location is obtained
   useEffect(() => {
-    if (shops.length > 0 && shops[0].location) {
-      setMapCenter([shops[0].location.lat, shops[0].location.lng]);
-    }
-  }, [shops]);
+    if (hasLocation) setGlowActive(false);
+  }, [hasLocation]);
 
-  const requestUserLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      return;
-    }
-
-    setRequestingLocation(true);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const userPos: [number, number] = [
-          position.coords.latitude,
-          position.coords.longitude,
-        ];
-        setUserLocation(userPos);
-        setMapCenter(userPos);
-        setMapZoom(14);
-        toast.success("Location found! Showing nearby shops");
-        setRequestingLocation(false);
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-        let errorMessage = "Could not get your location";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. Please enable location access in your browser settings.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out";
-            break;
-        }
-
-        toast.error(errorMessage);
-        setRequestingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
+  const handleLocationClick = () => {
+    requestLocation();
   };
 
-  const handleShopMarkerClick = (shop: Shop) => {
-    // Prevent re-triggering if already selected
-    if (selectedShop?.shopId === shop.shopId) {
-      return;
-    }
-
+  const handleShopSelect = (shop: ShopMapData) => {
     setSelectedShop(shop);
-
-    // Don't manually center the map here - let Leaflet's autoPan handle it
-    // The Popup component has autoPan={true} and autoPanPadding which will
-    // automatically pan the map to show the popup fully when it opens
-    // Only zoom in if we're far away
-    if (shop.location && mapZoom < 14) {
-      setMapZoom(15);
+    if (shop.location) {
+      setMapCenter([shop.location.lat, shop.location.lng]);
+      if (mapZoom < 14) setMapZoom(15);
     }
   };
 
-  if (loading) {
+  const handleMapClick = () => {
+    if (selectedShop) clearSelection();
+  };
+
+  // Find distance for selected shop
+  const selectedDistance = selectedShop
+    ? nearbyShops.find((s) => s.shopId === selectedShop.shopId)?.distance
+    : undefined;
+
+  if (shopsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[600px] bg-[#1A1A1A] border border-gray-800 rounded-2xl">
+      <div className="flex items-center justify-center min-h-[600px] bg-[#121212] border border-gray-800 rounded-2xl">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#FFCC00] animate-spin mx-auto mb-4" />
-          <p className="text-white">Loading map...</p>
+          <Loader2 className="w-10 h-10 text-[#FFCC00] animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Loading shops...</p>
         </div>
       </div>
     );
@@ -284,57 +138,38 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
 
   if (shops.length === 0) {
     return (
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
-        <div className="text-6xl mb-4">🗺️</div>
-        <h3 className="text-xl font-semibold text-white mb-2">
-          No Shops with Locations
-        </h3>
-        <p className="text-gray-400 mb-6">
-          No shops have location data available for map display
-        </p>
+      <div className="bg-[#121212] border border-gray-800 rounded-2xl p-12 text-center">
+        <MapPin className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+        <h3 className="text-lg font-semibold text-white mb-1">No Shops on Map</h3>
+        <p className="text-gray-500 text-sm">No shops have set their location yet. Try Grid view.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Location Request Button */}
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-1">
-              Find Nearby Shops
-            </h3>
-            <p className="text-gray-400 text-sm">
-              {userLocation
-                ? "Showing shops near your location"
-                : "Allow location access to find shops near you"}
-            </p>
-          </div>
-          <button
-            onClick={requestUserLocation}
-            disabled={requestingLocation}
-            className="flex items-center gap-2 bg-[#FFCC00] text-black font-semibold px-6 py-3 rounded-lg hover:bg-[#FFD700] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {requestingLocation ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Getting Location...
-              </>
-            ) : (
-              <>
-                <Navigation className="w-5 h-5" />
-                {userLocation ? "Update Location" : "Use My Location"}
-              </>
-            )}
-          </button>
+    <div className="space-y-4">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white">Find Nearby Shops</h3>
+          <p className="text-gray-500 text-sm">
+            {hasLocation
+              ? `${nearbyShops.length} shops within ${radiusMiles} mi`
+              : `${shops.length} shops on map`}
+          </p>
         </div>
+        <LocationButton
+          hasLocation={hasLocation}
+          requesting={requestingLocation}
+          glowActive={glowActive}
+          onClick={handleLocationClick}
+        />
       </div>
 
-      {/* Map Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Map + Sidebar Layout — always 2/3 + 1/3 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Map */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 relative">
           <div className="h-[600px] rounded-xl overflow-hidden border border-gray-800">
             {typeof window !== "undefined" && (
               <MapContainer
@@ -344,282 +179,99 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
                 scrollWheelZoom={true}
               >
                 <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <MapViewController center={mapCenter} zoom={mapZoom} />
 
-                {/* User Location Marker */}
+                {/* User location marker */}
                 {userLocation && (
-                  <>
-                    <Marker
-                      position={userLocation}
-                      icon={userLocationIcon || undefined}
-                    >
-                      <Popup>
-                        <div className="p-2">
-                          <h4 className="font-semibold">Your Location</h4>
-                          <p className="text-sm text-gray-600">You are here</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                    {/* Blue circle around user location */}
-                    <Circle
-                      center={userLocation}
-                      radius={1000} // 1km radius
-                      pathOptions={{
-                        fillColor: "#4299e1",
-                        fillOpacity: 0.1,
-                        color: "#4299e1",
-                        weight: 2,
-                      }}
-                    />
-                  </>
+                  <Marker position={userLocation} icon={createUserLocationIcon()} />
                 )}
 
-                {/* Shop Markers */}
+                {/* Radius circle (only after location obtained) */}
+                {hasLocation && userLocation && (
+                  <Circle
+                    center={userLocation}
+                    radius={milesToMeters(radiusMiles)}
+                    pathOptions={{
+                      color: "rgba(255, 204, 0, 0.8)",
+                      fillColor: "rgba(255, 204, 0, 0.1)",
+                      fillOpacity: 0.1,
+                      weight: 2,
+                    }}
+                  />
+                )}
+
+                {/* Route polyline */}
+                {showDirections && routeData && routeData.coordinates.length > 0 && (
+                  <Polyline
+                    positions={routeData.coordinates}
+                    pathOptions={{ color: "#FFCC00", weight: 5, opacity: 0.9 }}
+                  />
+                )}
+
+                {/* Shop markers */}
                 {shops.map((shop) => (
                   <Marker
                     key={shop.shopId}
-                    position={[shop.location!.lat, shop.location!.lng]}
-                    icon={customIcon || undefined}
-                    eventHandlers={{
-                      click: () => handleShopMarkerClick(shop),
-                    }}
-                  >
-                    <Popup
-                      maxWidth={300}
-                      autoPan={true}
-                      autoPanPadding={[50, 80]}
-                      keepInView={true}
-                    >
-                      <div className="p-3">
-                        <h4 className="font-bold text-base mb-1">{shop.shopName}</h4>
-
-                        {/* Rating */}
-                        {shop.avgRating && shop.avgRating > 0 ? (
-                          <div className="flex items-center gap-1 mb-2">
-                            <div className="flex">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`w-3 h-3 ${
-                                    star <= Math.round(shop.avgRating!)
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-gray-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-gray-600">
-                              ({shop.avgRating.toFixed(1)})
-                            </span>
-                          </div>
-                        ) : null}
-
-                        <p className="text-xs text-gray-600 mb-2">
-                          <MapPin className="inline w-3 h-3 mr-1" />
-                          {shop.shopAddress}
-                        </p>
-
-                        {/* Service count and categories */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                            <Package className="w-3 h-3" />
-                            <span className="font-medium">{shop.serviceCount} Services</span>
-                          </div>
-                        </div>
-
-                        {shop.categories && shop.categories.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {shop.categories.slice(0, 2).map((category) => (
-                              <span
-                                key={category}
-                                className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
-                              >
-                                {category.replace(/_/g, " ")}
-                              </span>
-                            ))}
-                            {shop.categories.length > 2 && (
-                              <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                                +{shop.categories.length - 2} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {shop.shopPhone && (
-                          <p className="text-xs mb-2">
-                            <Phone className="inline w-3 h-3 mr-1" />
-                            {shop.shopPhone}
-                          </p>
-                        )}
-                      </div>
-                    </Popup>
-                  </Marker>
+                    position={[shop.location.lat, shop.location.lng]}
+                    icon={createShopIcon(selectedShop?.shopId === shop.shopId)}
+                    eventHandlers={{ click: () => handleShopSelect(shop) }}
+                  />
                 ))}
               </MapContainer>
             )}
           </div>
+
+          {/* Radius control overlay (only after location) */}
+          {hasLocation && (
+            <RadiusControl
+              radiusMiles={radiusMiles}
+              shopCount={nearbyShops.length}
+              onIncrease={increaseRadius}
+              onDecrease={decreaseRadius}
+            />
+          )}
         </div>
 
-        {/* Shop Details Sidebar */}
-        <div className="lg:col-span-1">
+        {/* Right Column — always visible, matches map height on desktop */}
+        <div className="lg:col-span-1 flex flex-col gap-4 lg:h-[600px]">
+          {/* Shop Info (when selected) */}
           {selectedShop ? (
-            <div className="bg-[#2F2F2F] rounded-xl p-6 border border-gray-600">
-              <h3 className="text-xl font-bold text-[#FFCC00] mb-2">
-                {selectedShop.shopName}
-              </h3>
-
-              {/* Rating */}
-              {selectedShop.avgRating && selectedShop.avgRating > 0 ? (
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`w-4 h-4 ${
-                          star <= Math.round(selectedShop.avgRating!)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-600"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm text-gray-400">
-                    ({selectedShop.avgRating.toFixed(1)})
-                  </span>
-                </div>
-              ) : null}
-
-              {/* Service Stats */}
-              <div className="bg-[#1A1A1A] rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-5 h-5 text-[#FFCC00]" />
-                    <span className="text-white font-semibold">
-                      {selectedShop.serviceCount} Services
-                    </span>
-                  </div>
-                </div>
-
-                {/* Categories */}
-                {selectedShop.categories && selectedShop.categories.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-2">Categories:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedShop.categories.map((category) => (
-                        <span
-                          key={category}
-                          className="text-xs bg-[#2F2F2F] text-gray-300 px-2 py-1 rounded border border-gray-700"
-                        >
-                          {category.replace(/_/g, " ")}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-start">
-                  <MapPin className="w-5 h-5 text-[#FFCC00] mt-0.5 mr-3 flex-shrink-0" />
-                  <p className="text-sm text-gray-300">{selectedShop.shopAddress}</p>
-                </div>
-
-                {selectedShop.shopPhone && (
-                  <div className="flex items-center">
-                    <Phone className="w-5 h-5 text-[#FFCC00] mr-3" />
-                    <a
-                      href={`tel:${selectedShop.shopPhone}`}
-                      className="text-sm text-gray-300 hover:text-[#FFCC00] transition-colors"
-                    >
-                      {selectedShop.shopPhone}
-                    </a>
-                  </div>
-                )}
-
-                {selectedShop.shopEmail && (
-                  <div className="flex items-center">
-                    <Mail className="w-5 h-5 text-[#FFCC00] mr-3" />
-                    <a
-                      href={`mailto:${selectedShop.shopEmail}`}
-                      className="text-sm text-gray-300 hover:text-[#FFCC00] transition-colors"
-                    >
-                      {selectedShop.shopEmail}
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={() => router.push(`/customer/shop/${selectedShop.shopId}`)}
-                className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <Globe className="w-5 h-5" />
-                Visit Shop Profile
-              </button>
-            </div>
+            <ShopInfoPanel
+              shop={selectedShop}
+              distance={selectedDistance}
+              hasLocation={hasLocation}
+              showDirections={showDirections}
+              routeData={routeData}
+              isLoadingRoute={isLoadingRoute}
+              onGetDirections={() => openDirections(selectedShop)}
+              onCloseDirections={closeDirections}
+              onClose={clearSelection}
+            />
           ) : (
-            <div className="bg-[#2F2F2F] rounded-xl p-8 border border-gray-600 text-center">
-              <MapPin className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-              <h3 className="text-lg font-semibold text-gray-300 mb-2">
-                Select a Shop
-              </h3>
-              <p className="text-gray-400 text-sm">
+            /* Placeholder when no shop selected */
+            <div className="bg-[#1a1a1a] rounded-xl p-8 border border-gray-800 text-center">
+              <MapPin className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+              <h3 className="text-base font-semibold text-gray-300 mb-1">Select a Shop</h3>
+              <p className="text-gray-500 text-sm">
                 Click on any marker on the map to view shop details
               </p>
             </div>
           )}
 
-          {/* Shops List */}
-          <div className="mt-6 bg-[#2F2F2F] rounded-xl border border-gray-600">
-            <div className="bg-[#2F2F2F] border-b border-gray-700 px-4 py-3 rounded-t-xl">
-              <h4 className="font-semibold text-white">
-                Nearby Shops ({shops.length})
-              </h4>
-            </div>
-            <div className="p-2 space-y-2">
-              {shops.map((shop) => (
-                <button
-                  key={shop.shopId}
-                  onClick={() => handleShopMarkerClick(shop)}
-                  className={`w-full text-left p-3 rounded-lg transition-all ${
-                    selectedShop?.shopId === shop.shopId
-                      ? "bg-[#FFCC00] bg-opacity-20 border border-[#FFCC00]"
-                      : "hover:bg-[#1A1A1A] border border-transparent"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <h5
-                        className={`font-medium text-sm ${
-                          selectedShop?.shopId === shop.shopId
-                            ? "text-[#FFCC00]"
-                            : "text-white"
-                        }`}
-                      >
-                        {shop.shopName}
-                      </h5>
-                      <p className="text-xs text-gray-400 mt-1">{shop.shopAddress}</p>
-                    </div>
-                    <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                      <span className="text-xs bg-blue-900 bg-opacity-30 text-blue-300 px-2 py-0.5 rounded">
-                        {shop.serviceCount} services
-                      </span>
-                      {shop.avgRating && shop.avgRating > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs text-gray-400">
-                            {shop.avgRating.toFixed(1)}
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+          {/* Nearby Shops list — fills remaining height */}
+          <div className="flex-1 min-h-0">
+            <NearbyShopsList
+              shops={displayedShops}
+              selectedShopId={selectedShop?.shopId}
+              radiusMiles={radiusMiles}
+              hasLocation={hasLocation}
+              totalShopCount={shops.length}
+              isShowingNearest={isShowingNearest}
+              onSelect={handleShopSelect}
+            />
           </div>
         </div>
       </div>

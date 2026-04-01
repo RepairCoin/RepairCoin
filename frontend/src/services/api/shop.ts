@@ -64,6 +64,37 @@ export const registerShop = async (data: ShopRegistrationData): Promise<Shop | n
   }
 };
 
+export interface ShopMapData {
+  shopId: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  location: {
+    lat: number;
+    lng: number;
+    city: string | null;
+    state: string | null;
+  };
+  verified: boolean;
+  logoUrl: string | null;
+  category: string | null;
+  serviceCategories: string[];
+  serviceCount: number;
+  avgRating: number;
+  totalReviews: number;
+}
+
+export const getShopsForMap = async (): Promise<ShopMapData[]> => {
+  try {
+    const response = await apiClient.get<ShopMapData[]>('/shops/map');
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting shops for map:', error);
+    return [];
+  }
+};
+
 export const getShop = async (shopId: string): Promise<Shop | null> => {
   try {
     const response = await apiClient.get<Shop>(`/shops/${shopId}`);
@@ -472,6 +503,7 @@ export const shopApi = {
   getByWallet: getShopByWallet,
   update: updateShop,
   list: getShops,
+  getForMap: getShopsForMap,
   
   // Customers
   getCustomers: getShopCustomers,
