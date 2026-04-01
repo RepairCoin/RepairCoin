@@ -16,9 +16,9 @@ export function HeroContent({ fadeUp, headingClassName }: HeroContentProps) {
       </m.div>
 
       <m.h1 {...fadeUp(0.2)} className={headingClassName}>
-        <span>Connect. Schedule.</span>
+        <span className="whitespace-nowrap">Connect. Schedule.</span>
         <br />
-        <span>
+        <span className="whitespace-nowrap">
           <span className="relative inline-block">
             <span className="text-gold-gradient">Grow</span>
             <svg
