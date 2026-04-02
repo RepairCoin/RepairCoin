@@ -100,6 +100,10 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
   }, [links, originalLinks]);
 
   const handleInputChange = (platform: keyof SocialMediaLinks, value: string) => {
+    // Auto-prepend https:// if user types a URL without protocol
+    if (value && !value.startsWith('http://') && !value.startsWith('https://') && value.includes('.')) {
+      value = 'https://' + value;
+    }
     setLinks((prev) => ({
       ...prev,
       [platform]: value,
@@ -121,10 +125,12 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
   };
 
   const handleSave = async () => {
-    // Validate all URLs
+    // Only validate fields that changed
     for (const [platform, url] of Object.entries(links)) {
-      if (url && !validateUrl(url, platform)) {
-        return;
+      if (url !== originalLinks[platform as keyof SocialMediaLinks]) {
+        if (url && !validateUrl(url, platform)) {
+          return;
+        }
       }
     }
 
@@ -132,12 +138,10 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
     setError("");
 
     try {
-      // Filter out empty fields and map 'x' to 'twitter' for backend
+      // Send all fields (including empty) so cleared fields are persisted, map 'x' to 'twitter' for backend
       const validFields = Object.entries(links).reduce((acc, [key, value]) => {
-        if (value && value.trim()) {
-          const fieldName = key === 'x' ? 'twitter' : key;
-          acc[fieldName] = value.trim();
-        }
+        const fieldName = key === 'x' ? 'twitter' : key;
+        acc[fieldName] = value ? value.trim() : '';
         return acc;
       }, {} as Record<string, string>);
 
