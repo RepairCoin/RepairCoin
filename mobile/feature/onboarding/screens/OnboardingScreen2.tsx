@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const girl = require("@/assets/images/shop_girl.png");
+const girl = require("@/assets/images/onboarding2.png");
 
 interface OnboardingStep2Props {
   slideIndex?: number;
@@ -21,10 +21,10 @@ export default function OnboardingScreen2({ slideIndex = 1 }: OnboardingStep2Pro
     >
       <View className="mt-auto mb-20 h-[27%] w-full bg-black rounded-3xl px-6 py-8">
         <Text className="text-white text-3xl font-bold">
-          Smart Loyalty for{"\n"}Everyday Repairs
+          Book, Earn, and Redeem{"\n"}Your Rewards
         </Text>
         <Text className="text-gray-400 mt-4">
-          From cracked screens to car service, every repair{"\n"}now comes with real value back to you.
+          Earn tokens when you book, track your balance in real time, and redeem anytime.
         </Text>
         
         <View className="flex-row justify-between mt-auto items-center pt-6">
