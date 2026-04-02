@@ -8,28 +8,28 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		382ED4763611D04D7012F847 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D72619944E24106519C84DA4 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		4F8D9930F480C56E8ACBC412 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2630595C894AC710FDC26904 /* ExpoModulesProvider.swift */; };
-		5F980308F37629283CC88544 /* libPods-RepairCoin.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 37B4D2404BE49D147AB20691 /* libPods-RepairCoin.a */; };
+		4E980016430F3968B996ACDC /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B944126E689B47C580CA2A7F /* ExpoModulesProvider.swift */; };
+		9DFA501835C5FFC66898C7C1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7BCA8D4D2153E4F13567A55C /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F65D9B43774CEAF6979FAC87 /* libPods-RepairCoin.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6D133CA871BE3B90E7E24B8 /* libPods-RepairCoin.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* RepairCoin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RepairCoin.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = RepairCoin/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = RepairCoin/Info.plist; sourceTree = "<group>"; };
-		2630595C894AC710FDC26904 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-RepairCoin/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		37B4D2404BE49D147AB20691 /* libPods-RepairCoin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RepairCoin.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		873ECECEC142D4F5A6834D62 /* Pods-RepairCoin.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.debug.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.debug.xcconfig"; sourceTree = "<group>"; };
+		7BCA8D4D2153E4F13567A55C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = RepairCoin/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = RepairCoin/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B944126E689B47C580CA2A7F /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-RepairCoin/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		D72619944E24106519C84DA4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = RepairCoin/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		E6527E0E1BE5D5DEBBB029A7 /* Pods-RepairCoin.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.release.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.release.xcconfig"; sourceTree = "<group>"; };
+		C2C34667BB75A297FDFD27AC /* Pods-RepairCoin.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.debug.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.debug.xcconfig"; sourceTree = "<group>"; };
+		E887A43A1FE95E39842B82BB /* Pods-RepairCoin.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RepairCoin.release.xcconfig"; path = "Target Support Files/Pods-RepairCoin/Pods-RepairCoin.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = RepairCoin/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* RepairCoin-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "RepairCoin-Bridging-Header.h"; path = "RepairCoin/RepairCoin-Bridging-Header.h"; sourceTree = "<group>"; };
+		F6D133CA871BE3B90E7E24B8 /* libPods-RepairCoin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RepairCoin.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,13 +37,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5F980308F37629283CC88544 /* libPods-RepairCoin.a in Frameworks */,
+				F65D9B43774CEAF6979FAC87 /* libPods-RepairCoin.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0184C00D2F9FE2AC9E70527C /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				498DE890176DD0BC02A322BD /* RepairCoin */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* RepairCoin */ = {
 			isa = PBXGroup;
 			children = (
@@ -53,26 +61,26 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				D72619944E24106519C84DA4 /* PrivacyInfo.xcprivacy */,
+				7BCA8D4D2153E4F13567A55C /* PrivacyInfo.xcprivacy */,
 			);
 			name = RepairCoin;
-			sourceTree = "<group>";
-		};
-		1E20442FE8971369C3909A17 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				A04A367183D353C14B41C360 /* RepairCoin */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				37B4D2404BE49D147AB20691 /* libPods-RepairCoin.a */,
+				F6D133CA871BE3B90E7E24B8 /* libPods-RepairCoin.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		498DE890176DD0BC02A322BD /* RepairCoin */ = {
+			isa = PBXGroup;
+			children = (
+				B944126E689B47C580CA2A7F /* ExpoModulesProvider.swift */,
+			);
+			name = RepairCoin;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -89,8 +97,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				C57CA8F05B0B33B498FDF893 /* Pods */,
-				1E20442FE8971369C3909A17 /* ExpoModulesProviders */,
+				9CD59C0BBA8F8EC1897DE074 /* Pods */,
+				0184C00D2F9FE2AC9E70527C /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -105,12 +113,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A04A367183D353C14B41C360 /* RepairCoin */ = {
+		9CD59C0BBA8F8EC1897DE074 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				2630595C894AC710FDC26904 /* ExpoModulesProvider.swift */,
+				C2C34667BB75A297FDFD27AC /* Pods-RepairCoin.debug.xcconfig */,
+				E887A43A1FE95E39842B82BB /* Pods-RepairCoin.release.xcconfig */,
 			);
-			name = RepairCoin;
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -122,16 +132,6 @@
 			path = RepairCoin/Supporting;
 			sourceTree = "<group>";
 		};
-		C57CA8F05B0B33B498FDF893 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				873ECECEC142D4F5A6834D62 /* Pods-RepairCoin.debug.xcconfig */,
-				E6527E0E1BE5D5DEBBB029A7 /* Pods-RepairCoin.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "RepairCoin" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				6E426990C8F04366BCBF1B88 /* [Expo] Configure project */,
+				765ED9BDEC06831980AC749A /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				855EFD6CB46C5CB968AE39DC /* [CP] Embed Pods Frameworks */,
+				124F2DCD5E989AC7BF0F1626 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				382ED4763611D04D7012F847 /* PrivacyInfo.xcprivacy in Resources */,
+				9DFA501835C5FFC66898C7C1 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,7 +240,27 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		6E426990C8F04366BCBF1B88 /* [Expo] Configure project */ = {
+		124F2DCD5E989AC7BF0F1626 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		765ED9BDEC06831980AC749A /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -331,26 +351,6 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		855EFD6CB46C5CB968AE39DC /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-RepairCoin/Pods-RepairCoin-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -359,7 +359,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				4F8D9930F480C56E8ACBC412 /* ExpoModulesProvider.swift in Sources */,
+				4E980016430F3968B996ACDC /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -368,7 +368,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 873ECECEC142D4F5A6834D62 /* Pods-RepairCoin.debug.xcconfig */;
+			baseConfigurationReference = C2C34667BB75A297FDFD27AC /* Pods-RepairCoin.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -405,7 +405,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E6527E0E1BE5D5DEBBB029A7 /* Pods-RepairCoin.release.xcconfig */;
+			baseConfigurationReference = E887A43A1FE95E39842B82BB /* Pods-RepairCoin.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
