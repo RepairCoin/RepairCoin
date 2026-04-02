@@ -19,14 +19,14 @@ export default function AboutCTA() {
         {/* CTA Section */}
         <div className="max-w-6xl mx-auto text-center pt-20 pb-20 lg:pt-28 lg:pb-28">
           <AnimateOnScroll>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white !leading-[1.3]">
               Join RepairCoin as an
               <br />
               <span className="relative inline-block">
                 <span className="text-gold-gradient">early partner</span>
                 {/* Yellow underline curve */}
                 <svg
-                  className="absolute -bottom-[35%] -left-[-4%] w-[92%] h-[18px]"
+                  className="absolute -bottom-[25%] -left-[-4%] w-[92%] h-[18px]"
                   viewBox="0 0 311 8"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
