@@ -26,7 +26,7 @@ export default function AboutCTA() {
                 <span className="text-gold-gradient">early partner</span>
                 {/* Yellow underline curve */}
                 <svg
-                  className="absolute -bottom-8 -left-[3%] w-[106%] h-[18px]"
+                  className="absolute -bottom-[35%] -left-[-4%] w-[92%] h-[18px]"
                   viewBox="0 0 311 8"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -35,13 +35,13 @@ export default function AboutCTA() {
                   <m.path
                     d="M2 5.5C80 1.5 230 1.5 309 5.5"
                     stroke="#ffcc00"
-                    strokeWidth="4"
+                    className="stroke-[2] sm:stroke-[3] md:stroke-[4]"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    initial={{ pathLength: 0 }}
-                    whileInView={{ pathLength: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    whileInView={{ pathLength: 1, opacity: 1 }}
+                    viewport={{ once: true, amount: 0.5 }}
+                    transition={{ duration: 0.8, delay: 0.6, ease: "easeOut", opacity: { duration: 0.01, delay: 0.6 } }}
                   />
                 </svg>
               </span>
