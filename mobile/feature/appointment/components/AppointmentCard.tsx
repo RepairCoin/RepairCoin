@@ -10,14 +10,23 @@ const getStatusColor = (status: BookingStatus) => {
       return "#22c55e";
     case "paid":
       return "#3b82f6";
-    case "pending":
-      return "#eab308";
     case "cancelled":
       return "#ef4444";
     case "refunded":
       return "#a855f7";
+    case "expired":
+      return "#f97316";
     default:
       return "#666";
+  }
+};
+
+const getStatusLabel = (status: BookingStatus) => {
+  switch (status) {
+    case "paid":
+      return "Approved";
+    default:
+      return status;
   }
 };
 
@@ -83,7 +92,7 @@ export default function AppointmentCard({
                 className="text-xs font-medium capitalize"
                 style={{ color: statusColor }}
               >
-                {status}
+                {getStatusLabel(status)}
               </Text>
             </View>
           </View>

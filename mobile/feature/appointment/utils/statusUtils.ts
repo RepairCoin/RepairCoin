@@ -10,8 +10,6 @@ export function getStatusColor(status: BookingStatus | "approved"): string {
       return "#10b981";
     case "paid":
       return "#3b82f6";
-    case "pending":
-      return "#eab308";
     case "cancelled":
       return "#ef4444";
     case "expired":

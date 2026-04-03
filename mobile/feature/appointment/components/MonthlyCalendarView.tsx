@@ -194,8 +194,7 @@ export default function MonthlyCalendarView({
       {/* Legend */}
       <View className="flex-row flex-wrap justify-center mt-3 gap-3">
         {[
-          { label: "Pending", color: "#eab308" },
-          { label: "Paid", color: "#3b82f6" },
+          { label: "Approved", color: "#3b82f6" },
           { label: "Completed", color: "#22c55e" },
           { label: "Cancelled", color: "#ef4444" },
         ].map((item) => (

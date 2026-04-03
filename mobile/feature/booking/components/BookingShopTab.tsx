@@ -209,20 +209,16 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
         {/* Legend */}
         <View className="flex-row flex-wrap justify-center mt-4 mb-6 gap-3">
           <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Pending</Text>
-          </View>
-          <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Paid</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Approved</Text>
           </View>
           <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Completed</Text>
+          </View>
+          <View className="flex-row items-center">
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 4 }} />
+            <Text className="text-gray-500 text-xs">Cancelled</Text>
           </View>
           <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#f97316', marginRight: 4 }} />
@@ -445,20 +441,16 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
                 {/* Legend */}
                 <View className="flex-row flex-wrap justify-center mt-4 gap-3">
                   <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Pending</Text>
-                  </View>
-                  <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Paid</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Approved</Text>
                   </View>
                   <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Completed</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 4 }} />
+                    <Text className="text-gray-500 text-xs">Cancelled</Text>
                   </View>
                   <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#f97316', marginRight: 4 }} />
