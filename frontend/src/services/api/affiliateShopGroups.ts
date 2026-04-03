@@ -108,6 +108,25 @@ export const createGroup = async (data: CreateGroupData): Promise<AffiliateShopG
 };
 
 /**
+ * Get only groups that have at least 1 active linked service.
+ * Used by customer marketplace "Discover Group Rewards" dropdown.
+ */
+export const getGroupsWithServices = async (): Promise<AffiliateShopGroup[]> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups/with-services`);
+    const groups = (response as any).data || [];
+
+    return groups.map((group: any) => ({
+      ...group,
+      isPrivate: group.groupType === 'private',
+    }));
+  } catch (error) {
+    console.error('Error getting groups with services:', error);
+    return [];
+  }
+};
+
+/**
  * Get all shop groups (public or filtered)
  */
 export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<AffiliateShopGroup[]> => {

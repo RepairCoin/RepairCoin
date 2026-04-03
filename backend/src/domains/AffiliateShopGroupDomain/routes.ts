@@ -139,6 +139,16 @@ router.get(
 );
 
 /**
+ * @route   GET /api/affiliate-shop-groups/with-services
+ * @desc    Get groups that have at least 1 active linked service (for customer discovery)
+ * @access  Public
+ */
+router.get(
+  '/with-services',
+  groupController.getGroupsWithServices
+);
+
+/**
  * @route   GET /api/affiliate-shop-groups/my-groups
  * @desc    Get groups for authenticated shop
  * @access  Shop only
