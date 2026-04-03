@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useActiveAccount } from "thirdweb/react";
 import { Bell, MessageSquare, Gift, Wallet, Store, AlertCircle, Mail, Smartphone } from "lucide-react";
 import toast from "react-hot-toast";
 import { notificationsApi } from "@/services/api/notifications";
@@ -72,10 +71,10 @@ interface GeneralNotificationSettingsProps {
 }
 
 export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNotificationSettingsProps) {
-  const account = useActiveAccount();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [backendPreferences, setBackendPreferences] = useState<GeneralNotificationPreferences | null>(null);
+  const [originalPreferences, setOriginalPreferences] = useState<typeof preferences | null>(null);
 
   // Form state - these will be connected to API
   const [preferences, setPreferences] = useState({
@@ -119,11 +118,6 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
   // Load preferences from backend on mount
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!account?.address) {
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       try {
         const prefs = await notificationsApi.getGeneralNotificationPreferences();
@@ -131,6 +125,7 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
         // Check if preferences were returned
         if (!prefs) {
           console.warn("No preferences returned from API");
+          setOriginalPreferences({ ...preferences });
           setLoading(false);
           return;
         }
@@ -138,7 +133,7 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
         setBackendPreferences(prefs);
 
         // Update form state with backend data
-        setPreferences({
+        const loaded = {
           platformUpdates: prefs.platformUpdates ?? true,
           maintenanceAlerts: prefs.maintenanceAlerts ?? true,
           newFeatures: prefs.newFeatures ?? false,
@@ -161,19 +156,22 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
           promotions: prefs.promotions ?? false,
           newsletter: prefs.newsletter ?? false,
           surveys: prefs.surveys ?? false,
-        });
+        };
+        setPreferences(loaded);
+        setOriginalPreferences(loaded);
       } catch (error: any) {
         console.error("Error loading notification preferences:", error);
         console.error("Error details:", error.response?.data || error.message);
         // Don't show error toast - just use defaults
         // This allows the UI to work even if the API fails
+        setOriginalPreferences({ ...preferences });
       } finally {
         setLoading(false);
       }
     };
 
     loadPreferences();
-  }, [account?.address]);
+  }, []);
 
   const handleToggle = (key: keyof typeof preferences) => {
     setPreferences(prev => ({
@@ -182,16 +180,14 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
     }));
   };
 
-  const handleSave = async () => {
-    if (!account?.address) {
-      toast.error("Please connect your wallet");
-      return;
-    }
+  const hasChanges = originalPreferences !== null && JSON.stringify(preferences) !== JSON.stringify(originalPreferences);
 
+  const handleSave = async () => {
     setSaving(true);
     try {
       const updatedPrefs = await notificationsApi.updateGeneralNotificationPreferences(preferences);
       setBackendPreferences(updatedPrefs);
+      setOriginalPreferences(preferences);
       toast.success("Notification preferences saved!");
     } catch (error) {
       console.error("Error saving notification preferences:", error);
@@ -234,22 +230,24 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
             <p className="text-sm text-gray-400">Choose what you want to be notified about</p>
           </div>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="text-sm px-5 py-2 bg-[#FFCC00] text-black rounded-full font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
+        {hasChanges && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="text-sm px-5 py-2 bg-[#FFCC00] text-black rounded-full font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        )}
       </div>
 
       <div className="px-6 py-6 space-y-6">
         {/* Success Info Banner */}
-        <div className="flex items-start gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-          <AlertCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm text-green-300">
-              Your notification preferences are now active. Changes are saved automatically to your account.
+            <p className="text-sm text-blue-300">
+              Adjust your preferences below and click <span className="font-semibold text-[#FFCC00]">Save Changes</span> to update.
             </p>
           </div>
         </div>
@@ -308,11 +306,11 @@ export function GeneralNotificationSettings({ userType = 'customer' }: GeneralNo
               icon={<Wallet className="w-5 h-5" />}
             />
             <ToggleSwitch
-              label="Password Changes"
-              description="Alerts when your password is changed"
+              label="Wallet Connection Changes"
+              description="Alerts when your wallet connection status changes"
               checked={preferences.passwordChanges}
               onChange={() => handleToggle("passwordChanges")}
-              icon={<AlertCircle className="w-5 h-5" />}
+              icon={<Wallet className="w-5 h-5" />}
             />
           </div>
         </div>

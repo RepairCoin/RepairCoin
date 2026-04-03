@@ -365,6 +365,61 @@ export class GeneralNotificationPreferencesRepository extends BaseRepository {
       throw error;
     }
   }
+  /**
+   * Get preferences by address only (without knowing user type).
+   * Used by NotificationService for centralized preference checks.
+   */
+  async getPreferencesByAddress(
+    userAddress: string
+  ): Promise<GeneralNotificationPreferences | null> {
+    try {
+      const query = `
+        SELECT
+          id,
+          user_address as "userAddress",
+          user_type as "userType",
+          platform_updates as "platformUpdates",
+          maintenance_alerts as "maintenanceAlerts",
+          new_features as "newFeatures",
+          security_alerts as "securityAlerts",
+          login_notifications as "loginNotifications",
+          password_changes as "passwordChanges",
+          token_received as "tokenReceived",
+          token_redeemed as "tokenRedeemed",
+          rewards_earned as "rewardsEarned",
+          order_updates as "orderUpdates",
+          service_approved as "serviceApproved",
+          review_requests as "reviewRequests",
+          new_orders as "newOrders",
+          customer_messages as "customerMessages",
+          low_token_balance as "lowTokenBalance",
+          subscription_reminders as "subscriptionReminders",
+          payment_reminders as "paymentReminders",
+          payment_failure_alerts as "paymentFailureAlerts",
+          subscription_renewal_notices as "subscriptionRenewalNotices",
+          subscription_expiration_warnings as "subscriptionExpirationWarnings",
+          payment_method_expiring as "paymentMethodExpiring",
+          billing_receipt_notifications as "billingReceiptNotifications",
+          system_alerts as "systemAlerts",
+          user_reports as "userReports",
+          treasury_changes as "treasuryChanges",
+          promotions,
+          newsletter,
+          surveys,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM general_notification_preferences
+        WHERE user_address = $1
+        LIMIT 1
+      `;
+
+      const result = await this.pool.query(query, [userAddress.toLowerCase()]);
+      return result.rows.length > 0 ? result.rows[0] : null;
+    } catch (error) {
+      logger.error('Error fetching preferences by address:', error);
+      return null;
+    }
+  }
 }
 
 // Export singleton instance

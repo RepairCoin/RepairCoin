@@ -6,7 +6,6 @@ import { GeneralNotificationPreferences, UpdateGeneralNotificationPreferences } 
  */
 export const getGeneralNotificationPreferences = async (): Promise<GeneralNotificationPreferences> => {
   const response = await apiClient.get('/notifications/preferences/general');
-  console.log('API Response:', response);
 
   // The axios interceptor returns response.data directly, so response = { success: true, data: preferences }
   if (!response || !response.data) {
