@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const isProd = ENV === 'production';
   
   return {
-    name: "RepairCoin",
+    name: "FixFlow",
     slug: "repaircoin-app",
     owner: "repaircoin",
     version: "1.0.0",
@@ -94,9 +94,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission:
-            "Allow RepairCoin to access your location to find nearby shops.",
+            "Allow FixFlow to access your location to find nearby shops.",
           locationWhenInUsePermission:
-            "Allow RepairCoin to access your location while using the app.",
+            "Allow FixFlow to access your location while using the app.",
           isAndroidBackgroundLocationEnabled: false,
         },
       ],
@@ -104,9 +104,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-camera",
         {
           cameraPermission:
-            "Allow RepairCoin to access your camera to scan QR codes and take photos.",
+            "Allow FixFlow to access your camera to scan QR codes and take photos.",
           microphonePermission:
-            "Allow RepairCoin to access your microphone for video recording.",
+            "Allow FixFlow to access your microphone for video recording.",
           recordAudioAndroid: true,
         },
       ],
@@ -114,9 +114,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-image-picker",
         {
           photosPermission:
-            "Allow RepairCoin to access your photos to upload images.",
+            "Allow FixFlow to access your photos to upload images.",
           cameraPermission:
-            "Allow RepairCoin to access your camera to take photos.",
+            "Allow FixFlow to access your camera to take photos.",
         },
       ],
       [
