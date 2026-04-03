@@ -164,6 +164,14 @@ export class AffiliateShopGroupService {
   }
 
   /**
+   * Get only groups that have at least 1 active linked service.
+   * Used by customer marketplace discovery dropdown.
+   */
+  async getGroupsWithServices() {
+    return await this.repository.getGroupsWithServices();
+  }
+
+  /**
    * Get all public groups or groups filtered by criteria
    */
   async getAllGroups(filters: {
