@@ -30,9 +30,9 @@ async function cleanupExpiredBookings(): Promise<void> {
   try {
     logger.info('Running unpaid booking cleanup...');
 
-    // Find all unpaid manual bookings older than 24 hours
+    // TYPE 1: Find all unpaid manual bookings older than 24 hours
     // These are bookings created with 'qr_code' or 'send_link' payment status
-    const expiredOrders = await pool.query(
+    const expiredManualBookings = await pool.query(
       `SELECT
         so.order_id,
         so.shop_id,
@@ -42,7 +42,8 @@ async function cleanupExpiredBookings(): Promise<void> {
         so.created_at,
         ss.service_name,
         s.name as shop_name,
-        s.wallet_address as shop_wallet
+        s.wallet_address as shop_wallet,
+        'manual_timeout' as cancellation_reason
       FROM service_orders so
       JOIN shop_services ss ON ss.service_id = so.service_id
       JOIN shops s ON s.shop_id = so.shop_id
@@ -52,21 +53,59 @@ async function cleanupExpiredBookings(): Promise<void> {
         AND so.created_at < NOW() - INTERVAL '${EXPIRY_HOURS} hours'`
     );
 
-    if (expiredOrders.rows.length === 0) {
+    // TYPE 2: Find all unpaid bookings that are past their scheduled date/time
+    // These are bookings where booking_date + booking_time has already passed
+    const expiredScheduledBookings = await pool.query(
+      `SELECT
+        so.order_id,
+        so.shop_id,
+        so.customer_address,
+        so.booking_date,
+        so.booking_time_slot,
+        so.created_at,
+        ss.service_name,
+        s.name as shop_name,
+        s.wallet_address as shop_wallet,
+        'past_scheduled_date' as cancellation_reason
+      FROM service_orders so
+      JOIN shop_services ss ON ss.service_id = so.service_id
+      JOIN shops s ON s.shop_id = so.shop_id
+      WHERE so.status = 'pending'
+        AND so.booking_date IS NOT NULL
+        AND so.booking_time_slot IS NOT NULL
+        AND (so.booking_date + COALESCE(so.booking_end_time, so.booking_time_slot)::time) < NOW()`
+    );
+
+    // Combine both types of expired bookings
+    const allExpiredOrders = [...expiredManualBookings.rows, ...expiredScheduledBookings.rows];
+
+    if (allExpiredOrders.length === 0) {
       logger.info('No expired unpaid bookings found');
       return;
     }
 
-    logger.info(`Found ${expiredOrders.rows.length} expired unpaid bookings to cancel`);
+    logger.info(`Found ${allExpiredOrders.length} expired unpaid bookings to cancel`, {
+      manualTimeout: expiredManualBookings.rows.length,
+      pastScheduledDate: expiredScheduledBookings.rows.length
+    });
 
-    for (const order of expiredOrders.rows) {
+    for (const order of allExpiredOrders) {
       try {
+        // Determine cancellation message based on reason
+        const cancellationMessage = order.cancellation_reason === 'manual_timeout'
+          ? 'Auto-cancelled: Payment not received within 24 hours'
+          : 'Auto-cancelled: Booking date/time has passed without payment';
+
+        const notificationMessage = order.cancellation_reason === 'manual_timeout'
+          ? `Booking auto-cancelled: ${order.service_name} on ${order.booking_date} - payment not received within 24 hours`
+          : `Booking auto-cancelled: ${order.service_name} on ${order.booking_date} - appointment time has passed`;
+
         // Cancel the order
         await pool.query(
           `UPDATE service_orders
            SET status = 'cancelled',
                payment_status = 'cancelled',
-               notes = COALESCE(notes, '') || ' | Auto-cancelled: Payment not received within 24 hours',
+               notes = COALESCE(notes, '') || ' | ${cancellationMessage}',
                updated_at = NOW()
            WHERE order_id = $1`,
           [order.order_id]
@@ -76,7 +115,8 @@ async function cleanupExpiredBookings(): Promise<void> {
           orderId: order.order_id,
           shopId: order.shop_id,
           bookingDate: order.booking_date,
-          createdAt: order.created_at
+          createdAt: order.created_at,
+          reason: order.cancellation_reason
         });
 
         // Notify shop about the cancellation
@@ -85,13 +125,13 @@ async function cleanupExpiredBookings(): Promise<void> {
             senderAddress: 'system',
             receiverAddress: order.shop_wallet,
             notificationType: 'booking_auto_cancelled',
-            message: `Booking auto-cancelled: ${order.service_name} on ${order.booking_date} - payment not received within 24 hours`,
+            message: notificationMessage,
             metadata: {
               orderId: order.order_id,
               serviceName: order.service_name,
               bookingDate: order.booking_date,
               bookingTime: order.booking_time_slot,
-              reason: 'Payment not received within 24 hours'
+              reason: cancellationMessage
             }
           });
         } catch (notifError) {
@@ -109,7 +149,7 @@ async function cleanupExpiredBookings(): Promise<void> {
       }
     }
 
-    logger.info(`Unpaid booking cleanup complete. Cancelled ${expiredOrders.rows.length} bookings`);
+    logger.info(`Unpaid booking cleanup complete. Cancelled ${allExpiredOrders.length} bookings`);
 
   } catch (error) {
     logger.error('Error in unpaid booking cleanup', {
