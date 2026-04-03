@@ -2,8 +2,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { CalendarBooking } from "@/shared/interfaces/appointment.interface";
 import { getStatusColor } from "../utils/statusUtils";
-import { getDaysInMonth } from "../utils/calendarUtils";
-import { isToday, isDateSelected } from "../utils/dateUtils";
+import { getDaysInMonth, isToday, isDateSelected } from "@/shared/utilities/calendar";
 import { DAYS } from "../constants";
 
 interface MonthlyCalendarViewProps {

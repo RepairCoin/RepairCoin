@@ -2,10 +2,10 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { CustomerData } from "@/shared/interfaces/customer.interface";
 import { useShopCustomersQuery, useSearchAllCustomersQuery } from "../queries/useCustomerQueries";
 import { useCustomerSearch } from "./useCustomerSearch";
+import type { ViewMode, TierFilter, SortBy } from "../../types";
 
-export type ViewMode = "my-customers" | "search-all";
-export type TierFilter = "all" | "bronze" | "silver" | "gold";
-export type SortBy = "recent" | "earnings" | "active";
+// Re-export types for backwards compatibility
+export type { ViewMode, TierFilter, SortBy } from "../../types";
 
 export function useCustomerListUI() {
   const [refreshing, setRefreshing] = useState(false);

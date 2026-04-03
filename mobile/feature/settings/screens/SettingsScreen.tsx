@@ -3,12 +3,9 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider } from "../components";
-import { useSettings, SettingsRole } from "../hooks/ui/useSettings";
+import { useSettings } from "../hooks/ui/useSettings";
 import { APP_VERSION } from "../constants";
-
-interface SettingsScreenProps {
-  role: SettingsRole;
-}
+import type { SettingsScreenProps } from "../types";
 
 export default function SettingsScreen({ role }: SettingsScreenProps) {
   const {

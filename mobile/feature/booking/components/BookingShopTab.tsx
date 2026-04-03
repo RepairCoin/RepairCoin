@@ -23,7 +23,8 @@ import {
 } from "../hooks/ui";
 
 // Utils
-import { getStatusColor, isToday, isDateSelected, getDaysInMonth, getScrollableDays } from "../utils";
+import { getStatusColor } from "../utils";
+import { isToday, isDateSelected, getDaysInMonth, getScrollableDays } from "@/shared/utilities/calendar";
 import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

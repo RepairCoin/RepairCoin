@@ -19,14 +19,8 @@ import {
 } from "../hooks/ui";
 
 // Utils
-import {
-  getStatusColor,
-  formatAppointmentTime,
-  isToday,
-  isDateSelected,
-  getDaysInMonth,
-  getScrollableDays,
-} from "../utils";
+import { getStatusColor } from "../utils";
+import { isToday, isDateSelected, getDaysInMonth, getScrollableDays, formatTime12h } from "@/shared/utilities/calendar";
 import { APPOINTMENT_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -213,7 +207,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                   <View className="flex-row items-center mt-2">
                     <Ionicons name="time-outline" size={14} color="#FFCC00" />
                     <Text className="text-[#FFCC00] text-sm ml-1 font-medium">
-                      {formatAppointmentTime(booking.bookingDate || booking.createdAt)}
+                      {formatTime12h(booking.bookingDate || booking.createdAt)}
                     </Text>
                   </View>
                 </View>

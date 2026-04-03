@@ -1,21 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-
-interface CustomerCardProps {
-  name: string;
-  tier: string;
-  lifetimeEarnings: number;
-  lastTransactionDate?: string;
-  total_transactions?: number;
-  referralCount?: number;
-  totalRedemptions?: number;
-  joinDate?: string;
-  isSuspended?: boolean;
-  suspensionReason?: string | null;
-  onPress?: () => void;
-  onMessagePress?: () => void;
-}
+import type { CustomerCardProps } from "../types";
 
 const getTierConfig = (tier: string) => {
   switch (tier?.toLowerCase()) {

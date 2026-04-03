@@ -1,10 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
-
-interface SettingsSectionProps {
-  title?: string;
-  children: React.ReactNode;
-}
+import type { SettingsSectionProps } from "../types";
 
 export function SettingsSection({ title, children }: SettingsSectionProps) {
   return (
