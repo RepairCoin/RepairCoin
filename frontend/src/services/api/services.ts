@@ -472,6 +472,51 @@ export const markOrderAsNoShow = async (
 };
 
 /**
+ * Get expired unpaid bookings (Shop only)
+ */
+export const getExpiredUnpaidBookings = async (): Promise<ServiceOrderWithDetails[]> => {
+  try {
+    const response = await apiClient.get<ServiceOrderWithDetails[]>('/services/orders/expired-unpaid');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching expired unpaid bookings:', error);
+    throw error;
+  }
+};
+
+/**
+ * Bulk cancel orders (Shop only)
+ */
+export const bulkCancelOrders = async (
+  orderIds: string[],
+  reason: string = 'Bulk cancelled by shop'
+): Promise<{ cancelledCount: number; failed: Array<{ orderId: string; error: string }> }> => {
+  try {
+    const response = await apiClient.post<{ cancelledCount: number; failed: Array<{ orderId: string; error: string }> }>(
+      '/services/orders/bulk-cancel',
+      { orderIds, reason }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error bulk canceling orders:', error);
+    throw error;
+  }
+};
+
+/**
+ * Cancel all expired unpaid bookings (Shop only)
+ */
+export const cancelAllExpiredUnpaid = async (): Promise<{ cancelledCount: number }> => {
+  try {
+    const response = await apiClient.post<{ cancelledCount: number }>('/services/orders/cancel-all-expired');
+    return response.data;
+  } catch (error) {
+    console.error('Error canceling all expired bookings:', error);
+    throw error;
+  }
+};
+
+/**
  * Approve a booking (Shop only)
  */
 export const approveBooking = async (orderId: string): Promise<ServiceOrder | null> => {

@@ -6,6 +6,7 @@ import { parseLocalDateString } from '../../../utils/dateUtils';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AppointmentService } from './AppointmentService';
 import { getSharedPool } from '../../../utils/database-pool';
+import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 
 export interface RescheduleValidationResult {
   valid: boolean;
@@ -31,11 +32,13 @@ export class RescheduleService {
   private rescheduleRepo: RescheduleRepository;
   private appointmentRepo: AppointmentRepository;
   private appointmentService: AppointmentService;
+  private googleCalendarService: GoogleCalendarService;
 
   constructor() {
     this.rescheduleRepo = new RescheduleRepository();
     this.appointmentRepo = new AppointmentRepository();
     this.appointmentService = new AppointmentService();
+    this.googleCalendarService = new GoogleCalendarService();
   }
 
   /**
@@ -348,6 +351,30 @@ export class RescheduleService {
         newDate: request.requestedDate,
         newTimeSlot: request.requestedTimeSlot
       });
+
+      // Update Google Calendar event if shop has calendar connected
+      try {
+        await this.googleCalendarService.updateEvent(
+          request.orderId,
+          {
+            bookingDate: request.requestedDate,
+            startTime: request.requestedTimeSlot,
+            endTime: request.requestedEndTime || this.calculateEndTime(request.requestedTimeSlot, 60),
+            serviceName: orderInfo.service_name,
+            serviceDescription: '', // Can be added if needed
+            customerName: orderInfo.customer_name,
+            customerEmail: undefined, // Can be fetched if needed
+            customerPhone: undefined, // Can be fetched if needed
+            customerAddress: request.customerAddress,
+            totalAmount: 0, // Can be fetched if needed
+            shopTimezone: 'America/New_York', // TODO: Get from shop settings
+          }
+        );
+        logger.info('Google Calendar event updated for rescheduled booking', { orderId: request.orderId });
+      } catch (calendarError) {
+        logger.error('Failed to update calendar event:', calendarError);
+        // Don't fail the reschedule if calendar sync fails
+      }
 
       // Emit event for notifications with enriched data
       await eventBus.publish(createDomainEvent(
@@ -676,6 +703,30 @@ export class RescheduleService {
         throw updateError;
       }
 
+      // Update Google Calendar event if shop has calendar connected
+      try {
+        await this.googleCalendarService.updateEvent(
+          orderId,
+          {
+            bookingDate: newDate,
+            startTime: newTimeSlot.substring(0, 5),
+            endTime: newEndTime,
+            serviceName: order.service_name,
+            serviceDescription: '',
+            customerName: order.customer_name,
+            customerEmail: undefined,
+            customerPhone: undefined,
+            customerAddress: order.customer_address,
+            totalAmount: 0,
+            shopTimezone: 'America/New_York', // TODO: Get from shop settings
+          }
+        );
+        logger.info('Google Calendar event updated for direct reschedule', { orderId });
+      } catch (calendarError) {
+        logger.error('Failed to update calendar event:', calendarError);
+        // Don't fail the reschedule if calendar sync fails
+      }
+
       // Emit event for customer notification
       await eventBus.publish(createDomainEvent(
         'booking:rescheduled_by_shop',
@@ -717,5 +768,19 @@ export class RescheduleService {
         errorCode: 'RESCHEDULE_ERROR'
       };
     }
+  }
+
+  /**
+   * Calculate end time based on start time and duration
+   */
+  private calculateEndTime(startTime: string, durationMinutes: number): string {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+    startDate.setMinutes(startDate.getMinutes() + durationMinutes);
+
+    const endHours = String(startDate.getHours()).padStart(2, '0');
+    const endMinutes = String(startDate.getMinutes()).padStart(2, '0');
+    return `${endHours}:${endMinutes}`;
   }
 }
