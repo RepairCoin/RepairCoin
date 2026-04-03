@@ -1,5 +1,6 @@
 import { NotificationRepository, CreateNotificationParams, Notification } from '../../../repositories/NotificationRepository';
 import { PaginationParams, PaginatedResult } from '../../../repositories/BaseRepository';
+import { generalNotificationPreferencesRepository, GeneralNotificationPreferences } from '../../../repositories/GeneralNotificationPreferencesRepository';
 import { logger } from '../../../utils/logger';
 
 export interface NotificationMessageTemplates {
@@ -34,6 +35,43 @@ export interface NotificationMessageTemplates {
   support_ticket_resolved: (data: { ticketId: string; subject: string }) => string;
   support_ticket_assigned: (data: { ticketId: string; subject: string }) => string;
 }
+
+/**
+ * Maps notification types to the user preference field that controls them.
+ * Notifications not listed here are always sent (system-critical).
+ */
+const NOTIFICATION_PREFERENCE_MAP: Record<string, keyof GeneralNotificationPreferences> = {
+  // Customer notifications
+  reward_issued: 'rewardsEarned',
+  redemption_approval_request: 'tokenRedeemed',
+  redemption_cancelled: 'tokenRedeemed',
+  token_gifted: 'tokenReceived',
+  service_order_completed: 'orderUpdates',
+  service_payment_failed: 'orderUpdates',
+  service_order_cancelled: 'orderUpdates',
+  appointment_reminder: 'orderUpdates',
+  booking_confirmed: 'orderUpdates',
+  reschedule_request_approved: 'orderUpdates',
+  reschedule_request_rejected: 'orderUpdates',
+  reschedule_request_expired: 'orderUpdates',
+  booking_rescheduled_by_shop: 'orderUpdates',
+
+  // Shop notifications
+  service_booking_received: 'newOrders',
+  reschedule_request_created: 'newOrders',
+  upcoming_appointment: 'newOrders',
+  redemption_approved: 'newOrders',
+  redemption_rejected: 'newOrders',
+  subscription_paused: 'subscriptionReminders',
+  subscription_resumed: 'subscriptionReminders',
+  subscription_cancelled: 'subscriptionReminders',
+  subscription_self_cancelled: 'subscriptionReminders',
+  subscription_reactivated: 'subscriptionReminders',
+  subscription_expiring: 'subscriptionReminders',
+  low_token_balance: 'lowTokenBalance',
+
+  // Always sent (not in map): subscription_approved, shop_suspended, shop_unsuspended, support_*, security_*
+};
 
 export class NotificationService {
   private repository: NotificationRepository;
@@ -140,6 +178,33 @@ export class NotificationService {
 
   async createNotification(params: CreateNotificationParams): Promise<Notification> {
     try {
+      // Check if this notification type is preference-gated
+      const prefField = NOTIFICATION_PREFERENCE_MAP[params.notificationType];
+      if (prefField) {
+        const prefs = await generalNotificationPreferencesRepository.getPreferencesByAddress(
+          params.receiverAddress
+        );
+        if (prefs && prefs[prefField] === false) {
+          logger.info('Notification suppressed by user preference', {
+            type: params.notificationType,
+            receiver: params.receiverAddress,
+            preference: prefField,
+          });
+          // Return a stub notification so callers don't break
+          return {
+            id: 'suppressed',
+            senderAddress: params.senderAddress,
+            receiverAddress: params.receiverAddress,
+            notificationType: params.notificationType,
+            message: params.message,
+            isRead: true,
+            metadata: params.metadata || {},
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as Notification;
+        }
+      }
+
       const notification = await this.repository.create(params);
       logger.info(`Notification created: ${notification.id} (${params.notificationType})`);
       return notification;
