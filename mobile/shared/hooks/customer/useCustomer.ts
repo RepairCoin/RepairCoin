@@ -14,7 +14,7 @@ export const useCustomer = () => {
       queryFn: async () => {
         const response: any =
           await customerApi.getCustomerByWalletAddress(address);
-        return response.data;
+        return response;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes
     });
@@ -76,7 +76,7 @@ export const useCustomer = () => {
 
   const useUpdateCustomerProfile = (address: string) => {
     return useMutation({
-      mutationFn: async (updates: { name?: string; email?: string; phone?: string }) => {
+      mutationFn: async (updates: { name?: string; email?: string; phone?: string; profile_image_url?: string }) => {
         const response = await customerApi.update(address, updates);
         return response.data;
       },

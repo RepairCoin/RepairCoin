@@ -33,6 +33,7 @@ const transformCustomer = (customer: any): CustomerData => ({
   isActive: customer.is_active ?? customer.isActive ?? true,
   isSuspended: customer.suspended ?? customer.is_suspended ?? customer.isSuspended ?? (customer.is_active === false) ?? false,
   suspensionReason: customer.suspension_reason ?? customer.suspensionReason ?? null,
+  profileImageUrl: customer.profile_image_url ?? customer.profileImageUrl ?? null,
   total_transactions: getNumericValue(customer.total_transactions, undefined, 0),
   last_transaction_date: getStringValue(customer.last_transaction_date, customer.lastEarnedDate, ""),
 });

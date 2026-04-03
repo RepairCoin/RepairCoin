@@ -7,6 +7,7 @@ import { useCustomerProfileQuery } from "../queries";
 import { useUpdateCustomerProfileMutation } from "../mutations";
 import { CustomerEditFormData } from "../../types";
 import { isValidEmail } from "../../utils";
+import { queryClient, queryKeys } from "@/shared/config/queryClient";
 
 /**
  * Hook for customer edit profile screen
@@ -30,13 +31,14 @@ export const useCustomerEditProfile = () => {
   // Initialize form data when customer data loads
   useEffect(() => {
     if (customerData?.customer) {
+      const imageUrl = customerData.customer.profileImageUrl || customerData.customer.profile_image_url || "";
       setFormData({
         name: customerData.customer.name || "",
         email: customerData.customer.email || "",
         phone: customerData.customer.phone || "",
-        profileImageUrl: customerData.customer.profileImageUrl || "",
+        profileImageUrl: imageUrl,
       });
-      setSelectedAvatar(customerData.customer.profileImageUrl || null);
+      setSelectedAvatar(imageUrl || null);
     }
   }, [customerData]);
 
@@ -81,6 +83,13 @@ export const useCustomerEditProfile = () => {
         throw new Error(result.error || result.message || "Upload failed");
       }
 
+      // Refetch so account screen picks up the new image immediately
+      if (account?.address) {
+        await queryClient.refetchQueries({
+          queryKey: queryKeys.customerProfile(account.address),
+        });
+      }
+
       return result.url;
     } catch (error) {
       console.error("Upload avatar error:", error);
@@ -89,7 +98,7 @@ export const useCustomerEditProfile = () => {
     } finally {
       setIsUploadingAvatar(false);
     }
-  }, [accessToken, showError]);
+  }, [accessToken, account?.address, showError]);
 
   // Handle avatar pick
   const handleAvatarPick = useCallback(async () => {
@@ -139,7 +148,15 @@ export const useCustomerEditProfile = () => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        profile_image_url: formData.profileImageUrl,
       });
+
+      // Refetch so account screen updates immediately
+      if (account?.address) {
+        await queryClient.refetchQueries({
+          queryKey: queryKeys.customerProfile(account.address),
+        });
+      }
 
       showSuccess("Profile updated successfully");
       goBack();

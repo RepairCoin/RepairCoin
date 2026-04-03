@@ -23,7 +23,9 @@ export const useCustomerProfileScreen = (walletAddress: string) => {
       try {
         const response = await customerApi.getCustomerByWalletAddress(walletAddress);
         if (response?.data?.customer) {
-          setCustomerData(response.data.customer);
+          const customer = response.data.customer as any;
+          customer.profileImageUrl = customer.profileImageUrl || customer.profile_image_url || null;
+          setCustomerData(customer as CustomerData);
         } else {
           setError("Customer not found");
         }

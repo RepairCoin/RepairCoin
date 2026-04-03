@@ -68,6 +68,7 @@ export default function CustomerProfileScreen() {
         <CustomerProfileHeader
           name={customerData.name}
           tier={customerData.tier}
+          profileImageUrl={customerData.profileImageUrl}
         />
 
         <CustomerStats
