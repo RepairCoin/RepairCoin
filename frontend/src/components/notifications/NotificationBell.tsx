@@ -287,6 +287,36 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return '▶️';
       case 'subscription_reactivated':
         return '🔄';
+      case 'support_message_received':
+        return '💬';
+      case 'support_ticket_created':
+        return '🎫';
+      case 'support_ticket_updated':
+        return '📋';
+      case 'service_booking_received':
+        return '📦';
+      case 'service_order_completed':
+        return '✅';
+      case 'service_payment_failed':
+        return '❌';
+      case 'service_order_cancelled':
+        return '🚫';
+      case 'appointment_reminder':
+      case 'upcoming_appointment':
+      case 'upcoming_appointment_2h':
+        return '⏰';
+      case 'booking_confirmed':
+        return '📅';
+      case 'reschedule_request_created':
+      case 'reschedule_request_approved':
+      case 'reschedule_request_rejected':
+      case 'reschedule_request_expired':
+      case 'booking_rescheduled_by_shop':
+        return '🔄';
+      case 'shop_suspended':
+        return '🚫';
+      case 'shop_unsuspended':
+        return '✅';
       default:
         return '📬';
     }
@@ -318,6 +348,40 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return 'Subscription Resumed';
       case 'subscription_reactivated':
         return 'Subscription Reactivated';
+      case 'support_message_received':
+        return 'Support Reply';
+      case 'support_ticket_created':
+        return 'New Support Ticket';
+      case 'support_ticket_updated':
+        return 'Support Ticket Updated';
+      case 'service_booking_received':
+        return 'New Booking';
+      case 'service_order_completed':
+        return 'Order Completed';
+      case 'service_payment_failed':
+        return 'Payment Failed';
+      case 'service_order_cancelled':
+        return 'Order Cancelled';
+      case 'appointment_reminder':
+      case 'upcoming_appointment':
+      case 'upcoming_appointment_2h':
+        return 'Appointment Reminder';
+      case 'booking_confirmed':
+        return 'Booking Confirmed';
+      case 'reschedule_request_created':
+        return 'Reschedule Request';
+      case 'reschedule_request_approved':
+        return 'Reschedule Approved';
+      case 'reschedule_request_rejected':
+        return 'Reschedule Rejected';
+      case 'reschedule_request_expired':
+        return 'Reschedule Expired';
+      case 'booking_rescheduled_by_shop':
+        return 'Booking Rescheduled';
+      case 'shop_suspended':
+        return 'Shop Suspended';
+      case 'shop_unsuspended':
+        return 'Shop Unsuspended';
       default:
         return 'Notification';
     }
@@ -524,6 +588,80 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
                         <span className="text-gray-400">Transaction ID:</span>
                         <p className="text-white font-mono text-xs mt-1 break-all">
                           {notification.metadata.transactionId}
+                        </p>
+                      </div>
+                    )}
+
+                    {notification.metadata.subject && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Subject:</span>
+                        <span className="text-white">{notification.metadata.subject}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.ticketId && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Ticket ID:</span>
+                        <p className="text-white font-mono text-xs mt-1 break-all">
+                          {notification.metadata.ticketId}
+                        </p>
+                      </div>
+                    )}
+
+                    {notification.metadata.serviceName && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Service:</span>
+                        <span className="text-white">{notification.metadata.serviceName}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.customerName && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Customer:</span>
+                        <span className="text-white">{notification.metadata.customerName}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.bookingTime && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Time:</span>
+                        <span className="text-white">{notification.metadata.bookingTime}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.bookingDate && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Date:</span>
+                        <span className="text-white">{new Date(notification.metadata.bookingDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.totalAmount && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Total:</span>
+                        <span className="text-white">${notification.metadata.totalAmount}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.rcnEarned && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">RCN Earned:</span>
+                        <span className="text-white">{notification.metadata.rcnEarned} RCN</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.reason && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Reason:</span>
+                        <p className="text-white mt-1">{notification.metadata.reason}</p>
+                      </div>
+                    )}
+
+                    {notification.metadata.orderId && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Order ID:</span>
+                        <p className="text-white font-mono text-xs mt-1 break-all">
+                          {notification.metadata.orderId}
                         </p>
                       </div>
                     )}
