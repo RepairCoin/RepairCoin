@@ -174,6 +174,148 @@ export class NotificationRepository extends BaseRepository {
     }
   }
 
+  async findByReceiverMulti(
+    addresses: string[],
+    pagination: PaginationParams
+  ): Promise<PaginatedResult<Notification>> {
+    try {
+      const lowerAddresses = addresses.map(a => a.toLowerCase());
+      const offset = this.getPaginationOffset(pagination.page, pagination.limit);
+
+      const countQuery = `
+        SELECT COUNT(*) FROM notifications WHERE receiver_address = ANY($1)
+      `;
+      const countResult = await this.pool.query(countQuery, [lowerAddresses]);
+      const totalItems = parseInt(countResult.rows[0].count, 10);
+
+      const query = `
+        SELECT
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
+        FROM notifications
+        WHERE receiver_address = ANY($1)
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+      const result = await this.pool.query(query, [
+        lowerAddresses,
+        pagination.limit,
+        offset
+      ]);
+
+      const items = result.rows.map(row => {
+        const notification = this.mapSnakeToCamel(row);
+        notification.metadata = typeof notification.metadata === 'string'
+          ? JSON.parse(notification.metadata)
+          : notification.metadata;
+        return notification;
+      });
+
+      const totalPages = Math.ceil(totalItems / pagination.limit);
+
+      return {
+        items,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          totalItems,
+          totalPages,
+          hasMore: pagination.page < totalPages
+        }
+      };
+    } catch (error: any) {
+      logger.error('Error finding notifications by multiple receivers:', error);
+      throw new Error(`Failed to find notifications: ${error.message}`);
+    }
+  }
+
+  async findUnreadByReceiverMulti(addresses: string[]): Promise<Notification[]> {
+    try {
+      const lowerAddresses = addresses.map(a => a.toLowerCase());
+      const query = `
+        SELECT
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
+        FROM notifications
+        WHERE receiver_address = ANY($1) AND is_read = false
+        ORDER BY created_at DESC
+      `;
+      const result = await this.pool.query(query, [lowerAddresses]);
+
+      return result.rows.map(row => {
+        const notification = this.mapSnakeToCamel(row);
+        notification.metadata = typeof notification.metadata === 'string'
+          ? JSON.parse(notification.metadata)
+          : notification.metadata;
+        return notification;
+      });
+    } catch (error: any) {
+      logger.error('Error finding unread notifications for multiple receivers:', error);
+      throw new Error(`Failed to find unread notifications: ${error.message}`);
+    }
+  }
+
+  async getUnreadCountMulti(addresses: string[]): Promise<number> {
+    try {
+      const lowerAddresses = addresses.map(a => a.toLowerCase());
+      const query = `
+        SELECT COUNT(*) FROM notifications
+        WHERE receiver_address = ANY($1) AND is_read = false
+      `;
+      const result = await this.pool.query(query, [lowerAddresses]);
+      return parseInt(result.rows[0].count, 10);
+    } catch (error: any) {
+      logger.error('Error getting unread count for multiple receivers:', error);
+      throw new Error(`Failed to get unread count: ${error.message}`);
+    }
+  }
+
+  async markAllAsReadMulti(addresses: string[]): Promise<number> {
+    try {
+      const lowerAddresses = addresses.map(a => a.toLowerCase());
+      const query = `
+        UPDATE notifications
+        SET is_read = true, updated_at = NOW()
+        WHERE receiver_address = ANY($1) AND is_read = false
+      `;
+      const result = await this.pool.query(query, [lowerAddresses]);
+
+      logger.info(`Marked ${result.rowCount} notifications as read for [${lowerAddresses.join(', ')}]`);
+      return result.rowCount || 0;
+    } catch (error: any) {
+      logger.error('Error marking all notifications as read for multiple receivers:', error);
+      throw new Error(`Failed to mark all notifications as read: ${error.message}`);
+    }
+  }
+
+  async deleteAllForReceiverMulti(addresses: string[]): Promise<number> {
+    try {
+      const lowerAddresses = addresses.map(a => a.toLowerCase());
+      const query = 'DELETE FROM notifications WHERE receiver_address = ANY($1)';
+      const result = await this.pool.query(query, [lowerAddresses]);
+
+      logger.info(`Deleted ${result.rowCount} notifications for [${lowerAddresses.join(', ')}]`);
+      return result.rowCount || 0;
+    } catch (error: any) {
+      logger.error('Error deleting notifications for multiple receivers:', error);
+      throw new Error(`Failed to delete notifications: ${error.message}`);
+    }
+  }
+
   async findUnreadByReceiver(receiverAddress: string): Promise<Notification[]> {
     try {
       const query = `

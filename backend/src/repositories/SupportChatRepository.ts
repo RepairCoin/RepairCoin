@@ -162,6 +162,7 @@ export class SupportChatRepository {
           SELECT m.message
           FROM support_messages m
           WHERE m.ticket_id = t.id
+            AND m.is_internal = false
           ORDER BY m.created_at DESC
           LIMIT 1
         ) as "lastMessage"

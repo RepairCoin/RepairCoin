@@ -54,9 +54,10 @@ export default function AboutHero() {
                 className="stroke-[2] sm:stroke-[3] md:stroke-[4]"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+                initial={{ pathLength: 0, opacity: 0 }}
+                whileInView={{ pathLength: 1, opacity: 1 }}
+                viewport={{ once: true, amount: 0.5 }}
+                transition={{ duration: 0.8, delay: 0.6, ease: "easeOut", opacity: { duration: 0.01, delay: 0.6 } }}
               />
             </svg>
           </span>
