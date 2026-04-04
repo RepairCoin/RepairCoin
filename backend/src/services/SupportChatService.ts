@@ -6,14 +6,30 @@ import {
   SupportMessage
 } from '../repositories/SupportChatRepository';
 import { NotificationService } from '../domains/notification/services/NotificationService';
+import { ShopRepository } from '../repositories/ShopRepository';
 
 export class SupportChatService {
   private repository: SupportChatRepository;
   private notificationService: NotificationService;
+  private shopRepository: ShopRepository;
 
   constructor() {
     this.repository = new SupportChatRepository();
     this.notificationService = new NotificationService();
+    this.shopRepository = new ShopRepository();
+  }
+
+  /**
+   * Resolve a shop's wallet address from their shopId.
+   * Falls back to shopId if lookup fails.
+   */
+  private async resolveShopWalletAddress(shopId: string): Promise<string> {
+    try {
+      const shop = await this.shopRepository.getShop(shopId);
+      return shop?.walletAddress || shopId;
+    } catch {
+      return shopId;
+    }
   }
 
   /**
@@ -116,6 +132,10 @@ export class SupportChatService {
 
     if (!params.message || params.message.trim().length === 0) {
       throw new Error('Message content is required');
+    }
+
+    if (params.message.length > 10000) {
+      throw new Error('Message cannot exceed 10,000 characters');
     }
 
     if (!params.senderType || !['shop', 'admin', 'system'].includes(params.senderType)) {
@@ -235,14 +255,13 @@ export class SupportChatService {
    * Notify admins of a new ticket
    */
   private async notifyAdminsOfNewTicket(ticket: SupportTicket): Promise<void> {
-    // Get all admin addresses from environment
+    const shopAddress = await this.resolveShopWalletAddress(ticket.shopId);
     const adminAddresses = process.env.ADMIN_ADDRESSES?.split(',').map(addr => addr.trim().toLowerCase()) || [];
 
-    // Send notification to all admins
     for (const adminAddress of adminAddresses) {
       try {
         await this.notificationService.createNotification({
-          senderAddress: ticket.shopId,
+          senderAddress: shopAddress,
           receiverAddress: adminAddress,
           notificationType: 'support_ticket_created',
           message: `New support ticket from shop: ${ticket.subject}`,
@@ -263,10 +282,11 @@ export class SupportChatService {
    * Notify admins of a new message
    */
   private async notifyAdminsOfNewMessage(ticket: SupportTicket, message: SupportMessage): Promise<void> {
-    // If ticket is assigned, notify only the assigned admin
+    const shopAddress = await this.resolveShopWalletAddress(ticket.shopId);
+
     if (ticket.assignedTo) {
       await this.notificationService.createNotification({
-        senderAddress: ticket.shopId,
+        senderAddress: shopAddress,
         receiverAddress: ticket.assignedTo,
         notificationType: 'support_message_received',
         message: `New message on ticket: ${ticket.subject}`,
@@ -278,12 +298,11 @@ export class SupportChatService {
         }
       });
     } else {
-      // Notify all admins if unassigned
       const adminAddresses = process.env.ADMIN_ADDRESSES?.split(',').map(addr => addr.trim().toLowerCase()) || [];
       for (const adminAddress of adminAddresses) {
         try {
           await this.notificationService.createNotification({
-            senderAddress: ticket.shopId,
+            senderAddress: shopAddress,
             receiverAddress: adminAddress,
             notificationType: 'support_message_received',
             message: `New message on ticket: ${ticket.subject}`,

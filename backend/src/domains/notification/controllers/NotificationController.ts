@@ -10,14 +10,33 @@ export class NotificationController {
   }
 
   /**
+   * Build array of all addresses this user might receive notifications at.
+   * For shop users, this includes both their wallet address and shopId,
+   * since some notifications (e.g., support) use shopId as receiver.
+   */
+  private getReceiverAddresses(req: Request): string[] {
+    const walletAddress = req.user?.address;
+    const shopId = req.user?.shopId;
+    return [walletAddress, shopId].filter(Boolean) as string[];
+  }
+
+  /**
+   * Check if a notification belongs to this user (by any of their addresses).
+   */
+  private isOwner(notification: { receiverAddress: string }, addresses: string[]): boolean {
+    const receiverLower = notification.receiverAddress.toLowerCase();
+    return addresses.some(addr => addr.toLowerCase() === receiverLower);
+  }
+
+  /**
    * GET /api/notifications
    * Get paginated notifications for authenticated user
    */
   async getNotifications(req: Request, res: Response): Promise<void> {
     try {
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
@@ -25,7 +44,7 @@ export class NotificationController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
 
-      const result = await this.service.getNotificationsByReceiver(walletAddress, {
+      const result = await this.service.getNotificationsByReceiverMulti(addresses, {
         page,
         limit
       });
@@ -43,14 +62,14 @@ export class NotificationController {
    */
   async getUnreadNotifications(req: Request, res: Response): Promise<void> {
     try {
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
 
-      const notifications = await this.service.getUnreadNotifications(walletAddress);
+      const notifications = await this.service.getUnreadNotificationsMulti(addresses);
 
       res.json({ notifications });
     } catch (error: any) {
@@ -65,14 +84,14 @@ export class NotificationController {
    */
   async getUnreadCount(req: Request, res: Response): Promise<void> {
     try {
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
 
-      const count = await this.service.getUnreadCount(walletAddress);
+      const count = await this.service.getUnreadCountMulti(addresses);
 
       res.json({ count });
     } catch (error: any) {
@@ -88,9 +107,9 @@ export class NotificationController {
   async getNotificationById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
@@ -103,7 +122,7 @@ export class NotificationController {
       }
 
       // Ensure user can only access their own notifications
-      if (notification.receiverAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      if (!this.isOwner(notification, addresses)) {
         res.status(403).json({ error: 'Forbidden' });
         return;
       }
@@ -122,9 +141,9 @@ export class NotificationController {
   async markAsRead(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
@@ -137,7 +156,7 @@ export class NotificationController {
         return;
       }
 
-      if (notification.receiverAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      if (!this.isOwner(notification, addresses)) {
         res.status(403).json({ error: 'Forbidden' });
         return;
       }
@@ -157,14 +176,14 @@ export class NotificationController {
    */
   async markAllAsRead(req: Request, res: Response): Promise<void> {
     try {
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
 
-      const count = await this.service.markAllAsRead(walletAddress);
+      const count = await this.service.markAllAsReadMulti(addresses);
 
       res.json({ message: `Marked ${count} notifications as read`, count });
     } catch (error: any) {
@@ -180,9 +199,9 @@ export class NotificationController {
   async deleteNotification(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
@@ -195,7 +214,7 @@ export class NotificationController {
         return;
       }
 
-      if (notification.receiverAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      if (!this.isOwner(notification, addresses)) {
         res.status(403).json({ error: 'Forbidden' });
         return;
       }
@@ -215,14 +234,14 @@ export class NotificationController {
    */
   async deleteAllNotifications(req: Request, res: Response): Promise<void> {
     try {
-      const walletAddress = req.user?.address;
+      const addresses = this.getReceiverAddresses(req);
 
-      if (!walletAddress) {
+      if (addresses.length === 0) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
 
-      const count = await this.service.deleteAllForReceiver(walletAddress);
+      const count = await this.service.deleteAllForReceiverMulti(addresses);
 
       res.json({ message: `Deleted ${count} notifications`, count });
     } catch (error: any) {

@@ -290,6 +290,18 @@ export class NotificationService {
     }
   }
 
+  async getNotificationsByReceiverMulti(
+    addresses: string[],
+    pagination: PaginationParams
+  ): Promise<PaginatedResult<Notification>> {
+    try {
+      return await this.repository.findByReceiverMulti(addresses, pagination);
+    } catch (error: any) {
+      logger.error('Error in NotificationService.getNotificationsByReceiverMulti:', error);
+      throw error;
+    }
+  }
+
   async getUnreadNotifications(receiverAddress: string): Promise<Notification[]> {
     try {
       return await this.repository.findUnreadByReceiver(receiverAddress);
@@ -299,11 +311,29 @@ export class NotificationService {
     }
   }
 
+  async getUnreadNotificationsMulti(addresses: string[]): Promise<Notification[]> {
+    try {
+      return await this.repository.findUnreadByReceiverMulti(addresses);
+    } catch (error: any) {
+      logger.error('Error in NotificationService.getUnreadNotificationsMulti:', error);
+      throw error;
+    }
+  }
+
   async getUnreadCount(receiverAddress: string): Promise<number> {
     try {
       return await this.repository.getUnreadCount(receiverAddress);
     } catch (error: any) {
       logger.error('Error in NotificationService.getUnreadCount:', error);
+      throw error;
+    }
+  }
+
+  async getUnreadCountMulti(addresses: string[]): Promise<number> {
+    try {
+      return await this.repository.getUnreadCountMulti(addresses);
+    } catch (error: any) {
+      logger.error('Error in NotificationService.getUnreadCountMulti:', error);
       throw error;
     }
   }
@@ -326,6 +356,15 @@ export class NotificationService {
     }
   }
 
+  async markAllAsReadMulti(addresses: string[]): Promise<number> {
+    try {
+      return await this.repository.markAllAsReadMulti(addresses);
+    } catch (error: any) {
+      logger.error('Error in NotificationService.markAllAsReadMulti:', error);
+      throw error;
+    }
+  }
+
   async deleteNotification(notificationId: string): Promise<boolean> {
     try {
       return await this.repository.delete(notificationId);
@@ -340,6 +379,15 @@ export class NotificationService {
       return await this.repository.deleteAllForReceiver(receiverAddress);
     } catch (error: any) {
       logger.error('Error in NotificationService.deleteAllForReceiver:', error);
+      throw error;
+    }
+  }
+
+  async deleteAllForReceiverMulti(addresses: string[]): Promise<number> {
+    try {
+      return await this.repository.deleteAllForReceiverMulti(addresses);
+    } catch (error: any) {
+      logger.error('Error in NotificationService.deleteAllForReceiverMulti:', error);
       throw error;
     }
   }
