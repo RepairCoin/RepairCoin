@@ -104,7 +104,7 @@ const Footer = React.memo(() => {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/contact-us"
                   className="text-base text-white hover:text-[#ffcc00] transition-colors"
                 >
                   Contact Us
@@ -166,7 +166,7 @@ const Footer = React.memo(() => {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/contact-us"
                   className="text-base text-white hover:text-[#ffcc00] transition-colors"
                 >
                   Contact Us
@@ -190,7 +190,7 @@ const Footer = React.memo(() => {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/privacy-policy"
                   className="text-base text-white hover:text-[#ffcc00] transition-colors"
                 >
                   Privacy Policy
