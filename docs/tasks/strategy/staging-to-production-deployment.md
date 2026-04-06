@@ -13,7 +13,7 @@
 | **Backend Host** | Digital Ocean App Platform (NYC) | Digital Ocean App Platform (SGP) |
 | **Frontend Host** | Vercel (`repaircoin-staging.vercel.app`) | Vercel (`repaircoin.vercel.app` / `repaircoin.ai`) |
 | **Database** | DO Managed PostgreSQL (staging cluster) | DO Managed PostgreSQL (production cluster) |
-| **Auto Deploy** | Yes — push to `main` triggers backend deploy | Needs verification — merge to `prod` may trigger deploy |
+| **Auto Deploy** | Yes — push to `main` triggers deploy | Yes — push to `prod` triggers deploy |
 | **NODE_ENV** | `staging` | `production` |
 | **Region** | NYC | SGP (Singapore) |
 
@@ -33,10 +33,10 @@ Digital Ocean App Platform uses `deploy_on_push: true` in the app spec. When cod
 - Config: `.do/app.yaml` — branch `main`, `deploy_on_push: true`
 - Push to `main` → auto deploys to staging
 
-### Production (Needs Verification)
-- Config: `backend/.do/app.yaml` — currently shows branch `main` in the yaml file
-- The actual DO dashboard may override this to `prod` branch
-- **Action Required**: Verify in DO dashboard (Apps → repaircoin-backend → Settings → App Spec) which branch triggers production deploy
+### Production (Confirmed Working)
+- Push to `prod` → auto deploys backend (DO) and frontend (Vercel)
+- Config in repo: `backend/.do/app.yaml` shows `branch: main` but DO dashboard overrides to `prod`
+- Successfully deployed on 2026-04-03 via `git merge main && git push origin prod`
 
 ---
 
@@ -114,17 +114,9 @@ git push origin prod
 git checkout deo/dev
 ```
 
-**If auto deploy is NOT enabled for prod branch:**
-- Option A: Enable it in DO dashboard (Apps → Settings → App Spec → change branch to `prod`, enable `deploy_on_push`)
-- Option B: Manual deploy via DO dashboard (Apps → repaircoin-backend → Actions → Deploy)
-- Option C: Deploy via CLI: `doctl apps create-deployment <app-id>`
-
 ### Deploy Frontend (Vercel)
 
-Vercel deployment depends on how it's configured:
-- If Vercel watches `main` branch → production frontend may already be deploying from main
-- If Vercel watches `prod` branch → the merge above will trigger it
-- Check Vercel dashboard (Settings → Git → Production Branch) to confirm
+Vercel auto-deploys when `prod` branch is pushed. No separate step needed — the `git push origin prod` above triggers both backend (DO) and frontend (Vercel) deployments simultaneously.
 
 ### Post-Deployment Verification
 
@@ -185,9 +177,70 @@ pool.query('SELECT version, applied_at FROM schema_migrations ORDER BY version D
 
 ---
 
+## Full Deployment Workflow (Tested & Confirmed)
+
+This is the exact process used on 2026-04-03 to deploy from dev to production:
+
+```bash
+# ── Step 1: Commit changes on deo/dev ──
+git add <files>
+git commit -m "description"
+git push origin deo/dev
+
+# ── Step 2: Merge deo/dev → main (triggers staging deploy) ──
+git stash                          # stash any uncommitted files (e.g. .claude/settings.local.json)
+git checkout main
+git pull origin main
+git merge deo/dev
+git push origin main               # → Staging auto-deploys (DO + Vercel)
+
+# ── Step 3: Merge main → prod (triggers production deploy) ──
+git checkout prod
+git pull origin prod
+git merge main
+git push origin prod               # → Production auto-deploys (DO + Vercel)
+
+# ── Step 4: Return to dev branch ──
+git checkout deo/dev
+git stash pop                      # restore stashed files
+```
+
+### What Happens Automatically After Push
+
+| Step | Trigger | What Runs |
+|---|---|---|
+| 1. GitHub receives push | `git push origin prod` | Notifies DO App Platform + Vercel |
+| 2. DO builds backend | `deploy_on_push: true` | `npm run build` (TypeScript compile) |
+| 3. DO starts backend | `npm start` | `prestart` hook runs `db:migrate` first |
+| 4. Migrations apply | `db:migrate` script | Pending SQL files run in transaction |
+| 5. App serves traffic | Health check passes | `/api/health` returns 200 |
+| 6. Vercel builds frontend | Push detected on `prod` | `next build` (standalone output) |
+| 7. Frontend live | Build succeeds | Vercel CDN serves new version |
+
+### Common Issues During Deploy
+
+| Issue | Solution |
+|---|---|
+| `.claude/settings.local.json` blocks checkout | `git stash` before switching branches, `git stash pop` after |
+| Push rejected (secrets detected) | Remove `.claude/settings.local.json` from staging, it contains DB passwords |
+| Merge conflicts | Resolve on `main` first, then merge clean `main` into `prod` |
+| Migration fails on deploy | Non-fatal — app starts anyway. Check DO logs for details |
+
+---
+
+## Deployment Log
+
+### 2026-04-03
+- **Deployed by**: deo/dev → main → prod
+- **Commits**: ~110 commits (notification preferences fix, group rewards dropdown fix, mobile features, map overhaul, Google Calendar, moderation system, privacy policy page, FixFlow rebrand)
+- **Migrations**: None new — all existing migrations already applied
+- **Issues**: None — clean deploy
+
+---
+
 ## Action Items
 
-- [ ] **Verify production auto-deploy**: Check DO dashboard → Apps → repaircoin-backend → Settings → App Spec → confirm branch is `prod` and `deploy_on_push: true`
-- [ ] **Verify Vercel production branch**: Check Vercel dashboard → Settings → Git → confirm which branch triggers production frontend deploy
+- [x] **Verify production auto-deploy**: Confirmed working — push to `prod` triggers both DO and Vercel deploys
+- [x] **Verify Vercel production branch**: Confirmed — Vercel watches `prod` branch
 - [ ] **Update `backend/.do/app.yaml`**: Change `branch: main` to `branch: prod` to match actual production config
 - [ ] **Consider branch protection**: Add GitHub branch protection rules on `prod` to require PR reviews before merge

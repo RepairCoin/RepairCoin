@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
 import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
+import { ModerationRepository } from '../../../repositories/ModerationRepository';
 
 export interface CreatePaymentIntentRequest {
   serviceId: string;
@@ -131,6 +132,13 @@ export class PaymentService {
 
       if (!service.active) {
         throw new Error('Service is not available for booking');
+      }
+
+      // Check if customer is blocked by this shop
+      const moderationRepo = new ModerationRepository();
+      const isBlocked = await moderationRepo.isCustomerBlocked(service.shopId, request.customerAddress);
+      if (isBlocked) {
+        throw new Error('You are unable to book services at this shop. Please contact the shop for more information.');
       }
 
       // Check no-show policy restrictions for the customer
@@ -335,6 +343,13 @@ export class PaymentService {
 
       if (!service.active) {
         throw new Error('Service is not available for booking');
+      }
+
+      // Check if customer is blocked by this shop
+      const moderationRepoCheckout = new ModerationRepository();
+      const isBlockedCheckout = await moderationRepoCheckout.isCustomerBlocked(service.shopId, request.customerAddress);
+      if (isBlockedCheckout) {
+        throw new Error('You are unable to book services at this shop. Please contact the shop for more information.');
       }
 
       // Check no-show policy restrictions for the customer
