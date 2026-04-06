@@ -14,8 +14,7 @@ interface StatItem {
 }
 
 export default function CalendarStatsCards({ bookings }: CalendarStatsCardsProps) {
-  const pending = bookings.filter((b) => b.status === "pending").length;
-  const paid = bookings.filter(
+  const approved = bookings.filter(
     (b) => b.status === "paid" || b.status === "confirmed"
   ).length;
   const completed = bookings.filter((b) => b.status === "completed").length;
@@ -24,8 +23,7 @@ export default function CalendarStatsCards({ bookings }: CalendarStatsCardsProps
   ).length;
 
   const stats: StatItem[] = [
-    { label: "Pending", count: pending, color: "#eab308", icon: "time-outline" },
-    { label: "Confirmed", count: paid, color: "#3b82f6", icon: "checkmark-circle-outline" },
+    { label: "Approved", count: approved, color: "#3b82f6", icon: "checkmark-circle-outline" },
     { label: "Completed", count: completed, color: "#22c55e", icon: "checkmark-done-outline" },
     { label: "Cancelled", count: cancelled, color: "#ef4444", icon: "close-circle-outline" },
   ];

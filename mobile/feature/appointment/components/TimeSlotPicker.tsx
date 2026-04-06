@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
@@ -57,12 +56,7 @@ export default function TimeSlotPicker({
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      className="-mx-4"
-      contentContainerStyle={{ paddingHorizontal: 16 }}
-    >
+    <View className="flex-row flex-wrap" style={{ gap: 8 }}>
       {timeSlots.map((slot, index) => {
         const isSelected = selectedTime === slot.time;
         const isAvailable = slot.available;
@@ -71,7 +65,7 @@ export default function TimeSlotPicker({
             key={index}
             onPress={() => isAvailable && onTimeSelect(slot.time)}
             disabled={!isAvailable}
-            className={`mr-3 px-5 py-3 rounded-xl ${
+            className={`px-4 py-3 rounded-xl ${
               isSelected
                 ? "bg-[#FFCC00]"
                 : isAvailable
@@ -93,6 +87,6 @@ export default function TimeSlotPicker({
           </TouchableOpacity>
         );
       })}
-    </ScrollView>
+    </View>
   );
 }

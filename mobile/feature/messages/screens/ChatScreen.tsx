@@ -14,6 +14,7 @@ import {
   ConversationMoreMenu,
   ConversationInfoModal,
 } from "../components";
+import UnlockModal from "../components/UnlockModal";
 import { Message } from "../types";
 import { messageApi } from "../services/message.services";
 
@@ -38,6 +39,8 @@ export default function ChatScreen() {
   const unlockSession = useUnlockSession();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [unlockMessage, setUnlockMessage] = useState<Message | null>(null);
+  const [, forceUpdate] = useState(0);
 
   const handleTextChange = useCallback(
     (text: string) => {
@@ -141,6 +144,7 @@ export default function ChatScreen() {
             conversation={conversation}
             isCustomer={isCustomer}
             unlockSession={unlockSession}
+            onRequestUnlock={(msg) => setUnlockMessage(msg)}
           />
         )}
       </View>
@@ -228,6 +232,15 @@ export default function ChatScreen() {
         conversation={conversation}
         isCustomer={isCustomer}
         messageCount={messages.length}
+      />
+
+      {/* Unlock Message Modal — outside KeyboardAvoidingView */}
+      <UnlockModal
+        visible={!!unlockMessage}
+        message={unlockMessage}
+        unlockSession={unlockSession}
+        onClose={() => setUnlockMessage(null)}
+        onUnlocked={() => forceUpdate((n) => n + 1)}
       />
     </SafeAreaView>
   );

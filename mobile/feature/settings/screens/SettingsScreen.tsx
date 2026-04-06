@@ -3,12 +3,9 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider } from "../components";
-import { useSettings, SettingsRole } from "../hooks/ui/useSettings";
+import { useSettings } from "../hooks/ui/useSettings";
 import { APP_VERSION } from "../constants";
-
-interface SettingsScreenProps {
-  role: SettingsRole;
-}
+import type { SettingsScreenProps } from "../types";
 
 export default function SettingsScreen({ role }: SettingsScreenProps) {
   const {
@@ -197,7 +194,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
 
         {/* App Version */}
         <Text className="text-gray-600 text-xs text-center mt-4">
-          RepairCoin v{APP_VERSION}
+          FixFlow v{APP_VERSION}
         </Text>
       </ScrollView>
     </View>

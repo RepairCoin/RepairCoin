@@ -12,6 +12,8 @@ import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
 import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
+import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
+import { ModerationRepository } from '../../../repositories/ModerationRepository';
 
 export interface CreatePaymentIntentRequest {
   serviceId: string;
@@ -36,6 +38,7 @@ function getDateString(date: Date | string): string {
   // If Date object, use local date components to avoid timezone issues
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
+
 
 /**
  * Convert booking date to Date object for database storage.
@@ -100,6 +103,7 @@ export class PaymentService {
   private appointmentRepository: AppointmentRepository;
   private transactionRepository: TransactionRepository;
   private noShowPolicyService: NoShowPolicyService;
+  private googleCalendarService: GoogleCalendarService;
 
   constructor(stripeService: StripeService) {
     this.orderRepository = new OrderRepository();
@@ -111,6 +115,7 @@ export class PaymentService {
     this.appointmentRepository = new AppointmentRepository();
     this.transactionRepository = new TransactionRepository();
     this.noShowPolicyService = new NoShowPolicyService();
+    this.googleCalendarService = new GoogleCalendarService();
   }
 
   /**
@@ -127,6 +132,13 @@ export class PaymentService {
 
       if (!service.active) {
         throw new Error('Service is not available for booking');
+      }
+
+      // Check if customer is blocked by this shop
+      const moderationRepo = new ModerationRepository();
+      const isBlocked = await moderationRepo.isCustomerBlocked(service.shopId, request.customerAddress);
+      if (isBlocked) {
+        throw new Error('You are unable to book services at this shop. Please contact the shop for more information.');
       }
 
       // Check no-show policy restrictions for the customer
@@ -331,6 +343,13 @@ export class PaymentService {
 
       if (!service.active) {
         throw new Error('Service is not available for booking');
+      }
+
+      // Check if customer is blocked by this shop
+      const moderationRepoCheckout = new ModerationRepository();
+      const isBlockedCheckout = await moderationRepoCheckout.isCustomerBlocked(service.shopId, request.customerAddress);
+      if (isBlockedCheckout) {
+        throw new Error('You are unable to book services at this shop. Please contact the shop for more information.');
       }
 
       // Check no-show policy restrictions for the customer
@@ -669,6 +688,39 @@ export class PaymentService {
         // Don't fail the payment if confirmation fails
       }
 
+      // Sync appointment to Google Calendar (if shop has calendar connected)
+      try {
+        if (order.bookingDate && order.bookingTime) {
+          const service = await this.serviceRepository.getServiceById(order.serviceId);
+          const customer = await customerRepository.getCustomer(order.customerAddress);
+
+          if (service) {
+            // Calculate end time (assuming 1 hour duration if not specified)
+            const startTime = order.bookingTime;
+            const endTime = this.calculateEndTime(startTime, 60);
+
+            await this.googleCalendarService.createEvent({
+              orderId: order.orderId,
+              serviceName: service.serviceName,
+              serviceDescription: service.description,
+              customerName: customer?.name,
+              customerEmail: customer?.email,
+              customerPhone: customer?.phone,
+              customerAddress: order.customerAddress,
+              bookingDate: getDateString(order.bookingDate),
+              startTime,
+              endTime,
+              totalAmount: order.totalAmount,
+              shopTimezone: 'America/New_York', // TODO: Get from shop settings
+            });
+            logger.info('Calendar event created for booking', { orderId: order.orderId });
+          }
+        }
+      } catch (calendarError) {
+        logger.error('Failed to create calendar event:', calendarError);
+        // Don't fail the payment if calendar sync fails
+      }
+
       return order;
     } catch (error) {
       logger.error('Error handling payment success:', error);
@@ -993,6 +1045,15 @@ export class PaymentService {
         logger.error('Failed to send customer cancellation email:', emailError);
       }
 
+      // 8. Delete calendar event if exists
+      try {
+        await this.googleCalendarService.deleteEvent(orderId, order.shopId);
+        logger.info('Calendar event deleted for cancelled booking', { orderId });
+      } catch (calendarError) {
+        logger.error('Failed to delete calendar event:', calendarError);
+        // Don't fail cancellation if calendar deletion fails
+      }
+
       logger.info('Order cancelled successfully', {
         orderId,
         cancellationReason,
@@ -1220,5 +1281,22 @@ export class PaymentService {
       logger.error('Error processing shop cancellation refund:', error);
       throw error;
     }
+  }
+
+  /**
+   * Calculate end time by adding duration in minutes to start time
+   * @param startTime - Time in HH:MM format
+   * @param durationMinutes - Duration to add
+   * @returns End time in HH:MM format
+   */
+  private calculateEndTime(startTime: string, durationMinutes: number): string {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+    startDate.setMinutes(startDate.getMinutes() + durationMinutes);
+
+    const endHours = String(startDate.getHours()).padStart(2, '0');
+    const endMinutes = String(startDate.getMinutes()).padStart(2, '0');
+    return `${endHours}:${endMinutes}`;
   }
 }

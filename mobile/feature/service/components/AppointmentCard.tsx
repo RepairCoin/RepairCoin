@@ -93,7 +93,7 @@ export function AppointmentCard({ appointment, onPress, onCancel, onReview }: Ap
               <Text
                 className={`text-xs font-medium ml-1 capitalize ${statusConfig.textColor}`}
               >
-                {appointment.status}
+                {statusConfig.label || appointment.status}
               </Text>
             </View>
             <Text className="text-[#FFCC00] font-bold">

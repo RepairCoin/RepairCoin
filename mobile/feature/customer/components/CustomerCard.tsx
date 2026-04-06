@@ -1,21 +1,7 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-
-interface CustomerCardProps {
-  name: string;
-  tier: string;
-  lifetimeEarnings: number;
-  lastTransactionDate?: string;
-  total_transactions?: number;
-  referralCount?: number;
-  totalRedemptions?: number;
-  joinDate?: string;
-  isSuspended?: boolean;
-  suspensionReason?: string | null;
-  onPress?: () => void;
-  onMessagePress?: () => void;
-}
+import type { CustomerCardProps } from "../types";
 
 const getTierConfig = (tier: string) => {
   switch (tier?.toLowerCase()) {
@@ -78,6 +64,7 @@ function CustomerCard({
   name,
   tier,
   lifetimeEarnings,
+  profileImageUrl,
   lastTransactionDate,
   total_transactions,
   referralCount,
@@ -105,19 +92,27 @@ function CustomerCard({
           <View className="flex-row items-center">
             {/* Avatar with gradient border */}
             <View
-              className="w-14 h-14 rounded-full items-center justify-center mr-4"
+              className="w-14 h-14 rounded-full items-center justify-center mr-4 overflow-hidden"
               style={{
                 backgroundColor: tierConfig.bgColor,
                 borderWidth: 2,
                 borderColor: tierConfig.color + "40",
               }}
             >
-              <Text
-                className="text-xl font-bold"
-                style={{ color: tierConfig.color }}
-              >
-                {getInitials(name)}
-              </Text>
+              {profileImageUrl ? (
+                <Image
+                  source={{ uri: profileImageUrl }}
+                  className="w-full h-full rounded-full"
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text
+                  className="text-xl font-bold"
+                  style={{ color: tierConfig.color }}
+                >
+                  {getInitials(name)}
+                </Text>
+              )}
             </View>
 
             {/* Info Section */}

@@ -16,7 +16,7 @@ export default function ChooseRoleScreen() {
         <View className="px-6 pt-16 pb-20 h-full">
           <Text className="text-4xl text-white">Welcome to</Text>
           <Text className="text-6xl text-[#FFCC00] font-extrabold mt-4">
-            RepairCoin
+            FixFlow
           </Text>
           <Text className="text-gray-400 mt-4">
             Choose how you'd like to join our blockchain-powered{"\n"}repair

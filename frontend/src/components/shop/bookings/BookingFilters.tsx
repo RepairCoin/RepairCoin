@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Search, MessageSquare } from "lucide-react";
+import { Search, MessageSquare, AlertTriangle } from "lucide-react";
 import { BookingStatus, MockBooking } from "./mockData";
 
 interface FilterCounts {
@@ -18,8 +18,8 @@ interface BookingFiltersProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   bookings: MockBooking[];
-  activeTab: 'bookings' | 'messages';
-  onTabChange: (tab: 'bookings' | 'messages') => void;
+  activeTab: 'bookings' | 'messages' | 'expired';
+  onTabChange: (tab: 'bookings' | 'messages' | 'expired') => void;
   unreadMessagesCount: number;
   filterCounts?: FilterCounts;
 }
@@ -53,7 +53,7 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Main Tabs: Bookings / Messages */}
+      {/* Main Tabs: Bookings / Messages / Expired */}
       <div className="flex items-center gap-2 border-b border-gray-800 pb-4">
         <button
           onClick={() => onTabChange('bookings')}
@@ -81,6 +81,17 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
               {unreadMessagesCount}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => onTabChange('expired')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'expired'
+              ? 'bg-[#1A1A1A] text-white border border-gray-700'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          Expired
         </button>
       </div>
 

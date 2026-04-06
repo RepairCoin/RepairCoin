@@ -16,7 +16,7 @@ import { TrendingServices } from "./TrendingServices";
 import { ShopsGridView } from "./ShopsGridView";
 import { useAuthStore } from "@/stores/authStore";
 import { serviceGroupApi } from "@/services/api/serviceGroups";
-import { getAllCustomerBalances, CustomerAffiliateGroupBalance, getAllGroups, AffiliateShopGroup } from "@/services/api/affiliateShopGroups";
+import { getAllCustomerBalances, CustomerAffiliateGroupBalance, getGroupsWithServices, AffiliateShopGroup } from "@/services/api/affiliateShopGroups";
 
 export const ServiceMarketplaceClient: React.FC = () => {
   const router = useRouter();
@@ -76,9 +76,9 @@ export const ServiceMarketplaceClient: React.FC = () => {
 
   const loadCustomerGroups = async () => {
     try {
-      // Load all public affiliate groups so customers can discover services
-      const allGroups = await getAllGroups({ isPrivate: false });
-      setCustomerGroups(allGroups);
+      // Only load groups that have at least 1 active linked service
+      const groups = await getGroupsWithServices();
+      setCustomerGroups(groups);
     } catch (error) {
       console.error('Error loading customer groups:', error);
     }
@@ -388,7 +388,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
         {activeTab === "shops" && (
           <ShopsGridView
             searchTerm={filters.search}
-            selectedCategory={filters.category}
+            selectedCategory=""
           />
         )}
 
@@ -448,7 +448,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
                       <SelectItem variant="dark" value="all">All Services (with or without group rewards)</SelectItem>
                       {customerGroups.map(group => (
                         <SelectItem variant="dark" key={group.groupId} value={group.groupId}>
-                          {group.icon || '🏪'} {group.groupName} - Earn {group.customTokenSymbol} tokens
+                          {group.icon || '🏪'} {group.groupName}{group.customTokenSymbol ? ` - Earn ${group.customTokenSymbol} tokens` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -548,16 +548,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
 
             {/* Map View */}
             {viewMode === "map" ? (
-              <ShopMapView
-                services={services}
-                loading={loading}
-                onShopSelect={(shopId) => {
-                  // Switch to grid view and filter by shop
-                  setViewMode("grid");
-                  setFilters({ ...filters, shopId });
-                  setPage(1);
-                }}
-              />
+              <ShopMapView />
             ) : null}
 
             {/* All Services Section */}

@@ -21,7 +21,7 @@ export const useRedemptionSignature = () => {
       }
 
       // Create the message to sign - MUST match backend format exactly
-      const message = `RepairCoin Redemption Request
+      const message = `FixFlow Redemption Request
 
 Session ID: ${sessionId}
 Customer: ${customerAddress}

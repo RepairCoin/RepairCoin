@@ -15,6 +15,7 @@ import { BookingCard } from "./BookingCard";
 import Pagination from "../groups/shared/Pagination";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
 import { CancelBookingModal } from "./CancelBookingModal";
+import { ExpiredBookingsSection } from "./ExpiredBookingsSection";
 import { toast } from "react-hot-toast";
 import {
   getShopOrders,
@@ -107,7 +108,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   );
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"bookings" | "messages">(
+  const [activeTab, setActiveTab] = useState<"bookings" | "messages" | "expired">(
     "bookings",
   );
   const [loading, setLoading] = useState(true);
@@ -645,6 +646,16 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Expired Tab Content */}
+      {activeTab === "expired" && (
+        <ExpiredBookingsSection
+          onRefreshNeeded={() => {
+            loadBookings();
+            loadCounts();
+          }}
+        />
       )}
 
       {/* Cancel Booking Modal */}

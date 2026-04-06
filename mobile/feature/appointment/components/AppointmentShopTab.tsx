@@ -19,14 +19,8 @@ import {
 } from "../hooks/ui";
 
 // Utils
-import {
-  getStatusColor,
-  formatAppointmentTime,
-  isToday,
-  isDateSelected,
-  getDaysInMonth,
-  getScrollableDays,
-} from "../utils";
+import { getStatusColor } from "../utils";
+import { isToday, isDateSelected, getDaysInMonth, getScrollableDays, formatTime12h } from "@/shared/utilities/calendar";
 import { APPOINTMENT_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -213,7 +207,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                   <View className="flex-row items-center mt-2">
                     <Ionicons name="time-outline" size={14} color="#FFCC00" />
                     <Text className="text-[#FFCC00] text-sm ml-1 font-medium">
-                      {formatAppointmentTime(booking.bookingDate || booking.createdAt)}
+                      {formatTime12h(booking.bookingDate || booking.createdAt)}
                     </Text>
                   </View>
                 </View>
@@ -241,20 +235,16 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
         {/* Legend */}
         <View className="flex-row flex-wrap justify-center mt-4 mb-6 gap-3">
           <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Pending</Text>
-          </View>
-          <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Paid</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Approved</Text>
           </View>
           <View className="flex-row items-center">
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
             <Text className="text-gray-500 text-xs">Completed</Text>
+          </View>
+          <View className="flex-row items-center">
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 4 }} />
+            <Text className="text-gray-500 text-xs">Cancelled</Text>
           </View>
         </View>
       </ScrollView>
@@ -473,20 +463,16 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                 {/* Legend */}
                 <View className="flex-row flex-wrap justify-center mt-4 gap-3">
                   <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#eab308', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Pending</Text>
-                  </View>
-                  <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Paid</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Approved</Text>
                   </View>
                   <View className="flex-row items-center">
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
                     <Text className="text-gray-500 text-xs">Completed</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 4 }} />
+                    <Text className="text-gray-500 text-xs">Cancelled</Text>
                   </View>
                 </View>
               </>

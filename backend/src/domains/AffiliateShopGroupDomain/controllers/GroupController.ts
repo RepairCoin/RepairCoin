@@ -133,6 +133,28 @@ export class GroupController {
   };
 
   /**
+   * Get only groups that have at least 1 active linked service.
+   * Used by customer marketplace "Discover Group Rewards" dropdown.
+   * Returns token symbols so customers can see what they'll earn.
+   */
+  getGroupsWithServices = async (_req: Request, res: Response) => {
+    try {
+      const groups = await this.service.getGroupsWithServices();
+
+      res.json({
+        success: true,
+        data: groups,
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getGroupsWithServices controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get groups with services',
+      });
+    }
+  };
+
+  /**
    * Get all groups (with filters)
    * Privacy: Shows all groups but hides sensitive data for private groups when not a member
    */

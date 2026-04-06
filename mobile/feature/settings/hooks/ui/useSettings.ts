@@ -3,26 +3,9 @@ import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useSettingsMutations } from "../mutations";
+import type { SettingsRole, SettingsConfig } from "../../types";
 
-export type SettingsRole = "customer" | "shop";
-
-export interface SettingsConfig {
-  editProfile: {
-    icon: "person-outline" | "storefront-outline";
-    subtitle: string;
-    route: string;
-  };
-  notificationPreferencesRoute: string;
-  roleSpecificHandlers: {
-    // Customer-specific
-    handleReferFriends?: () => void;
-    // Shop-specific
-    handleSubscription?: () => void;
-    handleBuyTokens?: () => void;
-    handleRedeemTokens?: () => void;
-    handleGroups?: () => void;
-  };
-}
+export type { SettingsRole, SettingsConfig } from "../../types";
 
 export function useSettings(role: SettingsRole) {
   const { account } = useAuthStore();

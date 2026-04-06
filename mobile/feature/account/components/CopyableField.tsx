@@ -3,11 +3,7 @@ import React from "react";
 import { Pressable, Text } from "react-native";
 import { Entypo } from "@expo/vector-icons";
 
-type CopyableFieldProps = {
-  value: string;
-  isCopied: boolean;
-  handleCopyValue: () => void;
-};
+import { CopyableFieldProps } from "../types";
 
 export default function CopyableField({
   value,

@@ -5,8 +5,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import { useHaptics } from "@/shared/hooks/useHaptics";
 
-// Fixed height for grid cards
-const CARD_HEIGHT = 240;
+// Fixed height for grid cards (increased for rating row)
+const CARD_HEIGHT = 255;
 
 interface ServiceCardProps {
   imageUrl?: string | null;
@@ -32,6 +32,9 @@ interface ServiceCardProps {
   onMenuPress?: () => void;
   variant?: "grid" | "list";
   showTrendingBadge?: boolean;
+  // Rating
+  avgRating?: number;
+  reviewCount?: number;
   // Favorites
   showFavoriteButton?: boolean;
   serviceId?: string;
@@ -55,6 +58,8 @@ function ServiceCard({
   onMenuPress,
   variant = "grid",
   showTrendingBadge = false,
+  avgRating,
+  reviewCount,
   showFavoriteButton = false,
   serviceId,
   isFavorited: initialFavorited,
@@ -151,7 +156,16 @@ function ServiceCard({
               </View>
 
               <View className="flex-row items-center justify-between mt-2">
-                <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
+                <View className="flex-row items-center">
+                  <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
+                  {avgRating != null && avgRating > 0 && (
+                    <View className="flex-row items-center ml-3">
+                      <Ionicons name="star" size={12} color="#FFCC00" />
+                      <Text className="text-white text-xs font-semibold ml-0.5">{avgRating.toFixed(1)}</Text>
+                      <Text className="text-gray-500 text-xs ml-1">({reviewCount})</Text>
+                    </View>
+                  )}
+                </View>
                 <View className="flex-row items-center">
                   {duration !== undefined ? (
                     <>
@@ -265,7 +279,7 @@ function ServiceCard({
             </View>
           )}
 
-          <View className="p-3">
+          <View className="p-3 flex-1 justify-between">
             <View>
               <View className="flex-row items-center justify-between mb-1">
                 <Text className="text-xs text-gray-500 uppercase tracking-wide">
@@ -282,6 +296,17 @@ function ServiceCard({
                 )}
               </View>
 
+              {/* Rating */}
+              {avgRating != null && avgRating > 0 ? (
+                <View className="flex-row items-center mb-1">
+                  <Ionicons name="star" size={12} color="#FFCC00" />
+                  <Text className="text-white text-xs font-semibold ml-0.5">{avgRating.toFixed(1)}</Text>
+                  <Text className="text-gray-500 text-xs ml-1">({reviewCount} {reviewCount === 1 ? "review" : "reviews"})</Text>
+                </View>
+              ) : (
+                <Text className="text-gray-600 text-xs mb-1">No reviews yet</Text>
+              )}
+
               <Text
                 className="text-white text-base font-semibold mb-1"
                 numberOfLines={1}
@@ -297,7 +322,7 @@ function ServiceCard({
               </Text>
             </View>
 
-            <View className="border-t border-gray-800 pt-3 mt-3 flex-row items-center justify-between">
+            <View className="border-t border-gray-800 pt-3 mt-auto flex-row items-center justify-between">
               <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
             </View>
           </View>

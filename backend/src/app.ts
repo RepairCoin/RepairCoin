@@ -40,6 +40,7 @@ import { autoMessageSchedulerService } from './services/AutoMessageSchedulerServ
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
+import { bookingCleanupService } from './services/BookingCleanupService';
 
 // WebSocket imports
 import { Server as WebSocketServer } from 'ws';
@@ -570,6 +571,7 @@ class RepairCoinApp {
       rescheduleExpirationService.stop();
       stopSubscriptionEnforcement();
       stopUnpaidBookingCleanup();
+      bookingCleanupService.stop();
       autoMessageSchedulerService.stop();
 
       // Common cleanup
@@ -737,6 +739,11 @@ class RepairCoinApp {
         // Auto-cancels unpaid manual bookings (pending status, pending payment) after 24 hours
         startUnpaidBookingCleanup();
         logger.info('🧹 Unpaid booking cleanup service started (every hour, 24h expiry)');
+
+        // Start booking cleanup service - runs every 2 hours
+        // Auto-cancels expired unpaid bookings (service date passed without payment)
+        bookingCleanupService.start();
+        logger.info('🗑️ Booking cleanup service started (every 2 hours, auto-cancel expired unpaid bookings)');
 
         // Start auto-message scheduler - runs every hour
         // Processes scheduled auto-messages (daily/weekly/monthly) and pending delayed sends

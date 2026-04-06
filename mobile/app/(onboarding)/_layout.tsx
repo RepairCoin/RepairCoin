@@ -67,9 +67,6 @@ export default function OnboardingLayout() {
   if (isLoading) {
     return (
       <View className="h-full w-full bg-black items-center justify-center px-8">
-        <View className="w-24 h-24 bg-[#FFCC00]/10 rounded-full items-center justify-center mb-8">
-          <Ionicons name="home" size={48} color="#FFCC00" />
-        </View>
         <Text className="text-white text-2xl font-bold text-center mb-2">
           Getting things ready
         </Text>

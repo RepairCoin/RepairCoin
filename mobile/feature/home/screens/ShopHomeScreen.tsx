@@ -29,7 +29,7 @@ export default function Home() {
         <View className="flex-row items-center justify-between">
           <Image
             source={require("@/assets/images/logo.png")}
-            className="w-[45%] h-10"
+            className="w-[30%] h-10"
             resizeMode="contain"
           />
           <View style={{ marginRight: -10 }} className="flex-row items-center gap-2">

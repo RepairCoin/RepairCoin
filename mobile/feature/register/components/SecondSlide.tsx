@@ -122,7 +122,7 @@ export default function SecondSlide({
           icon={<Feather name="user-plus" size={20} color="#FFCC00" />}
           value={formData.referral}
           onChangeText={(value) => updateFormData("referral", value)}
-          placeholder="Who referred you to RepairCoin?"
+          placeholder="Who referred you to FixFlow?"
           helperText="Enter the name or company that referred you"
         />
       </ScrollView>

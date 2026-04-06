@@ -1,5 +1,6 @@
 import apiClient from "@/shared/utilities/axios";
 import { PurchaseHistoryResponse } from "@/shared/interfaces/purchase.interface";
+import { StripeCheckoutResponse } from "../types";
 
 class PurchaseApi {
   async createTokenPurchasePaymentIntent(amount: number): Promise<any> {
@@ -21,15 +22,7 @@ class PurchaseApi {
    * Create a Stripe Checkout session for web-based payment
    * This avoids Apple's 30% IAP fee by redirecting to web checkout
    */
-  async createStripeCheckout(amount: number): Promise<{
-    data: {
-      checkoutUrl: string;
-      sessionId: string;
-      purchaseId: string;
-      amount: number;
-      totalCost: number;
-    };
-  }> {
+  async createStripeCheckout(amount: number): Promise<StripeCheckoutResponse> {
     try {
       return await apiClient.post("/shops/purchase/stripe-checkout", {
         amount,

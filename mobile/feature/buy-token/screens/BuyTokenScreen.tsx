@@ -12,6 +12,7 @@ import {
 import { AntDesign, Feather, Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import SubscriptionModal from "@/shared/components/shop/SubscriptionModal";
+import { HowItWorksItem } from "../types";
 
 // Hooks
 import {
@@ -23,7 +24,7 @@ import {
 } from "../hooks";
 
 // How It Works content
-const HOW_IT_WORKS_ITEMS = [
+const HOW_IT_WORKS_ITEMS: HowItWorksItem[] = [
   {
     icon: "dollar-sign",
     title: "Fixed Rate",

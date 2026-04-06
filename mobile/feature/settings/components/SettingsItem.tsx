@@ -1,17 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-
-interface SettingsItemProps {
-  icon: React.ReactNode;
-  title: string;
-  subtitle?: string;
-  onPress: () => void;
-  showArrow?: boolean;
-  danger?: boolean;
-  disabled?: boolean;
-  rightElement?: React.ReactNode;
-}
+import type { SettingsItemProps } from "../types";
 
 export function SettingsItem({
   icon,

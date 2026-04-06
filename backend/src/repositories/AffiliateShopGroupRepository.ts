@@ -318,6 +318,41 @@ export class AffiliateShopGroupRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Get only groups that have at least 1 active linked service.
+   * Used by the customer marketplace "Discover Group Rewards" dropdown.
+   * Returns token symbols regardless of membership (discovery context).
+   */
+  async getGroupsWithServices(): Promise<AffiliateShopGroup[]> {
+    try {
+      const query = `
+        SELECT
+          g.*,
+          COUNT(DISTINCT sga.service_id) as service_count,
+          COUNT(DISTINCT CASE WHEN m.status = 'active' THEN m.shop_id END) as member_count
+        FROM affiliate_shop_groups g
+        INNER JOIN service_group_availability sga
+          ON g.group_id = sga.group_id AND sga.active = true
+        INNER JOIN shop_services ss
+          ON sga.service_id = ss.service_id AND ss.active = true
+        LEFT JOIN affiliate_shop_group_members m
+          ON g.group_id = m.group_id
+        WHERE g.active = true
+        GROUP BY g.group_id
+        ORDER BY COUNT(DISTINCT sga.service_id) DESC, g.group_name ASC
+      `;
+
+      const result = await this.pool.query(query);
+      return result.rows.map(row => ({
+        ...this.mapGroupRow(row),
+        serviceCount: parseInt(row.service_count) || 0,
+      }));
+    } catch (error) {
+      logger.error('Error getting groups with services:', error);
+      throw error;
+    }
+  }
+
   // ==================== GROUP MEMBERS ====================
 
   async addMemberRequest(

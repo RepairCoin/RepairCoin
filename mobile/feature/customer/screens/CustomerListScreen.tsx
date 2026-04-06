@@ -231,6 +231,7 @@ export default function CustomerListScreen() {
       name={item?.name}
       tier={item?.tier}
       lifetimeEarnings={item?.lifetimeEarnings}
+      profileImageUrl={item?.profileImageUrl}
       total_transactions={item?.total_transactions}
       lastTransactionDate={item?.last_transaction_date}
       referralCount={item?.referralCount}

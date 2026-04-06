@@ -9,7 +9,7 @@ import { useAuth } from "@/shared/hooks/auth/useAuth";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
 
-const globe = require("@/assets/images/global_spin.png");
+const globe = require("@/assets/images/onboarding3.png");
 
 interface OnboardingStep3Props {
   slideIndex?: number;
@@ -26,11 +26,10 @@ export default function OnboardingScreen3({
     >
       <View className="mt-auto mb-20 h-[28%] w-full bg-black rounded-3xl px-6 py-4">
         <Text className="text-white text-3xl font-bold">
-          One Community,{"\n"}Endless Rewards
+          Ready to Earn?{"\n"}Connect and Explore
         </Text>
         <Text className="text-gray-400 mt-4">
-          From phones to cars to salons — RepairCoin is{"\n"}changing how the
-          world sees loyalty.
+          Tap to connect, earn, and use your rewards across all your favorite services.
         </Text>
 
         <View className="flex-row justify-between mt-auto items-center pt-6">

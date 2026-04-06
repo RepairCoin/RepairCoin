@@ -11,7 +11,7 @@ export default function GiftHeader() {
         Send RCN to a friend
       </Text>
       <Text className="text-gray-400 text-sm text-center mt-1">
-        Gift your tokens to another RepairCoin user
+        Gift your tokens to another FixFlow user
       </Text>
     </View>
   );

@@ -39,6 +39,7 @@ export function AvailabilityModal({
     activeTab,
     setActiveTab,
     loading,
+    isSaving,
     availability,
     timeSlotConfig,
     dateOverrides,
@@ -133,9 +134,14 @@ export function AvailabilityModal({
           {/* Done Button */}
           <TouchableOpacity
             onPress={handleDone}
-            className="bg-[#FFCC00] rounded-xl py-4 mt-4"
+            disabled={isSaving}
+            className={`rounded-xl py-4 mt-4 ${isSaving ? "bg-[#FFCC00]/50" : "bg-[#FFCC00]"}`}
           >
-            <Text className="text-black text-center font-semibold">Done</Text>
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Text className="text-black text-center font-semibold">Save & Done</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

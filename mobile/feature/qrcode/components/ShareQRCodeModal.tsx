@@ -38,7 +38,7 @@ export default function ShareQRCodeModal({ visible, requestClose, walletAddress 
               source={require("@/assets/images/repaircoin-logo-mini.png")}
             />
             <Text className="text-[#FFCC00] text-sm font-extrabold">
-              RepairCoin
+              FixFlow
             </Text>
             <View className="h-4 w-0.5 bg-[#FFCC00]" />
             <Text className="text-[#FFCC00] text-sm">

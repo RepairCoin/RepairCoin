@@ -11,11 +11,11 @@ export const TIME_FILTERS: FilterOption[] = [
 
 export const STATUS_FILTERS: FilterOption[] = [
   { key: "all", label: "All Status", color: "#FFCC00" },
-  { key: "pending", label: "Pending", color: "#EAB308" },
-  { key: "paid", label: "Paid", color: "#3B82F6" },
-  { key: "approved", label: "Approved", color: "#10B981" },
+  { key: "paid", label: "Approved", color: "#3B82F6" },
   { key: "completed", label: "Completed", color: "#22C55E" },
   { key: "cancelled", label: "Cancelled", color: "#EF4444" },
+  { key: "no_show", label: "No Show", color: "#F97316" },
+  { key: "expired", label: "Expired", color: "#6B7280" },
 ];
 
 // Date range constants for bookings
@@ -37,47 +37,54 @@ export const getBookingDateRange = () => {
 
 // Status color configuration
 export const STATUS_CONFIG = {
-  pending: {
-    bgColor: "bg-yellow-500/20",
-    textColor: "text-yellow-500",
-    icon: "time-outline" as const,
-    color: "#EAB308",
-  },
   paid: {
     bgColor: "bg-blue-500/20",
     textColor: "text-blue-500",
     icon: "checkmark-circle-outline" as const,
     color: "#3B82F6",
+    label: "Approved",
   },
   confirmed: {
     bgColor: "bg-blue-500/20",
     textColor: "text-blue-500",
     icon: "checkmark-circle-outline" as const,
     color: "#3B82F6",
-  },
-  approved: {
-    bgColor: "bg-emerald-500/20",
-    textColor: "text-emerald-500",
-    icon: "shield-checkmark-outline" as const,
-    color: "#10B981",
+    label: "Approved",
   },
   completed: {
     bgColor: "bg-green-500/20",
     textColor: "text-green-500",
     icon: "checkmark-done-outline" as const,
     color: "#22C55E",
+    label: "Completed",
   },
   cancelled: {
     bgColor: "bg-red-500/20",
     textColor: "text-red-500",
     icon: "close-circle-outline" as const,
     color: "#EF4444",
+    label: "Cancelled",
+  },
+  no_show: {
+    bgColor: "bg-orange-500/20",
+    textColor: "text-orange-500",
+    icon: "alert-circle-outline" as const,
+    color: "#F97316",
+    label: "No Show",
+  },
+  expired: {
+    bgColor: "bg-gray-500/20",
+    textColor: "text-gray-500",
+    icon: "time-outline" as const,
+    color: "#6B7280",
+    label: "Expired",
   },
   default: {
     bgColor: "bg-gray-500/20",
     textColor: "text-gray-500",
     icon: "ellipse-outline" as const,
     color: "#6B7280",
+    label: "",
   },
 };
 

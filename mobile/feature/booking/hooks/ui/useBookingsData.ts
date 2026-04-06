@@ -1,33 +1,34 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { BookingFilterStatus } from "../../types";
-import { useShopBookingQuery } from "@/shared/hooks/booking/useBooking";
+import { bookingApi } from "@/shared/services/booking.services";
 
 export function useBookingsData(statusFilter: BookingFilterStatus) {
-  const { data: bookingsData, isLoading, error, refetch } = useShopBookingQuery();
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["shopBookings"],
+    queryFn: async () => {
+      const response = await bookingApi.getShopBookings();
+      return (response.data ?? response.items ?? []) as BookingData[];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const bookingsData = data ?? [];
 
   // Filter bookings by status
   const filteredBookings = useMemo(() => {
-    if (!bookingsData) return [];
+    if (!bookingsData.length) return [];
     if (statusFilter === "all") return bookingsData;
 
-    // Special handling for "approved" - paid + shopApproved
+    // "approved" = paid + shopApproved (all paid orders are auto-approved)
     if (statusFilter === "approved") {
       return bookingsData.filter(
-        (booking: BookingData) => booking.status === "paid" && booking.shopApproved === true
+        (booking) => booking.status === "paid" && booking.shopApproved === true
       );
     }
 
-    // For "paid" filter, only show bookings that are NOT yet approved
-    if (statusFilter === "paid") {
-      return bookingsData.filter(
-        (booking: BookingData) => booking.status === "paid" && !booking.shopApproved
-      );
-    }
-
-    return bookingsData.filter(
-      (booking: BookingData) => booking.status === statusFilter
-    );
+    return bookingsData.filter((booking) => booking.status === statusFilter);
   }, [bookingsData, statusFilter]);
 
   // Get bookings for a specific date

@@ -227,7 +227,7 @@ export default function NotificationPreferencesScreen() {
           <ToggleRow
             icon={<Ionicons name="megaphone-outline" size={18} color="#FFCC00" />}
             title="Platform Updates"
-            description="Important updates about RepairCoin"
+            description="Important updates about FixFlow"
             value={generalForm.platformUpdates}
             onToggle={() => toggleGeneral("platformUpdates")}
           />

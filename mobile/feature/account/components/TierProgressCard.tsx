@@ -5,12 +5,7 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 
-interface TierConfig {
-  color: [string, string];
-  label: string;
-  bonus: number;
-  requirement: number;
-}
+import { TierConfig, TierProgressCardProps } from "../types";
 
 const TIER_CONFIG: Record<Tier, TierConfig> = {
   BRONZE: {
@@ -34,11 +29,6 @@ const TIER_CONFIG: Record<Tier, TierConfig> = {
 };
 
 const TIER_ORDER: Tier[] = ["BRONZE", "SILVER", "GOLD"];
-
-interface TierProgressCardProps {
-  currentTier: string;
-  lifetimeEarnings: number;
-}
 
 export default function TierProgressCard({
   currentTier,

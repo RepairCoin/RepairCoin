@@ -12,14 +12,14 @@ interface BookingDetailModalProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
-  paid: "Confirmed",
-  confirmed: "Confirmed",
+  paid: "Approved",
+  confirmed: "Approved",
   "in-progress": "In Progress",
   in_progress: "In Progress",
   completed: "Completed",
   cancelled: "Cancelled",
   refunded: "Refunded",
+  expired: "Expired",
 };
 
 export default function BookingDetailModal({

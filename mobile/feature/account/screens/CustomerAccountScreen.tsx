@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Hooks
@@ -81,96 +80,61 @@ export default function CustomerAccountScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Calculate header top padding for buttons (safe area + extra padding)
-  const headerTopPadding = Platform.OS === 'ios' ? insets.top + 8 : 48;
-
   return (
     <View className="flex-1 bg-zinc-950">
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header Banner with Gradient */}
-        <View style={{ position: 'relative' }}>
-          <LinearGradient
-            colors={[tierConfig.gradient[0], tierConfig.gradient[1], "#09090b"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ height: Platform.OS === 'ios' ? 176 + insets.top : 176 }}
-          />
-
-          {/* Gradient Overlay */}
-          <LinearGradient
-            colors={["transparent", "rgba(9,9,11,0.8)", "rgba(9,9,11,1)"]}
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 96
-            }}
-          />
-
-          {/* Settings Button */}
-          <TouchableOpacity
-            onPress={() => router.push("/customer/settings")}
-            style={{
-              position: 'absolute',
-              top: headerTopPadding,
-              right: 16,
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="settings-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-
-          {/* Edit Profile Button */}
-          <TouchableOpacity
-            onPress={() => router.push("/customer/profile/edit-profile")}
-            style={{
-              position: 'absolute',
-              top: headerTopPadding,
-              right: 64,
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="edit-2" size={18} color="#fff" />
-          </TouchableOpacity>
+        {/* Header */}
+        <View style={{ paddingTop: Platform.OS === 'ios' ? insets.top + 8 : 48 }} className="px-4 pb-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-white text-lg font-bold">My Account</Text>
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => router.push("/customer/profile/edit-profile")}
+                className="w-10 h-10 rounded-full bg-zinc-800 items-center justify-center"
+              >
+                <Feather name="edit-2" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/customer/settings")}
+                className="w-10 h-10 rounded-full bg-zinc-800 items-center justify-center"
+              >
+                <Ionicons name="settings-outline" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Profile Info Section */}
-        <View className="px-4 -mt-16 relative z-10">
-          <View className="flex-row items-end">
+        <View className="px-4">
+          <View className="flex-row items-center">
             {/* Avatar */}
-            <View
-              className="w-28 h-28 rounded-full border-4 border-zinc-950 overflow-hidden items-center justify-center"
-              style={{ backgroundColor: `${tierConfig.color}30` }}
+            <TouchableOpacity
+              onPress={() => router.push("/customer/profile/edit-profile")}
+              activeOpacity={0.8}
             >
-              {customer?.profileImageUrl ? (
-                <Image
-                  source={{ uri: customer.profileImageUrl }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text
-                  className="text-3xl font-bold"
-                  style={{ color: tierConfig.color }}
-                >
-                  {getInitials(customer?.name || "User")}
-                </Text>
-              )}
-            </View>
+              <View
+                className="w-24 h-24 rounded-full overflow-hidden items-center justify-center"
+                style={{ backgroundColor: `${tierConfig.color}20` }}
+              >
+                {customer?.profileImageUrl ? (
+                  <Image
+                    source={{ uri: customer.profileImageUrl }}
+                    className="w-full h-full rounded-full"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text
+                    className="text-3xl font-bold"
+                    style={{ color: tierConfig.color }}
+                  >
+                    {getInitials(customer?.name || "User")}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
 
             {/* Name & Tier Badge */}
-            <View className="flex-1 ml-4 pb-2">
+            <View className="flex-1 ml-4">
               <Text className="text-white text-xl font-bold" numberOfLines={1}>
                 {customer?.name || "User"}
               </Text>

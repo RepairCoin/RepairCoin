@@ -15,6 +15,7 @@ type MessageBubbleProps = {
   conversation: Conversation | null;
   isCustomer: boolean;
   unlockSession?: UnlockSession;
+  onRequestUnlock?: (message: Message) => void;
 };
 
 export default function MessageBubble({
@@ -23,6 +24,7 @@ export default function MessageBubble({
   conversation,
   isCustomer,
   unlockSession,
+  onRequestUnlock,
 }: MessageBubbleProps) {
   // Route encrypted messages to LockedMessageBubble
   if (message.isEncrypted || message.messageType === "encrypted") {
@@ -33,6 +35,7 @@ export default function MessageBubble({
         conversation={conversation}
         isCustomer={isCustomer}
         unlockSession={unlockSession}
+        onRequestUnlock={onRequestUnlock}
       />
     );
   }

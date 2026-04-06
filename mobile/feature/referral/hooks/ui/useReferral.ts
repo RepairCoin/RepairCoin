@@ -19,7 +19,7 @@ export function useReferral() {
   const totalReferrals = customerData?.customer?.referralCount || 0;
   const totalEarned = totalReferrals * REFERRER_REWARD;
 
-  const referralMessage = `Join RepairCoin and earn rewards on every repair! Use my referral code: ${referralCode} to get 10 RCN bonus on your first repair. Download now!`;
+  const referralMessage = `Join FixFlow and earn rewards on every repair! Use my referral code: ${referralCode} to get 10 RCN bonus on your first repair. Download now!`;
 
   useEffect(() => {
     if (codeCopied) {

@@ -42,7 +42,7 @@ export default function CustomerRegisterScreen() {
           >
             <View className="mt-4 mb-2">
               <Text className="text-[#FFCC00] font-bold text-xl">
-                Join RepairCoin
+                Join FixFlow
               </Text>
               <Text className="text-gray-400 text-sm mt-2">
                 Create your account and turn every repair into rewards.
@@ -105,7 +105,7 @@ export default function CustomerRegisterScreen() {
             <View className="bg-[#FFCC00]/10 rounded-xl p-4 mt-4 flex-row border border-[#FFCC00]/30">
               <Ionicons name="sparkles" size={20} color="#FFCC00" />
               <Text className="text-gray-300 text-sm ml-3 flex-1">
-                As a RepairCoin customer, you'll earn RCN tokens for every
+                As a FixFlow customer, you'll earn RCN tokens for every
                 repair. Use them for discounts or redeem them at partner shops!
               </Text>
             </View>
