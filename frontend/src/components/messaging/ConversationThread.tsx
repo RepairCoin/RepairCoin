@@ -13,6 +13,7 @@ import {
   Smile,
   CheckCircle,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
@@ -53,6 +54,8 @@ interface ConversationThreadProps {
   currentUserType: "customer" | "shop";
   onSendMessage: (content: string, attachments?: File[]) => Promise<void>;
   onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
   conversationStatus?: "active" | "resolved" | "archived";
   onArchiveConversation?: (archived: boolean) => Promise<void>;
   conversationDetails?: {
@@ -78,6 +81,8 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   currentUserType,
   onSendMessage,
   onLoadMore,
+  hasMore,
+  isLoadingMore,
   conversationStatus,
   onArchiveConversation,
   conversationDetails,
@@ -95,6 +100,40 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef(0);
+  const scrollHeightBeforeRef = useRef(0);
+
+  // Capture scroll height before DOM updates (for load-more scroll preservation)
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      scrollHeightBeforeRef.current = container.scrollHeight;
+    }
+  });
+
+  // Auto-scroll to bottom on initial load / new message, preserve position on load-more
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || messages.length === 0) return;
+
+    const prevLength = prevMessagesLengthRef.current;
+    const newLength = messages.length;
+    const added = newLength - prevLength;
+    prevMessagesLengthRef.current = newLength;
+
+    if (prevLength === 0) {
+      // Initial load — scroll to bottom
+      container.scrollTop = container.scrollHeight;
+    } else if (added > 0 && added <= 2) {
+      // New message sent/received — scroll to bottom
+      container.scrollTop = container.scrollHeight;
+    } else if (added > 2) {
+      // Load-more: older messages prepended — keep scroll position stable
+      const heightDiff = container.scrollHeight - scrollHeightBeforeRef.current;
+      container.scrollTop += heightDiff;
+    }
+  }, [messages]);
 
   // Close emoji picker on click outside
   useEffect(() => {
@@ -376,7 +415,26 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Load older messages button */}
+        {hasMore && (
+          <div className="flex justify-center">
+            <button
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-gray-400 bg-[#1A1A1A] hover:bg-[#252525] border border-gray-800 rounded-full transition-colors disabled:opacity-50"
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Load older messages"
+              )}
+            </button>
+          </div>
+        )}
         {messageGroups.map((group, groupIndex) => (
           <div key={groupIndex}>
             {/* Date Divider */}
