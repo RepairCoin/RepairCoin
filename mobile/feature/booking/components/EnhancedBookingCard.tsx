@@ -179,7 +179,7 @@ export default function EnhancedBookingCard({
                 </Text>
               </View>
               <Text className="text-white text-xs font-medium">
-                {formatDate(booking.bookingDate || booking.createdAt)}
+                {formatDate(booking.bookingTimeSlot || booking.bookingDate || booking.createdAt)}
               </Text>
             </View>
           )}
@@ -191,7 +191,7 @@ export default function EnhancedBookingCard({
               </Text>
             </View>
             <Text className="text-[#FFCC00] text-xs font-semibold">
-              {formatTime(booking.bookingDate || booking.createdAt)}
+              {formatTime(booking.bookingTimeSlot || booking.bookingDate || booking.createdAt)}
             </Text>
           </View>
           <View className="flex-1 bg-[#111] rounded-lg p-2.5">

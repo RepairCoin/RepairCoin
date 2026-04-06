@@ -33,6 +33,7 @@ export interface BookingData {
   stripePaymentIntentId: string | null;
   notes: string | null;
   bookingDate: string | null;
+  bookingTimeSlot?: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;

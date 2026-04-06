@@ -22,6 +22,7 @@ import {
   CustomerActions,
 } from "../components";
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { useBookingDetail } from "../hooks/ui/useBookingDetail";
 
 // --- Formatters ---
@@ -132,7 +133,7 @@ export default function BookingDetailScreen() {
           <Text className="text-white text-2xl font-bold">{booking.serviceName}</Text>
           {booking.serviceCategory && (
             <Text className="text-gray-500 text-sm mt-1">
-              {booking.serviceCategory}{booking.serviceDuration ? ` • ${booking.serviceDuration} min` : ""}
+              {getCategoryLabel(booking.serviceCategory)}{booking.serviceDuration ? ` • ${booking.serviceDuration} min` : ""}
             </Text>
           )}
           {booking.serviceDescription && (
@@ -199,7 +200,7 @@ export default function BookingDetailScreen() {
           <Text className="text-gray-500 text-xs uppercase tracking-wider mb-2 font-medium">Booking Details</Text>
           <InfoRow icon={<Feather name="calendar" size={16} color="#FFCC00" />} label="Date" value={formatDate(bookingDateTime)} />
           <InfoRow icon={<Feather name="clock" size={16} color="#FFCC00" />} label="Time" value={formatTime(bookingDateTime)} />
-          <InfoRow icon={<Feather name="hash" size={16} color="#6B7280" />} label="Booking ID" value={`BK-${booking.orderId.slice(0, 6).toUpperCase()}`} />
+          <InfoRow icon={<Feather name="hash" size={16} color="#6B7280" />} label="Booking ID" value={`BK-${booking.orderId.replace(/-/g, '').slice(-6).toUpperCase()}`} />
           <View className="flex-row items-center py-3.5">
             <View className="w-9 h-9 items-center justify-center">
               <Feather name="activity" size={16} color="#6B7280" />

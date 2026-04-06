@@ -74,7 +74,7 @@ export function useBookingDetail() {
     : "pending";
 
   const statusColor = getStatusColor(effectiveStatus);
-  const bookingDateTime = booking?.bookingDate || booking?.createdAt || "";
+  const bookingDateTime = booking?.bookingTimeSlot || booking?.bookingDate || booking?.createdAt || "";
 
   const hasShopActions = isShopView && booking
     ? booking.status === "pending" || (booking.status === "paid" && !isBookingExpired)
