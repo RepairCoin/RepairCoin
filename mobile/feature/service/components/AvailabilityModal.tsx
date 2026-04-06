@@ -396,29 +396,79 @@ function SettingCard({
   onSelect,
   suffix = "",
 }: SettingCardProps) {
+  const isCustomValue = !options.includes(selectedValue);
+  const [customMode, setCustomMode] = useState(isCustomValue);
+  const [customInput, setCustomInput] = useState(String(selectedValue));
+
+  const handlePresetSelect = (value: number) => {
+    setCustomMode(false);
+    setCustomInput(String(value));
+    onSelect(value);
+  };
+
+  const handleCustomInput = (text: string) => {
+    setCustomInput(text);
+    const num = parseInt(text);
+    if (!isNaN(num) && num >= 0) {
+      onSelect(num);
+    }
+  };
+
   return (
     <View className="bg-[#1a1a1a] rounded-xl p-4 mb-3">
       <Text className="text-white font-semibold mb-2">{title}</Text>
       <Text className="text-gray-500 text-xs mb-3">{description}</Text>
-      <View className="flex-row gap-2">
+      <View className="flex-row gap-2 flex-wrap">
         {options.map((option) => (
           <TouchableOpacity
             key={option}
-            onPress={() => onSelect(option)}
-            className={`flex-1 py-2 rounded-lg ${
-              selectedValue === option ? "bg-[#FFCC00]" : "bg-[#252525]"
+            onPress={() => handlePresetSelect(option)}
+            className={`flex-1 py-2 rounded-lg min-w-[40px] ${
+              selectedValue === option && !customMode ? "bg-[#FFCC00]" : "bg-[#252525]"
             }`}
           >
             <Text
               className={`text-center text-xs font-medium ${
-                selectedValue === option ? "text-black" : "text-white"
+                selectedValue === option && !customMode ? "text-black" : "text-white"
               }`}
             >
               {option}{suffix}
             </Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity
+          onPress={() => {
+            setCustomMode(true);
+            setCustomInput(String(selectedValue));
+          }}
+          className={`py-2 px-3 rounded-lg ${
+            customMode ? "bg-[#FFCC00]" : "bg-[#252525]"
+          }`}
+        >
+          <Text
+            className={`text-center text-xs font-medium ${
+              customMode ? "text-black" : "text-white"
+            }`}
+          >
+            Custom
+          </Text>
+        </TouchableOpacity>
       </View>
+      {customMode && (
+        <View className="mt-3 flex-row items-center gap-2">
+          <TextInput
+            value={customInput}
+            onChangeText={handleCustomInput}
+            keyboardType="numeric"
+            placeholder="Enter value"
+            placeholderTextColor="#666"
+            className="bg-[#252525] rounded-lg px-3 py-2 text-white flex-1"
+          />
+          {suffix ? (
+            <Text className="text-gray-400 text-sm">{suffix === "m" ? "minutes" : suffix === "h" ? "hours" : suffix === "d" ? "days" : suffix}</Text>
+          ) : null}
+        </View>
+      )}
     </View>
   );
 }
