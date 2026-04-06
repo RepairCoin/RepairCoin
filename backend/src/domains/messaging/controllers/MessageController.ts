@@ -244,6 +244,7 @@ export class MessageController {
       const { conversationId } = req.params;
       const page = req.query.page ? parseInt(req.query.page as string) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const sort = req.query.sort === 'desc' ? 'desc' as const : 'asc' as const;
 
       const userType = userRole === 'shop' ? 'shop' : 'customer';
 
@@ -254,7 +255,7 @@ export class MessageController {
         conversationId,
         identifier,
         userType as 'customer' | 'shop',
-        { page, limit }
+        { page, limit, sort }
       );
 
       res.json({

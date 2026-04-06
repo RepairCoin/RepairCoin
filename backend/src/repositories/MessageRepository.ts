@@ -341,12 +341,13 @@ export class MessageRepository extends BaseRepository {
    */
   async getConversationMessages(
     conversationId: string,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; sort?: 'asc' | 'desc' } = {}
   ): Promise<PaginatedResult<Message>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 50;
       const offset = (page - 1) * limit;
+      const sortOrder = options.sort === 'desc' ? 'DESC' : 'ASC';
 
       // Count total
       const countQuery = `
@@ -357,7 +358,7 @@ export class MessageRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, [conversationId]);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get messages (oldest first for chat UI)
+      // Get messages
       const query = `
         SELECT
           m.*,
@@ -366,7 +367,7 @@ export class MessageRepository extends BaseRepository {
         LEFT JOIN customers c ON m.sender_address = c.address AND m.sender_type = 'customer'
         LEFT JOIN shops s ON m.sender_address = s.shop_id AND m.sender_type = 'shop'
         WHERE m.conversation_id = $1 AND m.is_deleted = FALSE
-        ORDER BY m.created_at ASC
+        ORDER BY m.created_at ${sortOrder}
         LIMIT $2 OFFSET $3
       `;
 

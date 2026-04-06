@@ -128,11 +128,12 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         }
         const response = await messagingApi.getMessages(selectedConversationId, {
           page: 1,
-          limit: 100,
+          limit: 5,
+          sort: 'desc',
         });
 
-        // Transform API response to match Message type
-        const transformedMessages: Message[] = (response.data || []).map((msg: any) => ({
+        // Transform API response to match Message type (reverse to show oldest first in chat UI)
+        const transformedMessages: Message[] = (response.data || []).reverse().map((msg: any) => ({
           id: msg.messageId,
           conversationId: msg.conversationId,
           senderId: msg.senderAddress,

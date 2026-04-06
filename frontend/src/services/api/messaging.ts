@@ -134,11 +134,12 @@ export const getUnreadCount = async (): Promise<number> => {
  */
 export const getMessages = async (
   conversationId: string,
-  options?: { page?: number; limit?: number }
+  options?: { page?: number; limit?: number; sort?: 'asc' | 'desc' }
 ): Promise<PaginatedResponse<Message>> => {
   const params = new URLSearchParams();
   if (options?.page) params.append('page', options.page.toString());
   if (options?.limit) params.append('limit', options.limit.toString());
+  if (options?.sort) params.append('sort', options.sort);
 
   const response = await apiClient.get(
     `/messages/conversations/${conversationId}/messages?${params.toString()}`
