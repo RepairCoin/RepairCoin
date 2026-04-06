@@ -151,7 +151,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         }
         const response = await messagingApi.getMessages(selectedConversationId, {
           page: 1,
-          limit: 5,
+          limit: 10,
           sort: 'desc',
         });
 
