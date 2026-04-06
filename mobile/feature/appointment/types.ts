@@ -80,6 +80,8 @@ export interface AppointmentScheduleScreenProps {
   isLoadingSlots: boolean;
   slotsError: Error | null;
   shopAvailability: ShopAvailability[] | undefined;
+  bookingAdvanceDays?: number;
+  allowWeekendBooking?: boolean;
   onDateSelect: (day: DateData) => void;
   onTimeSelect: (time: string) => void;
 }

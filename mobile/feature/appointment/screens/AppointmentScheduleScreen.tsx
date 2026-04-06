@@ -11,6 +11,8 @@ export default function AppointmentScheduleScreen({
   isLoadingSlots,
   slotsError,
   shopAvailability,
+  bookingAdvanceDays = 30,
+  allowWeekendBooking = true,
   onDateSelect,
   onTimeSelect,
 }: AppointmentScheduleScreenProps) {
@@ -19,17 +21,23 @@ export default function AppointmentScheduleScreen({
     return new Date().toISOString().split("T")[0];
   }, []);
 
-  // Get max date (30 days from now)
+  // Get max date based on shop config
   const maxDate = useMemo(() => {
     const date = new Date();
-    date.setDate(date.getDate() + 30);
+    date.setDate(date.getDate() + bookingAdvanceDays);
     return date.toISOString().split("T")[0];
-  }, []);
+  }, [bookingAdvanceDays]);
 
-  // Check if a date is available based on shop operating hours
+  // Check if a date is available based on shop operating hours and weekend setting
   const isDateAvailable = (date: Date): boolean => {
     if (!shopAvailability) return true;
     const dayOfWeek = date.getDay();
+
+    // Check weekend restriction
+    if (!allowWeekendBooking && (dayOfWeek === 0 || dayOfWeek === 6)) {
+      return false;
+    }
+
     const dayAvailability = shopAvailability.find(a => a.dayOfWeek === dayOfWeek);
     return dayAvailability?.isOpen || false;
   };
@@ -49,7 +57,7 @@ export default function AppointmentScheduleScreen({
     if (shopAvailability) {
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30);
+      endDate.setDate(endDate.getDate() + bookingAdvanceDays);
 
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dateString = d.toISOString().split("T")[0];
@@ -64,7 +72,7 @@ export default function AppointmentScheduleScreen({
     }
 
     return marks;
-  }, [selectedDate, shopAvailability]);
+  }, [selectedDate, shopAvailability, bookingAdvanceDays, allowWeekendBooking]);
 
   const formatDateFull = (dateString: string) => {
     const date = new Date(dateString + "T00:00:00");

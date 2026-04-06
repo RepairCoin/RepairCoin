@@ -21,6 +21,8 @@ import {
 } from "../hooks/queries";
 import { useCreateStripeCheckoutMutation } from "../hooks/mutations";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useQuery } from "@tanstack/react-query";
+import { appointmentApi } from "@/shared/services/appointment.services";
 import { StepIndicator } from "../components";
 import AppointmentScheduleScreen from "./AppointmentScheduleScreen";
 import AppointmentDiscountScreen from "./AppointmentDiscountScreen";
@@ -54,6 +56,17 @@ export default function AppointmentCompleteScreen() {
     selectedDate
   );
 
+  const { data: timeSlotConfig } = useQuery({
+    queryKey: ["timeSlotConfig", serviceData?.shopId],
+    queryFn: () => appointmentApi.getTimeSlotConfig(serviceData?.shopId || ""),
+    enabled: !!serviceData?.shopId,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const bookingAdvanceDays = timeSlotConfig?.bookingAdvanceDays || 30;
+  const minBookingHours = timeSlotConfig?.minBookingHours || 2;
+  const allowWeekendBooking = timeSlotConfig?.allowWeekendBooking ?? true;
+
   const MAX_RCN_DISCOUNT = 20;
   const RCN_TO_USD = 0.10;
   const availableRcn = balanceData?.totalBalance || 0;
@@ -85,6 +98,20 @@ export default function AppointmentCompleteScreen() {
       );
       return;
     }
+
+    // Validate minimum booking notice
+    const bookingDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    const now = new Date();
+    const hoursUntilBooking = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursUntilBooking < minBookingHours) {
+      Alert.alert(
+        "Booking Time Too Soon",
+        `This shop requires at least ${minBookingHours} hour${minBookingHours > 1 ? "s" : ""} advance notice for bookings. Please select a later time.`
+      );
+      return;
+    }
+
     setCurrentStep("discount");
   };
 
@@ -190,6 +217,8 @@ export default function AppointmentCompleteScreen() {
             isLoadingSlots={isLoadingSlots}
             slotsError={slotsError}
             shopAvailability={shopAvailability}
+            bookingAdvanceDays={bookingAdvanceDays}
+            allowWeekendBooking={allowWeekendBooking}
             onDateSelect={handleDayPress}
             onTimeSelect={handleTimeSelect}
           />
