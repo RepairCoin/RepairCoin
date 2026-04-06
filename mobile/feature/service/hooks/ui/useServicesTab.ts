@@ -1,14 +1,39 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { router } from "expo-router";
 import { useService } from "@/shared/hooks/service/useService";
 import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
+import { ServiceCategory } from "@/shared/constants/service-categories";
 import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "../../tab-types";
 
 export function useServicesTab() {
   const { useInfiniteServicesQuery } = useService();
   const { useGetFavorites } = useFavorite();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<PriceRange>({ min: null, max: null });
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Build filters for API query
+  const apiFilters = useMemo(() => {
+    const filters = {
+      search: debouncedSearch || undefined,
+      category: selectedCategories.length === 1 ? selectedCategories[0] as ServiceCategory : undefined,
+      minPrice: priceRange.min ?? undefined,
+      maxPrice: priceRange.max ?? undefined,
+    };
+    return filters;
+  }, [debouncedSearch, selectedCategories, priceRange]);
 
   const {
     data: servicesPages,
@@ -19,7 +44,7 @@ export function useServicesTab() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteServicesQuery();
+  } = useInfiniteServicesQuery(apiFilters);
 
   // Flatten paginated data into single array
   const servicesData = useMemo(() => {
@@ -36,12 +61,9 @@ export function useServicesTab() {
     return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
   }, [favoritesData]);
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<CustomerServiceStatusFilter>("all");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState<ServiceSortOption>("default");
-  const [priceRange, setPriceRange] = useState<PriceRange>({ min: null, max: null });
 
   const toggleCategory = useCallback((category: string) => {
     setSelectedCategories((prev) =>
@@ -75,30 +97,10 @@ export function useServicesTab() {
       services = services.filter((service: ServiceData) => !service.active);
     }
 
-    // Apply category filter
-    if (selectedCategories.length > 0) {
+    // Apply multi-category filter client-side (API only supports single category)
+    if (selectedCategories.length > 1) {
       services = services.filter((service: ServiceData) =>
         selectedCategories.includes(service.category)
-      );
-    }
-
-    // Apply price range filter
-    if (priceRange.min !== null) {
-      services = services.filter(
-        (service: ServiceData) => service.priceUsd >= priceRange.min!
-      );
-    }
-    if (priceRange.max !== null) {
-      services = services.filter(
-        (service: ServiceData) => service.priceUsd <= priceRange.max!
-      );
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      services = services.filter((service: ServiceData) =>
-        service.serviceName.toLowerCase().includes(query)
       );
     }
 
@@ -123,7 +125,7 @@ export function useServicesTab() {
     }
 
     return services;
-  }, [servicesData, statusFilter, selectedCategories, searchQuery, sortOption, priceRange]);
+  }, [servicesData, statusFilter, selectedCategories, sortOption]);
 
   const handleServicePress = useCallback((item: ServiceData) => {
     router.push(`/customer/service/${item.serviceId}`);
