@@ -35,8 +35,7 @@
       "Bash(find /c/dev/RepairCoin/mobile/shared/components -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
       "Bash(find /c/dev/RepairCoin/mobile/docs/tasks -type f -name *.md)",
       "Bash(grep -l \"address.*autocomplete\\\\|autocomplete.*address\\\\|SearchAddress\\\\|searchAddress\" /c/dev/RepairCoin/mobile/feature/**/*.tsx)",
-      "Bash(grep -r autocomplete /c/dev/RepairCoin/mobile --include=*.tsx --include=*.ts)",
-      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")"
+      "Bash(grep -r autocomplete /c/dev/RepairCoin/mobile --include=*.tsx --include=*.ts)"
     ],
     "deny": [],
     "ask": []
