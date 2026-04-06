@@ -1,20 +1,6 @@
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
+import { getBookingStatusColor } from "@/shared/constants/booking-colors";
 
 export function getStatusColor(status: BookingStatus | "approved"): string {
-  switch (status) {
-    case "completed":
-      return "#22c55e";
-    case "approved":
-      return "#10b981";
-    case "in_progress":
-      return "#10b981";
-    case "paid":
-      return "#3b82f6";
-    case "cancelled":
-      return "#ef4444";
-    case "expired":
-      return "#f97316"; // Orange for expired
-    default:
-      return "#666";
-  }
+  return getBookingStatusColor(status);
 }

@@ -1,9 +1,9 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { CalendarBooking } from "@/shared/interfaces/appointment.interface";
-import { getStatusColor } from "../utils/statusUtils";
 import { getDaysInMonth, isToday, isDateSelected } from "@/shared/utilities/calendar";
 import { DAYS } from "../constants";
+import { getBookingStatusColor, BOOKING_STATUS_LEGEND } from "@/shared/constants/booking-colors";
 
 interface MonthlyCalendarViewProps {
   currentMonth: Date;
@@ -150,7 +150,7 @@ export default function MonthlyCalendarView({
                           width: 5,
                           height: 5,
                           borderRadius: 2.5,
-                          backgroundColor: getStatusColor(b.status as any),
+                          backgroundColor: getBookingStatusColor(b.status),
                           marginHorizontal: 0.5,
                         }}
                       />
@@ -193,11 +193,7 @@ export default function MonthlyCalendarView({
 
       {/* Legend */}
       <View className="flex-row flex-wrap justify-center mt-3 gap-3">
-        {[
-          { label: "Approved", color: "#3b82f6" },
-          { label: "Completed", color: "#22c55e" },
-          { label: "Cancelled", color: "#ef4444" },
-        ].map((item) => (
+        {BOOKING_STATUS_LEGEND.map((item) => (
           <View key={item.label} className="flex-row items-center">
             <View
               style={{

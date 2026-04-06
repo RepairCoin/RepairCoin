@@ -19,9 +19,9 @@ import {
 } from "../hooks/ui";
 
 // Utils
-import { getStatusColor } from "../utils";
 import { isToday, isDateSelected, getDaysInMonth, getScrollableDays, formatTime12h } from "@/shared/utilities/calendar";
 import { APPOINTMENT_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
+import { getBookingStatusColor, BOOKING_STATUS_LEGEND } from "@/shared/constants/booking-colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
@@ -37,9 +37,9 @@ const getDisplayStatus = (booking: BookingData): string => {
 // Helper to get status color considering shopApproved
 const getDisplayStatusColor = (booking: BookingData): string => {
   if (booking.status === "paid" && booking.shopApproved) {
-    return "#10b981"; // Emerald/teal for approved (distinct from completed green)
+    return getBookingStatusColor("approved");
   }
-  return getStatusColor(booking.status);
+  return getBookingStatusColor(booking.status);
 };
 
 interface AppointmentCalendarProps {
@@ -234,18 +234,12 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
 
         {/* Legend */}
         <View className="flex-row flex-wrap justify-center mt-4 mb-6 gap-3">
-          <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Approved</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Completed</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 4 }} />
-            <Text className="text-gray-500 text-xs">Cancelled</Text>
-          </View>
+          {BOOKING_STATUS_LEGEND.map((item) => (
+            <View key={item.label} className="flex-row items-center">
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.color, marginRight: 4 }} />
+              <Text className="text-gray-500 text-xs">{item.label}</Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
 
@@ -462,18 +456,12 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
 
                 {/* Legend */}
                 <View className="flex-row flex-wrap justify-center mt-4 gap-3">
-                  <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#3b82f6', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Approved</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Completed</Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">Cancelled</Text>
-                  </View>
+                  {BOOKING_STATUS_LEGEND.map((item) => (
+                    <View key={item.label} className="flex-row items-center">
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.color, marginRight: 4 }} />
+                      <Text className="text-gray-500 text-xs">{item.label}</Text>
+                    </View>
+                  ))}
                 </View>
               </>
             )}

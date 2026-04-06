@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Alert, Image } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { router } from "expo-router";
+import { getBookingStatusColor } from "@/shared/constants/booking-colors";
 
 const getDisplayStatus = (booking: BookingData): string => {
   if (booking.status === "expired") return "expired";
@@ -10,14 +11,10 @@ const getDisplayStatus = (booking: BookingData): string => {
 };
 
 const getDisplayStatusColor = (booking: BookingData): string => {
-  const status = booking.status;
-  if (status === "expired") return "#f97316";
-  if (status === "paid" && booking.shopApproved) return "#10b981";
-  if (status === "completed") return "#22c55e";
-  if (status === "paid") return "#FFCC00";
-  if (status === "pending") return "#FFCC00";
-  if (status === "cancelled") return "#ef4444";
-  return "#666";
+  if (booking.status === "paid" && booking.shopApproved) {
+    return getBookingStatusColor("approved");
+  }
+  return getBookingStatusColor(booking.status);
 };
 
 const getStatusIcon = (
