@@ -125,8 +125,8 @@ export const getConversations = async (options?: {
  * Uses lightweight endpoint instead of fetching all conversations
  */
 export const getUnreadCount = async (): Promise<number> => {
-  const response = await apiClient.get('/messages/unread/count');
-  return response.data?.count ?? 0;
+  const response = await apiClient.get<{success: boolean; count: number}>('/messages/unread/count');
+  return response.count;
 };
 
 /**
