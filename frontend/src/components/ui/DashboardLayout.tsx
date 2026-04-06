@@ -84,8 +84,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <div className="min-h-screen bg-[#101010]">
       {renderSidebar()}
 
-      {/* Mobile header bar — hamburger left, icons right */}
-      {/* z-[1001] ensures header stays above Leaflet map layers (which use z-index 400-1000 internally) */}
+      {/* Mobile header bar — hamburger only */}
+      {/* z-20 ensures header stays above content but below icons */}
       <div className={`lg:hidden fixed top-0 left-0 right-0 bg-[#1e1f22] flex items-center justify-between px-4 transition-all duration-300 ease-in-out pt-2 pb-2 z-20 ${
         isScrolled ? "top-0" : "top-8"
       }`}>
@@ -99,19 +99,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <Menu className="w-5 h-5" />
           )}
         </button>
-        {userRole !== "admin" && (
-          <div className="flex items-center gap-3">
-            {userRole === "shop" && <CartIcon />}
-            <MessageIcon />
-            <NotificationBell />
-          </div>
-        )}
       </div>
 
-      {/* Desktop icons — fixed top-right (only for customers and shops) */}
+      {/* Icons — rendered once, repositioned via responsive classes */}
+      {/* Mobile: top-right inside header area | Desktop: fixed top-right */}
       {userRole !== "admin" && (
-        <div className={`hidden lg:flex fixed right-4 z-[1001] transition-all duration-300 ease-in-out items-center gap-3 pt-2 pb-2 ${
-          isScrolled ? "top-0" : "top-6"
+        <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-2 pb-2 transition-all duration-300 ease-in-out ${
+          isScrolled ? "top-0 lg:top-0" : "top-8 lg:top-6"
         }`}>
           {userRole === "shop" && <CartIcon />}
           <MessageIcon />

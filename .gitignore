@@ -144,3 +144,5 @@ backend/.env.test
 # Claude Code temporary files
 tmpclaude-*
 **/tmpclaude-*
+# Claude Code local settings
+.claude/settings.local.json

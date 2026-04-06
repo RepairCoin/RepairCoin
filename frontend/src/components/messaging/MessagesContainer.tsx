@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { MessageInbox, type Conversation } from "./MessageInbox";
 import { ConversationThread, type Message } from "./ConversationThread";
 import { MessageCircle, ArrowLeft } from "lucide-react";
@@ -30,6 +30,9 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const currentPageRef = useRef(1);
   const [error, setError] = useState<string | null>(null);
   const { switchingAccount } = useAuthStore();
 
@@ -114,42 +117,59 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     }
   }, [initialConversationId, conversations]);
 
+  const transformMsg = useCallback((msg: any): Message => ({
+    id: msg.messageId,
+    conversationId: msg.conversationId,
+    senderId: msg.senderAddress,
+    senderName: msg.senderName || (msg.senderAddress === currentUserId ? "You" : "User"),
+    senderType: msg.senderType,
+    content: msg.messageText,
+    timestamp: msg.createdAt,
+    status: msg.isRead ? "read" : "delivered",
+    isSystemMessage: msg.messageType === "system",
+    messageType: msg.messageType,
+    metadata: msg.metadata,
+    attachments: msg.attachments?.length > 0
+      ? msg.attachments.map((a: any) => ({ type: a.type || 'file', url: a.url, name: a.name || 'attachment' }))
+      : undefined,
+  }), [currentUserId]);
+
   // Fetch messages when conversation is selected
   useEffect(() => {
     const fetchMessages = async (isInitialLoad = true) => {
       if (!selectedConversationId) {
         setMessages([]);
+        setHasMore(false);
+        currentPageRef.current = 1;
         return;
       }
 
       try {
         if (isInitialLoad) {
           setIsLoadingMessages(true);
+          currentPageRef.current = 1;
         }
         const response = await messagingApi.getMessages(selectedConversationId, {
           page: 1,
-          limit: 100,
+          limit: 10,
+          sort: 'desc',
         });
 
-        // Transform API response to match Message type
-        const transformedMessages: Message[] = (response.data || []).map((msg: any) => ({
-          id: msg.messageId,
-          conversationId: msg.conversationId,
-          senderId: msg.senderAddress,
-          senderName: msg.senderName || (msg.senderAddress === currentUserId ? "You" : "User"),
-          senderType: msg.senderType,
-          content: msg.messageText,
-          timestamp: msg.createdAt,
-          status: msg.isRead ? "read" : "delivered",
-          isSystemMessage: msg.messageType === "system",
-          messageType: msg.messageType,
-          metadata: msg.metadata,
-          attachments: msg.attachments?.length > 0
-            ? msg.attachments.map((a: any) => ({ type: a.type || 'file', url: a.url, name: a.name || 'attachment' }))
-            : undefined,
-        }));
+        // Transform and reverse (newest-first from API -> oldest-first for chat display)
+        const latestMessages: Message[] = (response.data || []).reverse().map(transformMsg);
 
-        setMessages(transformedMessages);
+        if (isInitialLoad) {
+          setMessages(latestMessages);
+          setHasMore(response.pagination.hasMore);
+        } else {
+          // Polling: merge new messages with any older loaded messages
+          setMessages(prev => {
+            const olderMessages = prev.filter(
+              m => !latestMessages.some(lm => lm.id === m.id)
+            );
+            return [...olderMessages, ...latestMessages];
+          });
+        }
 
         // Mark conversation as read
         await messagingApi.markConversationAsRead(selectedConversationId);
@@ -174,7 +194,32 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
     // Cleanup interval on unmount or conversation change
     return () => clearInterval(pollInterval);
-  }, [selectedConversationId, currentUserId]);
+  }, [selectedConversationId, currentUserId, transformMsg]);
+
+  // Load older messages
+  const handleLoadMore = useCallback(async () => {
+    if (!selectedConversationId || isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const nextPage = currentPageRef.current + 1;
+      const response = await messagingApi.getMessages(selectedConversationId, {
+        page: nextPage,
+        limit: 5,
+        sort: 'desc',
+      });
+
+      const olderMessages: Message[] = (response.data || []).reverse().map(transformMsg);
+
+      setMessages(prev => [...olderMessages, ...prev]);
+      setHasMore(response.pagination.hasMore);
+      currentPageRef.current = nextPage;
+    } catch (err) {
+      console.error("Error loading more messages:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [selectedConversationId, isLoadingMore, hasMore, transformMsg]);
 
   const filteredConversations = useMemo(() => {
     let filtered = conversations;
@@ -315,6 +360,9 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               currentUserId={currentUserId}
               currentUserType={userType}
               onSendMessage={handleSendMessage}
+              onLoadMore={handleLoadMore}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
               conversationStatus={selectedConversation.status}
               {...(userType === "shop" && { onArchiveConversation: handleArchiveConversation })}
               conversationDetails={{
@@ -368,6 +416,9 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               currentUserId={currentUserId}
               currentUserType={userType}
               onSendMessage={handleSendMessage}
+              onLoadMore={handleLoadMore}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
               conversationStatus={selectedConversation.status}
               {...(userType === "shop" && { onArchiveConversation: handleArchiveConversation })}
               conversationDetails={{

@@ -242,19 +242,27 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
     try {
       setIsMessaging(true);
 
-      // Send initial general message (no service reference)
-      const initialMessage = `Hi! I'd like to inquire about your services.`;
+      // Check if a conversation with this shop already exists
+      const existing = await messagingApi.getConversations({ limit: 100 });
+      const existingConv = existing.data?.find(
+        (c) => c.shopId === shopInfo.shopId
+      );
 
-      await messagingApi.sendMessage({
-        shopId: shopInfo.shopId,
-        customerAddress: userProfile.address,
-        messageText: initialMessage,
-        messageType: "text",
-      });
+      if (existingConv) {
+        // Conversation exists — navigate directly without sending a duplicate message
+        router.push(`/customer?tab=messages&conversation=${existingConv.conversationId}`);
+      } else {
+        // No conversation yet — send initial message to create one
+        const message = await messagingApi.sendMessage({
+          shopId: shopInfo.shopId,
+          customerAddress: userProfile.address,
+          messageText: `Hi! I'd like to inquire about your services.`,
+          messageType: "text",
+        });
 
-      // Navigate to messages tab
-      router.push("/customer?tab=messages");
-      toast.success("Conversation started!");
+        router.push(`/customer?tab=messages&conversation=${message.conversationId}`);
+        toast.success("Conversation started!");
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to start conversation. Please try again.");

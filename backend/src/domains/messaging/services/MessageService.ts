@@ -223,7 +223,7 @@ export class MessageService {
     conversationId: string,
     userIdentifier: string,
     userType: 'customer' | 'shop',
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number; sort?: 'asc' | 'desc' } = {}
   ): Promise<any> {
     try {
       // Verify user has access to conversation
