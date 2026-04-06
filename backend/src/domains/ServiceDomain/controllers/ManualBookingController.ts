@@ -11,6 +11,7 @@ import { Request, Response } from 'express';
 import { getSharedPool } from '../../../utils/database-pool';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { EmailService } from '../../../services/EmailService';
+import { ModerationRepository } from '../../../repositories/ModerationRepository';
 import Stripe from 'stripe';
 
 const pool = getSharedPool();
@@ -110,6 +111,14 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     // Validate payment status
     if (!['paid', 'pending', 'unpaid', 'send_link', 'qr_code'].includes(paymentStatus)) {
       res.status(400).json({ error: 'Invalid payment status. Must be: paid, pending, unpaid, send_link, or qr_code' });
+      return;
+    }
+
+    // Check if customer is blocked by this shop
+    const moderationRepo = new ModerationRepository();
+    const isBlocked = await moderationRepo.isCustomerBlocked(shopId, customerAddress);
+    if (isBlocked) {
+      res.status(403).json({ error: 'This customer is blocked and cannot be booked at this shop.' });
       return;
     }
 

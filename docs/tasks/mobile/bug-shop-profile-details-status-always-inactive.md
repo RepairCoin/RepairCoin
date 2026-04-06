@@ -1,6 +1,6 @@
 # Bug: Shop Profile Details — Status Always Shows "Inactive" for Customers
 
-**Status:** open
+**Status:** Open — Not Fixed (verified 2026-04-06)
 **Priority:** medium
 **Date:** 2026-03-30
 **Platform:** Mobile (React Native / Expo)

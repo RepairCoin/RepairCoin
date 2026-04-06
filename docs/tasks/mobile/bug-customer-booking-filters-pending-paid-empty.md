@@ -1,6 +1,6 @@
 # Bug: Customer Bookings Tab — "Pending" and "Paid" Status Filters Return No Data
 
-**Status:** open
+**Status:** Fixed
 **Priority:** medium
 **Date:** 2026-03-30
 **Platform:** Mobile (React Native / Expo)

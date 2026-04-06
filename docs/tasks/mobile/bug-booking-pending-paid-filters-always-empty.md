@@ -1,6 +1,6 @@
 # Bug: Booking Tab "Pending" and "Paid" Filters Always Show Empty
 
-**Status:** open
+**Status:** Fixed
 **Priority:** high
 **Date:** 2026-03-30
 **Platform:** Mobile (React Native / Expo)

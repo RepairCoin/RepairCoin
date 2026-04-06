@@ -1,7 +1,7 @@
 # Bug: Moderation System — Blocking Not Enforced + UI Issues
 
-## Status: Open
-## Priority: Critical (Bug 1), Low (Bugs 2-4)
+## Status: Bug 1 Fixed (2026-04-06) | Bugs 2-5 Open
+## Priority: Critical (Bug 1 — Fixed), Low (Bugs 2-5)
 ## Date: 2026-03-25
 ## Category: Bug - Moderation / Security
 ## Location: /shop?tab=settings → Moderation
@@ -169,9 +169,9 @@ if (!isValidAddress) {
 
 ## Verification Checklist
 
-- [ ] Blocked customer cannot book services (payment rejected)
-- [ ] Blocked customer sees clear error message (not generic 500)
-- [ ] Manual bookings also check blocking status
+- [x] Blocked customer cannot book services (payment rejected)
+- [x] Blocked customer sees clear error message (not generic 500)
+- [x] Manual bookings also check blocking status
 - [ ] Shop can only block customers who have booked at their shop
 - [ ] Attempting to block a non-customer returns clear error
 - [ ] Unblock confirmation uses styled modal (not native confirm)
