@@ -190,6 +190,15 @@ export class ModerationRepository extends BaseRepository {
 
   async unblockCustomer(shopId: string, customerWalletAddress: string, unblockedBy: string): Promise<void> {
     try {
+      const normalizedAddress = customerWalletAddress.toLowerCase();
+
+      // Delete any old inactive block records first to avoid unique constraint violation
+      // Constraint: unique(shop_id, customer_wallet_address, is_active)
+      await this.pool.query(
+        `DELETE FROM blocked_customers WHERE shop_id = $1 AND customer_wallet_address = $2 AND is_active = false`,
+        [shopId, normalizedAddress]
+      );
+
       const query = `
         UPDATE blocked_customers
         SET
@@ -204,7 +213,7 @@ export class ModerationRepository extends BaseRepository {
       const result = await this.pool.query(query, [
         unblockedBy,
         shopId,
-        customerWalletAddress.toLowerCase(),
+        normalizedAddress,
       ]);
 
       if (result.rowCount === 0) {

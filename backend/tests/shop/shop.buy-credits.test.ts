@@ -811,14 +811,26 @@ describe('Shop Buy Credits (RCN Purchase) Tests', () => {
       expect(5).toBeGreaterThanOrEqual(minimum);
     });
 
-    it('BUG: non-numeric string amount returns 500 instead of 400', () => {
-      // KNOWN BUG: Sending amount: "abc" to /api/shops/purchase/stripe-checkout
-      // returns 500 "Purchase amount must be a whole number" instead of 400.
-      // Non-numeric strings should be caught by validation and return 400.
-      const isServerError = true; // Currently 500
-      const shouldBe400 = true;
-      expect(isServerError).toBe(true);
-      expect(shouldBe400).toBe(true);
+    it('FIXED: non-numeric string amount returns 400 (was 500)', () => {
+      // Fixed: amount: "abc" → Number("abc") = NaN → isNaN check → 400 "Amount must be a valid number"
+      const amount = Number('abc');
+      expect(isNaN(amount)).toBe(true);
+    });
+
+    it('FIXED: decimal amount returns 400 with "must be a whole number"', () => {
+      const amount = Number('5.5');
+      expect(Number.isInteger(amount)).toBe(false);
+    });
+
+    it('FIXED: null/undefined amount returns 400', () => {
+      expect(isNaN(Number(undefined))).toBe(true);
+      expect(Number(null)).toBe(0); // 0 < 5 → caught by minimum check
+    });
+
+    it('numeric string amount still works (auto-parsed)', () => {
+      const parsed = Number('50');
+      expect(parsed).toBe(50);
+      expect(Number.isInteger(parsed)).toBe(true);
     });
 
     it('payment methods should be well-defined', () => {

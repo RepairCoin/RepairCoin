@@ -366,8 +366,8 @@ router.get('/history/:shopId', async (req: Request, res: Response) => {
 router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
-    const { amount } = req.body;
-    
+    const rawAmount = req.body.amount;
+
     if (!shopId) {
       return res.status(401).json({
         success: false,
@@ -375,8 +375,24 @@ router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request
       });
     }
 
+    // Validate amount is a valid number
+    const amount = Number(rawAmount);
+    if (isNaN(amount) || !Number.isFinite(amount)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be a valid number'
+      });
+    }
+
+    if (!Number.isInteger(amount)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Purchase amount must be a whole number'
+      });
+    }
+
     // Stripe requires minimum $0.50, so at $0.10 per RCN, minimum is 5 RCN
-    if (!amount || amount < 5) {
+    if (amount < 5) {
       return res.status(400).json({
         success: false,
         error: 'Minimum purchase amount is 5 RCN ($0.50 USD) due to payment processor requirements'

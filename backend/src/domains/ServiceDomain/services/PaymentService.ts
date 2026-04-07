@@ -678,6 +678,35 @@ export class PaymentService {
         // Don't fail the payment if notification fails
       }
 
+      // Check if this is a first-time customer at this shop and send new customer email
+      try {
+        const svc = await this.serviceRepository.getServiceById(order.serviceId);
+        const shp = await shopRepository.getShop(order.shopId);
+        const cust = await customerRepository.getCustomer(order.customerAddress);
+        if (shp?.email) {
+          const { getSharedPool } = await import('../../../utils/database-pool');
+          const countResult = await getSharedPool().query(
+            'SELECT COUNT(*) FROM service_orders WHERE customer_address = $1 AND shop_id = $2',
+            [order.customerAddress, order.shopId]
+          );
+          const orderCount = parseInt(countResult.rows[0].count);
+          if (orderCount <= 1) {
+            const { EmailService } = await import('../../../services/EmailService');
+            const emailService = new EmailService();
+            await emailService.sendNewCustomerNotification(shp.email, shp.shopId, {
+              shopName: shp.name,
+              customerName: cust?.name || 'New Customer',
+              customerAddress: order.customerAddress,
+              serviceName: svc?.serviceName || 'Service',
+              bookingDate: order.bookingDate ? new Date(order.bookingDate).toLocaleDateString() : undefined,
+            });
+            logger.info('New customer email sent to shop', { shopId: order.shopId, customerAddress: order.customerAddress });
+          }
+        }
+      } catch (newCustError) {
+        logger.error('Failed to send new customer email:', newCustError);
+      }
+
       // Send booking confirmation to customer (email + in-app notification)
       try {
         const { appointmentReminderService } = await import('../../../services/AppointmentReminderService');
@@ -1263,6 +1292,27 @@ export class PaymentService {
         }
       } catch (notifError) {
         logger.error('Failed to send shop cancellation notification:', notifError);
+      }
+
+      // 6. Send refund notification email to shop
+      try {
+        const svcForRefund = await this.serviceRepository.getServiceById(order.serviceId);
+        const shopForRefund = await shopRepository.getShop(order.shopId);
+        const custForRefund = await customerRepository.getCustomer(order.customerAddress);
+        if (shopForRefund?.email) {
+          await this.emailService.sendRefundProcessedNotification(shopForRefund.email, shopForRefund.shopId, {
+            shopName: shopForRefund.name,
+            customerName: custForRefund?.name || 'Customer',
+            serviceName: svcForRefund?.serviceName || 'Service',
+            orderId,
+            rcnRefunded,
+            stripeRefunded,
+            cancellationReason: cancellationReason?.replace('shop:', '').replace(/_/g, ' '),
+          });
+          logger.info('Refund notification email sent to shop', { shopId: order.shopId, orderId });
+        }
+      } catch (refundEmailError) {
+        logger.error('Failed to send refund email to shop:', refundEmailError);
       }
 
       logger.info('Shop cancellation processed with refund', {

@@ -168,6 +168,25 @@ export class MessageService {
       }
       */
 
+      // Send email notification to shop when customer sends a message
+      if (request.senderType === 'customer') {
+        try {
+          const { shopRepository } = await import('../../../repositories');
+          const shop = await shopRepository.getShop(conversation.shopId);
+          if (shop?.email) {
+            const { EmailService } = await import('../../../services/EmailService');
+            const emailService = new EmailService();
+            await emailService.sendCustomerMessageNotification(shop.email, shop.shopId, {
+              shopName: shop.name,
+              customerName: conversation.customerName || 'Customer',
+              messagePreview: request.isEncrypted ? '🔒 Locked message' : request.messageText,
+            });
+          }
+        } catch (emailError) {
+          logger.error('Failed to send customer message email to shop:', emailError);
+        }
+      }
+
       logger.info('Message sent successfully', {
         messageId,
         conversationId: conversation.conversationId,

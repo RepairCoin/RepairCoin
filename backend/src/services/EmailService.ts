@@ -15,6 +15,7 @@ export interface EmailConfig {
 
 export interface PaymentReminderData {
   shopEmail: string;
+  shopId: string;
   shopName: string;
   amountDue: number;
   dueDate: Date;
@@ -23,6 +24,7 @@ export interface PaymentReminderData {
 
 export interface PaymentOverdueData {
   shopEmail: string;
+  shopId: string;
   shopName: string;
   amountDue: number;
   daysOverdue: number;
@@ -32,6 +34,7 @@ export interface PaymentOverdueData {
 
 export interface SubscriptionDefaultedData {
   shopEmail: string;
+  shopId: string;
   shopName: string;
   amountDue: number;
   daysPastDue: number;
@@ -39,6 +42,7 @@ export interface SubscriptionDefaultedData {
 
 export interface SubscriptionReactivatedData {
   shopEmail: string;
+  shopId: string;
   shopName: string;
   monthlyAmount: number;
   nextPaymentDate: Date;
@@ -203,7 +207,7 @@ export class EmailService {
       </div>
     `;
 
-    return this.sendEmail(data.shopEmail, subject, html);
+    return this.sendEmailWithPreferenceCheck(data.shopEmail, subject, html, data.shopId, 'subscriptionExpiring');
   }
 
   /**
@@ -249,7 +253,7 @@ export class EmailService {
       </div>
     `;
 
-    return this.sendEmail(data.shopEmail, subject, html);
+    return this.sendEmailWithPreferenceCheck(data.shopEmail, subject, html, data.shopId, 'subscriptionExpiring');
   }
 
   /**
@@ -295,7 +299,7 @@ export class EmailService {
       </div>
     `;
 
-    return this.sendEmail(data.shopEmail, subject, html);
+    return this.sendEmailWithPreferenceCheck(data.shopEmail, subject, html, data.shopId, 'subscriptionExpiring');
   }
 
   /**
@@ -341,7 +345,7 @@ export class EmailService {
       </div>
     `;
 
-    return this.sendEmail(data.shopEmail, subject, html);
+    return this.sendEmailWithPreferenceCheck(data.shopEmail, subject, html, data.shopId, 'subscriptionRenewal');
   }
 
   /**
@@ -1921,6 +1925,155 @@ export class EmailService {
     `;
 
     return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'paymentReceived');
+  }
+
+  /**
+   * Send new customer notification to shop (with preference check)
+   * Triggered when a first-time customer books at a shop
+   */
+  async sendNewCustomerNotification(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      customerAddress: string;
+      serviceName: string;
+      bookingDate?: string;
+    }
+  ): Promise<boolean> {
+    const subject = `🎉 New Customer: ${data.customerName} just booked at ${data.shopName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">New Customer!</h1>
+        </div>
+        <div style="padding: 30px;">
+          <p>Dear ${data.shopName},</p>
+
+          <p>Great news! A new customer has booked a service at your shop for the first time:</p>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            ${data.bookingDate ? `<p style="margin: 5px 0;"><strong>Date:</strong> ${data.bookingDate}</p>` : ''}
+          </div>
+
+          <p>Make a great first impression — every new customer is a chance to build a loyal relationship!</p>
+
+          <p>Log in to your shop dashboard to view details.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'newCustomer');
+  }
+
+  /**
+   * Send customer message notification to shop (with preference check)
+   * Triggered when a customer sends a message to the shop
+   */
+  async sendCustomerMessageNotification(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      messagePreview: string;
+    }
+  ): Promise<boolean> {
+    const preview = data.messagePreview.length > 100
+      ? data.messagePreview.substring(0, 100) + '...'
+      : data.messagePreview;
+
+    const subject = `💬 New message from ${data.customerName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">New Customer Message</h1>
+        </div>
+        <div style="padding: 30px;">
+          <p>Dear ${data.shopName},</p>
+
+          <p>You have a new message from <strong>${data.customerName}</strong>:</p>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FFCC00;">
+            <p style="margin: 0; font-style: italic;">"${preview}"</p>
+          </div>
+
+          <p>Log in to your shop dashboard to read the full message and reply.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'customerMessage');
+  }
+
+  /**
+   * Send refund processed notification to shop (with preference check)
+   * Triggered when a refund (RCN or Stripe) is completed for an order
+   */
+  async sendRefundProcessedNotification(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      serviceName: string;
+      orderId: string;
+      rcnRefunded: number;
+      stripeRefunded: number;
+      cancellationReason?: string;
+    }
+  ): Promise<boolean> {
+    const refundParts: string[] = [];
+    if (data.rcnRefunded > 0) refundParts.push(`${data.rcnRefunded} RCN returned to customer`);
+    if (data.stripeRefunded > 0) refundParts.push(`$${data.stripeRefunded.toFixed(2)} Stripe refund initiated`);
+    const refundSummary = refundParts.length > 0 ? refundParts.join(' • ') : 'No refund required';
+
+    const subject = `🔄 Refund Processed: ${data.serviceName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Refund Processed</h1>
+        </div>
+        <div style="padding: 30px;">
+          <p>Dear ${data.shopName},</p>
+
+          <p>A refund has been processed for the following booking:</p>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Order ID:</strong> ${data.orderId}</p>
+            ${data.cancellationReason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${data.cancellationReason}</p>` : ''}
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Refund Details:</strong> ${refundSummary}</p>
+          </div>
+
+          <p>Log in to your shop dashboard for full details.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'refundProcessed');
   }
 
   /**

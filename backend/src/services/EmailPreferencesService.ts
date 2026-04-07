@@ -54,7 +54,7 @@ export class EmailPreferencesService {
    * Get shop's email preferences (with defaults if not found)
    */
   async getShopPreferences(shopId: string): Promise<EmailPreferences> {
-    console.log('📧 [EmailPreferencesService] getShopPreferences called for shopId:', shopId);
+    logger.debug('EmailPreferencesService getShopPreferences called', { shopId });
 
     try {
       const query = `
@@ -87,19 +87,16 @@ export class EmailPreferencesService {
         WHERE shop_id = $1
       `;
 
-      console.log('📧 [EmailPreferencesService] Executing query...');
       const result = await this.pool.query(query, [shopId]);
-      console.log('📧 [EmailPreferencesService] Query result rows:', result.rows.length);
 
       if (result.rows.length === 0) {
-        console.log('📧 [EmailPreferencesService] No preferences found, creating defaults');
+        logger.debug('No email preferences found, creating defaults', { shopId });
         // Return default preferences and create entry
         const defaultPrefs = this.getDefaultPreferences(shopId);
         await this.createShopPreferences(shopId);
         return defaultPrefs;
       }
 
-      console.log('✅ [EmailPreferencesService] Preferences found in database');
       return result.rows[0];
     } catch (error) {
       console.error('❌ [EmailPreferencesService] Error in getShopPreferences:', error);

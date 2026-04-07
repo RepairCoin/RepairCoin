@@ -47,12 +47,19 @@ export const useAccessibilityStore = create<AccessibilityState>()(
       }),
       {
         name: 'accessibility-storage', // localStorage key
+        onRehydrateStorage: () => (state) => {
+          // Apply font size after store rehydrates from localStorage
+          if (state && typeof window !== 'undefined') {
+            const scale = state.getFontScale();
+            document.documentElement.style.fontSize = `${scale}%`;
+          }
+        },
       }
     )
   )
 );
 
-// Initialize font size on app load
+// Initialize font size on app load (immediate, before rehydration)
 if (typeof window !== 'undefined') {
   const store = useAccessibilityStore.getState();
   const scale = store.getFontScale();

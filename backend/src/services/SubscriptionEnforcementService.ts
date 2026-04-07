@@ -284,6 +284,7 @@ export class SubscriptionEnforcementService extends BaseRepository {
     try {
       await this.emailService.sendPaymentOverdue({
         shopEmail,
+        shopId,
         shopName,
         amountDue: 500, // Monthly subscription amount
         daysOverdue,
@@ -411,6 +412,7 @@ export class SubscriptionEnforcementService extends BaseRepository {
       try {
         await this.emailService.sendSubscriptionDefaulted({
           shopEmail,
+          shopId,
           shopName,
           amountDue: 500,
           daysPastDue: daysOverdue

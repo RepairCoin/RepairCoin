@@ -103,7 +103,8 @@ export const ModerationSettings: React.FC = () => {
       toast.success("Customer unblocked successfully");
       loadData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to unblock customer");
+      const message = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to unblock customer";
+      toast.error(message);
     }
   };
 
@@ -247,17 +248,17 @@ export const ModerationSettings: React.FC = () => {
                   key={customer.id}
                   className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
                           <Ban className="w-5 h-5 text-red-400" />
                         </div>
-                        <div>
-                          <h4 className="text-white font-medium">
+                        <div className="min-w-0">
+                          <h4 className="text-white font-medium truncate">
                             {customer.customerName || "Unknown Customer"}
                           </h4>
-                          <p className="text-xs text-gray-400 font-mono">
+                          <p className="text-xs text-gray-400 font-mono truncate">
                             {customer.customerWalletAddress}
                           </p>
                         </div>
@@ -274,7 +275,7 @@ export const ModerationSettings: React.FC = () => {
                     </div>
                     <button
                       onClick={() => handleUnblock(customer.customerWalletAddress)}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors"
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors flex-shrink-0"
                     >
                       Unblock
                     </button>
