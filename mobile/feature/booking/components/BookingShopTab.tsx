@@ -9,10 +9,12 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { bookingApi } from "@/shared/services/booking.services";
 import { appointmentApi } from "@/shared/services/appointment.services";
+import { useRescheduleRequestCountQuery } from "../hooks/queries";
 import EnhancedBookingCard from "./EnhancedBookingCard";
 
 // Hooks
@@ -487,6 +489,7 @@ function BookingList({ bookings, actions }: BookingListProps) {
 export default function BookingsTab() {
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const { data: pendingRescheduleCount } = useRescheduleRequestCountQuery();
   const { statusFilter, setStatusFilter } = useBookingsFilter();
   const { isLoading, getBookingsForDate, bookings, refetch } = useBookingsData(statusFilter);
 
@@ -535,8 +538,9 @@ export default function BookingsTab() {
 
   return (
     <View className="flex-1 bg-zinc-950">
-      {/* View Mode Tabs */}
-      <View className="flex-row mb-4 bg-[#1a1a1a] rounded-xl p-1">
+      {/* Header with View Mode Tabs and Reschedule Button */}
+      <View className="flex-row items-center mb-4 gap-2">
+      <View className="flex-1 flex-row bg-[#1a1a1a] rounded-xl p-1">
         <TouchableOpacity
           onPress={() => setViewMode("calendar")}
           className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg ${
@@ -575,6 +579,22 @@ export default function BookingsTab() {
             List
           </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Reschedule Requests Button */}
+      <TouchableOpacity
+        onPress={() => router.push("/shop/reschedule-requests" as any)}
+        className="bg-[#1a1a1a] rounded-xl p-3 relative"
+      >
+        <Feather name="repeat" size={20} color="#FFCC00" />
+        {(pendingRescheduleCount ?? 0) > 0 && (
+          <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
+            <Text className="text-white text-[10px] font-bold">
+              {pendingRescheduleCount! > 99 ? "99+" : pendingRescheduleCount}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
       </View>
 
       {/* Status Filters - Only show for List view */}
