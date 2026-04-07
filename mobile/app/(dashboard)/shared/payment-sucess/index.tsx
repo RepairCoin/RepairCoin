@@ -105,8 +105,9 @@ export default function PaymentSuccess() {
             if (!result.success) {
               setConfirmError(result.error || "Failed to confirm payment");
             } else {
-              // Invalidate booking queries - must match the full query key structure
+              // Invalidate booking and appointment queries
               await queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings"] });
+              await queryClient.invalidateQueries({ queryKey: ["repaircoin", "appointments"] });
               // Invalidate customer-related queries for RCN balance updates
               await queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
             }
