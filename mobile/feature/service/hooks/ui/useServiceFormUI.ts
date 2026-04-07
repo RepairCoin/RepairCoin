@@ -284,7 +284,7 @@ export function useServiceFormUI(
         await saveAvailabilityChanges(pendingAvailabilityChanges);
 
         await queryClient.invalidateQueries({
-          queryKey: queryKeys.service(shopId!),
+          queryKey: ['shopServices'],
         });
 
         showSuccess("Service created successfully");
@@ -324,7 +324,10 @@ export function useServiceFormUI(
         await saveAvailabilityChanges(pendingAvailabilityChanges);
 
         await queryClient.invalidateQueries({
-          queryKey: queryKeys.service(shopId!),
+          queryKey: ['shopServices'],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.service(serviceId),
         });
 
         showSuccess("Service updated successfully");

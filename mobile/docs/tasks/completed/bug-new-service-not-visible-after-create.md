@@ -1,10 +1,11 @@
 # Bug: New Service Not Visible After Creation (Cache Invalidation Mismatch)
 
-**Status:** Open
+**Status:** Completed
 **Priority:** High
 **Est. Effort:** 30 min
 **Created:** 2026-04-07
 **Updated:** 2026-04-07
+**Completed:** 2026-04-07
 
 ## Overview
 
