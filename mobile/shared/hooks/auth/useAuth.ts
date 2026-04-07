@@ -51,7 +51,21 @@ export function useAuth() {
       },
       onSuccess: async (result, params) => {
         const { address } = params;
-        if (result.exists) {
+        if (!result.exists) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Handle pending/inactive shop before getting token
+        if (result.type === "shop" && !result.user?.isActive && !result.user?.active) {
+          setUserProfile(result.user);
+          setUserType("shop");
+          setIsLoading(false);
+          router.replace("/register/pending");
+          return;
+        }
+
+        try {
           const getTokenResult = await getTokenMutation.mutateAsync(address);
           if (getTokenResult.success) {
             setUserProfile(result.user);
@@ -60,28 +74,27 @@ export function useAuth() {
             setUserType(result.type);
             apiClient.setAuthToken(getTokenResult.token);
 
-            if (!result.exists) {
-              setIsLoading(false);
-              router.replace("/register");
+            if (result.type === "customer") {
+              router.replace("/customer/tabs/home");
+            } else if (result.type === "shop") {
+              router.replace("/shop/tabs/home");
             } else {
-              if (result.type === "customer") {
-                router.replace("/customer/tabs/home");
-              } else if (result.type === "shop") {
-                const active = result.user?.isActive || false;
-                if (active) {
-                  router.replace("/shop/tabs/home");
-                } else {
-                  router.replace("/register/pending");
-                }
-              } else {
-                router.replace("/customer/tabs/home");
-              }
+              router.replace("/customer/tabs/home");
             }
           } else {
             setIsLoading(false);
           }
-        } else {
-          setIsLoading(false);
+        } catch (err) {
+          console.error("[useConnectWallet] Token error:", err);
+          // If token fails for a shop, it might be unverified
+          if (result.type === "shop") {
+            setUserProfile(result.user);
+            setUserType("shop");
+            setIsLoading(false);
+            router.replace("/register/pending");
+          } else {
+            setIsLoading(false);
+          }
         }
       },
       onError: (error: any) => {
