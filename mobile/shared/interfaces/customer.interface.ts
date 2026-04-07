@@ -33,6 +33,7 @@ export interface CustomerData {
   shopId: string;
   stripeCustomerId: string;
   profileImageUrl: string | null;
+  currentRcnBalance: number;
   createdAt: string;
   updatedAt: string;
   total_transactions: number;

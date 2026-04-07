@@ -84,9 +84,7 @@ export default function CustomerWalletTab() {
     }
   }, [refetch, refetchServices, refetchTrending, refetchRecentlyViewed, refetchFavorites]);
 
-  const totalBalance =
-    (customerData?.customer?.lifetimeEarnings || 0) -
-    (customerData?.customer?.totalRedemptions || 0);
+  const totalBalance = customerData?.customer?.currentRcnBalance || 0;
 
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",

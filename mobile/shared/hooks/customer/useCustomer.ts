@@ -15,9 +15,10 @@ export const useCustomer = () => {
         const response: any =
           await customerApi.getCustomerByWalletAddress(address);
         const data = response?.data || response;
-        // Map snake_case profile image
+        // Map snake_case fields
         if (data?.customer) {
           data.customer.profileImageUrl = data.customer.profileImageUrl || data.customer.profile_image_url || null;
+          data.customer.currentRcnBalance = data.customer.currentRcnBalance ?? data.customer.current_rcn_balance ?? 0;
         }
         return data;
       },
