@@ -398,7 +398,14 @@ class AppointmentApi {
       const response = await apiClient.get(
         `/services/shops/${shopId}/customers/search${queryString}`
       );
-      return response.data || [];
+      return (response.customers || []).map((c: any) => ({
+        customerAddress: c.address,
+        customerName: c.name,
+        customerEmail: c.email,
+        customerPhone: c.phone,
+        totalBookings: 0,
+        lastVisit: c.createdAt,
+      }));
     } catch (error: any) {
       console.error("Failed to search customers:", error.message);
       throw error;

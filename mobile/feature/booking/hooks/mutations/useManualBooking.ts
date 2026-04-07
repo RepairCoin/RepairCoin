@@ -20,8 +20,9 @@ export function useManualBookingMutation() {
       return appointmentApi.createManualBooking(shopId, bookingData);
     },
     onSuccess: () => {
-      // Invalidate bookings queries
+      // Invalidate all booking-related queries
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
+      queryClient.invalidateQueries({ queryKey: ["shopBookings"] });
       showSuccess("Manual booking has been created successfully!");
     },
     onError: (error: any) => {
