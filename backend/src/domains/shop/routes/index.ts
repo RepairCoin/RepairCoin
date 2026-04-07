@@ -281,6 +281,7 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         name: shop.name,
         address: shop.address,
         phone: shop.phone,
+        active: shop.active,
         verified: shop.verified,
         crossShopEnabled: shop.crossShopEnabled,
         location: shop.location,
