@@ -3,6 +3,7 @@ export {
   useApproveOrderMutation,
   useCompleteOrderMutation,
   useCancelOrderMutation,
+  useCancelOrderByShopMutation,
   useMarkNoShowMutation,
   useRescheduleMutation,
 } from "./useBookingMutations";

@@ -14,8 +14,14 @@ export const useCustomer = () => {
       queryFn: async () => {
         const response: any =
           await customerApi.getCustomerByWalletAddress(address);
-        return response;
+        const data = response?.data || response;
+        // Map snake_case profile image
+        if (data?.customer) {
+          data.customer.profileImageUrl = data.customer.profileImageUrl || data.customer.profile_image_url || null;
+        }
+        return data;
       },
+      enabled: !!address,
       staleTime: 10 * 60 * 1000, // 10 minutes
     });
   };

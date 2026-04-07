@@ -68,6 +68,26 @@ export function useCancelOrderMutation() {
   });
 }
 
+export function useCancelOrderByShopMutation() {
+  const queryClient = useQueryClient();
+  const { showSuccess, showError } = useAppToast();
+
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
+      return bookingApi.cancelOrderByShop(orderId, reason || "Cancelled by shop");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
+      queryClient.invalidateQueries({ queryKey: ["shopBookings"] });
+      showSuccess("Booking cancelled. Full refund will be processed.");
+    },
+    onError: (error: any) => {
+      console.error("Failed to cancel order by shop:", error);
+      showError(error.message || "Failed to cancel booking. Please try again.");
+    },
+  });
+}
+
 export function useMarkNoShowMutation() {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useAppToast();

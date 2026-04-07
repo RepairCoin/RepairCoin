@@ -6,6 +6,7 @@ import {
   useApproveOrderMutation,
   useCompleteOrderMutation,
   useCancelOrderMutation,
+  useCancelOrderByShopMutation,
   useMarkNoShowMutation,
   useRescheduleMutation,
   useCreateRescheduleRequestMutation,
@@ -29,6 +30,7 @@ export function useBookingDetail() {
   const approveOrderMutation = useApproveOrderMutation();
   const completeOrderMutation = useCompleteOrderMutation();
   const cancelOrderMutation = useCancelOrderMutation();
+  const cancelOrderByShopMutation = useCancelOrderByShopMutation();
   const markNoShowMutation = useMarkNoShowMutation();
   const rescheduleMutation = useRescheduleMutation();
   const createRescheduleRequestMutation = useCreateRescheduleRequestMutation();
@@ -88,6 +90,7 @@ export function useBookingDetail() {
     approveOrderMutation.isPending ||
     completeOrderMutation.isPending ||
     cancelOrderMutation.isPending ||
+    cancelOrderByShopMutation.isPending ||
     markNoShowMutation.isPending ||
     rescheduleMutation.isPending ||
     createRescheduleRequestMutation.isPending;
@@ -133,8 +136,12 @@ export function useBookingDetail() {
   const confirmCancel = useCallback(() => {
     if (!booking) return;
     setShowCancelModal(false);
-    cancelOrderMutation.mutate(booking.orderId);
-  }, [booking, cancelOrderMutation]);
+    if (isShopView) {
+      cancelOrderByShopMutation.mutate({ orderId: booking.orderId });
+    } else {
+      cancelOrderMutation.mutate(booking.orderId);
+    }
+  }, [booking, isShopView, cancelOrderMutation, cancelOrderByShopMutation]);
 
   const handleMarkNoShow = useCallback((notes?: string) => {
     if (!booking) return;
@@ -202,7 +209,7 @@ export function useBookingDetail() {
     setShowCustomerRescheduleModal,
 
     // Mutation loading states
-    cancelIsPending: cancelOrderMutation.isPending,
+    cancelIsPending: cancelOrderMutation.isPending || cancelOrderByShopMutation.isPending,
     noShowIsPending: markNoShowMutation.isPending,
     rescheduleIsPending: rescheduleMutation.isPending,
     customerRescheduleIsPending: createRescheduleRequestMutation.isPending,
