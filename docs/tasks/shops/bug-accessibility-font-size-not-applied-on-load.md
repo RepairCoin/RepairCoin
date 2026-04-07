@@ -1,6 +1,6 @@
 # Bug: Accessibility Font Size Not Applied on Page Load
 
-## Status: Open
+## Status: Fixed (2026-04-07)
 ## Priority: Medium
 ## Date: 2026-03-25
 ## Category: Bug - Accessibility / UX

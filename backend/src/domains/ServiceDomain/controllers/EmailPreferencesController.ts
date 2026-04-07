@@ -15,25 +15,19 @@ export class EmailPreferencesController {
    * Get shop's email notification preferences
    */
   async getShopPreferences(req: Request, res: Response): Promise<void> {
-    console.log('📧 [EmailPreferences] GET /shops/:shopId/email-preferences called');
     try {
       const { shopId } = req.params;
-      console.log('📧 [EmailPreferences] Shop ID:', shopId);
 
       // Authorization: Only shop owner or admin can view preferences
       const userAddress = req.user?.address?.toLowerCase();
       const userRole = req.user?.role;
-      console.log('📧 [EmailPreferences] User:', { address: userAddress, role: userRole });
 
       if (userRole !== 'admin') {
-        console.log('📧 [EmailPreferences] Non-admin user, verifying shop ownership...');
         // Verify shop ownership
         const { shopRepository } = await import('../../../repositories');
         const shop = await shopRepository.getShop(shopId);
-        console.log('📧 [EmailPreferences] Shop found:', shop ? 'Yes' : 'No');
 
         if (!shop) {
-          console.log('❌ [EmailPreferences] Shop not found:', shopId);
           res.status(404).json({
             success: false,
             error: 'Shop not found'
@@ -42,19 +36,15 @@ export class EmailPreferencesController {
         }
 
         if (shop.walletAddress.toLowerCase() !== userAddress) {
-          console.log('❌ [EmailPreferences] Unauthorized access attempt');
           res.status(403).json({
             success: false,
             error: 'Unauthorized: You can only view your own email preferences'
           });
           return;
         }
-        console.log('✅ [EmailPreferences] Shop ownership verified');
       }
 
-      console.log('📧 [EmailPreferences] Fetching preferences from service...');
       const preferences = await this.emailPreferencesService.getShopPreferences(shopId);
-      console.log('✅ [EmailPreferences] Preferences retrieved successfully:', JSON.stringify(preferences, null, 2));
 
       logger.info('Shop email preferences retrieved', {
         shopId,

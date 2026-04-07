@@ -1,10 +1,10 @@
 # Bug: Email Notification Preferences Not Enforced for Most Notification Types
 
-## Status: Open
+## Status: Fixed (2026-04-07) — Phase 1-4 Complete
 ## Priority: Medium
 ## Date: 2026-03-25
 ## Category: Bug - Notifications
-## Current State: Only 3 of 12 toggles actually control email sending
+## Current State: All 12 toggles with email implementations now enforce preferences
 
 ---
 

@@ -299,6 +299,7 @@ export class ContractMonitoringService {
         try {
           await this.emailService.sendPaymentReminder({
             shopEmail: email,
+            shopId: 'admin',
             shopName: 'Admin',
             amountDue: 0,
             dueDate: new Date(),

@@ -1,6 +1,6 @@
 # Bug: Non-Numeric Purchase Amount Returns 500 Instead of 400
 
-## Status: Open
+## Status: Fixed (2026-04-07)
 ## Priority: Low
 ## Date: 2026-03-24
 ## Category: Bug - Validation / Error Handling

@@ -45,12 +45,7 @@ export interface EmailPreferences {
  * Get shop's email notification preferences
  */
 export const getShopEmailPreferences = async (shopId: string): Promise<EmailPreferences> => {
-  console.log('🌐 [API Client] Calling GET /services/shops/' + shopId + '/email-preferences');
   const response = await apiClient.get(`/services/shops/${shopId}/email-preferences`);
-  console.log('🌐 [API Client] Raw response:', response);
-  console.log('🌐 [API Client] response.data:', response.data);
-  // Backend returns { success: true, data: {...} } but axios already unwraps to response.data
-  // So response.data is already the preferences object, not response.data.data
   return response.data.data || response.data;
 };
 

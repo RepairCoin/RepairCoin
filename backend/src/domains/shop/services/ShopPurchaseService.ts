@@ -249,59 +249,67 @@ export class ShopPurchaseService {
       });
 
       // Check and update status of pending purchases with Stripe sessions
-      // Simple logic: If it's not completed, it's cancelled (Stripe auto-cancels when user navigates away)
+      // Only cancel truly abandoned purchases — never cancel if payment was received
       const stripeService = getStripeService();
 
       for (const purchase of result.items) {
-        // Only check pending purchases - they should either complete or be cancelled
         if (purchase.status === 'pending') {
-          // Give very recent purchases (< 2 minutes) a chance to complete
           const purchaseAge = new Date(purchase.created_at);
           const ageMinutes = Math.floor((Date.now() - purchaseAge.getTime()) / 60000);
 
-          // Don't check purchases that are less than 2 minutes old - give user time to complete
-          if (ageMinutes < 2) {
+          // Don't check purchases less than 5 minutes old — give webhook time to arrive
+          if (ageMinutes < 5) {
             continue;
           }
 
-          // For older pending purchases, check if they completed or should be cancelled
           if (purchase.payment_reference && purchase.payment_reference.startsWith('cs_')) {
             try {
               const session = await stripeService.getCheckoutSession(purchase.payment_reference);
 
-              // If session is complete and paid, mark purchase as completed
-              if (session.payment_status === 'paid' && session.status === 'complete') {
+              if (session.payment_status === 'paid') {
+                // Payment received — complete regardless of session status
                 await shopRepository.completeShopPurchase(purchase.id, session.id);
                 purchase.status = 'completed';
                 logger.info('Auto-completed purchase with paid session', {
                   purchaseId: purchase.id,
-                  shopId: purchase.shop_id
+                  shopId: purchase.shop_id,
+                  sessionStatus: session.status
                 });
-              }
-              // Any other status (open, expired) means user didn't complete - mark as cancelled
-              else {
+              } else if (session.status === 'expired') {
+                // Session expired without payment — safe to cancel
                 await shopRepository.cancelShopPurchase(purchase.id);
                 purchase.status = 'cancelled';
-                logger.info('Auto-cancelled purchase - payment not completed', {
+                logger.info('Auto-cancelled purchase - session expired without payment', {
+                  purchaseId: purchase.id,
+                  shopId: purchase.shop_id
+                });
+              } else if (ageMinutes > 1440) {
+                // Older than 24 hours and still not paid — abandon
+                await shopRepository.cancelShopPurchase(purchase.id);
+                purchase.status = 'cancelled';
+                logger.info('Auto-cancelled purchase - abandoned after 24 hours', {
                   purchaseId: purchase.id,
                   shopId: purchase.shop_id,
                   sessionStatus: session.status
                 });
               }
+              // else: session still open/processing — leave as pending
             } catch (stripeError: any) {
-              // If session doesn't exist in Stripe, it was cancelled/deleted
-              await shopRepository.cancelShopPurchase(purchase.id);
-              purchase.status = 'cancelled';
-              logger.info('Auto-cancelled purchase - Stripe session not found', {
-                purchaseId: purchase.id,
-                shopId: purchase.shop_id
-              });
+              // Only cancel if purchase is old (> 24 hours) and Stripe session not found
+              if (ageMinutes > 1440) {
+                await shopRepository.cancelShopPurchase(purchase.id);
+                purchase.status = 'cancelled';
+                logger.info('Auto-cancelled purchase - Stripe session not found after 24h', {
+                  purchaseId: purchase.id,
+                  shopId: purchase.shop_id
+                });
+              }
             }
-          } else {
-            // No payment reference means incomplete purchase - mark as cancelled
+          } else if (purchase.payment_reference === 'stripe_checkout_pending' && ageMinutes > 1440) {
+            // No real Stripe session after 24 hours — checkout was never created
             await shopRepository.cancelShopPurchase(purchase.id);
             purchase.status = 'cancelled';
-            logger.info('Auto-cancelled purchase - no payment session', {
+            logger.info('Auto-cancelled purchase - no payment session after 24h', {
               purchaseId: purchase.id,
               shopId: purchase.shop_id
             });
