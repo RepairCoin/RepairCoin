@@ -1,13 +1,25 @@
 # RepairCoin Documentation
 
-**Last Updated**: November 18, 2025
+**Last Updated**: April 6, 2026
 
 Welcome to the RepairCoin documentation! This directory contains all technical documentation organized by category.
 
 ---
 
+## 🔥 Recent Updates
+
+**April 6, 2026**: WhatsApp & Messenger Integration
+- ✅ Frontend chat buttons complete
+- ✅ WhatsApp API service created
+- ⏳ Backend integration pending
+- 📖 See [Next Session Guide](./NEXT_SESSION_WHATSAPP_MESSENGER.md)
+
+---
+
 ## Quick Links
 
+- 🚀 [**NEXT SESSION GUIDE**](./NEXT_SESSION_WHATSAPP_MESSENGER.md) - **START HERE for next session!**
+- 📅 [Latest Session Notes](./sessions/SESSION_2026-04-06.md) - April 6, 2026 work
 - 📋 [Project Overview](../README.md) - Main project README
 - 🤖 [Claude Instructions](../CLAUDE.md) - Instructions for Claude Code AI assistant
 - 🔐 [Authentication Docs](#authentication) - Auth system implementation
@@ -15,6 +27,8 @@ Welcome to the RepairCoin documentation! This directory contains all technical d
 - 🚀 [Deployment Docs](#deployment) - Deployment guides and checklists
 - ⚡ [Features Docs](#features) - Feature specifications
 - 🔌 [API Docs](#api) - API documentation and audits
+- 📞 [Integrations](#integrations) - Third-party integrations (WhatsApp, Calendar, etc.)
+- 📝 [Session Notes](#session-notes) - Development session history
 
 ---
 
@@ -342,6 +356,56 @@ To add new documentation:
 
 ---
 
-**Documentation Version**: 2.0
-**Last Major Update**: 2025-11-10 (Access/Refresh Token Implementation)
+## 📞 Integrations
+
+**Location**: [`./integrations/`](./integrations/)
+
+Third-party service integrations and setup guides.
+
+| Document | Description | Status |
+|----------|-------------|--------|
+| [**WhatsApp Setup**](./integrations/WHATSAPP_SETUP.md) | WhatsApp Business API integration guide | ✅ Complete |
+| [**Google Calendar Setup**](./integrations/GOOGLE_CALENDAR_SETUP.md) | Google Calendar OAuth setup | ✅ Complete |
+
+### Integration Status
+
+**WhatsApp & Messenger** (April 6, 2026):
+- ✅ Frontend chat buttons
+- ✅ WhatsApp API service
+- ⏳ Backend integration pending
+- 🔮 Production API setup
+
+**Google Calendar** (March 2026):
+- ✅ OAuth 2.0 flow complete
+- ✅ Event creation/update/delete
+- ✅ Auto token refresh
+- ✅ Production ready
+
+---
+
+## 📝 Session Notes
+
+**Location**: [`./sessions/`](./sessions/)
+
+Development session history and progress tracking.
+
+| Date | Document | Highlights |
+|------|----------|-----------|
+| Apr 6, 2026 | [SESSION_2026-04-06.md](./sessions/SESSION_2026-04-06.md) | WhatsApp/Messenger integration, admin settings fix |
+
+### Latest Session Summary
+
+**April 6, 2026** (~5 hours):
+- Fixed admin settings page (was showing blank)
+- Added WhatsApp & Messenger to shop social media settings
+- Built chat buttons for service cards with pre-filled messages
+- Created WhatsApp API service for automated notifications
+- Wrote comprehensive documentation and next session guide
+
+**Next Steps**: See [NEXT_SESSION_WHATSAPP_MESSENGER.md](./NEXT_SESSION_WHATSAPP_MESSENGER.md)
+
+---
+
+**Documentation Version**: 3.0
+**Last Major Update**: 2026-04-06 (WhatsApp & Messenger Integration)
 **Maintained By**: RepairCoin Development Team

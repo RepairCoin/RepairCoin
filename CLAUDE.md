@@ -969,3 +969,90 @@ Automated cleanup of expired unpaid bookings with shop management UI for manual 
   - Reduce no-shows with calendar reminders
   - Professional customer experience
   - Multi-device appointment access
+
+### WhatsApp & Messenger Integration (April 6, 2026)
+**Status:** Frontend Complete ✅ | Backend Integration Pending ⏳
+
+Direct customer communication via WhatsApp and Facebook Messenger with automated booking notifications.
+
+- **Frontend Implementation (Complete)**
+  - **ChatButton Component** (`ChatButton.tsx` - 140 lines)
+    - Single platform: Shows direct "Chat on WhatsApp" or "Chat on Messenger" button
+    - Multiple platforms: Shows dropdown with both options
+    - Pre-filled messages with shop name and service name
+    - Smart display: Only shows if shop has WhatsApp/Messenger configured
+    - Professional UI: Color-coded (green for WhatsApp, blue for Messenger, purple for both)
+
+  - **Service Card Integration** (`ServiceCard.tsx`)
+    - Chat button appears above "Book Now" button
+    - Conditional rendering based on shop's social media settings
+    - Pre-filled message: "Hi [Shop Name]! I'm interested in your '[Service Name]' service. Is this available?"
+    - Opens WhatsApp/Messenger app with one click
+
+  - **Shop Settings UI** (`SocialMediaSettings.tsx`)
+    - Added WhatsApp field: `https://wa.me/1234567890`
+    - Added Messenger field: `https://m.me/yourshop`
+    - Professional input forms with icons and descriptions
+    - Included in social media statistics counter
+    - Save/update via existing shop details API
+
+- **Backend Implementation (Complete)**
+  - **WhatsAppService** (`WhatsAppService.ts` - 295 lines)
+    - **Booking Confirmations**: Sent immediately after payment
+    - **Appointment Reminders**: Sent 24 hours before appointment
+    - **Order Completion**: Sent when service is marked complete
+    - **Cancellation Notifications**: Sent with refund information
+    - E.164 phone number formatting
+    - Graceful fallback (doesn't break if WhatsApp not configured)
+    - Professional message templates with emojis
+    - Support for Facebook WhatsApp Business API
+    - Ready for Twilio WhatsApp API (alternative provider)
+    - Environment-based configuration
+
+  - **API Integration** (Pending)
+    - Environment variables: `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_API_VERSION`
+    - Needs integration into `PaymentService.ts` for booking confirmations
+    - Needs integration into `AppointmentReminderService.ts` for reminders
+    - Backend service endpoints must return `shopWhatsapp` and `shopMessenger` fields
+
+- **Documentation** (`docs/integrations/WHATSAPP_SETUP.md` - 400+ lines)
+  - Complete setup guide for Facebook WhatsApp Business API
+  - Alternative setup for Twilio WhatsApp API
+  - Environment configuration instructions
+  - Testing procedures
+  - Message templates and examples
+  - Cost estimates for different providers
+  - Troubleshooting guide
+
+- **Database Schema** (Pending Verification)
+  - Columns needed in `shops` table:
+    - `whatsapp VARCHAR(255)` - WhatsApp link (e.g., https://wa.me/1234567890)
+    - `messenger VARCHAR(255)` - Messenger link (e.g., https://m.me/shopname)
+
+- **Features**
+  - ✅ Chat Now buttons on all service cards
+  - ✅ Pre-filled messages with context
+  - ✅ Shop settings UI for WhatsApp/Messenger links
+  - ✅ WhatsApp API service for automated notifications
+  - ✅ Comprehensive setup documentation
+  - ⏳ Backend endpoint integration (returns whatsapp/messenger fields)
+  - ⏳ PaymentService WhatsApp notification integration
+  - ⏳ AppointmentReminderService WhatsApp notification integration
+  - ⏳ Database column verification/migration
+  - 🔮 WhatsApp Business API production setup
+
+- **Impact**
+  - Customers can chat with shops directly from service cards
+  - Reduced friction in customer communication
+  - Automated booking confirmations via WhatsApp
+  - 24-hour appointment reminders reduce no-shows
+  - Professional customer communication experience
+  - Especially valuable in regions where WhatsApp is dominant (Latin America, Europe, Asia)
+
+- **Next Steps** (See `docs/NEXT_SESSION_WHATSAPP_MESSENGER.md`)
+  - Update backend service endpoints to return `shopWhatsapp` and `shopMessenger`
+  - Integrate WhatsAppService into PaymentService for booking confirmations
+  - Integrate WhatsAppService into AppointmentReminderService for reminders
+  - Verify database columns exist or create migration
+  - Test end-to-end flow
+  - Optional: Set up WhatsApp Business API for production (requires Facebook verification)

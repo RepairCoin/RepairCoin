@@ -208,6 +208,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       title: "Settings",
       href: "/admin?tab=settings",
       icon: <SettingsIcon width={24} height={24} />,
+      tabId: "settings",
     },
     {
       title: "Logout",

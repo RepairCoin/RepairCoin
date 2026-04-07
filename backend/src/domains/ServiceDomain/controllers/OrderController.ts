@@ -1112,6 +1112,11 @@ export class OrderController {
 
       const expiredBookings = await this.orderRepository.getExpiredUnpaidBookings(shopId);
 
+      // Prevent caching to ensure fresh data
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
       res.json({
         success: true,
         data: expiredBookings,

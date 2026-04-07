@@ -84,7 +84,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<
     | "shop-profile"
-    | "wallet-payouts"
     | "accessibility"
     | "notifications"
     | "subscription"
@@ -105,7 +104,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     const section = searchParams?.get('section');
     if (section && (
       section === "shop-profile" ||
-      section === "wallet-payouts" ||
       section === "accessibility" ||
       section === "notifications" ||
       section === "subscription" ||
@@ -299,11 +297,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Tab menu items configuration
   const mainTabs = [
     { id: "shop-profile" as const, label: "Shop Profile", icon: User },
-    {
-      id: "wallet-payouts" as const,
-      label: "RepairCoin Wallet & Payouts",
-      icon: Wallet,
-    },
     { id: "accessibility" as const, label: "Accessibility", icon: Settings },
     { id: "notifications" as const, label: "Notifications", icon: Bell },
   ];
@@ -679,23 +672,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
             </>
-          )}
-
-          {/* Wallet & Payouts Tab Content */}
-          {activeTab === "wallet-payouts" && (
-            <div>
-              <h2 className="text-xl font-semibold text-[#FFCC00] mb-2">
-                RepairCoin Wallet & Payouts
-              </h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Manage your wallet and payout settings
-              </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Wallet and payout settings coming soon...
-                </p>
-              </div>
-            </div>
           )}
 
           {/* Accessibility Tab Content */}

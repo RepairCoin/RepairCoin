@@ -18,6 +18,7 @@ import {
   Eye,
   Settings,
   Mail,
+  MessageCircle,
 } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import toast from "react-hot-toast";
@@ -33,6 +34,8 @@ interface SocialMediaLinks {
   website?: string;
   tiktok?: string;
   pinterest?: string;
+  whatsapp?: string;
+  messenger?: string;
 }
 
 interface SocialMediaSettingsProps {
@@ -89,6 +92,8 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
     website: initialLinks.website || "",
     tiktok: initialLinks.tiktok || "",
     pinterest: initialLinks.pinterest || "",
+    whatsapp: initialLinks.whatsapp || "",
+    messenger: initialLinks.messenger || "",
   });
 
   const [originalLinks, setOriginalLinks] = useState<SocialMediaLinks>(links);
@@ -240,6 +245,26 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
       bgColor: "bg-pink-500/10",
       borderColor: "border-pink-500/30",
       description: "Share photos and stories on Instagram",
+    },
+    {
+      key: "whatsapp" as const,
+      label: "WhatsApp",
+      icon: MessageCircle,
+      placeholder: "https://wa.me/1234567890",
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
+      borderColor: "border-green-500/30",
+      description: "Connect with customers via WhatsApp",
+    },
+    {
+      key: "messenger" as const,
+      label: "Messenger",
+      icon: Facebook,
+      placeholder: "https://m.me/yourshop",
+      color: "text-blue-400",
+      bgColor: "bg-blue-400/10",
+      borderColor: "border-blue-400/30",
+      description: "Chat with customers on Facebook Messenger",
     },
     {
       key: "x" as const,
@@ -536,7 +561,7 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
           </div>
           <div className="bg-gray-900/50 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-blue-400">
-              {[links.facebook, links.instagram, links.x, links.tiktok].filter(
+              {[links.facebook, links.instagram, links.x, links.tiktok, links.whatsapp, links.messenger].filter(
                 (link) => link && link.trim()
               ).length}
             </p>

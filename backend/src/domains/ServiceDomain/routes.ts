@@ -642,6 +642,48 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/orders/pending-approval:
+   *   get:
+   *     summary: Get pending approval bookings (Shop only)
+   *     description: Get all bookings waiting for shop approval
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of pending approval bookings
+   */
+  router.get(
+    '/orders/pending-approval',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.getPendingApprovalBookings
+  );
+
+  /**
+   * @swagger
+   * /api/services/orders/expired-unpaid:
+   *   get:
+   *     summary: Get expired unpaid bookings (Shop only)
+   *     description: Get all bookings where service date has passed without payment
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of expired unpaid bookings
+   *       401:
+   *         description: Unauthorized
+   */
+  router.get(
+    '/orders/expired-unpaid',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.getExpiredUnpaidBookings
+  );
+
+  /**
+   * @swagger
    * /api/services/orders/{id}:
    *   get:
    *     summary: Get order by ID
@@ -916,48 +958,6 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['shop']),
     orderController.rescheduleBooking
-  );
-
-  /**
-   * @swagger
-   * /api/services/orders/pending-approval:
-   *   get:
-   *     summary: Get pending approval bookings (Shop only)
-   *     description: Get all bookings waiting for shop approval
-   *     tags: [Service Orders]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: List of pending approval bookings
-   */
-  router.get(
-    '/orders/pending-approval',
-    authMiddleware,
-    requireRole(['shop']),
-    orderController.getPendingApprovalBookings
-  );
-
-  /**
-   * @swagger
-   * /api/services/orders/expired-unpaid:
-   *   get:
-   *     summary: Get expired unpaid bookings (Shop only)
-   *     description: Get all bookings where service date has passed without payment
-   *     tags: [Service Orders]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: List of expired unpaid bookings
-   *       401:
-   *         description: Unauthorized
-   */
-  router.get(
-    '/orders/expired-unpaid',
-    authMiddleware,
-    requireRole(['shop']),
-    orderController.getExpiredUnpaidBookings
   );
 
   /**

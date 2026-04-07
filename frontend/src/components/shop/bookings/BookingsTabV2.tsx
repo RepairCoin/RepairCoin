@@ -27,6 +27,7 @@ import {
 import { appointmentsApi } from "@/services/api/appointments";
 import { RescheduleModal } from "../modals/RescheduleModal";
 import { MarkNoShowModal } from "../MarkNoShowModal";
+import { MessagesContainer } from "@/components/messaging/MessagesContainer";
 
 interface BookingsTabV2Props {
   shopId: string;
@@ -236,7 +237,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     const pending = statusCounts["pending"] || 0;
     const paid = statusCounts["paid"] || 0;
     const completed = statusCounts["completed"] || 0;
-    const cancelled = (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0) + (statusCounts["no_show"] || 0);
+    const cancelled = (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0) + (statusCounts["no_show"] || 0) + (statusCounts["expired"] || 0);
     return {
       all: pending + paid + completed + cancelled,
       pending,
@@ -587,65 +588,11 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
 
       {/* Messages Tab Content */}
       {activeTab === "messages" && (
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8">
-          <div className="text-center">
-            <div className="text-5xl mb-4">💬</div>
-            <h3 className="text-white font-medium mb-2">All Messages</h3>
-            <p className="text-gray-500 text-sm mb-6">
-              View all customer conversations in one place
-            </p>
-            {/* Messages list view */}
-            <div className="space-y-3 max-w-2xl mx-auto">
-              {bookings
-                .filter((b) => b.messages.length > 0)
-                .sort((a, b) => {
-                  const aLast =
-                    a.messages[a.messages.length - 1]?.timestamp || "";
-                  const bLast =
-                    b.messages[b.messages.length - 1]?.timestamp || "";
-                  return new Date(bLast).getTime() - new Date(aLast).getTime();
-                })
-                .map((booking) => {
-                  const lastMessage =
-                    booking.messages[booking.messages.length - 1];
-                  return (
-                    <button
-                      key={booking.bookingId}
-                      onClick={() => {
-                        setSelectedBookingId(booking.bookingId);
-                        setActiveTab("bookings");
-                      }}
-                      className="w-full p-4 bg-[#0D0D0D] border border-gray-800 rounded-xl hover:border-[#FFCC00]/50 transition-colors text-left"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-white font-medium">
-                          {booking.customerName.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-white font-medium">
-                              {booking.customerName}
-                            </span>
-                            {booking.unreadCount > 0 && (
-                              <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                                {booking.unreadCount}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-gray-400 text-sm truncate">
-                            {lastMessage?.content}
-                          </p>
-                          <p className="text-gray-600 text-xs mt-1">
-                            {booking.serviceName} • {booking.bookingId}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
+        <MessagesContainer
+          userType="shop"
+          currentUserId={shopId}
+          initialConversationId={null}
+        />
       )}
 
       {/* Expired Tab Content */}

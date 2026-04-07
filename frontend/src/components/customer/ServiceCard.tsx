@@ -6,6 +6,7 @@ import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/serv
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
 import { StarRating } from "./StarRating";
+import { ChatButton } from "./ChatButton";
 import { calculateTotalRcn } from "@/utils/rcnCalculator";
 import { useCustomerStore } from "@/stores/customerStore";
 import { sanitizeDescription } from "@/utils/sanitize";
@@ -294,19 +295,33 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         </div>
 
         {/* Actions - Always at bottom */}
-        <div className="flex gap-2 mt-auto">
-          <button
-            onClick={() => onViewDetails(service)}
-            className="flex-1 bg-gray-800 text-white font-semibold px-4 py-2.5 rounded-xl hover:bg-gray-700 transition-colors duration-200"
-          >
-            View Details
-          </button>
-          <button
-            onClick={() => onBook(service)}
-            className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-4 py-2.5 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105"
-          >
-            Book Now
-          </button>
+        <div className="space-y-2 mt-auto">
+          {/* Chat Button - Shows if WhatsApp or Messenger is available */}
+          {(service.shopWhatsapp || service.shopMessenger) && (
+            <ChatButton
+              whatsapp={service.shopWhatsapp}
+              messenger={service.shopMessenger}
+              shopName={service.companyName}
+              serviceName={service.serviceName}
+              className="w-full"
+            />
+          )}
+
+          {/* Main Actions */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => onViewDetails(service)}
+              className="flex-1 bg-gray-800 text-white font-semibold px-4 py-2.5 rounded-xl hover:bg-gray-700 transition-colors duration-200"
+            >
+              View Details
+            </button>
+            <button
+              onClick={() => onBook(service)}
+              className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-4 py-2.5 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105"
+            >
+              Book Now
+            </button>
+          </div>
         </div>
       </div>
     </div>

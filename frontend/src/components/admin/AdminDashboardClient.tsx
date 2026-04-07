@@ -20,6 +20,7 @@ import { SessionManagementTab } from "@/components/admin/tabs/SessionManagementT
 import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
 import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
+import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -418,6 +419,13 @@ export default function AdminDashboardClient() {
                 <SessionManagementTab />
               </LazyTabWrapper>
             )}
+
+          {/* Settings Tab */}
+          {activeTab === "settings" && (
+            <LazyTabWrapper isActive={activeTab === "settings"}>
+              <AdminSettingsTab />
+            </LazyTabWrapper>
+          )}
         </div>
       </div>
 

@@ -16,7 +16,7 @@ export type ServiceCategory =
   | 'food_beverage'
   | 'other_local_services';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
+export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
 
 export interface ShopService {
   serviceId: string;
@@ -52,6 +52,8 @@ export interface ShopServiceWithShopInfo extends ShopService {
   shopCountry?: string;
   shopPhone?: string;
   shopEmail?: string;
+  shopWhatsapp?: string;
+  shopMessenger?: string;
   shopIsVerified: boolean;
   distance?: number;
   avgRating?: number;
@@ -476,10 +478,18 @@ export const markOrderAsNoShow = async (
  */
 export const getExpiredUnpaidBookings = async (): Promise<ServiceOrderWithDetails[]> => {
   try {
-    const response = await apiClient.get<ServiceOrderWithDetails[]>('/services/orders/expired-unpaid');
+    // Add timestamp to bypass browser cache
+    const cacheBuster = `?_=${Date.now()}`;
+    const response = await apiClient.get<{ success: boolean; data: ServiceOrderWithDetails[]; count: number }>(`/services/orders/expired-unpaid${cacheBuster}`);
+    // apiClient already unwraps response.data (see client.ts line 119)
+    // so 'response' here is actually the backend's { success, data, count } object
     return response.data;
-  } catch (error) {
-    console.error('Error fetching expired unpaid bookings:', error);
+  } catch (error: any) {
+    console.error('Error fetching expired unpaid bookings:', {
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    });
     throw error;
   }
 };
@@ -490,13 +500,14 @@ export const getExpiredUnpaidBookings = async (): Promise<ServiceOrderWithDetail
 export const bulkCancelOrders = async (
   orderIds: string[],
   reason: string = 'Bulk cancelled by shop'
-): Promise<{ cancelledCount: number; failed: Array<{ orderId: string; error: string }> }> => {
+): Promise<{ cancelledCount: number; failed?: Array<{ orderId: string; error: string }> }> => {
   try {
-    const response = await apiClient.post<{ cancelledCount: number; failed: Array<{ orderId: string; error: string }> }>(
+    const response = await apiClient.post<{ success: boolean; cancelledCount: number; message: string }>(
       '/services/orders/bulk-cancel',
       { orderIds, reason }
     );
-    return response.data;
+    // apiClient already unwraps response.data
+    return { cancelledCount: response.cancelledCount, failed: [] };
   } catch (error) {
     console.error('Error bulk canceling orders:', error);
     throw error;
@@ -508,8 +519,9 @@ export const bulkCancelOrders = async (
  */
 export const cancelAllExpiredUnpaid = async (): Promise<{ cancelledCount: number }> => {
   try {
-    const response = await apiClient.post<{ cancelledCount: number }>('/services/orders/cancel-all-expired');
-    return response.data;
+    const response = await apiClient.post<{ success: boolean; cancelledCount: number; message: string }>('/services/orders/cancel-all-expired');
+    // apiClient already unwraps response.data
+    return { cancelledCount: response.cancelledCount };
   } catch (error) {
     console.error('Error canceling all expired bookings:', error);
     throw error;
