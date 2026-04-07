@@ -41,9 +41,12 @@ class BookingApi {
     }
   }
 
-  async cancelOrder(orderId: string) {
+  async cancelOrder(orderId: string, cancellationReason: string, cancellationNotes?: string) {
     try {
-      return await apiClient.post(`/services/orders/${orderId}/cancel`);
+      return await apiClient.post(`/services/orders/${orderId}/cancel`, {
+        cancellationReason,
+        cancellationNotes,
+      });
     } catch (error: any) {
       console.error("Failed to cancel order:", error.message);
       throw error;

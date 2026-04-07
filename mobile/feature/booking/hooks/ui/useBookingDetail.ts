@@ -131,17 +131,37 @@ export function useBookingDetail() {
     );
   }, [booking, completeOrderMutation]);
 
-  const handleCancelBooking = useCallback(() => setShowCancelModal(true), []);
+  const handleCancelBooking = useCallback(() => {
+    if (!booking) return;
+
+    if (isShopView) {
+      // Shop cancel — no reason required by shop-cancel endpoint
+      setShowCancelModal(true);
+      return;
+    }
+
+    // Customer cancel — show reason selection
+    Alert.alert(
+      "Cancel Booking",
+      "Please select a reason for cancellation:",
+      [
+        { text: "Schedule Conflict", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "schedule_conflict" }) },
+        { text: "Found Alternative", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "found_alternative" }) },
+        { text: "Too Expensive", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "too_expensive" }) },
+        { text: "Changed My Mind", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "changed_mind" }) },
+        { text: "Other", onPress: () => cancelOrderMutation.mutate({ orderId: booking.orderId, reason: "other" }) },
+        { text: "Back", style: "cancel" },
+      ]
+    );
+  }, [booking, isShopView, cancelOrderMutation]);
 
   const confirmCancel = useCallback(() => {
     if (!booking) return;
     setShowCancelModal(false);
     if (isShopView) {
       cancelOrderByShopMutation.mutate({ orderId: booking.orderId });
-    } else {
-      cancelOrderMutation.mutate(booking.orderId);
     }
-  }, [booking, isShopView, cancelOrderMutation, cancelOrderByShopMutation]);
+  }, [booking, isShopView, cancelOrderByShopMutation]);
 
   const handleMarkNoShow = useCallback((notes?: string) => {
     if (!booking) return;

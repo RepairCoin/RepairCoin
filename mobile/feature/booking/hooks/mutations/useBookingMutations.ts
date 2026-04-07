@@ -54,16 +54,19 @@ export function useCancelOrderMutation() {
   const { showSuccess, showError } = useAppToast();
 
   return useMutation({
-    mutationFn: async (orderId: string) => {
-      return bookingApi.cancelOrder(orderId);
+    mutationFn: async ({ orderId, reason, notes }: { orderId: string; reason: string; notes?: string }) => {
+      return bookingApi.cancelOrder(orderId, reason, notes);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
+      queryClient.invalidateQueries({ queryKey: ["repaircoin", "appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["shopBookings"] });
       showSuccess("Booking has been cancelled.");
     },
     onError: (error: any) => {
       console.error("Failed to cancel order:", error);
-      showError(error.message || "Failed to cancel booking. Please try again.");
+      const message = error.response?.data?.error || error.message || "Failed to cancel booking.";
+      showError(message);
     },
   });
 }
