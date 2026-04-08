@@ -23,19 +23,9 @@ export class EmailPreferencesController {
       const userRole = req.user?.role;
 
       if (userRole !== 'admin') {
-        // Verify shop ownership
-        const { shopRepository } = await import('../../../repositories');
-        const shop = await shopRepository.getShop(shopId);
-
-        if (!shop) {
-          res.status(404).json({
-            success: false,
-            error: 'Shop not found'
-          });
-          return;
-        }
-
-        if (shop.walletAddress.toLowerCase() !== userAddress) {
+        // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+        const userShopId = req.user?.shopId;
+        if (!userShopId || userShopId !== shopId) {
           res.status(403).json({
             success: false,
             error: 'Unauthorized: You can only view your own email preferences'
@@ -56,9 +46,6 @@ export class EmailPreferencesController {
         data: preferences
       });
     } catch (error) {
-      console.error('❌ [EmailPreferences] ERROR:', error);
-      console.error('❌ [EmailPreferences] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-
       logger.error('Error getting shop email preferences', {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -82,23 +69,12 @@ export class EmailPreferencesController {
       const preferencesUpdates: Partial<EmailPreferences> = req.body;
 
       // Authorization: Only shop owner or admin can update preferences
-      const userAddress = req.user?.address?.toLowerCase();
       const userRole = req.user?.role;
 
       if (userRole !== 'admin') {
-        // Verify shop ownership
-        const { shopRepository } = await import('../../../repositories');
-        const shop = await shopRepository.getShop(shopId);
-
-        if (!shop) {
-          res.status(404).json({
-            success: false,
-            error: 'Shop not found'
-          });
-          return;
-        }
-
-        if (shop.walletAddress.toLowerCase() !== userAddress) {
+        // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+        const userShopId = req.user?.shopId;
+        if (!userShopId || userShopId !== shopId) {
           res.status(403).json({
             success: false,
             error: 'Unauthorized: You can only update your own email preferences'
@@ -127,7 +103,7 @@ export class EmailPreferencesController {
 
       logger.info('Shop email preferences updated', {
         shopId,
-        updatedBy: userAddress,
+        updatedBy: req.user?.address || req.user?.shopId,
         changes: Object.keys(preferencesUpdates)
       });
 
