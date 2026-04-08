@@ -1,10 +1,11 @@
 # Feature: Mint RCN to Wallet & Wallet Balance View
 
-**Status:** Open
+**Status:** Completed
 **Priority:** Medium
 **Est. Effort:** 4-6 hrs
 **Created:** 2026-04-08
 **Updated:** 2026-04-08
+**Completed:** 2026-04-08
 
 ## Overview
 
