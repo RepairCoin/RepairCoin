@@ -405,6 +405,18 @@ export default function ShopDashboardClient() {
     }
   }, [account?.address, userProfile?.address, userProfile?.shopId, shopData]);
 
+  // Auto-retry loading shop data after failure (with delay to avoid rapid loops)
+  useEffect(() => {
+    if (error && !shopData && !loading) {
+      const retryTimer = setTimeout(() => {
+        console.log('[ShopDashboard] Auto-retrying loadShopData after error...');
+        setError(null);
+        loadShopData(true);
+      }, 5000);
+      return () => clearTimeout(retryTimer);
+    }
+  }, [error, shopData, loading]);
+
   // Listen for subscription-related notifications and refresh data
   const { notifications, isConnected: isWsConnected } = useNotificationStore();
   const lastProcessedNotificationRef = useRef<string | null>(null);
@@ -843,8 +855,8 @@ export default function ShopDashboardClient() {
     if (!isOperational) {
       setShowOnboardingModal(true);
     } else {
-      if (!shopData || !account?.address) {
-        toast.error("Shop data not loaded or wallet not connected");
+      if (!shopData) {
+        toast.error("Shop data not loaded. Please refresh the page.");
         return;
       }
 
