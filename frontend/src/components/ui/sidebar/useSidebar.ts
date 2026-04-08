@@ -73,8 +73,14 @@ export function useSidebar({
         }
       }
 
-      // Clear localStorage
-      localStorage.clear();
+      // Clear auth-related localStorage keys (preserve user preferences like accessibility)
+      const keysToPreserve = ['accessibility-storage'];
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (!keysToPreserve.includes(key)) {
+          localStorage.removeItem(key);
+        }
+      });
 
       // Call backend to clear httpOnly cookie
       try {
