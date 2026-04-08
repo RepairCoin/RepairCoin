@@ -20,14 +20,9 @@ export class MarketingController {
       const shopId = req.params.shopId;
       const { page = 1, limit = 10, status } = req.query;
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -61,14 +56,8 @@ export class MarketingController {
         return;
       }
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(campaign.shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT
+      if (!req.user?.shopId || req.user.shopId !== campaign.shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -106,14 +95,9 @@ export class MarketingController {
         serviceId
       } = req.body;
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -166,14 +150,8 @@ export class MarketingController {
         return;
       }
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -239,14 +217,8 @@ export class MarketingController {
         return;
       }
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -281,14 +253,8 @@ export class MarketingController {
         return;
       }
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -298,11 +264,13 @@ export class MarketingController {
         return;
       }
 
+      // Fetch shop data for campaign delivery (email, name)
+      const shop = await this.shopRepo.getShop(existing.shopId);
       const result = await this.marketingService.sendCampaign(campaignId, {
-        id: shop.shopId,
-        name: shop.name,
-        email: shop.email,
-        walletAddress: shop.walletAddress
+        id: existing.shopId,
+        name: shop?.name || 'Shop',
+        email: shop?.email || '',
+        walletAddress: shop?.walletAddress || ''
       });
 
       res.json({ success: true, data: result });
@@ -335,14 +303,8 @@ export class MarketingController {
         return;
       }
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -372,14 +334,8 @@ export class MarketingController {
         return;
       }
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(existing.shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -403,14 +359,9 @@ export class MarketingController {
     try {
       const shopId = req.params.shopId;
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -435,14 +386,9 @@ export class MarketingController {
       const shopId = req.params.shopId;
       const { audienceType, audienceFilters } = req.query;
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
@@ -472,14 +418,9 @@ export class MarketingController {
       const shopId = req.params.shopId;
       const { page = 1, limit = 10, search } = req.query;
 
-      // Verify shop ownership
-      const shop = await this.shopRepo.getShop(shopId);
-      if (!shop) {
-        res.status(404).json({ success: false, error: 'Shop not found' });
-        return;
-      }
-
-      if (!shop.walletAddress || shop.walletAddress.toLowerCase() !== req.user?.address?.toLowerCase()) {
+      // Verify shop ownership using shopId from JWT (works for both wallet and social login)
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
         res.status(403).json({ success: false, error: 'Access denied' });
         return;
       }
