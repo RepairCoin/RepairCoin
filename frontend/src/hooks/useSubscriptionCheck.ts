@@ -43,7 +43,8 @@ export interface UseSubscriptionCheckReturn {
  */
 export function useSubscriptionCheck(
   walletAddress: string | undefined,
-  enabled = true
+  enabled = true,
+  shopIdOverride?: string | undefined
 ): UseSubscriptionCheckReturn {
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -52,7 +53,7 @@ export function useSubscriptionCheck(
   const [shopRcnBalance, setShopRcnBalance] = useState(0);
 
   const checkSubscription = useCallback(async () => {
-    if (!walletAddress || !enabled) {
+    if ((!walletAddress && !shopIdOverride) || !enabled) {
       setChecking(false);
       return;
     }
@@ -60,7 +61,7 @@ export function useSubscriptionCheck(
     try {
       setChecking(true);
 
-      // Get shop data by wallet address, fallback to subscription status endpoint
+      // Get shop data — prefer shopId (works for Google login), fallback to wallet address
       let result: {
         success: boolean;
         data?: {
@@ -69,13 +70,28 @@ export function useSubscriptionCheck(
           operational_status?: string;
           purchasedRcnBalance?: number;
         };
-      };
+      } = { success: false };
 
-      try {
-        result = await apiClient.get(`/shops/wallet/${walletAddress}`) as any;
-      } catch (walletError: any) {
-        // Wallet lookup failed (e.g., Google login address doesn't match shop wallet)
-        // Fallback: try subscription status endpoint which uses JWT shopId
+      // Try shopId first (works for all login methods including Google)
+      if (shopIdOverride) {
+        try {
+          result = await apiClient.get(`/shops/${shopIdOverride}`) as any;
+        } catch {
+          // shopId lookup failed, will try wallet below
+        }
+      }
+
+      // Fallback to wallet address lookup
+      if (!result.success && walletAddress) {
+        try {
+          result = await apiClient.get(`/shops/wallet/${walletAddress}`) as any;
+        } catch {
+          // Wallet lookup also failed
+        }
+      }
+
+      // Last resort: subscription status endpoint (uses JWT shopId)
+      if (!result.success) {
         try {
           const subResult = await apiClient.get("/shops/subscription/status") as any;
           if (subResult.success && subResult.data) {
@@ -87,11 +103,9 @@ export function useSubscriptionCheck(
                 operational_status: subResult.data.currentSubscription ? 'subscription_qualified' : undefined,
               }
             };
-          } else {
-            result = { success: false };
           }
         } catch {
-          result = { success: false };
+          // All lookups failed
         }
       }
 
@@ -158,7 +172,7 @@ export function useSubscriptionCheck(
     } finally {
       setChecking(false);
     }
-  }, [walletAddress, enabled]);
+  }, [walletAddress, enabled, shopIdOverride]);
 
   useEffect(() => {
     checkSubscription();
