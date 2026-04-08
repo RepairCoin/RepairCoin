@@ -19,23 +19,11 @@ export class NoShowPolicyController {
       const { shopId } = req.params;
 
       // Authorization: Only shop owner or admin can view policy
-      const userAddress = req.user?.address?.toLowerCase();
       const userRole = req.user?.role;
 
       if (userRole !== 'admin') {
-        // Verify shop ownership
-        const { shopRepository } = await import('../../../repositories');
-        const shop = await shopRepository.getShop(shopId);
-
-        if (!shop) {
-          res.status(404).json({
-            success: false,
-            error: 'Shop not found'
-          });
-          return;
-        }
-
-        if (shop.walletAddress.toLowerCase() !== userAddress) {
+        const userShopId = req.user?.shopId;
+        if (!userShopId || userShopId !== shopId) {
           res.status(403).json({
             success: false,
             error: 'Unauthorized: You can only view your own shop policy'
@@ -48,7 +36,7 @@ export class NoShowPolicyController {
 
       logger.info('Shop policy retrieved', {
         shopId,
-        requestedBy: userAddress
+        requestedBy: req.user?.address || req.user?.shopId
       });
 
       res.json({
@@ -82,23 +70,11 @@ export class NoShowPolicyController {
       const policyUpdates: Partial<NoShowPolicy> = req.body;
 
       // Authorization: Only shop owner or admin can update policy
-      const userAddress = req.user?.address?.toLowerCase();
       const userRole = req.user?.role;
 
       if (userRole !== 'admin') {
-        // Verify shop ownership
-        const { shopRepository } = await import('../../../repositories');
-        const shop = await shopRepository.getShop(shopId);
-
-        if (!shop) {
-          res.status(404).json({
-            success: false,
-            error: 'Shop not found'
-          });
-          return;
-        }
-
-        if (shop.walletAddress.toLowerCase() !== userAddress) {
+        const userShopId = req.user?.shopId;
+        if (!userShopId || userShopId !== shopId) {
           res.status(403).json({
             success: false,
             error: 'Unauthorized: You can only update your own shop policy'
@@ -124,7 +100,7 @@ export class NoShowPolicyController {
 
       logger.info('Shop policy updated', {
         shopId,
-        updatedBy: userAddress,
+        updatedBy: req.user?.address || req.user?.shopId,
         changes: Object.keys(policyUpdates)
       });
 
@@ -155,22 +131,11 @@ export class NoShowPolicyController {
       const { shopId } = req.params;
 
       // Authorization: Only shop owner or admin
-      const userAddress = req.user?.address?.toLowerCase();
       const userRole = req.user?.role;
 
       if (userRole !== 'admin') {
-        const { shopRepository } = await import('../../../repositories');
-        const shop = await shopRepository.getShop(shopId);
-
-        if (!shop) {
-          res.status(404).json({
-            success: false,
-            error: 'Shop not found'
-          });
-          return;
-        }
-
-        if (shop.walletAddress.toLowerCase() !== userAddress) {
+        const userShopId = req.user?.shopId;
+        if (!userShopId || userShopId !== shopId) {
           res.status(403).json({
             success: false,
             error: 'Unauthorized'
