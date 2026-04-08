@@ -1,10 +1,13 @@
-import { View, Text, FlatList, RefreshControl } from "react-native";
+import { View, Text, FlatList, RefreshControl, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useTrendingServices } from "../hooks";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;
 
 export default function TrendingServicesScreen() {
   const {
@@ -17,17 +20,20 @@ export default function TrendingServicesScreen() {
   } = useTrendingServices();
 
   const renderServiceCard = ({ item }: { item: ServiceData }) => (
-    <ServiceCard
-      imageUrl={item.imageUrl}
-      category={getCategoryLabel(item.category)}
-      title={item.serviceName}
-      description={item.description}
-      price={item.priceUsd}
+    <View style={{ width: CARD_WIDTH, marginHorizontal: 4, marginVertical: 8 }}>
+      <ServiceCard
+        imageUrl={item.imageUrl}
+        category={getCategoryLabel(item.category)}
+        title={item.serviceName}
+        description={item.description}
+        price={item.priceUsd}
         avgRating={item.avgRating}
-        reviewCount={item.reviewCount}      duration={item.durationMinutes}
-      onPress={() => handleServicePress(item)}
-      showTrendingBadge
-    />
+        reviewCount={item.reviewCount}
+        duration={item.durationMinutes}
+        onPress={() => handleServicePress(item)}
+        showTrendingBadge
+      />
+    </View>
   );
 
   const renderEmptyState = () => (
