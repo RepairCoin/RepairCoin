@@ -42,7 +42,8 @@ export default function AffiliateShopGroupsClient() {
     shopData,
   } = useSubscriptionCheck(
     account?.address || userProfile?.address,
-    authInitialized && isAuthenticated && userType === 'shop'
+    authInitialized && isAuthenticated && userType === 'shop',
+    userProfile?.shopId
   );
 
   useEffect(() => {
