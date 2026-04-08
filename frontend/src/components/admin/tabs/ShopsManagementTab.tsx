@@ -22,14 +22,12 @@ import {
   ShieldOff,
   Send,
   Plus,
-  Filter,
-  ChevronDown,
   Grid,
   List,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
 import { AddShopModal } from "./AddShopModal";
@@ -106,8 +104,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const onUnsuspendShop = shopActions.unsuspend;
   const onMintBalance = shopActions.mintBalance;
   const onRefresh = loadDashboardData;
-  const [viewMode, setViewMode] = useState<
-    "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "active" | "pending" | "suspended" | "rejected" | "unsuspend-requests"
   >(initialView);
   const [searchTerm, setSearchTerm] = useState("");
   const [editModal, setEditModal] = useState<{
@@ -126,9 +124,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     action: "approve" | "reject";
   }>({ isOpen: false, shop: null, action: "approve" });
   const [unsuspendNotes, setUnsuspendNotes] = useState("");
-  const [filterStatus, setFilterStatus] = useState<
-    "all" | "active" | "pending" | "rejected"
-  >("all");
   const [shopUnsuspendRequests, setShopUnsuspendRequests] = useState<any[]>([]);
   const [unsuspendRequestsLoading, setUnsuspendRequestsLoading] =
     useState(false);
@@ -225,19 +220,19 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     }
   };
 
-  // Sync viewMode with initialView prop changes
+  // Sync filterStatus with initialView prop changes
   React.useEffect(() => {
     if (initialView) {
-      setViewMode(initialView);
+      setFilterStatus(initialView);
     }
   }, [initialView]);
 
   // Load unsuspend requests on mount and when view changes to unsuspend-requests
   React.useEffect(() => {
-    if (viewMode === "unsuspend-requests") {
+    if (filterStatus === "unsuspend-requests") {
       fetchShopUnsuspendRequests();
     }
-  }, [viewMode]);
+  }, [filterStatus]);
 
   // Combine all shops for unified view
   const allShops = [
@@ -249,12 +244,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     })),
   ];
 
-  // Filter shops based on view mode, filter status, and search
+  // Filter shops based on filter status and search
   const filteredShops = allShops.filter((shop) => {
-    // View mode filter (for unsuspend requests view)
-    if (viewMode === "unsuspend-requests") return false;
+    // Hide shops in unsuspend requests view
+    if (filterStatus === "unsuspend-requests") return false;
 
-    // Filter status filter (from the Filter dropdown)
+    // Filter by status tab
     if (filterStatus !== "all" && shop.status !== filterStatus) return false;
 
     // Search filter
@@ -1073,23 +1068,23 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
             />
           </div>
 
-          {/* Filter, Actions & View Toggle */}
-          {viewMode !== "unsuspend-requests" && (
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              {/* Filter Select */}
-              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as any)}>
-                <SelectTrigger variant="dark" className="w-[140px] text-sm" title="Filter shops">
-                  <SelectValue placeholder="All Shops" />
-                </SelectTrigger>
-                <SelectContent variant="dark">
-                  <SelectItem variant="dark" value="all">All Shops</SelectItem>
-                  <SelectItem variant="dark" value="active">Active</SelectItem>
-                  <SelectItem variant="dark" value="pending">Pending</SelectItem>
-                  <SelectItem variant="dark" value="suspended">Suspended</SelectItem>
-                  <SelectItem variant="dark" value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Filter Tabs */}
+          <FilterTabs
+            tabs={[
+              { value: "all", label: "All Shops" },
+              { value: "active", label: "Active" },
+              { value: "pending", label: "Pending" },
+              { value: "suspended", label: "Suspended" },
+              { value: "rejected", label: "Rejected" },
+            ]}
+            activeTab={filterStatus}
+            onTabChange={(value) => setFilterStatus(value as any)}
+            className="mt-3"
+          />
 
+          {/* Actions & View Toggle */}
+          {filterStatus !== "unsuspend-requests" && (
+            <div className="flex flex-wrap items-center gap-2 mt-3">
               {/* Export CSV Button */}
               <button
                 onClick={exportToCSV}
@@ -1146,7 +1141,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           {loading ? (
             // Show loading skeleton when data is loading
             <LoadingSkeleton />
-          ) : viewMode === "unsuspend-requests" ? (
+          ) : filterStatus === "unsuspend-requests" ? (
             // Unsuspend Requests Table
             <div className="space-y-4">
               {unsuspendRequestsLoading ? (
