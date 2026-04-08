@@ -23,7 +23,7 @@ export default function AffiliateShopGroupsClient() {
   const account = useActiveAccount();
   const isAutoConnecting = useIsAutoConnecting();
   const router = useRouter();
-  const { authInitialized, isAuthenticated, userType, isLoading: authLoading } = useAuthStore();
+  const { authInitialized, isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
 
   const [myGroups, setMyGroups] = useState<shopGroupsAPI.AffiliateShopGroup[]>([]);
   const [allGroups, setAllGroups] = useState<shopGroupsAPI.AffiliateShopGroup[]>([]);
@@ -41,14 +41,14 @@ export default function AffiliateShopGroupsClient() {
     shopId,
     shopData,
   } = useSubscriptionCheck(
-    account?.address,
+    account?.address || userProfile?.address,
     authInitialized && isAuthenticated && userType === 'shop'
   );
 
   useEffect(() => {
     if (!authInitialized) return;
 
-    if (account?.address && isAuthenticated && userType === 'shop') {
+    if ((account?.address || userProfile?.address) && isAuthenticated && userType === 'shop') {
       loadData();
     } else if (authInitialized) {
       setLoading(false);

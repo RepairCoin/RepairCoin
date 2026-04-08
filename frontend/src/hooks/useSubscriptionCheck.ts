@@ -60,8 +60,8 @@ export function useSubscriptionCheck(
     try {
       setChecking(true);
 
-      // Get shop data by wallet address
-      const result = await apiClient.get(`/shops/wallet/${walletAddress}`) as {
+      // Get shop data by wallet address, fallback to subscription status endpoint
+      let result: {
         success: boolean;
         data?: {
           subscriptionActive?: boolean;
@@ -70,6 +70,30 @@ export function useSubscriptionCheck(
           purchasedRcnBalance?: number;
         };
       };
+
+      try {
+        result = await apiClient.get(`/shops/wallet/${walletAddress}`) as any;
+      } catch (walletError: any) {
+        // Wallet lookup failed (e.g., Google login address doesn't match shop wallet)
+        // Fallback: try subscription status endpoint which uses JWT shopId
+        try {
+          const subResult = await apiClient.get("/shops/subscription/status") as any;
+          if (subResult.success && subResult.data) {
+            result = {
+              success: true,
+              data: {
+                subscriptionActive: subResult.data.currentSubscription?.status === 'active',
+                shopId: subResult.data.shopId,
+                operational_status: subResult.data.currentSubscription ? 'subscription_qualified' : undefined,
+              }
+            };
+          } else {
+            result = { success: false };
+          }
+        } catch {
+          result = { success: false };
+        }
+      }
 
       if (result.success && result.data) {
         // Check both subscriptionActive flag AND operational_status
