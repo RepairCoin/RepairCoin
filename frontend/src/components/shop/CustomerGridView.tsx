@@ -93,42 +93,42 @@ export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCu
     <div className="space-y-6">
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-6">
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center">
-              <Users className="w-6 h-6 text-black" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] rounded-full flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{customers.length}</p>
-              <p className="text-sm text-gray-400">Total Customers</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{customers.length}</p>
+              <p className="text-xs sm:text-sm text-gray-400">Total Customers</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-6">
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center">
-              <Package className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-xl sm:text-2xl font-bold text-white">
                 {customers.reduce((sum, c) => sum + (c.total_transactions || 0), 0)}
               </p>
-              <p className="text-sm text-gray-400">Total Transactions</p>
+              <p className="text-xs sm:text-sm text-gray-400">Total Transactions</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-6">
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-xl sm:text-2xl font-bold text-white">
                 {customers.reduce((sum, c) => sum + (c.lifetime_earnings || c.lifetimeEarnings || 0), 0).toFixed(0)} RCN
               </p>
-              <p className="text-sm text-gray-400">Total Lifetime Earnings</p>
+              <p className="text-xs sm:text-sm text-gray-400">Total Lifetime Earnings</p>
             </div>
           </div>
         </div>
@@ -148,7 +148,7 @@ export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCu
 
       {/* Customers Grid */}
       {filteredCustomers.length === 0 ? (
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 sm:p-12 text-center">
           <Users className="w-16 h-16 mx-auto mb-4 text-gray-600" />
           <h3 className="text-xl font-semibold text-white mb-2">
             {searchTerm ? "No customers found" : "No customers yet"}
@@ -160,17 +160,17 @@ export const CustomerGridView: React.FC<CustomerGridViewProps> = ({ shopId, onCu
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
           {filteredCustomers.map((customer) => (
             <div
               key={customer.address}
-              className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 hover:border-[#FFCC00] transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group cursor-pointer"
+              className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-4 sm:p-6 hover:border-[#FFCC00] transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group cursor-pointer"
               onClick={() => onCustomerClick?.(customer.address)}
             >
               {/* Circular Avatar */}
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-24 h-24 rounded-full ${customer.profile_image_url ? '' : `bg-gradient-to-br ${getAvatarColor(customer.address)}`} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-200 overflow-hidden`}
+                  className={`w-16 h-16 sm:w-24 sm:h-24 rounded-full ${customer.profile_image_url ? '' : `bg-gradient-to-br ${getAvatarColor(customer.address)}`} flex items-center justify-center mb-3 sm:mb-4 shadow-lg group-hover:scale-110 transition-transform duration-200 overflow-hidden`}
                 >
                   {customer.profile_image_url ? (
                     <img
