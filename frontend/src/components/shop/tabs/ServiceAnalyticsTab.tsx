@@ -6,6 +6,7 @@ import { serviceAnalyticsApi, ShopAnalyticsSummary } from '@/services/api/servic
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp, DollarSign, Package, Star, ShoppingCart, Gift, Percent } from 'lucide-react';
 import { GroupPerformanceSection } from '../GroupPerformanceSection';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 export function ServiceAnalyticsTab() {
   const [analytics, setAnalytics] = useState<ShopAnalyticsSummary | null>(null);
@@ -77,46 +78,27 @@ export function ServiceAnalyticsTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Service Marketplace Analytics</h2>
-          <p className="text-gray-400">Track your service performance and revenue</p>
-        </div>
-
-        {/* Time Range Selector */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setTrendDays(7)}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-              trendDays === 7
-                ? 'bg-[#FFCC00] text-black'
-                : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50'
-            }`}
-          >
-            7 Days
-          </button>
-          <button
-            onClick={() => setTrendDays(30)}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-              trendDays === 30
-                ? 'bg-[#FFCC00] text-black'
-                : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50'
-            }`}
-          >
-            30 Days
-          </button>
-          <button
-            onClick={() => setTrendDays(90)}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
-              trendDays === 90
-                ? 'bg-[#FFCC00] text-black'
-                : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50'
-            }`}
-          >
-            90 Days
-          </button>
-        </div>
-      </div>
+      <SectionHeader
+        title="Service Marketplace Analytics"
+        subtitle="Track your service performance and revenue"
+        actions={
+          <div className="flex items-center gap-2">
+            {[7, 30, 90].map((days) => (
+              <button
+                key={days}
+                onClick={() => setTrendDays(days)}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-semibold transition-all duration-200 ${
+                  trendDays === days
+                    ? 'bg-[#FFCC00] text-black'
+                    : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50'
+                }`}
+              >
+                {days} Days
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* Overview Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

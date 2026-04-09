@@ -396,14 +396,14 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
       >
         {/* Modal */}
         <div
-          className="bg-[#1A1A1A] rounded-xl shadow-2xl max-w-lg w-full border border-[#FFCC00]/20"
+          className="bg-[#1A1A1A] rounded-xl shadow-2xl max-w-lg w-full border border-[#FFCC00]/20 max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">{getNotificationIcon(notification.notificationType)}</span>
-              <h3 className="text-xl font-semibold text-white">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-700 flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <span className="text-2xl sm:text-3xl flex-shrink-0">{getNotificationIcon(notification.notificationType)}</span>
+              <h3 className="text-base sm:text-xl font-semibold text-white truncate">
                 {getNotificationTitle(notification.notificationType)}
               </h3>
             </div>
@@ -418,7 +418,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
           </div>
 
           {/* Content */}
-          <div className="px-6 py-6 space-y-4">
+          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 overflow-y-auto flex-1">
             {/* Marketing Campaign Content */}
             {isMarketingCampaign && notification.metadata?.designContent ? (
               <MarketingCampaignContent metadata={notification.metadata} />
@@ -677,7 +677,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-700 flex gap-3 justify-end">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-700 flex gap-3 justify-end">
             <button
               onClick={() => {
                 onDelete(notification.id);
@@ -794,7 +794,12 @@ export const NotificationBell: React.FC = () => {
             />
 
             {/* Dropdown Panel */}
-            <div className="absolute right-0 z-50 mt-2 w-96 bg-[#1A1A1A] rounded-xl shadow-2xl border border-[#FFCC00]/20 max-h-[600px] flex flex-col">
+            <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 z-50 sm:mt-2 w-full sm:w-96 bg-[#1A1A1A] rounded-t-xl sm:rounded-xl shadow-2xl border border-[#FFCC00]/20 max-h-[85vh] sm:max-h-[600px] flex flex-col">
+              {/* Mobile drag handle */}
+              <div className="sm:hidden flex justify-center pt-2 pb-1">
+                <div className="w-10 h-1 bg-gray-600 rounded-full" />
+              </div>
+
               {/* Header */}
               <div className="px-4 py-3 border-b border-gray-700 flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-white">Notifications</h3>
