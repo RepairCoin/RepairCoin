@@ -153,6 +153,78 @@ class AppointmentApi {
   }
 
   /**
+   * Update shop availability for a specific day
+   */
+  async updateShopAvailability(data: {
+    dayOfWeek: number;
+    isOpen: boolean;
+    openTime: string;
+    closeTime: string;
+    breakStartTime?: string;
+    breakEndTime?: string;
+  }): Promise<boolean> {
+    try {
+      await apiClient.put(`/services/appointments/shop-availability`, data);
+      return true;
+    } catch (error: any) {
+      console.error("Failed to update shop availability:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Update time slot configuration
+   */
+  async updateTimeSlotConfig(data: {
+    slotDurationMinutes: number;
+    bufferTimeMinutes: number;
+    maxConcurrentBookings: number;
+    bookingAdvanceDays: number;
+    minBookingHours: number;
+    allowWeekendBooking: boolean;
+  }): Promise<boolean> {
+    try {
+      await apiClient.put(`/services/appointments/time-slot-config`, data);
+      return true;
+    } catch (error: any) {
+      console.error("Failed to update time slot config:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a date override (holiday, special hours)
+   */
+  async createDateOverride(data: {
+    overrideDate: string;
+    isClosed: boolean;
+    customOpenTime?: string;
+    customCloseTime?: string;
+    reason?: string;
+  }): Promise<boolean> {
+    try {
+      await apiClient.post(`/services/appointments/date-overrides`, data);
+      return true;
+    } catch (error: any) {
+      console.error("Failed to create date override:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a date override
+   */
+  async deleteDateOverride(overrideDate: string): Promise<boolean> {
+    try {
+      await apiClient.delete(`/services/appointments/date-overrides/${overrideDate}`);
+      return true;
+    } catch (error: any) {
+      console.error("Failed to delete date override:", error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Get shop calendar bookings
    */
   async getShopCalendar(
