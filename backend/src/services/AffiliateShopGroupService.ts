@@ -62,13 +62,22 @@ export class AffiliateShopGroupService {
       if (!request.groupName || request.groupName.trim() === '') {
         throw new Error('Group name is required');
       }
-      if (request.groupName.trim().length < 2) {
-        throw new Error('Group name must be at least 2 characters');
+      if (request.groupName.trim().length < 3) {
+        throw new Error('Group name must be at least 3 characters');
       }
       if (request.groupName.trim().length > 100) {
         throw new Error('Group name must be 100 characters or less');
       }
       request.groupName = request.groupName.trim();
+
+      // Check for duplicate group name for this shop (case-insensitive)
+      const nameExists = await this.repository.groupNameExistsForShop(
+        request.groupName,
+        request.createdByShopId
+      );
+      if (nameExists) {
+        throw new Error('You already have a group with this name. Please choose a different name.');
+      }
 
       // Require active subscription OR RCG qualification to create affiliate groups
       const isRcgQualified = shop.operational_status === 'rcg_qualified';
@@ -219,13 +228,34 @@ export class AffiliateShopGroupService {
         throw new Error('Group is not active');
       }
 
-      // Check if already a member
-      const isMember = await this.repository.isShopMemberOfGroup(groupId, shopId);
-      if (isMember) {
-        throw new Error('Shop is already a member of this group');
+      // Check existing membership record (any status)
+      const existingMember = await this.repository.getShopMembershipRecord(groupId, shopId);
+
+      if (existingMember) {
+        if (existingMember.status === 'active') {
+          throw new Error('You are already a member of this group');
+        }
+        if (existingMember.status === 'pending') {
+          throw new Error('You already have a pending join request for this group');
+        }
+        if (existingMember.status === 'rejected' || existingMember.status === 'removed') {
+          // Reset existing record back to pending instead of creating duplicate
+          await this.repository.resetMemberToPending(groupId, shopId, requestMessage);
+          logger.info('Member re-requested to join (reset from ' + existingMember.status + ')', { groupId, shopId });
+
+          // Auto-approve if enabled
+          if (group.autoApproveRequests) {
+            await this.repository.approveMemberRequest(groupId, shopId, group.createdByShopId);
+            logger.info('Re-join request auto-approved', { groupId, shopId });
+          }
+
+          // Return the updated record
+          const membership = await this.getShopMembershipStatus(groupId, shopId);
+          return membership;
+        }
       }
 
-      // Create member request
+      // No existing record — create new member request
       const memberRequest = await this.repository.addMemberRequest(groupId, shopId, requestMessage);
 
       // Auto-approve if enabled
@@ -359,8 +389,8 @@ export class AffiliateShopGroupService {
       // Get shop's RCN allocation for this group
       const allocation = await this.repository.getShopGroupRcnAllocation(request.shopId, request.groupId);
 
-      if (!allocation || allocation.availableRcn < requiredRcn) {
-        const available = allocation?.availableRcn || 0;
+      const available = allocation?.availableRcn || 0;
+      if (!allocation || isNaN(available) || available < requiredRcn) {
         throw new Error(
           `Insufficient RCN allocated to this group. Issuing ${request.amount} tokens requires ${requiredRcn} RCN backing (1:2 ratio). ` +
           `You have ${available} RCN available in this group's pool. Please allocate more RCN to this group first.`

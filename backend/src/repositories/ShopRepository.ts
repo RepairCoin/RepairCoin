@@ -921,25 +921,34 @@ export class ShopRepository extends BaseRepository {
     paymentMethod: string;
     paymentReference?: string;
     status: string;
+    shopTier?: string;
+    operationsShare?: number;
+    stakersShare?: number;
+    daoTreasuryShare?: number;
   }): Promise<{ id: string }> {
     try {
       // Temporary workaround for staging: try with price_per_rcn first, fall back without it
       let query = `
         INSERT INTO shop_rcn_purchases (
-          shop_id, amount, price_per_rcn, total_cost, 
-          payment_method, payment_reference, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          shop_id, amount, price_per_rcn, total_cost,
+          payment_method, payment_reference, status,
+          shop_tier, operations_share, stakers_share, dao_treasury_share
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
       `;
-      
-      let values = [
+
+      let values: any[] = [
         purchaseData.shopId,
         purchaseData.amount,
         purchaseData.pricePerRcn,
         purchaseData.totalCost,
         purchaseData.paymentMethod,
         purchaseData.paymentReference || null,
-        purchaseData.status
+        purchaseData.status,
+        purchaseData.shopTier || 'STANDARD',
+        purchaseData.operationsShare || 0,
+        purchaseData.stakersShare || 0,
+        purchaseData.daoTreasuryShare || 0
       ];
       
       let result;
@@ -948,11 +957,11 @@ export class ShopRepository extends BaseRepository {
         result = await this.pool.query(query, values);
       } catch (error: any) {
         // If price_per_rcn column doesn't exist, try without it
-        if (error.message?.includes('column "price_per_rcn"')) {
-          logger.warn('price_per_rcn column not found, falling back to simple insert');
+        if (error.message?.includes('column')) {
+          logger.warn('Some columns not found, falling back to simple insert');
           query = `
             INSERT INTO shop_rcn_purchases (
-              shop_id, amount, total_cost, 
+              shop_id, amount, total_cost,
               payment_method, payment_reference, status
             ) VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id

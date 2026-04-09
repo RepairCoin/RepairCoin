@@ -1,6 +1,6 @@
 # Bug: RCN Earnings Mint Directly to Blockchain Instead of Platform Balance
 
-## Status: Open
+## Status: Fixed (2026-04-09)
 ## Priority: Critical
 ## Date: 2026-04-07
 ## Category: Bug - Token Economics / Smart Contract

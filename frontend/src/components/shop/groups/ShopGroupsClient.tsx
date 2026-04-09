@@ -120,8 +120,12 @@ export default function AffiliateShopGroupsClient() {
 
   const handleJoinGroup = async (inviteCode: string, message?: string) => {
     try {
-      await shopGroupsAPI.joinByInviteCode(inviteCode, message);
-      toast.success("Successfully joined group!");
+      const result = await shopGroupsAPI.joinByInviteCode(inviteCode, message);
+      if (result?.status === 'active') {
+        toast.success("Successfully joined group!");
+      } else {
+        toast.success("Join request submitted! Waiting for admin approval.");
+      }
       setShowJoinModal(false);
       loadData();
     } catch (error: unknown) {

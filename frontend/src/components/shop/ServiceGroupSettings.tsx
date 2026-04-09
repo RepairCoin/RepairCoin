@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { serviceGroupApi, ServiceGroupLink } from '@/services/api/serviceGroups';
-import { getMyGroups, AffiliateShopGroup } from '@/services/api/affiliateShopGroups';
+import { getMyGroups, AffiliateShopGroup, getGroupRcnAllocation } from '@/services/api/affiliateShopGroups';
 
 interface ServiceGroupSettingsProps {
   serviceId: string;
@@ -12,6 +12,7 @@ interface ServiceGroupSettingsProps {
 export function ServiceGroupSettings({ serviceId, onUpdate }: ServiceGroupSettingsProps) {
   const [shopGroups, setShopGroups] = useState<AffiliateShopGroup[]>([]);
   const [linkedGroups, setLinkedGroups] = useState<ServiceGroupLink[]>([]);
+  const [groupAllocations, setGroupAllocations] = useState<Record<string, number>>({});
   const [loadingGroupId, setLoadingGroupId] = useState<string | null>(null);
   const [loadingGroups, setLoadingGroups] = useState(true);
 
@@ -26,9 +27,20 @@ export function ServiceGroupSettings({ serviceId, onUpdate }: ServiceGroupSettin
         getMyGroups(),
         serviceGroupApi.getServiceGroups(serviceId)
       ]);
-      console.log('Loaded service groups data:', { groups, links, serviceId });
       setShopGroups(groups);
       setLinkedGroups(links);
+
+      // Fetch RCN allocation for each group
+      const allocations: Record<string, number> = {};
+      for (const group of groups) {
+        try {
+          const alloc = await getGroupRcnAllocation(group.groupId);
+          allocations[group.groupId] = alloc?.availableRcn || 0;
+        } catch {
+          allocations[group.groupId] = 0;
+        }
+      }
+      setGroupAllocations(allocations);
     } catch (error) {
       console.error('Error loading service groups:', error);
     } finally {
@@ -44,10 +56,11 @@ export function ServiceGroupSettings({ serviceId, onUpdate }: ServiceGroupSettin
       onUpdate?.();
     } catch (error: any) {
       console.error('Error linking group:', error);
+      const backendError = error.response?.data?.error || error.message;
       if (error.response?.status === 409) {
         alert('This service is already linked to this group.');
       } else {
-        alert('Failed to link service to group. Make sure you are an active member.');
+        alert(backendError || 'Failed to link service to group.');
       }
       await loadData(); // Refresh to show current state
     } finally {
@@ -136,6 +149,26 @@ export function ServiceGroupSettings({ serviceId, onUpdate }: ServiceGroupSettin
                   {loadingGroupId === group.groupId ? 'Processing...' : linked ? 'Unlink' : 'Link Service'}
                 </button>
               </div>
+
+              {linked && (groupAllocations[group.groupId] || 0) === 0 && (
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                  <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">
+                    ⚠️ No RCN allocated to this group
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Customers won't earn {group.customTokenSymbol} tokens until you allocate RCN.
+                    Go to Groups → {group.groupName} → RCN Allocation to set this up.
+                  </p>
+                </div>
+              )}
+
+              {linked && (groupAllocations[group.groupId] || 0) > 0 && (
+                <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                  <p className="text-sm text-green-800 dark:text-green-300">
+                    ✓ RCN allocated: {groupAllocations[group.groupId]?.toLocaleString()} RCN available
+                  </p>
+                </div>
+              )}
 
               {linked && link && (
                 <div className="space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">

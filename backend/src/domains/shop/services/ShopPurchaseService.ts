@@ -115,7 +115,7 @@ export class ShopPurchaseService {
       // Calculate revenue distribution
       const distribution = revenueDistributionService.calculateDistribution(purchaseData.amount, shopTier);
 
-      // Create purchase record
+      // Create purchase record with revenue distribution
       const purchaseResult = await shopRepository.createShopPurchase({
         shopId: purchaseData.shopId,
         amount: purchaseData.amount,
@@ -123,7 +123,11 @@ export class ShopPurchaseService {
         totalCost,
         paymentMethod: purchaseData.paymentMethod,
         paymentReference: purchaseData.paymentReference,
-        status: 'pending'
+        status: 'pending',
+        shopTier: shopTier.toUpperCase(),
+        operationsShare: distribution.operationsShare,
+        stakersShare: distribution.stakersShare,
+        daoTreasuryShare: distribution.daoTreasuryShare
       });
 
       logger.info(`RCN purchase initiated for shop ${purchaseData.shopId}:`, {
