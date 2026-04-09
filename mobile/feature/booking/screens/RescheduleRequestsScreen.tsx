@@ -68,59 +68,45 @@ export default function RescheduleRequestsScreen() {
   };
 
   // Filter counts
+  const requestList = Array.isArray(requests) ? requests : [];
   const filterCounts = useMemo(() => {
-    if (!requests) return {};
-    // When showing "all", count by status
+    if (!requestList.length) return {};
     const counts: Partial<Record<FilterStatus, number>> = {};
-    requests.forEach((r) => {
+    requestList.forEach((r) => {
       counts[r.status] = (counts[r.status] || 0) + 1;
     });
-    counts.all = requests.length;
+    counts.all = requestList.length;
     return counts;
-  }, [requests]);
+  }, [requestList]);
 
   return (
     <ThemedView className="flex-1">
       <AppHeader title="Reschedule Requests" />
 
       {/* Filter Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="border-b border-[#333]"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
-      >
+      <View className="flex-row mx-4 mb-4 bg-[#1a1a1a] rounded-xl p-1">
         {FILTER_OPTIONS.map((option) => {
           const isSelected = selectedFilter === option.value;
-          const count = filterCounts[option.value] || 0;
-          const showBadge = option.value === "pending" && count > 0;
 
           return (
             <TouchableOpacity
               key={option.value}
               onPress={() => setSelectedFilter(option.value)}
-              className={`mr-2 px-4 py-2 rounded-full flex-row items-center ${
-                isSelected ? "bg-[#FFCC00]" : "bg-[#252525]"
+              className={`flex-1 py-2 rounded-lg ${
+                isSelected ? "bg-[#FFCC00]" : ""
               }`}
             >
               <Text
-                className={`text-sm font-medium ${
+                className={`text-center text-sm font-medium ${
                   isSelected ? "text-black" : "text-gray-400"
                 }`}
               >
                 {option.label}
               </Text>
-              {showBadge && (
-                <View className="ml-1.5 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
-                  <Text className="text-white text-xs font-bold">
-                    {count > 99 ? "99+" : count}
-                  </Text>
-                </View>
-              )}
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Content */}
       <ScrollView
@@ -143,7 +129,7 @@ export default function RescheduleRequestsScreen() {
               Failed to load reschedule requests.{"\n"}Pull down to retry.
             </Text>
           </View>
-        ) : !requests || requests.length === 0 ? (
+        ) : requestList.length === 0 ? (
           <View className="flex-1 items-center justify-center py-20">
             <View className="w-20 h-20 rounded-full bg-[#252525] items-center justify-center mb-4">
               <Ionicons name="calendar-outline" size={40} color="#666" />
@@ -162,7 +148,7 @@ export default function RescheduleRequestsScreen() {
         ) : (
           <>
             {/* Request Cards */}
-            {requests.map((request) => (
+            {requestList.map((request) => (
               <RescheduleRequestCard
                 key={request.requestId}
                 request={request}

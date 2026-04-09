@@ -264,10 +264,10 @@ class AppointmentApi {
   ): Promise<RescheduleRequest[]> {
     try {
       const queryString = status ? buildQueryString({ status }) : "";
-      const response = await apiClient.get(
+      const response: any = await apiClient.get(
         `/services/appointments/reschedule-requests${queryString}`
       );
-      return response.data || [];
+      return response.data || response.requests || response || [];
     } catch (error: any) {
       console.error("Failed to get reschedule requests:", error.message);
       throw error;

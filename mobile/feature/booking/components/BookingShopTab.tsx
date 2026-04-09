@@ -6,15 +6,19 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  Pressable,
   Dimensions,
   Alert,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
+import { useAuthStore } from "@/shared/store/auth.store";
 import { bookingApi } from "@/shared/services/booking.services";
 import { appointmentApi } from "@/shared/services/appointment.services";
 import { useRescheduleRequestCountQuery } from "../hooks/queries";
+import { useQuery } from "@tanstack/react-query";
+import { disputeApi } from "../services/dispute.services";
 import EnhancedBookingCard from "./EnhancedBookingCard";
 
 // Hooks
@@ -490,6 +494,15 @@ export default function BookingsTab() {
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { data: pendingRescheduleCount } = useRescheduleRequestCountQuery();
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const { userProfile } = useAuthStore();
+  const { data: disputeData } = useQuery({
+    queryKey: ["shopDisputes", userProfile?.shopId, "pending"],
+    queryFn: () => disputeApi.getShopDisputes(userProfile?.shopId || "", "pending"),
+    enabled: !!userProfile?.shopId,
+    staleTime: 60 * 1000,
+  });
+  const pendingDisputeCount = disputeData?.pendingCount ?? 0;
   const { statusFilter, setStatusFilter } = useBookingsFilter();
   const { isLoading, getBookingsForDate, bookings, refetch } = useBookingsData(statusFilter);
 
@@ -581,21 +594,69 @@ export default function BookingsTab() {
         </TouchableOpacity>
       </View>
 
-      {/* Reschedule Requests Button */}
-      <TouchableOpacity
-        onPress={() => router.push("/shop/reschedule-requests" as any)}
-        className="bg-[#1a1a1a] rounded-xl p-3 relative"
-      >
-        <Feather name="repeat" size={20} color="#FFCC00" />
-        {(pendingRescheduleCount ?? 0) > 0 && (
-          <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
-            <Text className="text-white text-[10px] font-bold">
-              {pendingRescheduleCount! > 99 ? "99+" : pendingRescheduleCount}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
+      {/* More Menu Button */}
+      <View className="relative">
+        <TouchableOpacity
+          onPress={() => setShowMoreMenu(true)}
+          className="bg-[#1a1a1a] rounded-xl p-3 relative"
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color="#FFCC00" />
+          {((pendingRescheduleCount ?? 0) + pendingDisputeCount > 0) && (
+            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-2.5 h-2.5" />
+          )}
+        </TouchableOpacity>
       </View>
+      </View>
+
+      {/* More Menu Dropdown */}
+      <Modal visible={showMoreMenu} transparent animationType="fade">
+        <Pressable
+          className="flex-1"
+          onPress={() => setShowMoreMenu(false)}
+        >
+          <Pressable
+            className="absolute right-4 top-32 bg-[#1a1a1a] rounded-xl border border-zinc-800 overflow-hidden w-56"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setShowMoreMenu(false);
+                router.push("/shop/reschedule-requests" as any);
+              }}
+              className="flex-row items-center px-4 py-3.5 border-b border-zinc-800"
+              activeOpacity={0.7}
+            >
+              <Feather name="repeat" size={18} color="#FFCC00" />
+              <Text className="text-white text-sm font-medium ml-3 flex-1">Reschedule</Text>
+              {(pendingRescheduleCount ?? 0) > 0 && (
+                <View className="bg-red-500 rounded-full min-w-[20px] h-[20px] items-center justify-center px-1.5">
+                  <Text className="text-white text-xs font-bold">
+                    {pendingRescheduleCount! > 99 ? "99+" : pendingRescheduleCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setShowMoreMenu(false);
+                router.push("/shop/disputes" as any);
+              }}
+              className="flex-row items-center px-4 py-3.5"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="shield-outline" size={18} color="#FFCC00" />
+              <Text className="text-white text-sm font-medium ml-3 flex-1">Disputes</Text>
+              {pendingDisputeCount > 0 && (
+                <View className="bg-red-500 rounded-full min-w-[20px] h-[20px] items-center justify-center px-1.5">
+                  <Text className="text-white text-xs font-bold">
+                    {pendingDisputeCount > 99 ? "99+" : pendingDisputeCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Status Filters - Only show for List view */}
       {viewMode === "list" && (
