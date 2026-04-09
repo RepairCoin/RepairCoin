@@ -107,10 +107,10 @@ export function BookingAnalyticsTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-white">Booking Analytics</h2>
-          <p className="text-gray-400">
+          <h2 className="text-xl sm:text-2xl font-bold text-white">Booking Analytics</h2>
+          <p className="text-sm sm:text-base text-gray-400">
             Track booking patterns and appointment metrics
             {isRefreshing && <span className="ml-2 text-xs text-[#FFCC00]">Updating...</span>}
           </p>
@@ -122,13 +122,13 @@ export function BookingAnalyticsTab() {
             <button
               key={days}
               onClick={() => setTrendDays(days)}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all duration-200 ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base font-semibold transition-all duration-200 ${
                 trendDays === days
                   ? 'bg-[#FFCC00] text-black'
                   : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#FFCC00]/50'
               }`}
             >
-              {days} Days
+              {days}D
             </button>
           ))}
         </div>
@@ -279,7 +279,7 @@ export function BookingAnalyticsTab() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {Array.from({ length: 16 }, (_, i) => i + 6).map((hour) => {
                 const entry = peakHours.find((h) => h.hour === hour);
                 const count = entry?.count || 0;
@@ -370,7 +370,7 @@ export function BookingAnalyticsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-400">Total Rescheduled</p>
               <p className="text-xl font-bold text-white">{summary.rescheduledCount}</p>

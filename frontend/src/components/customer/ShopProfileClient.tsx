@@ -359,7 +359,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
       <div className="max-w-7xl mx-auto">
         {/* Back Button - Hidden in preview mode */}
         {!isPreviewMode && (
-          <div className="p-6 pb-0">
+          <div className="p-4 sm:p-6 pb-0">
             <button
               onClick={() => router.back()}
               className="flex items-center gap-2 text-gray-400 hover:text-[#FFCC00] transition-colors"
@@ -383,13 +383,13 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         )}
 
         {/* Shop Header with Logo */}
-        <div className="px-6">
-          <div className={`bg-[#1A1A1A] border border-gray-800 rounded-2xl p-8 ${shopInfo?.bannerUrl ? '-mt-20 relative z-10' : 'mt-6'}`}>
+        <div className="px-4 sm:px-6">
+          <div className={`bg-[#1A1A1A] border border-gray-800 rounded-2xl p-4 sm:p-6 lg:p-8 ${shopInfo?.bannerUrl ? '-mt-20 relative z-10' : 'mt-6'}`}>
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Shop Logo (if no banner) or overlapping logo */}
               {shopInfo?.logoUrl && (
-                <div className={`${shopInfo?.bannerUrl ? 'absolute -top-16 left-8' : ''}`}>
-                  <div className="w-32 h-32 bg-white rounded-full border-4 border-[#1A1A1A] overflow-hidden shadow-xl">
+                <div className={`${shopInfo?.bannerUrl ? 'absolute -top-10 sm:-top-16 left-4 sm:left-8' : ''}`}>
+                  <div className="w-20 h-20 sm:w-32 sm:h-32 bg-white rounded-full border-4 border-[#1A1A1A] overflow-hidden shadow-xl">
                     <img
                       src={shopInfo.logoUrl}
                       alt={`${shopInfo.name} logo`}
@@ -400,12 +400,12 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
               )}
 
               {/* Shop Info */}
-              <div className={`flex-1 ${shopInfo?.logoUrl && shopInfo?.bannerUrl ? 'pt-20' : ''}`}>
-              <div className="flex items-start justify-between mb-4">
+              <div className={`flex-1 ${shopInfo?.logoUrl && shopInfo?.bannerUrl ? 'pt-14 sm:pt-20' : ''}`}>
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
                 <div>
-                  <h1 className="text-4xl font-bold text-white mb-2">{shopInfo.name}</h1>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">{shopInfo.name}</h1>
                   {shopInfo.category && (
-                    <p className="text-gray-400 text-lg">{shopInfo.category}</p>
+                    <p className="text-gray-400 text-base lg:text-lg">{shopInfo.category}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -429,7 +429,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
 
               {/* Rating */}
               {averageRating > 0 && (
-                <div className="flex items-center gap-3 mb-6">
+                <div className="flex items-center gap-3 mb-4 sm:mb-6">
                   <div className="flex">
                     {[1, 2, 3, 4, 5].map((star) => {
                       const fullStars = Math.floor(averageRating);
@@ -611,8 +611,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
 
         {/* Google Maps Embed */}
         {shopInfo?.location?.lat && shopInfo?.location?.lng && (
-          <div className="px-6 mb-8">
-            <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6">
+          <div className="px-4 sm:px-6 mb-6 sm:mb-8">
+            <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-[#FFCC00]" />
@@ -628,7 +628,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   Get Directions
                 </a>
               </div>
-              <div className="w-full h-96 rounded-lg overflow-hidden">
+              <div className="w-full h-56 sm:h-72 lg:h-96 rounded-lg overflow-hidden">
                 <iframe
                   width="100%"
                   height="100%"
@@ -643,9 +643,9 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         )}
 
         {/* Tabs */}
-        <div className="px-6 mt-12">
+        <div className="px-4 sm:px-6 mt-6 sm:mt-12">
           <div className="border-b border-gray-800 mb-8">
-            <div className="flex gap-8 overflow-x-auto">
+            <div className="flex gap-4 sm:gap-8 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("services")}
                 className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
@@ -766,7 +766,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
             )}
 
             {services.length === 0 ? (
-              <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
+              <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 sm:p-12 text-center">
                 <Package className="w-16 h-16 mx-auto mb-4 text-gray-600" />
                 <h3 className="text-xl font-semibold text-white mb-2">
                   No Services Available
@@ -799,7 +799,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
 
         {/* About Tab */}
         {activeTab === "about" && shopInfo?.aboutText && (
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-8">
+          <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-4 sm:p-6 lg:p-8">
             <h2 className="text-2xl font-bold text-white mb-6">About {shopInfo.name}</h2>
             <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">
               {shopInfo.aboutText}
@@ -870,7 +870,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                 {reviews.map((review) => (
                   <div
                     key={review.reviewId}
-                    className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-5"
+                    className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-3 sm:p-5"
                   >
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
