@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { View, Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import {
   AppointmentSummaryCard,
   RcnBalanceCard,
@@ -20,6 +21,7 @@ export default function AppointmentDiscountScreen({
   finalPrice,
   onRcnChange,
   onMaxRcn,
+  redemptionMessage,
 }: AppointmentDiscountScreenProps) {
   return (
     <View className="px-4 mb-6">
@@ -33,6 +35,14 @@ export default function AppointmentDiscountScreen({
       <View className="mb-6">
         <RcnBalanceCard availableRcn={availableRcn} />
       </View>
+
+      {/* Redemption limit info */}
+      {redemptionMessage && (
+        <View className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 mb-4 flex-row items-start">
+          <Ionicons name="information-circle" size={16} color="#3b82f6" />
+          <Text className="text-blue-300 text-xs ml-2 flex-1">{redemptionMessage}</Text>
+        </View>
+      )}
 
       <RcnRedeemInput
         rcnToRedeem={rcnToRedeem}

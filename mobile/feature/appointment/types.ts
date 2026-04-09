@@ -99,6 +99,7 @@ export interface AppointmentDiscountScreenProps {
   finalPrice: number;
   onRcnChange: (value: string) => void;
   onMaxRcn: () => void;
+  redemptionMessage?: string;
 }
 
 // ============================================

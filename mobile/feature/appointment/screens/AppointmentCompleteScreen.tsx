@@ -67,19 +67,47 @@ export default function AppointmentCompleteScreen() {
   const minBookingHours = timeSlotConfig?.minBookingHours || 2;
   const allowWeekendBooking = timeSlotConfig?.allowWeekendBooking ?? true;
 
-  const MAX_RCN_DISCOUNT = 20;
+  // Fetch no-show status for dynamic RCN redemption limits
+  const { data: noShowStatus } = useQuery({
+    queryKey: ["noShowStatus", userProfile?.address, serviceData?.shopId],
+    queryFn: () => appointmentApi.getCustomerNoShowStatusForShop(
+      userProfile?.address || "",
+      serviceData?.shopId || ""
+    ),
+    enabled: !!userProfile?.address && !!serviceData?.shopId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Dynamic RCN redemption limits
   const RCN_TO_USD = 0.10;
   const availableRcn = balanceData?.totalBalance || 0;
   const rcnValue = parseFloat(rcnToRedeem) || 0;
   const rcnDiscount = rcnValue * RCN_TO_USD;
   const servicePrice = serviceData?.priceUsd || 0;
 
-  const maxRcnRedeemable = Math.min(
+  // Calculate max redeemable based on home shop, cross-shop, and no-show tier
+  const isHomeShop = noShowStatus?.isHomeShop === true;
+  const isRestrictedTier = noShowStatus?.tier === "caution" || noShowStatus?.tier === "deposit_required";
+  const baseRate = isHomeShop ? 1.00 : 0.20;
+  const tierCap = isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent
+    ? noShowStatus.maxRcnRedemptionPercent / 100
+    : 1.00;
+  const maxDiscountPct = Math.min(baseRate, tierCap);
+  const maxDiscountUsd = servicePrice * maxDiscountPct;
+
+  const maxRcnRedeemable = Math.floor(Math.min(
+    maxDiscountUsd / RCN_TO_USD,
     availableRcn,
-    MAX_RCN_DISCOUNT,
     servicePrice / RCN_TO_USD
-  );
+  ));
   const finalPrice = Math.max(0, servicePrice - rcnDiscount);
+
+  // Redemption context message for the discount screen
+  const redemptionMessage = isRestrictedTier
+    ? `Due to your booking history, redemption is limited to ${noShowStatus?.maxRcnRedemptionPercent || 100}% of the service price`
+    : isHomeShop
+    ? "You can redeem up to 100% at this shop (your home shop)"
+    : "Cross-shop limit: 20% of the service price";
 
   const handleDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
@@ -233,11 +261,12 @@ export default function AppointmentCompleteScreen() {
             rcnValue={rcnValue}
             rcnDiscount={rcnDiscount}
             maxRcnRedeemable={maxRcnRedeemable}
-            maxRcnLimit={MAX_RCN_DISCOUNT}
+            maxRcnLimit={maxRcnRedeemable}
             servicePrice={servicePrice}
             finalPrice={finalPrice}
             onRcnChange={handleRcnChange}
             onMaxRcn={handleMaxRcn}
+            redemptionMessage={redemptionMessage}
           />
         )}
 

@@ -25,6 +25,8 @@ export interface CustomerNoShowStatus {
   requiresDeposit: boolean;
   minimumAdvanceHours: number;
   restrictions: string[];
+  isHomeShop?: boolean;
+  maxRcnRedemptionPercent?: number;
 }
 
 export type RescheduleRequestStatus =

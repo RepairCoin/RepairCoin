@@ -1,10 +1,11 @@
 # Feature: Dynamic RCN Redemption Limits (Cross-Shop & No-Show Tier)
 
-**Status:** Open
+**Status:** Completed
 **Priority:** High
 **Est. Effort:** 3-4 hrs
 **Created:** 2026-04-08
-**Updated:** 2026-04-08
+**Updated:** 2026-04-09
+**Completed:** 2026-04-09
 
 ## Overview
 
