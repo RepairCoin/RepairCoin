@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   HomeIcon,
   Wallet,
@@ -227,7 +227,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         {/* Shop Statistics - New Design */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           <OverviewStatCard
             title="Operational RCN"
             value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
@@ -289,10 +289,27 @@ const OverviewStatCard: React.FC<{
   actionIcon?: React.ReactNode;
 }> = ({ title, value, icon, tooltip, actionLink, actionIcon }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showValueTooltip, setShowValueTooltip] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const valueRef = useRef<HTMLParagraphElement>(null);
+
+  const checkTruncation = useCallback(() => {
+    const el = valueRef.current;
+    if (el) {
+      setIsTruncated(el.scrollWidth > el.clientWidth);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkTruncation();
+    window.addEventListener('resize', checkTruncation);
+    return () => window.removeEventListener('resize', checkTruncation);
+  }, [checkTruncation, value]);
 
   return (
-    <div className={`bg-[#101010] rounded-[20px] p-4 sm:p-5 min-h-[97px] relative ${showTooltip ? 'z-50 overflow-visible' : ''}`}>
-      <div className="flex items-start gap-2 sm:gap-3 pr-6">
+    <div className={`bg-[#101010] rounded-[20px] p-3 sm:p-5 min-h-[100px] sm:min-h-[97px] relative ${showTooltip || showValueTooltip ? 'z-50 overflow-visible' : ''}`}>
+      {/* Mobile: stacked layout, Desktop: horizontal layout */}
+      <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3 pr-6">
         {/* Icon with yellow gradient background */}
         <div className="relative flex-shrink-0">
           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#FFCC00] to-[#FFD633] rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
@@ -302,39 +319,52 @@ const OverviewStatCard: React.FC<{
           </div>
         </div>
         {/* Text content */}
-        <div className="flex flex-col min-w-0 flex-1">
-          <p className="text-white text-xs sm:text-sm font-medium leading-tight break-words">
+        <div className="flex flex-col min-w-0 flex-1 mt-1 sm:mt-0">
+          <p className="text-white text-[11px] sm:text-sm font-medium leading-tight truncate">
             {title}
           </p>
-          <p className="text-white text-lg sm:text-xl md:text-2xl font-bold mt-1 tracking-tight break-all">
-            {value}
-          </p>
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 min-w-0 relative">
+            <p
+              ref={valueRef}
+              className="text-white text-base sm:text-xl md:text-2xl font-bold tracking-tight truncate min-w-0 cursor-default"
+              onMouseEnter={() => isTruncated && setShowValueTooltip(true)}
+              onMouseLeave={() => setShowValueTooltip(false)}
+              onClick={() => isTruncated && setShowValueTooltip(!showValueTooltip)}
+            >
+              {value}
+            </p>
+            {/* Value tooltip - only shown when truncated */}
+            {showValueTooltip && isTruncated && (
+              <div className="absolute left-0 -bottom-9 z-[100] px-3 py-1.5 bg-[#2a2a2a] border border-[#404040] rounded-lg shadow-xl whitespace-nowrap">
+                <div className="absolute -top-1.5 left-4 w-3 h-3 bg-[#2a2a2a] border-l border-t border-[#404040] transform rotate-45"></div>
+                <p className="text-sm text-white font-bold">{value}</p>
+              </div>
+            )}
+            {actionLink && (
+              <Link href={actionLink} className="flex-shrink-0">
+                <button className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-[#FFCC00] to-[#FFD633] rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-yellow-500/20">
+                  {actionIcon || <Plus className="w-3 h-3 sm:w-4 sm:h-4 text-[#101010]" />}
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
-      {/* Action button and help icon */}
-      <div className="absolute top-3 right-3 flex items-center gap-2">
-        {/* Optional action button */}
-        {actionLink && (
-          <Link href={actionLink}>
-            <button className="w-6 h-6 bg-gradient-to-br from-[#FFCC00] to-[#FFD633] rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-yellow-500/20">
-              {actionIcon || <Plus className="w-4 h-4 text-[#101010]" />}
-            </button>
-          </Link>
-        )}
-        {/* Help icon with tooltip */}
+      {/* Help icon with tooltip */}
+      <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
         <button
           className="text-[#505050] hover:text-gray-400 transition-colors relative"
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
           onClick={() => setShowTooltip(!showTooltip)}
         >
-          <HelpCircle className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+          <HelpCircle className="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px]" />
         </button>
         {/* Tooltip */}
         {showTooltip && tooltip && (
-          <div className="absolute right-0 top-6 z-[100] w-48 sm:w-64 p-3 bg-[#2a2a2a] border border-[#404040] rounded-lg shadow-xl">
+          <div className="absolute right-0 top-5 sm:top-6 z-[100] w-44 sm:w-64 p-2 sm:p-3 bg-[#2a2a2a] border border-[#404040] rounded-lg shadow-xl">
             <div className="absolute -top-1.5 right-2 w-3 h-3 bg-[#2a2a2a] border-l border-t border-[#404040] transform rotate-45"></div>
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">{tooltip}</p>
+            <p className="text-[11px] sm:text-sm text-gray-300 leading-relaxed">{tooltip}</p>
           </div>
         )}
       </div>
