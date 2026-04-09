@@ -1,6 +1,6 @@
 # Bug: Duplicate Affiliate Group Names Allowed
 
-## Status: Open
+## Status: Fixed (2026-04-09)
 ## Priority: Medium
 ## Date: 2026-04-08
 ## Category: Bug - Validation / Data Integrity

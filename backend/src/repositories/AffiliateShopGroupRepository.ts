@@ -353,6 +353,25 @@ export class AffiliateShopGroupRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Check if a group name already exists for a specific shop
+   */
+  async groupNameExistsForShop(groupName: string, shopId: string): Promise<boolean> {
+    try {
+      const query = `
+        SELECT 1 FROM affiliate_shop_groups
+        WHERE LOWER(group_name) = LOWER($1)
+        AND created_by_shop_id = $2
+        AND active = true
+      `;
+      const result = await this.pool.query(query, [groupName.trim(), shopId]);
+      return result.rows.length > 0;
+    } catch (error) {
+      logger.error('Error checking group name:', error);
+      throw error;
+    }
+  }
+
   // ==================== GROUP MEMBERS ====================
 
   async addMemberRequest(
@@ -453,7 +472,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
           s.name as shop_name,
           COALESCE(r.allocated_rcn, 0) as allocated_rcn,
           COALESCE(r.used_rcn, 0) as used_rcn,
-          COALESCE(r.available_rcn, 0) as available_rcn
+          (COALESCE(r.allocated_rcn, 0) - COALESCE(r.used_rcn, 0)) as available_rcn
         FROM affiliate_shop_group_members m
         LEFT JOIN shops s ON m.shop_id = s.shop_id
         LEFT JOIN shop_group_rcn_allocations r ON m.shop_id = r.shop_id AND m.group_id = r.group_id
@@ -493,6 +512,53 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       return result.rows.length > 0;
     } catch (error) {
       logger.error('Error checking shop membership:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the membership record for a shop in a group (any status)
+   */
+  async getShopMembershipRecord(groupId: string, shopId: string): Promise<{ status: string } | null> {
+    try {
+      const query = `
+        SELECT status FROM affiliate_shop_group_members
+        WHERE group_id = $1 AND shop_id = $2
+        ORDER BY
+          CASE status
+            WHEN 'active' THEN 1
+            WHEN 'pending' THEN 2
+            WHEN 'rejected' THEN 3
+            WHEN 'removed' THEN 4
+          END
+        LIMIT 1
+      `;
+      const result = await this.pool.query(query, [groupId, shopId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      logger.error('Error getting shop membership record:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset a rejected/removed member back to pending status
+   */
+  async resetMemberToPending(groupId: string, shopId: string, requestMessage?: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE affiliate_shop_group_members
+        SET status = 'pending',
+            request_message = $3,
+            approved_by_shop_id = NULL,
+            approved_at = NULL
+        WHERE group_id = $1 AND shop_id = $2
+        AND status IN ('rejected', 'removed')
+      `;
+      await this.pool.query(query, [groupId, shopId, requestMessage || null]);
+      logger.info('Member reset to pending', { groupId, shopId });
+    } catch (error) {
+      logger.error('Error resetting member to pending:', error);
       throw error;
     }
   }
@@ -1020,7 +1086,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
   async getShopGroupRcnAllocation(shopId: string, groupId: string): Promise<ShopGroupRcnAllocation | null> {
     try {
       const query = `
-        SELECT * FROM shop_group_rcn_allocations
+        SELECT *,
+          (COALESCE(allocated_rcn, 0) - COALESCE(used_rcn, 0)) as computed_available_rcn
+        FROM shop_group_rcn_allocations
         WHERE shop_id = $1 AND group_id = $2
       `;
 
@@ -1034,9 +1102,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       return {
         shopId: row.shop_id,
         groupId: row.group_id,
-        allocatedRcn: parseFloat(row.allocated_rcn),
-        usedRcn: parseFloat(row.used_rcn),
-        availableRcn: parseFloat(row.available_rcn),
+        allocatedRcn: parseFloat(row.allocated_rcn) || 0,
+        usedRcn: parseFloat(row.used_rcn) || 0,
+        availableRcn: parseFloat(row.computed_available_rcn) || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -1058,7 +1126,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
         DO UPDATE SET
           allocated_rcn = shop_group_rcn_allocations.allocated_rcn + EXCLUDED.allocated_rcn,
           updated_at = CURRENT_TIMESTAMP
-        RETURNING *
+        RETURNING *, (allocated_rcn - used_rcn) as computed_available_rcn
       `;
 
       const result = await this.pool.query(query, [shopId, groupId, amount]);
@@ -1067,9 +1135,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       return {
         shopId: row.shop_id,
         groupId: row.group_id,
-        allocatedRcn: parseFloat(row.allocated_rcn),
-        usedRcn: parseFloat(row.used_rcn),
-        availableRcn: parseFloat(row.available_rcn),
+        allocatedRcn: parseFloat(row.allocated_rcn) || 0,
+        usedRcn: parseFloat(row.used_rcn) || 0,
+        availableRcn: parseFloat(row.computed_available_rcn) || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -1090,7 +1158,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
           allocated_rcn = allocated_rcn - $3,
           updated_at = CURRENT_TIMESTAMP
         WHERE shop_id = $1 AND group_id = $2
-        RETURNING *
+        RETURNING *, (allocated_rcn - used_rcn) as computed_available_rcn
       `;
 
       const result = await this.pool.query(query, [shopId, groupId, amount]);
@@ -1103,9 +1171,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       return {
         shopId: row.shop_id,
         groupId: row.group_id,
-        allocatedRcn: parseFloat(row.allocated_rcn),
-        usedRcn: parseFloat(row.used_rcn),
-        availableRcn: parseFloat(row.available_rcn),
+        allocatedRcn: parseFloat(row.allocated_rcn) || 0,
+        usedRcn: parseFloat(row.used_rcn) || 0,
+        availableRcn: parseFloat(row.computed_available_rcn) || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -1141,7 +1209,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
   async getShopRcnAllocations(shopId: string): Promise<ShopGroupRcnAllocation[]> {
     try {
       const query = `
-        SELECT * FROM shop_group_rcn_allocations
+        SELECT *,
+          (COALESCE(allocated_rcn, 0) - COALESCE(used_rcn, 0)) as computed_available_rcn
+        FROM shop_group_rcn_allocations
         WHERE shop_id = $1
         ORDER BY updated_at DESC
       `;
@@ -1151,9 +1221,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       return result.rows.map(row => ({
         shopId: row.shop_id,
         groupId: row.group_id,
-        allocatedRcn: parseFloat(row.allocated_rcn),
-        usedRcn: parseFloat(row.used_rcn),
-        availableRcn: parseFloat(row.available_rcn),
+        allocatedRcn: parseFloat(row.allocated_rcn) || 0,
+        usedRcn: parseFloat(row.used_rcn) || 0,
+        availableRcn: parseFloat(row.computed_available_rcn) || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));

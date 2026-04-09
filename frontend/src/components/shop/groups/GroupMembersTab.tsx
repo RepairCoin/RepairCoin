@@ -153,6 +153,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
           onViewApplication={setViewingApplication}
           onApprove={handleApproveMember}
           onReject={handleRejectMember}
+          onRemove={setMemberToRemove}
         />
       )}
 
@@ -261,6 +262,7 @@ interface MembersTableProps {
   onViewApplication: (member: shopGroupsAPI.AffiliateShopGroupMember) => void;
   onApprove: (shopId: string) => void;
   onReject: (shopId: string) => void;
+  onRemove: (member: shopGroupsAPI.AffiliateShopGroupMember) => void;
 }
 
 function MembersTable({
@@ -271,6 +273,7 @@ function MembersTable({
   onViewApplication,
   onApprove,
   onReject,
+  onRemove,
 }: MembersTableProps) {
   const {
     paginatedItems,
@@ -294,6 +297,9 @@ function MembersTable({
                   <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Allocated</th>
                   <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Used</th>
                   <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Available</th>
+                  {isCurrentUserAdmin && (
+                    <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Action</th>
+                  )}
                 </>
               ) : (
                 <>
@@ -361,6 +367,20 @@ function MembersTable({
                       <td className="py-4 px-4 text-center text-white">
                         {member.availableRcn?.toLocaleString() || 0}
                       </td>
+                      {isCurrentUserAdmin && (
+                        <td className="py-4 px-4 text-center">
+                          {!isCurrentUser && member.role !== 'admin' ? (
+                            <button
+                              onClick={() => onRemove(member)}
+                              className="px-3 py-1.5 text-red-400 hover:text-white hover:bg-red-600 text-xs font-medium rounded-lg border border-red-500/30 transition-all duration-200"
+                            >
+                              Remove
+                            </button>
+                          ) : (
+                            <span className="text-gray-600 text-xs">—</span>
+                          )}
+                        </td>
+                      )}
                     </>
                   ) : (
                     <>

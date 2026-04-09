@@ -348,22 +348,20 @@ export class TokenMinter {
 
       // No daily or monthly limits - removed per new requirements
 
-      // Mint the tokens
-      const result = await this.mintTokens(customerAddress, tokensToMint, `repair_${shopId}_${Date.now()}`);
-      
-      if (result.success) {
-        // Calculate new tier after earning
-        const newLifetimeEarnings = customerData.lifetimeEarnings + tokensToMint;
-        const newTier = this.tierManager.calculateTier(newLifetimeEarnings);
-        
-        return {
-          ...result,
-          message: `Minted ${tokensToMint} RCN for $${repairAmount} repair at shop ${shopId}`,
-          newTier: newTier
-        };
-      }
+      // Calculate new tier after earning
+      const newLifetimeEarnings = customerData.lifetimeEarnings + tokensToMint;
+      const newTier = this.tierManager.calculateTier(newLifetimeEarnings);
 
-      return result;
+      // DB-only earning: tokens go to platform balance (current_rcn_balance)
+      // Customers must explicitly use "Mint to Wallet" to transfer tokens on-chain
+      // This was changed from direct blockchain minting to prevent auto-mint on every earning
+      return {
+        success: true,
+        tokensToMint,
+        message: `Earned ${tokensToMint} RCN for $${repairAmount} service at shop ${shopId}`,
+        newTier: newTier,
+        timestamp: new Date().toISOString()
+      };
 
     } catch (error: any) {
       logger.error('Repair token minting failed', { error: error.message, customerAddress, repairAmount, shopId });
@@ -397,34 +395,13 @@ export class TokenMinter {
         };
       }
 
-      const referralId = `referral_${Date.now()}`;
-
-      // Mint 25 RCN to referrer
-      const referrerResult = await this.mintTokens(referrerAddress, 25, `${referralId}_referrer`);
-      if (!referrerResult.success) {
-        return {
-          ...referrerResult,
-          message: `Failed to mint referrer tokens: ${referrerResult.error}`
-        };
-      }
-
-      // Mint 10 RCN to referee  
-      const refereeResult = await this.mintTokens(refereeAddress, 10, `${referralId}_referee`);
-      if (!refereeResult.success) {
-        // Log warning but don't fail completely since referrer was already paid
-        logger.warn('Referee token minting failed but referrer was paid', { referrerAddress, refereeAddress, error: refereeResult.error });
-        return {
-          success: false,
-          message: `Referrer paid but referee minting failed: ${refereeResult.error}`,
-          tokensToMint: 25 // Referrer still got paid
-        };
-      }
-      
-      return { 
-        success: true, 
-        message: `Referral rewards minted: 25 RCN to referrer, 10 RCN to referee`,
-        tokensToMint: 35, // Total minted
-        transactionHash: refereeResult.transactionHash // Use last transaction hash
+      // DB-only earning: referral tokens go to platform balance
+      // Customers must explicitly use "Mint to Wallet" to transfer tokens on-chain
+      return {
+        success: true,
+        message: `Referral rewards earned: 25 RCN to referrer, 10 RCN to referee`,
+        tokensToMint: 35, // Total earned
+        timestamp: new Date().toISOString()
       };
 
     } catch (error: any) {

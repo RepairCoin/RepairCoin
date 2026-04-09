@@ -1078,13 +1078,40 @@ export class OrderController {
             orderId: order.orderId,
             serviceId: order.serviceId
           });
-        } catch (groupError) {
+        } catch (groupError: any) {
+          const errorMsg = groupError instanceof Error ? groupError.message : 'Unknown error';
           logger.error('Error issuing group tokens for specific group', {
-            error: groupError,
+            error: errorMsg,
             groupId: groupLink.groupId,
+            groupName: groupLink.groupName,
             orderId: order.orderId,
             serviceId: order.serviceId
           });
+
+          // Notify shop about failed group token issuance
+          try {
+            const { shopRepository } = await import('../../../repositories');
+            const shop = await shopRepository.getShop(order.shopId);
+            if (shop?.walletAddress) {
+              await this.notificationService.createNotification({
+                senderAddress: 'SYSTEM',
+                receiverAddress: shop.walletAddress,
+                notificationType: 'group_token_issuance_failed',
+                message: `Group token issuance failed for order ${order.orderId.slice(-8)}: ${errorMsg}. Customer did not receive ${groupLink.groupName || 'group'} tokens.`,
+                metadata: {
+                  orderId: order.orderId,
+                  groupId: groupLink.groupId,
+                  groupName: groupLink.groupName,
+                  tokenSymbol: groupLink.customTokenSymbol,
+                  expectedAmount: order.totalAmount * (groupLink.tokenRewardPercentage / 100) * groupLink.bonusMultiplier,
+                  error: errorMsg,
+                  timestamp: new Date().toISOString()
+                }
+              });
+            }
+          } catch (notifError) {
+            logger.error('Failed to send group token failure notification:', notifError);
+          }
           // Continue with other groups even if one fails
         }
       }
