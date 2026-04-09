@@ -134,29 +134,29 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-[1100] sm:p-4">
+      <div className="bg-[#1A1A1A] border border-gray-800 rounded-t-2xl sm:rounded-2xl max-w-5xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800 sticky top-0 bg-[#1A1A1A] z-10">
-          <h2 className="text-2xl font-bold text-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-800 sticky top-0 bg-[#1A1A1A] z-10 rounded-t-2xl">
+          <h2 className="text-lg sm:text-2xl font-bold text-white">
             {isEditing ? "Edit Service" : "Create New Service"}
           </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Form Fields */}
             <div className="space-y-6">
               {/* 1. BASIC INFO */}
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
                   <span className="bg-[#FFCC00] text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
                   Basic Info
                 </h3>
@@ -214,8 +214,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
               </div>
 
               {/* 2. DETAILS */}
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
                   <span className="bg-[#FFCC00] text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
                   Details
                 </h3>
@@ -266,8 +266,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
               </div>
 
               {/* 3. VISUALS */}
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
                   <span className="bg-[#FFCC00] text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
                   Visuals
                 </h3>
@@ -284,8 +284,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
               </div>
 
               {/* 4. DISCOVERY */}
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
                   <span className="bg-[#FFCC00] text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">4</span>
                   Discovery
                 </h3>
@@ -353,8 +353,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
               </div>
 
               {/* 5. STATUS */}
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
                   <span className="bg-[#FFCC00] text-black rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">5</span>
                   Status
                 </h3>
@@ -397,8 +397,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
 
             {/* Right Column - Image Preview */}
             <div className="lg:sticky lg:top-6 lg:self-start">
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-lg font-semibold text-white mb-4">Live Preview</h3>
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Live Preview</h3>
 
                 {formData.imageUrl ? (
                   <div className="w-full aspect-video rounded-lg overflow-hidden bg-gray-800 mb-4">
@@ -414,7 +414,7 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                   </div>
                 ) : (
                   <div className="w-full aspect-video rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center mb-4">
-                    <ImageIcon className="w-16 h-16 text-gray-600 mb-2" />
+                    <ImageIcon className="w-10 h-10 sm:w-16 sm:h-16 text-gray-600 mb-2" />
                     <p className="text-sm text-gray-500">No image yet</p>
                   </div>
                 )}
@@ -466,18 +466,18 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 mt-6 pt-6 border-t border-gray-800">
+          <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-800 sticky bottom-0 bg-[#1A1A1A] pb-2 sm:pb-0 sm:static">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-800 text-white font-semibold px-6 py-3 rounded-xl hover:bg-gray-700 transition-colors"
+              className="flex-1 bg-gray-800 text-white text-sm sm:text-base font-semibold px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:bg-gray-700 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black text-sm sm:text-base font-semibold px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting
                 ? isEditing
