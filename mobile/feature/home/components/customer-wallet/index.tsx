@@ -10,7 +10,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from "react-native";
-import { MaterialIcons, Ionicons, Feather } from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -85,7 +85,6 @@ export default function CustomerWalletTab() {
         refetchTrending(),
         refetchRecentlyViewed(),
         refetchFavorites(),
-        refetchOnChain(),
       ]);
     } finally {
       setRefreshing(false);
@@ -93,10 +92,6 @@ export default function CustomerWalletTab() {
   }, [refetch, refetchServices, refetchTrending, refetchRecentlyViewed, refetchFavorites]);
 
   const totalBalance = customerData?.customer?.currentRcnBalance || 0;
-
-  // TODO: Add on-chain balance reading when ThirdwebProvider is configured
-  const walletBalance = 0;
-  const refetchOnChain = () => {};
 
   // Mint to wallet state
   const [showMintModal, setShowMintModal] = useState(false);
@@ -110,7 +105,6 @@ export default function CustomerWalletTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
-      refetchOnChain();
       refetch();
       setShowMintModal(false);
       setMintAmount("");
@@ -222,6 +216,11 @@ export default function CustomerWalletTab() {
           isLoading={isLoading}
           quickActions={[
             {
+              icon: <Ionicons name="arrow-up-circle-outline" size={24} color="#000" />,
+              label: "Mint",
+              onPress: () => totalBalance > 0 ? setShowMintModal(true) : showError("No platform balance to mint"),
+            },
+            {
               icon: <MaterialIcons name="card-giftcard" size={24} color="#000" />,
               label: "Gift Token",
               onPress: () => router.push("/customer/gift-token"),
@@ -243,37 +242,6 @@ export default function CustomerWalletTab() {
             },
           ]}
         />
-
-        {/* Wallet Balance Card */}
-        <View className="mx-4 mt-4 bg-[#1a1a1a] rounded-2xl p-4">
-          <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center">
-              <Feather name="link" size={16} color="#3b82f6" />
-              <Text className="text-gray-400 text-sm ml-2">On-Chain Wallet</Text>
-            </View>
-            <View className="bg-blue-500/10 px-2 py-1 rounded-full">
-              <Text className="text-blue-400 text-xs font-medium">Base Sepolia</Text>
-            </View>
-          </View>
-          <View className="flex-row items-end justify-between">
-            <View>
-              <Text className="text-white text-2xl font-bold">
-                {walletBalance.toFixed(2)} <Text className="text-gray-400 text-sm">RCN</Text>
-              </Text>
-              <Text className="text-gray-500 text-xs mt-1">
-                ${(walletBalance * 0.10).toFixed(2)} USD
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => totalBalance > 0 ? setShowMintModal(true) : showError("No platform balance to mint")}
-              className={`px-4 py-2 rounded-xl flex-row items-center ${totalBalance > 0 ? "bg-[#FFCC00]" : "bg-zinc-700"}`}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-up-circle" size={16} color={totalBalance > 0 ? "#000" : "#999"} />
-              <Text className={`text-sm font-semibold ml-1 ${totalBalance > 0 ? "text-black" : "text-gray-400"}`}>Mint</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Mint to Wallet Modal */}
         <Modal visible={showMintModal} transparent animationType="fade">
