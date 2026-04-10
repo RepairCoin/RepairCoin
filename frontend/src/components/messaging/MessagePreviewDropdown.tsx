@@ -31,9 +31,11 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
     }
   }, [isOpen, userType]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (desktop only - mobile uses backdrop)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Skip on mobile where we use a backdrop instead
+      if (window.innerWidth < 640) return;
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         onClose();
       }
@@ -132,10 +134,22 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      ref={dropdownRef}
-      className="absolute right-0 top-full mt-2 w-96 bg-[#101010] rounded-xl border border-gray-800 shadow-2xl z-50 overflow-hidden"
-    >
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 z-40 sm:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={dropdownRef}
+        className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 w-full sm:w-96 bg-[#101010] rounded-t-xl sm:rounded-xl border border-gray-800 shadow-2xl z-50 overflow-hidden max-h-[85vh] sm:max-h-none flex flex-col"
+      >
+      {/* Mobile drag handle */}
+      <div className="sm:hidden flex justify-center pt-2 pb-1 bg-[#1a1a1a]">
+        <div className="w-10 h-1 bg-gray-600 rounded-full" />
+      </div>
+
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-800 bg-[#1a1a1a]">
         <div className="flex items-center justify-between">
@@ -149,7 +163,7 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
       </div>
 
       {/* Conversations List */}
-      <div className="max-h-96 overflow-y-auto">
+      <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto flex-1">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 text-[#FFCC00] animate-spin" />
@@ -234,5 +248,6 @@ export const MessagePreviewDropdown: React.FC<MessagePreviewDropdownProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };

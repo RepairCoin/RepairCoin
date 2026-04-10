@@ -688,49 +688,63 @@ async function reverseNoShowPenalty(
       [noShowHistoryId]
     );
 
-    // Recalculate effective no-show count (excluding reversed ones)
+    // Recalculate effective no-show count across all shops (excluding reversed ones)
     const countResult = await pool.query(
       `SELECT COUNT(*) as effective_count
        FROM no_show_history
        WHERE LOWER(customer_address) = LOWER($1)
-         AND shop_id = $2
-         AND (notes IS NULL OR notes NOT LIKE '%[DISPUTE_REVERSED]%')`,
-      [customerAddress, shopId]
+         AND (notes IS NULL OR nocctes NOT LIKE '%[DISPUTE_REVERSED]%')`,
+      [customerAddress]
     );
 
     const effectiveCount = parseInt(countResult.rows[0].effective_count, 10);
 
-    // Recalculate tier based on effective count
+    // Recalculate tier based on effective count using shop's policy thresholds
     let newTier = 'normal';
+    let suspensionDate: Date | null = null;
     const policyResult = await pool.query(
-      `SELECT caution_threshold, deposit_threshold, suspension_threshold
+      `SELECT caution_threshold, deposit_threshold, suspension_threshold, suspension_duration_days
        FROM shop_no_show_policy WHERE shop_id = $1`,
       [shopId]
     );
 
+    const defaultSuspensionDays = 30;
     if (policyResult.rows.length > 0) {
       const policy = policyResult.rows[0];
       if (effectiveCount >= policy.suspension_threshold) {
         newTier = 'suspended';
+        const durationDays = policy.suspension_duration_days || defaultSuspensionDays;
+        suspensionDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
       } else if (effectiveCount >= policy.deposit_threshold) {
         newTier = 'deposit_required';
       } else if (effectiveCount >= policy.caution_threshold) {
         newTier = 'caution';
       }
-      // Below caution_threshold = normal (no restrictions)
+    } else {
+      // Use default thresholds when no shop policy exists
+      if (effectiveCount >= 5) {
+        newTier = 'suspended';
+        suspensionDate = new Date(Date.now() + defaultSuspensionDays * 24 * 60 * 60 * 1000);
+      } else if (effectiveCount >= 3) {
+        newTier = 'deposit_required';
+      } else if (effectiveCount >= 2) {
+        newTier = 'caution';
+      }
     }
 
-    // Update customer no-show stats
+    // Update customer with correct effective count, recalculated tier, and suspension date
     await pool.query(
       `UPDATE customers
-       SET no_show_count = GREATEST(0, no_show_count - 1),
-           no_show_tier = $1,
+       SET no_show_count = $1,
+           no_show_tier = $2,
+           booking_suspended_until = $3,
+           deposit_required = $4,
            updated_at = NOW()
-       WHERE LOWER(address) = LOWER($2)`,
-      [newTier, customerAddress]
+       WHERE LOWER(address) = LOWER($5)`,
+      [effectiveCount, newTier, suspensionDate, newTier === 'deposit_required' || newTier === 'suspended', customerAddress]
     );
 
-    logger.info(`Reversed no-show penalty for ${customerAddress} at shop ${shopId}. New tier: ${newTier}`);
+    logger.info(`Reversed no-show penalty for ${customerAddress} at shop ${shopId}. Effective count: ${effectiveCount}, New tier: ${newTier}`);
   } catch (error) {
     logger.error('Error reversing no-show penalty:', error);
     throw error;

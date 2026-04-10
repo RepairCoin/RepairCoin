@@ -38,7 +38,10 @@ export const MessageIcon: React.FC = () => {
     return () => clearInterval(pollInterval);
   }, [userType, switchingAccount]);
 
-  const handleClick = () => {
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsDropdownOpen(!isDropdownOpen);
   };
 
@@ -46,6 +49,7 @@ export const MessageIcon: React.FC = () => {
     <div className="relative">
       {/* Message Icon Button */}
       <button
+        ref={buttonRef}
         onClick={handleClick}
         className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]"
         aria-label="Messages"

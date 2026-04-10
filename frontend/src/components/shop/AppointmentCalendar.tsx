@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { ManualBookingModal } from './ManualBookingModal';
 import { useAuthStore } from '@/stores/authStore';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 interface DayBookings {
   date: string;
@@ -184,58 +185,55 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
   return (
     <div className="max-w-7xl mx-auto p-3 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
-            {serviceName ? 'Service Bookings' : 'Appointment Calendar'}
-          </h1>
-          <p className="text-sm sm:text-base text-gray-400">
-            {serviceName ? (
-              <>Showing bookings for <span className="text-[#FFCC00] truncate">{serviceName}</span></>
-            ) : (
-              'View and manage your bookings'
-            )}
-          </p>
-        </div>
+      <SectionHeader
+        title={serviceName ? 'Service Bookings' : 'Appointment Calendar'}
+        subtitle={serviceName ? (
+          <>Showing bookings for <span className="text-[#FFCC00]">{serviceName}</span></>
+        ) : (
+          'View and manage your bookings'
+        )}
+        actions={
+          <>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setShowManualBookingModal(true)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] text-black text-sm sm:text-base font-semibold rounded-lg hover:bg-[#FFD700] transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Book Appointment</span>
+                <span className="sm:hidden">Book</span>
+              </button>
 
-        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
-          <button
-            onClick={() => setShowManualBookingModal(true)}
-            className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-black text-sm sm:text-base font-semibold rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Book Appointment</span>
-            <span className="sm:hidden">Book</span>
-          </button>
+              <button
+                onClick={goToToday}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#1A1A1A] text-white text-sm sm:text-base border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              >
+                Today
+              </button>
+            </div>
 
-          <button
-            onClick={goToToday}
-            className="px-3 sm:px-4 py-2 bg-[#1A1A1A] text-white text-sm sm:text-base border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
-          >
-            Today
-          </button>
+            <div className="flex items-center justify-center gap-1 sm:gap-2">
+              <button
+                onClick={() => navigateMonth('prev')}
+                className="p-1.5 sm:p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => navigateMonth('prev')}
-              className="p-1.5 sm:p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+              <span className="text-white text-sm sm:text-base font-semibold min-w-[120px] sm:min-w-[180px] text-center">
+                {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </span>
 
-            <span className="text-white text-sm sm:text-base font-semibold min-w-[120px] sm:min-w-[180px] text-center">
-              {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </span>
-
-            <button
-              onClick={() => navigateMonth('next')}
-              className="p-1.5 sm:p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
-            >
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
+              <button
+                onClick={() => navigateMonth('next')}
+                className="p-1.5 sm:p-2 bg-[#1A1A1A] text-white border border-gray-800 rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+          </>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">

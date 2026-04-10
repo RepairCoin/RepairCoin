@@ -86,15 +86,15 @@ const CustomerStatCard: React.FC<{
   icon: React.ReactNode;
   suffix?: string;
 }> = ({ title, value, icon, suffix }) => (
-  <div className="bg-[#101010] rounded-[20px] p-5 h-[97px] flex items-center gap-4">
-    <div className="w-[34px] h-[34px] rounded-full bg-[#FFCC00] flex items-center justify-center flex-shrink-0">
+  <div className="bg-[#101010] rounded-[20px] p-3 sm:p-5 min-h-[80px] sm:h-[97px] flex items-center gap-3 sm:gap-4">
+    <div className="w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-full bg-[#FFCC00] flex items-center justify-center flex-shrink-0">
       {icon}
     </div>
-    <div className="flex flex-col">
-      <p className="text-sm font-medium text-white tracking-[-0.28px] leading-6">
+    <div className="flex flex-col min-w-0">
+      <p className="text-xs sm:text-sm font-medium text-white tracking-[-0.28px] leading-5 sm:leading-6 truncate">
         {title}
       </p>
-      <p className="text-2xl font-bold text-white tracking-[-0.48px] leading-8">
+      <p className="text-lg sm:text-2xl font-bold text-white tracking-[-0.48px] leading-7 sm:leading-8">
         {value}{suffix && ` ${suffix}`}
       </p>
     </div>
@@ -458,31 +458,33 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
   return (
     <div className="space-y-6">
       {/* View Mode Toggle */}
-      <div className="bg-[#101010] rounded-[20px] p-2 inline-flex gap-2">
+      <div className="bg-[#101010] rounded-[20px] p-2 flex sm:inline-flex gap-2">
         <button
           onClick={() => setViewMode("my-customers")}
-          className={`px-6 py-3 rounded-[14px] font-semibold text-sm transition-all ${
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-[14px] font-semibold text-sm transition-all ${
             viewMode === "my-customers"
               ? "bg-[#FFCC00] text-[#101010]"
               : "text-white hover:bg-[#1a1a1a]"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Users className="w-4 h-4" />
-            My Customers
+            <span className="hidden sm:inline">My Customers</span>
+            <span className="sm:hidden">Customers</span>
           </div>
         </button>
         <button
           onClick={() => setViewMode("search-all")}
-          className={`px-6 py-3 rounded-[14px] font-semibold text-sm transition-all ${
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 rounded-[14px] font-semibold text-sm transition-all ${
             viewMode === "search-all"
               ? "bg-[#FFCC00] text-[#101010]"
               : "text-white hover:bg-[#1a1a1a]"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Search className="w-4 h-4" />
-            Search All Customers
+            <span className="hidden sm:inline">Search All Customers</span>
+            <span className="sm:hidden">Search All</span>
           </div>
         </button>
       </div>
@@ -491,7 +493,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
       {viewMode === "my-customers" && (
         <>
           {/* Stats Overview - 4 cards in a row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             <CustomerStatCard
               title="Total Customers"
               value={growthStats?.totalCustomers || customers.length}
@@ -518,18 +520,18 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
       {/* Find Customer Container */}
       <div className="bg-[#101010] rounded-[20px] overflow-hidden">
         {/* Header */}
-        <div className="px-7 py-6 border-b border-[#303236]">
+        <div className="px-4 sm:px-7 py-4 sm:py-6 border-b border-[#303236]">
           <div className="flex items-center gap-3">
-            <UserSearch className="w-6 h-6 text-[#FFCC00]" />
-            <h2 className="text-base font-semibold text-[#FFCC00]">
+            <UserSearch className="w-5 h-5 sm:w-6 sm:h-6 text-[#FFCC00]" />
+            <h2 className="text-sm sm:text-base font-semibold text-[#FFCC00]">
               Find Customer
             </h2>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="px-7 py-5 border-b border-[#303236]">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="px-4 sm:px-7 py-4 sm:py-5 border-b border-[#303236]">
+          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
             {/* Search Input */}
             <div className="flex-1 relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
@@ -537,7 +539,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
               </div>
               <input
                 type="text"
-                placeholder="Search customer by name or wallet address..."
+                placeholder="Search by name or wallet..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-[35px] pl-10 pr-4 bg-white border border-[#E2E8F0] rounded text-sm text-[#101010] placeholder:text-[#979797] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent shadow-sm"
@@ -545,12 +547,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
             </div>
 
             {/* Filters */}
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <Select
                 value={tierFilter}
                 onValueChange={(value) => setTierFilter(value as any)}
               >
-                <SelectTrigger className="w-[112px] h-[35px] bg-white border-[#CBD5E1] rounded-lg text-sm">
+                <SelectTrigger className="flex-1 sm:flex-none sm:w-[112px] h-[35px] bg-white border-[#CBD5E1] rounded-lg text-sm">
                   <SelectValue placeholder="All Tiers" />
                 </SelectTrigger>
                 <SelectContent>
@@ -565,7 +567,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                 value={sortBy}
                 onValueChange={(value) => setSortBy(value as any)}
               >
-                <SelectTrigger className="w-[200px] h-[35px] bg-white border-[#CBD5E1] rounded-lg text-sm">
+                <SelectTrigger className="flex-1 sm:flex-none sm:w-[200px] h-[35px] bg-white border-[#CBD5E1] rounded-lg text-sm">
                   <SelectValue placeholder="Most Recent" />
                 </SelectTrigger>
                 <SelectContent>
@@ -578,8 +580,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
           </div>
         </div>
 
-        {/* Table Header */}
-        <div className="bg-black px-7 py-4">
+        {/* Table Header - Hidden on mobile */}
+        <div className="hidden sm:block bg-black px-4 sm:px-7 py-4">
           <div className="grid grid-cols-4 gap-4">
             <p className="text-sm font-semibold text-white">CUSTOMER</p>
             <p className="text-sm font-semibold text-white">TIER</p>
@@ -618,11 +620,11 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
               {displayCustomers.map((customer) => (
                 <div
                   key={customer.address}
-                  className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+                  className="px-4 sm:px-7 py-3 sm:py-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
                   onClick={() => handleViewProfile(customer.address)}
                 >
-                  <div className="grid grid-cols-4 gap-4 items-center">
-                    {/* Customer Info */}
+                  {/* Desktop: Table Row */}
+                  <div className="hidden sm:grid grid-cols-4 gap-4 items-center">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
                         {customer.profile_image_url ? (
@@ -646,24 +648,48 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                         </p>
                       </div>
                     </div>
-
-                    {/* Tier Badge */}
                     <div>
                       <TierBadge tier={customer.tier} />
                     </div>
-
-                    {/* Lifetime RCN */}
                     <div>
                       <p className="text-sm font-semibold text-white">
                         {customer.lifetimeEarnings} RCN
                       </p>
                     </div>
-
-                    {/* Transactions */}
                     <div>
                       <p className="text-sm font-semibold text-white">
                         {customer.totalTransactions}
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Mobile: Card Layout */}
+                  <div className="sm:hidden flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
+                      {customer.profile_image_url ? (
+                        <img
+                          src={customer.profile_image_url}
+                          alt={customer.name || "Customer"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <User className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {customer.name || "Anonymous Customer"}
+                        </p>
+                        <TierBadge tier={customer.tier} />
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-white/55">
+                        <span>{customer.lifetimeEarnings} RCN</span>
+                        <span>•</span>
+                        <span>{customer.totalTransactions} txns</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -672,10 +698,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
 
             {/* Pagination Controls */}
             {totalItems > 0 && (
-              <div className="px-7 py-4 border-t border-[#303236] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-400">
-                    Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+              <div className="px-4 sm:px-7 py-4 border-t border-[#303236] flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <span className="text-xs sm:text-sm text-gray-400">
+                    {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} of {totalItems}
                   </span>
                   <Select
                     value={String(pageSize)}
@@ -684,7 +710,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                       setCurrentPage(1);
                     }}
                   >
-                    <SelectTrigger className="w-[80px] h-[32px] bg-[#1a1a1a] border-[#303236] rounded-lg text-sm text-white">
+                    <SelectTrigger className="w-[70px] sm:w-[80px] h-[32px] bg-[#1a1a1a] border-[#303236] rounded-lg text-sm text-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -694,10 +720,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                       <SelectItem value="50">50</SelectItem>
                     </SelectContent>
                   </Select>
-                  <span className="text-sm text-gray-400">per page</span>
+                  <span className="text-xs sm:text-sm text-gray-400">per page</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
