@@ -1,10 +1,32 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { ServiceStatusFilter } from "../../types";
 import { useInfiniteShopServicesQuery } from "../queries/useServiceQueries";
 
 export function useServicesTabUI() {
-  // Query with infinite loading
+  // UI State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ServiceStatusFilter>("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Build filters for API query (backend handles search and single category)
+  const apiFilters = useMemo(() => ({
+    search: debouncedSearch || undefined,
+    category: selectedCategories.length === 1 ? selectedCategories[0] : undefined,
+  }), [debouncedSearch, selectedCategories]);
+
+  // Query with infinite loading and backend filters
   const {
     data: servicesPages,
     isLoading,
@@ -13,7 +35,7 @@ export function useServicesTabUI() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteShopServicesQuery();
+  } = useInfiniteShopServicesQuery(apiFilters);
 
   // Flatten paginated data into single array
   const servicesData = useMemo(() => {
@@ -21,41 +43,27 @@ export function useServicesTabUI() {
     return servicesPages.pages.flatMap(page => page.data);
   }, [servicesPages]);
 
-  // UI State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<ServiceStatusFilter>("all");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Filter services based on all criteria
+  // Client-side filtering only for status (active/inactive) and multi-category
+  // Search and single category are handled by the backend
   const filteredServices = useMemo(() => {
     let services = servicesData || [];
 
-    // Apply status filter
+    // Apply status filter (client-side since backend always returns all for shop owner)
     if (statusFilter === "active") {
       services = services.filter((service: ServiceData) => service.active);
     } else if (statusFilter === "inactive") {
       services = services.filter((service: ServiceData) => !service.active);
     }
 
-    // Apply category filter
-    if (selectedCategories.length > 0) {
+    // Apply multi-category filter (backend only handles single category)
+    if (selectedCategories.length > 1) {
       services = services.filter((service: ServiceData) =>
         selectedCategories.includes(service.category)
       );
     }
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      services = services.filter((service: ServiceData) =>
-        service.serviceName.toLowerCase().includes(query)
-      );
-    }
-
     return services;
-  }, [servicesData, statusFilter, selectedCategories, searchQuery]);
+  }, [servicesData, statusFilter, selectedCategories]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
