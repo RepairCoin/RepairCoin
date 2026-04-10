@@ -186,7 +186,6 @@ export default function ServicesTab({
           keyExtractor={(item) => item.serviceId}
           renderItem={renderServiceItem}
           numColumns={2}
-          columnWrapperStyle={{ paddingHorizontal: 12 }}
           extraData={services.length}
           refreshControl={
             <RefreshControl
