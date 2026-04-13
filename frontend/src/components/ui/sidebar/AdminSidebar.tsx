@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -203,6 +203,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       href: "/admin?tab=disputes",
       icon: <AlertTriangle className="w-5 h-5" />,
       tabId: "disputes",
+    },
+    {
+      title: "Bug Reports",
+      href: "/admin?tab=bug-reports",
+      icon: <Bug className="w-5 h-5" />,
+      tabId: "bug-reports",
     },
     {
       title: "Settings",

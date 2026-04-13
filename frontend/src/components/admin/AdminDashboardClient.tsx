@@ -21,6 +21,7 @@ import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
 import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
+import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -410,6 +411,13 @@ export default function AdminDashboardClient() {
           {activeTab === "disputes" && (
             <LazyTabWrapper isActive={activeTab === "disputes"}>
               <AdminDisputeTab />
+            </LazyTabWrapper>
+          )}
+
+          {/* Bug Reports Tab */}
+          {activeTab === "bug-reports" && (
+            <LazyTabWrapper isActive={activeTab === "bug-reports"}>
+              <BugReportsTab />
             </LazyTabWrapper>
           )}
 

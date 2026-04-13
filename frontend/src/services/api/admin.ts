@@ -947,6 +947,28 @@ export const adminApi = {
   getSessionStats: async () => {
     return apiClient.get('/admin/sessions/stats');
   },
+
+  // Bug Reports
+  getBugReports: async (params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    category?: string;
+    search?: string;
+    sort?: string;
+    order?: string;
+  }) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`/admin/bug-reports${queryString}`);
+  },
+
+  getBugReportStats: async () => {
+    return apiClient.get('/admin/bug-reports/stats');
+  },
+
+  updateBugReport: async (id: number, data: { status?: string; admin_notes?: string }) => {
+    return apiClient.patch(`/admin/bug-reports/${id}`, data);
+  },
 } as const;
 
 // Platform Settings Types

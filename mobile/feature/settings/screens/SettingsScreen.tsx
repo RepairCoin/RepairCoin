@@ -2,7 +2,7 @@ import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
-import { SettingsItem, SettingsSection, Divider } from "../components";
+import { SettingsItem, SettingsSection, Divider, ReportBugModal } from "../components";
 import { useSettings } from "../hooks/ui/useSettings";
 import { APP_VERSION } from "../constants";
 import type { SettingsScreenProps } from "../types";
@@ -24,6 +24,11 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     handleRedeemTokens,
     handleGroups,
     handleNotificationPreferences,
+    // Bug report
+    isBugReportVisible,
+    handleOpenBugReport,
+    handleCloseBugReport,
+    handleSubmitBugReport,
   } = useSettings(role);
 
   return (
@@ -163,6 +168,19 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
           <SettingsItem
             icon={
               <Ionicons
+                name="bug-outline"
+                size={20}
+                color="#FFCC00"
+              />
+            }
+            title="Report a Bug"
+            subtitle="Help us improve the app"
+            onPress={handleOpenBugReport}
+          />
+          <Divider />
+          <SettingsItem
+            icon={
+              <Ionicons
                 name="document-text-outline"
                 size={20}
                 color="#FFCC00"
@@ -197,6 +215,12 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
           FixFlow v{APP_VERSION}
         </Text>
       </ScrollView>
+
+      <ReportBugModal
+        visible={isBugReportVisible}
+        onClose={handleCloseBugReport}
+        onSubmit={handleSubmitBugReport}
+      />
     </View>
   );
 }

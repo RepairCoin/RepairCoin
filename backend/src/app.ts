@@ -56,6 +56,7 @@ import referralRoutes from './routes/referral';
 import setupRoutes from './routes/setup';
 import uploadRoutes from './routes/upload';
 import waitlistRoutes from './routes/waitlist';
+import bugReportRoutes from './routes/bugReport';
 
 // Middleware imports
 import { metricsMiddleware } from './utils/metrics';
@@ -419,6 +420,9 @@ class RepairCoinApp {
 
     // Waitlist routes
     this.app.use('/api/waitlist', waitlistRoutes);
+
+    // Bug report routes
+    this.app.use('/api/bug-reports', bugReportRoutes);
 
     // Domain public routes (no auth) - MUST BE MOUNTED FIRST
     domainRegistry.getAllDomains().forEach(domain => {

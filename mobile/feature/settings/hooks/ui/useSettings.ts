@@ -1,8 +1,10 @@
 import { useState, useCallback } from "react";
+import { Alert } from "react-native";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useSettingsMutations } from "../mutations";
+import { bugReportApi } from "../../services/bugReport.services";
 import type { SettingsRole, SettingsConfig } from "../../types";
 
 export type { SettingsRole, SettingsConfig } from "../../types";
@@ -11,6 +13,7 @@ export function useSettings(role: SettingsRole) {
   const { account } = useAuthStore();
   const { performLogout } = useSettingsMutations();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isBugReportVisible, setIsBugReportVisible] = useState(false);
 
   // Format wallet address for display
   const walletDisplay = account?.address
@@ -42,6 +45,36 @@ export function useSettings(role: SettingsRole) {
   const handleTerms = useCallback(() => {
     // TODO: Implement terms screen
   }, []);
+
+  const handleOpenBugReport = useCallback(() => {
+    setIsBugReportVisible(true);
+  }, []);
+
+  const handleCloseBugReport = useCallback(() => {
+    setIsBugReportVisible(false);
+  }, []);
+
+  const handleSubmitBugReport = useCallback(
+    async (report: { category: string; title: string; description: string }) => {
+      try {
+        await bugReportApi.submit(report);
+        setIsBugReportVisible(false);
+        Alert.alert(
+          "Report Submitted",
+          "Thank you for your feedback! We'll look into this issue.",
+          [{ text: "OK" }]
+        );
+      } catch (error) {
+        Alert.alert(
+          "Submission Failed",
+          "Unable to submit your report. Please try again later.",
+          [{ text: "OK" }]
+        );
+        throw error;
+      }
+    },
+    []
+  );
 
   // Role-specific configuration
   const config: SettingsConfig =
@@ -84,6 +117,7 @@ export function useSettings(role: SettingsRole) {
     // UI state
     walletDisplay,
     isLoggingOut,
+    isBugReportVisible,
     role,
     config,
     // Common handlers
@@ -93,6 +127,10 @@ export function useSettings(role: SettingsRole) {
     handleNotificationPreferences,
     handleHelp,
     handleTerms,
+    // Bug report handlers
+    handleOpenBugReport,
+    handleCloseBugReport,
+    handleSubmitBugReport,
     // Role-specific handlers
     ...config.roleSpecificHandlers,
   };

@@ -530,6 +530,10 @@ router.use('/rcg', rcgManagementRoutes);
 import shopManagementRoutes from './shopManagement';
 router.use('', shopManagementRoutes);
 
+// Bug report management routes
+import bugReportAdminRoutes from './bugReports';
+router.use('/bug-reports', bugReportAdminRoutes);
+
 // System settings routes
 import settingsRoutes from './settings';
 router.use('/settings', settingsRoutes);

@@ -2157,4 +2157,12 @@ export class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send bug report notification to admin
+   */
+  async sendBugReportNotification(adminEmail: string, bugReportId: number, html: string): Promise<boolean> {
+    const subject = `[RepairCoin] Bug Report #${bugReportId}`;
+    return this.sendEmail(adminEmail, subject, html);
+  }
 }
