@@ -937,3 +937,190 @@ export const adminApi = {
     return apiClient.get('/admin/sessions/stats');
   },
 } as const;
+
+// Platform Settings Types
+export interface PlatformSettings {
+  // General
+  platformName: string;
+  platformDescription: string;
+  supportEmail: string;
+  supportPhone: string;
+
+  // Rewards & Tiers
+  defaultRcnRewardRate: number;
+  bronzeTierThreshold: number;
+  silverTierThreshold: number;
+  goldTierThreshold: number;
+  bronzeBonus: number;
+  silverBonus: number;
+  goldBonus: number;
+
+  // Referrals
+  referrerReward: number;
+  refereeReward: number;
+
+  // Bookings
+  defaultCancellationWindow: number;
+  defaultDepositPercentage: number;
+  maxAdvanceBookingDays: number;
+
+  // System
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  timezone: string;
+  currency: string;
+
+  // Metadata
+  lastModified: Date;
+  modifiedBy?: string;
+}
+
+// Notification Settings Types
+export interface NotificationSettings {
+  // Email Notifications
+  emailNewShops: boolean;
+  emailDisputes: boolean;
+  emailReports: boolean;
+  emailLowTreasury: boolean;
+  emailFailedTransactions: boolean;
+  emailSystemErrors: boolean;
+
+  // In-App Notifications
+  inAppNewShops: boolean;
+  inAppDisputes: boolean;
+  inAppReports: boolean;
+  inAppLowTreasury: boolean;
+  inAppFailedTransactions: boolean;
+  inAppSystemErrors: boolean;
+
+  // Notification Frequency
+  notificationFrequency: 'instant' | 'daily' | 'weekly';
+  digestTime: string; // HH:mm format
+
+  // Alert Thresholds
+  treasuryBalanceThreshold: number;
+  failedTransactionThreshold: number;
+  systemErrorThreshold: number;
+
+  // Metadata
+  lastModified: Date;
+  modifiedBy?: string;
+}
+
+// Platform Settings API
+export const getPlatformSettings = async (): Promise<PlatformSettings | null> => {
+  try {
+    console.log('[API] Fetching platform settings...');
+    const response = await apiClient.get<{ data: PlatformSettings }>('/admin/settings/platform');
+    console.log('[API] Platform settings response:', response);
+    console.log('[API] Platform settings data:', response.data);
+    console.log('[API] Platform settings data.data:', response.data?.data);
+
+    // Handle both response formats: { data: settings } or { success: true, data: settings }
+    if (response.data) {
+      // Check if response.data.data exists (nested structure)
+      if ('data' in response.data && response.data.data) {
+        console.log('[API] Returning nested data:', response.data.data);
+        return response.data.data as PlatformSettings;
+      }
+      // Check if response.data is already the settings object
+      if ('platformName' in response.data) {
+        console.log('[API] Returning direct data:', response.data);
+        return response.data as PlatformSettings;
+      }
+    }
+
+    console.warn('[API] Unexpected response structure:', response);
+    return null;
+  } catch (error) {
+    console.error('[API] Error getting platform settings:', error);
+    return null;
+  }
+};
+
+export const updatePlatformSettings = async (
+  settings: Partial<PlatformSettings>
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.put<{
+      success: boolean;
+      message: string;
+      data: { updatedFields: string[]; modifiedBy: string };
+    }>('/admin/settings/platform', settings);
+    return {
+      success: true,
+      message: response.data?.message || 'Settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Error updating platform settings:', error);
+    return { success: false, message: 'Failed to update settings' };
+  }
+};
+
+export const toggleMaintenanceMode = async (
+  enabled: boolean,
+  message?: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      data: { maintenanceMode: boolean; maintenanceMessage: string | null; modifiedBy: string };
+    }>('/admin/settings/platform/maintenance-mode', { enabled, message });
+    return {
+      success: true,
+      message: response.data?.message || 'Maintenance mode updated'
+    };
+  } catch (error) {
+    console.error('Error toggling maintenance mode:', error);
+    return { success: false, message: 'Failed to toggle maintenance mode' };
+  }
+};
+
+// Notification Settings API
+export const getNotificationSettings = async (): Promise<NotificationSettings | null> => {
+  try {
+    console.log('[API] Fetching notification settings...');
+    const response = await apiClient.get<{ data: NotificationSettings }>('/admin/settings/notifications');
+    console.log('[API] Notification settings response:', response);
+
+    // Handle both response formats: { data: settings } or { success: true, data: settings }
+    if (response.data) {
+      // Check if response.data.data exists (nested structure)
+      if ('data' in response.data && response.data.data) {
+        console.log('[API] Returning nested data:', response.data.data);
+        return response.data.data as NotificationSettings;
+      }
+      // Check if response.data is already the settings object
+      if ('emailNewShops' in response.data || 'notificationFrequency' in response.data) {
+        console.log('[API] Returning direct data:', response.data);
+        return response.data as NotificationSettings;
+      }
+    }
+
+    console.warn('[API] Unexpected response structure:', response);
+    return null;
+  } catch (error) {
+    console.error('[API] Error getting notification settings:', error);
+    return null;
+  }
+};
+
+export const updateNotificationSettings = async (
+  settings: Partial<NotificationSettings>
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.put<{
+      success: boolean;
+      message: string;
+      data: { updatedFields: string[]; modifiedBy: string };
+    }>('/admin/settings/notifications', settings);
+    return {
+      success: true,
+      message: response.data?.message || 'Notification settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Error updating notification settings:', error);
+    return { success: false, message: 'Failed to update notification settings' };
+  }
+};
