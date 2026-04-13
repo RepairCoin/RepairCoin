@@ -193,9 +193,30 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
                   <h3 className="text-sm font-bold text-purple-300 uppercase mb-2">
                     🎁 Bonus Group Rewards
                   </h3>
-                  <p className="text-sm text-purple-200">
-                    Earn <span className="font-bold">{service.groups.map(g => g.customTokenSymbol).join(', ')}</span> tokens when you complete this service!
-                  </p>
+                  <div className="space-y-2">
+                    {service.groups.map((group) => {
+                      const isAvailable = group.available !== false;
+                      const tokens = (group.estimatedTokens ?? service.priceUsd * (group.tokenRewardPercentage / 100) * group.bonusMultiplier).toFixed(1);
+                      return (
+                        <div key={group.groupId} className={`flex items-center justify-between text-sm ${!isAvailable ? 'opacity-50' : ''}`}>
+                          <span className="text-purple-200 flex items-center gap-1.5">
+                            <span>{group.icon || '🎁'}</span>
+                            <span>{group.groupName}</span>
+                          </span>
+                          {isAvailable ? (
+                            <span className="text-purple-300 font-bold">+{tokens} {group.customTokenSymbol}</span>
+                          ) : (
+                            <span className="text-gray-500 text-xs">Temporarily unavailable</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {service.groups.some(g => g.available === false) && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Some group tokens are temporarily unavailable due to shop allocation limits.
+                    </p>
+                  )}
                 </div>
               )}
 

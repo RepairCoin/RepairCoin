@@ -1,9 +1,13 @@
 # Bug: "Message Shop" Button on Shop Profile Does Not Open Conversation
 
-## Status: Open
+## Status: Fixed
+
 ## Priority: Medium
+
 ## Date: 2026-04-03
+
 ## Category: Bug - Messaging / Navigation
+
 ## Location: `/customer/shop/[shopId]` → "Message Shop" button
 
 ---
@@ -25,13 +29,14 @@ The `sendMessage()` API call returns a `Message` object containing `conversation
 
 ```typescript
 // BROKEN (ShopProfileClient.tsx:248-256)
-await messagingApi.sendMessage({        // <-- return value discarded
+await messagingApi.sendMessage({
+  // <-- return value discarded
   shopId: shopInfo.shopId,
   customerAddress: userProfile.address,
   messageText: initialMessage,
   messageType: "text",
 });
-router.push("/customer?tab=messages");  // <-- no conversation param
+router.push("/customer?tab=messages"); // <-- no conversation param
 ```
 
 ```typescript
@@ -64,8 +69,8 @@ This matches the working pattern in `ServiceDetailsModal.tsx`.
 
 ## Affected Files
 
-| File | Change |
-|------|--------|
+| File                                                     | Change                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `frontend/src/components/customer/ShopProfileClient.tsx` | Capture `sendMessage` response, add `conversation` param to navigation URL |
 
 ---
@@ -84,6 +89,7 @@ This matches the working pattern in `ServiceDetailsModal.tsx`.
 ## QA Test Plan
 
 ### Pre-fix (reproduce bug)
+
 1. Login as customer
 2. Navigate to a shop profile page (e.g., `/customer/shop/dc_shopu`)
 3. Click "Message Shop" button
@@ -91,6 +97,7 @@ This matches the working pattern in `ServiceDetailsModal.tsx`.
 5. Must manually find and click the conversation in the sidebar
 
 ### Post-fix (verify)
+
 1. Login as customer
 2. Navigate to a shop profile page
 3. Click "Message Shop" button
@@ -99,11 +106,13 @@ This matches the working pattern in `ServiceDetailsModal.tsx`.
 6. **Verify**: The initial message ("Hi! I'd like to inquire about your services.") is visible in the thread
 
 ### Comparison test
+
 1. Open a service details modal and click "Message Shop"
 2. **Verify**: Same behavior as the shop profile — conversation auto-opens
 3. Both flows should produce identical navigation UX
 
 ### Edge cases
+
 - Message a shop for the first time (new conversation created)
 - Message a shop with an existing conversation (should reuse it)
 - Click "Message Shop" while wallet is not connected (should show error toast)

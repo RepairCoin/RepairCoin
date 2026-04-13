@@ -41,6 +41,8 @@ export interface ShopService {
     icon?: string;
     tokenRewardPercentage: number;
     bonusMultiplier: number;
+    estimatedTokens?: number;
+    available?: boolean;
   }>;
 }
 

@@ -1,9 +1,13 @@
 # Bug: Mobile Shop Cancel Uses Customer Cancel Endpoint
 
-## Status: Open
+## Status: Fixed
+
 ## Priority: High
+
 ## Date: 2026-04-06
+
 ## Category: Bug - Booking Cancellation
+
 ## Affected: Shop booking cancellation (mobile only)
 
 ---
@@ -19,11 +23,13 @@ When a shop cancels a booking from the mobile app, it calls the customer cancel 
 The mobile `useCancelOrderMutation` hook uses a single `cancelOrder` API call for both customer and shop, without differentiating based on the caller's role.
 
 **`mobile/feature/booking/hooks/mutations/useBookingMutations.ts`** — cancel mutation calls:
+
 ```typescript
-bookingApi.cancelOrder(orderId)  // Always uses customer endpoint
+bookingApi.cancelOrder(orderId); // Always uses customer endpoint
 ```
 
 **`mobile/shared/services/booking.services.ts`** — API method:
+
 ```typescript
 // POST /services/orders/{orderId}/cancel  (customer endpoint)
 ```
@@ -34,18 +40,20 @@ There is no `cancelOrderByShop()` method in the mobile API service.
 
 ## How It Should Work
 
-| Caller | Endpoint | Refund Logic |
-|---|---|---|
-| **Customer** | `POST /api/services/orders/{id}/cancel` | Selective — RCN refund if redeemed, Stripe refund if paid |
-| **Shop** | `POST /api/services/orders/{id}/shop-cancel` | Full automatic refund — both RCN and Stripe |
+| Caller       | Endpoint                                     | Refund Logic                                              |
+| ------------ | -------------------------------------------- | --------------------------------------------------------- |
+| **Customer** | `POST /api/services/orders/{id}/cancel`      | Selective — RCN refund if redeemed, Stripe refund if paid |
+| **Shop**     | `POST /api/services/orders/{id}/shop-cancel` | Full automatic refund — both RCN and Stripe               |
 
 ### Backend Differences
 
 **Customer cancel** (`OrderController.ts` lines 478-537):
+
 - Verifies `order.customerAddress === req.user.address`
 - Selective refund logic
 
 **Shop cancel** (`OrderController.ts` lines 740-818):
+
 - Verifies `order.shopId === req.user.shopId`
 - Calls `processShopCancellationRefund()` — full refund (RCN + Stripe)
 - Shop cancellations tracked separately for analytics
@@ -60,6 +68,7 @@ There is no `cancelOrderByShop()` method in the mobile API service.
 ## Fix Required
 
 1. **Add shop cancel API method** in `mobile/shared/services/booking.services.ts`:
+
    ```typescript
    async cancelOrderByShop(orderId: string, reason?: string): Promise<any> {
      return apiClient.post(`/services/orders/${orderId}/shop-cancel`, { reason });
@@ -67,6 +76,7 @@ There is no `cancelOrderByShop()` method in the mobile API service.
    ```
 
 2. **Add shop cancel mutation** in `mobile/feature/booking/hooks/mutations/useBookingMutations.ts`:
+
    ```typescript
    export function useCancelOrderByShopMutation() { ... }
    ```
@@ -79,17 +89,18 @@ There is no `cancelOrderByShop()` method in the mobile API service.
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `mobile/shared/services/booking.services.ts` | Add `cancelOrderByShop(orderId, reason)` method |
-| `mobile/feature/booking/hooks/mutations/useBookingMutations.ts` | Add `useCancelOrderByShopMutation` hook |
-| `mobile/feature/booking/hooks/ui/useBookingDetail.ts` | Use correct mutation based on `isShopView` |
+| File                                                            | Change                                          |
+| --------------------------------------------------------------- | ----------------------------------------------- |
+| `mobile/shared/services/booking.services.ts`                    | Add `cancelOrderByShop(orderId, reason)` method |
+| `mobile/feature/booking/hooks/mutations/useBookingMutations.ts` | Add `useCancelOrderByShopMutation` hook         |
+| `mobile/feature/booking/hooks/ui/useBookingDetail.ts`           | Use correct mutation based on `isShopView`      |
 
 ---
 
 ## QA Test Plan
 
 ### Before Fix (reproduce)
+
 1. Login as shop on mobile
 2. Open a paid booking
 3. Cancel it
@@ -97,6 +108,7 @@ There is no `cancelOrderByShop()` method in the mobile API service.
 5. Refund may be incomplete (no automatic full refund)
 
 ### After Fix (verify)
+
 1. Login as shop on mobile → cancel a paid booking
 2. Verify backend logs show `/orders/{id}/shop-cancel` (shop endpoint)
 3. Verify full refund is processed (both RCN + Stripe)

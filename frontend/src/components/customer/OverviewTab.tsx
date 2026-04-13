@@ -21,6 +21,7 @@ import {
 } from "./overview";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { useRouter } from "next/navigation";
+import GroupBalancesCard from "./GroupBalancesCard";
 
 const client = createThirdwebClient({
   clientId:
@@ -470,6 +471,9 @@ export const OverviewTab: React.FC = () => {
 
           {/* Campaigns & Promos */}
           <CampaignsPromosCard />
+
+          {/* Group Token Balances */}
+          <GroupBalancesCard />
         </div>
       </div>
 
