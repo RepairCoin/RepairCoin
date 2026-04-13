@@ -189,10 +189,13 @@ export class DiscoveryController {
               'customTokenName', asg.custom_token_name,
               'icon', asg.icon,
               'tokenRewardPercentage', sga.token_reward_percentage,
-              'bonusMultiplier', sga.bonus_multiplier
+              'bonusMultiplier', sga.bonus_multiplier,
+              'estimatedTokens', s.price_usd * (sga.token_reward_percentage / 100) * sga.bonus_multiplier,
+              'available', COALESCE(alloc.allocated_rcn - alloc.used_rcn, 0) >= (s.price_usd * (sga.token_reward_percentage / 100) * sga.bonus_multiplier / 2)
             ))
             FROM service_group_availability sga
             JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            LEFT JOIN shop_group_rcn_allocations alloc ON alloc.shop_id = s.shop_id AND alloc.group_id = sga.group_id
             WHERE sga.service_id = s.service_id AND sga.active = true
           ) as groups
         FROM recently_viewed_services rv
@@ -344,10 +347,13 @@ export class DiscoveryController {
               'customTokenName', asg.custom_token_name,
               'icon', asg.icon,
               'tokenRewardPercentage', sga.token_reward_percentage,
-              'bonusMultiplier', sga.bonus_multiplier
+              'bonusMultiplier', sga.bonus_multiplier,
+              'estimatedTokens', s.price_usd * (sga.token_reward_percentage / 100) * sga.bonus_multiplier,
+              'available', COALESCE(alloc.allocated_rcn - alloc.used_rcn, 0) >= (s.price_usd * (sga.token_reward_percentage / 100) * sga.bonus_multiplier / 2)
             ))
             FROM service_group_availability sga
             JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            LEFT JOIN shop_group_rcn_allocations alloc ON alloc.shop_id = s.shop_id AND alloc.group_id = sga.group_id
             WHERE sga.service_id = s.service_id AND sga.active = true
           ) as groups
         FROM shop_services s
@@ -480,10 +486,13 @@ export class DiscoveryController {
               'customTokenName', asg.custom_token_name,
               'icon', asg.icon,
               'tokenRewardPercentage', sga.token_reward_percentage,
-              'bonusMultiplier', sga.bonus_multiplier
+              'bonusMultiplier', sga.bonus_multiplier,
+              'estimatedTokens', s.price_usd * (sga.token_reward_percentage / 100) * sga.bonus_multiplier,
+              'available', COALESCE(alloc.allocated_rcn - alloc.used_rcn, 0) >= (s.price_usd * (sga.token_reward_percentage / 100) * sga.bonus_multiplier / 2)
             ))
             FROM service_group_availability sga
             JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            LEFT JOIN shop_group_rcn_allocations alloc ON alloc.shop_id = s.shop_id AND alloc.group_id = sga.group_id
             WHERE sga.service_id = s.service_id AND sga.active = true
           ) as groups
         FROM shop_services s
