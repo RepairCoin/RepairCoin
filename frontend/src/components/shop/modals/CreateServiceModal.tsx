@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, DollarSign, Tag, Image as ImageIcon, Plus, XCircle } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import React, { useState, useEffect, useRef } from "react";
+import { X, DollarSign, Tag, Image as ImageIcon, Plus, XCircle, ChevronDown, Check } from "lucide-react";
 import {
   CreateServiceData,
   UpdateServiceData,
@@ -11,6 +10,76 @@ import {
 } from "@/services/api/services";
 import { ImageUploader } from "../ImageUploader";
 import { sanitizeDescription } from "@/utils/sanitize";
+
+const CategoryDropdown: React.FC<{
+  value?: string;
+  onChange: (value: string | undefined) => void;
+  error?: string;
+}> = ({ value, onChange, error }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const selectedLabel = SERVICE_CATEGORIES.find(c => c.value === value)?.label;
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <label className="block text-sm font-semibold text-white mb-2">
+        Category <span className="text-red-500">*</span>
+      </label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex h-auto w-full items-center justify-between rounded-lg border px-4 py-3 text-sm bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent ${
+          error ? "border-red-500" : "border-gray-700"
+        }`}
+      >
+        <span className={selectedLabel ? "text-white" : "text-gray-400"}>
+          {selectedLabel || "Select a category"}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-gray-700 bg-[#1A1A1A] shadow-lg z-10">
+          <div className="p-1">
+            {SERVICE_CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => {
+                  onChange(cat.value);
+                  setIsOpen(false);
+                }}
+                className={`relative flex w-full items-center rounded-lg py-2 pl-8 pr-2 text-sm text-white hover:bg-gray-800 ${
+                  value === cat.value ? "bg-gray-800" : ""
+                }`}
+              >
+                {value === cat.value && (
+                  <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                    <Check className="h-4 w-4 text-[#FFCC00]" />
+                  </span>
+                )}
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  );
+};
 
 interface CreateServiceModalProps {
   onClose: () => void;
@@ -185,32 +254,11 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                 </div>
 
                 {/* Category */}
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    value={formData.category || "all"}
-                    onValueChange={(value) => handleChange("category", value === "all" ? undefined : value)}
-                  >
-                    <SelectTrigger variant="dark" className={`w-full h-auto py-3 ${
-                      errors.category ? "border-red-500" : ""
-                    }`}>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent variant="dark">
-                      <SelectItem variant="dark" value="all">Select a category</SelectItem>
-                      {SERVICE_CATEGORIES.map((cat) => (
-                        <SelectItem variant="dark" key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.category && (
-                    <p className="mt-1 text-sm text-red-500">{errors.category}</p>
-                  )}
-                </div>
+                <CategoryDropdown
+                  value={formData.category}
+                  onChange={(value) => handleChange("category", value)}
+                  error={errors.category}
+                />
               </div>
 
               {/* 2. DETAILS */}
