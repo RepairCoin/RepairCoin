@@ -1089,26 +1089,24 @@ export class OrderController {
           });
 
           // Notify shop about failed group token issuance
+          // Use shopId as receiverAddress so the multi-address notification query
+          // (which checks both jwt address AND shopId) can find it regardless of login method
           try {
-            const { shopRepository } = await import('../../../repositories');
-            const shop = await shopRepository.getShop(order.shopId);
-            if (shop?.walletAddress) {
-              await this.notificationService.createNotification({
-                senderAddress: 'SYSTEM',
-                receiverAddress: shop.walletAddress,
-                notificationType: 'group_token_issuance_failed',
-                message: `Group token issuance failed for order ${order.orderId.slice(-8)}: ${errorMsg}. Customer did not receive ${groupLink.groupName || 'group'} tokens.`,
-                metadata: {
-                  orderId: order.orderId,
-                  groupId: groupLink.groupId,
-                  groupName: groupLink.groupName,
-                  tokenSymbol: groupLink.customTokenSymbol,
-                  expectedAmount: order.totalAmount * (groupLink.tokenRewardPercentage / 100) * groupLink.bonusMultiplier,
-                  error: errorMsg,
-                  timestamp: new Date().toISOString()
-                }
-              });
-            }
+            await this.notificationService.createNotification({
+              senderAddress: 'SYSTEM',
+              receiverAddress: order.shopId,
+              notificationType: 'group_token_issuance_failed',
+              message: `Group token issuance failed for order ${order.orderId.slice(-8)}: ${errorMsg}. Customer did not receive ${groupLink.groupName || 'group'} tokens.`,
+              metadata: {
+                orderId: order.orderId,
+                groupId: groupLink.groupId,
+                groupName: groupLink.groupName,
+                tokenSymbol: groupLink.customTokenSymbol,
+                expectedAmount: order.totalAmount * (groupLink.tokenRewardPercentage / 100) * groupLink.bonusMultiplier,
+                error: errorMsg,
+                timestamp: new Date().toISOString()
+              }
+            });
           } catch (notifError) {
             logger.error('Failed to send group token failure notification:', notifError);
           }
