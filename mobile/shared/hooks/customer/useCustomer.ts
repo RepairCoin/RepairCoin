@@ -6,8 +6,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../auth/useAuth";
 import apiClient from "@/shared/utilities/axios";
 import { router } from "expo-router";
+import { useAppToast } from "@/shared/hooks/useAppToast";
 
 export const useCustomer = () => {
+  const { showError } = useAppToast();
   const useGetCustomerByWalletAddress = (address: string) => {
     return useQuery({
       queryKey: queryKeys.customerProfile(address),
@@ -60,23 +62,33 @@ export const useCustomer = () => {
       },
       onSuccess: async (result) => {
         if (result.success) {
-          const getTokenResult = await getTokenMutation.mutateAsync(
-            result.user?.walletAddress
-          );
-          if (getTokenResult.success) {
-            setUserProfile(result.user);
-            setAccessToken(getTokenResult.token);
-            setRefreshToken(getTokenResult.data?.refreshToken || getTokenResult.refreshToken);
-            setUserType(result.type);
-            apiClient.setAuthToken(getTokenResult.token);
+          const customerData = result.data;
+          const walletAddress = customerData?.address || customerData?.walletAddress;
 
+          try {
+            const getTokenResult = await getTokenMutation.mutateAsync(walletAddress);
+            if (getTokenResult.success) {
+              setUserProfile(customerData);
+              setAccessToken(getTokenResult.token);
+              setRefreshToken(getTokenResult.data?.refreshToken || getTokenResult.refreshToken);
+              setUserType("customer");
+              apiClient.setAuthToken(getTokenResult.token);
+              router.push("/register/customer/Success");
+            }
+          } catch (err) {
+            console.error("[useRegisterCustomer] Token fetch failed:", err);
+            // Still navigate — account was created successfully
             router.push("/register/customer/Success");
           }
         }
       },
       onError: (error: any) => {
-        console.error("[useRegisterShop] Error:", error);
-        throw error;
+        console.error("[useRegisterCustomer] Error:", error);
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          "Registration failed. Please try again.";
+        showError(message);
       },
     });
   };
