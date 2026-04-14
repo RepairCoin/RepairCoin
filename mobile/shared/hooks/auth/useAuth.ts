@@ -57,7 +57,9 @@ export function useAuth() {
         }
 
         // Handle pending/inactive shop before getting token
-        if (result.type === "shop" && !result.user?.isActive && !result.user?.active) {
+        // A shop is pending when not yet verified by admin (verified: false)
+        // or explicitly deactivated (active: false)
+        if (result.type === "shop" && (!result.user?.verified || !result.user?.active)) {
           setUserProfile(result.user);
           setUserType("shop");
           setIsLoading(false);
@@ -143,8 +145,8 @@ export function useAuth() {
       if (userType === "customer") {
         router.replace("/customer/tabs/home");
       } else if (userType === "shop") {
-        const active = userProfile?.isActive || false;
-        if (active) {
+        const isApprovedShop = userProfile?.verified && userProfile?.active !== false;
+        if (isApprovedShop) {
           router.replace("/shop/tabs/home");
         } else {
           router.replace("/register/pending");

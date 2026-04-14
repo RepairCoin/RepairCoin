@@ -78,11 +78,15 @@ export function useBookingDetail() {
   const statusColor = getStatusColor(effectiveStatus);
   const bookingDateTime = booking?.bookingTimeSlot || booking?.bookingDate || booking?.createdAt || "";
 
-  const hasShopActions = isShopView && booking
+  const isCancelledOrTerminal = booking
+    ? ["cancelled", "expired", "no_show", "refunded"].includes(booking.status)
+    : false;
+
+  const hasShopActions = isShopView && booking && !isCancelledOrTerminal
     ? booking.status === "pending" || (booking.status === "paid" && !isBookingExpired)
     : false;
 
-  const hasCustomerActions = !isShopView && booking
+  const hasCustomerActions = !isShopView && booking && !isCancelledOrTerminal
     ? (booking.status === "paid" && !isBookingExpired) || booking.status === "completed"
     : false;
 

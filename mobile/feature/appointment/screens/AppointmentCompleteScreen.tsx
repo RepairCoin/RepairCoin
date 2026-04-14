@@ -88,26 +88,37 @@ export default function AppointmentCompleteScreen() {
   // Calculate max redeemable based on home shop, cross-shop, and no-show tier
   const isHomeShop = noShowStatus?.isHomeShop === true;
   const isRestrictedTier = noShowStatus?.tier === "caution" || noShowStatus?.tier === "deposit_required";
-  const baseRate = isHomeShop ? 1.00 : 0.20;
-  const tierCap = isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent
+
+  // Cross-shop limit: 20% of balance (matching backend VerificationService)
+  const crossShopMaxRcn = isHomeShop ? availableRcn : Math.floor(availableRcn * 0.20 * 100) / 100;
+
+  // No-show tier cap: percentage of service price (shop-defined)
+  const tierCapPct = isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent
     ? noShowStatus.maxRcnRedemptionPercent / 100
     : 1.00;
-  const maxDiscountPct = Math.min(baseRate, tierCap);
-  const maxDiscountUsd = servicePrice * maxDiscountPct;
+  const tierMaxRcn = Math.floor((servicePrice * tierCapPct) / RCN_TO_USD);
 
+  // Service price cap: can't discount more than the service costs
+  const servicePriceMaxRcn = Math.floor(servicePrice / RCN_TO_USD);
+
+  // Final max = most restrictive of all limits
   const maxRcnRedeemable = Math.floor(Math.min(
-    maxDiscountUsd / RCN_TO_USD,
-    availableRcn,
-    servicePrice / RCN_TO_USD
+    crossShopMaxRcn,
+    tierMaxRcn,
+    servicePriceMaxRcn,
+    availableRcn
   ));
   const finalPrice = Math.max(0, servicePrice - rcnDiscount);
 
-  // Redemption context message for the discount screen
-  const redemptionMessage = isRestrictedTier
+  // Redemption context message — show whichever limit is actually most restrictive
+  const crossShopIsLimiting = !isHomeShop && crossShopMaxRcn <= tierMaxRcn;
+  const redemptionMessage = crossShopIsLimiting
+    ? `Cross-shop limit: up to ${maxRcnRedeemable} RCN (20% of your balance)`
+    : isRestrictedTier
     ? `Due to your booking history, redemption is limited to ${noShowStatus?.maxRcnRedemptionPercent || 100}% of the service price`
     : isHomeShop
     ? "You can redeem up to 100% at this shop (your home shop)"
-    : "Cross-shop limit: 20% of the service price";
+    : `Cross-shop limit: up to ${maxRcnRedeemable} RCN (20% of your balance)`;
 
   const handleDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
