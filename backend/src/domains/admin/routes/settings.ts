@@ -734,4 +734,363 @@ router.put('/notifications', asyncHandler(async (req: Request, res: Response) =>
   }
 }));
 
+/**
+ * Security Settings Types
+ */
+interface SecuritySettings {
+  // Admin Role Permissions
+  enableRolePermissions: boolean;
+  defaultRole: 'view-only' | 'standard' | 'super-admin';
+  viewOnlyPermissions: string[];
+  standardPermissions: string[];
+  superAdminPermissions: string[];
+
+  // Session Management
+  sessionTimeout: number; // in minutes
+  autoLogoutEnabled: boolean;
+  maxConcurrentSessions: number;
+  rememberMeDuration: number; // in days
+
+  // IP Access Control
+  enableIpWhitelist: boolean;
+  enableIpBlacklist: boolean;
+  ipWhitelist: string[];
+  ipBlacklist: string[];
+
+  // Two-Factor Authentication
+  require2FA: boolean;
+  allow2FAOptOut: boolean;
+  twoFactorMethod: 'authenticator' | 'sms' | 'email';
+
+  // Audit Logs
+  auditLogRetention: number; // in days
+  logLoginAttempts: boolean;
+  logSettingsChanges: boolean;
+  logFinancialTransactions: boolean;
+  logAdminActions: boolean;
+
+  // Metadata
+  lastModified: Date;
+  modifiedBy?: string;
+}
+
+/**
+ * Default permissions
+ */
+const DEFAULT_PERMISSIONS = {
+  viewOnly: [
+    'view_dashboard',
+    'view_shops',
+    'view_customers',
+    'view_transactions',
+    'view_reports',
+  ],
+  standard: [
+    'view_dashboard',
+    'view_shops',
+    'view_customers',
+    'view_transactions',
+    'view_reports',
+    'manage_shops',
+    'manage_customers',
+    'issue_tokens',
+    'view_settings',
+  ],
+  superAdmin: [
+    'view_dashboard',
+    'view_shops',
+    'view_customers',
+    'view_transactions',
+    'view_reports',
+    'manage_shops',
+    'manage_customers',
+    'issue_tokens',
+    'view_settings',
+    'manage_settings',
+    'manage_admins',
+    'manage_treasury',
+    'system_maintenance',
+  ],
+};
+
+/**
+ * Default security settings
+ */
+const DEFAULT_SECURITY_SETTINGS: Partial<SecuritySettings> = {
+  // Admin Role Permissions
+  enableRolePermissions: true,
+  defaultRole: 'standard',
+  viewOnlyPermissions: DEFAULT_PERMISSIONS.viewOnly,
+  standardPermissions: DEFAULT_PERMISSIONS.standard,
+  superAdminPermissions: DEFAULT_PERMISSIONS.superAdmin,
+
+  // Session Management
+  sessionTimeout: 60, // 60 minutes
+  autoLogoutEnabled: true,
+  maxConcurrentSessions: 3,
+  rememberMeDuration: 30, // 30 days
+
+  // IP Access Control
+  enableIpWhitelist: false,
+  enableIpBlacklist: false,
+  ipWhitelist: [],
+  ipBlacklist: [],
+
+  // Two-Factor Authentication
+  require2FA: false,
+  allow2FAOptOut: true,
+  twoFactorMethod: 'authenticator',
+
+  // Audit Logs
+  auditLogRetention: 90, // 90 days
+  logLoginAttempts: true,
+  logSettingsChanges: true,
+  logFinancialTransactions: true,
+  logAdminActions: true,
+};
+
+/**
+ * Initialize security settings
+ */
+const initializeSecuritySettings = async () => {
+  const db = DatabaseService.getInstance();
+
+  try {
+    const defaultSettings = [
+      // Admin Role Permissions
+      ['enable_role_permissions', String(DEFAULT_SECURITY_SETTINGS.enableRolePermissions)],
+      ['default_role', DEFAULT_SECURITY_SETTINGS.defaultRole],
+      ['view_only_permissions', JSON.stringify(DEFAULT_SECURITY_SETTINGS.viewOnlyPermissions)],
+      ['standard_permissions', JSON.stringify(DEFAULT_SECURITY_SETTINGS.standardPermissions)],
+      ['super_admin_permissions', JSON.stringify(DEFAULT_SECURITY_SETTINGS.superAdminPermissions)],
+
+      // Session Management
+      ['session_timeout', String(DEFAULT_SECURITY_SETTINGS.sessionTimeout)],
+      ['auto_logout_enabled', String(DEFAULT_SECURITY_SETTINGS.autoLogoutEnabled)],
+      ['max_concurrent_sessions', String(DEFAULT_SECURITY_SETTINGS.maxConcurrentSessions)],
+      ['remember_me_duration', String(DEFAULT_SECURITY_SETTINGS.rememberMeDuration)],
+
+      // IP Access Control
+      ['enable_ip_whitelist', String(DEFAULT_SECURITY_SETTINGS.enableIpWhitelist)],
+      ['enable_ip_blacklist', String(DEFAULT_SECURITY_SETTINGS.enableIpBlacklist)],
+      ['ip_whitelist', JSON.stringify(DEFAULT_SECURITY_SETTINGS.ipWhitelist)],
+      ['ip_blacklist', JSON.stringify(DEFAULT_SECURITY_SETTINGS.ipBlacklist)],
+
+      // Two-Factor Authentication
+      ['require_2fa', String(DEFAULT_SECURITY_SETTINGS.require2FA)],
+      ['allow_2fa_opt_out', String(DEFAULT_SECURITY_SETTINGS.allow2FAOptOut)],
+      ['two_factor_method', DEFAULT_SECURITY_SETTINGS.twoFactorMethod],
+
+      // Audit Logs
+      ['audit_log_retention', String(DEFAULT_SECURITY_SETTINGS.auditLogRetention)],
+      ['log_login_attempts', String(DEFAULT_SECURITY_SETTINGS.logLoginAttempts)],
+      ['log_settings_changes', String(DEFAULT_SECURITY_SETTINGS.logSettingsChanges)],
+      ['log_financial_transactions', String(DEFAULT_SECURITY_SETTINGS.logFinancialTransactions)],
+      ['log_admin_actions', String(DEFAULT_SECURITY_SETTINGS.logAdminActions)],
+    ];
+
+    for (const [key, value] of defaultSettings) {
+      await db.query(`
+        INSERT INTO system_settings (setting_key, setting_value, modified_by)
+        VALUES ($1, $2, 'system')
+        ON CONFLICT (setting_key) DO NOTHING
+      `, [key, value]);
+    }
+
+    logger.info('Security settings initialized');
+  } catch (error) {
+    logger.error('Failed to initialize security settings:', error);
+  }
+};
+
+// Initialize security settings on module load
+initializeSecuritySettings();
+
+/**
+ * Get security settings
+ */
+router.get('/security', asyncHandler(async (_req: Request, res: Response) => {
+  const db = DatabaseService.getInstance();
+
+  try {
+    const result = await db.query(`
+      SELECT setting_key, setting_value, last_modified, modified_by
+      FROM system_settings
+      WHERE setting_key LIKE '%role%'
+         OR setting_key LIKE '%session%'
+         OR setting_key LIKE '%ip_%'
+         OR setting_key LIKE '%2fa%'
+         OR setting_key LIKE '%audit%'
+         OR setting_key LIKE '%log_%'
+         OR setting_key IN ('default_role', 'two_factor_method', 'enable_ip_whitelist', 'enable_ip_blacklist')
+    `);
+
+    const settings: Record<string, string | number | boolean | string[]> = {};
+    let lastModified = new Date();
+    let modifiedBy = 'system';
+
+    result.rows.forEach(row => {
+      const key = row.setting_key;
+      let value: string | number | boolean | string[] = row.setting_value;
+
+      // Parse boolean values
+      if (['enable_role_permissions', 'auto_logout_enabled', 'enable_ip_whitelist',
+           'enable_ip_blacklist', 'require_2fa', 'allow_2fa_opt_out',
+           'log_login_attempts', 'log_settings_changes', 'log_financial_transactions',
+           'log_admin_actions'].includes(key)) {
+        value = row.setting_value === 'true';
+      }
+
+      // Parse numeric values
+      if (['session_timeout', 'max_concurrent_sessions', 'remember_me_duration',
+           'audit_log_retention'].includes(key)) {
+        value = parseInt(row.setting_value);
+      }
+
+      // Parse JSON arrays
+      if (['view_only_permissions', 'standard_permissions', 'super_admin_permissions',
+           'ip_whitelist', 'ip_blacklist'].includes(key)) {
+        try {
+          value = JSON.parse(row.setting_value);
+        } catch (e) {
+          logger.warn(`Failed to parse JSON for ${key}, using empty array`);
+          value = [];
+        }
+      }
+
+      // Convert snake_case to camelCase
+      const camelKey = key.replace(/_([a-z])/g, (g: string) => g[1].toUpperCase())
+        .replace('2fa', '2FA'); // Special case for 2FA
+
+      settings[camelKey] = value;
+
+      if (row.last_modified > lastModified) {
+        lastModified = row.last_modified;
+        modifiedBy = row.modified_by || 'system';
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...settings,
+        lastModified,
+        modifiedBy
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get security settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve security settings'
+    });
+  }
+}));
+
+/**
+ * Update security settings
+ */
+router.put('/security', asyncHandler(async (req: Request, res: Response) => {
+  const adminAddress = req.user?.address || 'unknown';
+  const updates = req.body;
+
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid request body'
+    });
+  }
+
+  try {
+    // Convert camelCase keys to snake_case and validate
+    const validSettings: Record<string, string> = {};
+
+    Object.entries(updates).forEach(([key, value]) => {
+      // Skip metadata fields
+      if (key === 'lastModified' || key === 'modifiedBy') {
+        return;
+      }
+
+      // Convert camelCase to snake_case (handle 2FA specially)
+      let snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      snakeKey = snakeKey.replace('2_f_a', '2fa'); // Fix 2FA conversion
+
+      // Validate default role
+      if (key === 'defaultRole' && !['view-only', 'standard', 'super-admin'].includes(value as string)) {
+        logger.warn(`Invalid default role: ${value}`);
+        return;
+      }
+
+      // Validate two factor method
+      if (key === 'twoFactorMethod' && !['authenticator', 'sms', 'email'].includes(value as string)) {
+        logger.warn(`Invalid two factor method: ${value}`);
+        return;
+      }
+
+      // Validate numeric ranges
+      if (key === 'sessionTimeout' && (typeof value !== 'number' || value < 5 || value > 1440)) {
+        logger.warn(`Invalid session timeout: ${value}`);
+        return;
+      }
+
+      if (key === 'maxConcurrentSessions' && (typeof value !== 'number' || value < 1 || value > 10)) {
+        logger.warn(`Invalid max concurrent sessions: ${value}`);
+        return;
+      }
+
+      if (key === 'rememberMeDuration' && (typeof value !== 'number' || value < 1 || value > 365)) {
+        logger.warn(`Invalid remember me duration: ${value}`);
+        return;
+      }
+
+      if (key === 'auditLogRetention' && (typeof value !== 'number' || value < 7 || value > 3650)) {
+        logger.warn(`Invalid audit log retention: ${value}`);
+        return;
+      }
+
+      // Validate and convert value
+      if (typeof value === 'boolean') {
+        validSettings[snakeKey] = String(value);
+      } else if (typeof value === 'number') {
+        validSettings[snakeKey] = String(value);
+      } else if (typeof value === 'string') {
+        validSettings[snakeKey] = value;
+      } else if (Array.isArray(value)) {
+        // Validate IP addresses if it's an IP list
+        if (key === 'ipWhitelist' || key === 'ipBlacklist') {
+          const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+          const validIps = (value as string[]).filter(ip => ipRegex.test(ip));
+          validSettings[snakeKey] = JSON.stringify(validIps);
+        } else {
+          validSettings[snakeKey] = JSON.stringify(value);
+        }
+      } else {
+        logger.warn(`Skipping invalid setting ${key}: ${value}`);
+      }
+    });
+
+    // Update each setting
+    for (const [key, value] of Object.entries(validSettings)) {
+      await updateSetting(key, value, adminAddress);
+    }
+
+    logger.info(`Security settings updated by ${adminAddress}`, { updates: Object.keys(validSettings) });
+
+    res.json({
+      success: true,
+      message: 'Security settings updated successfully',
+      data: {
+        updatedFields: Object.keys(validSettings),
+        modifiedBy: adminAddress
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to update security settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update security settings'
+    });
+  }
+}));
+
 export default router;

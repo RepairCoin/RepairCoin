@@ -1157,3 +1157,89 @@ export const updateNotificationSettings = async (
     return { success: false, message: 'Failed to update notification settings' };
   }
 };
+
+// Security Settings Types
+export interface SecuritySettings {
+  // Admin Role Permissions
+  enableRolePermissions: boolean;
+  defaultRole: 'view-only' | 'standard' | 'super-admin';
+  viewOnlyPermissions: string[];
+  standardPermissions: string[];
+  superAdminPermissions: string[];
+
+  // Session Management
+  sessionTimeout: number; // in minutes
+  autoLogoutEnabled: boolean;
+  maxConcurrentSessions: number;
+  rememberMeDuration: number; // in days
+
+  // IP Access Control
+  enableIpWhitelist: boolean;
+  enableIpBlacklist: boolean;
+  ipWhitelist: string[];
+  ipBlacklist: string[];
+
+  // Two-Factor Authentication
+  require2FA: boolean;
+  allow2FAOptOut: boolean;
+  twoFactorMethod: 'authenticator' | 'sms' | 'email';
+
+  // Audit Logs
+  auditLogRetention: number; // in days
+  logLoginAttempts: boolean;
+  logSettingsChanges: boolean;
+  logFinancialTransactions: boolean;
+  logAdminActions: boolean;
+
+  // Metadata
+  lastModified: Date;
+  modifiedBy?: string;
+}
+
+// Security Settings API
+export const getSecuritySettings = async (): Promise<SecuritySettings | null> => {
+  try {
+    console.log('[API] Fetching security settings...');
+    const response = await apiClient.get<{ data: SecuritySettings }>('/admin/settings/security');
+    console.log('[API] Security settings response:', response);
+
+    // Handle both response formats: { data: settings } or { success: true, data: settings }
+    if (response.data) {
+      // Check if response.data.data exists (nested structure)
+      if ('data' in response.data && response.data.data) {
+        console.log('[API] Returning nested data:', response.data.data);
+        return response.data.data as SecuritySettings;
+      }
+      // Check if response.data is already the settings object
+      if ('enableRolePermissions' in response.data || 'sessionTimeout' in response.data) {
+        console.log('[API] Returning direct data:', response.data);
+        return response.data as SecuritySettings;
+      }
+    }
+
+    console.warn('[API] Unexpected response structure:', response);
+    return null;
+  } catch (error) {
+    console.error('[API] Error getting security settings:', error);
+    return null;
+  }
+};
+
+export const updateSecuritySettings = async (
+  settings: Partial<SecuritySettings>
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.put<{
+      success: boolean;
+      message: string;
+      data: { updatedFields: string[]; modifiedBy: string };
+    }>('/admin/settings/security', settings);
+    return {
+      success: true,
+      message: response.data?.message || 'Security settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Error updating security settings:', error);
+    return { success: false, message: 'Failed to update security settings' };
+  }
+};

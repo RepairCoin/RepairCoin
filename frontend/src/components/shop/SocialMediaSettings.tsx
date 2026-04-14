@@ -20,7 +20,7 @@ import {
   Mail,
   MessageCircle,
 } from "lucide-react";
-import { FaXTwitter } from "react-icons/fa6";
+import { FaXTwitter, FaFacebookMessenger } from "react-icons/fa6";
 import toast from "react-hot-toast";
 import apiClient from "@/services/api/client";
 import { gmailApi } from "@/services/api/gmail";
@@ -259,7 +259,7 @@ export const SocialMediaSettings: React.FC<SocialMediaSettingsProps> = ({
     {
       key: "messenger" as const,
       label: "Messenger",
-      icon: Facebook,
+      icon: FaFacebookMessenger,
       placeholder: "https://m.me/yourshop",
       color: "text-blue-400",
       bgColor: "bg-blue-400/10",

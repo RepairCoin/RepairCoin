@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { GeneralSettingsContent } from "./GeneralSettingsContent";
 import { NotificationSettingsContent } from "./NotificationSettingsContent";
+import { SecuritySettingsContent } from "./SecuritySettingsContent";
 
 export const AdminSettingsTab: React.FC = () => {
   const searchParams = useSearchParams();
@@ -113,49 +114,7 @@ export const AdminSettingsTab: React.FC = () => {
           {activeTab === "notifications" && <NotificationSettingsContent />}
 
           {/* Security & Access Tab Content */}
-          {activeTab === "security" && (
-            <>
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-[#FFCC00]">
-                  Security & Access
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  Configure security policies and access controls
-                </p>
-              </div>
-
-              <div className="border-t border-[#3F3F3F] pt-6">
-                <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                  <p className="text-gray-500 text-sm mb-4">
-                    This section is coming soon...
-                  </p>
-
-                  <div className="space-y-3 text-sm text-gray-400">
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Admin role permissions management (view-only, standard, super admin)</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Session timeout configuration</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>IP whitelist/blacklist for admin access</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Two-factor authentication settings</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Audit log retention policies</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          {activeTab === "security" && <SecuritySettingsContent />}
 
           {/* System Configuration Tab Content */}
           {activeTab === "system" && (
@@ -248,8 +207,7 @@ export const AdminSettingsTab: React.FC = () => {
           )}
 
           {/* Info Banner - Shows only on coming soon tabs */}
-          {(activeTab === "security" ||
-            activeTab === "system" ||
+          {(activeTab === "system" ||
             activeTab === "email-templates") && (
             <div className="mt-6 bg-blue-900/20 border border-blue-700 rounded-xl p-4">
               <div className="flex items-start gap-3">
