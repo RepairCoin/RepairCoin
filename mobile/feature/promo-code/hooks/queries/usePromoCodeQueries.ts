@@ -11,7 +11,7 @@ export function useShopPromoCodesQuery() {
     queryKey: queryKeys.shopPromoCodes(shopId),
     queryFn: async () => {
       const response: PromoCodesListResponse = await promoCodeApi.getPromoCodes(shopId);
-      return response.items || [];
+      return response.data || response.items || [];
     },
     enabled: !!shopId,
     staleTime: 5 * 60 * 1000,

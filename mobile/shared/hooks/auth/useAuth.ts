@@ -52,7 +52,8 @@ export function useAuth() {
       onSuccess: async (result, params) => {
         const { address } = params;
         if (!result.exists) {
-          setIsLoading(false);
+          router.replace("/register");
+          setTimeout(() => setIsLoading(false), 500);
           return;
         }
 
@@ -62,8 +63,8 @@ export function useAuth() {
         if (result.type === "shop" && (!result.user?.verified || !result.user?.active)) {
           setUserProfile(result.user);
           setUserType("shop");
-          setIsLoading(false);
           router.replace("/register/pending");
+          setTimeout(() => setIsLoading(false), 500);
           return;
         }
 
@@ -92,8 +93,8 @@ export function useAuth() {
           if (result.type === "shop") {
             setUserProfile(result.user);
             setUserType("shop");
-            setIsLoading(false);
             router.replace("/register/pending");
+            setTimeout(() => setIsLoading(false), 500);
           } else {
             setIsLoading(false);
           }
@@ -101,14 +102,17 @@ export function useAuth() {
       },
       onError: (error: any) => {
         console.error("[useConnectWallet] Error:", error);
-        setIsLoading(false);
 
         // Check if user not found - redirect to register
         if (error?.response?.status === 404 || error?.status === 404) {
           console.log("[useConnectWallet] User not found, redirecting to register...");
           router.replace("/register");
+          // Keep isLoading true until navigation completes to prevent onboarding flash
+          setTimeout(() => setIsLoading(false), 500);
           return;
         }
+
+        setIsLoading(false);
       },
     });
   };
