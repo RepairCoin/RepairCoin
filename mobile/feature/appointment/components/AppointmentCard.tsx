@@ -2,24 +2,8 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
+import { getBookingStatusColor } from "@/shared/constants/booking-colors";
 import { AppointmentCardProps } from "../types";
-
-const getStatusColor = (status: BookingStatus) => {
-  switch (status) {
-    case "completed":
-      return "#22c55e";
-    case "paid":
-      return "#3b82f6";
-    case "cancelled":
-      return "#ef4444";
-    case "refunded":
-      return "#a855f7";
-    case "expired":
-      return "#f97316";
-    default:
-      return "#666";
-  }
-};
 
 const getStatusLabel = (status: BookingStatus) => {
   switch (status) {
@@ -69,7 +53,7 @@ export default function AppointmentCard({
   appointmentDate,
   onPress,
 }: AppointmentCardProps) {
-  const statusColor = getStatusColor(status);
+  const statusColor = getBookingStatusColor(status);
   const formattedAppointmentDate = appointmentDate ? formatAppointmentDate(appointmentDate) : null;
 
   return (

@@ -34,14 +34,6 @@ const getDisplayStatus = (booking: BookingData): string => {
   return booking.status;
 };
 
-// Helper to get status color considering shopApproved
-const getDisplayStatusColor = (booking: BookingData): string => {
-  if (booking.status === "paid" && booking.shopApproved) {
-    return getBookingStatusColor("approved");
-  }
-  return getBookingStatusColor(booking.status);
-};
-
 interface AppointmentCalendarProps {
   getAppointmentsForDate: (date: Date) => BookingData[];
 }
@@ -150,7 +142,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                           width: 6,
                           height: 6,
                           borderRadius: 3,
-                          backgroundColor: getDisplayStatusColor(b),
+                          backgroundColor: getBookingStatusColor(b.status),
                           marginHorizontal: 1,
                         }}
                       />
@@ -191,7 +183,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
               key={idx}
               onPress={() => router.push(`/shop/booking/${booking.orderId}`)}
               className="bg-[#1a1a1a] rounded-xl p-4 mb-3 border-l-4"
-              style={{ borderLeftColor: getDisplayStatusColor(booking) }}
+              style={{ borderLeftColor: getBookingStatusColor(booking.status) }}
             >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1">
@@ -214,11 +206,11 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                 <View className="items-end">
                   <View
                     className="px-2 py-1 rounded-full"
-                    style={{ backgroundColor: getDisplayStatusColor(booking) + "20" }}
+                    style={{ backgroundColor: getBookingStatusColor(booking.status) + "20" }}
                   >
                     <Text
                       className="text-xs font-medium capitalize"
-                      style={{ color: getDisplayStatusColor(booking) }}
+                      style={{ color: getBookingStatusColor(booking.status) }}
                     >
                       {getDisplayStatus(booking)}
                     </Text>
@@ -438,7 +430,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                                       width: 6,
                                       height: 6,
                                       borderRadius: 3,
-                                      backgroundColor: getDisplayStatusColor(b),
+                                      backgroundColor: getBookingStatusColor(b.status),
                                       marginHorizontal: 1,
                                     }}
                                   />

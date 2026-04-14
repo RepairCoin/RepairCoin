@@ -10,13 +10,6 @@ const getDisplayStatus = (booking: BookingData): string => {
   return booking.status;
 };
 
-const getDisplayStatusColor = (booking: BookingData): string => {
-  if (booking.status === "paid" && booking.shopApproved) {
-    return getBookingStatusColor("approved");
-  }
-  return getBookingStatusColor(booking.status);
-};
-
 const getStatusIcon = (
   booking: BookingData,
 ): keyof typeof Ionicons.glyphMap => {
@@ -71,8 +64,8 @@ export default function EnhancedBookingCard({
   onNoShow,
   isProcessing = false,
 }: EnhancedBookingCardProps) {
-  const statusColor = getDisplayStatusColor(booking);
   const displayStatus = getDisplayStatus(booking);
+  const statusColor = getBookingStatusColor(displayStatus);
   const needsApproval = booking.status === "paid" && !booking.shopApproved;
   const isApproved = booking.status === "paid" && booking.shopApproved;
   const bookingId = `BK-${booking.orderId.slice(0, 6).toUpperCase()}`;

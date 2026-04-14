@@ -12,10 +12,12 @@ export const BOOKING_STATUS_COLORS: Record<string, string> = {
 };
 
 export const BOOKING_STATUS_LEGEND = [
-  { label: "Approved", color: "#3b82f6" },
+  { label: "Pending", color: "#FFCC00" },
+  { label: "Paid", color: "#3b82f6" },
+  { label: "In Progress", color: "#a855f7" },
   { label: "Completed", color: "#22c55e" },
   { label: "Cancelled", color: "#ef4444" },
-  { label: "Expired", color: "#6b7280" },
+  { label: "No Show", color: "#f97316" },
 ];
 
 export function getBookingStatusColor(status: string): string {

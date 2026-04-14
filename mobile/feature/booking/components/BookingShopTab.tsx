@@ -36,13 +36,6 @@ import { getBookingStatusColor, BOOKING_STATUS_LEGEND } from "@/shared/constants
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
 
-// Helper to get status color considering shopApproved
-const getDisplayStatusColor = (booking: BookingData): string => {
-  if (booking.status === "paid" && booking.shopApproved) {
-    return getBookingStatusColor("approved");
-  }
-  return getBookingStatusColor(booking.status);
-};
 
 interface BookingActions {
   onApprove: (orderId: string) => void;
@@ -160,7 +153,7 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
                           width: 6,
                           height: 6,
                           borderRadius: 3,
-                          backgroundColor: getDisplayStatusColor(b),
+                          backgroundColor: getBookingStatusColor(b.status),
                           marginHorizontal: 1,
                         }}
                       />
@@ -415,7 +408,7 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
                                       width: 6,
                                       height: 6,
                                       borderRadius: 3,
-                                      backgroundColor: getDisplayStatusColor(b),
+                                      backgroundColor: getBookingStatusColor(b.status),
                                       marginHorizontal: 1,
                                     }}
                                   />
