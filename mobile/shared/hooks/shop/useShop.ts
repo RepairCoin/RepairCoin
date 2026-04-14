@@ -10,8 +10,10 @@ import { shopApi } from "@/shared/services/shop.services";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { ShopByWalletAddressResponse } from "@/shared/interfaces/shop.interface";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
+import { useAppToast } from "@/shared/hooks/useAppToast";
 
 export function useShop() {
+  const { showError } = useAppToast();
   const useGetShops = () => {
     return useQuery({
       queryKey: queryKeys.shopList(),
@@ -102,7 +104,11 @@ export function useShop() {
       },
       onError: (error: any) => {
         console.error("[useRegisterShop] Error:", error);
-        throw error;
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          "Registration failed. Please try again.";
+        showError(message);
       },
     });
   };
