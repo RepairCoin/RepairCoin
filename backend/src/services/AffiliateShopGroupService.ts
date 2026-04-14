@@ -186,6 +186,7 @@ export class AffiliateShopGroupService {
   async getAllGroups(filters: {
     groupType?: 'public' | 'private';
     active?: boolean;
+    search?: string;
     page: number;
     limit: number;
   }) {

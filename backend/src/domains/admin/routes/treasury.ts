@@ -9,6 +9,7 @@ import { logger } from '../../../utils/logger';
 import { validateRequired, validateEthereumAddress, validateNumeric } from '../../../middleware/errorHandler';
 import { checkTokenMintingFreeze, checkShopPurchaseFreeze, checkCriticalOperationFreeze } from '../../../middleware/freezeCheck';
 import { getRCGService } from '../../../services/RCGService';
+import { getSharedPool } from '../../../utils/database-pool';
 
 const router = Router();
 
@@ -732,6 +733,68 @@ router.get('/treasury/analytics', async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch treasury analytics'
+        });
+    }
+});
+
+// Revenue sharing breakdown
+router.get('/treasury/revenue-sharing', async (req: Request, res: Response) => {
+    try {
+        const { period = '30d' } = req.query;
+        const pool = getSharedPool();
+
+        let daysBack = 30;
+        if (period === '7d') daysBack = 7;
+        else if (period === '60d') daysBack = 60;
+        else if (period === '90d') daysBack = 90;
+        else if (period === 'all') daysBack = 99999;
+
+        const useDateFilter = daysBack < 99999;
+
+        // Aggregated summary
+        const summaryQuery = useDateFilter
+            ? `SELECT COUNT(*) as purchase_count, COALESCE(SUM(total_cost), 0) as total_revenue, COALESCE(SUM(operations_share), 0) as operations_total, COALESCE(SUM(stakers_share), 0) as stakers_total, COALESCE(SUM(dao_treasury_share), 0) as dao_treasury_total FROM shop_rcn_purchases WHERE status = 'completed' AND created_at >= NOW() - INTERVAL '1 day' * $1`
+            : `SELECT COUNT(*) as purchase_count, COALESCE(SUM(total_cost), 0) as total_revenue, COALESCE(SUM(operations_share), 0) as operations_total, COALESCE(SUM(stakers_share), 0) as stakers_total, COALESCE(SUM(dao_treasury_share), 0) as dao_treasury_total FROM shop_rcn_purchases WHERE status = 'completed'`;
+        const summaryResult = await pool.query(summaryQuery, useDateFilter ? [daysBack] : []);
+        const summary = summaryResult.rows[0];
+
+        // Per-purchase list (last 50)
+        const purchasesQuery = useDateFilter
+            ? `SELECT p.id, p.shop_id, s.name as shop_name, p.amount, p.total_cost, p.operations_share, p.stakers_share, p.dao_treasury_share, p.shop_tier, p.completed_at, p.created_at FROM shop_rcn_purchases p LEFT JOIN shops s ON p.shop_id = s.shop_id WHERE p.status = 'completed' AND p.created_at >= NOW() - INTERVAL '1 day' * $1 ORDER BY p.created_at DESC LIMIT 50`
+            : `SELECT p.id, p.shop_id, s.name as shop_name, p.amount, p.total_cost, p.operations_share, p.stakers_share, p.dao_treasury_share, p.shop_tier, p.completed_at, p.created_at FROM shop_rcn_purchases p LEFT JOIN shops s ON p.shop_id = s.shop_id WHERE p.status = 'completed' ORDER BY p.created_at DESC LIMIT 50`;
+        const purchasesResult = await pool.query(purchasesQuery, useDateFilter ? [daysBack] : []);
+
+        res.json({
+            success: true,
+            data: {
+                period,
+                summary: {
+                    purchaseCount: parseInt(summary.purchase_count),
+                    totalRevenue: parseFloat(summary.total_revenue),
+                    operationsTotal: parseFloat(summary.operations_total),
+                    stakersTotal: parseFloat(summary.stakers_total),
+                    daoTreasuryTotal: parseFloat(summary.dao_treasury_total)
+                },
+                purchases: purchasesResult.rows.map((row: any) => ({
+                    id: row.id,
+                    shopId: row.shop_id,
+                    shopName: row.shop_name || row.shop_id,
+                    amount: parseFloat(row.amount),
+                    totalCost: parseFloat(row.total_cost),
+                    operationsShare: parseFloat(row.operations_share),
+                    stakersShare: parseFloat(row.stakers_share),
+                    daoTreasuryShare: parseFloat(row.dao_treasury_share),
+                    shopTier: row.shop_tier,
+                    completedAt: row.completed_at,
+                    createdAt: row.created_at
+                }))
+            }
+        });
+    } catch (error) {
+        logger.error('Error fetching revenue sharing data:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch revenue sharing data'
         });
     }
 });

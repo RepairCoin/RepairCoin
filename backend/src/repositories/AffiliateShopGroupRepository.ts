@@ -253,6 +253,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
   async getAllGroups(filters: {
     groupType?: 'public' | 'private';
     active?: boolean;
+    search?: string;
     page: number;
     limit: number;
   }): Promise<PaginatedResult<AffiliateShopGroup>> {
@@ -271,6 +272,12 @@ export class AffiliateShopGroupRepository extends BaseRepository {
         paramCount++;
         whereClause += ` AND active = $${paramCount}`;
         params.push(filters.active);
+      }
+
+      if (filters.search) {
+        paramCount++;
+        whereClause += ` AND (group_name ILIKE $${paramCount} OR custom_token_symbol ILIKE $${paramCount} OR custom_token_name ILIKE $${paramCount})`;
+        params.push(`%${filters.search}%`);
       }
 
       // Get total count

@@ -129,33 +129,54 @@ export const getGroupsWithServices = async (): Promise<AffiliateShopGroup[]> => 
 /**
  * Get all shop groups (public or filtered)
  */
-export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<AffiliateShopGroup[]> => {
-  try {
-    console.log('🌐 [API] Calling GET /affiliate-shop-groups');
-    // For discover page, we want to show all groups (both public and private)
-    // Private groups will just show as "invite only"
-    const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups`);
-    console.log('✅ [API] getAllGroups response:', {
-      status: 'success',
-      dataLength: (response as any).data?.length || 0,
-      rawResponse: response
-    });
-    // apiClient interceptor returns response.data directly, so response IS { success, data }
-    const groups = (response as any).data || [];
+export interface GetAllGroupsResponse {
+  items: AffiliateShopGroup[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
 
-    // Map backend groupType to frontend isPrivate
-    return groups.map((group: any) => ({
+export const getAllGroups = async (params?: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<GetAllGroupsResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const queryString = queryParams.toString();
+    const url = `/affiliate-shop-groups${queryString ? `?${queryString}` : ''}`;
+
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(url);
+    const rawData = (response as any);
+    const groups = (rawData.data || []).map((group: any) => ({
       ...group,
       isPrivate: group.groupType === 'private',
     }));
+
+    return {
+      items: groups,
+      pagination: rawData.pagination || {
+        page: params?.page || 1,
+        limit: params?.limit || 20,
+        totalItems: groups.length,
+        totalPages: 1,
+        hasMore: false
+      }
+    };
   } catch (error) {
-    console.error('❌ [API] Error getting shop groups:', error);
-    console.error('Error details:', {
-      status: (error as any)?.response?.status,
-      data: (error as any)?.response?.data,
-      message: (error as any)?.message
-    });
-    return [];
+    console.error('Error getting shop groups:', error);
+    return {
+      items: [],
+      pagination: { page: 1, limit: 20, totalItems: 0, totalPages: 0, hasMore: false }
+    };
   }
 };
 

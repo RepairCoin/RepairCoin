@@ -1,6 +1,6 @@
 # Bug: Revenue Sharing All Zeros for Shop Peanut RCN Purchases
 
-## Status: Fixed (2026-04-09)
+## Status: Fixed (2026-04-14 — column name mismatch corrected)
 ## Priority: Medium
 ## Date: 2026-04-09
 ## Category: Bug - Revenue Distribution
@@ -56,9 +56,26 @@ dc_shopu's completed purchases — correct:
 
 ---
 
+## Actual Root Cause (found 2026-04-14)
+
+The INSERT query in `ShopRepository.createShopPurchase()` used column name `price_per_rcn` but the actual database column is `unit_price`. This caused every INSERT to fail, triggering a fallback query that omitted the revenue share columns entirely.
+
+**File:** `backend/src/repositories/ShopRepository.ts` (line 933)
+
+```diff
+- shop_id, amount, price_per_rcn, total_cost,
++ shop_id, amount, unit_price, total_cost,
+```
+
+The fallback path (lines 960-977) silently inserted without `operations_share`, `stakers_share`, `dao_treasury_share`, defaulting them to 0. This affected ALL purchases since the column was renamed — not just peanut.
+
+**Fix applied:** Changed `price_per_rcn` to `unit_price` and removed the unnecessary fallback path.
+
+---
+
 ## QA Test Plan
 
 1. Shop peanut purchases 10 RCN
 2. Check `shop_rcn_purchases` record
-3. **Expected**: operations_share: 8.00, stakers_share: 1.00, dao_treasury_share: 1.00
-4. **Current**: All zeros
+3. **Expected**: operations_share: 0.80, stakers_share: 0.10, dao_treasury_share: 0.10
+4. **Previously**: All zeros
