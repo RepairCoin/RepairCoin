@@ -1,12 +1,15 @@
+// @ts-nocheck
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import RepairCoinApp from '../../src/app';
 import { TreasuryRepository } from '../../src/repositories/TreasuryRepository';
 import { TokenService } from '../../src/domains/token/services/TokenService';
+import * as dbPool from '../../src/utils/database-pool';
 
 jest.mock('../../src/repositories/TreasuryRepository');
 jest.mock('../../src/domains/token/services/TokenService');
 jest.mock('thirdweb');
+jest.mock('../../src/utils/database-pool');
 
 describe('Admin Treasury Management Tests', () => {
   let app: any;
@@ -307,6 +310,184 @@ describe('Admin Treasury Management Tests', () => {
           achieved: true
         })
       );
+    });
+  });
+
+  describe('GET /api/admin/treasury/revenue-sharing', () => {
+    const mockQuery = jest.fn<any>();
+    const mockPool = { query: mockQuery };
+
+    beforeAll(() => {
+      (dbPool.getSharedPool as jest.Mock<any>).mockReturnValue(mockPool);
+    });
+
+    it('should return revenue sharing summary and purchases for 30d period', async () => {
+      // Mock summary query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          purchase_count: '5',
+          total_revenue: '510.00',
+          operations_total: '408.00',
+          stakers_total: '51.00',
+          dao_treasury_total: '51.00'
+        }]
+      });
+
+      // Mock purchases query
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 227,
+            shop_id: 'peanut',
+            shop_name: 'Peanut',
+            amount: '100.00000000',
+            total_cost: '10.00',
+            operations_share: '8.00000000',
+            stakers_share: '1.00000000',
+            dao_treasury_share: '1.00000000',
+            shop_tier: 'STANDARD',
+            completed_at: '2026-04-14T05:49:50.281Z',
+            created_at: '2026-04-14T05:49:12.663Z'
+          },
+          {
+            id: 225,
+            shop_id: 'peanut',
+            shop_name: 'Peanut',
+            amount: '1000.00000000',
+            total_cost: '100.00',
+            operations_share: '0.00000000',
+            stakers_share: '0.00000000',
+            dao_treasury_share: '0.00000000',
+            shop_tier: 'STANDARD',
+            completed_at: '2026-04-14T02:52:54.864Z',
+            created_at: '2026-04-14T02:52:22.029Z'
+          }
+        ]
+      });
+
+      const response = await request(app)
+        .get('/api/admin/treasury/revenue-sharing?period=30d')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.period).toBe('30d');
+
+      // Verify summary
+      const summary = response.body.data.summary;
+      expect(summary.purchaseCount).toBe(5);
+      expect(summary.totalRevenue).toBe(510);
+      expect(summary.operationsTotal).toBe(408);
+      expect(summary.stakersTotal).toBe(51);
+      expect(summary.daoTreasuryTotal).toBe(51);
+
+      // Verify purchases
+      const purchases = response.body.data.purchases;
+      expect(purchases).toHaveLength(2);
+      expect(purchases[0]).toMatchObject({
+        id: 227,
+        shopId: 'peanut',
+        shopName: 'Peanut',
+        amount: 100,
+        totalCost: 10,
+        operationsShare: 8,
+        stakersShare: 1,
+        daoTreasuryShare: 1,
+        shopTier: 'STANDARD'
+      });
+    });
+
+    it('should handle different period filters', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ purchase_count: '2', total_revenue: '20.00', operations_total: '16.00', stakers_total: '2.00', dao_treasury_total: '2.00' }]
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get('/api/admin/treasury/revenue-sharing?period=7d')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.period).toBe('7d');
+
+      // Verify parameterized query was called with 7 days
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INTERVAL'),
+        [7]
+      );
+    });
+
+    it('should handle "all" period without date filter', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ purchase_count: '100', total_revenue: '5000.00', operations_total: '4000.00', stakers_total: '500.00', dao_treasury_total: '500.00' }]
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get('/api/admin/treasury/revenue-sharing?period=all')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.period).toBe('all');
+      expect(response.body.data.summary.purchaseCount).toBe(100);
+
+      // Verify no date parameter was passed
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.not.stringContaining('INTERVAL'),
+        []
+      );
+    });
+
+    it('should return correct 80/10/10 revenue split for a standard tier purchase', async () => {
+      // 100 RCN at $0.10 = $10.00 total
+      // Expected: operations $8.00, stakers $1.00, DAO $1.00
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ purchase_count: '1', total_revenue: '10.00', operations_total: '8.00', stakers_total: '1.00', dao_treasury_total: '1.00' }]
+      });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: 1, shop_id: 'test-shop', shop_name: 'Test Shop',
+          amount: '100.00000000', total_cost: '10.00',
+          operations_share: '8.00000000', stakers_share: '1.00000000', dao_treasury_share: '1.00000000',
+          shop_tier: 'STANDARD', completed_at: new Date().toISOString(), created_at: new Date().toISOString()
+        }]
+      });
+
+      const response = await request(app)
+        .get('/api/admin/treasury/revenue-sharing?period=30d')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      const summary = response.body.data.summary;
+      const totalFromShares = summary.operationsTotal + summary.stakersTotal + summary.daoTreasuryTotal;
+      expect(totalFromShares).toBe(summary.totalRevenue);
+
+      // Verify percentages
+      expect(summary.operationsTotal / summary.totalRevenue).toBeCloseTo(0.8, 2);
+      expect(summary.stakersTotal / summary.totalRevenue).toBeCloseTo(0.1, 2);
+      expect(summary.daoTreasuryTotal / summary.totalRevenue).toBeCloseTo(0.1, 2);
+    });
+
+    it('should handle empty results gracefully', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ purchase_count: '0', total_revenue: '0', operations_total: '0', stakers_total: '0', dao_treasury_total: '0' }]
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get('/api/admin/treasury/revenue-sharing?period=7d')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.summary.purchaseCount).toBe(0);
+      expect(response.body.data.summary.totalRevenue).toBe(0);
+      expect(response.body.data.purchases).toHaveLength(0);
+    });
+
+    it('should require admin authentication', async () => {
+      const response = await request(app)
+        .get('/api/admin/treasury/revenue-sharing?period=30d');
+
+      expect(response.status).toBe(401);
     });
   });
 });

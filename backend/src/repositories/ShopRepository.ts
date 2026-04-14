@@ -927,17 +927,16 @@ export class ShopRepository extends BaseRepository {
     daoTreasuryShare?: number;
   }): Promise<{ id: string }> {
     try {
-      // Temporary workaround for staging: try with price_per_rcn first, fall back without it
-      let query = `
+      const query = `
         INSERT INTO shop_rcn_purchases (
-          shop_id, amount, price_per_rcn, total_cost,
+          shop_id, amount, unit_price, total_cost,
           payment_method, payment_reference, status,
           shop_tier, operations_share, stakers_share, dao_treasury_share
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
       `;
 
-      let values: any[] = [
+      const values: any[] = [
         purchaseData.shopId,
         purchaseData.amount,
         purchaseData.pricePerRcn,
@@ -950,35 +949,8 @@ export class ShopRepository extends BaseRepository {
         purchaseData.stakersShare || 0,
         purchaseData.daoTreasuryShare || 0
       ];
-      
-      let result;
-      try {
-        // Try with price_per_rcn column
-        result = await this.pool.query(query, values);
-      } catch (error: any) {
-        // If price_per_rcn column doesn't exist, try without it
-        if (error.message?.includes('column')) {
-          logger.warn('Some columns not found, falling back to simple insert');
-          query = `
-            INSERT INTO shop_rcn_purchases (
-              shop_id, amount, total_cost,
-              payment_method, payment_reference, status
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id
-          `;
-          values = [
-            purchaseData.shopId,
-            purchaseData.amount,
-            purchaseData.totalCost,
-            purchaseData.paymentMethod,
-            purchaseData.paymentReference || null,
-            purchaseData.status
-          ];
-          result = await this.pool.query(query, values);
-        } else {
-          throw error;
-        }
-      }
+
+      const result = await this.pool.query(query, values);
       
       logger.info('Shop purchase created:', { 
         id: result.rows[0].id,

@@ -517,6 +517,17 @@ export const getPricingHistory = async (tier?: 'standard' | 'premium' | 'elite',
   }
 };
 
+// Revenue Sharing
+export const getRevenueSharing = async (period: string = '30d'): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/admin/treasury/revenue-sharing?period=${period}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('[API] Error getting revenue sharing:', error);
+    throw error;
+  }
+};
+
 // Analytics
 export const getAnalytics = async (params?: {
   period?: 'day' | 'week' | 'month' | 'year';

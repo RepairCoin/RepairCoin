@@ -7,6 +7,7 @@ import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle, DollarS
 import { AutoCompletePurchases } from '../AutoCompletePurchases';
 import { TreasurySyncProvider } from '@/hooks/useTreasurySync';
 import { WorkingChart, WorkingLineChart, WorkingPieChart } from '@/components/admin/charts/WorkingChart';
+import { getRevenueSharing } from '@/services/api/admin';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -88,6 +89,138 @@ interface RCGMetrics {
     discountsGiven: number;
   };
 }
+
+const RevenueShareSection: React.FC = () => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('30d');
+
+  useEffect(() => {
+    loadData();
+  }, [period]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const result = await getRevenueSharing(period);
+      setData(result);
+    } catch (error) {
+      console.error('Error loading revenue sharing:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-gray-800/50 rounded-xl p-6 mt-6">
+        <h3 className="text-lg font-bold text-white mb-4">Revenue Distribution</h3>
+        <div className="flex justify-center py-8">
+          <RefreshCw className="w-6 h-6 text-yellow-400 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!data?.summary) return null;
+
+  const { summary, purchases } = data;
+
+  return (
+    <div className="bg-gray-800/50 rounded-xl p-6 mt-6">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <Banknote className="w-5 h-5 text-green-400" />
+          Revenue Distribution
+        </h3>
+        <div className="flex gap-2">
+          {['7d', '30d', '90d', 'all'].map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
+                period === p
+                  ? 'bg-yellow-500 text-black'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {p === 'all' ? 'All' : p.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gray-900/50 rounded-lg p-4">
+          <p className="text-xs text-gray-400 mb-1">Total Revenue</p>
+          <p className="text-xl font-bold text-white">${summary.totalRevenue.toFixed(2)}</p>
+          <p className="text-xs text-gray-500">{summary.purchaseCount} purchases</p>
+        </div>
+        <div className="bg-gray-900/50 rounded-lg p-4">
+          <p className="text-xs text-gray-400 mb-1">Operations (80%)</p>
+          <p className="text-xl font-bold text-blue-400">${summary.operationsTotal.toFixed(2)}</p>
+        </div>
+        <div className="bg-gray-900/50 rounded-lg p-4">
+          <p className="text-xs text-gray-400 mb-1">Stakers (10%)</p>
+          <p className="text-xl font-bold text-green-400">${summary.stakersTotal.toFixed(2)}</p>
+        </div>
+        <div className="bg-gray-900/50 rounded-lg p-4">
+          <p className="text-xs text-gray-400 mb-1">DAO Treasury (10%)</p>
+          <p className="text-xl font-bold text-yellow-400">${summary.daoTreasuryTotal.toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Per-Purchase Table */}
+      {purchases && purchases.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Shop</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">RCN</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Total</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Operations</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Stakers</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">DAO</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Tier</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700/50">
+              {purchases.map((p: any) => (
+                <tr key={p.id} className="hover:bg-gray-700/30">
+                  <td className="px-4 py-3 text-sm text-white">{p.shopName}</td>
+                  <td className="px-4 py-3 text-sm text-white">{p.amount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-white">${p.totalCost.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm text-blue-400">${p.operationsShare.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm text-green-400">${p.stakersShare.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm text-yellow-400">${p.daoTreasuryShare.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                      p.shopTier === 'ELITE' ? 'bg-purple-500/20 text-purple-300' :
+                      p.shopTier === 'PREMIUM' ? 'bg-blue-500/20 text-blue-300' :
+                      'bg-gray-500/20 text-gray-300'
+                    }`}>
+                      {p.shopTier || 'Standard'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-400">
+                    {new Date(p.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {purchases && purchases.length === 0 && (
+        <p className="text-center text-gray-500 py-4">No completed purchases in this period</p>
+      )}
+    </div>
+  );
+};
 
 export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
   const {  setError: onError } = useAdminDashboard();
@@ -651,6 +784,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
           </div>
         )}
       </div>
+
+      {/* Revenue Sharing Breakdown */}
+      <RevenueShareSection />
 
       {/* Auto-Complete Purchases - Still needed for failed Stripe webhooks */}
       <AutoCompletePurchases />
