@@ -18,6 +18,8 @@ const secureStorage = {
   },
 };
 
+export type AuthMethod = "google" | "metamask" | "walletconnect" | "coinbase" | "rainbow" | null;
+
 interface AuthState {
   // State
   account: any;
@@ -28,6 +30,7 @@ interface AuthState {
   isAuthenticated: boolean;
   hasHydrated: boolean;
   isLoading: boolean;
+  authMethod: AuthMethod;
 
   // Actions
   setAccount: (account: any) => void;
@@ -37,6 +40,7 @@ interface AuthState {
   setUserProfile: (userProfile: any) => void;
   setHasHydrated: (state: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
+  setAuthMethod: (method: AuthMethod) => void;
   logout: (navigate?: boolean) => Promise<void>;
   checkStoredAuth: () => Promise<void>;
 }
@@ -54,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: false,
         hasHydrated: false,
         isLoading: false,
+        authMethod: null,
 
         // Actions
         setAccount: (account) => {
@@ -66,6 +71,10 @@ export const useAuthStore = create<AuthState>()(
 
         setIsLoading: (isLoading) => {
           set({ isLoading }, false, "setIsLoading");
+        },
+
+        setAuthMethod: (method) => {
+          set({ authMethod: method }, false, "setAuthMethod");
         },
 
         setAccessToken: (accessToken) => {
@@ -168,6 +177,7 @@ export const useAuthStore = create<AuthState>()(
               accessToken: null,
               refreshToken: null,
               isLoading: false,
+              authMethod: null,
             },
             false,
             "logout"
@@ -192,6 +202,7 @@ export const useAuthStore = create<AuthState>()(
         userType: state.userType,
         userProfile: state.userProfile,
         isAuthenticated: state.isAuthenticated,
+        authMethod: state.authMethod,
         // Exclude isLoading and hasHydrated from persistence
       }),
       onRehydrateStorage: () => (state) => {

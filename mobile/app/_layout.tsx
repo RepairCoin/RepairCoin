@@ -7,18 +7,47 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
-import { ThirdwebProvider } from "thirdweb/react";
+import { ThirdwebProvider, useAutoConnect } from "thirdweb/react";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "react-native-toast-notifications";
+import { createWallet, walletConnect } from "thirdweb/wallets";
 
 import { ErrorBoundaryProvider } from "../shared/providers/ErrorBoundaryProvider";
 import { PushNotificationProvider } from "../shared/providers/PushNotificationProvider";
 import { queryClient } from "../shared/config/queryClient";
+import { client } from "../shared/constants/thirdweb";
 import DevTools from "../shared/components/ui/ReactQueryDevtools";
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
+
+// All supported wallets for auto-reconnection
+const wallets = [
+  createWallet("inApp"),
+  createWallet("io.metamask"),
+  walletConnect(),
+  createWallet("com.coinbase.wallet"),
+  createWallet("me.rainbow"),
+];
+
+/**
+ * Restores the last connected wallet session on app launch.
+ * For social login (Google) users, this reconnects the embedded wallet
+ * so useActiveAccount() returns a valid account for signing.
+ */
+function WalletAutoConnect() {
+  useAutoConnect({
+    client,
+    wallets,
+    timeout: 15000,
+    onConnect: (wallet) => {
+      console.log("[WalletAutoConnect] Wallet reconnected:", wallet.id);
+    },
+  });
+
+  return null;
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -42,6 +71,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <ThirdwebProvider>
+              <WalletAutoConnect />
               <PushNotificationProvider>
                 <BottomSheetModalProvider>
                   <ToastProvider>

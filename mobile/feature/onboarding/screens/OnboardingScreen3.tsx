@@ -6,6 +6,7 @@ import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
 
 import { useAuth } from "@/shared/hooks/auth/useAuth";
+import { useAuthStore, AuthMethod } from "@/shared/store/auth.store";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
 
@@ -58,6 +59,7 @@ const ConnectWithMetaMask = () => {
   const { connect } = useConnect();
   const { useConnectWallet } = useAuth();
   const connectWalletMutation = useConnectWallet();
+  const setAuthMethod = useAuthStore((state) => state.setAuthMethod);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string>();
   const [isLocalConnecting, setIsLocalConnecting] = useState(false);
@@ -143,6 +145,9 @@ const ConnectWithMetaMask = () => {
             `[ConnectWallet] ${walletId} connected successfully:`,
             address
           );
+
+          // Store the auth method for wallet auto-reconnection on app restart
+          setAuthMethod(walletId as AuthMethod);
 
           // Check customer data with the connected address (pass email for registration)
           connectWalletMutation.mutate({ address, email });
