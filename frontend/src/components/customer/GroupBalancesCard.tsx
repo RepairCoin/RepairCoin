@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
+import { useAuthStore } from "@/stores/authStore";
 import { Coins, ChevronRight } from "lucide-react";
 import * as shopGroupsAPI from "../../services/api/affiliateShopGroups";
 
@@ -19,23 +20,27 @@ interface BalanceWithGroup extends shopGroupsAPI.CustomerAffiliateGroupBalance {
 
 export default function GroupBalancesCard() {
   const account = useActiveAccount();
+  const { userProfile } = useAuthStore();
+  const walletAddress = account?.address || userProfile?.address;
   const [balances, setBalances] = useState<BalanceWithGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (account?.address) {
+    if (walletAddress) {
       loadBalances();
+    } else {
+      setLoading(false);
     }
-  }, [account?.address]);
+  }, [walletAddress]);
 
   const loadBalances = async () => {
-    if (!account?.address) return;
+    if (!walletAddress) return;
 
     try {
       setLoading(true);
       // Backend now returns group details embedded in the response - single API call!
-      const balancesData = await shopGroupsAPI.getAllCustomerBalances(account.address) as BalanceWithGroup[];
+      const balancesData = await shopGroupsAPI.getAllCustomerBalances(walletAddress) as BalanceWithGroup[];
       setBalances(balancesData);
     } catch (error) {
       console.error("Error loading group balances:", error);
