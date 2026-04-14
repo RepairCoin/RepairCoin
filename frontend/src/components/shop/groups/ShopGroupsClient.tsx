@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useActiveAccount, useIsAutoConnecting, ConnectButton } from "thirdweb/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import { Users, Plus, TrendingUp, ChevronDown, UserPlus, Home, ChevronRight } from "lucide-react";
+import { Users, Plus, TrendingUp, ChevronDown, UserPlus, Home, ChevronRight, Search, X, Loader2 } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import CreateGroupModal from "./CreateGroupModal";
 import GroupCard from "./GroupCard";
@@ -34,6 +34,17 @@ export default function AffiliateShopGroupsClient() {
   const [sortBy, setSortBy] = useState<GroupSortOption>("members");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
+  // My Groups: client-side search
+  const [myGroupsSearch, setMyGroupsSearch] = useState("");
+
+  // Discover Groups: search & pagination
+  const [discoverSearch, setDiscoverSearch] = useState("");
+  const [discoverPage, setDiscoverPage] = useState(1);
+  const [discoverTotalItems, setDiscoverTotalItems] = useState(0);
+  const [discoverHasMore, setDiscoverHasMore] = useState(false);
+  const [discoverLoadingMore, setDiscoverLoadingMore] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Use subscription check hook
   const {
     subscriptionActive,
@@ -59,12 +70,15 @@ export default function AffiliateShopGroupsClient() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [myGroupsData, allGroupsData] = await Promise.all([
+      const [myGroupsData, allGroupsResult] = await Promise.all([
         shopGroupsAPI.getMyGroups(),
-        shopGroupsAPI.getAllGroups(),
+        shopGroupsAPI.getAllGroups({ page: 1, limit: 20 }),
       ]);
       setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
-      setAllGroups(Array.isArray(allGroupsData) ? allGroupsData : []);
+      setAllGroups(allGroupsResult.items);
+      setDiscoverTotalItems(allGroupsResult.pagination.totalItems);
+      setDiscoverHasMore(allGroupsResult.pagination.hasMore);
+      setDiscoverPage(1);
     } catch (error) {
       console.error("Error loading groups:", error);
       toast.error("Failed to load shop groups");
@@ -75,9 +89,50 @@ export default function AffiliateShopGroupsClient() {
     }
   };
 
-  // Sort groups based on selected option
+  const loadDiscoverGroups = useCallback(async (search: string, page: number, append: boolean = false) => {
+    try {
+      if (append) {
+        setDiscoverLoadingMore(true);
+      }
+      const result = await shopGroupsAPI.getAllGroups({ search: search || undefined, page, limit: 20 });
+      if (append) {
+        setAllGroups(prev => [...prev, ...result.items]);
+      } else {
+        setAllGroups(result.items);
+      }
+      setDiscoverTotalItems(result.pagination.totalItems);
+      setDiscoverHasMore(result.pagination.hasMore);
+      setDiscoverPage(page);
+    } catch (error) {
+      console.error("Error loading discover groups:", error);
+    } finally {
+      setDiscoverLoadingMore(false);
+    }
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setDiscoverSearch(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      loadDiscoverGroups(value, 1, false);
+    }, 300);
+  }, [loadDiscoverGroups]);
+
+  const handleLoadMore = useCallback(() => {
+    loadDiscoverGroups(discoverSearch, discoverPage + 1, true);
+  }, [discoverSearch, discoverPage, loadDiscoverGroups]);
+
+  // Filter and sort my groups
   const sortedMyGroups = useMemo(() => {
-    const groups = [...myGroups];
+    let groups = [...myGroups];
+    if (myGroupsSearch) {
+      const search = myGroupsSearch.toLowerCase();
+      groups = groups.filter(g =>
+        g.groupName.toLowerCase().includes(search) ||
+        (g.customTokenSymbol && g.customTokenSymbol.toLowerCase().includes(search)) ||
+        (g.customTokenName && g.customTokenName.toLowerCase().includes(search))
+      );
+    }
     switch (sortBy) {
       case "members":
         return groups.sort((a, b) => (b.memberCount || 0) - (a.memberCount || 0));
@@ -88,7 +143,7 @@ export default function AffiliateShopGroupsClient() {
       default:
         return groups;
     }
-  }, [myGroups, sortBy]);
+  }, [myGroups, sortBy, myGroupsSearch]);
 
   const sortedAllGroups = useMemo(() => {
     const groups = [...allGroups];
@@ -257,7 +312,7 @@ export default function AffiliateShopGroupsClient() {
                         : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
                     }`}
                   >
-                    Discover Groups ({allGroups.length})
+                    Discover Groups ({discoverTotalItems})
                   </button>
                 </div>
 
@@ -333,7 +388,7 @@ export default function AffiliateShopGroupsClient() {
               ) : (
                 <div>
                   {activeTab === "my-groups" ? (
-                    sortedMyGroups.length === 0 ? (
+                    myGroups.length === 0 ? (
                       <div className="bg-[#101010] rounded-lg p-12">
                         <EmptyState
                           icon={Users}
@@ -370,6 +425,38 @@ export default function AffiliateShopGroupsClient() {
                         />
                       </div>
                     ) : (
+                      <div>
+                        {/* My Groups Search */}
+                        {myGroups.length > 3 && (
+                          <div className="relative mb-6">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input
+                              type="text"
+                              value={myGroupsSearch}
+                              onChange={(e) => setMyGroupsSearch(e.target.value)}
+                              placeholder="Search your groups..."
+                              className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                            />
+                            {myGroupsSearch && (
+                              <button
+                                onClick={() => setMyGroupsSearch("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {sortedMyGroups.length === 0 && myGroupsSearch ? (
+                          <div className="bg-[#101010] rounded-lg p-12">
+                            <EmptyState
+                              icon={Search}
+                              title="No Groups Found"
+                              description={`No groups matching "${myGroupsSearch}"`}
+                            />
+                          </div>
+                        ) : (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {sortedMyGroups.map((group) => (
                           <GroupCard
@@ -381,31 +468,82 @@ export default function AffiliateShopGroupsClient() {
                           />
                         ))}
                       </div>
+                        )}
+                      </div>
                     )
                   ) : (
-                    sortedAllGroups.length === 0 ? (
-                      <div className="bg-[#101010] rounded-lg p-12">
-                        <EmptyState
-                          icon={TrendingUp}
-                          title="No Groups Available"
-                          description="Be the first to create a shop group!"
+                    <div>
+                      {/* Search Input */}
+                      <div className="relative mb-6">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={discoverSearch}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          placeholder="Search groups by name or token symbol..."
+                          className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                         />
+                        {discoverSearch && (
+                          <button
+                            onClick={() => { setDiscoverSearch(""); loadDiscoverGroups("", 1, false); }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {sortedAllGroups.map((group) => (
-                          <GroupCard
-                            key={group.groupId}
-                            group={group}
-                            onClick={() => handleGroupClick(group.groupId)}
-                            showMemberBadge={isGroupMember(group.groupId)}
-                            isLeader={isGroupLeader(group)}
-                            isDiscoverTab={!isGroupMember(group.groupId)}
-                            onJoinClick={() => subscriptionActive && setShowJoinModal(true)}
+
+                      {/* Results count */}
+                      <p className="text-sm text-gray-400 mb-4">
+                        Showing {allGroups.length} of {discoverTotalItems} groups
+                      </p>
+
+                      {sortedAllGroups.length === 0 ? (
+                        <div className="bg-[#101010] rounded-lg p-12">
+                          <EmptyState
+                            icon={TrendingUp}
+                            title={discoverSearch ? "No Groups Found" : "No Groups Available"}
+                            description={discoverSearch ? `No groups matching "${discoverSearch}"` : "Be the first to create a shop group!"}
                           />
-                        ))}
-                      </div>
-                    )
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {sortedAllGroups.map((group) => (
+                              <GroupCard
+                                key={group.groupId}
+                                group={group}
+                                onClick={() => handleGroupClick(group.groupId)}
+                                showMemberBadge={isGroupMember(group.groupId)}
+                                isLeader={isGroupLeader(group)}
+                                isDiscoverTab={!isGroupMember(group.groupId)}
+                                onJoinClick={() => subscriptionActive && setShowJoinModal(true)}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Load More Button */}
+                          {discoverHasMore && (
+                            <div className="flex justify-center mt-6">
+                              <button
+                                onClick={handleLoadMore}
+                                disabled={discoverLoadingMore}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                              >
+                                {discoverLoadingMore ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Loading...
+                                  </>
+                                ) : (
+                                  <>Load More Groups</>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

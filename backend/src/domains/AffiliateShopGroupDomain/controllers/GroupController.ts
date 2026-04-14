@@ -165,6 +165,7 @@ export class GroupController {
       const filters = {
         groupType: req.query.groupType as 'public' | 'private' | undefined,
         active: req.query.active === 'true' ? true : req.query.active === 'false' ? false : undefined,
+        search: req.query.search as string | undefined,
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 20
       };
