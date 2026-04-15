@@ -1,0 +1,82 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run lint:fix:*)",
+      "Bash(npm run prettier:*)",
+      "Bash(npm run lint-prettier:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run start:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm test:*)",
+
+      "Bash(npx expo start:*)",
+      "Bash(npx expo run:*)",
+      "Bash(npx expo prebuild:*)",
+      "Bash(npx expo install:*)",
+
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git stash:*)",
+
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(pwd:*)",
+      "Bash(find:*)",
+
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)"
+    ],
+
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)",
+      "Bash(chmod 777:*)",
+
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git clean:*)",
+      "Bash(git rebase:*)",
+
+      "Bash(npm run deploy:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(vercel deploy:*)",
+      "Bash(netlify deploy:*)",
+
+      "Bash(kill -9:*)"
+    ]
+  },
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_response.filePath // .tool_input.file_path' 2>/dev/null); [ -n \"$f\" ] && npx prettier --write \"$f\" --ignore-unknown || true",
+            "timeout": 20,
+            "statusMessage": "Formatting with Prettier..."
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_response.filePath // .tool_input.file_path' 2>/dev/null); [ -n \"$f\" ] && npx eslint \"$f\" --fix || true",
+            "timeout": 20,
+            "statusMessage": "Running ESLint auto-fix..."
+          }
+        ]
+      }
+    ]
+  }
+}
