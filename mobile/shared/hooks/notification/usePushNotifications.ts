@@ -5,6 +5,7 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { usePaymentStore } from "@/shared/store/payment.store";
 import { notificationApi } from "@/shared/services/notification.services";
 import {
   PushNotificationState,
@@ -229,6 +230,18 @@ export function usePushNotifications() {
       console.log("[Push] Notification tapped:", response);
       const data = response.notification.request.content
         .data as NotificationData;
+
+      // If a Stripe checkout session is active, the user is returning from
+      // the browser and the /shared/payment-sucess deep link will own the
+      // navigation. Skip notification-driven routing so the booking
+      // confirmation push doesn't flash the notifications screen before the
+      // success screen appears.
+      if (usePaymentStore.getState().activeSession) {
+        console.log(
+          "[Push] Skipping response navigation — active payment session is being resolved by deep link"
+        );
+        return;
+      }
 
       const isShop = userType === "shop";
       const notificationType = data?.type;
