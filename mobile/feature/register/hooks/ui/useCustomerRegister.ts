@@ -9,20 +9,23 @@ import { validateCustomerForm, isValidEmail, hasMinLength } from "../../utils";
 
 export const useCustomerRegister = () => {
   const { useRegisterCustomer } = useCustomer();
-  const { mutate: registerCustomer, isPending: isLoading } = useRegisterCustomer();
+  const { mutate: registerCustomer, isPending } = useRegisterCustomer();
   const account = useAuthStore((state) => state.account);
   const { showError } = useAppToast();
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CustomerFormData>({
     ...INITIAL_CUSTOMER_FORM_DATA,
     email: account?.email || "",
   });
 
+  const isLoading = isPending || isSubmitting;
+
   const updateFormData = useCallback(
     (field: keyof CustomerFormData, value: string) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
     },
-    []
+    [],
   );
 
   const isFormValid = useMemo(() => {
@@ -30,6 +33,8 @@ export const useCustomerRegister = () => {
   }, [formData.fullName, formData.email]);
 
   const validateAndSubmit = useCallback(() => {
+    if (isSubmitting) return;
+
     const errors = validateCustomerForm(formData.fullName, formData.email);
 
     if (errors.length > 0) {
@@ -37,18 +42,25 @@ export const useCustomerRegister = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
       const submissionData = {
         ...formData,
         walletAddress: account.address,
       };
 
-      registerCustomer(submissionData);
+      registerCustomer(submissionData, {
+        onSettled: () => setIsSubmitting(false),
+      });
     } catch (error) {
       console.error("Registration error:", error);
-      showError("Unable to complete registration. Please check your connection and try again.");
+      showError(
+        "Unable to complete registration. Please check your connection and try again.",
+      );
+      setIsSubmitting(false);
     }
-  }, [formData, account, registerCustomer, showError]);
+  }, [formData, account, registerCustomer, showError, isSubmitting]);
 
   const handleGoBack = useCallback(() => {
     router.back();

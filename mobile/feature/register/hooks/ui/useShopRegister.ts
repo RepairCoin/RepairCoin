@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { FlatList, NativeSyntheticEvent, NativeScrollEvent, Dimensions } from "react-native";
+import {
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  Dimensions,
+} from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
@@ -19,15 +24,18 @@ const generateShopId = () => {
 export const useShopRegister = () => {
   const account = useAuthStore((state) => state.account);
   const { useRegisterShop } = useShop();
-  const { mutate: registerShop, isPending } = useRegisterShop();
+  const { mutate: registerShop, isPending: isRegistering } = useRegisterShop();
   const { showError } = useAppToast();
 
   const [index, setIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<ShopFormData>({
     ...INITIAL_SHOP_FORM_DATA,
     shopId: generateShopId(),
     email: account?.email || "",
   });
+
+  const isPending = isRegistering || isSubmitting;
 
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides = useMemo(() => SHOP_REGISTER_SLIDES, []);
@@ -36,16 +44,13 @@ export const useShopRegister = () => {
     <K extends keyof ShopFormData>(field: K, value: ShopFormData[K]) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
     },
-    []
+    [],
   );
 
-  const onScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const x = e.nativeEvent.contentOffset.x;
-      setIndex(Math.round(x / width));
-    },
-    []
-  );
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = e.nativeEvent.contentOffset.x;
+    setIndex(Math.round(x / width));
+  }, []);
 
   const handleGoBack = useCallback(() => {
     if (index > 0) {
@@ -61,19 +66,28 @@ export const useShopRegister = () => {
     }
   }, [index, slides.length]);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(() => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
     try {
       const submissionData = {
         ...formData,
         walletAddress: account.address,
       };
 
-      registerShop(submissionData);
+      registerShop(submissionData, {
+        onSettled: () => setIsSubmitting(false),
+      });
     } catch (error) {
       console.error("Registration error:", error);
-      showError("Unable to complete registration. Please check your connection and try again.");
+      showError(
+        "Unable to complete registration. Please check your connection and try again.",
+      );
+      setIsSubmitting(false);
     }
-  }, [formData, account, registerShop, showError]);
+  }, [formData, account, registerShop, showError, isSubmitting]);
 
   return {
     // State
