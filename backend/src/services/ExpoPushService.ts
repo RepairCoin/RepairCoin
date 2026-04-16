@@ -42,7 +42,7 @@ export class ExpoPushService {
    * Send push notification to a single user (all their devices)
    */
   async sendToUser(walletAddress: string, notification: PushNotificationPayload): Promise<SendPushResult> {
-    const tokens = await this.pushTokenRepository.getActiveTokensByWallet(walletAddress);
+    const tokens = await this.pushTokenRepository.getActiveTokensByWallet(walletAddress, ['ios', 'android']);
 
     if (tokens.length === 0) {
       logger.debug('No active push tokens for user', { walletAddress });
@@ -59,7 +59,7 @@ export class ExpoPushService {
     walletAddresses: string[],
     notification: PushNotificationPayload
   ): Promise<SendPushResult> {
-    const tokenMap = await this.pushTokenRepository.getActiveTokensForUsers(walletAddresses);
+    const tokenMap = await this.pushTokenRepository.getActiveTokensForUsers(walletAddresses, ['ios', 'android']);
 
     const allTokens: DevicePushToken[] = [];
     tokenMap.forEach((tokens) => allTokens.push(...tokens));

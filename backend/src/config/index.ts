@@ -40,6 +40,14 @@ export class Config {
     return addresses.split(',').map(addr => addr.trim().toLowerCase());
   }
 
+  static get webPush() {
+    return {
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+      vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+      vapidSubject: process.env.VAPID_SUBJECT || 'mailto:hello@repaircoin.ai',
+    };
+  }
+
   static validate(): void {
     // Validate required environment variables
     const required = ['JWT_SECRET'];

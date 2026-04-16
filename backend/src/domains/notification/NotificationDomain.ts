@@ -4,7 +4,8 @@ import { logger } from '../../utils/logger';
 import notificationRoutes from './routes/index';
 import { NotificationService } from './services/NotificationService';
 import { WebSocketManager } from '../../services/WebSocketManager';
-import { getExpoPushService, ExpoPushService, NotificationChannels } from '../../services/ExpoPushService';
+import { NotificationChannels } from '../../services/ExpoPushService';
+import { getPushNotificationDispatcher, PushNotificationDispatcher } from '../../services/PushNotificationDispatcher';
 import { EmailService } from '../../services/EmailService';
 import { CustomerRepository } from '../../repositories/CustomerRepository';
 
@@ -13,7 +14,7 @@ export class NotificationDomain implements DomainModule {
   routes = notificationRoutes;
   private notificationService!: NotificationService;
   private wsManager!: WebSocketManager;
-  private expoPushService!: ExpoPushService;
+  private pushDispatcher!: PushNotificationDispatcher;
   private emailService!: EmailService;
   private customerRepository!: CustomerRepository;
 
@@ -25,7 +26,7 @@ export class NotificationDomain implements DomainModule {
 
   async initialize(): Promise<void> {
     this.notificationService = new NotificationService();
-    this.expoPushService = getExpoPushService();
+    this.pushDispatcher = getPushNotificationDispatcher();
     this.emailService = new EmailService();
     this.customerRepository = new CustomerRepository();
     this.setupEventSubscriptions();
@@ -99,7 +100,7 @@ export class NotificationDomain implements DomainModule {
       }
 
       // Send push notification
-      await this.expoPushService.sendRewardNotification(customerAddress, shopName, amount, transactionId);
+      await this.pushDispatcher.sendRewardNotification(customerAddress, shopName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling reward issued event:', error);
     }
@@ -125,7 +126,7 @@ export class NotificationDomain implements DomainModule {
       }
 
       // Send push notification
-      await this.expoPushService.sendRedemptionApprovalRequest(customerAddress, shopName, amount, redemptionSessionId);
+      await this.pushDispatcher.sendRedemptionApprovalRequest(customerAddress, shopName, amount, redemptionSessionId);
     } catch (error: any) {
       logger.error('Error handling redemption approval request event:', error);
     }
@@ -222,7 +223,7 @@ export class NotificationDomain implements DomainModule {
       }
 
       // Send push notification
-      await this.expoPushService.sendTokenGiftedNotification(toCustomerAddress, fromCustomerName, amount, transactionId);
+      await this.pushDispatcher.sendTokenGiftedNotification(toCustomerAddress, fromCustomerName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling token gifted event:', error);
     }
@@ -696,7 +697,7 @@ export class NotificationDomain implements DomainModule {
       }
 
       // Send push notification using existing reschedule approved method
-      await this.expoPushService.sendRescheduleApproved(
+      await this.pushDispatcher.sendRescheduleApproved(
         customerAddress,
         shopName || 'Shop',
         serviceName || 'Service',

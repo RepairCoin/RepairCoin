@@ -4,6 +4,7 @@ import { NotificationController } from '../controllers/NotificationController';
 import { PushTokenController } from '../controllers/PushTokenController';
 import { GeneralPreferencesController } from '../controllers/GeneralPreferencesController';
 import { NotificationService } from '../services/NotificationService';
+import { Config } from '../../../config';
 
 const router = Router();
 
@@ -13,7 +14,21 @@ const notificationController = new NotificationController(notificationService);
 const pushTokenController = new PushTokenController();
 const generalPreferencesController = new GeneralPreferencesController();
 
-// All notification routes require authentication
+/**
+ * @route   GET /api/notifications/vapid-public-key
+ * @desc    Get VAPID public key for web push subscription (no auth required)
+ * @access  Public
+ */
+router.get('/vapid-public-key', (_req, res) => {
+  const { vapidPublicKey } = Config.webPush;
+  if (!vapidPublicKey) {
+    res.status(503).json({ error: 'Web push notifications not configured' });
+    return;
+  }
+  res.json({ vapidPublicKey });
+});
+
+// All remaining notification routes require authentication
 router.use(authMiddleware);
 
 /**

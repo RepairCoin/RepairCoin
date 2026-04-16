@@ -23,35 +23,55 @@ export class PushTokenController {
         return;
       }
 
-      const { expoPushToken, deviceId, deviceType, deviceName, appVersion } = req.body;
+      const { expoPushToken, deviceId, deviceType, deviceName, appVersion, webPushSubscription } = req.body;
 
-      // Validate required fields
-      if (!expoPushToken) {
-        res.status(400).json({ error: 'expoPushToken is required' });
+      if (!deviceType || !['ios', 'android', 'web'].includes(deviceType)) {
+        res.status(400).json({ error: 'deviceType must be "ios", "android", or "web"' });
         return;
       }
 
-      if (!deviceType || !['ios', 'android'].includes(deviceType)) {
-        res.status(400).json({ error: 'deviceType must be "ios" or "android"' });
-        return;
-      }
+      let params: RegisterTokenParams;
 
-      // Validate Expo push token format
-      if (!Expo.isExpoPushToken(expoPushToken)) {
-        res.status(400).json({
-          error: 'Invalid Expo push token format. Expected format: ExponentPushToken[xxx] or ExpoPushToken[xxx]',
-        });
-        return;
-      }
+      if (deviceType === 'web') {
+        // Validate web push subscription
+        if (!webPushSubscription || !webPushSubscription.endpoint || !webPushSubscription.keys?.p256dh || !webPushSubscription.keys?.auth) {
+          res.status(400).json({
+            error: 'webPushSubscription with endpoint, keys.p256dh, and keys.auth is required for web device type',
+          });
+          return;
+        }
 
-      const params: RegisterTokenParams = {
-        walletAddress,
-        expoPushToken,
-        deviceId,
-        deviceType,
-        deviceName,
-        appVersion,
-      };
+        params = {
+          walletAddress,
+          deviceId,
+          deviceType,
+          deviceName: deviceName || 'Web Browser',
+          appVersion,
+          webPushSubscription,
+        };
+      } else {
+        // Validate mobile push token
+        if (!expoPushToken) {
+          res.status(400).json({ error: 'expoPushToken is required' });
+          return;
+        }
+
+        if (!Expo.isExpoPushToken(expoPushToken)) {
+          res.status(400).json({
+            error: 'Invalid Expo push token format. Expected format: ExponentPushToken[xxx] or ExpoPushToken[xxx]',
+          });
+          return;
+        }
+
+        params = {
+          walletAddress,
+          expoPushToken,
+          deviceId,
+          deviceType,
+          deviceName,
+          appVersion,
+        };
+      }
 
       const token = await this.repository.registerToken(params);
 
