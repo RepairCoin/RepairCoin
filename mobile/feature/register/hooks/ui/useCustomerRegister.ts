@@ -47,6 +47,8 @@ export const useCustomerRegister = () => {
     try {
       const submissionData = {
         ...formData,
+        name: formData.fullName,
+        referralCode: formData.referral,
         walletAddress: account.address,
       };
 
