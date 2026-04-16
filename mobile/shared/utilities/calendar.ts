@@ -42,8 +42,9 @@ export function getScrollableDays(): Date[] {
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - currentDay - 14);
 
-  // Generate 28 days (4 weeks)
-  for (let i = 0; i < 28; i++) {
+  // Generate 42 days (6 weeks): 2 weeks past + 4 weeks ahead — ensures the
+  // full current month is reachable regardless of when today falls in it.
+  for (let i = 0; i < 42; i++) {
     const day = new Date(startDate);
     day.setDate(startDate.getDate() + i);
     days.push(day);

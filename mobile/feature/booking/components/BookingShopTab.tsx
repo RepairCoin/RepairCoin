@@ -69,6 +69,11 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
 
   const scrollableDays = getScrollableDays();
   const selectedBookings = getBookingsForDate(selectedDate);
+  const todayIndex = scrollableDays.findIndex((d) => isToday(d));
+  const initialScrollOffset = Math.max(
+    0,
+    todayIndex * DAY_WIDTH - SCREEN_WIDTH / 2 + DAY_WIDTH / 2
+  );
 
   return (
     <View className="flex-1">
@@ -96,7 +101,7 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16 }}
-          contentOffset={{ x: 42 * DAY_WIDTH - SCREEN_WIDTH / 2 + DAY_WIDTH / 2, y: 0 }}
+          contentOffset={{ x: initialScrollOffset, y: 0 }}
         >
           {scrollableDays.map((date, idx) => {
             const dayBookings = getBookingsForDate(date);
