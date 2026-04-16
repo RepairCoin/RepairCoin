@@ -59,6 +59,7 @@ export function useCancelOrderMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
+      queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "customer"] });
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "appointments"] });
       queryClient.invalidateQueries({ queryKey: ["shopBookings"] });
       showSuccess("Booking has been cancelled.");
@@ -81,6 +82,7 @@ export function useCancelOrderByShopMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "shop"] });
+      queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings", "customer"] });
       queryClient.invalidateQueries({ queryKey: ["shopBookings"] });
       showSuccess("Booking cancelled. Full refund will be processed.");
     },
