@@ -60,6 +60,7 @@ export default function CustomerRegisterScreen() {
               value={formData.fullName}
               onChangeText={(text) => updateFormData("fullName", text)}
               placeholder="Enter your full name"
+              maxLength={100}
             />
 
             <FormInput
@@ -70,6 +71,7 @@ export default function CustomerRegisterScreen() {
               placeholder="Enter your email address"
               keyboardType="email-address"
               autoCapitalize="none"
+              maxLength={255}
             />
 
             <SectionHeader
@@ -85,6 +87,7 @@ export default function CustomerRegisterScreen() {
               placeholder="Enter referral code"
               autoCapitalize="none"
               helperText="Earn bonus tokens when you sign up with a referral code"
+              maxLength={50}
             />
 
             <SectionHeader

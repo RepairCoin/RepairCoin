@@ -59,6 +59,7 @@ export default function SecondSlide({
           value={formData.name}
           onChangeText={(value) => updateFormData("name", value)}
           placeholder="Enter your company name"
+          maxLength={150}
         />
 
         <View className="mb-4">
@@ -115,6 +116,7 @@ export default function SecondSlide({
           keyboardType="url"
           autoCapitalize="none"
           helperText="Your business website (optional)"
+          maxLength={255}
         />
 
         <FormInput
@@ -124,6 +126,7 @@ export default function SecondSlide({
           onChangeText={(value) => updateFormData("referral", value)}
           placeholder="Who referred you to FixFlow?"
           helperText="Enter the name or company that referred you"
+          maxLength={100}
         />
       </ScrollView>
 

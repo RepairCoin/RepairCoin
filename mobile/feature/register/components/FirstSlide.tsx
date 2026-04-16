@@ -72,6 +72,7 @@ export default function FirstSlide({
           onChangeText={(value) => updateFormData("firstName", value)}
           placeholder="Enter your first name"
           autoCapitalize="words"
+          maxLength={100}
         />
 
         <FormInput
@@ -81,6 +82,7 @@ export default function FirstSlide({
           onChangeText={(value) => updateFormData("lastName", value)}
           placeholder="Enter your last name"
           autoCapitalize="words"
+          maxLength={100}
         />
 
         <SectionHeader
@@ -96,6 +98,7 @@ export default function FirstSlide({
           placeholder="Enter your email address"
           keyboardType="email-address"
           autoCapitalize="none"
+          maxLength={255}
         />
 
         <PhoneInput

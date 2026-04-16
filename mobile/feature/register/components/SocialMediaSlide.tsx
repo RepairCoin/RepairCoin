@@ -61,6 +61,7 @@ export default function SocialMediaSlide({
           keyboardType="url"
           autoCapitalize="none"
           helperText="Your Facebook page or profile URL"
+          maxLength={255}
         />
 
         <FormInput
@@ -72,6 +73,7 @@ export default function SocialMediaSlide({
           keyboardType="url"
           autoCapitalize="none"
           helperText="Your Instagram profile URL"
+          maxLength={255}
         />
 
         <FormInput
@@ -83,6 +85,7 @@ export default function SocialMediaSlide({
           keyboardType="url"
           autoCapitalize="none"
           helperText="Your Twitter/X profile URL"
+          maxLength={255}
         />
 
         <View className="bg-[#2A2A2C] rounded-xl p-4 mt-4 flex-row">
