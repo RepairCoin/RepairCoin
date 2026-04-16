@@ -5,6 +5,7 @@ import {
   FlatList,
   RefreshControl,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
@@ -22,6 +23,10 @@ export default function CustomerHistoryScreen() {
     isLoading,
     error,
     refetch,
+    // Pagination
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     // Refresh
     refreshing,
     handleRefresh,
@@ -35,6 +40,12 @@ export default function CustomerHistoryScreen() {
     setDateFilter,
     hasActiveFilters,
   } = useCustomerHistoryListUI();
+
+  const handleEndReached = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
 
   return (
     <View className="w-full h-full bg-zinc-950">
@@ -145,6 +156,15 @@ export default function CustomerHistoryScreen() {
             tintColor="#FFCC00"
             colors={["#FFCC00"]}
           />
+        }
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View className="py-4">
+              <ActivityIndicator size="small" color="#FFCC00" />
+            </View>
+          ) : null
         }
         contentContainerStyle={{ paddingBottom: 100 }}
       />

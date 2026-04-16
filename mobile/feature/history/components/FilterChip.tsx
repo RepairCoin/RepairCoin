@@ -14,8 +14,10 @@ export function FilterChip({ label, isActive, onPress }: FilterChipProps) {
         isActive ? "bg-[#FFCC00]" : "bg-zinc-800"
       }`}
       activeOpacity={0.7}
+      style={{ flexShrink: 0 }}
     >
       <Text
+        numberOfLines={1}
         className={`text-sm font-medium ${
           isActive ? "text-black" : "text-gray-400"
         }`}

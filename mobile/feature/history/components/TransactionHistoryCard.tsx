@@ -51,6 +51,18 @@ const getTransactionConfig = (type: string) => {
     };
   }
 
+  // Mint to wallet (admin manual mints or untransformed mint types)
+  if (lowerType === "mint") {
+    return {
+      isPositive: true,
+      bgColor: "bg-blue-100",
+      iconColor: "#3B82F6",
+      icon: <Ionicons name="wallet-outline" color="#3B82F6" size={18} />,
+      label: "Minted to Wallet",
+      amountColor: "text-blue-400",
+    };
+  }
+
   // Service redemption
   if (lowerType === "service_redemption") {
     return {
@@ -123,6 +135,11 @@ export default function TransactionHistoryCard(props: Props) {
 
   if (props.variant === "customer") {
     const config = getTransactionConfig(props.type);
+    const lowerType = props.type?.toLowerCase() || "";
+    const isPlatformTransaction = ["tier_bonus", "referral", "bonus", "mint"].includes(lowerType);
+    const shopDisplayName =
+      props.shopName || (isPlatformTransaction ? "FixFlow" : "Unknown Shop");
+    const hideAmount = props.amount === 0;
 
     return (
       <View className="bg-zinc-900 w-full py-3 px-4 rounded-xl flex-row items-center my-1.5">
@@ -134,11 +151,15 @@ export default function TransactionHistoryCard(props: Props) {
         <View className="flex-1 px-3">
           <View className="flex-row justify-between items-center">
             <Text className="text-white text-base font-bold flex-1 mr-2" numberOfLines={1}>
-              {props.shopName || "FixFlow"}
+              {shopDisplayName}
             </Text>
-            <Text className={`text-base font-bold ${config.amountColor}`}>
-              {config.isPositive ? "+" : "-"}{Math.abs(props.amount)} RCN
-            </Text>
+            {hideAmount ? (
+              <Text className="text-gray-500 text-base font-bold">—</Text>
+            ) : (
+              <Text className={`text-base font-bold ${config.amountColor}`}>
+                {config.isPositive ? "+" : "-"}{Math.abs(props.amount)} RCN
+              </Text>
+            )}
           </View>
           <View className="flex-row justify-between items-center mt-1">
             <Text className="text-gray-400 text-sm" numberOfLines={1}>

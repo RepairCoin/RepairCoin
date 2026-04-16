@@ -56,9 +56,9 @@ class CustomerApi {
     }
   }
 
-  async getTransactionByWalletAddress(walletAddress: string, limit: number): Promise<any> {
+  async getTransactionByWalletAddress(walletAddress: string, limit: number, page: number = 1): Promise<any> {
     try {
-      return await apiClient.get<any>(`/customers/${walletAddress}/transactions?limit=${limit}`);
+      return await apiClient.get<any>(`/customers/${walletAddress}/transactions?limit=${limit}&page=${page}`);
     } catch (error) {
       console.error("Failed to fetch earning history:", error);
       throw error;

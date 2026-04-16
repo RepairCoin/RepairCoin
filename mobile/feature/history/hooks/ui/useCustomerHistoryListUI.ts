@@ -21,12 +21,20 @@ export function useCustomerHistoryListUI() {
   } = useCustomerHistoryFilters();
 
   // Query
-  const { data: transactionData, isLoading, error, refetch } = useCustomerTransactionsQuery();
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useCustomerTransactionsQuery();
 
-  // Raw transactions (all types including rejected/cancelled)
+  // Raw transactions (all types including rejected/cancelled) — flattened from paged data
   const rawTransactions = useMemo((): TransactionData[] => {
-    return transactionData?.transactions || [];
-  }, [transactionData]);
+    return data?.pages.flatMap((page: any) => page?.transactions || []) || [];
+  }, [data]);
 
   // Filtered transactions
   const transactions = useMemo((): TransactionData[] => {
@@ -48,11 +56,11 @@ export function useCustomerHistoryListUI() {
         const type = tx.type?.toLowerCase();
         switch (transactionFilter) {
           case "earned":
-            return ["earned", "bonus", "referral", "tier_bonus"].includes(type);
+            return ["earned", "bonus", "referral", "tier_bonus", "mint"].includes(type);
           case "redeemed":
-            return ["redeemed", "redemption", "service_redemption"].includes(type);
+            return ["redeemed", "redemption", "service_redemption", "service_redemption_refund"].includes(type);
           case "gifts":
-            return ["transfer_in", "transfer_out", "gift"].includes(type);
+            return ["transfer_in", "transfer_out", "gift", "gift_received", "gift_sent"].includes(type);
           default:
             return true;
         }
@@ -89,7 +97,7 @@ export function useCustomerHistoryListUI() {
   const stats = useMemo(() => {
     const earned = rawTransactions
       .filter((tx) =>
-        ["earned", "bonus", "referral", "tier_bonus", "transfer_in"].includes(tx.type?.toLowerCase())
+        ["earned", "bonus", "referral", "tier_bonus", "transfer_in", "mint"].includes(tx.type?.toLowerCase())
       )
       .reduce((sum, tx) => sum + tx.amount, 0);
 
@@ -131,6 +139,10 @@ export function useCustomerHistoryListUI() {
     isLoading,
     error,
     refetch,
+    // Pagination
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     // Refresh
     refreshing,
     handleRefresh,
