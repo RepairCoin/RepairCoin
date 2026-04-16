@@ -11,6 +11,7 @@ import { useAppToast } from "@/shared/hooks";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { ShopFormData, Slide } from "../../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
+import { normalizeUrl } from "../../utils";
 
 const { width } = Dimensions.get("window");
 
@@ -74,6 +75,10 @@ export const useShopRegister = () => {
     try {
       const submissionData = {
         ...formData,
+        website: normalizeUrl(formData.website),
+        facebook: normalizeUrl(formData.facebook),
+        instagram: normalizeUrl(formData.instagram),
+        twitter: normalizeUrl(formData.twitter),
         walletAddress: account.address,
       };
 

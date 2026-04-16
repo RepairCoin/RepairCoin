@@ -16,11 +16,31 @@ export const isValidEthAddress = (address: string): boolean => {
   return ethAddressRegex.test(address);
 };
 
-// URL validation
+// URL validation — accepts URLs with or without the protocol prefix so
+// users can type "facebook.com/page" or "https://facebook.com/page".
+// Use normalizeUrl() before persisting so the stored value always has a
+// scheme and is safe to open as a clickable link.
 export const isValidUrl = (url: string): boolean => {
   const urlRegex =
     /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-@]*)*\/?$/;
   return urlRegex.test(url.trim());
+};
+
+// Prepend https:// to URLs the user typed without a protocol. Empty strings
+// are returned as-is (URL fields are optional). Values that don't look like
+// URLs at all (no dot) are returned untouched so isValidUrl() can reject
+// them downstream.
+export const normalizeUrl = (url: string): string => {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  if (trimmed.includes(".")) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
 };
 
 // Minimum length validation
@@ -82,7 +102,8 @@ export const validateShopFirstSlide = (
 export const validateShopSecondSlide = (
   name: string,
   companySize: string,
-  monthlyRevenue: string
+  monthlyRevenue: string,
+  website?: string
 ): string[] => {
   const errors: string[] = [];
 
@@ -96,6 +117,10 @@ export const validateShopSecondSlide = (
 
   if (!monthlyRevenue) {
     errors.push("Please select monthly revenue");
+  }
+
+  if (website && website.trim() && !isValidUrl(website.trim())) {
+    errors.push("Please enter a valid website URL");
   }
 
   return errors;

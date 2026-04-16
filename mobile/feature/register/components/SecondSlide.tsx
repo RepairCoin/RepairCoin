@@ -20,7 +20,8 @@ export default function SecondSlide({
     const errors = validateShopSecondSlide(
       formData.name,
       formData.companySize,
-      formData.monthlyRevenue
+      formData.monthlyRevenue,
+      formData.website
     );
 
     if (errors.length > 0) {
