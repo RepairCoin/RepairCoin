@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { jwtDecode } from "jwt-decode";
+import { router } from "expo-router";
 import { Toast } from "react-native-toast-notifications";
 import { authApi } from "@/shared/services/auth.services";
 import { useAuthStore } from "@/shared/store/auth.store";
@@ -63,6 +64,7 @@ class ApiClient {
   private baseURL: string;
   private isRefreshing = false;
   private refreshSubscribers: ((token: string) => void)[] = [];
+  private isClearingAuth = false;
 
   constructor() {
     this.baseURL =
@@ -292,10 +294,10 @@ class ApiClient {
               this.isRefreshing = false;
               return this.instance(originalRequest);
             } else {
-              // Only clear auth if refresh truly failed (not just a token expiry)
-              if (errorCode !== "TOKEN_EXPIRED") {
-                await this.clearAuthToken();
-              }
+              // Refresh failed — the refresh token itself is dead. Always
+              // clear auth and send the user to onboarding, regardless of
+              // the specific error code.
+              await this.clearAuthToken();
               this.onTokenRefreshed("");
               this.isRefreshing = false;
             }
@@ -383,13 +385,38 @@ class ApiClient {
     }
   }
 
-  // Clear auth tokens
+  // Clear auth tokens and bring the user back to onboarding.
+  // Called when the refresh token is invalid or token refresh fails so the
+  // app doesn't get stuck on a dashboard with a dead session.
   public async clearAuthToken(): Promise<void> {
+    // Always strip the header so in-flight requests do not send a dead token.
+    delete this.instance.defaults.headers.Authorization;
+
+    // The store's logout() also calls clearAuthToken(); guard against
+    // re-entry so we don't loop between the two.
+    if (this.isClearingAuth) {
+      return;
+    }
+    this.isClearingAuth = true;
+
     try {
-      delete this.instance.defaults.headers.Authorization;
-      console.log("[ApiClient] Auth tokens cleared");
+      const { logout, isAuthenticated } = useAuthStore.getState();
+
+      // Run the store's logout pipeline (clears Zustand + SecureStore,
+      // disconnects wallet, deactivates push tokens). Skip navigation here —
+      // we'll do it after logout resolves so it happens once.
+      await logout(false);
+
+      // Only navigate if the user was actually authenticated; otherwise a
+      // dropped public call shouldn't punt them to onboarding.
+      if (isAuthenticated) {
+        router.replace("/onboarding1");
+      }
+      console.log("[ApiClient] Auth fully cleared");
     } catch (error) {
-      console.error("Failed to clear auth token:", error);
+      console.error("Failed to clear auth:", error);
+    } finally {
+      this.isClearingAuth = false;
     }
   }
 
