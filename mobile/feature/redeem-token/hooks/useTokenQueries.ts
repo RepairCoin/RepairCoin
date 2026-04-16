@@ -73,26 +73,28 @@ export const useTokenBalance = (walletAddress?: string) => {
         // Round all numeric values to 2 decimal places
         const roundedData: BalanceData = {
           availableBalance:
-            Math.round(data.data?.availableBalance || 0 * 100) / 100,
-          lifetimeEarned: Math.round(data.data?.lifetimeEarned || 0 * 100) / 100,
-          totalRedeemed: Math.round(data.data?.totalRedeemed || 0 * 100) / 100,
+            Math.round((data.data?.availableBalance || 0) * 100) / 100,
+          lifetimeEarned:
+            Math.round((data.data?.lifetimeEarned || 0) * 100) / 100,
+          totalRedeemed:
+            Math.round((data.data?.totalRedeemed || 0) * 100) / 100,
           earningHistory: data.data?.earningHistory
             ? {
                 fromRepairs:
                   Math.round(
-                    (data.data?.earningHistory?.fromRepairs || 0) * 100
+                    (data.data?.earningHistory?.fromRepairs || 0) * 100,
                   ) / 100,
                 fromReferrals:
                   Math.round(
-                    (data.data?.earningHistory?.fromReferrals || 0) * 100
+                    (data.data?.earningHistory?.fromReferrals || 0) * 100,
                   ) / 100,
                 fromBonuses:
                   Math.round(
-                    (data.data.earningHistory.fromBonuses || 0) * 100
+                    (data.data.earningHistory.fromBonuses || 0) * 100,
                   ) / 100,
                 fromTierBonuses:
                   Math.round(
-                    (data.data.earningHistory.fromTierBonuses || 0) * 100
+                    (data.data.earningHistory.fromTierBonuses || 0) * 100,
                   ) / 100,
               }
             : undefined,
@@ -114,7 +116,8 @@ export const useRedemptionSessions = () => {
   return useQuery<MyRedemptionSessionsResponse>({
     queryKey: queryKeys.redemptionSessions(walletAddress || ""),
     queryFn: async () => {
-      const response: MyRedemptionSessionsResponse = await tokenApi.fetchMyRedemptionSessions();
+      const response: MyRedemptionSessionsResponse =
+        await tokenApi.fetchMyRedemptionSessions();
       return response;
     },
     enabled: !!walletAddress,
@@ -127,27 +130,34 @@ export const useRedemptionSessions = () => {
 // Hook: Approve Redemption Session
 export const useApproveRedemptionSession = () => {
   return useMutation({
-    mutationFn: async ({ sessionId, signature, transactionHash }: ApprovalRequest) => {
-      console.log('[useApproveRedemptionSession] Approving session:', {
+    mutationFn: async ({
+      sessionId,
+      signature,
+      transactionHash,
+    }: ApprovalRequest) => {
+      console.log("[useApproveRedemptionSession] Approving session:", {
         sessionId,
-        signature: signature.substring(0, 10) + '...', // Log only first 10 chars
-        hasTransactionHash: !!transactionHash
+        signature: signature.substring(0, 10) + "...", // Log only first 10 chars
+        hasTransactionHash: !!transactionHash,
       });
-      
-      const response = await tokenApi.approvalRedemptionSession(sessionId, signature);
-      console.log('[useApproveRedemptionSession] Response:', response);
+
+      const response = await tokenApi.approvalRedemptionSession(
+        sessionId,
+        signature,
+      );
+      console.log("[useApproveRedemptionSession] Response:", response);
       return response;
     },
     onSuccess: (data, variables) => {
-      console.log('[useApproveRedemptionSession] Success:', {
+      console.log("[useApproveRedemptionSession] Success:", {
         sessionId: variables.sessionId,
-        status: data?.data?.status
+        status: data?.data?.status,
       });
     },
     onError: (error: any, variables) => {
-      console.error('[useApproveRedemptionSession] Error:', {
+      console.error("[useApproveRedemptionSession] Error:", {
         sessionId: variables.sessionId,
-        error: error?.message || error
+        error: error?.message || error,
       });
     },
     retry: 2, // Reduced retries for user actions
@@ -159,24 +169,24 @@ export const useApproveRedemptionSession = () => {
 export const useRejectRedemptionSession = () => {
   return useMutation({
     mutationFn: async (sessionId: string) => {
-      console.log('[useRejectRedemptionSession] Rejecting session:', {
-        sessionId
+      console.log("[useRejectRedemptionSession] Rejecting session:", {
+        sessionId,
       });
-      
+
       const response = await tokenApi.rejectRedemptionSession(sessionId);
-      console.log('[useRejectRedemptionSession] Response:', response);
+      console.log("[useRejectRedemptionSession] Response:", response);
       return response;
     },
     onSuccess: (data, sessionId) => {
-      console.log('[useRejectRedemptionSession] Success:', {
+      console.log("[useRejectRedemptionSession] Success:", {
         sessionId,
-        status: data?.data?.status
+        status: data?.data?.status,
       });
     },
     onError: (error: any, sessionId) => {
-      console.error('[useRejectRedemptionSession] Error:', {
+      console.error("[useRejectRedemptionSession] Error:", {
         sessionId,
-        error: error?.message || error
+        error: error?.message || error,
       });
     },
     retry: 2, // Reduced retries for user actions
