@@ -208,6 +208,8 @@ export class ServiceRepository extends BaseRepository {
       limit?: number;
       activeOnly?: boolean;
       customerAddress?: string;
+      search?: string;
+      category?: string;
     } = {}
   ): Promise<PaginatedResult<ShopService>> {
     try {
@@ -216,20 +218,35 @@ export class ServiceRepository extends BaseRepository {
       const offset = (page - 1) * limit;
       const normalizedAddress = options.customerAddress?.toLowerCase();
 
+      // Build WHERE clause and its params together so count and main queries stay in sync
+      const whereParams: (string | number)[] = [shopId];
+      let paramCount = 1;
       let whereClause = 'WHERE s.shop_id = $1';
+
       if (options.activeOnly) {
         whereClause += ' AND s.active = true';
       }
 
+      if (options.search) {
+        paramCount++;
+        whereClause += ` AND (s.service_name ILIKE $${paramCount} OR s.description ILIKE $${paramCount})`;
+        whereParams.push(`%${options.search}%`);
+      }
+
+      if (options.category) {
+        paramCount++;
+        whereClause += ` AND s.category = $${paramCount}`;
+        whereParams.push(options.category);
+      }
+
       // Get total count
       const countQuery = `SELECT COUNT(*) as total FROM shop_services s ${whereClause}`;
-      const countResult = await this.pool.query(countQuery, [shopId]);
+      const countResult = await this.pool.query(countQuery, whereParams);
       const total = parseInt(countResult.rows[0].total);
 
       // Get paginated results with groups, ratings, and duration
       // Build favorites join if customer is authenticated
-      const params: (string | number)[] = [shopId];
-      let paramCount = 1;
+      const params: (string | number)[] = [...whereParams];
       let favoritesJoin = '';
       let favoritesSelect = 'false as is_favorited';
 

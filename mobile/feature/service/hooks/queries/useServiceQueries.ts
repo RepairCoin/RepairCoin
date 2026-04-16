@@ -25,14 +25,17 @@ export function useServicesTabQuery() {
   });
 }
 
-export function useInfiniteShopServicesQuery() {
+export function useInfiniteShopServicesQuery(
+  filters?: { search?: string; category?: string }
+) {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId ?? "";
 
   return useInfiniteQuery({
-    queryKey: ['shopServices', 'infinite', shopId],
+    queryKey: ['shopServices', 'infinite', shopId, filters],
     queryFn: async ({ pageParam = 1 }) => {
       const response = await serviceApi.getShopServices(shopId, {
+        ...filters,
         page: pageParam,
         limit: 10,
       });

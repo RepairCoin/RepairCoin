@@ -142,7 +142,9 @@ export class ServiceController {
         limit: parseInt(req.query.limit as string) || 20,
         // Only show active services to public, show all to shop owner
         activeOnly: requestingShopId !== shopId,
-        customerAddress
+        customerAddress,
+        search: (req.query.search as string) || undefined,
+        category: (req.query.category as string) || undefined,
       };
 
       console.log('🔍 [getShopServices] Query options:', {

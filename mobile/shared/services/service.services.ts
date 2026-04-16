@@ -26,7 +26,7 @@ class ServiceApi {
 
   async getShopServices(
     shopId: string,
-    options?: { page?: number; limit?: number }
+    options?: { page?: number; limit?: number; search?: string; category?: string }
   ): Promise<ServiceResponse> {
     try {
       const queryString = options ? buildQueryString(options) : "";

@@ -171,6 +171,8 @@ export class ServiceManagementService {
       limit?: number;
       activeOnly?: boolean;
       customerAddress?: string;
+      search?: string;
+      category?: string;
     } = {}
   ): Promise<PaginatedResult<ShopService>> {
     try {
