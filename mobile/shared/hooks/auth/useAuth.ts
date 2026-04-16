@@ -60,16 +60,24 @@ export function useAuth() {
           return;
         }
 
-        // Handle pending/inactive shop before getting token
-        // A shop is pending when not yet verified by admin (verified: false)
-        // or explicitly deactivated (active: false)
+        // Handle pending/inactive shop before getting token.
+        // - Pending: never verified by admin (verified=false)
+        // - Suspended: was verified, then deactivated (verified=true, active=false,
+        //   typically with suspendedAt/suspensionReason populated)
         if (
           result.type === "shop" &&
           (!result.user?.verified || !result.user?.active)
         ) {
           setUserProfile(result.user);
           setUserType("shop");
-          router.replace("/register/pending");
+          const isActive = result.user?.isActive ?? result.user?.active;
+          const isSuspended =
+            !!result.user?.suspendedAt ||
+            !!result.user?.suspended_at ||
+            (result.user?.verified && !isActive);
+          router.replace(
+            isSuspended ? "/register/suspended" : "/register/pending"
+          );
           setTimeout(() => setIsLoading(false), 500);
           return;
         }
@@ -97,11 +105,18 @@ export function useAuth() {
           }
         } catch (err) {
           console.error("[useConnectWallet] Token error:", err);
-          // If token fails for a shop, it might be unverified
+          // If token fails for a shop, it might be unverified or suspended
           if (result.type === "shop") {
             setUserProfile(result.user);
             setUserType("shop");
-            router.replace("/register/pending");
+            const isActive = result.user?.isActive ?? result.user?.active;
+            const isSuspended =
+              !!result.user?.suspendedAt ||
+              !!result.user?.suspended_at ||
+              (result.user?.verified && !isActive);
+            router.replace(
+              isSuspended ? "/register/suspended" : "/register/pending"
+            );
             setTimeout(() => setIsLoading(false), 500);
           } else {
             setIsLoading(false);
@@ -168,12 +183,19 @@ export function useAuth() {
       if (userType === "customer") {
         router.replace("/customer/tabs/home");
       } else if (userType === "shop") {
-        const isApprovedShop =
-          userProfile?.verified && userProfile?.active !== false;
+        const isActive =
+          userProfile?.isActive ?? userProfile?.active;
+        const isApprovedShop = userProfile?.verified && isActive !== false;
         if (isApprovedShop) {
           router.replace("/shop/tabs/home");
         } else {
-          router.replace("/register/pending");
+          const isSuspended =
+            !!userProfile?.suspendedAt ||
+            !!userProfile?.suspended_at ||
+            (userProfile?.verified && isActive === false);
+          router.replace(
+            isSuspended ? "/register/suspended" : "/register/pending"
+          );
         }
       } else {
         router.replace("/onboarding1");

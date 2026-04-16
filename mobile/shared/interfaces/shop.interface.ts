@@ -79,6 +79,10 @@ export interface ShopData {
   verified: boolean;
   walletAddress: string;
   website: string;
+  // Suspension (populated by /auth/check-user when shop is suspended)
+  isActive?: boolean;
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
 }
 
 export interface ShopResponseData {
