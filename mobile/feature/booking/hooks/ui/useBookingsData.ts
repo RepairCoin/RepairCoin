@@ -31,18 +31,27 @@ export function useBookingsData(statusFilter: BookingFilterStatus) {
     return bookingsData.filter((booking) => booking.status === statusFilter);
   }, [bookingsData, statusFilter]);
 
-  // Get bookings for a specific date
+  const isSameDay = (booking: BookingData, date: Date): boolean => {
+    const bookingDate = booking.bookingDate
+      ? new Date(booking.bookingDate)
+      : new Date(booking.createdAt);
+    return (
+      bookingDate.getFullYear() === date.getFullYear() &&
+      bookingDate.getMonth() === date.getMonth() &&
+      bookingDate.getDate() === date.getDate()
+    );
+  };
+
+  // Bookings for a date, filtered by the active status filter — used by the
+  // list of bookings shown under the selected date.
   const getBookingsForDate = (date: Date): BookingData[] => {
-    return filteredBookings.filter((booking) => {
-      const bookingDate = booking.bookingDate
-        ? new Date(booking.bookingDate)
-        : new Date(booking.createdAt);
-      return (
-        bookingDate.getFullYear() === date.getFullYear() &&
-        bookingDate.getMonth() === date.getMonth() &&
-        bookingDate.getDate() === date.getDate()
-      );
-    });
+    return filteredBookings.filter((booking) => isSameDay(booking, date));
+  };
+
+  // Bookings for a date across ALL statuses — used by calendar dots so the
+  // status filter only affects the list below, not the calendar itself.
+  const getAllBookingsForDate = (date: Date): BookingData[] => {
+    return bookingsData.filter((booking) => isSameDay(booking, date));
   };
 
   return {
@@ -51,5 +60,6 @@ export function useBookingsData(statusFilter: BookingFilterStatus) {
     error,
     refetch,
     getBookingsForDate,
+    getAllBookingsForDate,
   };
 }

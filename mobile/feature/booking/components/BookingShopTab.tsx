@@ -46,10 +46,11 @@ interface BookingActions {
 
 interface BookingCalendarProps {
   getBookingsForDate: (date: Date) => BookingData[];
+  getAllBookingsForDate: (date: Date) => BookingData[];
   actions: BookingActions;
 }
 
-function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) {
+function BookingCalendar({ getBookingsForDate, getAllBookingsForDate, actions }: BookingCalendarProps) {
   const {
     selectedDate,
     setSelectedDate,
@@ -104,7 +105,7 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
           contentOffset={{ x: initialScrollOffset, y: 0 }}
         >
           {scrollableDays.map((date, idx) => {
-            const dayBookings = getBookingsForDate(date);
+            const dayBookings = getAllBookingsForDate(date);
             const hasBookings = dayBookings.length > 0;
             const selected = isDateSelected(date, selectedDate);
             const today = isToday(date);
@@ -373,7 +374,7 @@ function BookingCalendar({ getBookingsForDate, actions }: BookingCalendarProps) 
                         calendarMonth.getMonth(),
                         day
                       );
-                      const dayBookings = getBookingsForDate(cellDate);
+                      const dayBookings = getAllBookingsForDate(cellDate);
                       const hasBookings = dayBookings.length > 0;
                       const today = isToday(cellDate);
                       const selected = isDateSelected(cellDate, selectedDate);
@@ -502,7 +503,7 @@ export default function BookingsTab() {
   });
   const pendingDisputeCount = disputeData?.pendingCount ?? 0;
   const { statusFilter, setStatusFilter } = useBookingsFilter();
-  const { isLoading, getBookingsForDate, bookings, refetch } = useBookingsData(statusFilter);
+  const { isLoading, getBookingsForDate, getAllBookingsForDate, bookings, refetch } = useBookingsData(statusFilter);
 
   const handleApprove = useCallback(async (orderId: string) => {
     setProcessingId(orderId);
@@ -692,7 +693,11 @@ export default function BookingsTab() {
           <ActivityIndicator size="large" color="#ffcc00" />
         </View>
       ) : viewMode === "calendar" ? (
-        <BookingCalendar getBookingsForDate={getBookingsForDate} actions={actions} />
+        <BookingCalendar
+          getBookingsForDate={getBookingsForDate}
+          getAllBookingsForDate={getAllBookingsForDate}
+          actions={actions}
+        />
       ) : (
         <BookingList bookings={bookings} actions={actions} />
       )}

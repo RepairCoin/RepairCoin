@@ -36,9 +36,13 @@ const getDisplayStatus = (booking: BookingData): string => {
 
 interface AppointmentCalendarProps {
   getAppointmentsForDate: (date: Date) => BookingData[];
+  getAllAppointmentsForDate: (date: Date) => BookingData[];
 }
 
-function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProps) {
+function AppointmentCalendar({
+  getAppointmentsForDate,
+  getAllAppointmentsForDate,
+}: AppointmentCalendarProps) {
   const {
     selectedDate,
     setSelectedDate,
@@ -93,7 +97,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
           contentOffset={{ x: initialScrollOffset, y: 0 }}
         >
           {scrollableDays.map((date, idx) => {
-            const dayBookings = getAppointmentsForDate(date);
+            const dayBookings = getAllAppointmentsForDate(date);
             const hasBookings = dayBookings.length > 0;
             const selected = isDateSelected(date, selectedDate);
             const today = isToday(date);
@@ -395,7 +399,7 @@ function AppointmentCalendar({ getAppointmentsForDate }: AppointmentCalendarProp
                         calendarMonth.getMonth(),
                         day
                       );
-                      const dayBookings = getAppointmentsForDate(cellDate);
+                      const dayBookings = getAllAppointmentsForDate(cellDate);
                       const hasBookings = dayBookings.length > 0;
                       const today = isToday(cellDate);
                       const selected = isDateSelected(cellDate, selectedDate);
@@ -474,7 +478,11 @@ export default function AppointmentsTab() {
   const { statusFilter, setStatusFilter } = useBookingsFilter();
 
   // Data fetching
-  const { isLoading, getBookingsForDate: getAppointmentsForDate } = useBookingsData(statusFilter);
+  const {
+    isLoading,
+    getBookingsForDate: getAppointmentsForDate,
+    getAllBookingsForDate: getAllAppointmentsForDate,
+  } = useBookingsData(statusFilter);
 
   return (
     <View className="flex-1 bg-zinc-950">
@@ -512,7 +520,10 @@ export default function AppointmentsTab() {
           <ActivityIndicator size="large" color="#ffcc00" />
         </View>
       ) : (
-        <AppointmentCalendar getAppointmentsForDate={getAppointmentsForDate} />
+        <AppointmentCalendar
+          getAppointmentsForDate={getAppointmentsForDate}
+          getAllAppointmentsForDate={getAllAppointmentsForDate}
+        />
       )}
     </View>
   );
