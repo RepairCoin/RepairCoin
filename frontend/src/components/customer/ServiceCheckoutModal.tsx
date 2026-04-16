@@ -229,23 +229,27 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const RCN_TO_USD = 0.10;
   const MIN_SERVICE_PRICE = 10;
 
-  // Determine max discount percentage based on home shop and tier
-  // Home shop: 100% redemption (or 80% if caution/deposit_required tier)
-  // Cross-shop: 20% base redemption
+  // Determine max redeemable based on home shop, cross-shop limit, and no-show tier
+  // Home shop: 100% of balance | Cross-shop: 20% of balance (matching backend VerificationService)
   const isHomeShop = noShowStatus?.isHomeShop === true;
   const isRestrictedTier = noShowStatus?.tier === 'caution' || noShowStatus?.tier === 'deposit_required';
-  const baseRate = isHomeShop ? 1.00 : 0.20;
-  const tierCap = isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent
+
+  // Cross-shop limit: 20% of customer's balance (not service price)
+  const crossShopMaxRcn = isHomeShop ? customerBalance : Math.floor(customerBalance * 0.20 * 100) / 100;
+
+  // No-show tier cap: percentage of service price
+  const tierCapPct = isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent
     ? noShowStatus.maxRcnRedemptionPercent / 100
     : 1.00;
-  const MAX_DISCOUNT_PCT = Math.min(baseRate, tierCap);
+  const tierMaxRcn = Math.floor((service.priceUsd * tierCapPct) / RCN_TO_USD);
 
+  // Service price cap: can't discount more than the service costs
+  const servicePriceMaxRcn = Math.floor(service.priceUsd / RCN_TO_USD);
 
   const showRedemptionSection = service.priceUsd >= MIN_SERVICE_PRICE;
   const rcnDataReady = noShowStatus !== null && !loadingNoShowStatus && customerBalance >= 0 && !!customerAddress;
   const canUseRedemption = showRedemptionSection && customerBalance > 0 && rcnDataReady;
-  const maxDiscountUsd = service.priceUsd * MAX_DISCOUNT_PCT;
-  const maxRcnRedeemable = customerBalance > 0 ? Math.floor(Math.min(maxDiscountUsd / RCN_TO_USD, customerBalance)) : 0;
+  const maxRcnRedeemable = customerBalance > 0 ? Math.floor(Math.min(crossShopMaxRcn, tierMaxRcn, servicePriceMaxRcn, customerBalance)) : 0;
 
   const actualRcnRedeemed = Math.min(rcnToRedeem, maxRcnRedeemable);
   const discountUsd = actualRcnRedeemed * RCN_TO_USD;
@@ -713,7 +717,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>0 RCN</span>
-                          <span>{maxRcnRedeemable} RCN (Max {(MAX_DISCOUNT_PCT * 100).toFixed(0)}%)</span>
+                          <span>{maxRcnRedeemable} RCN{customerBalance > 0 ? ` (Max ${isHomeShop ? '100' : '20'}%)` : ''}</span>
                         </div>
                       </div>
 

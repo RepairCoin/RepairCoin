@@ -1,6 +1,6 @@
 # Bug: Shop Registration Errors Silently Swallowed — No Feedback to User
 
-## Status: Open
+## Status: Fixed
 ## Priority: High
 ## Date: 2026-04-13
 ## Category: Bug - Registration / Error Handling

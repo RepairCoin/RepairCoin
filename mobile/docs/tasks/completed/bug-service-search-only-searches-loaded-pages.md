@@ -1,9 +1,13 @@
 # Bug: Service Search Only Finds Items in Already-Loaded Pages
 
-## Status: Open
+## Status: Fixed
+
 ## Priority: High
+
 ## Date: 2026-04-06
+
 ## Category: Bug - Service Marketplace
+
 ## Affected: Customer service browsing (mobile only)
 
 ---
@@ -37,35 +41,41 @@ Search is done **client-side only** — it filters the in-memory array of alread
 ### Mobile (broken)
 
 **`mobile/feature/service/hooks/ui/useServicesTab.ts`**
+
 - Line 22: `useInfiniteServicesQuery()` — called with no filters
 - Lines 98-103: Client-side search filtering on already-loaded data:
   ```typescript
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase();
     services = services.filter((service: ServiceData) =>
-      service.serviceName.toLowerCase().includes(query)
+      service.serviceName.toLowerCase().includes(query),
     );
   }
   ```
 
 **`mobile/shared/hooks/service/useService.ts`** — `useInfiniteServicesQuery`
+
 - queryKey: `['services', 'infinite', filters]` — `filters` is always undefined
 - queryFn calls `serviceApi.getAll({ ...filters, page: pageParam, limit: 10 })` — no search param
 
 **`mobile/shared/services/service.services.ts`** line 17-25
+
 - `getAll(filters)` supports filters but never receives search from the hook
 
 ### Backend (works correctly)
 
 **`backend/src/repositories/ServiceRepository.ts`** lines 349-353:
+
 ```sql
 (s.service_name ILIKE $N OR s.description ILIKE $N)
 ```
+
 Backend supports `?search=query` and searches across ALL services with pagination.
 
 ### Web (works correctly)
 
 **`frontend/src/components/customer/ServiceMarketplaceClient.tsx`**
+
 - Passes `filters` (including search) to API call
 - Resets page to 1 when filters change
 
@@ -78,6 +88,7 @@ Pass `searchQuery` (and other filters) to `useInfiniteServicesQuery` so the back
 ### Option A: Pass search to infinite query (recommended)
 
 1. **`useServicesTab.ts`** — pass search and filters to the infinite query:
+
    ```typescript
    const filters = useMemo(() => ({
      search: searchQuery.trim() || undefined,
@@ -90,6 +101,7 @@ Pass `searchQuery` (and other filters) to `useInfiniteServicesQuery` so the back
    ```
 
 2. **`useService.ts`** — ensure `useInfiniteServicesQuery` passes filters to API and includes them in queryKey:
+
    ```typescript
    const useInfiniteServicesQuery = (filters?: ServiceFilters) => {
      return useInfiniteQuery({
@@ -115,16 +127,17 @@ Fetch all pages when user searches — bad for performance with large datasets.
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
+| File                                                | Change                                                    |
+| --------------------------------------------------- | --------------------------------------------------------- |
 | `mobile/feature/service/hooks/ui/useServicesTab.ts` | Pass filters to infinite query, remove client-side search |
-| `mobile/shared/hooks/service/useService.ts` | Accept and forward filters in `useInfiniteServicesQuery` |
+| `mobile/shared/hooks/service/useService.ts`         | Accept and forward filters in `useInfiniteServicesQuery`  |
 
 ---
 
 ## QA Test Plan
 
 ### Reproduce Bug (before fix)
+
 1. Open mobile app as customer
 2. Go to Marketplace → Services tab
 3. Note which services are visible (first 10)
@@ -132,6 +145,7 @@ Fetch all pages when user searches — bad for performance with large datasets.
 5. **Result**: No results found (service exists in DB but not loaded yet)
 
 ### Verify Fix
+
 1. Search for a service name that exists on page 2+
 2. **Expected**: Service appears in results (backend searched all services)
 3. Search for partial name (e.g., "box" for "BOXING TRAINING")

@@ -1,6 +1,6 @@
 # Bug: Calendar Color Coding Inconsistent Between Views
 
-## Status: Open
+## Status: Fixed
 ## Priority: Medium
 ## Date: 2026-04-06
 ## Category: Bug - UI Inconsistency
