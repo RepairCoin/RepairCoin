@@ -1,10 +1,10 @@
 # Feature: Mint RCN to Wallet & Wallet Balance View
 
-**Status:** Completed
+**Status:** Completed (Partial — Mint only)
 **Priority:** Medium
 **Est. Effort:** 4-6 hrs
 **Created:** 2026-04-08
-**Updated:** 2026-04-08
+**Updated:** 2026-04-16
 **Completed:** 2026-04-08
 
 ## Overview
@@ -171,3 +171,5 @@ export function useMintToWalletMutation() {
 ## Notes
 
 This feature depends on the fix in `docs/tasks/customers/07-04-2026/bug-rcn-earning-mints-directly-to-blockchain.md` — once earnings are DB-only, the mint-to-wallet feature becomes the only way to get tokens on-chain.
+
+**2026-04-16 QA Review:** Only the Mint RCN to Wallet portion was implemented. The on-chain Wallet Balance View (reading `balanceOf` from the RCN smart contract and displaying it alongside the platform balance) was never built. Remaining work tracked in `bugs/16-04-2026/feature-on-chain-wallet-balance-view.md`.

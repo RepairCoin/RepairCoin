@@ -1,10 +1,10 @@
 # Feature: Mint RCN to Wallet & Blockchain Wallet Balance View
 
-## Status: Open
-## Priority: Medium
-## Date: 2026-04-07
-## Category: Feature - Token Management
-## Affected: Customer role (mobile only — web has both features)
+**Status:** Partially Completed
+**Priority:** Medium
+**Est. Effort:** 4-6 hrs (original), ~2 hrs remaining
+**Created:** 2026-04-07
+**Updated:** 2026-04-16
 
 ---
 
@@ -167,3 +167,14 @@ export function useMintToWalletMutation() {
 
 ### Note
 This feature depends on the fix in `docs/tasks/customers/07-04-2026/bug-rcn-earning-mints-directly-to-blockchain.md` — once earnings are DB-only, the mint-to-wallet feature becomes the only way to get tokens on-chain.
+
+---
+
+## Implementation Status (Updated 2026-04-16)
+
+| Sub-Feature | Status | Notes |
+|---|---|---|
+| **Mint RCN to Wallet** | **Done** | Implemented in `feature/home/components/customer-wallet/index.tsx`. Modal with amount input, MAX button, validation, backend call to `POST /customers/balance/:address/instant-mint`. |
+| **Wallet Balance View (On-chain)** | **Not Done** | No `useReadContract` / `balanceOf` call exists in mobile. Only platform balance is displayed. Web shows both off-chain and on-chain balances — mobile does not. |
+
+Remaining work tracked in: `bugs/16-04-2026/feature-on-chain-wallet-balance-view.md`
