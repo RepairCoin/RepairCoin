@@ -4,8 +4,11 @@ import { useAuthStore } from "@/shared/store/auth.store";
 import { router } from "expo-router";
 import apiClient from "@/shared/utilities/axios";
 import { useCallback, useState } from "react";
+import { useAppToast } from "@/shared/hooks/useAppToast";
 
 export function useAuth() {
+  const { showError } = useAppToast();
+
   const useGetToken = () => {
     return useMutation({
       mutationFn: async (address: string) => {
@@ -60,7 +63,10 @@ export function useAuth() {
         // Handle pending/inactive shop before getting token
         // A shop is pending when not yet verified by admin (verified: false)
         // or explicitly deactivated (active: false)
-        if (result.type === "shop" && (!result.user?.verified || !result.user?.active)) {
+        if (
+          result.type === "shop" &&
+          (!result.user?.verified || !result.user?.active)
+        ) {
           setUserProfile(result.user);
           setUserType("shop");
           router.replace("/register/pending");
@@ -73,7 +79,9 @@ export function useAuth() {
           if (getTokenResult.success) {
             setUserProfile(result.user);
             setAccessToken(getTokenResult.token);
-            setRefreshToken(getTokenResult.data?.refreshToken || getTokenResult.refreshToken);
+            setRefreshToken(
+              getTokenResult.data?.refreshToken || getTokenResult.refreshToken,
+            );
             setUserType(result.type);
             apiClient.setAuthToken(getTokenResult.token);
 
@@ -105,7 +113,9 @@ export function useAuth() {
 
         // Check if user not found - redirect to register
         if (error?.response?.status === 404 || error?.status === 404) {
-          console.log("[useConnectWallet] User not found, redirecting to register...");
+          console.log(
+            "[useConnectWallet] User not found, redirecting to register...",
+          );
           router.replace("/register");
           // Keep isLoading true until navigation completes to prevent onboarding flash
           setTimeout(() => setIsLoading(false), 500);
@@ -113,6 +123,15 @@ export function useAuth() {
         }
 
         setIsLoading(false);
+
+        // Show user-facing error unless the axios interceptor already did
+        if (!error?.__toastShown) {
+          const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            "Something went wrong. Please try again.";
+          showError(message);
+        }
       },
     });
   };
@@ -149,7 +168,8 @@ export function useAuth() {
       if (userType === "customer") {
         router.replace("/customer/tabs/home");
       } else if (userType === "shop") {
-        const isApprovedShop = userProfile?.verified && userProfile?.active !== false;
+        const isApprovedShop =
+          userProfile?.verified && userProfile?.active !== false;
         if (isApprovedShop) {
           router.replace("/shop/tabs/home");
         } else {

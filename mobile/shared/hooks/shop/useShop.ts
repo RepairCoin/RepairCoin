@@ -5,10 +5,9 @@ import {
   ShopCustomersResponse,
   ShopFormData,
   ShopResponse,
-} from "@/shared/interfaces/shop.interface";
+ ShopByWalletAddressResponse } from "@/shared/interfaces/shop.interface";
 import { shopApi } from "@/shared/services/shop.services";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
-import { ShopByWalletAddressResponse } from "@/shared/interfaces/shop.interface";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 
@@ -34,7 +33,7 @@ export function useShop() {
         return response.data;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes
-      refetchOnMount: 'always', // Always refetch when component mounts
+      refetchOnMount: "always", // Always refetch when component mounts
     });
   };
 
@@ -104,6 +103,7 @@ export function useShop() {
       },
       onError: (error: any) => {
         console.error("[useRegisterShop] Error:", error);
+        if (error?.__toastShown) return;
         const message =
           error?.response?.data?.error ||
           error?.message ||

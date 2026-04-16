@@ -1,5 +1,8 @@
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
-import { CustomerFormData, TransactionResponse } from "@/shared/interfaces/customer.interface";
+import {
+  CustomerFormData,
+  TransactionResponse,
+} from "@/shared/interfaces/customer.interface";
 import { customerApi } from "@/shared/services/customer.services";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -19,8 +22,14 @@ export const useCustomer = () => {
         const data = response?.data || response;
         // Map snake_case fields
         if (data?.customer) {
-          data.customer.profileImageUrl = data.customer.profileImageUrl || data.customer.profile_image_url || null;
-          data.customer.currentRcnBalance = data.customer.currentRcnBalance ?? data.customer.current_rcn_balance ?? 0;
+          data.customer.profileImageUrl =
+            data.customer.profileImageUrl ||
+            data.customer.profile_image_url ||
+            null;
+          data.customer.currentRcnBalance =
+            data.customer.currentRcnBalance ??
+            data.customer.current_rcn_balance ??
+            0;
         }
         return data;
       },
@@ -31,16 +40,14 @@ export const useCustomer = () => {
 
   const useGetTransactionsByWalletAddress = (
     address: string,
-    limit: number
+    limit: number,
   ) => {
     return useQuery({
       queryKey: queryKeys.customerTransactions(address),
       queryFn: async () => {
-        const response: TransactionResponse = await customerApi.getTransactionByWalletAddress(
-          address,
-          limit
-        );
-        console.log("responseresponse: ", response)
+        const response: TransactionResponse =
+          await customerApi.getTransactionByWalletAddress(address, limit);
+        console.log("responseresponse: ", response);
         return response.data;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes
@@ -63,14 +70,19 @@ export const useCustomer = () => {
       onSuccess: async (result) => {
         if (result.success) {
           const customerData = result.data;
-          const walletAddress = customerData?.address || customerData?.walletAddress;
+          const walletAddress =
+            customerData?.address || customerData?.walletAddress;
 
           try {
-            const getTokenResult = await getTokenMutation.mutateAsync(walletAddress);
+            const getTokenResult =
+              await getTokenMutation.mutateAsync(walletAddress);
             if (getTokenResult.success) {
               setUserProfile(customerData);
               setAccessToken(getTokenResult.token);
-              setRefreshToken(getTokenResult.data?.refreshToken || getTokenResult.refreshToken);
+              setRefreshToken(
+                getTokenResult.data?.refreshToken ||
+                  getTokenResult.refreshToken,
+              );
               setUserType("customer");
               apiClient.setAuthToken(getTokenResult.token);
               router.push("/register/customer/Success");
@@ -84,6 +96,7 @@ export const useCustomer = () => {
       },
       onError: (error: any) => {
         console.error("[useRegisterCustomer] Error:", error);
+        if (error?.__toastShown) return;
         const message =
           error?.response?.data?.error ||
           error?.message ||
@@ -95,7 +108,12 @@ export const useCustomer = () => {
 
   const useUpdateCustomerProfile = (address: string) => {
     return useMutation({
-      mutationFn: async (updates: { name?: string; email?: string; phone?: string; profile_image_url?: string }) => {
+      mutationFn: async (updates: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        profile_image_url?: string;
+      }) => {
         const response = await customerApi.update(address, updates);
         return response.data;
       },
@@ -111,6 +129,6 @@ export const useCustomer = () => {
     useGetCustomerByWalletAddress,
     useGetTransactionsByWalletAddress,
     useRegisterCustomer,
-    useUpdateCustomerProfile
+    useUpdateCustomerProfile,
   };
 };
