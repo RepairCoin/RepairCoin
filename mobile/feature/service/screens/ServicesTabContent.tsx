@@ -34,6 +34,7 @@ const SORT_LABELS: Record<ServiceSortOption, string> = {
 export default function ServicesTabContent() {
   const {
     filteredServices,
+    totalResults,
     favoritedIds,
     isLoading,
     isFetching,
@@ -152,8 +153,7 @@ export default function ServicesTabContent() {
       {/* Results count when searching or filtering */}
       {(searchQuery.length > 0 || hasActiveFilters) && (
         <Text className="text-gray-400 text-sm mb-2">
-          {filteredServices.length} result
-          {filteredServices.length !== 1 ? "s" : ""} found
+          {totalResults} result{totalResults !== 1 ? "s" : ""} found
         </Text>
       )}
 

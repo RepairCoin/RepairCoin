@@ -65,6 +65,13 @@ export function useServicesTabUI() {
     return services;
   }, [servicesData, statusFilter, selectedCategories]);
 
+  // Total matching results from the API (server-side filtered count across all pages),
+  // not just the items currently loaded in memory.
+  const totalResults = useMemo(() => {
+    if (!servicesPages?.pages?.length) return 0;
+    return servicesPages.pages[0]?.pagination?.totalItems ?? filteredServices.length;
+  }, [servicesPages, filteredServices.length]);
+
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -109,6 +116,7 @@ export function useServicesTabUI() {
     // Data
     services: filteredServices,
     serviceCount: filteredServices.length,
+    totalResults,
     isLoading,
     error,
     refreshing,

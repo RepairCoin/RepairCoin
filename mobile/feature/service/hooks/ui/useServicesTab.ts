@@ -127,6 +127,13 @@ export function useServicesTab() {
     return services;
   }, [servicesData, statusFilter, selectedCategories, sortOption]);
 
+  // Total matching results from the API (server-side filtered count across all pages),
+  // not just the items currently loaded in memory.
+  const totalResults = useMemo(() => {
+    if (!servicesPages?.pages?.length) return 0;
+    return servicesPages.pages[0]?.pagination?.totalItems ?? filteredServices.length;
+  }, [servicesPages, filteredServices.length]);
+
   const handleServicePress = useCallback((item: ServiceData) => {
     router.push(`/customer/service/${item.serviceId}`);
   }, []);
@@ -159,6 +166,7 @@ export function useServicesTab() {
     // Data
     servicesData,
     filteredServices,
+    totalResults,
     favoritedIds,
     isLoading,
     isFetching,

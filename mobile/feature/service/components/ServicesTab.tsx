@@ -46,6 +46,7 @@ export default function ServicesTab({
     // Data
     services,
     serviceCount,
+    totalResults,
     isLoading,
     error,
     refreshing,
@@ -165,7 +166,7 @@ export default function ServicesTab({
       {/* Results count when searching or filtering */}
       {hasSearchOrFilters && (
         <Text className="text-gray-400 text-sm mb-2">
-          {serviceCount} result{serviceCount !== 1 ? "s" : ""} found
+          {totalResults} result{totalResults !== 1 ? "s" : ""} found
         </Text>
       )}
 
