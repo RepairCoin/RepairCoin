@@ -25,7 +25,7 @@ export const useCustomerLookup = () => {
       setCustomerData(null);
       setCustomerError(null);
     }
-  }, [customerAddress, shopData?.id]);
+  }, [customerAddress, shopData?.shopId]);
 
   const lookupCustomer = async (address: string) => {
     setIsLoadingCustomer(true);
@@ -37,7 +37,7 @@ export const useCustomerLookup = () => {
         customerApi.getCustomerByWalletAddress(address),
         balanceApi.getCustomerBalance(address),
         customerApi.getCrossShopBalance(address).catch(() => null),
-        shopData?.id ? customerApi.hasEarnedAtShop(address, shopData.id) : Promise.resolve(false),
+        shopData?.shopId ? customerApi.hasEarnedAtShop(address, shopData.shopId) : Promise.resolve(false),
       ]);
 
       if (customerResponse && balanceResponse) {
