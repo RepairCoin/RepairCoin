@@ -12,6 +12,7 @@ import {
 import { GeneralSettingsContent } from "./GeneralSettingsContent";
 import { NotificationSettingsContent } from "./NotificationSettingsContent";
 import { SecuritySettingsContent } from "./SecuritySettingsContent";
+import { SystemConfigurationContent } from "./SystemConfigurationContent";
 
 export const AdminSettingsTab: React.FC = () => {
   const searchParams = useSearchParams();
@@ -117,49 +118,7 @@ export const AdminSettingsTab: React.FC = () => {
           {activeTab === "security" && <SecuritySettingsContent />}
 
           {/* System Configuration Tab Content */}
-          {activeTab === "system" && (
-            <>
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-[#FFCC00]">
-                  System Configuration
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  Database, API, and system maintenance settings
-                </p>
-              </div>
-
-              <div className="border-t border-[#3F3F3F] pt-6">
-                <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                  <p className="text-gray-500 text-sm mb-4">
-                    This section is coming soon...
-                  </p>
-
-                  <div className="space-y-3 text-sm text-gray-400">
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>API rate limiting controls</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Database backup scheduling and retention</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>System health monitoring thresholds</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Storage limits (images, documents, logs)</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[#FFCC00] mt-1">•</span>
-                      <span>Blockchain connection settings (RPC endpoints, gas limits)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          {activeTab === "system" && <SystemConfigurationContent />}
 
           {/* Email Templates Tab Content */}
           {activeTab === "email-templates" && (
@@ -207,8 +166,7 @@ export const AdminSettingsTab: React.FC = () => {
           )}
 
           {/* Info Banner - Shows only on coming soon tabs */}
-          {(activeTab === "system" ||
-            activeTab === "email-templates") && (
+          {activeTab === "email-templates" && (
             <div className="mt-6 bg-blue-900/20 border border-blue-700 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <Settings className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />

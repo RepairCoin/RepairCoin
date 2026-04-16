@@ -1203,18 +1203,32 @@ export const getSecuritySettings = async (): Promise<SecuritySettings | null> =>
     const response = await apiClient.get<{ data: SecuritySettings }>('/admin/settings/security');
     console.log('[API] Security settings response:', response);
 
+    let settings: SecuritySettings | null = null;
+
     // Handle both response formats: { data: settings } or { success: true, data: settings }
     if (response.data) {
       // Check if response.data.data exists (nested structure)
       if ('data' in response.data && response.data.data) {
         console.log('[API] Returning nested data:', response.data.data);
-        return response.data.data as SecuritySettings;
+        settings = response.data.data as SecuritySettings;
       }
       // Check if response.data is already the settings object
-      if ('enableRolePermissions' in response.data || 'sessionTimeout' in response.data) {
+      else if ('enableRolePermissions' in response.data || 'sessionTimeout' in response.data) {
         console.log('[API] Returning direct data:', response.data);
-        return response.data as SecuritySettings;
+        settings = response.data as SecuritySettings;
       }
+    }
+
+    // Ensure arrays are always defined (defensive programming)
+    if (settings) {
+      return {
+        ...settings,
+        viewOnlyPermissions: settings.viewOnlyPermissions || [],
+        standardPermissions: settings.standardPermissions || [],
+        superAdminPermissions: settings.superAdminPermissions || [],
+        ipWhitelist: settings.ipWhitelist || [],
+        ipBlacklist: settings.ipBlacklist || [],
+      };
     }
 
     console.warn('[API] Unexpected response structure:', response);
@@ -1241,5 +1255,98 @@ export const updateSecuritySettings = async (
   } catch (error) {
     console.error('Error updating security settings:', error);
     return { success: false, message: 'Failed to update security settings' };
+  }
+};
+
+// System Configuration Settings Types
+export interface SystemSettings {
+  // API Rate Limiting
+  enableRateLimiting: boolean;
+  rateLimitWindowMs: number; // in milliseconds
+  rateLimitMaxRequests: number;
+  rateLimitBypassIps: string[];
+
+  // Database Backup
+  enableAutoBackup: boolean;
+  backupFrequency: 'hourly' | 'daily' | 'weekly';
+  backupRetentionDays: number;
+  backupTime: string; // HH:mm format
+
+  // System Health Monitoring
+  enableHealthMonitoring: boolean;
+  healthCheckInterval: number; // in minutes
+  cpuThreshold: number; // percentage
+  memoryThreshold: number; // percentage
+  diskThreshold: number; // percentage
+
+  // Storage Limits
+  maxImageSize: number; // in MB
+  maxDocumentSize: number; // in MB
+  maxLogSize: number; // in MB
+  totalStorageLimit: number; // in GB
+
+  // Blockchain Settings
+  rpcEndpoint: string;
+  rpcBackupEndpoint: string;
+  gasLimit: number;
+  maxGasPrice: number; // in gwei
+  blockConfirmations: number;
+
+  // Metadata
+  lastModified: Date;
+  modifiedBy?: string;
+}
+
+// System Configuration API
+export const getSystemSettings = async (): Promise<SystemSettings | null> => {
+  try {
+    console.log('[API] Fetching system settings...');
+    const response = await apiClient.get<{ data: SystemSettings }>('/admin/settings/system');
+    console.log('[API] System settings response:', response);
+
+    let settings: SystemSettings | null = null;
+
+    if (response.data) {
+      if ('data' in response.data && response.data.data) {
+        console.log('[API] Returning nested data:', response.data.data);
+        settings = response.data.data as SystemSettings;
+      } else if ('enableRateLimiting' in response.data || 'enableAutoBackup' in response.data) {
+        console.log('[API] Returning direct data:', response.data);
+        settings = response.data as SystemSettings;
+      }
+    }
+
+    // Ensure arrays are always defined
+    if (settings) {
+      return {
+        ...settings,
+        rateLimitBypassIps: settings.rateLimitBypassIps || [],
+      };
+    }
+
+    console.warn('[API] Unexpected response structure:', response);
+    return null;
+  } catch (error) {
+    console.error('[API] Error getting system settings:', error);
+    return null;
+  }
+};
+
+export const updateSystemSettings = async (
+  settings: Partial<SystemSettings>
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.put<{
+      success: boolean;
+      message: string;
+      data: { updatedFields: string[]; modifiedBy: string };
+    }>('/admin/settings/system', settings);
+    return {
+      success: true,
+      message: response.data?.message || 'System settings updated successfully'
+    };
+  } catch (error) {
+    console.error('Error updating system settings:', error);
+    return { success: false, message: 'Failed to update system settings' };
   }
 };

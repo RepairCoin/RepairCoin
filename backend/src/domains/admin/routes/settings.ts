@@ -922,6 +922,7 @@ router.get('/security', asyncHandler(async (_req: Request, res: Response) => {
          OR setting_key LIKE '%2fa%'
          OR setting_key LIKE '%audit%'
          OR setting_key LIKE '%log_%'
+         OR setting_key LIKE '%permissions%'
          OR setting_key IN ('default_role', 'two_factor_method', 'enable_ip_whitelist', 'enable_ip_blacklist')
     `);
 
@@ -1089,6 +1090,309 @@ router.put('/security', asyncHandler(async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update security settings'
+    });
+  }
+}));
+
+/**
+ * System Configuration Settings Types
+ */
+interface SystemConfigurationSettings {
+  // API Rate Limiting
+  enableRateLimiting: boolean;
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
+  rateLimitBypassIps: string[];
+
+  // Database Backup
+  enableAutoBackup: boolean;
+  backupFrequency: 'hourly' | 'daily' | 'weekly';
+  backupRetentionDays: number;
+  backupTime: string;
+
+  // System Health Monitoring
+  enableHealthMonitoring: boolean;
+  healthCheckInterval: number;
+  cpuThreshold: number;
+  memoryThreshold: number;
+  diskThreshold: number;
+
+  // Storage Limits
+  maxImageSize: number;
+  maxDocumentSize: number;
+  maxLogSize: number;
+  totalStorageLimit: number;
+
+  // Blockchain Settings
+  rpcEndpoint: string;
+  rpcBackupEndpoint: string;
+  gasLimit: number;
+  maxGasPrice: number;
+  blockConfirmations: number;
+
+  // Metadata
+  lastModified: Date;
+  modifiedBy?: string;
+}
+
+/**
+ * Default system configuration settings
+ */
+const DEFAULT_SYSTEM_SETTINGS: Partial<SystemConfigurationSettings> = {
+  // API Rate Limiting
+  enableRateLimiting: true,
+  rateLimitWindowMs: 60000, // 1 minute
+  rateLimitMaxRequests: 100,
+  rateLimitBypassIps: [],
+
+  // Database Backup
+  enableAutoBackup: true,
+  backupFrequency: 'daily',
+  backupRetentionDays: 30,
+  backupTime: '02:00',
+
+  // System Health Monitoring
+  enableHealthMonitoring: true,
+  healthCheckInterval: 5, // minutes
+  cpuThreshold: 80,
+  memoryThreshold: 85,
+  diskThreshold: 90,
+
+  // Storage Limits
+  maxImageSize: 10, // MB
+  maxDocumentSize: 25, // MB
+  maxLogSize: 100, // MB
+  totalStorageLimit: 100, // GB
+
+  // Blockchain Settings
+  rpcEndpoint: process.env.RPC_ENDPOINT || 'https://base-sepolia.g.alchemy.com/v2/demo',
+  rpcBackupEndpoint: process.env.RPC_BACKUP_ENDPOINT || '',
+  gasLimit: 500000,
+  maxGasPrice: 100, // gwei
+  blockConfirmations: 2,
+};
+
+/**
+ * Initialize system configuration settings
+ */
+const initializeSystemSettings = async () => {
+  const db = DatabaseService.getInstance();
+
+  try {
+    const defaultSettings = [
+      // API Rate Limiting
+      ['enable_rate_limiting', String(DEFAULT_SYSTEM_SETTINGS.enableRateLimiting)],
+      ['rate_limit_window_ms', String(DEFAULT_SYSTEM_SETTINGS.rateLimitWindowMs)],
+      ['rate_limit_max_requests', String(DEFAULT_SYSTEM_SETTINGS.rateLimitMaxRequests)],
+      ['rate_limit_bypass_ips', JSON.stringify(DEFAULT_SYSTEM_SETTINGS.rateLimitBypassIps)],
+
+      // Database Backup
+      ['enable_auto_backup', String(DEFAULT_SYSTEM_SETTINGS.enableAutoBackup)],
+      ['backup_frequency', DEFAULT_SYSTEM_SETTINGS.backupFrequency],
+      ['backup_retention_days', String(DEFAULT_SYSTEM_SETTINGS.backupRetentionDays)],
+      ['backup_time', DEFAULT_SYSTEM_SETTINGS.backupTime],
+
+      // System Health Monitoring
+      ['enable_health_monitoring', String(DEFAULT_SYSTEM_SETTINGS.enableHealthMonitoring)],
+      ['health_check_interval', String(DEFAULT_SYSTEM_SETTINGS.healthCheckInterval)],
+      ['cpu_threshold', String(DEFAULT_SYSTEM_SETTINGS.cpuThreshold)],
+      ['memory_threshold', String(DEFAULT_SYSTEM_SETTINGS.memoryThreshold)],
+      ['disk_threshold', String(DEFAULT_SYSTEM_SETTINGS.diskThreshold)],
+
+      // Storage Limits
+      ['max_image_size', String(DEFAULT_SYSTEM_SETTINGS.maxImageSize)],
+      ['max_document_size', String(DEFAULT_SYSTEM_SETTINGS.maxDocumentSize)],
+      ['max_log_size', String(DEFAULT_SYSTEM_SETTINGS.maxLogSize)],
+      ['total_storage_limit', String(DEFAULT_SYSTEM_SETTINGS.totalStorageLimit)],
+
+      // Blockchain Settings
+      ['rpc_endpoint', DEFAULT_SYSTEM_SETTINGS.rpcEndpoint],
+      ['rpc_backup_endpoint', DEFAULT_SYSTEM_SETTINGS.rpcBackupEndpoint],
+      ['gas_limit', String(DEFAULT_SYSTEM_SETTINGS.gasLimit)],
+      ['max_gas_price', String(DEFAULT_SYSTEM_SETTINGS.maxGasPrice)],
+      ['block_confirmations', String(DEFAULT_SYSTEM_SETTINGS.blockConfirmations)],
+    ];
+
+    for (const [key, value] of defaultSettings) {
+      await db.query(`
+        INSERT INTO system_settings (setting_key, setting_value, modified_by)
+        VALUES ($1, $2, 'system')
+        ON CONFLICT (setting_key) DO NOTHING
+      `, [key, value]);
+    }
+
+    logger.info('System configuration settings initialized');
+  } catch (error) {
+    logger.error('Failed to initialize system configuration settings:', error);
+  }
+};
+
+// Initialize system configuration settings on module load
+initializeSystemSettings();
+
+/**
+ * Get system configuration settings
+ */
+router.get('/system', asyncHandler(async (_req: Request, res: Response) => {
+  const db = DatabaseService.getInstance();
+
+  try {
+    const result = await db.query(`
+      SELECT setting_key, setting_value, last_modified, modified_by
+      FROM system_settings
+      WHERE setting_key LIKE '%rate_limit%'
+         OR setting_key LIKE '%backup%'
+         OR setting_key LIKE '%health%'
+         OR setting_key LIKE '%threshold%'
+         OR setting_key LIKE '%storage%'
+         OR setting_key LIKE '%rpc%'
+         OR setting_key LIKE '%gas%'
+         OR setting_key LIKE '%block%'
+         OR setting_key LIKE 'max_%'
+         OR setting_key LIKE 'total_%'
+    `);
+
+    const settings: Record<string, string | number | boolean | string[]> = {};
+    let lastModified = new Date();
+    let modifiedBy = 'system';
+
+    result.rows.forEach(row => {
+      const key = row.setting_key;
+      let value: string | number | boolean | string[] = row.setting_value;
+
+      // Parse boolean values
+      if (['enable_rate_limiting', 'enable_auto_backup', 'enable_health_monitoring'].includes(key)) {
+        value = row.setting_value === 'true';
+      }
+
+      // Parse numeric values
+      if (['rate_limit_window_ms', 'rate_limit_max_requests', 'backup_retention_days',
+           'health_check_interval', 'cpu_threshold', 'memory_threshold', 'disk_threshold',
+           'max_image_size', 'max_document_size', 'max_log_size', 'total_storage_limit',
+           'gas_limit', 'max_gas_price', 'block_confirmations'].includes(key)) {
+        value = parseInt(row.setting_value);
+      }
+
+      // Parse JSON arrays
+      if (key === 'rate_limit_bypass_ips') {
+        try {
+          value = JSON.parse(row.setting_value);
+        } catch (e) {
+          logger.warn(`Failed to parse JSON for ${key}, using empty array`);
+          value = [];
+        }
+      }
+
+      // Convert snake_case to camelCase
+      const camelKey = key.replace(/_([a-z])/g, (g: string) => g[1].toUpperCase());
+      settings[camelKey] = value;
+
+      if (row.last_modified > lastModified) {
+        lastModified = row.last_modified;
+        modifiedBy = row.modified_by || 'system';
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...settings,
+        lastModified,
+        modifiedBy
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get system configuration settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve system configuration settings'
+    });
+  }
+}));
+
+/**
+ * Update system configuration settings
+ */
+router.put('/system', asyncHandler(async (req: Request, res: Response) => {
+  const adminAddress = req.user?.address || 'unknown';
+  const updates = req.body;
+
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid request body'
+    });
+  }
+
+  try {
+    // Convert camelCase keys to snake_case and validate
+    const validSettings: Record<string, string> = {};
+
+    Object.entries(updates).forEach(([key, value]) => {
+      // Skip metadata fields
+      if (key === 'lastModified' || key === 'modifiedBy') {
+        return;
+      }
+
+      // Convert camelCase to snake_case
+      const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+
+      // Validate backup frequency
+      if (key === 'backupFrequency' && !['hourly', 'daily', 'weekly'].includes(value as string)) {
+        logger.warn(`Invalid backup frequency: ${value}`);
+        return;
+      }
+
+      // Validate time format (HH:mm)
+      if (key === 'backupTime' && typeof value === 'string') {
+        const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(value)) {
+          logger.warn(`Invalid backup time format: ${value}`);
+          return;
+        }
+      }
+
+      // Validate and convert value
+      if (typeof value === 'boolean') {
+        validSettings[snakeKey] = String(value);
+      } else if (typeof value === 'number') {
+        validSettings[snakeKey] = String(value);
+      } else if (typeof value === 'string') {
+        validSettings[snakeKey] = value;
+      } else if (Array.isArray(value)) {
+        // Validate IP addresses if it's bypass IP list
+        if (key === 'rateLimitBypassIps') {
+          const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+          const validIps = (value as string[]).filter(ip => ipRegex.test(ip));
+          validSettings[snakeKey] = JSON.stringify(validIps);
+        } else {
+          validSettings[snakeKey] = JSON.stringify(value);
+        }
+      } else {
+        logger.warn(`Skipping invalid setting ${key}: ${value}`);
+      }
+    });
+
+    // Update each setting
+    for (const [key, value] of Object.entries(validSettings)) {
+      await updateSetting(key, value, adminAddress);
+    }
+
+    logger.info(`System configuration settings updated by ${adminAddress}`, { updates: Object.keys(validSettings) });
+
+    res.json({
+      success: true,
+      message: 'System configuration settings updated successfully',
+      data: {
+        updatedFields: Object.keys(validSettings),
+        modifiedBy: adminAddress
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to update system configuration settings:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update system configuration settings'
     });
   }
 }));

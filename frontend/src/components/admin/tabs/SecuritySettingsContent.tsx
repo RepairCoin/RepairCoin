@@ -13,6 +13,7 @@ import {
   Globe,
   Plus,
   Trash2,
+  Info,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import {
@@ -20,6 +21,27 @@ import {
   updateSecuritySettings,
   SecuritySettings,
 } from "@/services/api/admin";
+
+// Tooltip component
+const Tooltip: React.FC<{ text: string }> = ({ text }) => {
+  const [show, setShow] = useState(false);
+
+  return (
+    <div className="relative inline-block ml-1">
+      <Info
+        className="w-4 h-4 text-gray-400 hover:text-[#FFCC00] cursor-help inline"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      />
+      {show && (
+        <div className="absolute z-50 left-0 top-6 w-64 p-3 bg-gray-900 border border-gray-700 rounded-lg shadow-xl text-xs text-gray-300 leading-relaxed">
+          {text}
+          <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-900 border-l border-t border-gray-700 transform rotate-45"></div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const SecuritySettingsContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -111,7 +133,7 @@ export const SecuritySettingsContent: React.FC = () => {
     }
 
     const listKey = ipListType === "whitelist" ? "ipWhitelist" : "ipBlacklist";
-    const currentList = settings[listKey];
+    const currentList = settings[listKey] || [];
 
     if (currentList.includes(newIpAddress.trim())) {
       toast.error("IP address already exists in the list");
@@ -131,9 +153,11 @@ export const SecuritySettingsContent: React.FC = () => {
     if (!settings) return;
 
     const listKey = type === "whitelist" ? "ipWhitelist" : "ipBlacklist";
+    const currentList = settings[listKey] || [];
+
     setSettings({
       ...settings,
-      [listKey]: settings[listKey].filter((item) => item !== ip),
+      [listKey]: currentList.filter((item) => item !== ip),
     });
     setHasChanges(true);
     toast.success(`IP address removed from ${type}`);
@@ -222,13 +246,19 @@ export const SecuritySettingsContent: React.FC = () => {
       <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
         <div className="flex items-center gap-3 mb-4">
           <Users className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-lg font-semibold text-white">Admin Role Permissions</h3>
+          <h3 className="text-lg font-semibold text-white">
+            Admin Role Permissions
+            <Tooltip text="Define what different admin roles can access and modify in the system. This helps maintain security by limiting access based on responsibility levels." />
+          </h3>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-[#101010] rounded-lg border border-[#303236]">
             <div>
-              <p className="text-sm font-medium text-white">Enable Role-Based Permissions</p>
+              <p className="text-sm font-medium text-white">
+                Enable Role-Based Permissions
+                <Tooltip text="When enabled, admins will only be able to access features allowed by their role. When disabled, all admins have full access." />
+              </p>
               <p className="text-xs text-gray-400 mt-0.5">
                 Control what different admin roles can access
               </p>
@@ -247,6 +277,7 @@ export const SecuritySettingsContent: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Default Role for New Admins
+              <Tooltip text="The role automatically assigned to new admin accounts when they're created. You can change individual admin roles later." />
             </label>
             <select
               value={settings.defaultRole}
@@ -266,14 +297,20 @@ export const SecuritySettingsContent: React.FC = () => {
               <h5 className="text-sm font-semibold text-yellow-600 mb-2">View Only</h5>
               <p className="text-xs text-gray-400 mb-3">Can only view data, no modifications</p>
               <div className="space-y-1">
-                {settings.viewOnlyPermissions.slice(0, 3).map((perm) => (
-                  <div key={perm} className="flex items-center gap-2 text-xs text-gray-400">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    <span>{perm.replace(/_/g, " ")}</span>
-                  </div>
-                ))}
-                {settings.viewOnlyPermissions.length > 3 && (
-                  <p className="text-xs text-gray-500">+{settings.viewOnlyPermissions.length - 3} more</p>
+                {settings.viewOnlyPermissions && settings.viewOnlyPermissions.length > 0 ? (
+                  <>
+                    {settings.viewOnlyPermissions.slice(0, 3).map((perm) => (
+                      <div key={perm} className="flex items-center gap-2 text-xs text-gray-400">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        <span>{perm.replace(/_/g, " ")}</span>
+                      </div>
+                    ))}
+                    {settings.viewOnlyPermissions.length > 3 && (
+                      <p className="text-xs text-gray-500">+{settings.viewOnlyPermissions.length - 3} more</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">No permissions configured</p>
                 )}
               </div>
             </div>
@@ -282,14 +319,20 @@ export const SecuritySettingsContent: React.FC = () => {
               <h5 className="text-sm font-semibold text-blue-400 mb-2">Standard Admin</h5>
               <p className="text-xs text-gray-400 mb-3">Can manage shops and customers</p>
               <div className="space-y-1">
-                {settings.standardPermissions.slice(0, 3).map((perm) => (
-                  <div key={perm} className="flex items-center gap-2 text-xs text-gray-400">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    <span>{perm.replace(/_/g, " ")}</span>
-                  </div>
-                ))}
-                {settings.standardPermissions.length > 3 && (
-                  <p className="text-xs text-gray-500">+{settings.standardPermissions.length - 3} more</p>
+                {settings.standardPermissions && settings.standardPermissions.length > 0 ? (
+                  <>
+                    {settings.standardPermissions.slice(0, 3).map((perm) => (
+                      <div key={perm} className="flex items-center gap-2 text-xs text-gray-400">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        <span>{perm.replace(/_/g, " ")}</span>
+                      </div>
+                    ))}
+                    {settings.standardPermissions.length > 3 && (
+                      <p className="text-xs text-gray-500">+{settings.standardPermissions.length - 3} more</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">No permissions configured</p>
                 )}
               </div>
             </div>
@@ -298,14 +341,20 @@ export const SecuritySettingsContent: React.FC = () => {
               <h5 className="text-sm font-semibold text-[#FFCC00] mb-2">Super Admin</h5>
               <p className="text-xs text-gray-400 mb-3">Full system access and control</p>
               <div className="space-y-1">
-                {settings.superAdminPermissions.slice(0, 3).map((perm) => (
-                  <div key={perm} className="flex items-center gap-2 text-xs text-gray-400">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    <span>{perm.replace(/_/g, " ")}</span>
-                  </div>
-                ))}
-                {settings.superAdminPermissions.length > 3 && (
-                  <p className="text-xs text-gray-500">+{settings.superAdminPermissions.length - 3} more</p>
+                {settings.superAdminPermissions && settings.superAdminPermissions.length > 0 ? (
+                  <>
+                    {settings.superAdminPermissions.slice(0, 3).map((perm) => (
+                      <div key={perm} className="flex items-center gap-2 text-xs text-gray-400">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        <span>{perm.replace(/_/g, " ")}</span>
+                      </div>
+                    ))}
+                    {settings.superAdminPermissions.length > 3 && (
+                      <p className="text-xs text-gray-500">+{settings.superAdminPermissions.length - 3} more</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">No permissions configured</p>
                 )}
               </div>
             </div>
@@ -317,13 +366,17 @@ export const SecuritySettingsContent: React.FC = () => {
       <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
         <div className="flex items-center gap-3 mb-4">
           <Clock className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-lg font-semibold text-white">Session Management</h3>
+          <h3 className="text-lg font-semibold text-white">
+            Session Management
+            <Tooltip text="Control how long admin sessions last and how many devices can be logged in simultaneously. This helps prevent unauthorized access if accounts are compromised." />
+          </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Session Timeout (minutes)
+              <Tooltip text="How long an admin can be inactive before being automatically logged out. Range: 5-1440 minutes (5 min - 24 hours)." />
             </label>
             <input
               type="number"
@@ -339,6 +392,7 @@ export const SecuritySettingsContent: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Max Concurrent Sessions
+              <Tooltip text="How many devices/browsers an admin can be logged into simultaneously. If exceeded, the oldest session will be terminated." />
             </label>
             <input
               type="number"
@@ -354,6 +408,7 @@ export const SecuritySettingsContent: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Remember Me Duration (days)
+              <Tooltip text="How long the 'Remember Me' option keeps admins logged in. After this period, they'll need to log in again." />
             </label>
             <input
               type="number"
@@ -390,14 +445,20 @@ export const SecuritySettingsContent: React.FC = () => {
       <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
         <div className="flex items-center gap-3 mb-4">
           <Globe className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-lg font-semibold text-white">IP Access Control</h3>
+          <h3 className="text-lg font-semibold text-white">
+            IP Access Control
+            <Tooltip text="Control which IP addresses can access the admin panel. Whitelist only allows specific IPs, while blacklist blocks specific IPs. Note: This is application-level security, separate from your Digital Ocean database firewall." />
+          </h3>
         </div>
 
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center justify-between p-4 bg-[#101010] rounded-lg border border-[#303236]">
               <div>
-                <p className="text-sm font-medium text-white">Enable IP Whitelist</p>
+                <p className="text-sm font-medium text-white">
+                  Enable IP Whitelist
+                  <Tooltip text="When enabled, ONLY IP addresses in the whitelist can access the admin panel. All other IPs will be blocked. Use this for maximum security." />
+                </p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   Only allow specific IP addresses
                 </p>
@@ -415,7 +476,10 @@ export const SecuritySettingsContent: React.FC = () => {
 
             <div className="flex items-center justify-between p-4 bg-[#101010] rounded-lg border border-[#303236]">
               <div>
-                <p className="text-sm font-medium text-white">Enable IP Blacklist</p>
+                <p className="text-sm font-medium text-white">
+                  Enable IP Blacklist
+                  <Tooltip text="When enabled, IP addresses in the blacklist will be blocked from accessing the admin panel. All other IPs can still access." />
+                </p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   Block specific IP addresses
                 </p>
@@ -465,10 +529,10 @@ export const SecuritySettingsContent: React.FC = () => {
               {/* Whitelist */}
               <div>
                 <h4 className="text-sm font-semibold text-white mb-2">
-                  Whitelisted IPs ({settings.ipWhitelist.length})
+                  Whitelisted IPs ({settings.ipWhitelist?.length || 0})
                 </h4>
                 <div className="bg-[#101010] rounded-lg border border-[#303236] p-3 min-h-[120px] max-h-[200px] overflow-y-auto">
-                  {settings.ipWhitelist.length === 0 ? (
+                  {!settings.ipWhitelist || settings.ipWhitelist.length === 0 ? (
                     <p className="text-xs text-gray-500 text-center py-8">No whitelisted IPs</p>
                   ) : (
                     <div className="space-y-2">
@@ -494,10 +558,10 @@ export const SecuritySettingsContent: React.FC = () => {
               {/* Blacklist */}
               <div>
                 <h4 className="text-sm font-semibold text-white mb-2">
-                  Blacklisted IPs ({settings.ipBlacklist.length})
+                  Blacklisted IPs ({settings.ipBlacklist?.length || 0})
                 </h4>
                 <div className="bg-[#101010] rounded-lg border border-[#303236] p-3 min-h-[120px] max-h-[200px] overflow-y-auto">
-                  {settings.ipBlacklist.length === 0 ? (
+                  {!settings.ipBlacklist || settings.ipBlacklist.length === 0 ? (
                     <p className="text-xs text-gray-500 text-center py-8">No blacklisted IPs</p>
                   ) : (
                     <div className="space-y-2">
@@ -528,13 +592,19 @@ export const SecuritySettingsContent: React.FC = () => {
       <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
         <div className="flex items-center gap-3 mb-4">
           <Key className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-lg font-semibold text-white">Two-Factor Authentication</h3>
+          <h3 className="text-lg font-semibold text-white">
+            Two-Factor Authentication
+            <Tooltip text="2FA adds an extra layer of security by requiring a second verification method (like a code from your phone) in addition to the password." />
+          </h3>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-[#101010] rounded-lg border border-[#303236]">
             <div>
-              <p className="text-sm font-medium text-white">Require 2FA for All Admins</p>
+              <p className="text-sm font-medium text-white">
+                Require 2FA for All Admins
+                <Tooltip text="When enabled, all admins MUST set up 2FA to access their accounts. This is highly recommended for security." />
+              </p>
               <p className="text-xs text-gray-400 mt-0.5">
                 Enforce two-factor authentication for all admin accounts
               </p>
@@ -552,7 +622,10 @@ export const SecuritySettingsContent: React.FC = () => {
 
           <div className="flex items-center justify-between p-4 bg-[#101010] rounded-lg border border-[#303236]">
             <div>
-              <p className="text-sm font-medium text-white">Allow 2FA Opt-Out</p>
+              <p className="text-sm font-medium text-white">
+                Allow 2FA Opt-Out
+                <Tooltip text="When enabled, admins can choose to disable their 2FA. Not recommended - use only if you have other security measures in place." />
+              </p>
               <p className="text-xs text-gray-400 mt-0.5">
                 Let admins choose to disable 2FA (not recommended)
               </p>
@@ -572,6 +645,7 @@ export const SecuritySettingsContent: React.FC = () => {
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Default 2FA Method
+              <Tooltip text="The default method presented to admins when setting up 2FA. Authenticator apps are most secure, SMS is convenient, email is least secure." />
             </label>
             <select
               value={settings.twoFactorMethod}
@@ -590,13 +664,17 @@ export const SecuritySettingsContent: React.FC = () => {
       <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
         <div className="flex items-center gap-3 mb-4">
           <FileText className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-lg font-semibold text-white">Audit Log Retention</h3>
+          <h3 className="text-lg font-semibold text-white">
+            Audit Log Retention
+            <Tooltip text="Audit logs track all important actions in the system (logins, settings changes, transactions). These settings control what gets logged and how long it's kept." />
+          </h3>
         </div>
 
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
               Retention Period (days)
+              <Tooltip text="How long audit logs are kept before automatic deletion. Range: 7-3650 days (1 week - 10 years). Longer retention is better for compliance and security investigations." />
             </label>
             <input
               type="number"
@@ -610,7 +688,10 @@ export const SecuritySettingsContent: React.FC = () => {
           </div>
 
           <div className="border-t border-[#303236] pt-4">
-            <h4 className="text-sm font-semibold text-white mb-3">Log Activity Types</h4>
+            <h4 className="text-sm font-semibold text-white mb-3">
+              Log Activity Types
+              <Tooltip text="Choose which types of activities should be recorded in the audit logs. Disabling certain logs reduces storage but may limit your ability to investigate issues." />
+            </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="flex items-center justify-between p-3 bg-[#101010] rounded-lg border border-[#303236]">
                 <span className="text-sm text-white">Login Attempts</span>
