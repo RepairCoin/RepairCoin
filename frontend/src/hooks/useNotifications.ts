@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useNotificationStore, Notification as NotificationType } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
+import { usePushSubscription } from './usePushSubscription';
 
 // WebSocket URL - explicitly use api.repaircoin.ai subdomain in production
 const WS_URL = typeof window !== 'undefined' && window.location.hostname.includes('repaircoin.ai')
@@ -19,6 +20,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   const reconnectAttemptsRef = useRef(0);
   const manuallyClosedRef = useRef(false); // Track if we manually closed due to auth errors
   const maxReconnectAttempts = 5;
+  const { subscribeToPush, unsubscribeFromPush } = usePushSubscription();
 
   const {
     addNotification,
@@ -353,11 +355,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         fetchNotifications();
         fetchUnreadCount();
         connectWebSocket();
+        subscribeToPush();
       }
     } else {
       // Disconnect if user logged out
       if (!isAuthenticated) {
         disconnectWebSocket();
+        unsubscribeFromPush();
       }
     }
 
@@ -380,6 +384,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     requestNotificationPermission,
     connectWebSocket,
     disconnectWebSocket,
+    subscribeToPush,
   };
 };
 

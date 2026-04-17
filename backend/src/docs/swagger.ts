@@ -3898,6 +3898,81 @@ const options = {
         }
       },
 
+      '/api/notifications/test-push': {
+        post: {
+          tags: ['Notifications'],
+          summary: 'Send test push notification',
+          description: 'Send a test push notification to a specific wallet address to verify web push is working. Only walletAddress is required — title, body, and type are optional.',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['walletAddress'],
+                  properties: {
+                    walletAddress: {
+                      type: 'string',
+                      description: 'Wallet address to send the test notification to',
+                      example: '0x13d9299e30626e2e97d8940988786bbc5676fd7a'
+                    },
+                    title: {
+                      type: 'string',
+                      description: 'Notification title (defaults to "Test Push Notification")',
+                      example: 'Test Push Notification'
+                    },
+                    body: {
+                      type: 'string',
+                      description: 'Notification body message (defaults to "This is a test notification from RepairCoin.")',
+                      example: 'This is a test notification from RepairCoin.'
+                    },
+                    type: {
+                      type: 'string',
+                      description: 'Notification type — controls click routing in the browser (uses predefined routes map)',
+                      example: 'test',
+                      enum: ['test', 'new_booking', 'reschedule_request', 'booking_confirmed', 'appointment_reminder', 'order_completed', 'reward_issued', 'token_gifted', 'redemption_approved', 'redemption_rejected', 'subscription_expiring']
+                    },
+                    route: {
+                      type: 'string',
+                      description: 'Custom navigation path when notification is clicked. Overrides the default type-based routing. Example: /customer/bookings, /shop/orders',
+                      example: '/customer/dashboard'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Test push notification sent',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      message: { type: 'string', example: 'Test push notification sent' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          successCount: { type: 'number', example: 1 },
+                          failureCount: { type: 'number', example: 0 },
+                          invalidTokens: { type: 'array', items: { type: 'string' } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            400: {
+              description: 'walletAddress is required'
+            }
+          }
+        }
+      },
+
       // Shop - Additional endpoints
       '/api/shops/{shopId}/details': {
         put: {

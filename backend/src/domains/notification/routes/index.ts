@@ -5,6 +5,8 @@ import { PushTokenController } from '../controllers/PushTokenController';
 import { GeneralPreferencesController } from '../controllers/GeneralPreferencesController';
 import { NotificationService } from '../services/NotificationService';
 import { Config } from '../../../config';
+import { getPushNotificationDispatcher } from '../../../services/PushNotificationDispatcher';
+import { logger } from '../../../utils/logger';
 
 const router = Router();
 
@@ -58,6 +60,44 @@ router.get('/unread/count', (req, res) => notificationController.getUnreadCount(
  * @access  Private
  */
 router.patch('/read-all', (req, res) => notificationController.markAllAsRead(req, res));
+
+// ============================================
+// Test Push Notification Route
+// ============================================
+
+/**
+ * @route   POST /api/notifications/test-push
+ * @desc    Send a test push notification to a wallet address
+ * @access  Private
+ */
+router.post('/test-push', async (req, res) => {
+  try {
+    const { walletAddress, title, body, type, route } = req.body;
+
+    if (!walletAddress) {
+      res.status(400).json({ success: false, error: 'walletAddress is required' });
+      return;
+    }
+
+    const dispatcher = getPushNotificationDispatcher();
+    const result = await dispatcher.sendToUser(walletAddress, {
+      title: title || 'Test Push Notification',
+      body: body || 'This is a test notification from RepairCoin.',
+      data: { type: type || 'test', ...(route && { route }) }
+    });
+
+    logger.info('Test push notification sent', {
+      walletAddress,
+      senderAddress: req.user?.address,
+      result
+    });
+
+    res.json({ success: true, message: 'Test push notification sent', data: result });
+  } catch (error: any) {
+    logger.error('Error sending test push notification:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ============================================
 // Push Token Routes (must be before :id routes)
