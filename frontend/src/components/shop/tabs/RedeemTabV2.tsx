@@ -431,6 +431,27 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         console.warn("Could not fetch customer balance:", response.status);
         setCustomerBalance(0);
       }
+
+      // Fetch cross-shop info immediately on customer select
+      // so the home/cross-shop badge appears before entering an amount
+      try {
+        const verifyResponse = await apiClient.post('/tokens/redemption-session/create', {
+          customerAddress: address,
+          shopId: shopId,
+          amount: 1,
+          validateOnly: true
+        });
+        const verifyData = verifyResponse?.data || verifyResponse;
+        if (verifyData?.isHomeShop !== undefined) {
+          setCrossShopInfo({
+            isHomeShop: verifyData.isHomeShop,
+            maxRedeemable: verifyData.maxRedeemable || 0,
+            crossShopLimit: verifyData.crossShopLimit || 0
+          });
+        }
+      } catch (verifyErr) {
+        console.warn("Could not fetch cross-shop info:", verifyErr);
+      }
     } catch (err) {
       console.warn("Error fetching customer balance:", err);
       setCustomerBalance(0);
@@ -1246,6 +1267,15 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                               >
                                 {selectedCustomer.tier} TIER
                               </div>
+                              {crossShopInfo && (
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  crossShopInfo.isHomeShop
+                                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                    : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                }`}>
+                                  {crossShopInfo.isHomeShop ? "🏠 Home" : "🔄 Cross-Shop"}
+                                </span>
+                              )}
                               <div>
                                 <p className="font-semibold text-white">
                                   {selectedCustomer.name || "External Customer"}
@@ -1588,7 +1618,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       <span className="text-gray-500">—</span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50">
                     <span className="text-white text-sm font-medium">Balance •</span>
                     <span className="text-[#22C55E] font-semibold">
                       {loadingBalance ? (
@@ -1599,6 +1629,26 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         "0 RCN"
                       )}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-white text-sm font-medium">Relationship •</span>
+                    {crossShopInfo ? (
+                      crossShopInfo.isHomeShop ? (
+                        <div className="text-right">
+                          <span className="text-green-400 font-semibold text-sm">🏠 Home Shop</span>
+                          <p className="text-green-500/70 text-xs">100% redeemable</p>
+                        </div>
+                      ) : (
+                        <div className="text-right">
+                          <span className="text-amber-400 font-semibold text-sm">🔄 Cross-Shop</span>
+                          <p className="text-amber-500/70 text-xs">Max {Math.floor(crossShopInfo.crossShopLimit)} RCN (20%)</p>
+                        </div>
+                      )
+                    ) : loadingBalance ? (
+                      <span className="text-gray-500 text-sm">Checking...</span>
+                    ) : (
+                      <span className="text-gray-500 text-sm">—</span>
+                    )}
                   </div>
                 </div>
 
