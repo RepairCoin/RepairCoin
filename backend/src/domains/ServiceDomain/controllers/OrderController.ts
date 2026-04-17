@@ -9,7 +9,7 @@ import { customerRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupService';
-import { getExpoPushService } from '../../../services/ExpoPushService';
+import { getPushNotificationDispatcher } from '../../../services/PushNotificationDispatcher';
 import noShowPolicyService from '../../../services/NoShowPolicyService';
 import { EmailService } from '../../../services/EmailService';
 import { getExpiredOrderService } from '../../../services/ExpiredOrderService';
@@ -396,7 +396,7 @@ export class OrderController {
                 );
 
                 // Send push notification to customer
-                await getExpoPushService().sendOrderCompleted(
+                await getPushNotificationDispatcher().sendOrderCompleted(
                   updatedOrder.customerAddress,
                   shop.name,
                   service.serviceName,

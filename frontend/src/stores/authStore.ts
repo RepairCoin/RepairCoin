@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { authApi } from '@/services/api/auth';
+import { deactivateAllPushTokens } from '@/services/api/notifications';
 import { clearAllAuthCaches } from '@/hooks/useAuthInitializer';
 import { setAccountSwitchingState } from '@/services/api/client';
 
@@ -380,6 +381,17 @@ export const useAuthStore = create<AuthState>()(
           await authApi.logout();
         } catch (error) {
           console.error('[authStore] Logout error:', error);
+        }
+
+        // Deactivate web push tokens before reset
+        try {
+          await deactivateAllPushTokens();
+          const registration = await navigator.serviceWorker?.getRegistration();
+          const subscription = await registration?.pushManager?.getSubscription();
+          await subscription?.unsubscribe();
+          localStorage.removeItem('rc_push_endpoint');
+        } catch {
+          // Non-critical — tokens expire naturally
         }
 
         // Reset state regardless of API call result

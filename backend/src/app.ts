@@ -210,6 +210,11 @@ class RepairCoinApp {
     // SUBDOMAIN SETUP: Backend at api.repaircoin.ai, Frontend at repaircoin.ai/www.repaircoin.ai
     this.app.use(cors({
       origin: function(origin, callback) {
+        // CORS_DISABLED=true bypasses all origin checks (for local dev/testing)
+        if (process.env.CORS_DISABLED === 'true') {
+          return callback(null, true);
+        }
+
         const allowedOrigins = [
           // Local development
           'http://localhost:3000',

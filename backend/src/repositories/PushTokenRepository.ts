@@ -1,14 +1,24 @@
+import { createHash } from 'crypto';
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
+
+export interface WebPushSubscription {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
 
 export interface DevicePushToken {
   id: string;
   walletAddress: string;
-  expoPushToken: string;
+  expoPushToken: string | null;
   deviceId: string | null;
-  deviceType: 'ios' | 'android';
+  deviceType: 'ios' | 'android' | 'web';
   deviceName: string | null;
   appVersion: string | null;
+  webPushSubscription: WebPushSubscription | null;
   isActive: boolean;
   lastUsedAt: Date;
   createdAt: Date;
@@ -17,11 +27,21 @@ export interface DevicePushToken {
 
 export interface RegisterTokenParams {
   walletAddress: string;
-  expoPushToken: string;
+  expoPushToken?: string;
   deviceId?: string;
-  deviceType: 'ios' | 'android';
+  deviceType: 'ios' | 'android' | 'web';
   deviceName?: string;
   appVersion?: string;
+  webPushSubscription?: WebPushSubscription;
+}
+
+/**
+ * Generate a synthetic expo_push_token for web subscriptions.
+ * This satisfies the existing unique constraint on expo_push_token.
+ */
+function generateWebTokenId(endpoint: string): string {
+  const hash = createHash('sha256').update(endpoint).digest('hex');
+  return `web-push:${hash}`;
 }
 
 export class PushTokenRepository extends BaseRepository {
@@ -30,12 +50,16 @@ export class PushTokenRepository extends BaseRepository {
    * Handles account switching: same device token can be reassigned to different users
    */
   async registerToken(params: RegisterTokenParams): Promise<DevicePushToken> {
-    const { walletAddress, expoPushToken, deviceId, deviceType, deviceName, appVersion } = params;
+    const { walletAddress, deviceId, deviceType, deviceName, appVersion } = params;
     const normalizedAddress = walletAddress.toLowerCase();
 
     try {
-      // Always upsert based on expo_push_token since it's device-unique
-      // This handles account switching on the same device
+      if (deviceType === 'web') {
+        return await this.registerWebToken(normalizedAddress, params);
+      }
+
+      // Mobile token registration (existing behavior)
+      const { expoPushToken } = params;
       const query = `
         INSERT INTO device_push_tokens (
           wallet_address, expo_push_token, device_id, device_type, device_name, app_version, is_active, last_used_at
@@ -76,35 +100,102 @@ export class PushTokenRepository extends BaseRepository {
   }
 
   /**
-   * Get all active push tokens for a user
-   * Used when sending push notifications to reach all user devices
+   * Register a web push subscription token
    */
-  async getActiveTokensByWallet(walletAddress: string): Promise<DevicePushToken[]> {
+  private async registerWebToken(
+    normalizedAddress: string,
+    params: RegisterTokenParams
+  ): Promise<DevicePushToken> {
+    const { webPushSubscription, deviceId, deviceName, appVersion } = params;
+
+    if (!webPushSubscription) {
+      throw new Error('webPushSubscription is required for web device type');
+    }
+
+    const syntheticToken = generateWebTokenId(webPushSubscription.endpoint);
+
+    // Enforce one web push row per wallet via the partial unique index
+    // idx_push_tokens_wallet_web (see migration 102). Endpoint rotations
+    // on the same wallet UPSERT this row instead of creating a new one.
+    const query = `
+      INSERT INTO device_push_tokens (
+        wallet_address, expo_push_token, device_id, device_type, device_name, app_version,
+        web_push_subscription, is_active, last_used_at
+      ) VALUES ($1, $2, $3, 'web', $4, $5, $6, TRUE, NOW())
+      ON CONFLICT (wallet_address) WHERE device_type = 'web'
+      DO UPDATE SET
+        expo_push_token = EXCLUDED.expo_push_token,
+        device_name = EXCLUDED.device_name,
+        app_version = EXCLUDED.app_version,
+        web_push_subscription = EXCLUDED.web_push_subscription,
+        is_active = TRUE,
+        last_used_at = NOW(),
+        updated_at = NOW()
+      RETURNING *
+    `;
+
+    const result = await this.pool.query(query, [
+      normalizedAddress,
+      syntheticToken,
+      deviceId || null,
+      deviceName || null,
+      appVersion || null,
+      JSON.stringify(webPushSubscription),
+    ]);
+
+    logger.info('Web push token registered', {
+      walletAddress: normalizedAddress,
+      endpoint: webPushSubscription.endpoint.substring(0, 50) + '...',
+    });
+
+    return this.mapSnakeToCamel(result.rows[0]) as DevicePushToken;
+  }
+
+  /**
+   * Get all active push tokens for a user
+   * Optionally filter by device types
+   */
+  async getActiveTokensByWallet(walletAddress: string, deviceTypes?: string[]): Promise<DevicePushToken[]> {
     const normalizedAddress = walletAddress.toLowerCase();
 
-    const result = await this.pool.query(
-      `SELECT * FROM device_push_tokens
-       WHERE wallet_address = $1 AND is_active = TRUE
-       ORDER BY last_used_at DESC`,
-      [normalizedAddress]
-    );
+    let query = `SELECT * FROM device_push_tokens
+       WHERE wallet_address = $1 AND is_active = TRUE`;
+    const queryParams: any[] = [normalizedAddress];
+
+    if (deviceTypes && deviceTypes.length > 0) {
+      query += ` AND device_type = ANY($2)`;
+      queryParams.push(deviceTypes);
+    }
+
+    query += ` ORDER BY last_used_at DESC`;
+
+    const result = await this.pool.query(query, queryParams);
 
     return result.rows.map((row) => this.mapSnakeToCamel(row) as DevicePushToken);
   }
 
   /**
    * Get active tokens for multiple users (batch operation)
-   * Used for sending notifications to multiple recipients efficiently
+   * Optionally filter by device types
    */
-  async getActiveTokensForUsers(walletAddresses: string[]): Promise<Map<string, DevicePushToken[]>> {
+  async getActiveTokensForUsers(
+    walletAddresses: string[],
+    deviceTypes?: string[]
+  ): Promise<Map<string, DevicePushToken[]>> {
     const normalizedAddresses = walletAddresses.map((addr) => addr.toLowerCase());
 
-    const result = await this.pool.query(
-      `SELECT * FROM device_push_tokens
-       WHERE wallet_address = ANY($1) AND is_active = TRUE
-       ORDER BY wallet_address, last_used_at DESC`,
-      [normalizedAddresses]
-    );
+    let query = `SELECT * FROM device_push_tokens
+       WHERE wallet_address = ANY($1) AND is_active = TRUE`;
+    const queryParams: any[] = [normalizedAddresses];
+
+    if (deviceTypes && deviceTypes.length > 0) {
+      query += ` AND device_type = ANY($2)`;
+      queryParams.push(deviceTypes);
+    }
+
+    query += ` ORDER BY wallet_address, last_used_at DESC`;
+
+    const result = await this.pool.query(query, queryParams);
 
     const tokenMap = new Map<string, DevicePushToken[]>();
     for (const row of result.rows) {
@@ -119,7 +210,7 @@ export class PushTokenRepository extends BaseRepository {
 
   /**
    * Deactivate a specific push token
-   * Called when Expo reports the token as invalid
+   * Called when Expo reports the token as invalid or web push returns 410 Gone
    */
   async deactivateToken(expoPushToken: string): Promise<boolean> {
     const result = await this.pool.query(
@@ -135,6 +226,14 @@ export class PushTokenRepository extends BaseRepository {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Deactivate a web push token by endpoint
+   */
+  async deactivateWebTokenByEndpoint(endpoint: string): Promise<boolean> {
+    const syntheticToken = generateWebTokenId(endpoint);
+    return this.deactivateToken(syntheticToken);
   }
 
   /**
@@ -238,7 +337,8 @@ export class PushTokenRepository extends BaseRepository {
         COUNT(*) FILTER (WHERE is_active = TRUE) as total_active,
         COUNT(*) FILTER (WHERE is_active = FALSE) as total_inactive,
         COUNT(*) FILTER (WHERE is_active = TRUE AND device_type = 'ios') as ios_active,
-        COUNT(*) FILTER (WHERE is_active = TRUE AND device_type = 'android') as android_active
+        COUNT(*) FILTER (WHERE is_active = TRUE AND device_type = 'android') as android_active,
+        COUNT(*) FILTER (WHERE is_active = TRUE AND device_type = 'web') as web_active
       FROM device_push_tokens
     `);
 
@@ -249,6 +349,7 @@ export class PushTokenRepository extends BaseRepository {
       byPlatform: {
         ios: parseInt(row.ios_active, 10),
         android: parseInt(row.android_active, 10),
+        web: parseInt(row.web_active, 10),
       },
     };
   }

@@ -34,8 +34,37 @@ export const resetGeneralNotificationPreferences = async (): Promise<GeneralNoti
   return response.data;
 };
 
+/**
+ * Get VAPID public key for web push subscription (public endpoint)
+ */
+export const getVapidPublicKey = async (): Promise<string> => {
+  const response = await apiClient.get('/notifications/vapid-public-key');
+  return response.vapidPublicKey;
+};
+
+/**
+ * Register a web push subscription token
+ */
+export const registerPushToken = async (params: {
+  deviceType: 'web';
+  deviceName?: string;
+  webPushSubscription: { endpoint: string; keys: { p256dh: string; auth: string } };
+}): Promise<void> => {
+  await apiClient.post('/notifications/push-tokens', params);
+};
+
+/**
+ * Deactivate all push tokens for the current user
+ */
+export const deactivateAllPushTokens = async (): Promise<void> => {
+  await apiClient.delete('/notifications/push-tokens');
+};
+
 export const notificationsApi = {
   getGeneralNotificationPreferences,
   updateGeneralNotificationPreferences,
   resetGeneralNotificationPreferences,
+  getVapidPublicKey,
+  registerPushToken,
+  deactivateAllPushTokens,
 };

@@ -2,7 +2,7 @@
 import { logger } from '../utils/logger';
 import { EmailService } from './EmailService';
 import { NotificationService } from '../domains/notification/services/NotificationService';
-import { getExpoPushService, ExpoPushService } from './ExpoPushService';
+import { getPushNotificationDispatcher, PushNotificationDispatcher } from './PushNotificationDispatcher';
 import { getSharedPool } from '../utils/database-pool';
 import { generalNotificationPreferencesRepository } from '../repositories/GeneralNotificationPreferencesRepository';
 
@@ -77,14 +77,14 @@ const REMINDER_CONFIGS: ReminderConfig[] = [
 export class SubscriptionReminderService {
   private emailService: EmailService;
   private notificationService: NotificationService;
-  private expoPushService: ExpoPushService;
+  private pushDispatcher: PushNotificationDispatcher;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
 
   constructor() {
     this.emailService = new EmailService();
     this.notificationService = new NotificationService();
-    this.expoPushService = getExpoPushService();
+    this.pushDispatcher = getPushNotificationDispatcher();
   }
 
   /**
@@ -261,7 +261,7 @@ export class SubscriptionReminderService {
         return false;
       }
 
-      const result = await this.expoPushService.sendSubscriptionExpiringNotification(
+      const result = await this.pushDispatcher.sendSubscriptionExpiringNotification(
         data.walletAddress,
         data.shopName,
         data.daysRemaining,
