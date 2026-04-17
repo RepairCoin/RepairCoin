@@ -114,15 +114,17 @@ export class PushTokenRepository extends BaseRepository {
 
     const syntheticToken = generateWebTokenId(webPushSubscription.endpoint);
 
+    // Enforce one web push row per wallet via the partial unique index
+    // idx_push_tokens_wallet_web (see migration 102). Endpoint rotations
+    // on the same wallet UPSERT this row instead of creating a new one.
     const query = `
       INSERT INTO device_push_tokens (
         wallet_address, expo_push_token, device_id, device_type, device_name, app_version,
         web_push_subscription, is_active, last_used_at
       ) VALUES ($1, $2, $3, 'web', $4, $5, $6, TRUE, NOW())
-      ON CONFLICT (expo_push_token)
+      ON CONFLICT (wallet_address) WHERE device_type = 'web'
       DO UPDATE SET
-        wallet_address = EXCLUDED.wallet_address,
-        device_id = EXCLUDED.device_id,
+        expo_push_token = EXCLUDED.expo_push_token,
         device_name = EXCLUDED.device_name,
         app_version = EXCLUDED.app_version,
         web_push_subscription = EXCLUDED.web_push_subscription,
