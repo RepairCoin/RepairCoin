@@ -22,6 +22,7 @@
     "deploy:ios:preview": "./scripts/deploy.sh preview",
     "deploy:ios:production": "./scripts/deploy.sh production",
     "deploy:android:apk": "eas build --profile tester --platform android",
+    "deploy:android:apk:production": "eas build --profile production-apk --platform android",
     "deploy:android:preview": "eas build --profile preview --platform android",
     "deploy:android:production": "eas build --profile production --platform android",
     "submit:ios:preview": "eas submit --profile preview --platform ios",

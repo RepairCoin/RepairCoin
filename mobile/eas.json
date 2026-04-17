@@ -22,7 +22,8 @@
       },
       "env": {
         "APP_ENV": "staging",
-        "EXPO_NO_CAPABILITY_SYNC": "1"
+        "EXPO_NO_CAPABILITY_SYNC": "1",
+        "EXPO_PUBLIC_API_URL": "https://api-staging.repaircoin.ai/api"
       },
       "ios": {
         "simulator": false
@@ -41,7 +42,8 @@
         "autoIncrement": true
       },
       "env": {
-        "APP_ENV": "staging"
+        "APP_ENV": "staging",
+        "EXPO_PUBLIC_API_URL": "https://api-staging.repaircoin.ai/api"
       },
       "channel": "preview"
     },
@@ -57,7 +59,23 @@
         "autoIncrement": true
       },
       "env": {
-        "APP_ENV": "production"
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://api.repaircoin.ai/api"
+      },
+      "channel": "production"
+    },
+    "production-apk": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://api.repaircoin.ai/api"
       },
       "channel": "production"
     }
