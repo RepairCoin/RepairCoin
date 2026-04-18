@@ -136,13 +136,17 @@ export class MessageService {
         return message;
       }
 
+      // Preview text shared by unread-count update and the web push payload.
+      // Encryption + attachment aware so we never leak ciphertext into
+      // conversation rows or push notifications.
+      const preview = request.isEncrypted
+        ? '🔒 Locked message'
+        : hasText
+          ? request.messageText.trim()
+          : `Sent ${request.attachments!.length} attachment(s)`;
+
       // Increment unread count for the receiver and update last message preview
       try {
-        const preview = request.isEncrypted
-          ? '🔒 Locked message'
-          : hasText
-            ? request.messageText.trim()
-            : `Sent ${request.attachments!.length} attachment(s)`;
         await this.messageRepo.incrementUnreadCount(
           conversation.conversationId,
           request.senderType === 'customer' ? 'shop' : 'customer',
@@ -226,6 +230,44 @@ export class MessageService {
               });
             } catch (emailError) {
               logger.error('Failed to send customer message email to shop:', emailError);
+            }
+          })();
+        }
+      }
+
+      // Web Push notification to the receiver. Skipped when the receiver is
+      // actively viewing this conversation (same presence gate as email).
+      // Fire-and-forget so the HTTP response doesn't wait on push delivery.
+      if (receiverAddress) {
+        const isReceiverViewing = conversationPresenceService.isViewing(
+          receiverAddress,
+          conversation.conversationId
+        );
+
+        if (!isReceiverViewing) {
+          const receiverType: 'customer' | 'shop' =
+            request.senderType === 'customer' ? 'shop' : 'customer';
+          const senderName = request.senderType === 'customer'
+            ? (conversation.customerName || 'Customer')
+            : (conversation.shopName || 'Shop');
+          // Sender avatar — shop logo for shop senders, customer profile image
+          // for customer senders. Both are joined into the conversation row.
+          const senderImageUrl = request.senderType === 'shop'
+            ? conversation.shopImageUrl
+            : conversation.customerImageUrl;
+
+          (async () => {
+            try {
+              const { getWebPushService } = await import('../../../services/WebPushService');
+              await getWebPushService().sendNewMessageNotification(receiverAddress!, {
+                conversationId: conversation.conversationId,
+                senderName,
+                preview,
+                receiverType,
+                senderImageUrl,
+              });
+            } catch (pushError) {
+              logger.error('Failed to send web push for new message:', pushError);
             }
           })();
         }

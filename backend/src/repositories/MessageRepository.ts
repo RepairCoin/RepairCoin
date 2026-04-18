@@ -20,6 +20,7 @@ export interface Conversation {
   updatedAt: Date;
   // Joined data
   customerName?: string;
+  customerImageUrl?: string;
   shopName?: string;
   shopImageUrl?: string;
 }
@@ -94,6 +95,7 @@ export class MessageRepository extends BaseRepository {
         SELECT
           c.*,
           cust.name as customer_name,
+          cust.profile_image_url as customer_image_url,
           s.name as shop_name,
           s.logo_url as shop_image_url
         FROM conversations c
@@ -143,6 +145,7 @@ export class MessageRepository extends BaseRepository {
         SELECT
           c.*,
           cust.name as customer_name,
+          cust.profile_image_url as customer_image_url,
           s.name as shop_name,
           s.logo_url as shop_image_url
         FROM conversations c
@@ -272,7 +275,8 @@ export class MessageRepository extends BaseRepository {
       const query = `
         SELECT
           c.*,
-          cust.name as customer_name
+          cust.name as customer_name,
+          cust.profile_image_url as customer_image_url
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
         ${whereClause}
@@ -770,6 +774,7 @@ export class MessageRepository extends BaseRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       customerName: row.customer_name,
+      customerImageUrl: row.customer_image_url,
       shopName: row.shop_name,
       shopImageUrl: row.shop_image_url
     };

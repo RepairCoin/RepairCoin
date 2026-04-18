@@ -26,6 +26,7 @@ export const NotificationChannels = {
   APPOINTMENTS: 'appointments',
   REWARDS: 'rewards',
   REDEMPTIONS: 'redemptions',
+  MESSAGES: 'messages',
 } as const;
 
 export class ExpoPushService {
