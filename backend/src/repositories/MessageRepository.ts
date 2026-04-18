@@ -43,6 +43,7 @@ export interface Message {
   deletedBy?: string;
   createdAt: Date;
   updatedAt: Date;
+  clientMessageId?: string;
   // Joined data
   senderName?: string;
 }
@@ -71,6 +72,12 @@ export interface CreateMessageParams {
   metadata?: Record<string, any>;
   attachments?: any[];
   isEncrypted?: boolean;
+  clientMessageId?: string;
+}
+
+export interface CreateMessageResult {
+  message: Message;
+  created: boolean;
 }
 
 export class MessageRepository extends BaseRepository {
@@ -292,11 +299,16 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
-   * Create a message
+   * Create a message.
+   *
+   * When `clientMessageId` is supplied, the insert is idempotent: on conflict
+   * against the (conversation_id, client_message_id) partial unique index the
+   * existing row is returned with `created: false`. Callers can use this flag
+   * to skip duplicate side-effects (unread count, email, WS push).
    */
-  async createMessage(params: CreateMessageParams): Promise<Message> {
+  async createMessage(params: CreateMessageParams): Promise<CreateMessageResult> {
     try {
-      const query = `
+      const insertQuery = `
         INSERT INTO messages (
           message_id,
           conversation_id,
@@ -306,12 +318,15 @@ export class MessageRepository extends BaseRepository {
           message_type,
           metadata,
           attachments,
-          is_encrypted
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          is_encrypted,
+          client_message_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (conversation_id, client_message_id) WHERE client_message_id IS NOT NULL
+          DO NOTHING
         RETURNING *
       `;
 
-      const result = await this.pool.query(query, [
+      const insertResult = await this.pool.query(insertQuery, [
         params.messageId,
         params.conversationId,
         params.senderAddress.toLowerCase(),
@@ -320,16 +335,36 @@ export class MessageRepository extends BaseRepository {
         params.messageType || 'text',
         JSON.stringify(params.metadata || {}),
         JSON.stringify(params.attachments || []),
-        params.isEncrypted || false
+        params.isEncrypted || false,
+        params.clientMessageId || null
       ]);
 
-      logger.info('Message created', {
-        messageId: params.messageId,
+      if (insertResult.rows.length > 0) {
+        logger.info('Message created', {
+          messageId: params.messageId,
+          conversationId: params.conversationId,
+          senderType: params.senderType
+        });
+        return { message: this.mapMessageRow(insertResult.rows[0]), created: true };
+      }
+
+      // Conflict: a row already exists for (conversation_id, client_message_id).
+      // Fetch and return it so the caller sees a Message, but flag as duplicate.
+      const selectResult = await this.pool.query(
+        `SELECT * FROM messages WHERE conversation_id = $1 AND client_message_id = $2 LIMIT 1`,
+        [params.conversationId, params.clientMessageId]
+      );
+
+      if (selectResult.rows.length === 0) {
+        throw new Error('createMessage: conflict hit but no existing row found');
+      }
+
+      logger.info('Message dedup: existing row returned', {
         conversationId: params.conversationId,
-        senderType: params.senderType
+        clientMessageId: params.clientMessageId
       });
 
-      return this.mapMessageRow(result.rows[0]);
+      return { message: this.mapMessageRow(selectResult.rows[0]), created: false };
     } catch (error) {
       logger.error('Error in createMessage:', error);
       throw error;
@@ -763,6 +798,7 @@ export class MessageRepository extends BaseRepository {
       deletedBy: row.deleted_by,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      clientMessageId: row.client_message_id || undefined,
       senderName: row.sender_name
     };
   }
