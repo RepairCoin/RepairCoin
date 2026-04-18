@@ -3,11 +3,7 @@ import { useNotificationStore, Notification as NotificationType } from '../store
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
 import { usePushSubscription } from './usePushSubscription';
-
-// WebSocket URL - explicitly use api.repaircoin.ai subdomain in production
-const WS_URL = typeof window !== 'undefined' && window.location.hostname.includes('repaircoin.ai')
-  ? 'wss://api.repaircoin.ai'
-  : 'ws://localhost:4000';
+import { WS_URL } from '@/utils/wsUrl';
 
 interface UseNotificationsOptions {
   enabled?: boolean;
