@@ -10,6 +10,7 @@ import * as messagingApi from "@/services/api/messaging";
 import type { QuickReply } from "@/services/api/messaging";
 import { QuickReplyManager } from "@/components/messaging/QuickReplyManager";
 import { useAuthStore } from "@/stores/authStore";
+import { useConversationPresence } from "@/hooks/useConversationPresence";
 
 interface BookingDetailsPanelProps {
   booking: MockBooking | null;
@@ -41,6 +42,8 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef<number>(0);
   const { userProfile } = useAuthStore();
+
+  useConversationPresence(activeTab === 'message' ? conversationId : null);
 
   // Load or create conversation when Message tab is selected
   const loadConversation = useCallback(async () => {

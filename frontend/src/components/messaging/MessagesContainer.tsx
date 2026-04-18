@@ -6,6 +6,8 @@ import { ConversationThread, type Message } from "./ConversationThread";
 import { MessageCircle, ArrowLeft } from "lucide-react";
 import * as messagingApi from "@/services/api/messaging";
 import { useAuthStore } from "@/stores/authStore";
+import { useConversationPresence } from "@/hooks/useConversationPresence";
+import { messageOutbox } from "@/services/messageOutbox";
 
 interface MessagesContainerProps {
   userType: "customer" | "shop";
@@ -35,6 +37,8 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   const currentPageRef = useRef(1);
   const [error, setError] = useState<string | null>(null);
   const { switchingAccount } = useAuthStore();
+
+  useConversationPresence(selectedConversationId);
 
   // Fetch conversations from API
   useEffect(() => {
@@ -185,14 +189,78 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
     const handleNewMessage = (e: Event) => {
       const ce = e as CustomEvent<{ conversationId?: string }>;
-      if (selectedConversationId && ce.detail?.conversationId === selectedConversationId) {
-        fetchMessages(false);
-      }
+      if (!selectedConversationId || ce.detail?.conversationId !== selectedConversationId) return;
+      fetchMessages(false);
     };
     window.addEventListener('new-message-received', handleNewMessage);
 
     return () => window.removeEventListener('new-message-received', handleNewMessage);
   }, [selectedConversationId, currentUserId, transformMsg]);
+
+  // Subscribe to outbox updates: reconcile optimistic messages with server state.
+  useEffect(() => {
+    messageOutbox.hydrateOnce();
+    const unsub = messageOutbox.subscribe(update => {
+      if (update.conversationId !== selectedConversationId) {
+        // Update conversation preview/unread for other threads if any
+        setConversations(prev =>
+          prev.map(c => {
+            if (c.id !== update.conversationId) return c;
+            if (update.status === 'sent' && update.message) {
+              return {
+                ...c,
+                lastMessage: update.message.messageText,
+                lastMessageTime: update.message.createdAt,
+              };
+            }
+            return c;
+          })
+        );
+        return;
+      }
+
+      setMessages(prev => {
+        if (update.status === 'sent' && update.message) {
+          return prev.map(m =>
+            m.id === update.clientMessageId
+              ? {
+                  ...m,
+                  id: update.message!.messageId,
+                  status: 'delivered',
+                  timestamp: update.message!.createdAt,
+                }
+              : m
+          );
+        }
+        if (update.status === 'failed') {
+          return prev.map(m =>
+            m.id === update.clientMessageId ? { ...m, status: 'failed' } : m
+          );
+        }
+        if (update.status === 'sending') {
+          return prev.map(m =>
+            m.id === update.clientMessageId ? { ...m, status: 'sending' } : m
+          );
+        }
+        return prev;
+      });
+
+      if (update.status === 'sent' && update.message) {
+        setConversations(prev =>
+          prev.map(c =>
+            c.id === update.conversationId
+              ? {
+                  ...c,
+                  lastMessage: update.message!.messageText,
+                  lastMessageTime: update.message!.createdAt,
+                }
+              : c
+          )
+        );
+      }
+    });
+    return unsub;
+  }, [selectedConversationId]);
 
   // Load older messages
   const handleLoadMore = useCallback(async () => {
@@ -260,60 +328,64 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
   const handleSendMessage = async (content: string, attachments?: File[]): Promise<void> => {
     if (!selectedConversationId || (!content.trim() && (!attachments || attachments.length === 0))) return;
 
-    // Upload attachments first if any
+    // Upload attachments first (still blocking — attachments must exist server-side
+    // before the message row references them).
     let uploadedAttachments: messagingApi.MessageAttachment[] = [];
     if (attachments && attachments.length > 0) {
       uploadedAttachments = await messagingApi.uploadAttachments(attachments);
     }
 
-    const newMessage = await messagingApi.sendMessage({
+    // Enqueue via outbox: returns the optimistic placeholder immediately.
+    // The UI appends it right away; the outbox handles the HTTP in the background
+    // and emits 'sent' / 'failed' updates we reconcile in the subscribe effect above.
+    const item = messageOutbox.enqueue({
       conversationId: selectedConversationId,
       messageText: content || '',
-      messageType: "text",
+      messageType: 'text',
       ...(uploadedAttachments.length > 0 && { attachments: uploadedAttachments }),
     });
 
-    // Add the new message to the messages list
-    const transformedMessage: Message = {
-      id: newMessage.messageId,
-      conversationId: newMessage.conversationId,
-      senderId: newMessage.senderAddress,
-      senderName: newMessage.senderName || "You",
-      senderType: newMessage.senderType,
-      content: newMessage.messageText,
-      timestamp: newMessage.createdAt,
-      status: "delivered",
+    const optimistic: Message = {
+      id: item.clientMessageId,
+      conversationId: selectedConversationId,
+      senderId: currentUserId,
+      senderName: 'You',
+      senderType: userType,
+      content: content || '',
+      timestamp: new Date(item.createdAt).toISOString(),
+      status: 'sending',
       isSystemMessage: false,
-      attachments: (newMessage.attachments || []).map((a: any) => ({
-        type: a.type || 'file',
+      attachments: uploadedAttachments.map(a => ({
+        type: (a.type as 'image' | 'file') || 'file',
         url: a.url,
         name: a.name || 'attachment',
       })),
     };
 
-    setMessages((prev) => [...prev, transformedMessage]);
+    setMessages(prev => [...prev, optimistic]);
 
-    // Refresh conversations to update last message preview
-    const response = await messagingApi.getConversations({ page: 1, limit: 50 });
-    const transformedConversations: Conversation[] = response.data.map((conv) => ({
-      id: conv.conversationId,
-      serviceId: "",
-      serviceName: "",
-      shopId: userType === "customer" ? conv.shopId : undefined,
-      shopName: userType === "customer" ? conv.shopName : undefined,
-      customerId: userType === "shop" ? conv.customerAddress : undefined,
-      customerName: userType === "shop" ? conv.customerName : undefined,
-      participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
-      participantAvatar: userType === "customer" ? conv.shopImageUrl : undefined, // Shop logo for customers
-      lastMessage: conv.lastMessagePreview || "",
-      lastMessageTime: conv.lastMessageAt || conv.createdAt,
-      unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,
-      status: conv.isArchivedCustomer || conv.isArchivedShop ? "resolved" : "active",
-      hasAttachment: false,
-      isOnline: false,
-    }));
-    setConversations(transformedConversations);
+    // Update the inbox preview locally rather than refetching every send.
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === selectedConversationId
+          ? {
+              ...c,
+              lastMessage: content || c.lastMessage,
+              lastMessageTime: optimistic.timestamp,
+            }
+          : c
+      )
+    );
   };
+
+  const handleRetryMessage = useCallback((messageId: string) => {
+    messageOutbox.retry(messageId);
+  }, []);
+
+  const handleDiscardMessage = useCallback((messageId: string) => {
+    messageOutbox.discard(messageId);
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  }, []);
 
   return (
     <div className="h-full flex bg-[#0A0A0A]">
@@ -362,6 +434,8 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               hasMore={hasMore}
               isLoadingMore={isLoadingMore}
               conversationStatus={selectedConversation.status}
+              onRetryMessage={handleRetryMessage}
+              onDiscardMessage={handleDiscardMessage}
               {...(userType === "shop" && { onArchiveConversation: handleArchiveConversation })}
               conversationDetails={{
                 id: selectedConversation.id,
@@ -418,6 +492,8 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
               hasMore={hasMore}
               isLoadingMore={isLoadingMore}
               conversationStatus={selectedConversation.status}
+              onRetryMessage={handleRetryMessage}
+              onDiscardMessage={handleDiscardMessage}
               {...(userType === "shop" && { onArchiveConversation: handleArchiveConversation })}
               conversationDetails={{
                 id: selectedConversation.id,

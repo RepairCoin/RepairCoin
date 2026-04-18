@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
 import { usePushSubscription } from './usePushSubscription';
 import { WS_URL } from '@/utils/wsUrl';
+import { setActiveSocket } from '@/utils/wsClient';
 
 interface UseNotificationsOptions {
   enabled?: boolean;
@@ -162,6 +163,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
         manuallyClosedRef.current = false;
+        setActiveSocket(ws);
       };
 
       ws.onmessage = (event) => {
@@ -292,6 +294,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       ws.onclose = (event) => {
         console.log('🔌 WebSocket disconnected');
         setConnected(false);
+        setActiveSocket(null);
 
         // Don't show error or try to reconnect if we manually closed due to auth issues
         if (manuallyClosedRef.current) {
@@ -338,6 +341,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       wsRef.current = null;
     }
 
+    setActiveSocket(null);
     setConnected(false);
   }, [setConnected]);
 

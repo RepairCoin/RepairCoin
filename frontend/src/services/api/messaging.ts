@@ -40,6 +40,7 @@ export interface Message {
   deletedBy?: string;
   createdAt: string;
   updatedAt: string;
+  clientMessageId?: string;
   // Joined data
   senderName?: string;
 }
@@ -61,6 +62,7 @@ export interface SendMessageRequest {
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
   metadata?: Record<string, any>;
   attachments?: MessageAttachment[];
+  clientMessageId?: string;
 }
 
 export interface PaginatedResponse<T> {
