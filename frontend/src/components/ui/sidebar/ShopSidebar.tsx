@@ -62,9 +62,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
 
   useEffect(() => {
     fetchPendingCount();
-    // Refresh count every 30 seconds
-    const interval = setInterval(fetchPendingCount, 30000);
-    return () => clearInterval(interval);
+    const handler = () => fetchPendingCount();
+    window.addEventListener('reschedule-count-changed', handler);
+    return () => window.removeEventListener('reschedule-count-changed', handler);
   }, [fetchPendingCount]);
 
   const {

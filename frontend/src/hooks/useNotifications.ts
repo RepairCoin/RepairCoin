@@ -187,6 +187,17 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
                   icon: '/logo.png',
                 });
               }
+
+              // Companion DOM events for count-driven UI
+              if (typeof window !== 'undefined') {
+                const notificationType = message.payload?.notificationType;
+                if (
+                  notificationType === 'reschedule_request_created' ||
+                  notificationType === 'reschedule_request_expired'
+                ) {
+                  window.dispatchEvent(new CustomEvent('reschedule-count-changed'));
+                }
+              }
               break;
 
             case 'error':
