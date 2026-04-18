@@ -255,6 +255,14 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               }
               break;
 
+            case 'message:new':
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('new-message-received', {
+                  detail: message.payload
+                }));
+              }
+              break;
+
             default:
               console.warn('Unknown WebSocket message type:', message.type);
           }

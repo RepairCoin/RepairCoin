@@ -1,6 +1,7 @@
 // backend/src/domains/messaging/services/MessageService.ts
 import { MessageRepository, Conversation, Message, CreateMessageParams } from '../../../repositories/MessageRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { WebSocketManager } from '../../../services/WebSocketManager';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,10 +21,15 @@ export interface SendMessageRequest {
 export class MessageService {
   private messageRepo: MessageRepository;
   private notificationService: NotificationService;
+  private wsManager?: WebSocketManager;
 
   constructor() {
     this.messageRepo = new MessageRepository();
     this.notificationService = new NotificationService();
+  }
+
+  public setWebSocketManager(wsManager: WebSocketManager): void {
+    this.wsManager = wsManager;
   }
 
   /**
@@ -185,6 +191,27 @@ export class MessageService {
         } catch (emailError) {
           logger.error('Failed to send customer message email to shop:', emailError);
         }
+      }
+
+      // Push lightweight WS signal so the receiver's MessageIcon refetches unread count
+      try {
+        let receiverAddress: string | undefined;
+        if (request.senderType === 'customer') {
+          const { shopRepository } = await import('../../../repositories');
+          const shop = await shopRepository.getShop(conversation.shopId);
+          receiverAddress = shop?.walletAddress?.toLowerCase();
+        } else {
+          receiverAddress = conversation.customerAddress?.toLowerCase();
+        }
+
+        if (receiverAddress && this.wsManager) {
+          this.wsManager.sendToAddresses([receiverAddress], {
+            type: 'message:new',
+            payload: { conversationId: conversation.conversationId }
+          });
+        }
+      } catch (wsError) {
+        logger.error('Failed to send message:new WS event:', wsError);
       }
 
       logger.info('Message sent successfully', {
@@ -615,3 +642,5 @@ export class MessageService {
     }
   }
 }
+
+export const messageService = new MessageService();

@@ -2,7 +2,8 @@
 import { DomainModule } from '../types';
 import { logger } from '../../utils/logger';
 import messagingRoutes from './routes';
-import { MessageService } from './services/MessageService';
+import { MessageService, messageService } from './services/MessageService';
+import { WebSocketManager } from '../../services/WebSocketManager';
 import { eventBus } from '../../events/EventBus';
 import { autoMessageSchedulerService } from '../../services/AutoMessageSchedulerService';
 import { getSharedPool } from '../../utils/database-pool';
@@ -10,14 +11,20 @@ import { getSharedPool } from '../../utils/database-pool';
 export class MessagingDomain implements DomainModule {
   name = 'messages';
   routes = messagingRoutes;
-  private messageService!: MessageService;
+  private messageService: MessageService = messageService;
+  private wsManager?: WebSocketManager;
   private cleanupInterval?: NodeJS.Timeout;
 
   async initialize(): Promise<void> {
-    this.messageService = new MessageService();
     this.setupPeriodicCleanup();
     this.setupEventSubscriptions();
     logger.info('Messaging domain initialized');
+  }
+
+  public setWebSocketManager(wsManager: WebSocketManager): void {
+    this.wsManager = wsManager;
+    this.messageService.setWebSocketManager(wsManager);
+    logger.info('WebSocket manager attached to MessagingDomain');
   }
 
   /**

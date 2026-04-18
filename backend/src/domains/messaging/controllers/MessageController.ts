@@ -1,6 +1,6 @@
 // backend/src/domains/messaging/controllers/MessageController.ts
 import { Request, Response } from 'express';
-import { MessageService } from '../services/MessageService';
+import { MessageService, messageService } from '../services/MessageService';
 import { QuickReplyRepository } from '../../../repositories/QuickReplyRepository';
 import { imageStorageService } from '../../../services/ImageStorageService';
 import { logger } from '../../../utils/logger';
@@ -10,7 +10,7 @@ export class MessageController {
   private quickReplyRepo: QuickReplyRepository;
 
   constructor() {
-    this.messageService = new MessageService();
+    this.messageService = messageService;
     this.quickReplyRepo = new QuickReplyRepository();
   }
 
