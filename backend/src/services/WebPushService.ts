@@ -329,6 +329,36 @@ export class WebPushService {
     });
   }
 
+  async sendNewMessageNotification(
+    receiverAddress: string,
+    params: {
+      conversationId: string;
+      senderName: string;
+      preview: string;
+      receiverType: 'customer' | 'shop';
+      senderImageUrl?: string;
+    }
+  ): Promise<SendPushResult> {
+    const { conversationId, senderName, preview, receiverType, senderImageUrl } = params;
+    const route = receiverType === 'customer'
+      ? `/customer?tab=messages&conversation=${conversationId}`
+      : `/shop?tab=messages&conversation=${conversationId}`;
+
+    return this.sendToUser(receiverAddress, {
+      title: senderName,
+      body: preview,
+      channelId: NotificationChannels.MESSAGES,
+      priority: 'high',
+      data: {
+        type: 'new_message',
+        conversationId,
+        tag: `new_message:${conversationId}`,
+        route,
+        ...(senderImageUrl ? { icon: senderImageUrl } : {}),
+      },
+    });
+  }
+
   async sendSubscriptionExpiringNotification(
     shopAddress: string,
     shopName: string,

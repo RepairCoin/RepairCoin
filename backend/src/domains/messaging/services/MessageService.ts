@@ -1,6 +1,9 @@
 // backend/src/domains/messaging/services/MessageService.ts
 import { MessageRepository, Conversation, Message, CreateMessageParams } from '../../../repositories/MessageRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
+import { WebSocketManager } from '../../../services/WebSocketManager';
+import { conversationPresenceService } from '../../../services/ConversationPresenceService';
+import { emailCooldownService } from '../../../services/EmailCooldownService';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,15 +18,21 @@ export interface SendMessageRequest {
   metadata?: Record<string, any>;
   attachments?: any[];
   isEncrypted?: boolean;
+  clientMessageId?: string;
 }
 
 export class MessageService {
   private messageRepo: MessageRepository;
   private notificationService: NotificationService;
+  private wsManager?: WebSocketManager;
 
   constructor() {
     this.messageRepo = new MessageRepository();
     this.notificationService = new NotificationService();
+  }
+
+  public setWebSocketManager(wsManager: WebSocketManager): void {
+    this.wsManager = wsManager;
   }
 
   /**
@@ -115,18 +124,29 @@ export class MessageService {
         messageType: request.messageType || 'text',
         metadata: request.metadata || {},
         attachments: request.attachments || [],
-        isEncrypted: request.isEncrypted || false
+        isEncrypted: request.isEncrypted || false,
+        clientMessageId: request.clientMessageId
       };
 
-      const message = await this.messageRepo.createMessage(messageParams);
+      const { message, created } = await this.messageRepo.createMessage(messageParams);
+
+      // Duplicate retry: return the existing row without re-running side effects
+      // (unread increment, email, WS push) that already ran for the original send.
+      if (!created) {
+        return message;
+      }
+
+      // Preview text shared by unread-count update and the web push payload.
+      // Encryption + attachment aware so we never leak ciphertext into
+      // conversation rows or push notifications.
+      const preview = request.isEncrypted
+        ? '🔒 Locked message'
+        : hasText
+          ? request.messageText.trim()
+          : `Sent ${request.attachments!.length} attachment(s)`;
 
       // Increment unread count for the receiver and update last message preview
       try {
-        const preview = request.isEncrypted
-          ? '🔒 Locked message'
-          : hasText
-            ? request.messageText.trim()
-            : `Sent ${request.attachments!.length} attachment(s)`;
         await this.messageRepo.incrementUnreadCount(
           conversation.conversationId,
           request.senderType === 'customer' ? 'shop' : 'customer',
@@ -168,23 +188,101 @@ export class MessageService {
       }
       */
 
-      // Send email notification to shop when customer sends a message
-      if (request.senderType === 'customer') {
-        try {
+      // Resolve receiver wallet once — used for both the email-gate presence check
+      // and the WS emit below. For customer→shop we need shop.walletAddress + shop.email;
+      // for shop→customer we only need conversation.customerAddress.
+      let receiverAddress: string | undefined;
+      let shopForEmail: { email?: string; name: string; shopId: string } | undefined;
+
+      try {
+        if (request.senderType === 'customer') {
           const { shopRepository } = await import('../../../repositories');
           const shop = await shopRepository.getShop(conversation.shopId);
-          if (shop?.email) {
-            const { EmailService } = await import('../../../services/EmailService');
-            const emailService = new EmailService();
-            await emailService.sendCustomerMessageNotification(shop.email, shop.shopId, {
-              shopName: shop.name,
-              customerName: conversation.customerName || 'Customer',
-              messagePreview: request.isEncrypted ? '🔒 Locked message' : request.messageText,
-            });
+          receiverAddress = shop?.walletAddress?.toLowerCase();
+          if (shop) {
+            shopForEmail = { email: shop.email, name: shop.name, shopId: shop.shopId };
           }
-        } catch (emailError) {
-          logger.error('Failed to send customer message email to shop:', emailError);
+        } else {
+          receiverAddress = conversation.customerAddress?.toLowerCase();
         }
+      } catch (lookupError) {
+        logger.error('Failed to resolve receiver for post-send notifications:', lookupError);
+      }
+
+      // Email notification (customer → shop only). Skipped when the shop is actively
+      // viewing this conversation, or when we've already emailed this (shop, convo)
+      // pair within the cooldown window. Non-blocking — fire and forget so the HTTP
+      // response doesn't wait on SendGrid.
+      if (request.senderType === 'customer' && shopForEmail?.email) {
+        const isShopViewing = receiverAddress
+          ? conversationPresenceService.isViewing(receiverAddress, conversation.conversationId)
+          : false;
+
+        if (!isShopViewing && emailCooldownService.shouldSend(shopForEmail.shopId, conversation.conversationId)) {
+          (async () => {
+            try {
+              const { EmailService } = await import('../../../services/EmailService');
+              const emailService = new EmailService();
+              await emailService.sendCustomerMessageNotification(shopForEmail!.email!, shopForEmail!.shopId, {
+                shopName: shopForEmail!.name,
+                customerName: conversation.customerName || 'Customer',
+                messagePreview: request.isEncrypted ? '🔒 Locked message' : request.messageText,
+              });
+            } catch (emailError) {
+              logger.error('Failed to send customer message email to shop:', emailError);
+            }
+          })();
+        }
+      }
+
+      // Web Push notification to the receiver. Skipped when the receiver is
+      // actively viewing this conversation (same presence gate as email).
+      // Fire-and-forget so the HTTP response doesn't wait on push delivery.
+      if (receiverAddress) {
+        const isReceiverViewing = conversationPresenceService.isViewing(
+          receiverAddress,
+          conversation.conversationId
+        );
+
+        if (!isReceiverViewing) {
+          const receiverType: 'customer' | 'shop' =
+            request.senderType === 'customer' ? 'shop' : 'customer';
+          const senderName = request.senderType === 'customer'
+            ? (conversation.customerName || 'Customer')
+            : (conversation.shopName || 'Shop');
+          // Sender avatar — shop logo for shop senders, customer profile image
+          // for customer senders. Both are joined into the conversation row.
+          const senderImageUrl = request.senderType === 'shop'
+            ? conversation.shopImageUrl
+            : conversation.customerImageUrl;
+
+          (async () => {
+            try {
+              const { getWebPushService } = await import('../../../services/WebPushService');
+              await getWebPushService().sendNewMessageNotification(receiverAddress!, {
+                conversationId: conversation.conversationId,
+                senderName,
+                preview,
+                receiverType,
+                senderImageUrl,
+              });
+            } catch (pushError) {
+              logger.error('Failed to send web push for new message:', pushError);
+            }
+          })();
+        }
+      }
+
+      // Push lightweight WS signal so the receiver's MessageIcon refetches unread count
+      try {
+        if (receiverAddress && this.wsManager) {
+          this.wsManager.sendToAddresses([receiverAddress], {
+            type: 'message:new',
+            payload: { conversationId: conversation.conversationId }
+          });
+        }
+      } catch (wsError) {
+        logger.error('Failed to send message:new WS event:', wsError);
       }
 
       logger.info('Message sent successfully', {
@@ -615,3 +713,5 @@ export class MessageService {
     }
   }
 }
+
+export const messageService = new MessageService();

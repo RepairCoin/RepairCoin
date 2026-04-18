@@ -31,7 +31,7 @@ export interface Message {
   senderType: "customer" | "shop";
   content: string;
   timestamp: string;
-  status: "sending" | "sent" | "delivered" | "read";
+  status: "sending" | "sent" | "delivered" | "read" | "failed";
   attachments?: {
     type: "image" | "file";
     url: string;
@@ -58,6 +58,8 @@ interface ConversationThreadProps {
   isLoadingMore?: boolean;
   conversationStatus?: "active" | "resolved" | "archived";
   onArchiveConversation?: (archived: boolean) => Promise<void>;
+  onRetryMessage?: (messageId: string) => void;
+  onDiscardMessage?: (messageId: string) => void;
   conversationDetails?: {
     id: string;
     customerId?: string;
@@ -85,6 +87,8 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   isLoadingMore,
   conversationStatus,
   onArchiveConversation,
+  onRetryMessage,
+  onDiscardMessage,
   conversationDetails,
 }) => {
   const [messageInput, setMessageInput] = useState("");
@@ -636,13 +640,33 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                             {formatTime(message.timestamp)}
                           </span>
                           {isOwnMessage && (
-                            <span>
+                            <span className="flex items-center gap-1">
                               {message.status === "read" ? (
                                 <CheckCheck className="w-3 h-3 text-blue-500" />
                               ) : message.status === "delivered" ? (
                                 <CheckCheck className="w-3 h-3 text-gray-500" />
                               ) : message.status === "sent" ? (
                                 <Check className="w-3 h-3 text-gray-500" />
+                              ) : message.status === "failed" ? (
+                                <>
+                                  <span className="text-[11px] text-red-400">Failed</span>
+                                  {onRetryMessage && (
+                                    <button
+                                      onClick={() => onRetryMessage(message.id)}
+                                      className="text-[11px] text-red-400 hover:text-red-300 underline"
+                                    >
+                                      Retry
+                                    </button>
+                                  )}
+                                  {onDiscardMessage && (
+                                    <button
+                                      onClick={() => onDiscardMessage(message.id)}
+                                      className="text-[11px] text-gray-500 hover:text-gray-400 underline"
+                                    >
+                                      Discard
+                                    </button>
+                                  )}
+                                </>
                               ) : (
                                 <div className="w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
                               )}

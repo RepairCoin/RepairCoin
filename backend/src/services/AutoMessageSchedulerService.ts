@@ -219,7 +219,7 @@ export class AutoMessageSchedulerService {
 
       // Create the message
       const messageId = `msg_${uuidv4()}`;
-      const message = await this.messageRepo.createMessage({
+      const { message } = await this.messageRepo.createMessage({
         messageId,
         conversationId: conversation.conversationId,
         senderAddress: rule.shopId,
@@ -567,7 +567,7 @@ export class AutoMessageSchedulerService {
               });
 
               const messageId = `msg_${uuidv4()}`;
-              const message = await this.messageRepo.createMessage({
+              const { message } = await this.messageRepo.createMessage({
                 messageId,
                 conversationId: conversation.conversationId,
                 senderAddress: rule.shopId,

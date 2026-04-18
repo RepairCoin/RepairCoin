@@ -102,9 +102,9 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
     fetchCalendarStatus();
     fetchPendingCount();
 
-    // Refresh count every 30 seconds
-    const interval = setInterval(fetchPendingCount, 30000);
-    return () => clearInterval(interval);
+    const handler = () => fetchPendingCount();
+    window.addEventListener('reschedule-count-changed', handler);
+    return () => window.removeEventListener('reschedule-count-changed', handler);
   }, [fetchCalendarStatus, fetchPendingCount]);
 
   // Refresh count when switching away from reschedules tab (user may have approved/rejected)

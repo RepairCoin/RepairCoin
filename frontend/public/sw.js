@@ -30,13 +30,20 @@ self.addEventListener('push', (event) => {
 
   const { title = 'RepairCoin', body = '', data = {} } = payload;
 
+  // `icon` is the small corner image (OS-controlled size ~48-96px).
+  // `image` is the big hero banner under the text — Chromium/Edge/Firefox
+  // desktop show it in full, so reuse the sender image here so message
+  // pushes get a visibly large logo.
+  const heroImage = data.image || data.icon;
+
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/img/favicon-logo.png',
+      icon: data.icon || '/img/favicon-logo.png',
       badge: '/img/favicon-logo.png',
+      ...(heroImage ? { image: heroImage } : {}),
       data,
-      tag: data.type || 'default',
+      tag: data.tag || data.type || 'default',
     })
   );
 });

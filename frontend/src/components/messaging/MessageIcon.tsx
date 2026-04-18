@@ -11,16 +11,14 @@ export const MessageIcon: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Fetch unread message count
+  // Fetch unread message count on mount and whenever a new-message WS event fires
   useEffect(() => {
-    // Don't fetch if userType is not set or during account switch
     if (!userType || (userType !== 'customer' && userType !== 'shop') || switchingAccount) {
       return;
     }
 
     const fetchUnreadCount = async () => {
       try {
-        // Use lightweight endpoint instead of fetching all conversations
         const count = await messagingApi.getUnreadCount();
         setUnreadCount(count);
       } catch (err) {
@@ -28,14 +26,16 @@ export const MessageIcon: React.FC = () => {
       }
     };
 
-    // Initial fetch
     fetchUnreadCount();
 
-    // Poll for updates every 10 seconds
-    const pollInterval = setInterval(fetchUnreadCount, 10000);
+    const handleRefresh = () => fetchUnreadCount();
+    window.addEventListener('new-message-received', handleRefresh);
+    window.addEventListener('conversation-marked-read', handleRefresh);
 
-    // Cleanup interval on unmount
-    return () => clearInterval(pollInterval);
+    return () => {
+      window.removeEventListener('new-message-received', handleRefresh);
+      window.removeEventListener('conversation-marked-read', handleRefresh);
+    };
   }, [userType, switchingAccount]);
 
   const buttonRef = React.useRef<HTMLButtonElement>(null);

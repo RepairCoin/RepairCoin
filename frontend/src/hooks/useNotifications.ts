@@ -3,11 +3,8 @@ import { useNotificationStore, Notification as NotificationType } from '../store
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
 import { usePushSubscription } from './usePushSubscription';
-
-// WebSocket URL - explicitly use api.repaircoin.ai subdomain in production
-const WS_URL = typeof window !== 'undefined' && window.location.hostname.includes('repaircoin.ai')
-  ? 'wss://api.repaircoin.ai'
-  : 'ws://localhost:4000';
+import { WS_URL } from '@/utils/wsUrl';
+import { setActiveSocket } from '@/utils/wsClient';
 
 interface UseNotificationsOptions {
   enabled?: boolean;
@@ -166,6 +163,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
         manuallyClosedRef.current = false;
+        setActiveSocket(ws);
       };
 
       ws.onmessage = (event) => {
@@ -190,6 +188,17 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
                   body: message.payload.message,
                   icon: '/logo.png',
                 });
+              }
+
+              // Companion DOM events for count-driven UI
+              if (typeof window !== 'undefined') {
+                const notificationType = message.payload?.notificationType;
+                if (
+                  notificationType === 'reschedule_request_created' ||
+                  notificationType === 'reschedule_request_expired'
+                ) {
+                  window.dispatchEvent(new CustomEvent('reschedule-count-changed'));
+                }
               }
               break;
 
@@ -259,6 +268,14 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               }
               break;
 
+            case 'message:new':
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('new-message-received', {
+                  detail: message.payload
+                }));
+              }
+              break;
+
             default:
               console.warn('Unknown WebSocket message type:', message.type);
           }
@@ -277,6 +294,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       ws.onclose = (event) => {
         console.log('🔌 WebSocket disconnected');
         setConnected(false);
+        setActiveSocket(null);
 
         // Don't show error or try to reconnect if we manually closed due to auth issues
         if (manuallyClosedRef.current) {
@@ -323,6 +341,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       wsRef.current = null;
     }
 
+    setActiveSocket(null);
     setConnected(false);
   }, [setConnected]);
 

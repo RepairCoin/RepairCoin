@@ -1,6 +1,6 @@
 // backend/src/domains/messaging/controllers/MessageController.ts
 import { Request, Response } from 'express';
-import { MessageService } from '../services/MessageService';
+import { MessageService, messageService } from '../services/MessageService';
 import { QuickReplyRepository } from '../../../repositories/QuickReplyRepository';
 import { imageStorageService } from '../../../services/ImageStorageService';
 import { logger } from '../../../utils/logger';
@@ -10,7 +10,7 @@ export class MessageController {
   private quickReplyRepo: QuickReplyRepository;
 
   constructor() {
-    this.messageService = new MessageService();
+    this.messageService = messageService;
     this.quickReplyRepo = new QuickReplyRepository();
   }
 
@@ -34,10 +34,17 @@ export class MessageController {
         return res.status(401).json({ success: false, error: 'Shop ID required' });
       }
 
-      const { conversationId, customerAddress, shopId, messageText, messageType, metadata, attachments, isEncrypted } = req.body;
+      const { conversationId, customerAddress, shopId, messageText, messageType, metadata, attachments, isEncrypted, clientMessageId } = req.body;
 
       if (!messageText && (!attachments || attachments.length === 0)) {
         return res.status(400).json({ success: false, error: 'Message text or attachments required' });
+      }
+
+      // Validate clientMessageId shape if provided (64-char cap matches DB column)
+      if (clientMessageId !== undefined && clientMessageId !== null) {
+        if (typeof clientMessageId !== 'string' || clientMessageId.length === 0 || clientMessageId.length > 64) {
+          return res.status(400).json({ success: false, error: 'Invalid clientMessageId' });
+        }
       }
 
       // Determine sender type based on role
@@ -56,7 +63,8 @@ export class MessageController {
         messageType,
         metadata,
         attachments,
-        isEncrypted: isEncrypted || false
+        isEncrypted: isEncrypted || false,
+        clientMessageId: clientMessageId || undefined
       });
 
       res.status(201).json({

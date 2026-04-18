@@ -10,6 +10,7 @@ import * as messagingApi from "@/services/api/messaging";
 import type { QuickReply } from "@/services/api/messaging";
 import { QuickReplyManager } from "@/components/messaging/QuickReplyManager";
 import { useAuthStore } from "@/stores/authStore";
+import { useConversationPresence } from "@/hooks/useConversationPresence";
 
 interface BookingDetailsPanelProps {
   booking: MockBooking | null;
@@ -42,6 +43,8 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
   const prevMessageCountRef = useRef<number>(0);
   const { userProfile } = useAuthStore();
 
+  useConversationPresence(activeTab === 'message' ? conversationId : null);
+
   // Load or create conversation when Message tab is selected
   const loadConversation = useCallback(async () => {
     if (!booking?.customerAddress) return;
@@ -70,6 +73,9 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
       setMessages(transformedMessages);
 
       await messagingApi.markConversationAsRead(conversation.conversationId);
+      window.dispatchEvent(new CustomEvent('conversation-marked-read', {
+        detail: { conversationId: conversation.conversationId }
+      }));
 
       // Auto-send booking_link message if first time for this booking
       const bookingKey = `${booking.orderId}-${conversation.conversationId}`;
@@ -150,6 +156,9 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
         }));
         setMessages(transformedMessages);
         await messagingApi.markConversationAsRead(conversationId);
+        window.dispatchEvent(new CustomEvent('conversation-marked-read', {
+          detail: { conversationId }
+        }));
       } catch (err) {
         // Silent fail on polling
       }

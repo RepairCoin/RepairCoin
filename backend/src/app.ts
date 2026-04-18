@@ -675,6 +675,16 @@ class RepairCoinApp {
       logger.info('✅ WebSocket manager attached to NotificationDomain');
     }
 
+    // Attach WebSocket manager to MessagingDomain
+    const messagingDomain = domainRegistry.getAllDomains().find(
+      d => d.name === 'messages'
+    ) as any;
+
+    if (messagingDomain && messagingDomain.setWebSocketManager) {
+      messagingDomain.setWebSocketManager(this.wsManager);
+      logger.info('✅ WebSocket manager attached to MessagingDomain');
+    }
+
     this.server.listen(port, () => {
       console.log('\n==============================================');
       console.log('🚀 RepairCoin Backend API Started Successfully');

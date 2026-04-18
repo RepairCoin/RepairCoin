@@ -3,6 +3,7 @@ import { IncomingMessage } from 'http';
 import { logger } from '../utils/logger';
 import jwt from 'jsonwebtoken';
 import { Notification } from '../repositories/NotificationRepository';
+import { conversationPresenceService } from './ConversationPresenceService';
 
 type WebSocketClient = WebSocket & {
   walletAddress?: string;
@@ -121,6 +122,20 @@ export class WebSocketManager {
       case 'ping':
         this.send(ws, { type: 'pong' });
         break;
+
+      case 'conversation:open':
+      case 'conversation:close': {
+        const conversationId = message.payload?.conversationId;
+        if (!ws.walletAddress || typeof conversationId !== 'string' || !conversationId) {
+          return;
+        }
+        if (message.type === 'conversation:open') {
+          conversationPresenceService.markOpen(ws.walletAddress, conversationId);
+        } else {
+          conversationPresenceService.markClosed(ws.walletAddress, conversationId);
+        }
+        break;
+      }
 
       default:
         logger.warn(`Unknown message type: ${message.type}`);
@@ -295,6 +310,7 @@ export class WebSocketManager {
         addressClients.delete(ws);
         if (addressClients.size === 0) {
           this.clients.delete(ws.walletAddress);
+          conversationPresenceService.clearAddress(ws.walletAddress);
         }
       }
       logger.info(`WebSocket disconnected for wallet: ${ws.walletAddress}`);
