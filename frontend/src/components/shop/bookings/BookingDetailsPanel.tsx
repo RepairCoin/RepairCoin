@@ -70,6 +70,9 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
       setMessages(transformedMessages);
 
       await messagingApi.markConversationAsRead(conversation.conversationId);
+      window.dispatchEvent(new CustomEvent('conversation-marked-read', {
+        detail: { conversationId: conversation.conversationId }
+      }));
 
       // Auto-send booking_link message if first time for this booking
       const bookingKey = `${booking.orderId}-${conversation.conversationId}`;
@@ -150,6 +153,9 @@ export const BookingDetailsPanel: React.FC<BookingDetailsPanelProps> = ({
         }));
         setMessages(transformedMessages);
         await messagingApi.markConversationAsRead(conversationId);
+        window.dispatchEvent(new CustomEvent('conversation-marked-read', {
+          detail: { conversationId }
+        }));
       } catch (err) {
         // Silent fail on polling
       }

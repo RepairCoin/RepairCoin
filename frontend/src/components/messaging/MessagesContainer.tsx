@@ -169,6 +169,9 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
         // Mark conversation as read
         await messagingApi.markConversationAsRead(selectedConversationId);
+        window.dispatchEvent(new CustomEvent('conversation-marked-read', {
+          detail: { conversationId: selectedConversationId }
+        }));
       } catch (err) {
         console.error("Error fetching messages:", err);
       } finally {

@@ -28,10 +28,14 @@ export const MessageIcon: React.FC = () => {
 
     fetchUnreadCount();
 
-    const handleNewMessage = () => fetchUnreadCount();
-    window.addEventListener('new-message-received', handleNewMessage);
+    const handleRefresh = () => fetchUnreadCount();
+    window.addEventListener('new-message-received', handleRefresh);
+    window.addEventListener('conversation-marked-read', handleRefresh);
 
-    return () => window.removeEventListener('new-message-received', handleNewMessage);
+    return () => {
+      window.removeEventListener('new-message-received', handleRefresh);
+      window.removeEventListener('conversation-marked-read', handleRefresh);
+    };
   }, [userType, switchingAccount]);
 
   const buttonRef = React.useRef<HTMLButtonElement>(null);
