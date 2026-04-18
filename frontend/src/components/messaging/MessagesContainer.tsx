@@ -89,16 +89,12 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       }
     };
 
-    // Initial fetch
     fetchConversations(true);
 
-    // Poll for conversation updates every 5 seconds
-    const pollInterval = setInterval(() => {
-      fetchConversations(false);
-    }, 5000);
+    const handleNewMessage = () => fetchConversations(false);
+    window.addEventListener('new-message-received', handleNewMessage);
 
-    // Cleanup interval on unmount
-    return () => clearInterval(pollInterval);
+    return () => window.removeEventListener('new-message-received', handleNewMessage);
   }, [userType, switchingAccount]);
 
   // Auto-select conversation from prop (passed from URL query param)
@@ -182,18 +178,17 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
       }
     };
 
-    // Initial fetch
     fetchMessages(true);
 
-    // Poll for new messages every 3 seconds
-    const pollInterval = setInterval(() => {
-      if (selectedConversationId) {
+    const handleNewMessage = (e: Event) => {
+      const ce = e as CustomEvent<{ conversationId?: string }>;
+      if (selectedConversationId && ce.detail?.conversationId === selectedConversationId) {
         fetchMessages(false);
       }
-    }, 3000);
+    };
+    window.addEventListener('new-message-received', handleNewMessage);
 
-    // Cleanup interval on unmount or conversation change
-    return () => clearInterval(pollInterval);
+    return () => window.removeEventListener('new-message-received', handleNewMessage);
   }, [selectedConversationId, currentUserId, transformMsg]);
 
   // Load older messages
