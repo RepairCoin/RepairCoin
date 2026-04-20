@@ -1,10 +1,15 @@
 # Bug: Expired Refresh Token Doesn't Log User Out — Stuck in Broken Auth State
 
-## Status: Open
+## Status: Fixed
+
 ## Priority: High
+
 ## Date: 2026-04-15
+
 ## Category: Bug - Authentication / Session Management
+
 ## Platform: Mobile (React Native / Expo)
+
 ## Affects: All users after 7-day session expiry or failed token refresh
 
 ---
@@ -31,25 +36,27 @@ public async clearAuthToken(): Promise<void> {
 ```
 
 This only clears the axios header. Missing:
+
 - Clear Zustand store (`accessToken`, `refreshToken`, `isAuthenticated`, `userProfile`)
 - Clear SecureStore persisted data
 - Navigate to onboarding screen
 
 ### Where `clearAuthToken()` is called
 
-| Location | Line | Trigger |
-|---|---|---|
-| `refreshToken()` | 119 | Refresh fails with 401 (refresh token invalid/expired) |
-| Request interceptor | 150 | Proactive refresh fails before API call |
-| Response interceptor | 225 | 401 response and refresh fails (non TOKEN_EXPIRED errors) |
+| Location             | Line | Trigger                                                   |
+| -------------------- | ---- | --------------------------------------------------------- |
+| `refreshToken()`     | 119  | Refresh fails with 401 (refresh token invalid/expired)    |
+| Request interceptor  | 150  | Proactive refresh fails before API call                   |
+| Response interceptor | 225  | 401 response and refresh fails (non TOKEN_EXPIRED errors) |
 
 All three paths leave the user stuck.
 
 ### Additional Issue: TOKEN_EXPIRED skips logout entirely
 
 **Line 224:**
+
 ```typescript
-if (errorCode !== 'TOKEN_EXPIRED') {
+if (errorCode !== "TOKEN_EXPIRED") {
   await this.clearAuthToken();
 }
 ```
@@ -69,14 +76,14 @@ public async clearAuthToken(): Promise<void> {
   try {
     // 1. Clear axios header
     delete this.instance.defaults.headers.Authorization;
-    
+
     // 2. Clear Zustand auth store (which also clears SecureStore via persist)
     const { logout } = useAuthStore.getState();
     await logout(false);  // false = don't navigate (we'll handle it)
-    
+
     // 3. Navigate to onboarding
     router.replace("/onboarding1");
-    
+
     console.log('[ApiClient] Auth fully cleared, navigating to onboarding');
   } catch (error) {
     console.error('Failed to clear auth:', error);
@@ -88,7 +95,7 @@ Also fix line 224 — remove the `TOKEN_EXPIRED` exception so all failed refresh
 
 ```typescript
 // Before (broken):
-if (errorCode !== 'TOKEN_EXPIRED') {
+if (errorCode !== "TOKEN_EXPIRED") {
   await this.clearAuthToken();
 }
 
@@ -100,8 +107,8 @@ await this.clearAuthToken();
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
+| File                               | Change                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `mobile/shared/utilities/axios.ts` | Update `clearAuthToken()` to clear Zustand store + navigate; fix TOKEN_EXPIRED skip at line 224 |
 
 ---
