@@ -1398,4 +1398,8 @@ router.put('/system', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+// Email Templates routes
+import emailTemplatesRoutes from './emailTemplates';
+router.use('/email-templates', emailTemplatesRoutes);
+
 export default router;
