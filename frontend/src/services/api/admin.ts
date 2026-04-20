@@ -1350,3 +1350,135 @@ export const updateSystemSettings = async (
     return { success: false, message: 'Failed to update system settings' };
   }
 };
+
+// Email Templates Types
+export interface EmailTemplate {
+  id: number;
+  templateKey: string;
+  templateName: string;
+  category: 'welcome' | 'booking' | 'transaction' | 'shop' | 'support';
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  variables: string[];
+  enabled: boolean;
+  isDefault: boolean;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+  modifiedBy?: string;
+  lastSentAt?: Date;
+}
+
+export interface EmailTemplatePreview {
+  subject: string;
+  bodyHtml: string;
+  sampleData: Record<string, string>;
+}
+
+// Email Templates API
+export const getEmailTemplates = async (category?: string): Promise<EmailTemplate[]> => {
+  try {
+    const params = category ? `?category=${category}` : '';
+    const response = await apiClient.get<{ data: EmailTemplate[] }>(`/admin/settings/email-templates${params}`);
+    return response.data?.data || response.data || [];
+  } catch (error) {
+    console.error('Error getting email templates:', error);
+    return [];
+  }
+};
+
+export const getEmailTemplate = async (key: string): Promise<EmailTemplate | null> => {
+  try {
+    const response = await apiClient.get<{ data: EmailTemplate }>(`/admin/settings/email-templates/${key}`);
+    return response.data?.data || response.data || null;
+  } catch (error) {
+    console.error('Error getting email template:', error);
+    return null;
+  }
+};
+
+export const updateEmailTemplate = async (
+  key: string,
+  data: Partial<EmailTemplate>
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.put<{
+      success: boolean;
+      message: string;
+    }>(`/admin/settings/email-templates/${key}`, data);
+    return {
+      success: true,
+      message: response.data?.message || 'Template updated successfully'
+    };
+  } catch (error) {
+    console.error('Error updating email template:', error);
+    return { success: false, message: 'Failed to update template' };
+  }
+};
+
+export const previewEmailTemplate = async (
+  key: string,
+  sampleData?: Record<string, string>
+): Promise<EmailTemplatePreview | null> => {
+  try {
+    const response = await apiClient.post<{ data: EmailTemplatePreview }>(
+      `/admin/settings/email-templates/${key}/preview`,
+      { sampleData }
+    );
+    return response.data?.data || response.data || null;
+  } catch (error) {
+    console.error('Error previewing email template:', error);
+    return null;
+  }
+};
+
+export const sendTestEmail = async (
+  key: string,
+  recipientEmail: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+    }>(`/admin/settings/email-templates/${key}/test`, { recipientEmail });
+    return {
+      success: true,
+      message: response.data?.message || 'Test email sent successfully'
+    };
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    return { success: false, message: 'Failed to send test email' };
+  }
+};
+
+export const toggleEmailTemplate = async (
+  key: string,
+  enabled: boolean
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    await apiClient.put(`/admin/settings/email-templates/${key}/toggle`, { enabled });
+    return { success: true };
+  } catch (error) {
+    console.error('Error toggling email template:', error);
+    return { success: false, message: 'Failed to toggle template' };
+  }
+};
+
+export const resetEmailTemplateToDefault = async (
+  key: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await apiClient.delete<{
+      success: boolean;
+      message: string;
+    }>(`/admin/settings/email-templates/${key}`);
+    return {
+      success: true,
+      message: response.data?.message || 'Template reset to default'
+    };
+  } catch (error) {
+    console.error('Error resetting email template:', error);
+    return { success: false, message: 'Failed to reset template' };
+  }
+};
