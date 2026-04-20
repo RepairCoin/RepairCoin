@@ -5,11 +5,8 @@ import { DatabaseService } from '../../../services/DatabaseService';
 
 const router = Router();
 
-interface SystemSettings {
-  blockchainMintingEnabled: boolean;
-  lastModified: Date;
-  modifiedBy?: string;
-}
+// SystemSettings interface removed - was only used by deprecated endpoint
+// Use SystemConfigurationSettings interface instead (line 1100)
 
 interface PlatformSettings {
   // General
@@ -210,38 +207,42 @@ const updateSetting = async (key: string, value: string, modifiedBy: string) => 
 initializeSettingsTable();
 
 /**
- * Get current system settings
+ * Get current system settings - DEPRECATED
+ * This endpoint is deprecated and kept for backward compatibility only.
+ * Use GET /system (line 1236) for full system configuration settings
+ * or GET /system/blockchain-minting for blockchain minting status only.
  */
-router.get('/system', asyncHandler(async (req: Request, res: Response) => {
-  const db = DatabaseService.getInstance();
-  
-  try {
-    const result = await db.query(`
-      SELECT setting_key, setting_value, last_modified, modified_by 
-      FROM system_settings
-    `);
-    
-    const settings: any = {};
-    result.rows.forEach(row => {
-      if (row.setting_key === 'blockchain_minting_enabled') {
-        settings.blockchainMintingEnabled = row.setting_value === 'true';
-        settings.lastModified = row.last_modified;
-        settings.modifiedBy = row.modified_by;
-      }
-    });
-    
-    res.json({
-      success: true,
-      data: settings
-    });
-  } catch (error) {
-    logger.error('Failed to get system settings:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve system settings'
-    });
-  }
-}));
+// COMMENTED OUT - Conflicted with the main system configuration endpoint below
+// router.get('/system', asyncHandler(async (req: Request, res: Response) => {
+//   const db = DatabaseService.getInstance();
+//
+//   try {
+//     const result = await db.query(`
+//       SELECT setting_key, setting_value, last_modified, modified_by
+//       FROM system_settings
+//     `);
+//
+//     const settings: any = {};
+//     result.rows.forEach(row => {
+//       if (row.setting_key === 'blockchain_minting_enabled') {
+//         settings.blockchainMintingEnabled = row.setting_value === 'true';
+//         settings.lastModified = row.last_modified;
+//         settings.modifiedBy = row.modified_by;
+//       }
+//     });
+//
+//     res.json({
+//       success: true,
+//       data: settings
+//     });
+//   } catch (error) {
+//     logger.error('Failed to get system settings:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to retrieve system settings'
+//     });
+//   }
+// }));
 
 /**
  * Toggle blockchain minting on/off
