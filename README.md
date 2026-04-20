@@ -39,6 +39,7 @@ To build the first community-governed loyalty ecosystem for the repair industry,
 - **Burn on Redemption** - Tokens destroyed when used, creating natural scarcity
 - **DAO Governance** - RCG holders control earning rates, limits, and parameters
 - **Anti-Fraud Protection** - Daily/monthly limits and pattern monitoring
+- **Email Templates System** - Customizable email templates for all platform communications with admin management UI
 
 ---
 
@@ -346,6 +347,17 @@ cd backend && npm run dev:docs
 ---
 
 ## 📝 Recent Updates
+
+### April 20, 2026
+- **Email Templates System** - Complete email management for admins
+  - 16 pre-configured templates across 5 categories (welcome, booking, transaction, shop, support)
+  - Dynamic variable replacement with `{{placeholder}}` syntax
+  - Full CRUD API with preview and test functionality
+  - Version tracking and audit trail for template changes
+  - Enable/disable toggles without deletion
+  - Frontend admin UI for easy template customization
+  - Migration #105 with seeded default templates
+  - Documentation: `backend/docs/EMAIL_TEMPLATES_SYSTEM.md`
 
 ### December 4, 2024
 - **Service Analytics Dashboard** - Comprehensive performance tracking for shops
