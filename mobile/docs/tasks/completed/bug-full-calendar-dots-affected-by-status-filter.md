@@ -1,10 +1,15 @@
 # Bug: Full Calendar Dots Filtered by Status — Missing Bookings
 
-## Status: Open
+## Status: Fixed
+
 ## Priority: Medium
+
 ## Date: 2026-04-15
+
 ## Category: Bug - UI / Calendar
+
 ## Platform: Mobile (React Native / Expo)
+
 ## Affects: Shop > Appointments tab > Full Calendar view
 
 ---
@@ -15,12 +20,12 @@ The full calendar (MonthlyCalendarView) applies the active status filter to the 
 
 **Example — April 16 (peanut shop):**
 
-| Booking | Status | Short Calendar | Full Calendar | Web |
-|---|---|---|---|---|
-| 9:00AM | paid (approved) | Blue dot | Missing | Shows |
-| 12:00PM | completed | Green dot | Green dot | Shows |
-| 3:00PM | paid (approved) | Blue dot | Missing | Shows |
-| 4:30PM | completed | Green dot | Green dot | Shows |
+| Booking | Status          | Short Calendar | Full Calendar | Web   |
+| ------- | --------------- | -------------- | ------------- | ----- |
+| 9:00AM  | paid (approved) | Blue dot       | Missing       | Shows |
+| 12:00PM | completed       | Green dot      | Green dot     | Shows |
+| 3:00PM  | paid (approved) | Blue dot       | Missing       | Shows |
+| 4:30PM  | completed       | Green dot      | Green dot     | Shows |
 
 The short calendar shows 3 dots (2 green + 1 blue). The full calendar shows only 2 green dots — the paid/blue bookings are hidden because the filter excludes them.
 
@@ -31,7 +36,8 @@ The short calendar shows 3 dots (2 green + 1 blue). The full calendar shows only
 **File:** `mobile/feature/appointment/components/AppointmentShopTab.tsx` (line 472)
 
 ```typescript
-const { isLoading, getBookingsForDate: getAppointmentsForDate } = useBookingsData(statusFilter);
+const { isLoading, getBookingsForDate: getAppointmentsForDate } =
+  useBookingsData(statusFilter);
 ```
 
 `useBookingsData(statusFilter)` filters bookings by status before returning them. The `getBookingsForDate` function then only returns filtered bookings for each date. So the calendar dots only show bookings matching the active filter.
@@ -45,7 +51,7 @@ const filteredBookings = useMemo(() => {
 }, [bookingsData, statusFilter]);
 
 const getBookingsForDate = (date: Date): BookingData[] => {
-  return filteredBookings.filter(/* date match */);  // Uses filtered data
+  return filteredBookings.filter(/* date match */); // Uses filtered data
 };
 ```
 
@@ -87,8 +93,8 @@ const getFilteredBookingsForDate = (date: Date): BookingData[] => {
 
 return {
   bookings: filteredBookings,
-  getAllBookingsForDate,      // Calendar dots use this
-  getBookingsForDate: getFilteredBookingsForDate,  // Booking list uses this
+  getAllBookingsForDate, // Calendar dots use this
+  getBookingsForDate: getFilteredBookingsForDate, // Booking list uses this
 };
 ```
 
@@ -112,11 +118,11 @@ Apply the same fix to the short calendar in `BookingShopTab.tsx`.
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `mobile/feature/booking/hooks/ui/useBookingsData.ts` | Add `getAllBookingsForDate` that ignores status filter |
-| `mobile/feature/appointment/components/AppointmentShopTab.tsx` | Use `getAllBookingsForDate` for calendar dots |
-| `mobile/feature/booking/components/BookingShopTab.tsx` | Use `getAllBookingsForDate` for calendar dots |
+| File                                                           | Change                                                 |
+| -------------------------------------------------------------- | ------------------------------------------------------ |
+| `mobile/feature/booking/hooks/ui/useBookingsData.ts`           | Add `getAllBookingsForDate` that ignores status filter |
+| `mobile/feature/appointment/components/AppointmentShopTab.tsx` | Use `getAllBookingsForDate` for calendar dots          |
+| `mobile/feature/booking/components/BookingShopTab.tsx`         | Use `getAllBookingsForDate` for calendar dots          |
 
 ---
 

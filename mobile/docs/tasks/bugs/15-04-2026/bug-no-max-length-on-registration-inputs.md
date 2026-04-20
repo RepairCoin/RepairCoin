@@ -1,11 +1,26 @@
 # Bug: No Maximum Character Limit on Registration Form Inputs
 
-## Status: Open
+## Status: Closed (Superseded)
 ## Priority: Medium
 ## Date: 2026-04-15
+## Closed: 2026-04-20
 ## Category: Bug - Validation / Data Integrity
 ## Platform: Mobile (React Native / Expo)
 ## Affects: Customer and Shop registration forms
+
+---
+
+## Closed on 2026-04-20
+
+**Superseded by:** `mobile/docs/tasks/bugs/20-04-2026/bug-registration-inputs-maxlength-insufficient-defense-in-depth.md`
+
+This doc recommended both (A) native `maxLength` props at call sites and (B) `hasMaxLength` validation checks in `validation.ts`, and explicitly said to "use both."
+
+Commit `672397c8` (2026-04-16) implemented **only Option A**. That partial fix is described in `mobile/docs/tasks/completed/bug-registration-inputs-no-max-length.md`. The QA items in this doc for basic typing and clipboard-paste are satisfied by the native `maxLength` props, but the broader intent (Option B + paste-bypass vectors) was not addressed.
+
+All remaining work — including Option B (`hasMaxLength` checks), plus additional defense-in-depth for input paths that bypass native `InputFilter` (autofill, password managers, Google Sign-In prefill, voice dictation, keyboard suggestions, swipe typing, IME composition, etc.) — is tracked in the superseding 2026-04-20 doc as a 5-layer fix architecture with three independently-shippable PRs.
+
+This doc kept for history. Do not reopen; add follow-up work to the 2026-04-20 superseder instead.
 
 ---
 
