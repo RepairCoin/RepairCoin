@@ -524,6 +524,32 @@ export class OrderController {
         logger.error('Error publishing order_cancelled event (customer):', eventError);
       }
 
+      // Send cancellation email to shop (preference-gated on 'bookingCancellation')
+      try {
+        const shop = await shopRepository.getShop(order.shopId);
+        if (shop?.email) {
+          const service = await this.serviceRepository.getServiceById(order.serviceId);
+          const customer = await customerRepository.getCustomer(order.customerAddress);
+          const customerDisplayName =
+            customer?.name ||
+            [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'Customer';
+          await this.emailService.sendBookingCancelledToShop(shop.email, shop.shopId, {
+            shopName: shop.name,
+            customerName: customerDisplayName,
+            serviceName: service?.serviceName || 'Service',
+            appointmentDate: order.bookingDate ? new Date(order.bookingDate).toLocaleDateString() : 'TBD',
+            appointmentTime: order.bookingTime || undefined,
+            cancelledBy: 'customer',
+            cancellationReason,
+            orderId: order.orderId,
+          });
+          logger.info('Booking cancelled email sent to shop', { shopId: order.shopId, orderId: order.orderId });
+        }
+      } catch (emailError) {
+        logger.error('Failed to send booking-cancelled email to shop:', emailError);
+      }
+
       res.json({
         success: true,
         message: 'Order cancelled successfully'
@@ -801,6 +827,11 @@ export class OrderController {
         logger.error('Error publishing order_cancelled event:', eventError);
       }
 
+      // Shop initiated this cancellation — they already know it happened.
+      // Skip sendBookingCancelledToShop to avoid a redundant email; the
+      // Refund Processed email fired inside processShopCancellationRefund
+      // is the financial audit trail the shop actually needs.
+
       res.json({
         success: true,
         message: 'Booking cancelled and refund processed',
@@ -1007,6 +1038,37 @@ export class OrderController {
       } catch (emailError) {
         logger.error('Failed to send tier-based email notification:', emailError);
         // Don't fail the entire operation if email fails
+      }
+
+      // Send no-show confirmation/audit email to shop (preference-gated on 'noShowAlert')
+      try {
+        const shop = await shopRepository.getShop(shopId);
+        if (shop?.email) {
+          const service = await this.serviceRepository.getServiceById(order.serviceId);
+          const customer = await customerRepository.getCustomer(order.customerAddress);
+          const customerDisplayName =
+            customer?.name ||
+            [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'Customer';
+          // Determine if a restriction was newly triggered — presence of any
+          // non-'normal' tier at the moment of marking suggests restrictions apply.
+          const restrictionTriggered = customerStatus ? customerStatus.tier !== 'normal' : false;
+          await this.emailService.sendNoShowMarkedToShop(shop.email, shop.shopId, {
+            shopName: shop.name,
+            customerName: customerDisplayName,
+            customerWallet: order.customerAddress,
+            serviceName: service?.serviceName || 'Service',
+            appointmentDate: order.bookingDate ? new Date(order.bookingDate).toLocaleDateString() : 'Unknown',
+            noShowCount: customerStatus?.noShowCount,
+            customerTier: customerStatus?.tier,
+            restrictionTriggered,
+            orderId: order.orderId,
+          });
+          logger.info('No-show email sent to shop', { shopId, orderId: order.orderId });
+        }
+      } catch (emailError) {
+        logger.error('Failed to send no-show email to shop:', emailError);
+        // Don't fail the no-show marking if email fails
       }
 
       res.json({

@@ -2,11 +2,16 @@
 import { Request, Response } from 'express';
 import { ReviewRepository } from '../../../repositories/ReviewRepository';
 import { OrderRepository } from '../../../repositories/OrderRepository';
+import { ServiceRepository } from '../../../repositories/ServiceRepository';
+import { customerRepository, shopRepository } from '../../../repositories';
+import { EmailService } from '../../../services/EmailService';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
 const reviewRepository = new ReviewRepository();
 const orderRepository = new OrderRepository();
+const serviceRepository = new ServiceRepository();
+const emailService = new EmailService();
 
 export class ReviewController {
   /**
@@ -72,6 +77,31 @@ export class ReviewController {
         comment,
         images: images || []
       });
+
+      // Send review email to shop (preference-gated on 'customerReview')
+      try {
+        const shop = await shopRepository.getShop(order.shopId);
+        if (shop?.email) {
+          const service = await serviceRepository.getServiceById(order.serviceId);
+          const customer = await customerRepository.getCustomer(customerAddress);
+          // Prefer customer.name; fall back to first_name + last_name; finally "A customer"
+          const customerDisplayName =
+            customer?.name ||
+            [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'A customer';
+          await emailService.sendCustomerReviewNotification(shop.email, shop.shopId, {
+            shopName: shop.name,
+            customerName: customerDisplayName,
+            serviceName: service?.serviceName || 'Service',
+            rating,
+            comment: (comment || '').slice(0, 500),
+          });
+          logger.info('Customer review email sent to shop', { shopId: order.shopId, reviewId });
+        }
+      } catch (emailError) {
+        logger.error('Failed to send review email to shop:', emailError);
+        // Don't fail the review creation if email fails
+      }
 
       res.status(201).json({
         success: true,

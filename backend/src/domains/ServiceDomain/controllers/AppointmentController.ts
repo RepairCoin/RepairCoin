@@ -7,17 +7,23 @@ import { RescheduleService } from '../services/RescheduleService';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { OrderRepository } from '../../../repositories/OrderRepository';
+import { customerRepository, shopRepository } from '../../../repositories';
+import { EmailService } from '../../../services/EmailService';
 
 export class AppointmentController {
   private appointmentRepo: AppointmentRepository;
   private appointmentService: AppointmentService;
   private rescheduleService: RescheduleService;
   private serviceRepo: ServiceRepository;
+  private orderRepo: OrderRepository;
+  private emailService: EmailService;
 
   constructor() {
     this.appointmentRepo = new AppointmentRepository();
     this.appointmentService = new AppointmentService();
     this.rescheduleService = new RescheduleService();
+    this.orderRepo = new OrderRepository();
+    this.emailService = new EmailService();
     this.serviceRepo = new ServiceRepository();
   }
 
@@ -669,6 +675,39 @@ export class AppointmentController {
           error: result.error,
           errorCode: result.errorCode
         });
+      }
+
+      // Send reschedule-request email to shop (preference-gated on 'bookingReschedule')
+      try {
+        const order = await this.orderRepo.getOrderById(orderId);
+        if (order) {
+          const shop = await shopRepository.getShop(order.shopId);
+          if (shop?.email) {
+            const service = await this.serviceRepo.getServiceById(order.serviceId);
+            const customer = await customerRepository.getCustomer(customerAddress);
+            const customerDisplayName =
+              customer?.name ||
+              [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+              'Customer';
+            const req: any = result.request;
+            await this.emailService.sendRescheduleRequestToShop(shop.email, shop.shopId, {
+              shopName: shop.name,
+              customerName: customerDisplayName,
+              serviceName: service?.serviceName || 'Service',
+              currentDate: order.bookingDate ? new Date(order.bookingDate).toLocaleDateString() : 'TBD',
+              currentTime: order.bookingTime || undefined,
+              proposedDate: requestedDate ? new Date(requestedDate).toLocaleDateString() : String(requestedDate),
+              proposedTime: requestedTimeSlot || undefined,
+              reason,
+              requestId: req?.id || req?.requestId || '',
+              orderId: order.orderId,
+            });
+            logger.info('Reschedule request email sent to shop', { shopId: order.shopId, orderId: order.orderId });
+          }
+        }
+      } catch (emailError) {
+        logger.error('Failed to send reschedule-request email to shop:', emailError);
+        // Don't fail the reschedule request if email fails
       }
 
       res.json({
