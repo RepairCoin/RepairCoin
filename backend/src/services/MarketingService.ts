@@ -456,7 +456,7 @@ export class MarketingService {
     const design = campaign.designContent;
     const frontendUrl = process.env.FRONTEND_URL || 'https://repaircoin.ai';
     // Always use production URL for logo in emails (localhost won't work for email recipients)
-    const logoUrl = 'https://repaircoin.ai/img/landing/repaircoin-icon.png';
+    const logoUrl = `${process.env.PUBLIC_ASSET_URL || 'https://repaircoin.ai'}/img/landing/repaircoin-icon.png`;
 
     // Build HTML from design blocks
     let blocksHtml = '';

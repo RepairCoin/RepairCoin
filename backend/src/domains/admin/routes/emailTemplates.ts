@@ -158,7 +158,7 @@ router.post('/:key/preview', asyncHandler(async (req: Request, res: Response) =>
     suspensionDate: new Date().toLocaleDateString(),
     reinstatementDate: new Date().toLocaleDateString(),
     currentBalance: '85.50',
-    resetLink: 'https://repaircoin.ai/reset-password?token=abc123',
+    resetLink: `${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/reset-password?token=abc123`,
     expirationTime: '24 hours',
     cancellationDate: new Date().toLocaleDateString(),
   };

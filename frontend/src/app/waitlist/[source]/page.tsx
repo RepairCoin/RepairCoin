@@ -16,17 +16,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const config = campaignConfig[source];
   if (!config) return {};
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.repaircoin.ai';
+
   return {
     title: config.metaTitle,
     description: config.metaDescription,
     openGraph: {
       title: config.metaTitle,
       description: config.metaDescription,
-      url: `https://www.repaircoin.ai/waitlist/${source}`,
+      url: `${appUrl}/waitlist/${source}`,
       siteName: 'RepairCoin',
       images: [
         {
-          url: 'https://www.repaircoin.ai/og-image.png',
+          url: `${appUrl}/og-image.png`,
           width: 1200,
           height: 630,
           alt: 'RepairCoin - Smart Loyalty for Service Businesses',
@@ -38,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: 'summary_large_image',
       title: config.metaTitle,
       description: config.metaDescription,
-      images: ['https://www.repaircoin.ai/og-image.png'],
+      images: [`${appUrl}/og-image.png`],
     },
   };
 }

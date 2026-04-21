@@ -50,7 +50,7 @@ interface PlatformSettings {
 const DEFAULT_PLATFORM_SETTINGS: Partial<PlatformSettings> = {
   platformName: 'RepairCoin',
   platformDescription: 'Blockchain-based customer loyalty and rewards platform',
-  supportEmail: 'support@repaircoin.ai',
+  supportEmail: process.env.SUPPORT_EMAIL || 'support@repaircoin.ai',
   supportPhone: '+1 (555) 000-0000',
 
   defaultRcnRewardRate: 10,

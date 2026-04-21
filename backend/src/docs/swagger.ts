@@ -39,8 +39,8 @@ const options = {
       `,
       contact: {
         name: 'RepairCoin Team',
-        email: 'support@repaircoin.ai',
-        url: 'https://repaircoin.ai'
+        email: process.env.SUPPORT_EMAIL || 'support@repaircoin.ai',
+        url: process.env.FRONTEND_URL || 'https://repaircoin.ai'
       },
       license: {
         name: 'MIT',
@@ -53,7 +53,7 @@ const options = {
         description: 'Development server',
       },
       {
-        url: 'https://api.repaircoin.ai',
+        url: process.env.API_PUBLIC_URL || 'https://api.repaircoin.ai',
         description: 'Production server',
       }
     ],

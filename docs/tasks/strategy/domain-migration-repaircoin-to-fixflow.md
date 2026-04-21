@@ -26,9 +26,9 @@
 
 | Phase | Engineer side | Operator side |
 |---|---|---|
-| Phase 0 — Planning & Prep | **In progress.** Deep-link scheme audit complete. Remaining: full grep audit, auth storage confirm, email template scan, mobile eas.json audit. | **Partially blocked.** TTL lowering + Vercel team-level domain add blocked on GoDaddy access (revoked, awaiting owner re-approval). External systems inventory can proceed now. |
-| Phase 1 — Parallel Infra | **Can start now:** prepare CORS allowlist PR (draft only, no merge yet). | **Blocked on GoDaddy** for DNS records + Vercel team-level domain add. **Not blocked:** DO App Platform custom-domain adds can be configured immediately (SSL waits for DNS, but config is ready). |
-| Phase 2 — Codebase Prep | Not started. Safe to start early on backward-compatible pieces (deep-link scheme env-ification, CORS allowlist). | Nothing until Phase 1 completes. |
+| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Partially blocked.** TTL lowering + Vercel team-level domain add blocked on GoDaddy access (revoked, awaiting owner re-approval). External systems inventory + `COOKIE_DOMAIN` prod-env check + DO instance-count check can proceed now. |
+| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **Blocked on GoDaddy** for DNS records + Vercel team-level domain add. **Not blocked:** DO App Platform custom-domain adds can be configured immediately (SSL waits for DNS, but config is ready). |
+| Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
 | Phase 4 — Mobile Rebuild | Not started. Post-cutover (not on critical path). | Post-cutover. |
 | Phase 5 — Soak & Cleanup | Not started. | Not started. |
@@ -40,19 +40,85 @@
 3. Operator decisions captured: cutover evening PH / 2026-04-26 / keep `noreply@repaircoin.com` during cutover / migrate staging in parallel (recommended, not yet confirmed).
 4. Mobile deep-link scheme investigated — **corrected a prior wrong conclusion.** Found `scheme: "repaircoin"` in `mobile/app.config.ts:14` AND 4 backend emitters of `repaircoin://` (Stripe return URLs). Plan updated: Phase 2 env-ify, Phase 4 mobile registers both schemes via array.
 5. GoDaddy access revoked mid-session — operator awaiting owner re-approval. This partially gates Phase 0 + Phase 1.
+6. **Phase 0 Engineer inventory completed** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid cookie + localStorage**, not localStorage-only. Phase 3 now has a conditional Step 3.2a to flip `COOKIE_DOMAIN` env var if set in prod.
+7. **Phase 1 Engineer CORS allowlist applied + Phase 2 Engineer env-ification applied** (see next section for the exact file-level changes).
+
+### What was applied in this session (2026-04-21 engineer PR)
+
+All changes are **backward-compatible** — every new env var defaults to the current `repaircoin.ai` / `repaircoin` value. Deploying this PR produces zero behavior change. Phase 3 flips the env vars; no further code changes required at cutover.
+
+**Phase 1 CORS allowlist (backend/src/app.ts:218–237):** added 5 new origins to the existing allowlist array:
+- `https://fixflow.ai`
+- `https://www.fixflow.ai`
+- `https://api.fixflow.ai`
+- `https://staging.fixflow.ai`
+- `https://api-staging.fixflow.ai`
+
+Legacy repaircoin.ai origins kept unchanged — purely additive.
+
+**Phase 2 Backend env-ification — new env vars introduced** (all with backward-compatible defaults):
+
+| Env var | Used by | Default (backward-compat) | Phase 3 flip value |
+|---|---|---|---|
+| `MOBILE_DEEP_LINK_SCHEME` | 4 Stripe return URL emitters | `'repaircoin'` | `'fixflow'` (only after mobile rebuild with array scheme) |
+| `PUBLIC_ASSET_URL` | Marketing email logo URL | `'https://repaircoin.ai'` | `'https://fixflow.ai'` |
+| `SUPPORT_EMAIL` | admin settings default + swagger contact | `'support@repaircoin.ai'` | `'support@fixflow.ai'` (Phase 5 — email brand) |
+| `API_PUBLIC_URL` | swagger "Production server" URL | `'https://api.repaircoin.ai'` | `'https://api.fixflow.ai'` |
+
+Existing env vars re-used (no new var introduced):
+- `FRONTEND_URL` — swagger contact url, email-template reset link preview, marketing email url — default stays `https://repaircoin.ai`; flipped at Phase 3
+
+**Backend files modified:**
+- `backend/src/app.ts` — CORS allowlist additive update
+- `backend/src/domains/ServiceDomain/services/PaymentService.ts:490–493` — `MOBILE_DEEP_LINK_SCHEME` interpolation
+- `backend/src/domains/shop/routes/purchase.ts:459–464` — `MOBILE_DEEP_LINK_SCHEME` interpolation
+- `backend/src/services/MarketingService.ts:459` — `PUBLIC_ASSET_URL` for logo URL
+- `backend/src/domains/admin/routes/settings.ts:53` — `SUPPORT_EMAIL` env var
+- `backend/src/domains/admin/routes/emailTemplates.ts:161` — `FRONTEND_URL` interpolation for reset-link preview
+- `backend/src/docs/swagger.ts:42–43` — `SUPPORT_EMAIL` + `FRONTEND_URL`
+- `backend/src/docs/swagger.ts:56` — `API_PUBLIC_URL`
+
+**Phase 2 Frontend env-ification — env var used** (existing, widely known):
+
+| Env var | Used by | Default (backward-compat) | Phase 3 flip value |
+|---|---|---|---|
+| `NEXT_PUBLIC_APP_URL` | metadataBase, waitlist OG URLs, contact-us href/display | `'https://www.repaircoin.ai'` | `'https://www.fixflow.ai'` |
+
+**Frontend files modified:**
+- `frontend/src/app/layout.tsx:34` — metadataBase
+- `frontend/src/app/waitlist/[source]/page.tsx:15–44` — extract `appUrl` const + interpolate into OG/twitter URLs
+- `frontend/src/app/waitlist/layout.tsx:1–32` — extract module-level `appUrl` const + interpolate into OG/twitter URLs
+- `frontend/src/app/contact-us/page.tsx:8–50` — derive `appUrl` + `brandDomain` (hostname stripped of `www.`) from env; use in website href and displayed text
+
+**Verification performed:**
+- `backend: npm run typecheck` → exit 0 (clean)
+- `frontend: npm run lint` → errors present but all pre-existing, none in the 4 files modified in this PR
+
+**Deferred to later phases (not in this PR):**
+- Mobile `eas.json` profile URL updates → Phase 4 rebuild (cleaner to flip at the same time as the scheme-array change)
+- Mailto links to `@repaircoin.com` addresses (support@, security@, treasury@, rcg-sales@) → Phase 5 email-brand follow-up
+- Legacy `www.repaircoin.com` strings in BookingDetailsModal receipt PDF → Phase 5
+- `VAPID_SUBJECT` default flip (already env-driven) → Phase 3 env var flip
+- CLAUDE.md / docs mentioning repaircoin.ai → low priority; update as part of Phase 5 cleanup
 
 ### Immediate next actions (if session crashes, resume here)
 
 **Engineer (me) — next session start here:**
-1. Run the "Phase 0 Engineer Inventory — Step-by-Step" below to produce the complete codebase grep audit. Commit the inventory to `docs/tasks/strategy/phase-0-inventory.md`.
-2. Draft the CORS allowlist PR per "Phase 1 Engineer — CORS PR Step-by-Step" below. Leave as draft.
-3. Deep-link scheme env-ification work: see Phase 2 section — fully backward-compatible so safe to start early, but **do it only after** #1 and #2 are complete so we have the inventory for context.
-4. **Do not merge anything until operator confirms Phase 1 infra is provisioned.**
+1. ~~Phase 0 inventory~~ — **DONE** → `docs/tasks/strategy/phase-0-inventory.md`.
+2. ~~Phase 1 CORS PR~~ — **DONE** and committed to `deo/dev` (see "What was applied in this session").
+3. ~~Phase 2 backend + frontend env-ification~~ — **DONE** and committed to `deo/dev`.
+4. **Remaining engineer work before cutover:**
+   - [ ] Update CLAUDE.md references to reflect dual-domain setup (low priority — deferred)
+   - [ ] Phase 3 Step 3.2 dry-run: prepare the list of Vercel env var names + target values as a checklist (do right before cutover to avoid drift)
+   - [ ] Phase 3 Step 3.2a: decide whether `COOKIE_DOMAIN` flip is required (depends on operator check; see below)
+5. **Do not deploy the current `deo/dev` commits to production until operator confirms Phase 1 infra is provisioned** — the code changes are backward-compatible, but there's no rush to deploy until DNS is also ready.
 
 **Operator — next session start here:**
-1. Track GoDaddy access restoration. The moment access returns, run "Phase 0 Operator — Step-by-Step" (TTL lowering) and "Phase 1 Operator — Step-by-Step" (DNS + Vercel + DO domain adds).
-2. In parallel, complete "Phase 0 Operator — External Systems Inventory" — this doesn't need GoDaddy and produces the list of external dashboards that need redirect-URI updates in Phase 3.
-3. Decide pending Open Questions #3 (migrate staging in parallel — recommended yes) and canonical www vs bare (recommended Option A — www).
+1. **Confirm `COOKIE_DOMAIN` in DO production env vars.** DO App Platform → production app → Settings → Environment Variables → look for `COOKIE_DOMAIN`. Report value (or "not set"). Determines whether Phase 3 Step 3.2a runs.
+2. **Confirm DO production instance count.** Same Settings page → Components. Report the number (1 = deploy micro-gap; ≥2 = zero-gap).
+3. **External Systems Inventory** (Stripe webhooks, Google OAuth redirect URIs, Thirdweb allowed origins, Play/App Store listing URLs). Doesn't need GoDaddy. See "Phase 0 Operator — Step-by-Step" → Step 3 for exact lookup instructions.
+4. **Decide pending Open Questions:** #3 (migrate staging in parallel — recommended yes) and canonical www vs bare (recommended Option A — www).
+5. **When GoDaddy access returns:** run "Phase 0 Operator — Step-by-Step" (TTL lowering, fixflow.ai state verification) and "Phase 1 Operator — Step-by-Step" (DNS + Vercel + DO domain adds).
 
 ---
 
@@ -586,6 +652,20 @@ In the `repair-coin` project's Environment Variables:
 
 Effect: new HTML bundles served from the fixflow.ai canonical call the api.fixflow.ai backend. Backend CORS (Phase 2) permits the new origin.
 
+**Step 3.2a — Conditional: flip `COOKIE_DOMAIN` on backend (engineer + operator)**
+
+**Only required if `COOKIE_DOMAIN` is set in the backend production env** (per Phase 0 operator check). If unset, skip this step — the web uses localStorage fallback and cookies aren't in play.
+
+If set:
+- In DO App Platform → production app → Settings → Environment Variables:
+  - Current value: `COOKIE_DOMAIN=.repaircoin.ai`
+  - Change to: `COOKIE_DOMAIN=.fixflow.ai`
+- Trigger backend redeploy.
+- Effect: new JWT cookies bind to `.fixflow.ai` so subsequent auth on `www.fixflow.ai` ↔ `api.fixflow.ai` flows cleanly. Cookies on the old `.repaircoin.ai` domain are effectively orphaned — browsers won't send them to fixflow.ai anyway, so this is not a regression.
+- **Rollback:** revert `COOKIE_DOMAIN` to `.repaircoin.ai` and redeploy. 2 minutes.
+
+**Note:** regardless of whether this step runs, active web users are logged out at cutover (cookies or localStorage are both origin-scoped). This step ensures going-forward sessions work correctly on the new domain; it does not preserve existing sessions.
+
 **Step 3.3 — Update external service endpoints (operator)**
 
 - **Stripe dashboard:** add new webhook endpoint `https://api.fixflow.ai/api/shops/webhooks/stripe`. Copy the new `whsec_...` and add to DO backend env as an additional `STRIPE_WEBHOOK_SECRET` (or primary if the backend supports only one — check with engineer). **Keep the old webhook endpoint active for 1–2 weeks** so in-flight events finish cleanly.
@@ -696,7 +776,7 @@ The mobile app bakes `EXPO_PUBLIC_API_URL` into its binaries via `eas.json`. Exi
 | Email links in historical emails still reference repaircoin.ai | Certain | None — 301 redirect handles | Acceptable — redirect is transparent |
 | SEO backlink loss | Low | Some ranking drift | 301 redirect transfers PageRank per Google guidelines; monitor Search Console |
 | Service worker caches old URLs | Medium on repeat visitors | Stale bundles for some users | Bump SW cache key as part of Phase 2; service worker revalidation handles cleanup |
-| Cookies scoped to .repaircoin.ai | N/A if using localStorage | None | Verified web uses localStorage, not cross-subdomain cookies; if wrong, re-evaluate |
+| Cookies scoped to .repaircoin.ai — going-forward sessions on fixflow.ai won't set cookies correctly | Medium if `COOKIE_DOMAIN=.repaircoin.ai` is set in prod (hybrid auth confirmed in Phase 0 inventory) | Users re-login but next session also fails silently (cookie set with wrong domain) | Phase 3 Step 3.2a: flip `COOKIE_DOMAIN` from `.repaircoin.ai` to `.fixflow.ai` at cutover. Conditional on operator confirming the env var is set in prod. Rollback = revert env var and redeploy. |
 | Mobile deep-link scheme mismatch (Stripe return URL fails to reopen app) | Medium if handled naively | Users stuck on Stripe success page after payment, order status may lag | Phase 2 env-ify backend scheme (default unchanged). Phase 4 mobile build registers `scheme: ["repaircoin", "fixflow"]` (both). Backend env flip to `fixflow` only after new build penetration is acceptable. Never flip backend scheme unilaterally without a matching mobile build in the wild. |
 
 ---

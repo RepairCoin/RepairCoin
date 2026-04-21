@@ -6,6 +6,9 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.repaircoin.ai';
+  const brandDomain = new URL(appUrl).hostname.replace(/^www\./, '');
+
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
       <div className="max-w-3xl mx-auto px-6 py-16">
@@ -35,7 +38,7 @@ export default function ContactPage() {
 
           {/* Website */}
           <a
-            href="https://repaircoin.ai"
+            href={appUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-[#18181b] border border-[#27272a] rounded-xl p-6 hover:border-[#FFCC00]/40 transition-colors group"
@@ -46,7 +49,7 @@ export default function ContactPage() {
               </svg>
             </div>
             <h3 className="text-white font-semibold text-lg mb-1">Website</h3>
-            <p className="text-[#FFCC00] group-hover:underline">repaircoin.ai</p>
+            <p className="text-[#FFCC00] group-hover:underline">{brandDomain}</p>
           </a>
         </div>
 
