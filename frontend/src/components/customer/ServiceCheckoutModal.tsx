@@ -717,7 +717,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>0 RCN</span>
-                          <span>{maxRcnRedeemable} RCN{customerBalance > 0 ? ` (Max ${isHomeShop ? '100' : '20'}%)` : ''}</span>
+                          <span>{maxRcnRedeemable} RCN{customerBalance > 0 ? ` (Max ${Math.min(isHomeShop ? 100 : 20, isRestrictedTier && noShowStatus?.maxRcnRedemptionPercent ? noShowStatus.maxRcnRedemptionPercent : 100)}%)` : ''}</span>
                         </div>
                       </div>
 

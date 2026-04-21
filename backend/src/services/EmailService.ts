@@ -2077,6 +2077,245 @@ export class EmailService {
   }
 
   /**
+   * Send booking-cancelled notification to shop (with preference check)
+   * Fires when a booking is cancelled (by either customer or shop).
+   */
+  async sendBookingCancelledToShop(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      serviceName: string;
+      appointmentDate: string;
+      appointmentTime?: string;
+      cancelledBy: 'customer' | 'shop' | 'system';
+      cancellationReason?: string;
+      orderId: string;
+      refundAmount?: number;
+    }
+  ): Promise<boolean> {
+    const subject = `Booking Cancelled - ${data.serviceName}`;
+    const cancelledByLabel =
+      data.cancelledBy === 'customer' ? 'the customer' :
+      data.cancelledBy === 'shop' ? 'your shop' : 'the system';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #d32f2f; padding: 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0;">Booking Cancelled</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>A booking has been cancelled by ${cancelledByLabel}.</p>
+
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Date:</strong> ${data.appointmentDate}</p>
+            ${data.appointmentTime ? `<p style="margin: 5px 0;"><strong>Time:</strong> ${data.appointmentTime}</p>` : ''}
+            <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${data.orderId.slice(-8).toUpperCase()}</p>
+            ${data.cancellationReason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${data.cancellationReason}</p>` : ''}
+            ${data.refundAmount !== undefined && data.refundAmount > 0 ? `<p style="margin: 5px 0;"><strong>Refund Amount:</strong> $${data.refundAmount.toFixed(2)}</p>` : ''}
+          </div>
+
+          <p>The slot is now free. You can view cancelled bookings in your shop dashboard.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'bookingCancellation');
+  }
+
+  /**
+   * Send reschedule-request notification to shop (with preference check)
+   * Fires when a customer submits a reschedule request.
+   */
+  async sendRescheduleRequestToShop(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      serviceName: string;
+      currentDate: string;
+      currentTime?: string;
+      proposedDate: string;
+      proposedTime?: string;
+      reason?: string;
+      requestId: string;
+      orderId: string;
+    }
+  ): Promise<boolean> {
+    const subject = `Reschedule Request - ${data.serviceName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Reschedule Request</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>${data.customerName} has requested to reschedule their appointment.</p>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 10px 0 5px 0; color: #999;"><strong>Current:</strong> ${data.currentDate}${data.currentTime ? ' at ' + data.currentTime : ''}</p>
+            <p style="margin: 5px 0; color: #333;"><strong>Proposed:</strong> ${data.proposedDate}${data.proposedTime ? ' at ' + data.proposedTime : ''}</p>
+            ${data.reason ? `<p style="margin: 10px 0 5px 0;"><strong>Reason:</strong> ${data.reason}</p>` : ''}
+          </div>
+
+          <p><strong>Please respond within 48 hours</strong> by approving or rejecting this request from your shop dashboard. If no action is taken, the original appointment remains unchanged.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'bookingReschedule');
+  }
+
+  /**
+   * Send no-show marked confirmation to shop (with preference check)
+   * Fires when a shop marks a customer as no-show.
+   */
+  async sendNoShowMarkedToShop(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      customerName: string;
+      customerWallet: string;
+      serviceName: string;
+      appointmentDate: string;
+      noShowCount?: number;
+      customerTier?: string;
+      restrictionTriggered?: boolean;
+      orderId: string;
+    }
+  ): Promise<boolean> {
+    const subject = `No-Show Recorded - ${data.serviceName}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #757575; padding: 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0;">No-Show Recorded</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>This confirms that you marked a customer as no-show for the following appointment:</p>
+
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Customer:</strong> ${data.customerName}</p>
+            <p style="margin: 5px 0;"><strong>Service:</strong> ${data.serviceName}</p>
+            <p style="margin: 5px 0;"><strong>Appointment:</strong> ${data.appointmentDate}</p>
+            <p style="margin: 5px 0;"><strong>Booking ID:</strong> ${data.orderId.slice(-8).toUpperCase()}</p>
+          </div>
+
+          ${data.noShowCount !== undefined || data.restrictionTriggered ? `
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+            ${data.noShowCount !== undefined ? `<p style="margin: 5px 0;"><strong>Customer's cumulative no-show count:</strong> ${data.noShowCount}</p>` : ''}
+            ${data.customerTier ? `<p style="margin: 5px 0;"><strong>Account tier:</strong> ${data.customerTier.toUpperCase()}</p>` : ''}
+            ${data.restrictionTriggered ? `<p style="margin: 10px 0 5px 0; color: #856404;"><strong>⚠️ New restrictions have been applied to this customer's account.</strong></p>` : ''}
+          </div>
+          ` : ''}
+
+          <p>If this was marked in error, the customer can submit a dispute and you will be notified.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'noShowAlert');
+  }
+
+  /**
+   * Send daily appointment digest to shop (with preference check)
+   * One email per shop per day, summarising next-day bookings.
+   * Skip the send upstream if appointments list is empty (don't spam empty digests).
+   */
+  async sendShopDailyAppointmentDigest(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      date: string;
+      appointments: Array<{
+        customerName: string;
+        serviceName: string;
+        time: string;
+        orderId: string;
+      }>;
+    }
+  ): Promise<boolean> {
+    const count = data.appointments.length;
+    const subject = `Tomorrow's Schedule — ${count} appointment${count === 1 ? '' : 's'}`;
+
+    const rows = data.appointments.map(a => `
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: 500;">${a.time || 'TBD'}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${a.customerName}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${a.serviceName}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; color: #666; font-size: 11px;">${a.orderId.slice(-8).toUpperCase()}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #FFCC00; padding: 20px; text-align: center;">
+          <h1 style="color: #000; margin: 0;">Tomorrow's Schedule</h1>
+        </div>
+
+        <div style="padding: 20px;">
+          <p>Hi ${data.shopName},</p>
+
+          <p>Here's your schedule for <strong>${data.date}</strong>:</p>
+
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background-color: #f5f5f5;">
+                <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #666;">Time</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #666;">Customer</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #666;">Service</th>
+                <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #666;">Booking ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <p>Total: <strong>${count} appointment${count === 1 ? '' : 's'}</strong> tomorrow.</p>
+
+          <p>Log in to your shop dashboard for full details and to manage these bookings.</p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'appointmentReminder');
+  }
+
+  /**
    * Send email with preference check for shop notifications
    * Use this for shop-related emails that can be disabled by preferences
    */

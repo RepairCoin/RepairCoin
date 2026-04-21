@@ -678,6 +678,50 @@ export class PaymentService {
         // Don't fail the payment if notification fails
       }
 
+      // Send new-booking and payment-received emails to shop.
+      // Both are preference-gated via sendEmailWithPreferenceCheck — will auto-
+      // suppress if the shop has the respective toggle off.
+      try {
+        const svc = await this.serviceRepository.getServiceById(order.serviceId);
+        const shp = await shopRepository.getShop(order.shopId);
+        const cust = await customerRepository.getCustomer(order.customerAddress);
+
+        if (shp?.email) {
+          const { EmailService } = await import('../../../services/EmailService');
+          const emailService = new EmailService();
+
+          // Prefer customer.name; fall back to first_name + last_name; finally "Customer"
+          const customerDisplayName =
+            cust?.name ||
+            [(cust as any)?.first_name, (cust as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'Customer';
+
+          await emailService.sendNewBookingNotification(shp.email, shp.shopId, {
+            shopName: shp.name,
+            customerName: customerDisplayName,
+            serviceName: svc?.serviceName || 'Service',
+            bookingDate: order.bookingDate ? new Date(order.bookingDate).toLocaleDateString() : 'TBD',
+            bookingTime: order.bookingTime || '',
+          });
+          logger.info('New booking email sent to shop', { shopId: order.shopId, orderId: order.orderId });
+
+          // Payment Received — only for orders with real payment (skip 100%-RCN redemption)
+          if (order.totalAmount > 0) {
+            await emailService.sendPaymentReceivedNotification(shp.email, shp.shopId, {
+              shopName: shp.name,
+              customerName: customerDisplayName,
+              serviceName: svc?.serviceName || 'Service',
+              amount: order.totalAmount,
+              rcnRedeemed: order.rcnRedeemed || 0,
+            });
+            logger.info('Payment received email sent to shop', { shopId: order.shopId, orderId: order.orderId });
+          }
+        }
+      } catch (emailError) {
+        logger.error('Failed to send new-booking / payment-received emails to shop:', emailError);
+        // Don't fail the payment if email fails
+      }
+
       // Check if this is a first-time customer at this shop and send new customer email
       try {
         const svc = await this.serviceRepository.getServiceById(order.serviceId);
@@ -693,9 +737,13 @@ export class PaymentService {
           if (orderCount <= 1) {
             const { EmailService } = await import('../../../services/EmailService');
             const emailService = new EmailService();
+            const newCustomerDisplayName =
+              cust?.name ||
+              [(cust as any)?.first_name, (cust as any)?.last_name].filter(Boolean).join(' ').trim() ||
+              'New Customer';
             await emailService.sendNewCustomerNotification(shp.email, shp.shopId, {
               shopName: shp.name,
-              customerName: cust?.name || 'New Customer',
+              customerName: newCustomerDisplayName,
               customerAddress: order.customerAddress,
               serviceName: svc?.serviceName || 'Service',
               bookingDate: order.bookingDate ? new Date(order.bookingDate).toLocaleDateString() : undefined,
@@ -1083,6 +1131,49 @@ export class PaymentService {
         // Don't fail cancellation if calendar deletion fails
       }
 
+      // 9. Send Refund Processed email to shop if any refund actually occurred.
+      // This gives the shop a financial audit trail consistent with what
+      // processShopCancellationRefund already sends on shop-initiated cancels.
+      try {
+        const rcnRefunded = order.rcnRedeemed || 0;
+        const stripeRefunded = (order.stripePaymentIntentId && order.status === 'paid')
+          ? (order.finalAmountUsd || 0)
+          : 0;
+
+        if (rcnRefunded > 0 || stripeRefunded > 0) {
+          const shopForRefund = await shopRepository.getShop(order.shopId);
+          if (shopForRefund?.email) {
+            const svcForRefund = await this.serviceRepository.getServiceById(order.serviceId);
+            const custForRefund = await customerRepository.getCustomer(order.customerAddress);
+            const customerDisplayName =
+              custForRefund?.name ||
+              [(custForRefund as any)?.first_name, (custForRefund as any)?.last_name].filter(Boolean).join(' ').trim() ||
+              'Customer';
+            await this.emailService.sendRefundProcessedNotification(
+              shopForRefund.email,
+              shopForRefund.shopId,
+              {
+                shopName: shopForRefund.name,
+                customerName: customerDisplayName,
+                serviceName: svcForRefund?.serviceName || 'Service',
+                orderId,
+                rcnRefunded,
+                stripeRefunded,
+                cancellationReason,
+              }
+            );
+            logger.info('Refund notification email sent to shop (customer-initiated cancel)', {
+              shopId: order.shopId,
+              orderId,
+              rcnRefunded,
+              stripeRefunded
+            });
+          }
+        }
+      } catch (refundEmailError) {
+        logger.error('Failed to send refund email to shop (customer-initiated cancel):', refundEmailError);
+      }
+
       logger.info('Order cancelled successfully', {
         orderId,
         cancellationReason,
@@ -1300,9 +1391,13 @@ export class PaymentService {
         const shopForRefund = await shopRepository.getShop(order.shopId);
         const custForRefund = await customerRepository.getCustomer(order.customerAddress);
         if (shopForRefund?.email) {
+          const customerDisplayName =
+            custForRefund?.name ||
+            [(custForRefund as any)?.first_name, (custForRefund as any)?.last_name].filter(Boolean).join(' ').trim() ||
+            'Customer';
           await this.emailService.sendRefundProcessedNotification(shopForRefund.email, shopForRefund.shopId, {
             shopName: shopForRefund.name,
-            customerName: custForRefund?.name || 'Customer',
+            customerName: customerDisplayName,
             serviceName: svcForRefund?.serviceName || 'Service',
             orderId,
             rcnRefunded,

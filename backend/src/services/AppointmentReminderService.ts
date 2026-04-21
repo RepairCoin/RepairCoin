@@ -97,6 +97,11 @@ export class AppointmentReminderService {
   private serviceRepository: ServiceRepository;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
+  // In-memory dedup for the daily shop digest — tracks the ISO date (YYYY-MM-DD)
+  // the last digest run completed. Prevents the hourly scheduler from re-sending
+  // on subsequent hour ticks within the same day. Limitation: on multi-instance
+  // deploys, each process has its own flag and duplicates are possible.
+  private lastShopDigestDate: string | null = null;
 
   constructor() {
     this.emailService = new EmailService();
@@ -837,6 +842,14 @@ export class AppointmentReminderService {
         });
       }
 
+      // Fire the daily shop digest. Guards internally so it only actually
+      // sends once per day per process at the configured UTC hour.
+      try {
+        await this.sendDailyShopDigests();
+      } catch (digestError) {
+        logger.error('Daily shop digest run threw:', digestError);
+      }
+
       return report;
     } finally {
       this.isRunning = false;
@@ -869,6 +882,146 @@ export class AppointmentReminderService {
     }, intervalHours * 60 * 60 * 1000);
 
     logger.info('Appointment reminders scheduled', { intervalHours });
+  }
+
+  /**
+   * Send a single daily-digest email to each active shop summarising
+   * tomorrow's appointments. Preference-gated on 'appointmentReminder'.
+   * Skipped silently if:
+   *   - current UTC hour is not the configured digest hour
+   *   - a digest has already been dispatched from this process today
+   *   - the shop has no email, or zero appointments tomorrow
+   *
+   * Hooks into the hourly processReminders loop — call is idempotent cheap
+   * to execute every hour because the hour + date guards short-circuit fast.
+   */
+  async sendDailyShopDigests(): Promise<{ sent: number; skipped: number; failed: number }> {
+    const stats = { sent: 0, skipped: 0, failed: 0 };
+    const now = new Date();
+    const digestHourUtc = parseInt(process.env.DAILY_DIGEST_HOUR_UTC || '22', 10);
+
+    // Gate 1: only run at the configured hour-of-day (UTC)
+    if (now.getUTCHours() !== digestHourUtc) return stats;
+
+    // Gate 2: only run once per day per process
+    const todayIso = now.toISOString().slice(0, 10);
+    if (this.lastShopDigestDate === todayIso) return stats;
+
+    logger.info('Daily shop appointment digest — starting run', { digestHourUtc, todayIso });
+
+    try {
+      const { getSharedPool } = await import('../utils/database-pool');
+      const pool = getSharedPool();
+
+      // Fetch tomorrow's bookings grouped by shop. DB session TZ interpretation
+      // is used for the booking_date::date cast — same interpretation the rest
+      // of the scheduling queries in this file use, so consistency is preserved.
+      const rowsResult = await pool.query(`
+        SELECT
+          so.shop_id,
+          sh.email AS shop_email,
+          sh.name AS shop_name,
+          so.order_id,
+          so.customer_address,
+          so.service_id,
+          so.booking_date,
+          so.booking_time
+        FROM service_orders so
+        INNER JOIN shops sh ON sh.shop_id = so.shop_id
+        WHERE sh.active = true
+          AND sh.email IS NOT NULL
+          AND so.status IN ('paid', 'confirmed')
+          AND so.booking_date::date = (NOW() + INTERVAL '1 day')::date
+        ORDER BY so.shop_id, so.booking_time NULLS LAST, so.booking_date
+      `);
+
+      // Group by shop
+      const byShop: Record<string, {
+        shopEmail: string;
+        shopName: string;
+        appointments: Array<{
+          customerName: string;
+          serviceName: string;
+          time: string;
+          orderId: string;
+          customerAddress: string;
+          serviceId: string;
+        }>;
+      }> = {};
+
+      for (const r of rowsResult.rows) {
+        const shopId = r.shop_id;
+        if (!byShop[shopId]) {
+          byShop[shopId] = {
+            shopEmail: r.shop_email,
+            shopName: r.shop_name,
+            appointments: [],
+          };
+        }
+        byShop[shopId].appointments.push({
+          customerName: '', // filled below
+          serviceName: '', // filled below
+          time: r.booking_time || '',
+          orderId: r.order_id,
+          customerAddress: r.customer_address,
+          serviceId: r.service_id,
+        });
+      }
+
+      // Hydrate customer + service names and fire one digest per shop
+      const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+        .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+      for (const [shopId, shopData] of Object.entries(byShop)) {
+        try {
+          // Hydrate names
+          for (const appt of shopData.appointments) {
+            const [customer, service] = await Promise.all([
+              this.customerRepository.getCustomer(appt.customerAddress).catch(() => null),
+              this.serviceRepository.getServiceById(appt.serviceId).catch(() => null),
+            ]);
+            appt.customerName =
+              customer?.name ||
+              [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+              'Customer';
+            appt.serviceName = service?.serviceName || 'Service';
+          }
+
+          const sent = await this.emailService.sendShopDailyAppointmentDigest(
+            shopData.shopEmail,
+            shopId,
+            {
+              shopName: shopData.shopName,
+              date: tomorrowDate,
+              appointments: shopData.appointments.map(a => ({
+                customerName: a.customerName,
+                serviceName: a.serviceName,
+                time: a.time,
+                orderId: a.orderId,
+              })),
+            }
+          );
+
+          if (sent) {
+            stats.sent++;
+            logger.info('Daily shop digest sent', { shopId, appointmentCount: shopData.appointments.length });
+          } else {
+            // sendEmailWithPreferenceCheck returned false — preference was off
+            stats.skipped++;
+          }
+        } catch (err) {
+          stats.failed++;
+          logger.error('Failed to send daily shop digest', { shopId, error: err });
+        }
+      }
+
+      this.lastShopDigestDate = todayIso;
+      logger.info('Daily shop appointment digest — complete', stats);
+    } catch (err) {
+      logger.error('Daily shop digest run failed at query stage:', err);
+    }
+
+    return stats;
   }
 
   /**
