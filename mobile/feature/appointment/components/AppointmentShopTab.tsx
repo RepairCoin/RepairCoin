@@ -12,16 +12,22 @@ import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { router } from "expo-router";
 
 // Hooks
-import {
-  useBookingsData,
-  useBookingsFilter,
-  useCalendarUI,
-} from "../hooks/ui";
+import { useBookingsData, useBookingsFilter, useCalendarUI } from "../hooks/ui";
 
 // Utils
-import { isToday, isDateSelected, getDaysInMonth, getScrollableDays, formatTime12h } from "@/shared/utilities/calendar";
+import {
+  isToday,
+  isDateSelected,
+  getDaysInMonth,
+  getScrollableDays,
+  formatTime12h,
+  getDistinctStatusesForDots,
+} from "@/shared/utilities/calendar";
 import { APPOINTMENT_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
-import { getBookingStatusColor, BOOKING_STATUS_LEGEND } from "@/shared/constants/booking-colors";
+import {
+  getBookingStatusColor,
+  BOOKING_STATUS_LEGEND,
+} from "@/shared/constants/booking-colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
@@ -65,7 +71,7 @@ function AppointmentCalendar({
   const todayIndex = scrollableDays.findIndex((d) => isToday(d));
   const initialScrollOffset = Math.max(
     0,
-    todayIndex * DAY_WIDTH - SCREEN_WIDTH / 2 + DAY_WIDTH / 2
+    todayIndex * DAY_WIDTH - SCREEN_WIDTH / 2 + DAY_WIDTH / 2,
   );
 
   return (
@@ -121,8 +127,8 @@ function AppointmentCalendar({
                     selected
                       ? "bg-[#FFCC00]"
                       : today
-                      ? "bg-[#FFCC00]/20 border border-[#FFCC00]"
-                      : "bg-[#1a1a1a]"
+                        ? "bg-[#FFCC00]/20 border border-[#FFCC00]"
+                        : "bg-[#1a1a1a]"
                   }`}
                   style={{
                     width: 44,
@@ -135,27 +141,29 @@ function AppointmentCalendar({
                       selected
                         ? "text-black"
                         : today
-                        ? "text-[#FFCC00]"
-                        : "text-white"
+                          ? "text-[#FFCC00]"
+                          : "text-white"
                     }`}
                   >
                     {date.getDate()}
                   </Text>
                 </View>
                 {hasBookings && (
-                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
-                    {dayBookings.slice(0, 3).map((b, i) => (
-                      <View
-                        key={i}
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: 3,
-                          backgroundColor: getBookingStatusColor(b.status),
-                          marginHorizontal: 1,
-                        }}
-                      />
-                    ))}
+                  <View style={{ flexDirection: "row", marginTop: 4 }}>
+                    {getDistinctStatusesForDots(dayBookings, 3).map(
+                      (status) => (
+                        <View
+                          key={status}
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: getBookingStatusColor(status),
+                            marginHorizontal: 1,
+                          }}
+                        />
+                      ),
+                    )}
                   </View>
                 )}
                 {!hasBookings && <View className="h-2.5 mt-1" />}
@@ -175,7 +183,8 @@ function AppointmentCalendar({
           })}
         </Text>
         <Text className="text-gray-500 text-sm">
-          {selectedAppointments.length} appointment{selectedAppointments.length !== 1 ? "s" : ""}
+          {selectedAppointments.length} appointment
+          {selectedAppointments.length !== 1 ? "s" : ""}
         </Text>
       </View>
 
@@ -184,7 +193,9 @@ function AppointmentCalendar({
         {selectedAppointments.length === 0 ? (
           <View className="items-center justify-center py-12 bg-[#1a1a1a] rounded-xl">
             <Ionicons name="calendar-outline" size={48} color="#333" />
-            <Text className="text-gray-500 mt-3">No appointments for this day</Text>
+            <Text className="text-gray-500 mt-3">
+              No appointments for this day
+            </Text>
           </View>
         ) : (
           selectedAppointments.map((booking, idx) => (
@@ -196,13 +207,17 @@ function AppointmentCalendar({
             >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1">
-                  <Text className="text-white font-semibold text-base" numberOfLines={1}>
+                  <Text
+                    className="text-white font-semibold text-base"
+                    numberOfLines={1}
+                  >
                     {booking.serviceName}
                   </Text>
                   <View className="flex-row items-center mt-1">
                     <Feather name="user" size={12} color="#666" />
                     <Text className="text-gray-400 text-sm ml-1">
-                      {booking.customerName || `${booking.customerAddress.slice(0, 6)}...${booking.customerAddress.slice(-4)}`}
+                      {booking.customerName ||
+                        `${booking.customerAddress.slice(0, 6)}...${booking.customerAddress.slice(-4)}`}
                     </Text>
                   </View>
                   <View className="flex-row items-center mt-2">
@@ -215,7 +230,10 @@ function AppointmentCalendar({
                 <View className="items-end">
                   <View
                     className="px-2 py-1 rounded-full"
-                    style={{ backgroundColor: getBookingStatusColor(booking.status) + "20" }}
+                    style={{
+                      backgroundColor:
+                        getBookingStatusColor(booking.status) + "20",
+                    }}
                   >
                     <Text
                       className="text-xs font-medium capitalize"
@@ -237,7 +255,15 @@ function AppointmentCalendar({
         <View className="flex-row flex-wrap justify-center mt-4 mb-6 gap-3">
           {BOOKING_STATUS_LEGEND.map((item) => (
             <View key={item.label} className="flex-row items-center">
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.color, marginRight: 4 }} />
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: item.color,
+                  marginRight: 4,
+                }}
+              />
               <Text className="text-gray-500 text-xs">{item.label}</Text>
             </View>
           ))}
@@ -270,7 +296,9 @@ function AppointmentCalendar({
             {showYearMonthPicker ? (
               <View className="mb-4">
                 {/* Year Selector */}
-                <Text className="text-gray-400 text-xs mb-2 text-center">Select Year</Text>
+                <Text className="text-gray-400 text-xs mb-2 text-center">
+                  Select Year
+                </Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -303,7 +331,9 @@ function AppointmentCalendar({
                 </ScrollView>
 
                 {/* Month Selector */}
-                <Text className="text-gray-400 text-xs mb-2 text-center">Select Month</Text>
+                <Text className="text-gray-400 text-xs mb-2 text-center">
+                  Select Month
+                </Text>
                 <View className="flex-row flex-wrap justify-center gap-2">
                   {MONTHS.map((month, idx) => (
                     <TouchableOpacity
@@ -334,12 +364,20 @@ function AppointmentCalendar({
                 <TouchableOpacity
                   onPress={goToPreviousMonth}
                   className="p-2"
-                  disabled={calendarMonth.getFullYear() === 2024 && calendarMonth.getMonth() === 0}
+                  disabled={
+                    calendarMonth.getFullYear() === 2024 &&
+                    calendarMonth.getMonth() === 0
+                  }
                 >
                   <Ionicons
                     name="chevron-back"
                     size={24}
-                    color={calendarMonth.getFullYear() === 2024 && calendarMonth.getMonth() === 0 ? "#333" : "#FFCC00"}
+                    color={
+                      calendarMonth.getFullYear() === 2024 &&
+                      calendarMonth.getMonth() === 0
+                        ? "#333"
+                        : "#FFCC00"
+                    }
                   />
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -347,19 +385,33 @@ function AppointmentCalendar({
                   className="flex-row items-center bg-[#1a1a1a] px-4 py-2 rounded-lg"
                 >
                   <Text className="text-white text-lg font-semibold">
-                    {MONTHS[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+                    {MONTHS[calendarMonth.getMonth()]}{" "}
+                    {calendarMonth.getFullYear()}
                   </Text>
-                  <Ionicons name="chevron-down" size={18} color="#FFCC00" className="ml-1" />
+                  <Ionicons
+                    name="chevron-down"
+                    size={18}
+                    color="#FFCC00"
+                    className="ml-1"
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={goToNextMonth}
                   className="p-2"
-                  disabled={calendarMonth.getFullYear() === 2030 && calendarMonth.getMonth() === 11}
+                  disabled={
+                    calendarMonth.getFullYear() === 2030 &&
+                    calendarMonth.getMonth() === 11
+                  }
                 >
                   <Ionicons
                     name="chevron-forward"
                     size={24}
-                    color={calendarMonth.getFullYear() === 2030 && calendarMonth.getMonth() === 11 ? "#333" : "#FFCC00"}
+                    color={
+                      calendarMonth.getFullYear() === 2030 &&
+                      calendarMonth.getMonth() === 11
+                        ? "#333"
+                        : "#FFCC00"
+                    }
                   />
                 </TouchableOpacity>
               </View>
@@ -382,13 +434,14 @@ function AppointmentCalendar({
                 {/* Calendar Grid */}
                 <View className="flex-row flex-wrap">
                   {(() => {
-                    const { firstDay, daysInMonth } = getDaysInMonth(calendarMonth);
+                    const { firstDay, daysInMonth } =
+                      getDaysInMonth(calendarMonth);
                     const cells = [];
 
                     // Empty cells
                     for (let i = 0; i < firstDay; i++) {
                       cells.push(
-                        <View key={`empty-${i}`} className="w-[14.28%] h-12" />
+                        <View key={`empty-${i}`} className="w-[14.28%] h-12" />,
                       );
                     }
 
@@ -397,7 +450,7 @@ function AppointmentCalendar({
                       const cellDate = new Date(
                         calendarMonth.getFullYear(),
                         calendarMonth.getMonth(),
-                        day
+                        day,
                       );
                       const dayBookings = getAllAppointmentsForDate(cellDate);
                       const hasBookings = dayBookings.length > 0;
@@ -415,8 +468,8 @@ function AppointmentCalendar({
                               selected
                                 ? "bg-[#FFCC00]"
                                 : today
-                                ? "bg-[#FFCC00]/20 border border-[#FFCC00]"
-                                : ""
+                                  ? "bg-[#FFCC00]/20 border border-[#FFCC00]"
+                                  : ""
                             }`}
                           >
                             <Text
@@ -424,30 +477,39 @@ function AppointmentCalendar({
                                 selected
                                   ? "text-black font-bold"
                                   : today
-                                  ? "text-[#FFCC00] font-semibold"
-                                  : "text-white"
+                                    ? "text-[#FFCC00] font-semibold"
+                                    : "text-white"
                               }`}
                             >
                               {day}
                             </Text>
                             {hasBookings && !selected && (
-                              <View style={{ position: 'absolute', bottom: 2, flexDirection: 'row' }}>
-                                {dayBookings.slice(0, 2).map((b, i) => (
-                                  <View
-                                    key={i}
-                                    style={{
-                                      width: 6,
-                                      height: 6,
-                                      borderRadius: 3,
-                                      backgroundColor: getBookingStatusColor(b.status),
-                                      marginHorizontal: 1,
-                                    }}
-                                  />
-                                ))}
+                              <View
+                                style={{
+                                  position: "absolute",
+                                  bottom: 2,
+                                  flexDirection: "row",
+                                }}
+                              >
+                                {getDistinctStatusesForDots(dayBookings, 3).map(
+                                  (status) => (
+                                    <View
+                                      key={status}
+                                      style={{
+                                        width: 6,
+                                        height: 6,
+                                        borderRadius: 3,
+                                        backgroundColor:
+                                          getBookingStatusColor(status),
+                                        marginHorizontal: 1,
+                                      }}
+                                    />
+                                  ),
+                                )}
                               </View>
                             )}
                           </View>
-                        </TouchableOpacity>
+                        </TouchableOpacity>,
                       );
                     }
 
@@ -459,8 +521,18 @@ function AppointmentCalendar({
                 <View className="flex-row flex-wrap justify-center mt-4 gap-3">
                   {BOOKING_STATUS_LEGEND.map((item) => (
                     <View key={item.label} className="flex-row items-center">
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.color, marginRight: 4 }} />
-                      <Text className="text-gray-500 text-xs">{item.label}</Text>
+                      <View
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 5,
+                          backgroundColor: item.color,
+                          marginRight: 4,
+                        }}
+                      />
+                      <Text className="text-gray-500 text-xs">
+                        {item.label}
+                      </Text>
                     </View>
                   ))}
                 </View>

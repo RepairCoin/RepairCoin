@@ -3,6 +3,31 @@
  * Used by appointment and booking features
  */
 
+import { BookingData } from "@/shared/interfaces/booking.interfaces";
+
+// Attention-requiring statuses first so the most important dot is always visible.
+const STATUS_PRIORITY: string[] = [
+  "no_show",
+  "cancelled",
+  "expired",
+  "pending",
+  "in_progress",
+  "paid",
+  "completed",
+];
+
+/**
+ * Returns one entry per distinct booking status present in the array,
+ * ordered by attention priority, capped at `max` (default 3).
+ */
+export function getDistinctStatusesForDots(
+  bookings: BookingData[],
+  max = 3,
+): string[] {
+  const present = new Set<string>(bookings.map((b) => b.status));
+  return STATUS_PRIORITY.filter((s) => present.has(s)).slice(0, max);
+}
+
 export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export const MONTHS = [
