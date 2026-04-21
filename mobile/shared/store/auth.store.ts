@@ -18,7 +18,13 @@ const secureStorage = {
   },
 };
 
-export type AuthMethod = "google" | "metamask" | "walletconnect" | "coinbase" | "rainbow" | null;
+export type AuthMethod =
+  | "google"
+  | "metamask"
+  | "walletconnect"
+  | "coinbase"
+  | "rainbow"
+  | null;
 
 interface AuthState {
   // State
@@ -96,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: !!(get().account && userProfile),
             },
             false,
-            "setUserProfile"
+            "setUserProfile",
           );
         },
 
@@ -111,14 +117,29 @@ export const useAuthStore = create<AuthState>()(
 
             // Re-fetch user profile based on user type
             if (state.userType === "shop" && state.userProfile?.walletAddress) {
-              const response = await apiClient.get(`/shops/wallet/${state.userProfile.walletAddress}`);
+              const response = await apiClient.get(
+                `/shops/wallet/${state.userProfile.walletAddress}`,
+              );
               if (response?.data?.shop) {
-                set({ userProfile: response.data.shop }, false, "checkStoredAuth:updateProfile");
+                set(
+                  { userProfile: response.data.shop },
+                  false,
+                  "checkStoredAuth:updateProfile",
+                );
               }
-            } else if (state.userType === "customer" && state.userProfile?.walletAddress) {
-              const response = await apiClient.get(`/customers/wallet/${state.userProfile.walletAddress}`);
+            } else if (
+              state.userType === "customer" &&
+              state.userProfile?.walletAddress
+            ) {
+              const response = await apiClient.get(
+                `/customers/wallet/${state.userProfile.walletAddress}`,
+              );
               if (response?.data?.customer) {
-                set({ userProfile: response.data.customer }, false, "checkStoredAuth:updateProfile");
+                set(
+                  { userProfile: response.data.customer },
+                  false,
+                  "checkStoredAuth:updateProfile",
+                );
               }
             }
           } catch (error) {
@@ -131,14 +152,15 @@ export const useAuthStore = create<AuthState>()(
         logout: async (navigate = true) => {
           const state = get();
 
-          // Deactivate push notification tokens before logout
-          try {
-            await notificationApi.deactivateAllPushTokens();
-            console.log("[Auth] Push tokens deactivated");
-          } catch (error) {
+          // Clear axios auth header immediately so no further requests
+          // trigger token-refresh loops while we clean up.
+          apiClient.clearAuthHeader();
+
+          // Best-effort push token deactivation — fire and forget so a
+          // dead token can't block logout.
+          notificationApi.deactivateAllPushTokens().catch((error) => {
             console.error("[Auth] Error deactivating push tokens:", error);
-            // Continue with logout even if this fails
-          }
+          });
 
           // Disconnect wallet if any
           if (state.account?.disconnect) {
@@ -150,18 +172,19 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Clear axios auth token
-          try {
-            await apiClient.clearAuthToken();
-            console.log("[Auth] API auth token cleared");
-          } catch (error) {
-            console.error("[Auth] Error clearing API token:", error);
-          }
-
           // Clear SecureStore (this is what Zustand persist uses)
           try {
-            const keys = ['auth-store', 'repairCoin_authData', 'repairCoin_authToken', 'repairCoin_userType', 'repairCoin_walletAddress', 'payment-session-storage'];
-            await Promise.all(keys.map(key => SecureStore.deleteItemAsync(key)));
+            const keys = [
+              "auth-store",
+              "repairCoin_authData",
+              "repairCoin_authToken",
+              "repairCoin_userType",
+              "repairCoin_walletAddress",
+              "payment-session-storage",
+            ];
+            await Promise.all(
+              keys.map((key) => SecureStore.deleteItemAsync(key)),
+            );
             console.log("[Auth] SecureStore cleared");
           } catch (error) {
             console.error("[Auth] Error clearing SecureStore:", error);
@@ -180,7 +203,7 @@ export const useAuthStore = create<AuthState>()(
               authMethod: null,
             },
             false,
-            "logout"
+            "logout",
           );
 
           console.log("[Auth] User logged out successfully");
@@ -190,7 +213,7 @@ export const useAuthStore = create<AuthState>()(
           }
         },
       }),
-      { name: "auth-store" }
+      { name: "auth-store" },
     ),
     {
       name: "auth-store",
@@ -209,6 +232,6 @@ export const useAuthStore = create<AuthState>()(
         state?.setHasHydrated(true);
         console.log("[Auth] Store hydrated");
       },
-    }
-  )
+    },
+  ),
 );

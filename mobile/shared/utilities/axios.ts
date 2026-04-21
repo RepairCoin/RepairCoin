@@ -385,6 +385,12 @@ class ApiClient {
     }
   }
 
+  // Strip the Authorization header so no further requests use a dead token.
+  // Does NOT trigger logout or navigation — safe to call from within logout().
+  public clearAuthHeader(): void {
+    delete this.instance.defaults.headers.Authorization;
+  }
+
   // Clear auth tokens and bring the user back to onboarding.
   // Called when the refresh token is invalid or token refresh fails so the
   // app doesn't get stuck on a dashboard with a dead session.

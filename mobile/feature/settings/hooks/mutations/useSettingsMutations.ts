@@ -7,10 +7,8 @@ export function useSettingsMutations() {
   const logout = useAuthStore((state) => state.logout);
 
   const performLogout = useCallback(async () => {
-    queryClient.clear();
     await queryClient.cancelQueries();
-    queryClient.removeQueries();
-    queryClient.resetQueries();
+    queryClient.clear();
     await logout(true);
   }, [queryClient, logout]);
 
