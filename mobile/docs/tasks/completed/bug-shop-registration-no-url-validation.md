@@ -1,6 +1,8 @@
 # Bug: Shop Registration Accepts Invalid URLs for Website and Social Media
 
-## Status: Open
+## Status: Closed
+## Resolved: 2026-04-22
+## Resolution: Fixed in commit 5c988d46 (Option B — auto-prepend https:// on submit). QA verified 2026-04-22: "abc" rejected with validation popup, "abc.com" accepted and normalized to "https://abc.com" on submission. Website and social media fields behave identically.
 ## Priority: Medium
 ## Date: 2026-04-15
 ## Category: Bug - Registration / Validation

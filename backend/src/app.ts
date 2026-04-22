@@ -221,13 +221,20 @@ class RepairCoinApp {
           'http://localhost:3001',
           'http://localhost:3002',
           'http://localhost:3003',
-          // Production domains
+          // Legacy production domains — kept permanently as aliases during fixflow.ai migration
           'https://repaircoin.ai',
           'https://www.repaircoin.ai',
           'https://api.repaircoin.ai',
-          // Staging domains
+          // Legacy staging domains
           'https://staging.repaircoin.ai',
           'https://api-staging.repaircoin.ai',
+          // fixflow.ai production domains
+          'https://fixflow.ai',
+          'https://www.fixflow.ai',
+          'https://api.fixflow.ai',
+          // fixflow.ai staging domains
+          'https://staging.fixflow.ai',
+          'https://api-staging.fixflow.ai',
           process.env.FRONTEND_URL
         ].filter(Boolean);
 

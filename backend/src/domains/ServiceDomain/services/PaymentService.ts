@@ -488,8 +488,9 @@ export class PaymentService {
       const amountInCents = Math.round(finalAmountUsd * 100);
 
       // Set redirect URLs - use deep links for mobile (shared payment success screen)
-      const successUrl = `repaircoin://shared/payment-sucess?order_id=${orderId}`;
-      const cancelUrl = `repaircoin://shared/payment-cancel?order_id=${orderId}`;
+      const mobileScheme = process.env.MOBILE_DEEP_LINK_SCHEME || 'repaircoin';
+      const successUrl = `${mobileScheme}://shared/payment-sucess?order_id=${orderId}`;
+      const cancelUrl = `${mobileScheme}://shared/payment-cancel?order_id=${orderId}`;
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],

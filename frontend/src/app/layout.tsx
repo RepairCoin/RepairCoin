@@ -31,7 +31,7 @@ const inriaSans = Inria_Sans({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.repaircoin.ai'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.repaircoin.ai'),
   title: 'RepairCoin - Loyalty Tokens for Repair Shops',
   description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
   keywords: ['blockchain', 'loyalty', 'tokens', 'repair', 'cryptocurrency'],

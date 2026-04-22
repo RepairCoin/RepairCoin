@@ -458,8 +458,9 @@ router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request
 
     if (isMobileApp) {
       // Use deep links for mobile app (shared payment success screen)
-      successUrl = `repaircoin://shared/payment-sucess?order_id=${purchaseResult.purchaseId}`;
-      cancelUrl = `repaircoin://shared/payment-cancel?order_id=${purchaseResult.purchaseId}`;
+      const mobileScheme = process.env.MOBILE_DEEP_LINK_SCHEME || 'repaircoin';
+      successUrl = `${mobileScheme}://shared/payment-sucess?order_id=${purchaseResult.purchaseId}`;
+      cancelUrl = `${mobileScheme}://shared/payment-cancel?order_id=${purchaseResult.purchaseId}`;
     } else {
       // Use web URLs for web platform
       successUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=purchase&payment=success&purchase_id=${purchaseResult.purchaseId}`;
