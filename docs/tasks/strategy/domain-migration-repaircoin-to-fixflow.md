@@ -27,7 +27,7 @@
 | Phase | Engineer side | Operator side |
 |---|---|---|
 | Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Operator inventory partially complete (2026-04-22).** Confirmed: `COOKIE_DOMAIN=.repaircoin.ai` in prod, DO prod = 1 instance, Stripe uses DO-generated webhook hostname (not api.repaircoin.ai), Thirdweb has no domain restrictions. **Still blocked on GoDaddy** for TTL lowering + Vercel team-level domain add. **Still pending:** Google Cloud Console + Play/App Store access. |
-| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **Blocked on GoDaddy** for DNS records + Vercel team-level domain add. **Not blocked:** DO App Platform custom-domain adds can be configured immediately (SSL waits for DNS, but config is ready). |
+| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **BLOCKED — new blocker found 2026-04-22:** fixflow.ai DNS is managed at **Hostinger**, not GoDaddy (nameservers delegated). Also, fixflow.ai currently serves a live FixFlow marketing/lead-gen landing page. Awaiting owner confirmation on (1) is the marketing page a placeholder to replace, or content to preserve? (2) does the team have Hostinger account access? (3) is there any email on @fixflow.ai currently? Until answered, DO NOT touch fixflow.ai DNS or nameservers. |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
 | Phase 4 — Mobile Rebuild | Not started. Post-cutover (not on critical path). | Post-cutover. |
@@ -42,6 +42,31 @@
 5. GoDaddy access revoked mid-session — operator awaiting owner re-approval. This partially gates Phase 0 + Phase 1.
 6. **Phase 0 Engineer inventory completed** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid cookie + localStorage**, not localStorage-only. Phase 3 now has a conditional Step 3.2a to flip `COOKIE_DOMAIN` env var if set in prod.
 7. **Phase 1 Engineer CORS allowlist applied + Phase 2 Engineer env-ification applied** (see next section for the exact file-level changes).
+
+### What happened in this session (2026-04-22, continued)
+
+**New blocker surfaced — fixflow.ai not ready for DNS records yet:**
+
+1. **GoDaddy access restored.** Operator completed Phase 0 Step 1 — TTL lowered to 600s (GoDaddy minimum) on all 4 migration-critical CNAMEs at repaircoin.ai: `www`, `api`, `staging`, `api-staging`. The `A @` record was already at 600s. Propagation completes by ~2026-04-23 mid-day.
+2. **Phase 0 Step 2 — fixflow.ai domain verification surfaced two blockers:**
+   - **DNS delegated to Hostinger, not GoDaddy.** GoDaddy DNS tab shows `DNS Provider: Hostinger — This domain's DNS is managed outside GoDaddy`. Adding records at GoDaddy has no effect; nameserver change or Hostinger access is required.
+   - **fixflow.ai currently serves a live FixFlow marketing/lead-gen landing page** hosted at Hostinger (screenshot: "Built by Business Owners for Business Owners - Start Your 14-Day Free Trial"). Any DNS change that points fixflow.ai at Vercel/RepairCoin will replace this marketing site.
+3. **Awaiting owner confirmation before proceeding:**
+   - Is the current fixflow.ai marketing page a pre-launch placeholder (replace freely) OR content to preserve (needs subdomain relocation plan)?
+   - Does the team have Hostinger account access? (Determines Option A nameserver swap vs Option B edit at Hostinger.)
+   - Is any email configured on `@fixflow.ai` currently? (Need to preserve MX records if so.)
+4. **Recommended path (pending owner answer):** if the marketing page is a placeholder AND team has Hostinger access, edit records AT Hostinger directly (zero-downtime transition, one provider per domain is a minor housekeeping concern we can consolidate later). If Hostinger access is unavailable, switch nameservers to GoDaddy — introduces a 1–24h propagation window during which fixflow.ai returns DNS errors.
+5. **DO NOT touch fixflow.ai DNS or nameservers until owner confirms.** The current live site would go down immediately on any DNS change.
+
+### Paused — waiting on owner
+
+Phase 1 (parallel infrastructure) is **paused** pending the 3 owner answers above. Resume point:
+- Once answered, pick up at **Phase 1 Step A1** if Option A (nameserver switch to GoDaddy)
+- OR at **an equivalent "add records at Hostinger" sub-flow** if Option B (keep nameservers at Hostinger)
+
+TTL propagation on repaircoin.ai (Phase 0 Step 1) continues in the background — completes 2026-04-23 regardless of the pause.
+
+---
 
 ### What happened in this session (2026-04-22)
 
@@ -360,7 +385,7 @@ Write the summary into `docs/tasks/strategy/phase-0-inventory.md` using this ske
 #### Step 1 (blocked) — Lower DNS TTLs on repaircoin.ai records to 300s
 
 - Login to GoDaddy → Domains → `repaircoin.ai` → DNS → Manage Records
-- Edit each A / CNAME record currently pointing at Vercel or DO. For each: change TTL from default (usually 1 hour) to **300 seconds (5 minutes)**.
+- Edit each A / CNAME record currently pointing at Vercel or DO. For each: change TTL from default (usually 1 hour) to **600 seconds (10 minutes)** — GoDaddy's minimum allowed custom value is 600s (verified 2026-04-22). Originally targeted 300s but GoDaddy UI enforces a 600s floor. 600s is acceptable for fast rollback in DNS terms.
 - Records to hit: `@`, `www`, `staging`, `api`, `api-staging`, and any MX records if they exist for email
 - **Timing requirement:** must complete by **2026-04-25** (≥24h before the 2026-04-26 cutover) so real-world DNS caches have converged to the low TTL value.
 
