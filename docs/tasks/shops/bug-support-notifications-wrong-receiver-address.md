@@ -1,6 +1,9 @@
 # Bug: Support Notifications Use Wrong Receiver Address
 
-## Status: Open
+## Status: Completed
+## Resolved: 2026-04-22
+## Resolution: Fixed in commit `9dbddac0 fix: support ticket notifications use wrong receiver_address`. Option A from the fix menu was applied — notification controller now queries by both `req.user.address` (wallet) AND `req.user.shopId`, so notifications stored with `receiver_address = shopId` become visible without data migration. Fix extends across all notification CRUD endpoints (get, get-by-id, unread, unread-count, mark-as-read, mark-all-read, delete, delete-all). Verification 2026-04-22 via `backend/scripts/verify-support-notifications-fix.ts` confirmed 278 notifications for shop "peanut" (126 under shopId, 152 under wallet) all surfaced correctly by multi-address query; no case-sensitivity gaps. QA guide at `docs/tasks/test/qa-support-notifications-multi-address-fix.md` for manual browser verification.
+## Follow-up: Real-time delivery (instant WebSocket push without page refresh) was NOT in scope for this fix — tracked separately at `docs/tasks/shops/bug-support-notifications-not-realtime.md`.
 ## Priority: High
 ## Date: 2026-03-24
 ## Category: Bug - Notifications
