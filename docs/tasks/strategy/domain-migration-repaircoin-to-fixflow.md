@@ -26,7 +26,7 @@
 
 | Phase | Engineer side | Operator side |
 |---|---|---|
-| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Partially blocked.** TTL lowering + Vercel team-level domain add blocked on GoDaddy access (revoked, awaiting owner re-approval). External systems inventory + `COOKIE_DOMAIN` prod-env check + DO instance-count check can proceed now. |
+| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Operator inventory partially complete (2026-04-22).** Confirmed: `COOKIE_DOMAIN=.repaircoin.ai` in prod, DO prod = 1 instance, Stripe uses DO-generated webhook hostname (not api.repaircoin.ai), Thirdweb has no domain restrictions. **Still blocked on GoDaddy** for TTL lowering + Vercel team-level domain add. **Still pending:** Google Cloud Console + Play/App Store access. |
 | Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **Blocked on GoDaddy** for DNS records + Vercel team-level domain add. **Not blocked:** DO App Platform custom-domain adds can be configured immediately (SSL waits for DNS, but config is ready). |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
@@ -42,6 +42,24 @@
 5. GoDaddy access revoked mid-session — operator awaiting owner re-approval. This partially gates Phase 0 + Phase 1.
 6. **Phase 0 Engineer inventory completed** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid cookie + localStorage**, not localStorage-only. Phase 3 now has a conditional Step 3.2a to flip `COOKIE_DOMAIN` env var if set in prod.
 7. **Phase 1 Engineer CORS allowlist applied + Phase 2 Engineer env-ification applied** (see next section for the exact file-level changes).
+
+### What happened in this session (2026-04-22)
+
+**Operator external-systems inventory reviewed** (files at `C:\dev\external_inventory\` — outside the repo, not committed). Confirmed answers to 4 previously-open operator questions + identified 2 new findings:
+
+1. **`COOKIE_DOMAIN=.repaircoin.ai` is SET in DO prod env vars** (`prod_env.txt:4`). Phase 3 Step 3.2a flips to `COOKIE_DOMAIN=.fixflow.ai` — **no longer conditional, now required.**
+2. **DO prod component count = 1 instance** ($12/mo, 1 Shared vCPU, 1 GB RAM, 1 Container). Deploy micro-gap confirmed: 10–30s window per redeploy. Schedule merges for the low-traffic evening PH window.
+3. **DO prod backend autodeploys from `main` branch** (web-services.png). Merging to main triggers immediate prod backend redeploy. Phase 1/2 commits are backward-compatible so safe; but timing should still be the evening PH window to avoid the 1-instance micro-gap landing on users.
+4. **Stripe webhook target is a DO-generated hostname** (`repaircoin-staging-s7743....an.app/api/shops/webhooks/stripe`), not `api.repaircoin.ai`. DO-generated hostnames do NOT change with domain migration, so **no Stripe action required at cutover** (for this webhook). Only 1 webhook endpoint visible in sandbox/test mode — if a separate prod-live webhook exists, it's not in the screenshot; verify via Stripe dashboard toggle.
+5. **Thirdweb project has no domain restrictions set** ("No Domains Configured" state). Client ID is unrestricted — works from any origin. **No Thirdweb action required at cutover.**
+6. **Stripe `STRIPE_MODE=test` in production** (`prod_env.txt:39`, `sk_test_` prefix). Real shops currently pay with test cards, not real money. **Not a migration blocker** but worth confirming with the team whether this is intentional pre-launch state.
+7. **Pre-existing bug flagged — not a migration concern but urgent:** `GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:4000/api/shops/calendar/callback/google` in prod (`prod_env.txt:54`). The "Connect Google Calendar" feature is broken in production — shops would be redirected to localhost. File as a separate bug. Should be `https://api.repaircoin.ai/api/shops/calendar/callback/google` today; `https://api.fixflow.ai/...` post-cutover.
+
+**Still pending operator input:**
+- Google Cloud Console access (OAuth redirect URIs for Google Calendar + Gmail)
+- Play Store + App Store listing URLs (website / support / privacy)
+- GoDaddy access restoration (blocks Phase 0 TTL + Phase 1 DNS)
+- Confirm whether there's a separate `repaircon-staging` DO app on a different branch, or backend really runs staging + prod off the same `main` branch (affects pre-cutover validation strategy).
 
 ### What was applied in this session (2026-04-21 engineer PR)
 
@@ -114,11 +132,18 @@ Existing env vars re-used (no new var introduced):
 5. **Do not deploy the current `deo/dev` commits to production until operator confirms Phase 1 infra is provisioned** — the code changes are backward-compatible, but there's no rush to deploy until DNS is also ready.
 
 **Operator — next session start here:**
-1. **Confirm `COOKIE_DOMAIN` in DO production env vars.** DO App Platform → production app → Settings → Environment Variables → look for `COOKIE_DOMAIN`. Report value (or "not set"). Determines whether Phase 3 Step 3.2a runs.
-2. **Confirm DO production instance count.** Same Settings page → Components. Report the number (1 = deploy micro-gap; ≥2 = zero-gap).
-3. **External Systems Inventory** (Stripe webhooks, Google OAuth redirect URIs, Thirdweb allowed origins, Play/App Store listing URLs). Doesn't need GoDaddy. See "Phase 0 Operator — Step-by-Step" → Step 3 for exact lookup instructions.
+1. ~~Confirm `COOKIE_DOMAIN` in DO production env vars~~ — **DONE 2026-04-22.** Set to `.repaircoin.ai`. Phase 3 Step 3.2a required.
+2. ~~Confirm DO production instance count~~ — **DONE 2026-04-22.** 1 container. Deploy micro-gap confirmed.
+3. External Systems Inventory — **PARTIALLY DONE 2026-04-22:**
+   - ~~Stripe webhooks~~ — DONE (single webhook, DO-generated hostname, no migration action required)
+   - ~~Thirdweb allowed origins~~ — DONE (no restrictions configured, no migration action required)
+   - [ ] **Google Cloud Console** OAuth redirect URIs — pending access
+   - [ ] **Play Store + App Store** listing URLs — pending access
 4. **Decide pending Open Questions:** #3 (migrate staging in parallel — recommended yes) and canonical www vs bare (recommended Option A — www).
-5. **When GoDaddy access returns:** run "Phase 0 Operator — Step-by-Step" (TTL lowering, fixflow.ai state verification) and "Phase 1 Operator — Step-by-Step" (DNS + Vercel + DO domain adds).
+5. **Clarify deploy topology:** is there a separate `repaircon-staging` DO app, or does prod backend double as staging? Check DigitalOcean Apps list.
+6. **Flag to team (not cutover-blocking):** `STRIPE_MODE=test` in prod — intentional pre-launch, or needs to flip to `live`?
+7. **File as separate bug (urgent, not migration):** `GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:4000/...` in prod — "Connect Google Calendar" is broken in production.
+8. **When GoDaddy access returns:** run "Phase 0 Operator — Step-by-Step" (TTL lowering, fixflow.ai state verification) and "Phase 1 Operator — Step-by-Step" (DNS + Vercel + DO domain adds).
 
 ---
 
@@ -654,23 +679,35 @@ Effect: new HTML bundles served from the fixflow.ai canonical call the api.fixfl
 
 **Step 3.2a — Conditional: flip `COOKIE_DOMAIN` on backend (engineer + operator)**
 
-**Only required if `COOKIE_DOMAIN` is set in the backend production env** (per Phase 0 operator check). If unset, skip this step — the web uses localStorage fallback and cookies aren't in play.
+**REQUIRED — confirmed 2026-04-22 that `COOKIE_DOMAIN=.repaircoin.ai` is set in DO prod env vars** (`prod_env.txt:4`). This step must run at cutover.
 
-If set:
-- In DO App Platform → production app → Settings → Environment Variables:
+- In DO App Platform → `repaircon-prod` → Settings → App-level Environment Variables:
   - Current value: `COOKIE_DOMAIN=.repaircoin.ai`
   - Change to: `COOKIE_DOMAIN=.fixflow.ai`
-- Trigger backend redeploy.
+- Save → triggers backend redeploy (expect 10–30s micro-gap per the 1-instance topology — schedule during evening PH window).
+- Also update `FRONTEND_URL` in DO prod env: `https://repaircoin.ai` → `https://www.fixflow.ai` (affects email template reset-link preview + swagger contact URL; backward-compat defaults would keep the old value until this env var flips).
+- Also update `CORS_ORIGIN` in DO prod env: `https://repaircoin.ai,https://www.repaircoin.ai` → add `,https://fixflow.ai,https://www.fixflow.ai`. (Note: backend code also has a hardcoded CORS allowlist that already includes all fixflow.ai origins via the Phase 1 CORS PR — the env var is a supplemental allowlist.)
 - Effect: new JWT cookies bind to `.fixflow.ai` so subsequent auth on `www.fixflow.ai` ↔ `api.fixflow.ai` flows cleanly. Cookies on the old `.repaircoin.ai` domain are effectively orphaned — browsers won't send them to fixflow.ai anyway, so this is not a regression.
-- **Rollback:** revert `COOKIE_DOMAIN` to `.repaircoin.ai` and redeploy. 2 minutes.
+- **Rollback:** revert all three env vars (`COOKIE_DOMAIN`, `FRONTEND_URL`, `CORS_ORIGIN`) and redeploy. 2 minutes per redeploy.
 
-**Note:** regardless of whether this step runs, active web users are logged out at cutover (cookies or localStorage are both origin-scoped). This step ensures going-forward sessions work correctly on the new domain; it does not preserve existing sessions.
+**Note:** active web users are logged out at cutover regardless — cookies are scoped to `.repaircoin.ai` and won't transmit to `www.fixflow.ai`. This step ensures going-forward sessions work correctly on the new domain; it does not preserve existing sessions.
+
+**Also flip at cutover (new env vars introduced in Phase 2 env-ification):**
+- `MOBILE_DEEP_LINK_SCHEME` → **DO NOT flip yet** — leave as `repaircoin` (or unset, which defaults to `repaircoin`). Flip to `fixflow` only after mobile rebuild with `scheme: ["repaircoin", "fixflow"]` is in users' hands (Phase 5+).
+- `PUBLIC_ASSET_URL` → set to `https://fixflow.ai` (marketing email logo source). Optional — can defer if assets aren't yet served from fixflow.ai.
+- `SUPPORT_EMAIL` → keep as `support@repaircoin.ai` for Phase 3 (email brand is a Phase 5 concern); flip to `support@fixflow.ai` only when email domain migrates.
+- `API_PUBLIC_URL` → set to `https://api.fixflow.ai` (swagger "Production server" URL).
 
 **Step 3.3 — Update external service endpoints (operator)**
 
-- **Stripe dashboard:** add new webhook endpoint `https://api.fixflow.ai/api/shops/webhooks/stripe`. Copy the new `whsec_...` and add to DO backend env as an additional `STRIPE_WEBHOOK_SECRET` (or primary if the backend supports only one — check with engineer). **Keep the old webhook endpoint active for 1–2 weeks** so in-flight events finish cleanly.
-- **Google Cloud Console** (OAuth credentials for Gmail + Calendar integrations): add fixflow.ai variants to Authorized redirect URIs. Keep repaircoin.ai URIs. Do not remove.
-- **Thirdweb dashboard** (project settings): add fixflow.ai and www.fixflow.ai to Allowed Origins. Keep repaircoin.ai.
+**Stripe dashboard** — *Simpler than originally planned.* Per 2026-04-22 inventory: the single active webhook endpoint (`repaircoin-staging-s7743....an.app/api/shops/webhooks/stripe`) targets a DigitalOcean-generated hostname, not `api.repaircoin.ai`. **DO-generated hostnames do not change with the domain migration**, so no Stripe webhook change is strictly required at cutover. **Action items:**
+- [ ] Toggle Stripe dashboard between test/sandbox mode and live mode to verify there isn't a SEPARATE prod-live webhook still using `*.repaircoin.ai`. If one exists, add a fixflow.ai counterpart and keep both live for 1–2 weeks.
+- [ ] Confirm (not cutover-blocking): is `STRIPE_MODE=test` in prod intentional? Real shops are paying with test cards. Flag to team.
+
+**Google Cloud Console** (OAuth credentials for Gmail + Calendar integrations): add fixflow.ai variants to Authorized redirect URIs. Keep repaircoin.ai URIs. Do not remove. **Pending operator access as of 2026-04-22.**
+- ⚠️ **Pre-existing bug to fix here too (not migration-related but urgent):** `GOOGLE_CALENDAR_REDIRECT_URI` in both prod and staging env is `http://localhost:4000/api/shops/calendar/callback/google` — the "Connect Google Calendar" feature is currently broken in production. Fix to the correct prod URI (`https://api.repaircoin.ai/...`) when access is restored, and add the fixflow.ai counterpart for post-cutover. File as a separate bug ticket.
+
+**Thirdweb dashboard** — *No action required at cutover.* Per 2026-04-22 inventory: the Thirdweb project shows "No Domains Configured" (Client ID unrestricted — works from any origin). Confirm the OTHER project (RCN vs RCG — screenshot was of the `test` subproject) is also unrestricted. If either project DOES have domain restrictions later, add fixflow.ai + www.fixflow.ai alongside the existing repaircoin.ai entries.
 
 **Step 3.4 — Verify cutover success**
 
@@ -776,7 +813,7 @@ The mobile app bakes `EXPO_PUBLIC_API_URL` into its binaries via `eas.json`. Exi
 | Email links in historical emails still reference repaircoin.ai | Certain | None — 301 redirect handles | Acceptable — redirect is transparent |
 | SEO backlink loss | Low | Some ranking drift | 301 redirect transfers PageRank per Google guidelines; monitor Search Console |
 | Service worker caches old URLs | Medium on repeat visitors | Stale bundles for some users | Bump SW cache key as part of Phase 2; service worker revalidation handles cleanup |
-| Cookies scoped to .repaircoin.ai — going-forward sessions on fixflow.ai won't set cookies correctly | Medium if `COOKIE_DOMAIN=.repaircoin.ai` is set in prod (hybrid auth confirmed in Phase 0 inventory) | Users re-login but next session also fails silently (cookie set with wrong domain) | Phase 3 Step 3.2a: flip `COOKIE_DOMAIN` from `.repaircoin.ai` to `.fixflow.ai` at cutover. Conditional on operator confirming the env var is set in prod. Rollback = revert env var and redeploy. |
+| Cookies scoped to .repaircoin.ai — going-forward sessions on fixflow.ai won't set cookies correctly | **Confirmed 2026-04-22: `COOKIE_DOMAIN=.repaircoin.ai` IS set in DO prod env.** Without mitigation: users re-login successfully at cutover but next session also fails silently (cookie set with wrong domain). | High without mitigation; none with mitigation | Phase 3 Step 3.2a: flip `COOKIE_DOMAIN` from `.repaircoin.ai` to `.fixflow.ai` at cutover (also flip `FRONTEND_URL` and `CORS_ORIGIN` together). Rollback = revert env vars + redeploy (2 min each). |
 | Mobile deep-link scheme mismatch (Stripe return URL fails to reopen app) | Medium if handled naively | Users stuck on Stripe success page after payment, order status may lag | Phase 2 env-ify backend scheme (default unchanged). Phase 4 mobile build registers `scheme: ["repaircoin", "fixflow"]` (both). Backend env flip to `fixflow` only after new build penetration is acceptable. Never flip backend scheme unilaterally without a matching mobile build in the wild. |
 
 ---
@@ -786,6 +823,18 @@ The mobile app bakes `EXPO_PUBLIC_API_URL` into its binaries via `eas.json`. Exi
 1. ~~Vercel plan tier~~ — **Confirmed Pro (Active)** on 2026-04-21 from billing screenshot. Multiple custom domains supported without limit concern. Current usage $1.89 / $20 included credit → adding fixflow.ai does not change Vercel billing.
 2. ~~Is `fixflow.ai` already live on the GoDaddy account or just reserved?~~ — **Confirmed on 2026-04-21**: FixFlow appears as a managed business entity in the same GoDaddy account (Miguel Rodriguez) alongside repaircoin.ai-related entities. Domain ownership is not a blocker. Still needs a quick check at the domain detail level to confirm (a) nameservers are Vercel/GoDaddy-managed and not parked elsewhere, and (b) no pending-transfer or WHOIS hold is active.
 3. Migrate staging (`staging.fixflow.ai`) alongside production, or leave staging on the old domain? — **Pending** (recommended: yes, effectively free given single-project architecture)
+
+**Additional questions answered 2026-04-22 via operator's external inventory:**
+8. ~~`COOKIE_DOMAIN` set in prod?~~ — **Answered: YES, value is `.repaircoin.ai`.** Phase 3 Step 3.2a required.
+9. ~~DO prod instance count?~~ — **Answered: 1 container.** Deploy micro-gap confirmed.
+10. ~~Stripe webhooks use api.repaircoin.ai?~~ — **Answered: NO.** Single active webhook targets a DO-generated hostname. No Stripe action required at cutover for webhooks.
+11. ~~Thirdweb domain restrictions configured?~~ — **Answered: NO.** Client ID unrestricted, works from any origin. No Thirdweb action required at cutover.
+
+**Still pending:**
+12. Google Cloud Console OAuth redirect URIs — awaiting operator access. Also need to fix a pre-existing localhost misconfig found in 2026-04-22 inventory (separate bug ticket).
+13. Play Store + App Store listing URLs — awaiting operator access.
+14. Is there a separate `repaircon-staging` DO app, or does prod backend autodeploy from main double as staging? Affects pre-cutover validation approach.
+15. Stripe `STRIPE_MODE=test` in prod — intentional pre-launch state, or oversight? Non-blocking for migration but flag to team.
 4. ~~Preferred cutover window~~ — **Answered 2026-04-21:** evening PH time (UTC+8). Target 20:00–23:00 PH = 12:00–15:00 UTC. Specific hour within that window TBD based on traffic patterns; recommend 21:00 PH (13:00 UTC).
 5. ~~Timeline pressure~~ — **Answered 2026-04-21:** cutover target is 5 days from now, i.e. **2026-04-26**. Means Phase 0 TTL lowering must happen by 2026-04-25, Phase 1 parallel infra must complete by 2026-04-25 mid-day to leave a full day of soak, Phase 2 codebase prep can start immediately and be complete by 2026-04-24.
 6. ~~Branded email-sending domain~~ — **Answered 2026-04-21:** current sending config uses Gmail SMTP (`smtp.gmail.com`) with `EMAIL_FROM=RepairCoin <noreply@repaircoin.com>`. FROM address uses `.com` TLD, already decoupled from the web's `.ai` domain. **Recommended**: ship the web migration with FROM unchanged — zero scope creep. Plan email-FROM migration as a Phase 5 follow-up after the site is stable. See "Email-sending notes" section below for details.
@@ -813,6 +862,13 @@ The mobile app bakes `EXPO_PUBLIC_API_URL` into its binaries via `eas.json`. Exi
 | 2026-04-21 | Timeline pressure: **cutover target 2026-04-26** (5 days from now) | Operator decision | Phase 0 TTLs must be lowered by 2026-04-25. Phase 2 codebase work starts now. Phase 1 parallel infra needs GoDaddy access back by 2026-04-24 at latest to leave a soak day. |
 | 2026-04-21 | Email FROM domain is `@repaircoin.com` (not `.ai`), via Gmail SMTP | Verified in backend/.env and EmailService.ts | Already decoupled from the web domain. Migrating the email-sending identity is a **separate Phase 5+ task**, not part of the web cutover. Keep `noreply@repaircoin.com` unchanged during migration. |
 | 2026-04-21 | ~~No custom-scheme mobile deep links detected~~ **Corrected: `repaircoin://` IS in active use.** | `mobile/app.config.ts:14` declares `scheme: "repaircoin"`. Backend hardcodes `repaircoin://shared/payment-sucess` and `repaircoin://shared/payment-cancel` in `PaymentService.ts:491-492` and `shop/routes/purchase.ts:461-462` (Stripe return URLs). | The earlier grep only searched `mobile/`, missing backend emitters. Load-bearing for mobile payment flows. Plan: Phase 2 env-ify backend (default unchanged); Phase 4 mobile rebuild with `scheme: ["repaircoin", "fixflow"]` for backward-compat; Phase 5+ phase out legacy scheme once old builds age out. |
+| 2026-04-22 | **`COOKIE_DOMAIN=.repaircoin.ai` IS set in DO prod env** | Operator shared `prod_env.txt` | Phase 3 Step 3.2a is now a **required** step (not conditional). Flip to `.fixflow.ai` at cutover alongside `FRONTEND_URL` and `CORS_ORIGIN` env var updates. |
+| 2026-04-22 | **DO prod backend = 1 container** ($12/mo, 1 Shared vCPU, 1 GB RAM) | web-services.png screenshot of `repaircon-prod` DO App component settings | Deploy micro-gap confirmed: 10–30s window per redeploy. All deploys (Phase 1 CORS merge, Phase 2 env-ification merge, Phase 3 cutover) must be scheduled within the evening PH cutover window to minimize blast radius. |
+| 2026-04-22 | **DO prod backend autodeploys from `main` branch** | web-services.png — `Branch: main, Autodeploy: On` | Merging to `main` triggers immediate prod backend redeploy. Phase 1/2 commits are backward-compatible so safe to deploy any time, but timing still matters due to 1-instance micro-gap. **Open question:** is there a separate `repaircon-staging` DO app on a different branch, or does prod backend double as staging? Affects whether there's a pre-cutover validation environment for backend changes. |
+| 2026-04-22 | **Stripe prod webhook targets DO-generated hostname, not api.repaircoin.ai** | stripe.png — active endpoint `repaircoin-staging-s7743....an.app/api/shops/webhooks/stripe` | **No Stripe action required at cutover for webhooks.** DO-generated hostnames are stable across domain migration. Only remaining Stripe task: toggle dashboard to live mode to verify no separate prod-live webhook references `*.repaircoin.ai`. |
+| 2026-04-22 | **Thirdweb project has no domain restrictions** | thirdweb.png — "No Domains Configured" state | **No Thirdweb action required at cutover.** Client ID works from any origin (including fixflow.ai). Spot-check the OTHER Thirdweb project (RCN vs RCG — screenshot was one of them) to confirm same state. |
+| 2026-04-22 | **`STRIPE_MODE=test` in production** (non-blocking) | `prod_env.txt:39` — `sk_test_...` Stripe key prefix | Not a migration blocker, but worth confirming with team: real shops are paying with test cards in prod. Intentional pre-launch state? Or oversight? Flag separately. |
+| 2026-04-22 | **Pre-existing bug flagged (non-migration):** `GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:4000/...` in prod | `prod_env.txt:54` | "Connect Google Calendar" feature broken in production. File separate bug. Fix to `https://api.repaircoin.ai/api/shops/calendar/callback/google` ASAP; add `https://api.fixflow.ai/...` counterpart at Phase 3 once Google Cloud Console access is restored. |
 
 ---
 
