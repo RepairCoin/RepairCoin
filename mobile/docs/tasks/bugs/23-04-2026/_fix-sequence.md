@@ -1,8 +1,8 @@
 # Fix Sequence — 2026-04-23 Auth / Wallet / Registration Bugs
 
-**Status:** Planning
+**Status:** Phase 1 shipped (Defensive), Phase 1b Recovery pending
 **Created:** 2026-04-23
-**Updated:** 2026-04-23
+**Updated:** 2026-04-23 (post-QA revision — see Phase 1b block)
 
 Meta-doc. Not a task. Tracks the landing order for the 6 bugs filed on 2026-04-23 so parallel work doesn't collide and shared foundations land before dependent fixes. Updates to individual task docs should not re-derive this sequence — reference this file instead.
 
@@ -11,12 +11,19 @@ Meta-doc. Not a task. Tracks the landing order for the 6 bugs filed on 2026-04-2
 ## TL;DR ordering
 
 ```
-Phase 1 (ship today, parallel, all Critical):
-  ├─ bug-customer-registration-wallet-not-populated-generic-error.md
-  ├─ bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md   ← acquisition blockers
-  └─ bug-customer-login-silently-fails-stuck-on-onboarding.md (primary fix only)
+Phase 1 (shipped 2026-04-23 in commit 5db89b6b — DEFENSIVE ONLY):
+  ├─ bug-customer-registration-wallet-not-populated-generic-error.md    ✅ defensive shipped
+  ├─ bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md ✅ defensive shipped
+  └─ bug-customer-login-silently-fails-stuck-on-onboarding.md (primary) ✅ shipped
 
-Phase 2 (after Phase 1 — shared foundation):
+Phase 1b (PENDING, Critical — user acquisition still blocked):
+  ├─ bug-customer-registration-*.md  → add Recovery fix (useActiveAccount fallback + self-heal)
+  └─ bug-shop-registration-*.md       → add Recovery fix (useActiveAccount fallback + self-heal)
+  // Added 2026-04-23 post-QA: defensive fix made crash safe but left fresh users
+  // stranded. Without Phase 1b, new signups still cannot complete. See each task
+  // doc's Implementation → Recovery fix section for the diff.
+
+Phase 2 (after Phase 1b — shared foundation):
   └─ bug-customer-home-no-wallet-connected-despite-logged-in.md (Option C: A + B)
       └─ Option B's splash self-heal reduces reachability of Phase 3
 
@@ -30,6 +37,24 @@ Phase 4 (anytime after Phase 1 — prevent future desync):
 Independent (ship anytime, no coupling):
   └─ bug-shop-registration-uncapped-fields-in-third-fourth-slides.md
 ```
+
+## Phase 1b — the Recovery gap (added 2026-04-23 post-QA)
+
+Khalid's commit `5db89b6b` implemented every Phase 1 diff faithfully. Live QA on the APK immediately surfaced that the *user problem* isn't solved:
+
+- **Customer register:** button correctly disabled, TypeError eliminated — but fresh user fills form, wallet field still empty, Create Account stuck greyed. Evidence: `c:\dev\sc1.png` (2026-04-23 test).
+- **Shop register:** Continue correctly disabled on ThirdSlide, no lying toast — but fresh shop owner fills location+pin, Continue stuck greyed. Evidence: `c:\dev\sc4.png`.
+
+Root: all three Phase 1 fixes were **defensive only** (prevent crash, make state accurate). None populated the wallet from the fallback source. The Zustand `account` can be null while Thirdweb's `useActiveAccount()` returns the live wallet — that mismatch is the actual bug for fresh users. Phase 1b adds the recovery pattern:
+
+```
+Zustand storeAccount.address ?? useActiveAccount().address ?? null
+  + useEffect to heal Zustand when Thirdweb has a wallet and Zustand doesn't
+```
+
+Both registration hooks get the same diff; no screen-level edits needed because the hooks' returned `account` already flows to the screens. See each task doc's `## Implementation → Recovery fix` section for the exact code.
+
+**Lesson for future bug docs:** when a bug is "missing data", scope BOTH a defensive fix (prevent crash/lying UI) AND a recovery fix (data alternative source chain). One without the other is incomplete. This was a doc scoping gap, not an implementation gap — Khalid's fix was faithful to the doc; the doc asked for too little.
 
 ---
 
@@ -85,17 +110,17 @@ Can ship anytime after Phase 1. Not blocking, but valuable.
 
 ## Bug inventory with cross-links
 
-| # | File | Priority | Phase | Est. Effort |
-|---|---|---|---|---|
-| 1 | [bug-customer-registration-wallet-not-populated-generic-error.md](./bug-customer-registration-wallet-not-populated-generic-error.md) | Critical | **1** | 20-30 min |
-| 2 | [bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md](./bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md) | Critical | **1** | 20-30 min |
-| 3a | [bug-customer-login-silently-fails-stuck-on-onboarding.md](./bug-customer-login-silently-fails-stuck-on-onboarding.md) (primary) | Critical | **1** | 15-30 min |
-| 3b | bug-customer-login-silently-fails-stuck-on-onboarding.md (secondary) | Critical | **4** | 1-2 hrs |
-| 4 | [bug-customer-home-no-wallet-connected-despite-logged-in.md](./bug-customer-home-no-wallet-connected-despite-logged-in.md) | Medium | **2** | 30 min |
-| 5 | [bug-suspended-screen-check-status-missing-wallet-address.md](./bug-suspended-screen-check-status-missing-wallet-address.md) | Medium | **3** | 1-2 hrs |
-| 6 | [bug-shop-registration-uncapped-fields-in-third-fourth-slides.md](./bug-shop-registration-uncapped-fields-in-third-fourth-slides.md) | Medium | Independent | 10 min |
+| # | File | Priority | Phase | Defensive | Recovery | Est. Effort |
+|---|---|---|---|---|---|---|
+| 1 | [bug-customer-registration-wallet-not-populated-generic-error.md](./bug-customer-registration-wallet-not-populated-generic-error.md) | Critical | **1 + 1b** | ✅ 5db89b6b | ⏳ Pending | 20-30 + 15-20 min |
+| 2 | [bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md](./bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md) | Critical | **1 + 1b** | ✅ 5db89b6b | ⏳ Pending | 20-30 + 15-20 min |
+| 3a | [bug-customer-login-silently-fails-stuck-on-onboarding.md](./bug-customer-login-silently-fails-stuck-on-onboarding.md) (primary) | Critical | **1** | ✅ 5db89b6b | n/a | 15-30 min |
+| 3b | bug-customer-login-silently-fails-stuck-on-onboarding.md (secondary) | Critical | **4** | ⏳ Pending | n/a | 1-2 hrs |
+| 4 | [bug-customer-home-no-wallet-connected-despite-logged-in.md](./bug-customer-home-no-wallet-connected-despite-logged-in.md) | Medium | **2** | ✅ (A+B) 5db89b6b | built-in | 30 min |
+| 5 | [bug-suspended-screen-check-status-missing-wallet-address.md](./bug-suspended-screen-check-status-missing-wallet-address.md) | Medium | **3** | ✅ 5db89b6b | n/a | 1-2 hrs |
+| 6 | [bug-shop-registration-uncapped-fields-in-third-fourth-slides.md](./bug-shop-registration-uncapped-fields-in-third-fourth-slides.md) | Medium | Independent | ✅ 5db89b6b | n/a | 10 min |
 
-Totals: Phase 1 ~60-90 min (3 files, can be parallel); Phase 2 ~30 min; Phase 3 ~1-2 hrs; Phase 4 ~1-2 hrs; Independent 10 min. Full slate ~3-6 hrs of focused work across all phases.
+Totals: Phase 1 ~60-90 min (shipped); **Phase 1b ~30-40 min (pending — gating all mobile signups)**; Phase 2 ~30 min; Phase 3 ~1-2 hrs; Phase 4 ~1-2 hrs. Full remaining work after Phase 1: Phase 1b + 2 + 3 + 4 ≈ 3-5 hrs.
 
 ---
 
