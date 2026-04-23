@@ -212,7 +212,7 @@ export class NoShowPolicyService {
     } else if (customer.tier === 'deposit_required') {
       minimumAdvanceHours = policy.depositAdvanceBookingHours;
       restrictions.push(`Must book at least ${policy.depositAdvanceBookingHours} hours in advance`);
-      restrictions.push(`$${policy.depositAmount} refundable deposit required`);
+      restrictions.push(`$${Number(policy.depositAmount).toFixed(2)} refundable deposit required`);
       restrictions.push(`Maximum ${policy.maxRcnRedemptionPercent}% RCN redemption`);
     } else if (customer.tier === 'suspended') {
       restrictions.push(`Booking suspended until ${customer.bookingSuspendedUntil ? new Date(customer.bookingSuspendedUntil).toLocaleDateString() : 'unknown'}`);
@@ -279,9 +279,9 @@ export class NoShowPolicyService {
       restrictions.push(`Limited to ${defaultPolicy.maxRcnRedemptionPercent}% RCN redemption per booking`);
     } else if (customer.tier === 'deposit_required') {
       minimumAdvanceHours = defaultPolicy.depositAdvanceBookingHours;
-      restrictions.push(`$${defaultPolicy.depositAmount} refundable deposit required for all bookings`);
       restrictions.push(`Must book at least ${defaultPolicy.depositAdvanceBookingHours} hours in advance`);
-      restrictions.push(`Limited to ${defaultPolicy.maxRcnRedemptionPercent}% RCN redemption per booking`);
+      restrictions.push(`$${Number(defaultPolicy.depositAmount).toFixed(2)} refundable deposit required`);
+      restrictions.push(`Maximum ${defaultPolicy.maxRcnRedemptionPercent}% RCN redemption`);
     } else if (customer.tier === 'suspended') {
       const suspensionDate = customer.bookingSuspendedUntil
         ? new Date(customer.bookingSuspendedUntil).toLocaleDateString('en-US', {

@@ -35,6 +35,7 @@ import { cleanupService } from './services/CleanupService';
 import { appointmentReminderService } from './services/AppointmentReminderService';
 import { subscriptionReminderService } from './services/SubscriptionReminderService';
 import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionService';
+import { getSuspensionLiftService } from './services/SuspensionLiftService';
 import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
 import { ReportSchedulerService } from './services/ReportSchedulerService';
@@ -585,6 +586,7 @@ class RepairCoinApp {
       appointmentReminderService.stopScheduledReminders();
       subscriptionReminderService.stopScheduler();
       getAutoNoShowDetectionService().stop();
+      getSuspensionLiftService().stop();
       rescheduleExpirationService.stop();
       stopSubscriptionEnforcement();
       stopUnpaidBookingCleanup();
@@ -756,6 +758,16 @@ class RepairCoinApp {
           logger.info('🚫 Auto detection service started (no-show, expiry, pending cleanup - every 30 minutes)');
         } else {
           logger.info('⏸️ Auto detection service DISABLED via AUTO_DETECTION_ENABLED=false');
+        }
+
+        // Start suspension lift service - runs every 15 minutes
+        // Feature flag: set SUSPENSION_LIFT_ENABLED=false to disable
+        const suspensionLiftEnabled = process.env.SUSPENSION_LIFT_ENABLED !== 'false';
+        if (suspensionLiftEnabled) {
+          getSuspensionLiftService().start();
+          logger.info('🔓 Suspension lift service started (every 15 minutes)');
+        } else {
+          logger.info('⏸️ Suspension lift service DISABLED via SUSPENSION_LIFT_ENABLED=false');
         }
 
         // Start reschedule expiration service - runs every hour
