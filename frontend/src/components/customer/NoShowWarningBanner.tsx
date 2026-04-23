@@ -46,14 +46,23 @@ export default function NoShowWarningBanner({ status, onDismiss }: NoShowWarning
           textColor: 'text-red-900',
           iconBgColor: 'bg-red-100',
           icon: '🚨',
-          title: 'Refundable Deposit Required',
-          message: `Due to ${status.noShowCount} missed appointments, you must now pay a refundable deposit for all bookings:`,
+          title: 'Deposit Required - Account Restricted',
+          message: `Due to ${status.noShowCount} missed appointments, the following restrictions apply:`,
           showDetails: true
         };
 
       case 'suspended':
-        const suspensionEndDate = status.bookingSuspendedUntil
-          ? new Date(status.bookingSuspendedUntil).toLocaleDateString('en-US', {
+        // Safety net: backend cron reconciles expired suspensions every ~15 min.
+        // Hide the banner if the suspension has already elapsed but the tier hasn't caught up yet.
+        const suspendedUntilDate = status.bookingSuspendedUntil
+          ? new Date(status.bookingSuspendedUntil)
+          : null;
+        if (suspendedUntilDate && suspendedUntilDate <= new Date()) {
+          return null;
+        }
+
+        const suspensionEndDate = suspendedUntilDate
+          ? suspendedUntilDate.toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -111,10 +120,10 @@ export default function NoShowWarningBanner({ status, onDismiss }: NoShowWarning
           )}
 
           {/* Help Text */}
-          {status.tier === 'deposit_required' && (
+          {(status.tier === 'deposit_required' || status.tier === 'caution' || status.tier === 'warning') && (
             <div className="bg-white/50 rounded p-3 mt-3">
               <p className="text-sm text-gray-700">
-                <strong>Good News:</strong> Complete 3 successful appointments and these restrictions will be removed automatically.
+                <strong>Good News:</strong> Complete 3 successful appointments and you'll move to a lower restriction level.
               </p>
               <p className="text-xs text-gray-600 mt-1">
                 Progress: {status.successfulAppointmentsSinceTier3} / 3 successful appointments

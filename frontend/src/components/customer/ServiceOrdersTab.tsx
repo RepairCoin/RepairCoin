@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import {
@@ -10,19 +10,15 @@ import {
   XCircle,
   DollarSign,
   Calendar,
-  MapPin,
   Loader2,
   Star,
   Eye,
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
-  Store,
   RotateCcw,
 } from "lucide-react";
-import { getCustomerOrders, ServiceOrderWithDetails, servicesApi } from "@/services/api/services";
+import { getCustomerOrders, ServiceOrderWithDetails, servicesApi, OrderStatus } from "@/services/api/services";
 import { WriteReviewModal } from "./WriteReviewModal";
 import { BookingDetailsModal } from "./BookingDetailsModal";
 import { BookingCard } from "./BookingCard";
@@ -32,6 +28,7 @@ import DisputeModal from "./DisputeModal";
 import { getDisputeStatus } from "@/services/api/noShow";
 import type { NoShowHistoryEntry } from "@/services/api/noShow";
 import { AlertTriangle } from "lucide-react";
+import Pagination from "@/components/shop/groups/shared/Pagination";
 
 // No-Show banner with dispute status awareness
 const NoShowBanner: React.FC<{
@@ -187,43 +184,36 @@ export const ServiceOrdersTab: React.FC = () => {
   const [viewingOrder, setViewingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderWithDetails | null>(null);
   const [disputeOrder, setDisputeOrder] = useState<ServiceOrderWithDetails | null>(null);
-  const filterScrollRef = useRef<HTMLDivElement>(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
-
-  const handleFilterScroll = () => {
-    if (filterScrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = filterScrollRef.current;
-      setShowLeftArrow(scrollLeft > 0);
-      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  const scrollFilters = (direction: 'left' | 'right') => {
-    if (filterScrollRef.current) {
-      const scrollAmount = 150;
-      filterScrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
-    }
-  };
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
-    loadOrders();
+    setCurrentPage(1);
+    loadOrders(1, filter);
   }, [filter]);
 
-  const loadOrders = async () => {
+  useEffect(() => {
+    loadCounts();
+  }, []);
+
+  const loadOrders = async (page: number = currentPage, currentFilter: string = filter) => {
     setLoading(true);
     try {
-      const statusFilter = filter === "all" ? undefined : filter;
+      const statusFilter = currentFilter === "all" ? undefined : (currentFilter as OrderStatus);
       const response = await getCustomerOrders({
         status: statusFilter,
-        limit: 50,
+        page,
+        limit: ITEMS_PER_PAGE,
       });
 
       if (response) {
         setOrders(response.data);
+        if (response.pagination) {
+          setTotalPages(response.pagination.totalPages);
+          setCurrentPage(response.pagination.page);
+        }
         // Check review eligibility for completed orders
         checkReviewEligibility(response.data);
       }
@@ -233,6 +223,29 @@ export const ServiceOrdersTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadCounts = async () => {
+    try {
+      const statuses: OrderStatus[] = ["pending", "paid", "completed", "cancelled", "refunded"];
+      const results = await Promise.all(
+        statuses.map((s) =>
+          getCustomerOrders({ status: s, page: 1, limit: 1 }).then(
+            (r) => [s, r?.pagination?.totalItems ?? 0] as const
+          )
+        )
+      );
+      const counts: Record<string, number> = {};
+      results.forEach(([s, n]) => { counts[s] = n; });
+      setStatusCounts(counts);
+    } catch (error) {
+      console.error("Error loading order counts:", error);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    loadOrders(page);
   };
 
   const checkReviewEligibility = async (ordersList: ServiceOrderWithDetails[]) => {
@@ -384,13 +397,13 @@ export const ServiceOrdersTab: React.FC = () => {
     });
   };
 
-  // Calculate summary counts
+  // Calculate summary counts from backend status totals (not the current page)
   const getSummary = () => {
     return {
-      pending: orders.filter(o => o.status === "pending").length,
-      paid: orders.filter(o => o.status === "paid" || o.status === "approved" || o.status === "scheduled").length,
-      completed: orders.filter(o => o.status === "completed").length,
-      cancelled: orders.filter(o => o.status === "cancelled").length,
+      pending: statusCounts["pending"] || 0,
+      paid: statusCounts["paid"] || 0,
+      completed: statusCounts["completed"] || 0,
+      cancelled: (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0),
     };
   };
 
@@ -415,106 +428,42 @@ export const ServiceOrdersTab: React.FC = () => {
     );
   }
 
+  const filterPills = [
+    { key: "all", label: "All", count: summary.pending + summary.paid + summary.completed + summary.cancelled },
+    { key: "pending", label: "Pending", count: summary.pending },
+    { key: "paid", label: "Paid", count: summary.paid },
+    { key: "completed", label: "Completed", count: summary.completed },
+    { key: "cancelled", label: "Cancelled", count: summary.cancelled },
+  ];
+
   return (
     <div className="space-y-4">
-      {/* Filter Tabs & Sort */}
+      {/* Filter Pills + Sort */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        {/* Filter Buttons - Horizontal scroll on mobile with arrows */}
-        <div className="relative flex items-center">
-          {/* Left Arrow */}
-          {showLeftArrow && (
+        <div className="flex flex-wrap gap-2">
+          {filterPills.map((pill) => (
             <button
-              onClick={() => scrollFilters('left')}
-              className="sm:hidden absolute -left-1 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center bg-[#1A1A1A] border border-gray-700 rounded-full shadow-lg active:scale-95 transition-transform"
+              key={pill.key}
+              onClick={() => setFilter(pill.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                filter === pill.key
+                  ? "bg-white text-black"
+                  : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-gray-600"
+              }`}
             >
-              <ChevronLeft className="w-4 h-4 text-[#FFCC00]" />
+              {pill.label} ({pill.count})
             </button>
-          )}
-
-          {/* Scrollable Filter Container */}
-          <div
-            ref={filterScrollRef}
-            onScroll={handleFilterScroll}
-            className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
-            <div className="flex gap-2 sm:gap-3 flex-nowrap min-w-max pt-2">
-              <button
-                onClick={() => setFilter("all")}
-                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-                  filter === "all"
-                    ? "bg-[#FFCC00] text-black"
-                    : "bg-gray-200 text-black hover:bg-gray-300"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter("pending")}
-                className={`relative px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-                  filter === "pending"
-                    ? "bg-[#FFCC00] text-black"
-                    : "bg-gray-200 text-black hover:bg-gray-300"
-                }`}
-              >
-                Pending
-                {summary.pending > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
-                )}
-              </button>
-              <button
-                onClick={() => setFilter("paid")}
-                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-                  filter === "paid"
-                    ? "bg-[#FFCC00] text-black"
-                    : "bg-gray-200 text-black hover:bg-gray-300"
-                }`}
-              >
-                Paid
-              </button>
-              <button
-                onClick={() => setFilter("completed")}
-                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-                  filter === "completed"
-                    ? "bg-[#FFCC00] text-black"
-                    : "bg-gray-200 text-black hover:bg-gray-300"
-                }`}
-              >
-                Completed
-              </button>
-              <button
-                onClick={() => setFilter("cancelled")}
-                className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
-                  filter === "cancelled"
-                    ? "bg-[#FFCC00] text-black"
-                    : "bg-gray-200 text-black hover:bg-gray-300"
-                }`}
-              >
-                Cancelled
-              </button>
-            </div>
-          </div>
-
-          {/* Right Arrow */}
-          {showRightArrow && (
-            <button
-              onClick={() => scrollFilters('right')}
-              className="sm:hidden absolute -right-1 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center bg-[#1A1A1A] border border-gray-700 rounded-full shadow-lg active:scale-95 transition-transform"
-            >
-              <ChevronRight className="w-4 h-4 text-[#FFCC00]" />
-            </button>
-          )}
+          ))}
         </div>
 
-        {/* Sort Dropdown - Hidden on mobile */}
-        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+        {/* Sort Dropdown */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-sm text-gray-500">Sort by:</span>
           <Select
             value={sortOrder}
             onValueChange={(value) => setSortOrder(value as "asc" | "desc")}
           >
-            <SelectTrigger className="w-[100px] bg-transparent border border-gray-700 text-white h-9 rounded-lg hover:border-gray-500 transition-colors">
+            <SelectTrigger className="w-[110px] bg-[#1A1A1A] border border-gray-800 text-white h-9 rounded-lg hover:border-gray-600 transition-colors">
               <SelectValue placeholder="Date" />
             </SelectTrigger>
             <SelectContent className="bg-[#1A1A1A] border-gray-800">
@@ -693,12 +642,20 @@ export const ServiceOrdersTab: React.FC = () => {
                 />
               );
             })}
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              disabled={loading}
+            />
           </div>
 
           {/* Quick Summary Sidebar - Hidden on mobile */}
-          <div className="hidden lg:block space-y-4">
+          <div className="hidden lg:block">
+           <div className="sticky top-0 space-y-4">
             {/* Summary Card */}
-            <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-gray-800 rounded-xl p-5 sticky top-4">
+            <div className="bg-gradient-to-br from-[#1A1A1A] to-[#0D0D0D] border border-gray-800 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 bg-[#FFCC00] rounded-lg flex items-center justify-center">
                   <ShoppingBag className="w-5 h-5 text-black" />
@@ -786,6 +743,7 @@ export const ServiceOrdersTab: React.FC = () => {
                 </div>
               )}
             </div>
+           </div>
           </div>
         </div>
       )}
@@ -799,6 +757,7 @@ export const ServiceOrdersTab: React.FC = () => {
           onSuccess={() => {
             setReviewingOrder(null);
             loadOrders();
+            loadCounts();
           }}
         />
       )}
@@ -820,6 +779,7 @@ export const ServiceOrdersTab: React.FC = () => {
         onSuccess={() => {
           setCancellingOrder(null);
           loadOrders();
+          loadCounts();
         }}
       />
 
@@ -846,6 +806,7 @@ export const ServiceOrdersTab: React.FC = () => {
           onDisputeSubmitted={() => {
             setDisputeOrder(null);
             loadOrders();
+            loadCounts();
             toast.success("Dispute submitted successfully");
           }}
         />

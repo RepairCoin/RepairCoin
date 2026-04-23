@@ -106,13 +106,17 @@ export default function CustomerDashboardClient() {
   }, [searchParams]);
 
   // Fetch no-show status (shop-agnostic)
+  // thirdweb's useActiveAccount() can lag behind auth rehydration on page refresh,
+  // leaving account?.address undefined while isAuthenticated is already true.
+  // Fall back to userProfile.address; switchingAccount still guards the wallet-switch window.
+  const walletAddress = userProfile?.address || account?.address;
   useEffect(() => {
     const fetchNoShowStatus = async () => {
-      if (!account?.address || !isAuthenticated || switchingAccount) return;
+      if (!walletAddress || !isAuthenticated || switchingAccount) return;
 
       setLoadingNoShowStatus(true);
       try {
-        const status = await getOverallCustomerNoShowStatus(account.address);
+        const status = await getOverallCustomerNoShowStatus(walletAddress);
         setNoShowStatus(status);
       } catch (error) {
         console.error('Error fetching no-show status:', error);
@@ -123,7 +127,7 @@ export default function CustomerDashboardClient() {
     };
 
     fetchNoShowStatus();
-  }, [account?.address, isAuthenticated, switchingAccount]);
+  }, [walletAddress, isAuthenticated, switchingAccount]);
 
   // Get login function to refresh profile when page becomes visible
   const { login } = useAuthStore();
