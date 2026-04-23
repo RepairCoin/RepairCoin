@@ -120,10 +120,10 @@ export default function NoShowWarningBanner({ status, onDismiss }: NoShowWarning
           )}
 
           {/* Help Text */}
-          {status.tier === 'deposit_required' && (
+          {(status.tier === 'deposit_required' || status.tier === 'caution' || status.tier === 'warning') && (
             <div className="bg-white/50 rounded p-3 mt-3">
               <p className="text-sm text-gray-700">
-                <strong>Good News:</strong> Complete 3 successful appointments and these restrictions will be removed automatically.
+                <strong>Good News:</strong> Complete 3 successful appointments and you'll move to a lower restriction level.
               </p>
               <p className="text-xs text-gray-600 mt-1">
                 Progress: {status.successfulAppointmentsSinceTier3} / 3 successful appointments

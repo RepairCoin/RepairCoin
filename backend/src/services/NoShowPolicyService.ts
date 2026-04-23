@@ -2,6 +2,7 @@
 import { getSharedPool } from '../utils/database-pool';
 import { Pool } from 'pg';
 import { logger } from '../utils/logger';
+import { NotificationService } from '../domains/notification/services/NotificationService';
 
 export type NoShowTier = 'normal' | 'warning' | 'caution' | 'deposit_required' | 'suspended';
 
@@ -387,44 +388,108 @@ export class NoShowPolicyService {
   }
 
   /**
-   * Record successful appointment (for tier 3 reset tracking)
+   * Record a successful appointment. Increments the counter for any penalized
+   * tier so the customer can earn their way down the ladder:
+   * deposit_required → caution → warning → normal.
    */
   async recordSuccessfulAppointment(customerAddress: string): Promise<void> {
     const query = `
       UPDATE customers
       SET successful_appointments_since_tier3 = successful_appointments_since_tier3 + 1
       WHERE address = $1
-        AND no_show_tier = 'deposit_required'
+        AND no_show_tier IN ('deposit_required', 'caution', 'warning')
     `;
 
     const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
 
-    // Check if customer should be restored to lower tier
     if (result.rowCount && result.rowCount > 0) {
       await this.checkTierReset(customerAddress);
     }
   }
 
   /**
-   * Check if customer should be reset to lower tier after successful appointments
+   * If the counter has met the threshold, drop the customer one tier.
+   * Intermediate drops (deposit_required -> caution -> warning) preserve
+   * no_show_count as in-progress history. The final step (warning -> normal)
+   * wipes no_show_count and last_no_show_at, giving the customer a clean
+   * slate. no_show_history rows stay intact for audit.
    */
   private async checkTierReset(customerAddress: string): Promise<void> {
     const query = `
-      UPDATE customers
+      WITH threshold AS (
+        SELECT deposit_reset_after_successful AS n
+        FROM shop_no_show_policy LIMIT 1
+      )
+      UPDATE customers c
       SET
-        no_show_tier = 'caution',
+        no_show_tier = CASE
+          WHEN c.no_show_tier = 'deposit_required' THEN 'caution'
+          WHEN c.no_show_tier = 'caution' THEN 'warning'
+          WHEN c.no_show_tier = 'warning' THEN 'normal'
+          ELSE c.no_show_tier
+        END,
         deposit_required = FALSE,
-        successful_appointments_since_tier3 = 0
-      WHERE address = $1
-        AND no_show_tier = 'deposit_required'
-        AND successful_appointments_since_tier3 >= (
-          SELECT deposit_reset_after_successful
-          FROM shop_no_show_policy
-          LIMIT 1  -- Using default policy for now
-        )
+        successful_appointments_since_tier3 = 0,
+        no_show_count = CASE
+          WHEN c.no_show_tier = 'warning' THEN 0
+          ELSE c.no_show_count
+        END,
+        last_no_show_at = CASE
+          WHEN c.no_show_tier = 'warning' THEN NULL
+          ELSE c.last_no_show_at
+        END,
+        updated_at = NOW()
+      FROM threshold t
+      WHERE c.address = $1
+        AND c.no_show_tier IN ('deposit_required', 'caution', 'warning')
+        AND c.successful_appointments_since_tier3 >= COALESCE(t.n, 3)
+      RETURNING
+        c.address,
+        c.no_show_tier AS new_tier,
+        CASE
+          WHEN c.no_show_tier = 'caution' THEN 'deposit_required'
+          WHEN c.no_show_tier = 'warning' THEN 'caution'
+          WHEN c.no_show_tier = 'normal' THEN 'warning'
+        END AS previous_tier
     `;
 
-    await this.pool.query(query, [customerAddress.toLowerCase()]);
+    const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+
+    if (result.rowCount && result.rowCount > 0) {
+      const { address, new_tier, previous_tier } = result.rows[0];
+      logger.info('No-show tier cascade reset', { address, previous_tier, new_tier });
+      await this.sendTierRestoredNotification(address, previous_tier, new_tier);
+    }
+  }
+
+  private async sendTierRestoredNotification(
+    customerAddress: string,
+    previousTier: string,
+    newTier: string
+  ): Promise<void> {
+    try {
+      const notificationService = new NotificationService();
+      const fullReset = newTier === 'normal';
+      const message = fullReset
+        ? 'Welcome back to good standing. Your no-show history has been cleared. Keep honoring appointments to stay here.'
+        : `Your booking restrictions have been reduced from ${previousTier.replace('_', ' ')} to ${newTier}. Keep honoring appointments to remove more restrictions.`;
+
+      await notificationService.createNotification({
+        senderAddress: 'SYSTEM',
+        receiverAddress: customerAddress.toLowerCase(),
+        notificationType: 'tier_restored',
+        message,
+        metadata: {
+          previousTier,
+          newTier,
+          reason: 'successful_appointments',
+          fullReset,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (err) {
+      logger.error('Failed to send tier_restored notification', { customerAddress, err });
+    }
   }
 
   /**
