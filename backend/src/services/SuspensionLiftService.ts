@@ -20,6 +20,7 @@ export class SuspensionLiftService {
   private notificationService: NotificationService;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
+  private lastRunAt: Date | null = null;
 
   constructor() {
     this.notificationService = new NotificationService();
@@ -102,6 +103,7 @@ export class SuspensionLiftService {
       report.errors.push(errMsg);
     }
 
+    this.lastRunAt = report.timestamp;
     return report;
   }
 
@@ -150,11 +152,16 @@ export class SuspensionLiftService {
     logger.info('Suspension lift service stopped');
   }
 
-  getStatus(): { isRunning: boolean; nextRunEstimate?: Date } {
+  getStatus(): { isRunning: boolean; lastRunAt?: Date; nextRunEstimate?: Date } {
+    const INTERVAL_MS = 15 * 60 * 1000;
+    if (!this.isRunning) {
+      return { isRunning: false };
+    }
     return {
-      isRunning: this.isRunning,
-      nextRunEstimate: this.isRunning
-        ? new Date(Date.now() + 15 * 60 * 1000)
+      isRunning: true,
+      lastRunAt: this.lastRunAt ?? undefined,
+      nextRunEstimate: this.lastRunAt
+        ? new Date(this.lastRunAt.getTime() + INTERVAL_MS)
         : undefined
     };
   }

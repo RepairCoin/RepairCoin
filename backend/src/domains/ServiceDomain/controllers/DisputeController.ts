@@ -732,13 +732,16 @@ export async function reverseNoShowPenalty(
       }
     }
 
-    // Update customer with correct effective count, recalculated tier, and suspension date
+    // Update customer with correct effective count, recalculated tier, and suspension date.
+    // When effectiveCount drops to 0 (all of this customer's no-shows were reversed),
+    // also null last_no_show_at so the row is internally consistent with tier=normal.
     await pool.query(
       `UPDATE customers
        SET no_show_count = $1,
            no_show_tier = $2,
            booking_suspended_until = $3,
            deposit_required = $4,
+           last_no_show_at = CASE WHEN $1::int = 0 THEN NULL ELSE last_no_show_at END,
            updated_at = NOW()
        WHERE LOWER(address) = LOWER($5)`,
       [effectiveCount, newTier, suspensionDate, newTier === 'deposit_required' || newTier === 'suspended', customerAddress]
