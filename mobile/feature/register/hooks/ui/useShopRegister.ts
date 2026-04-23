@@ -70,28 +70,27 @@ export const useShopRegister = () => {
   const handleSubmit = useCallback(() => {
     if (isSubmitting) return;
 
+    if (!account?.address) {
+      showError(
+        "Wallet not connected. Please return to the welcome screen and connect your wallet.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
-    try {
-      const submissionData = {
-        ...formData,
-        website: normalizeUrl(formData.website),
-        facebook: normalizeUrl(formData.facebook),
-        instagram: normalizeUrl(formData.instagram),
-        twitter: normalizeUrl(formData.twitter),
-        walletAddress: account.address,
-      };
+    const submissionData = {
+      ...formData,
+      website: normalizeUrl(formData.website),
+      facebook: normalizeUrl(formData.facebook),
+      instagram: normalizeUrl(formData.instagram),
+      twitter: normalizeUrl(formData.twitter),
+      walletAddress: account.address,
+    };
 
-      registerShop(submissionData, {
-        onSettled: () => setIsSubmitting(false),
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      showError(
-        "Unable to complete registration. Please check your connection and try again.",
-      );
-      setIsSubmitting(false);
-    }
+    registerShop(submissionData, {
+      onSettled: () => setIsSubmitting(false),
+    });
   }, [formData, account, registerShop, showError, isSubmitting]);
 
   return {

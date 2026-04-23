@@ -29,11 +29,22 @@ export const useCustomerRegister = () => {
   );
 
   const isFormValid = useMemo(() => {
-    return hasMinLength(formData.fullName, 2) && isValidEmail(formData.email);
-  }, [formData.fullName, formData.email]);
+    return (
+      !!account?.address &&
+      hasMinLength(formData.fullName, 2) &&
+      isValidEmail(formData.email)
+    );
+  }, [formData.fullName, formData.email, account?.address]);
 
   const validateAndSubmit = useCallback(() => {
     if (isSubmitting) return;
+
+    if (!account?.address) {
+      showError(
+        "Wallet not connected. Please return to the welcome screen and connect your wallet.",
+      );
+      return;
+    }
 
     const errors = validateCustomerForm(formData.fullName, formData.email);
 
@@ -44,24 +55,16 @@ export const useCustomerRegister = () => {
 
     setIsSubmitting(true);
 
-    try {
-      const submissionData = {
-        ...formData,
-        name: formData.fullName,
-        referralCode: formData.referral,
-        walletAddress: account.address,
-      };
+    const submissionData = {
+      ...formData,
+      name: formData.fullName,
+      referralCode: formData.referral,
+      walletAddress: account.address,
+    };
 
-      registerCustomer(submissionData, {
-        onSettled: () => setIsSubmitting(false),
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      showError(
-        "Unable to complete registration. Please check your connection and try again.",
-      );
-      setIsSubmitting(false);
-    }
+    registerCustomer(submissionData, {
+      onSettled: () => setIsSubmitting(false),
+    });
   }, [formData, account, registerCustomer, showError, isSubmitting]);
 
   const handleGoBack = useCallback(() => {

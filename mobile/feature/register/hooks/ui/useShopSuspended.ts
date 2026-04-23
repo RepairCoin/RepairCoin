@@ -7,6 +7,7 @@ import { useAppToast } from "@/shared/hooks/useAppToast";
 export const useShopSuspended = () => {
   const logout = useAuthStore((state) => state.logout);
   const userProfile = useAuthStore((state) => state.userProfile);
+  const account = useAuthStore((state) => state.account);
   const setUserProfile = useAuthStore((state) => state.setUserProfile);
   const { showSuccess, showError } = useAppToast();
   const [isChecking, setIsChecking] = useState(false);
@@ -19,7 +20,7 @@ export const useShopSuspended = () => {
   // back to the dashboard; otherwise refresh the displayed suspension data.
   const handleCheckStatus = useCallback(async () => {
     if (isChecking) return;
-    const address = userProfile?.walletAddress || userProfile?.address;
+    const address = userProfile?.walletAddress || userProfile?.address || account?.address;
     if (!address) {
       showError("Missing wallet address. Please log out and try again.");
       return;

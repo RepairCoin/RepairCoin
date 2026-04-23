@@ -85,6 +85,7 @@ export default function ThirdSlide({
             value={formData.address}
             onChangeText={(value) => updateFormData("address", value)}
             placeholder="Enter your street address"
+            maxLength={255}
           />
 
           <FormInput
@@ -93,6 +94,7 @@ export default function ThirdSlide({
             value={formData.city}
             onChangeText={(value) => updateFormData("city", value)}
             placeholder="Enter your city"
+            maxLength={100}
           />
 
           <FormInput
@@ -101,6 +103,7 @@ export default function ThirdSlide({
             value={formData.country}
             onChangeText={(value) => updateFormData("country", value)}
             placeholder="Enter your country"
+            maxLength={100}
           />
 
           <View className="mb-4">
@@ -144,7 +147,8 @@ export default function ThirdSlide({
             onChangeText={() => {}}
             placeholder="Wallet address"
             editable={false}
-            helperText="Used for shop operations and token management"
+            error={!address ? "Wallet not connected — return to the welcome screen and reconnect to continue." : undefined}
+            helperText={address ? "Used for shop operations and token management" : undefined}
           />
 
           <FormInput
@@ -156,6 +160,7 @@ export default function ThirdSlide({
             }
             placeholder="Enter reimbursement address (0x...)"
             autoCapitalize="none"
+            maxLength={42}
             helperText="Where to receive payments for token redemptions"
           />
 

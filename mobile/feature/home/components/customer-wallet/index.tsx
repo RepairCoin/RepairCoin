@@ -30,7 +30,8 @@ import ServiceSection from "./ServiceSection";
 import RecentlyViewedSection from "./RecentlyViewedSection";
 
 export default function CustomerWalletTab() {
-  const { account } = useAuthStore();
+  const { account, userProfile } = useAuthStore();
+  const walletAddress = account?.address || userProfile?.walletAddress || userProfile?.address;
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { useGetAllServicesQuery, useGetTrendingServices, useGetRecentlyViewed } = useService();
   const { useGetFavorites } = useFavorite();
@@ -41,7 +42,7 @@ export default function CustomerWalletTab() {
     isLoading,
     error,
     refetch,
-  } = useGetCustomerByWalletAddress(account?.address);
+  } = useGetCustomerByWalletAddress(walletAddress);
 
   // Get services
   const {
@@ -101,7 +102,7 @@ export default function CustomerWalletTab() {
 
   const mintMutation = useMutation({
     mutationFn: async (amount: number) => {
-      return apiClient.post(`/customers/balance/${account?.address}/instant-mint`, { amount });
+      return apiClient.post(`/customers/balance/${walletAddress}/instant-mint`, { amount });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
@@ -174,7 +175,7 @@ export default function CustomerWalletTab() {
   };
 
   // Early return for missing data
-  if (!account) {
+  if (!walletAddress) {
     return (
       <View className="flex-1 justify-center items-center mt-20">
         <Text className="text-white text-lg">No wallet connected</Text>

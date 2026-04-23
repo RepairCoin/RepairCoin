@@ -35,6 +35,7 @@ export default function FourthSlide({
           value={formData.fixflowShopId}
           onChangeText={(value) => updateFormData("fixflowShopId", value)}
           placeholder="Enter FixFlow Shop ID"
+          maxLength={100}
           helperText="If you use FixFlow for your repair business"
         />
 

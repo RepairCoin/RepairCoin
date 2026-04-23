@@ -101,9 +101,11 @@ export function useAuth() {
               router.replace("/customer/tabs/home");
             }
           } else {
+            console.error("[useConnectWallet] Token result not successful:", getTokenResult);
+            showError("Could not complete sign-in. Please try again.");
             setIsLoading(false);
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("[useConnectWallet] Token error:", err);
           // If token fails for a shop, it might be unverified or suspended
           if (result.type === "shop") {
@@ -119,6 +121,9 @@ export function useAuth() {
             );
             setTimeout(() => setIsLoading(false), 500);
           } else {
+            if (!err?.__toastShown) {
+              showError("Could not complete sign-in. Please try again.");
+            }
             setIsLoading(false);
           }
         }
@@ -157,6 +162,8 @@ export function useAuth() {
     const userType = useAuthStore((state) => state.userType);
     const accessToken = useAuthStore((state) => state.accessToken);
     const hasHydrated = useAuthStore((state) => state.hasHydrated);
+    const account = useAuthStore((state) => state.account);
+    const setAccount = useAuthStore((state) => state.setAccount);
 
     const navigate = async () => {
       // Wait for store to hydrate before checking auth
@@ -174,6 +181,14 @@ export function useAuth() {
         console.log("[Auth] No stored authentication found");
         router.replace("/onboarding1");
         return;
+      }
+
+      // Self-heal: reconstruct account from userProfile if account is null
+      // (happens when persisted state from an older build only has userProfile)
+      if (!account && (userProfile?.walletAddress || userProfile?.address)) {
+        const addr = userProfile.walletAddress || userProfile.address;
+        console.log("[Auth] Self-healing: reconstructing account from userProfile", addr);
+        setAccount({ address: addr, email: userProfile.email });
       }
 
       // Restore token to axios client
