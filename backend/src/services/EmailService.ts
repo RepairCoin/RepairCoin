@@ -2316,6 +2316,452 @@ export class EmailService {
   }
 
   /**
+   * Send daily digest to shop (with preference check)
+   */
+  async sendShopDailyDigest(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      date: string;
+      stats: {
+        newBookings: number;
+        newBookingsTrend: number;
+        revenue: number;
+        revenueTrend: number;
+        newCustomers: number;
+        newCustomersTrend: number;
+        completedBookings: number;
+        completedTrend: number;
+        avgRating: number | null;
+        ratingTrend: number;
+        noShows: number;
+        noShowsTrend: number;
+        rcnIssued: number;
+        rcnIssuedUsd: number;
+        reviewsReceived: number;
+        cancellations: number;
+      };
+    }
+  ): Promise<boolean> {
+    const subject = `Your Daily Digest - ${data.shopName} (${data.date})`;
+
+    const formatTrend = (trend: number) => {
+      if (trend === 0) return 'Same';
+      const sign = trend > 0 ? '+' : '';
+      const arrow = trend > 0 ? '↑' : trend < 0 ? '↓' : '';
+      return `${sign}${trend.toFixed(1)}% ${arrow}`;
+    };
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h1 style="color: #FFCC00; margin-bottom: 10px;">📊 Daily Digest</h1>
+          <h2 style="color: #333; margin-top: 0; font-size: 18px;">${data.shopName}</h2>
+          <p style="color: #666; margin-bottom: 30px;">${data.date}</p>
+
+          <p style="color: #333; font-size: 16px; margin-bottom: 20px;">Here's how your business performed today:</p>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <tr>
+              <td style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; width: 33%; text-align: center; margin: 5px;">
+                <div style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px;">New Bookings</div>
+                <div style="font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px;">${data.stats.newBookings}</div>
+                <div style="font-size: 12px; color: ${data.stats.newBookingsTrend >= 0 ? '#4caf50' : '#f44336'};">${formatTrend(data.stats.newBookingsTrend)}</div>
+              </td>
+              <td style="width: 2%;"></td>
+              <td style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; width: 33%; text-align: center;">
+                <div style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px;">Revenue</div>
+                <div style="font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px;">$${data.stats.revenue.toFixed(2)}</div>
+                <div style="font-size: 12px; color: ${data.stats.revenueTrend >= 0 ? '#4caf50' : '#f44336'};">${formatTrend(data.stats.revenueTrend)}</div>
+              </td>
+              <td style="width: 2%;"></td>
+              <td style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; width: 33%; text-align: center;">
+                <div style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px;">New Customers</div>
+                <div style="font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px;">${data.stats.newCustomers}</div>
+                <div style="font-size: 12px; color: ${data.stats.newCustomersTrend >= 0 ? '#4caf50' : '#f44336'};">${formatTrend(data.stats.newCustomersTrend)}</div>
+              </td>
+            </tr>
+          </table>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <tr>
+              <td style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; width: 33%; text-align: center;">
+                <div style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px;">Completed</div>
+                <div style="font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px;">${data.stats.completedBookings}</div>
+                <div style="font-size: 12px; color: ${data.stats.completedTrend >= 0 ? '#4caf50' : '#f44336'};">${formatTrend(data.stats.completedTrend)}</div>
+              </td>
+              <td style="width: 2%;"></td>
+              <td style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; width: 33%; text-align: center;">
+                <div style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px;">Avg Rating</div>
+                <div style="font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px;">${data.stats.avgRating ? data.stats.avgRating.toFixed(1) : 'N/A'} ${data.stats.avgRating ? '⭐' : ''}</div>
+                <div style="font-size: 12px; color: ${data.stats.ratingTrend >= 0 ? '#4caf50' : '#f44336'};">${data.stats.avgRating ? formatTrend(data.stats.ratingTrend) : ''}</div>
+              </td>
+              <td style="width: 2%;"></td>
+              <td style="padding: 15px; background-color: #f5f5f5; border-radius: 8px; width: 33%; text-align: center;">
+                <div style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px;">No-Shows</div>
+                <div style="font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px;">${data.stats.noShows}</div>
+                <div style="font-size: 12px; color: ${data.stats.noShowsTrend <= 0 ? '#4caf50' : '#f44336'};">${formatTrend(data.stats.noShowsTrend)}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; font-size: 16px;">📈 Activity Summary</h3>
+            <ul style="color: #666; margin: 10px 0; padding-left: 20px;">
+              <li>Total RCN issued: <strong>${data.stats.rcnIssued.toFixed(2)} RCN</strong> (~$${data.stats.rcnIssuedUsd.toFixed(2)})</li>
+              <li>Reviews received: <strong>${data.stats.reviewsReceived}</strong> ${data.stats.avgRating ? `(avg ${data.stats.avgRating.toFixed(1)} stars)` : ''}</li>
+              <li>Cancellations: <strong>${data.stats.cancellations}</strong></li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/shop/dashboard"
+               style="display: inline-block; padding: 12px 30px; background-color: #FFCC00; color: #333; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              View Full Dashboard
+            </a>
+          </div>
+
+          <p style="color: #999; font-size: 12px; margin-top: 30px; text-align: center;">
+            You're receiving this because you enabled Daily Digests.
+            <a href="${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/shop?tab=settings" style="color: #FFCC00;">Manage email preferences</a>
+          </p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 20px; text-align: center;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'dailyDigest');
+  }
+
+  /**
+   * Send weekly report to shop (with preference check)
+   */
+  async sendShopWeeklyReport(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      weekStart: string;
+      weekEnd: string;
+      stats: {
+        bookingsCount: number;
+        bookingsTrend: number;
+        revenue: number;
+        revenueTrend: number;
+        completedCount: number;
+        completedTrend: number;
+        avgRating: number | null;
+        ratingTrend: number;
+        completionRate: number;
+        noShowRate: number;
+        cancellationRate: number;
+      };
+      topServices: Array<{
+        name: string;
+        bookings: number;
+        revenue: number;
+        percentage: number;
+      }>;
+      customerInsights: {
+        newCustomers: number;
+        repeatCustomers: number;
+        satisfactionRate: number;
+      };
+    }
+  ): Promise<boolean> {
+    const subject = `Weekly Report - ${data.shopName} (${data.weekStart} - ${data.weekEnd})`;
+
+    const formatTrend = (trend: number) => {
+      if (trend === 0) return 'Same';
+      const sign = trend > 0 ? '+' : '';
+      const arrow = trend > 0 ? '↑' : trend < 0 ? '↓' : '';
+      return `${sign}${trend.toFixed(1)}% ${arrow}`;
+    };
+
+    const topServicesRows = data.topServices.map((service, index) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${index + 1}. ${service.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${service.bookings}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${service.revenue.toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
+          <div style="background-color: #FFCC00; height: 8px; border-radius: 4px; width: ${service.percentage}%; min-width: 20px;"></div>
+        </td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h1 style="color: #FFCC00; margin-bottom: 10px;">📈 Weekly Report</h1>
+          <h2 style="color: #333; margin-top: 0; font-size: 18px;">${data.shopName}</h2>
+          <p style="color: #666; margin-bottom: 30px;">${data.weekStart} - ${data.weekEnd}</p>
+
+          <p style="color: #333; font-size: 16px; margin-bottom: 20px;">Your week at a glance:</p>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; background-color: #f5f5f5; border-radius: 8px; overflow: hidden;">
+            <thead>
+              <tr style="background-color: #333; color: white;">
+                <th style="padding: 12px; text-align: left;">Metric</th>
+                <th style="padding: 12px; text-align: right;">This Week</th>
+                <th style="padding: 12px; text-align: right;">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #ddd;">Bookings</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd;">${data.stats.bookingsCount}</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: ${data.stats.bookingsTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${formatTrend(data.stats.bookingsTrend)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #ddd;">Revenue</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd;">$${data.stats.revenue.toFixed(2)}</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: ${data.stats.revenueTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${formatTrend(data.stats.revenueTrend)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #ddd;">Completed</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd;">${data.stats.completedCount}</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: ${data.stats.completedTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${formatTrend(data.stats.completedTrend)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 12px;">Avg Rating</td>
+                <td style="padding: 12px; text-align: right;">${data.stats.avgRating ? data.stats.avgRating.toFixed(1) : 'N/A'} ${data.stats.avgRating ? '⭐' : ''}</td>
+                <td style="padding: 12px; text-align: right; color: ${data.stats.ratingTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${data.stats.avgRating ? formatTrend(data.stats.ratingTrend) : 'N/A'}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 style="color: #333; margin-top: 30px; margin-bottom: 15px; font-size: 16px;">🏆 Top Performing Services</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead>
+              <tr style="background-color: #f5f5f5;">
+                <th style="padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; color: #666;">Service</th>
+                <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase; color: #666;">Bookings</th>
+                <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase; color: #666;">Revenue</th>
+                <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase; color: #666;">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topServicesRows || '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">No data available</td></tr>'}
+            </tbody>
+          </table>
+
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; font-size: 16px;">👥 Customer Insights</h3>
+            <ul style="color: #666; margin: 10px 0; padding-left: 20px;">
+              <li>New customers: <strong>${data.customerInsights.newCustomers}</strong></li>
+              <li>Repeat customers: <strong>${data.customerInsights.repeatCustomers}</strong></li>
+              <li>Customer satisfaction: <strong>${data.customerInsights.satisfactionRate.toFixed(1)}%</strong></li>
+            </ul>
+          </div>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; font-size: 16px;">📊 Operational Metrics</h3>
+            <ul style="color: #666; margin: 10px 0; padding-left: 20px;">
+              <li>Completion rate: <strong>${data.stats.completionRate.toFixed(1)}%</strong></li>
+              <li>No-show rate: <strong>${data.stats.noShowRate.toFixed(1)}%</strong></li>
+              <li>Cancellation rate: <strong>${data.stats.cancellationRate.toFixed(1)}%</strong></li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/shop/dashboard"
+               style="display: inline-block; padding: 12px 30px; background-color: #FFCC00; color: #333; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              View Full Dashboard
+            </a>
+          </div>
+
+          <p style="color: #999; font-size: 12px; margin-top: 30px; text-align: center;">
+            You're receiving this because you enabled Weekly Reports.
+            <a href="${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/shop?tab=settings" style="color: #FFCC00;">Manage email preferences</a>
+          </p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 20px; text-align: center;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'weeklyReport');
+  }
+
+  /**
+   * Send monthly report to shop (with preference check)
+   */
+  async sendShopMonthlyReport(
+    shopEmail: string,
+    shopId: string,
+    data: {
+      shopName: string;
+      monthLabel: string;
+      stats: {
+        bookingsCount: number;
+        bookingsTrend: number;
+        revenue: number;
+        revenueTrend: number;
+        completedCount: number;
+        completedTrend: number;
+        avgRating: number | null;
+        ratingTrend: number;
+        completionRate: number;
+        noShowRate: number;
+        cancellationRate: number;
+        avgOrderValue: number;
+        rcnIssued: number;
+        rcnIssuedUsd: number;
+        peakDays: string[];
+        avgResponseTime: number;
+        customerRetention: number;
+        retentionTrend: number;
+      };
+      topServices: Array<{
+        rank: number;
+        name: string;
+        bookings: number;
+        revenue: number;
+      }>;
+      topCustomers: Array<{
+        name: string;
+        visits: number;
+        totalSpent: number;
+      }>;
+    }
+  ): Promise<boolean> {
+    const subject = `Monthly Report - ${data.shopName} (${data.monthLabel})`;
+
+    const formatTrend = (trend: number) => {
+      if (trend === 0) return 'Same';
+      const sign = trend > 0 ? '+' : '';
+      const arrow = trend > 0 ? '↑' : trend < 0 ? '↓' : '';
+      return `${sign}${trend.toFixed(1)}% ${arrow}`;
+    };
+
+    const topServicesRows = data.topServices.map(service => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${service.rank}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${service.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${service.bookings}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${service.revenue.toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const topCustomersRows = data.topCustomers.map(customer => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${customer.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${customer.visits}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${customer.totalSpent.toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h1 style="color: #FFCC00; margin-bottom: 10px;">📅 Monthly Report</h1>
+          <h2 style="color: #333; margin-top: 0; font-size: 18px;">${data.shopName}</h2>
+          <p style="color: #666; margin-bottom: 30px;">${data.monthLabel}</p>
+
+          <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3 style="color: #333; margin-top: 0; font-size: 16px;">🎯 Monthly Highlights</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; color: #666;">Total Bookings</td>
+                <td style="padding: 8px; text-align: right; font-weight: bold; color: #333;">${data.stats.bookingsCount}</td>
+                <td style="padding: 8px; text-align: right; color: ${data.stats.bookingsTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${formatTrend(data.stats.bookingsTrend)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; color: #666;">Total Revenue</td>
+                <td style="padding: 8px; text-align: right; font-weight: bold; color: #333;">$${(data.stats.revenue / 1000).toFixed(1)}K</td>
+                <td style="padding: 8px; text-align: right; color: ${data.stats.revenueTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${formatTrend(data.stats.revenueTrend)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; color: #666;">Avg Order Value</td>
+                <td style="padding: 8px; text-align: right; font-weight: bold; color: #333;">$${data.stats.avgOrderValue.toFixed(2)}</td>
+                <td style="padding: 8px; text-align: right;"></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; color: #666;">Customer Retention</td>
+                <td style="padding: 8px; text-align: right; font-weight: bold; color: #333;">${data.stats.customerRetention.toFixed(1)}%</td>
+                <td style="padding: 8px; text-align: right; color: ${data.stats.retentionTrend >= 0 ? '#4caf50' : '#f44336'}; font-weight: bold;">${formatTrend(data.stats.retentionTrend)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; font-size: 16px;">💰 Revenue Breakdown</h3>
+            <ul style="color: #666; margin: 10px 0; padding-left: 20px;">
+              <li>Service revenue: <strong>$${data.stats.revenue.toFixed(2)}</strong></li>
+              <li>Average order value: <strong>$${data.stats.avgOrderValue.toFixed(2)}</strong></li>
+              <li>Peak booking days: <strong>${data.stats.peakDays.join(', ') || 'N/A'}</strong></li>
+              <li>RCN issued: <strong>${data.stats.rcnIssued.toFixed(2)} RCN</strong> (~$${data.stats.rcnIssuedUsd.toFixed(2)})</li>
+            </ul>
+          </div>
+
+          <h3 style="color: #333; margin-top: 30px; margin-bottom: 15px; font-size: 16px;">🏆 Top 5 Services</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead>
+              <tr style="background-color: #f5f5f5;">
+                <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase; color: #666;">Rank</th>
+                <th style="padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; color: #666;">Service</th>
+                <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase; color: #666;">Bookings</th>
+                <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase; color: #666;">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topServicesRows || '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">No data available</td></tr>'}
+            </tbody>
+          </table>
+
+          <h3 style="color: #333; margin-top: 30px; margin-bottom: 15px; font-size: 16px;">⭐ Top 5 Customers</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead>
+              <tr style="background-color: #f5f5f5;">
+                <th style="padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; color: #666;">Customer</th>
+                <th style="padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase; color: #666;">Visits</th>
+                <th style="padding: 10px; text-align: right; font-size: 12px; text-transform: uppercase; color: #666;">Total Spent</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topCustomersRows || '<tr><td colspan="3" style="padding: 20px; text-align: center; color: #999;">No data available</td></tr>'}
+            </tbody>
+          </table>
+
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0; font-size: 16px;">📊 Operational Health</h3>
+            <ul style="color: #666; margin: 10px 0; padding-left: 20px;">
+              <li>Total completed: <strong>${data.stats.completedCount}</strong> (${data.stats.completionRate.toFixed(1)}%)</li>
+              <li>No-shows: <strong>${data.stats.noShowRate.toFixed(1)}%</strong></li>
+              <li>Cancellations: <strong>${data.stats.cancellationRate.toFixed(1)}%</strong></li>
+              <li>Average response time: <strong>${data.stats.avgResponseTime.toFixed(1)} hours</strong></li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/shop/dashboard"
+               style="display: inline-block; padding: 12px 30px; background-color: #FFCC00; color: #333; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              View Full Dashboard
+            </a>
+          </div>
+
+          <p style="color: #999; font-size: 12px; margin-top: 30px; text-align: center;">
+            You're receiving this because you enabled Monthly Reports.
+            <a href="${process.env.FRONTEND_URL || 'https://repaircoin.ai'}/shop?tab=settings" style="color: #FFCC00;">Manage email preferences</a>
+          </p>
+
+          <p style="color: #666; font-size: 12px; margin-top: 20px; text-align: center;">
+            The RepairCoin Team
+          </p>
+        </div>
+      </div>
+    `;
+
+    return this.sendEmailWithPreferenceCheck(shopEmail, subject, html, shopId, 'monthlyReport');
+  }
+
+  /**
    * Send email with preference check for shop notifications
    * Use this for shop-related emails that can be disabled by preferences
    */

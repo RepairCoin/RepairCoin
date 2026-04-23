@@ -22,6 +22,7 @@ import { ReferralService } from '../../../services/ReferralService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
 import rcgRoutes from './rcg';
+import reportsRoutes from './reports';
 import { eventBus } from '../../../events/EventBus';
 import { getSharedPool } from '../../../utils/database-pool';
 
@@ -74,6 +75,7 @@ router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
 router.use('/payment-methods', paymentMethodsRoutes); // Payment methods routes (auth handled in route file)
+router.use('/reports', reportsRoutes); // Reports routes (auth handled in route file)
 router.use('/moderation', authMiddleware, requireRole(['shop']), moderationRoutes); // Moderation routes
 router.use('/calendar', calendarRoutes); // Calendar integration routes (auth handled in route file)
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)

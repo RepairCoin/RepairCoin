@@ -37,6 +37,7 @@ import { subscriptionReminderService } from './services/SubscriptionReminderServ
 import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionService';
 import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
+import { ReportSchedulerService } from './services/ReportSchedulerService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -775,6 +776,19 @@ class RepairCoinApp {
         // Processes scheduled auto-messages (daily/weekly/monthly) and pending delayed sends
         autoMessageSchedulerService.start(1);
         logger.info('📨 Auto-message scheduler started (every 1 hour)');
+
+        // Start report scheduler - runs every hour
+        // Processes automated shop reports (daily/weekly/monthly)
+        const reportScheduler = new ReportSchedulerService();
+        reportScheduler.start();
+        setInterval(async () => {
+          try {
+            await reportScheduler.processScheduledReports();
+          } catch (error) {
+            logger.error('Report scheduler error:', error);
+          }
+        }, 60 * 60 * 1000); // 1 hour
+        logger.info('📊 Report scheduler started (every 1 hour)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {
