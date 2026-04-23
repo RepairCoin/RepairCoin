@@ -37,6 +37,7 @@ import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequests
 import { ProfileTab } from "@/components/shop/tabs/ProfileTab";
 import ShopDisputePanel from "@/components/shop/ShopDisputePanel";
 import { StakingTab } from "@/components/shop/tabs/StakingTab";
+import { ReportsTab } from "@/components/shop/tabs/ReportsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
@@ -1451,6 +1452,12 @@ export default function ShopDashboardClient() {
           {activeTab === "staking" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <StakingTab />
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "reports" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <ReportsTab shopId={shopData.shopId} />
             </SubscriptionGuard>
           )}
 

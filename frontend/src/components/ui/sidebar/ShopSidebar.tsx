@@ -26,6 +26,7 @@ import {
   LifeBuoy,
   AlertTriangle,
   Wallet,
+  FileBarChart,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
@@ -193,6 +194,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
             />
           ),
           tabId: "marketing",
+        },
+        {
+          title: "Reports",
+          href: "/shop?tab=reports",
+          icon: <FileBarChart className="w-5 h-5" />,
+          tabId: "reports",
         },
         {
           title: "Affiliate Groups",
