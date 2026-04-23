@@ -693,7 +693,7 @@ async function reverseNoShowPenalty(
       `SELECT COUNT(*) as effective_count
        FROM no_show_history
        WHERE LOWER(customer_address) = LOWER($1)
-         AND (notes IS NULL OR nocctes NOT LIKE '%[DISPUTE_REVERSED]%')`,
+         AND (notes IS NULL OR notes NOT LIKE '%[DISPUTE_REVERSED]%')`,
       [customerAddress]
     );
 
