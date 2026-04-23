@@ -31,6 +31,7 @@ To build the first community-governed loyalty ecosystem for the repair industry,
   - Premium (50K-199K RCG): $0.08 per RCN (20% discount)
   - Elite (200K+ RCG): $0.06 per RCN (40% discount)
 - **Affiliate Shop Groups/Coalitions** - Create custom loyalty programs with other shops using unique tokens/points redeemable within the group
+- **Automated Reports System** - Daily digest, weekly reports, and monthly analytics delivered via email
 - **Governance Participation** - Vote on platform parameters via RCG holdings
 - **Revenue Sharing** - 10% of RCN sales distributed to RCG stakers
 
@@ -40,6 +41,7 @@ To build the first community-governed loyalty ecosystem for the repair industry,
 - **DAO Governance** - RCG holders control earning rates, limits, and parameters
 - **Anti-Fraud Protection** - Daily/monthly limits and pattern monitoring
 - **Email Templates System** - Customizable email templates for all platform communications with admin management UI
+- **Automated Performance Reports** - Scheduled email reports with metrics, trends, and insights
 
 ---
 
