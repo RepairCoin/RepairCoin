@@ -206,7 +206,7 @@ The counter resets to zero at each step, so the customer has to earn another 3 s
 
 Sometimes a no-show record is wrong. The customer did show up, or there was a valid reason (a medical emergency, a shop error, a booking system glitch). In these cases, the customer can dispute the record. If the dispute is approved, the no-show is reversed — and the customer's count genuinely goes down, potentially moving them down one or more tiers instantly.
 
-Disputes are the only mechanism that decreases the lifetime count. They exist to correct factual errors, not to forgive legitimate misses. Disputes are covered in detail in the next section.
+Disputes are the primary mechanism for *partial* reductions tied to a specific contested record. (Completing the full cascade back to Normal also wipes the count, but that's a holistic earn-back rather than a correction of a specific incident.) Disputes exist to correct factual errors, not to forgive legitimate misses. They're covered in detail in the next section.
 
 ---
 

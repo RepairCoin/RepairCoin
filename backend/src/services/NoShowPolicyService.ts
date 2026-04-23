@@ -471,9 +471,11 @@ export class NoShowPolicyService {
     try {
       const notificationService = new NotificationService();
       const fullReset = newTier === 'normal';
-      const message = fullReset
-        ? 'Welcome back to good standing. Your no-show history has been cleared. Keep honoring appointments to stay here.'
-        : `Your booking restrictions have been reduced from ${previousTier.replace('_', ' ')} to ${newTier}. Keep honoring appointments to remove more restrictions.`;
+      const message = notificationService.buildMessage('tier_restored', {
+        previousTier,
+        newTier,
+        fullReset
+      });
 
       await notificationService.createNotification({
         senderAddress: 'SYSTEM',

@@ -34,6 +34,8 @@ export interface NotificationMessageTemplates {
   support_message_received: (data: { ticketId: string; senderName: string; preview: string }) => string;
   support_ticket_resolved: (data: { ticketId: string; subject: string }) => string;
   support_ticket_assigned: (data: { ticketId: string; subject: string }) => string;
+  suspension_lifted: (data: { newTier: string }) => string;
+  tier_restored: (data: { previousTier: string; newTier: string; fullReset: boolean }) => string;
 }
 
 /**
@@ -172,8 +174,39 @@ export class NotificationService {
         `Your support ticket #${data.ticketId} (${data.subject}) has been resolved`,
 
       support_ticket_assigned: (data: { ticketId: string; subject: string }) =>
-        `Your support ticket #${data.ticketId} (${data.subject}) has been assigned to an admin`
+        `Your support ticket #${data.ticketId} (${data.subject}) has been assigned to an admin`,
+
+      suspension_lifted: (data) => {
+        if (data.newTier === 'deposit_required') {
+          return 'Your booking suspension has been lifted. You can now book appointments again with a refundable deposit.';
+        }
+        if (data.newTier === 'caution') {
+          return 'Your booking suspension has been lifted. Your account is now in good standing with minor booking restrictions.';
+        }
+        return 'Your booking suspension has been lifted. You can now book appointments again.';
+      },
+
+      tier_restored: (data) => {
+        if (data.fullReset) {
+          return 'Welcome back to good standing. Your no-show history has been cleared. Keep honoring appointments to stay here.';
+        }
+        return `Your booking restrictions have been reduced from ${data.previousTier.replace('_', ' ')} to ${data.newTier}. Keep honoring appointments to remove more restrictions.`;
+      }
     };
+  }
+
+  /**
+   * Public accessor so callers that bypass the type-specific helpers
+   * (e.g. SuspensionLiftService, NoShowPolicyService) can still use the
+   * centralized message copy rather than hardcoding strings at the
+   * call site.
+   */
+  buildMessage<K extends keyof NotificationMessageTemplates>(
+    type: K,
+    data: Parameters<NotificationMessageTemplates[K]>[0]
+  ): string {
+    const builder = this.messageTemplates[type] as (d: any) => string;
+    return builder(data);
   }
 
   async createNotification(params: CreateNotificationParams): Promise<Notification> {

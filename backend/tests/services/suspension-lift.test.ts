@@ -36,9 +36,11 @@ jest.mock('../../src/utils/database-pool', () => ({
 }));
 
 const mockCreateNotification = jest.fn<(...args: any[]) => Promise<any>>();
+const mockBuildMessage = jest.fn<(...args: any[]) => string>();
 jest.mock('../../src/domains/notification/services/NotificationService', () => ({
   NotificationService: jest.fn().mockImplementation(() => ({
-    createNotification: mockCreateNotification
+    createNotification: mockCreateNotification,
+    buildMessage: mockBuildMessage
   }))
 }));
 
@@ -54,6 +56,10 @@ describe('SuspensionLiftService', () => {
     mockQueryRejection = null;
     mockCreateNotification.mockReset();
     mockCreateNotification.mockResolvedValue({ id: 'notif-1' });
+    mockBuildMessage.mockReset();
+    mockBuildMessage.mockImplementation((_type, data: any) =>
+      `suspension lifted to ${data?.newTier}`
+    );
     service = new SuspensionLiftService();
   });
 

@@ -74,7 +74,9 @@ export class SuspensionLiftService {
 
       for (const row of result.rows) {
         try {
-          const message = this.buildLiftMessage(row.no_show_tier);
+          const message = this.notificationService.buildMessage('suspension_lifted', {
+            newTier: row.no_show_tier
+          });
           await this.notificationService.createNotification({
             senderAddress: 'SYSTEM',
             receiverAddress: row.address,
@@ -101,16 +103,6 @@ export class SuspensionLiftService {
     }
 
     return report;
-  }
-
-  private buildLiftMessage(newTier: string): string {
-    if (newTier === 'deposit_required') {
-      return 'Your booking suspension has been lifted. You can now book appointments again with a refundable deposit.';
-    }
-    if (newTier === 'caution') {
-      return 'Your booking suspension has been lifted. Your account is now in good standing with minor booking restrictions.';
-    }
-    return 'Your booking suspension has been lifted. You can now book appointments again.';
   }
 
   /**
