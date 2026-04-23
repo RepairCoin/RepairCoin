@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   NativeSyntheticEvent,
@@ -6,6 +6,7 @@ import {
   Dimensions,
 } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
+import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useShop } from "@/shared/hooks/shop/useShop";
@@ -23,7 +24,32 @@ const generateShopId = () => {
 };
 
 export const useShopRegister = () => {
-  const account = useAuthStore((state) => state.account);
+  const storeAccount = useAuthStore((state) => state.account);
+  const setAccount = useAuthStore((state) => state.setAccount);
+  const activeAccount = useActiveAccount();
+
+  // Effective wallet: prefer Zustand, fall back to Thirdweb's live wallet.
+  const account = useMemo(() => {
+    if (storeAccount?.address) return storeAccount;
+    if (activeAccount?.address) {
+      return { address: activeAccount.address, email: storeAccount?.email };
+    }
+    return null;
+  }, [storeAccount, activeAccount?.address]);
+
+  // Self-heal: sync Zustand when Thirdweb has a wallet but Zustand doesn't.
+  useEffect(() => {
+    if (!storeAccount?.address && activeAccount?.address) {
+      console.warn(
+        "[useShopRegister] Self-healing: Zustand account null but Thirdweb active — syncing",
+      );
+      setAccount({
+        address: activeAccount.address,
+        email: storeAccount?.email,
+      });
+    }
+  }, [storeAccount?.address, activeAccount?.address, setAccount, storeAccount?.email]);
+
   const { useRegisterShop } = useShop();
   const { mutate: registerShop, isPending: isRegistering } = useRegisterShop();
   const { showError } = useAppToast();
@@ -33,7 +59,7 @@ export const useShopRegister = () => {
   const [formData, setFormData] = useState<ShopFormData>({
     ...INITIAL_SHOP_FORM_DATA,
     shopId: generateShopId(),
-    email: account?.email || "",
+    email: storeAccount?.email || "",
   });
 
   const isPending = isRegistering || isSubmitting;
