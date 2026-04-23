@@ -68,7 +68,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inriaSans.variable} ${poppinsExtended.variable}`}>
+    <html lang="en" className={`${inriaSans.variable} ${poppinsExtended.variable}`} suppressHydrationWarning>
       {/* Google Analytics */}
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
