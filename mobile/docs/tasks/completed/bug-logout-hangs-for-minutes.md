@@ -1,10 +1,30 @@
 # Bug: Logout hangs indefinitely and cannot be recovered except by uninstalling the app
 
-**Status:** Open
+**Status:** Completed
 **Priority:** Critical
 **Est. Effort:** 30 minutes
 **Created:** 2026-04-20
-**Updated:** 2026-04-20
+**Updated:** 2026-04-23
+**Completed:** 2026-04-23
+
+---
+
+## Resolution
+
+Fixed in commit `516d4b7b fix(mobile): prevent token-refresh loops during logout` (Khalid Sanggoyod, 2026-04-21). QA-verified 2026-04-23 — logout completes in <1s, no hang.
+
+**Core fix applied:** `notificationApi.deactivateAllPushTokens()` is now fire-and-forget (no `await`) in `mobile/shared/store/auth.store.ts`. The awaited chain now contains ZERO network calls — only local operations (SecureStore clear, Zustand state reset). The indefinite hang is mathematically impossible.
+
+**Additional changes shipped (equivalent to task doc's Changes 2 + 3):**
+- `mobile/feature/settings/hooks/mutations/useSettingsMutations.ts` — removed `resetQueries()` AND `removeQueries()` from the actual logout caller (simplified to `cancelQueries → clear → logout`). Note: task doc pointed at `useAuth.ts:useLogout` but the Settings screen actually uses `useSettingsMutations.performLogout` — Khalid fixed the correct file.
+- `mobile/shared/utilities/axios.ts` — added `apiClient.clearAuthHeader()` method that strips the `Authorization` header immediately on logout, preventing in-flight token-refresh loops from stalling the logout flow.
+
+**Minor items NOT applied (non-blocking, filed for future cleanup):**
+- Dead `state.account?.disconnect` branch in `auth.store.ts` still present (harmless — `account` is always a plain `{address, email}` object without a `.disconnect` method, so the branch never executes)
+- `useAuth.ts:useLogout` still has `resetQueries()` at line 231, but that hook is dead code in the shipping UI (Settings uses `performLogout`, not this hook)
+- Defensive `Promise.race` 5s timeout (Change 4) not added — primary fix makes it unnecessary today, worth adding if future regressions introduce new network awaits
+
+**Manual QA confirmation:** operator tested on 2026-04-23 and did not reproduce the hang. Logout now completes quickly and cleanly.
 
 ---
 
