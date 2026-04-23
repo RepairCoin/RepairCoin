@@ -1,6 +1,5 @@
 // backend/src/domains/shop/routes/reports.ts
 import { Router, Request, Response } from 'express';
-import { authMiddleware, requireShopOwnership } from '../../../middleware/auth';
 import { ShopMetricsService } from '../../../services/ShopMetricsService';
 import { EmailService } from '../../../services/EmailService';
 import { shopRepository } from '../../../repositories';
@@ -16,7 +15,7 @@ const pool = getSharedPool();
  * GET /api/shops/reports/settings
  * Get report settings for authenticated shop
  */
-router.get('/settings', authMiddleware, requireShopOwnership, async (req: Request, res: Response) => {
+router.get('/settings', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
 
@@ -96,7 +95,7 @@ router.get('/settings', authMiddleware, requireShopOwnership, async (req: Reques
  * PUT /api/shops/reports/settings
  * Update report settings for authenticated shop
  */
-router.put('/settings', authMiddleware, requireShopOwnership, async (req: Request, res: Response) => {
+router.put('/settings', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { dailyDigest, weeklyReport, monthlyReport } = req.body;
@@ -179,7 +178,7 @@ router.put('/settings', authMiddleware, requireShopOwnership, async (req: Reques
  * POST /api/shops/reports/preview/:type
  * Generate preview of report with sample data
  */
-router.post('/preview/:type', authMiddleware, requireShopOwnership, async (req: Request, res: Response) => {
+router.post('/preview/:type', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { type } = req.params;
@@ -277,7 +276,7 @@ router.post('/preview/:type', authMiddleware, requireShopOwnership, async (req: 
  * POST /api/shops/reports/test/:type
  * Send test report email
  */
-router.post('/test/:type', authMiddleware, requireShopOwnership, async (req: Request, res: Response) => {
+router.post('/test/:type', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
     const { type } = req.params;
