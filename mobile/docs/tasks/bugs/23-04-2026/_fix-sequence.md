@@ -1,8 +1,8 @@
 # Fix Sequence — 2026-04-23 Auth / Wallet / Registration Bugs
 
-**Status:** Phase 1 shipped (Defensive), Phase 1b Recovery pending
+**Status:** Phase 1 shipped (Defensive) + Phase 1b shipped (Recovery); Phase 1c pending (new bugs surfaced by QA after 1b)
 **Created:** 2026-04-23
-**Updated:** 2026-04-23 (post-QA revision — see Phase 1b block)
+**Updated:** 2026-04-23 (post-QA revision 2 — see Phase 1c block)
 
 Meta-doc. Not a task. Tracks the landing order for the 6 bugs filed on 2026-04-23 so parallel work doesn't collide and shared foundations land before dependent fixes. Updates to individual task docs should not re-derive this sequence — reference this file instead.
 
@@ -16,14 +16,37 @@ Phase 1 (shipped 2026-04-23 in commit 5db89b6b — DEFENSIVE ONLY):
   ├─ bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md ✅ defensive shipped
   └─ bug-customer-login-silently-fails-stuck-on-onboarding.md (primary) ✅ shipped
 
-Phase 1b (PENDING, Critical — user acquisition still blocked):
-  ├─ bug-customer-registration-*.md  → add Recovery fix (useActiveAccount fallback + self-heal)
-  └─ bug-shop-registration-*.md       → add Recovery fix (useActiveAccount fallback + self-heal)
-  // Added 2026-04-23 post-QA: defensive fix made crash safe but left fresh users
-  // stranded. Without Phase 1b, new signups still cannot complete. See each task
-  // doc's Implementation → Recovery fix section for the diff.
+Phase 1b (shipped 2026-04-23 in commit 7365deb2 — RECOVERY via useActiveAccount):
+  ├─ bug-customer-registration-*.md  ✅ useActiveAccount fallback + self-heal shipped
+  └─ bug-shop-registration-*.md       ✅ useActiveAccount fallback + self-heal shipped
 
-Phase 2 (after Phase 1b — shared foundation):
+Phase 1c (PENDING, Critical — 4 items; ship the FIRST one immediately):
+  ├─ bug-shop-register-references-dropped-cross-shop-enabled-column.md  (backend, CONFIRMED ROOT CAUSE)
+  │     ShopRepository.createShop INSERTs `cross_shop_enabled` which migration 006
+  │     already DROPPED. Tier 1: remove the column + value + one placeholder from
+  │     the INSERT statement. That's the actual shop-registration blocker — all
+  │     other Phase 1c items are secondary improvements.
+  ├─ bug-mutation-retry-on-5xx-duplicates-toasts.md                 (mobile, global)
+  │     queryClient.ts — change mutations.retry to 0 so POSTs don't auto-retry.
+  │     Covers BOTH customer and shop (and every other mutation), not just one flow.
+  ├─ bug-customer-register-controller-masks-errors-as-500.md        (backend)
+  │     CustomerController.registerCustomer — map known error shapes to proper
+  │     HTTP codes (400/409) instead of blanket 500; log unexpected errors with
+  │     context and return a generic client message.
+  └─ bug-shop-register-route-masks-errors-as-500.md                 (backend, supplementary)
+      Shop /register inline route handler — error-shape mapping pattern matching
+      the customer fix. Does NOT fix the cross_shop_enabled bug; addresses the
+      broader gap where future errors (validation, other DB issues) still get
+      masked as generic 500.
+  // Root cause confirmed via DO staging backend logs (c:\dev\do-shop-err.txt):
+  // "column cross_shop_enabled of relation shops does not exist" — the column
+  // was dropped by migration 006 in Oct 2025 but the code still references it.
+  // The shop-register ROOT CAUSE fix is a 2-line diff in ShopRepository.createShop.
+  // Customer register path was never affected (customers table doesn't have
+  // this column); customer flow's sc1.png 500s were likely transient or related
+  // to different underlying issues that Phase 1a/1b already addressed.
+
+Phase 2 (after Phase 1c — shared foundation):
   └─ bug-customer-home-no-wallet-connected-despite-logged-in.md (Option C: A + B)
       └─ Option B's splash self-heal reduces reachability of Phase 3
 
@@ -38,7 +61,7 @@ Independent (ship anytime, no coupling):
   └─ bug-shop-registration-uncapped-fields-in-third-fourth-slides.md
 ```
 
-## Phase 1b — the Recovery gap (added 2026-04-23 post-QA)
+## Phase 1b — the Recovery gap (added 2026-04-23 post-Phase-1 QA)
 
 Khalid's commit `5db89b6b` implemented every Phase 1 diff faithfully. Live QA on the APK immediately surfaced that the *user problem* isn't solved:
 
@@ -52,9 +75,31 @@ Zustand storeAccount.address ?? useActiveAccount().address ?? null
   + useEffect to heal Zustand when Thirdweb has a wallet and Zustand doesn't
 ```
 
-Both registration hooks get the same diff; no screen-level edits needed because the hooks' returned `account` already flows to the screens. See each task doc's `## Implementation → Recovery fix` section for the exact code.
+Both registration hooks got the same diff; no screen-level edits needed because the hooks' returned `account` already flows to the screens. Shipped in commit `7365deb2`.
 
-**Lesson for future bug docs:** when a bug is "missing data", scope BOTH a defensive fix (prevent crash/lying UI) AND a recovery fix (data alternative source chain). One without the other is incomplete. This was a doc scoping gap, not an implementation gap — Khalid's fix was faithful to the doc; the doc asked for too little.
+**Phase 1b post-QA (2026-04-23) confirmed the wallet auto-populates and submit fires** — see `sc1.png` round 2 showing `0x3d4841B6e2...` in the Connected Wallet field and the button transitioning to "Creating Account…". The remaining failure is **Phase 1c** below — backend + mobile issues independent of wallet sourcing.
+
+## Phase 1c — the Server Error gap (added 2026-04-23 post-Phase-1b QA)
+
+After Phase 1b unblocked the wallet population, live QA surfaced what looked like two separate failure modes (customer and shop both showing "Server error" + duplicate toasts). Deep diagnostics via DigitalOcean staging backend logs (`c:\dev\do-shop-err.txt`) revealed a **single confirmed root cause for the shop flow** plus three supplementary improvements:
+
+### Shop registration root cause (CONFIRMED)
+
+`ShopRepository.createShop` references column `cross_shop_enabled` in its INSERT statement, but that column was **dropped** by migration `006_remove_obsolete_columns.sql` (2025-10-03). When the migration is applied (as it has been on staging), Postgres throws `column "cross_shop_enabled" of relation "shops" does not exist` → the route handler's blanket-500 catch converts that into the generic error the user sees → mobile retry loop multiplies the toast.
+
+**Fix:** 2-line edit in `ShopRepository.ts` — remove the column and its value from the INSERT (full doc in `bug-shop-register-references-dropped-cross-shop-enabled-column.md`). Ship this FIRST.
+
+### Supplementary improvements
+
+1. **Mobile — retry policy** — `queryClient.ts` retries mutations up to 3 total attempts on 5xx/timeout/network. Even after the shop root-cause fix lands, any future 500 (from any endpoint) will still multiply toasts and risk duplicate POSTs. Fix: set `retry: 0` for mutations.
+
+2. **Backend — customer controller error mapping** — `CustomerController.registerCustomer` returns HTTP 500 for all errors except a specific "already registered" string match. **Confirmed hit 2026-04-23 via curl test: invalid referral code throws → 500 "Invalid referral code" (should be 400).** If the user enters any referral code that isn't in the DB, this is the failure they see. Critical for the customer flow.
+
+3. **Backend — shop route error mapping** — same pattern in the inline `/shops/register` handler. Once the cross_shop_enabled fix lands and registrations start succeeding, this is still valuable for surfacing future DB/validation errors with proper status codes.
+
+Ship order: (1) cross_shop_enabled fix immediately → unblocks shop registration. (2-4) Supplementary fixes as a follow-up batch for long-term UX/resilience.
+
+**Lesson for future bug docs (reinforced):** each live QA cycle surfaces new bugs the prior phase masked. Plan docs should explicitly acknowledge that "after this ships, QA may surface a new layer" — don't over-promise that Phase 1+1b = done. We learned this at Phase 1b; Phase 1c is the result of the same pattern one layer deeper. Budget accordingly.
 
 ---
 
@@ -112,15 +157,19 @@ Can ship anytime after Phase 1. Not blocking, but valuable.
 
 | # | File | Priority | Phase | Defensive | Recovery | Est. Effort |
 |---|---|---|---|---|---|---|
-| 1 | [bug-customer-registration-wallet-not-populated-generic-error.md](./bug-customer-registration-wallet-not-populated-generic-error.md) | Critical | **1 + 1b** | ✅ 5db89b6b | ⏳ Pending | 20-30 + 15-20 min |
-| 2 | [bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md](./bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md) | Critical | **1 + 1b** | ✅ 5db89b6b | ⏳ Pending | 20-30 + 15-20 min |
+| 1 | [bug-customer-registration-wallet-not-populated-generic-error.md](./bug-customer-registration-wallet-not-populated-generic-error.md) | Critical | **1 + 1b** | ✅ 5db89b6b | ✅ 7365deb2 | 20-30 + 15-20 min |
+| 2 | [bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md](./bug-shop-registration-wallet-not-populated-stuck-on-third-slide.md) | Critical | **1 + 1b** | ✅ 5db89b6b | ✅ 7365deb2 | 20-30 + 15-20 min |
 | 3a | [bug-customer-login-silently-fails-stuck-on-onboarding.md](./bug-customer-login-silently-fails-stuck-on-onboarding.md) (primary) | Critical | **1** | ✅ 5db89b6b | n/a | 15-30 min |
 | 3b | bug-customer-login-silently-fails-stuck-on-onboarding.md (secondary) | Critical | **4** | ⏳ Pending | n/a | 1-2 hrs |
 | 4 | [bug-customer-home-no-wallet-connected-despite-logged-in.md](./bug-customer-home-no-wallet-connected-despite-logged-in.md) | Medium | **2** | ✅ (A+B) 5db89b6b | built-in | 30 min |
 | 5 | [bug-suspended-screen-check-status-missing-wallet-address.md](./bug-suspended-screen-check-status-missing-wallet-address.md) | Medium | **3** | ✅ 5db89b6b | n/a | 1-2 hrs |
 | 6 | [bug-shop-registration-uncapped-fields-in-third-fourth-slides.md](./bug-shop-registration-uncapped-fields-in-third-fourth-slides.md) | Medium | Independent | ✅ 5db89b6b | n/a | 10 min |
+| 7 | `docs/tasks/23-04-2026/bug-shop-register-references-dropped-cross-shop-enabled-column.md` | Critical | **1c (FIRST)** | ⏳ Pending | n/a | **10 min** (Tier 1) + 30 min (Tier 2 cleanup) |
+| 8 | [bug-mutation-retry-on-5xx-duplicates-toasts.md](./bug-mutation-retry-on-5xx-duplicates-toasts.md) | Critical | **1c** | ⏳ Pending | n/a | 5 + 10 min verify |
+| 9 | `docs/tasks/23-04-2026/bug-customer-register-controller-masks-errors-as-500.md` | **Critical** | **1c** | ⏳ Pending | n/a | 15-20 min |
+| 10 | `docs/tasks/23-04-2026/bug-shop-register-route-masks-errors-as-500.md` | High | **1c** | ⏳ Pending | n/a | 15-20 min |
 
-Totals: Phase 1 ~60-90 min (shipped); **Phase 1b ~30-40 min (pending — gating all mobile signups)**; Phase 2 ~30 min; Phase 3 ~1-2 hrs; Phase 4 ~1-2 hrs. Full remaining work after Phase 1: Phase 1b + 2 + 3 + 4 ≈ 3-5 hrs.
+Totals: Phase 1 ~60-90 min (shipped); Phase 1b ~30-40 min (shipped); **Phase 1c Tier 1 (cross_shop_enabled) ~10 min — the blocker**; remaining Phase 1c supplementary ~35-55 min (pending); Phase 2 ~30 min; Phase 3 ~1-2 hrs; Phase 4 ~1-2 hrs. Ship bug #7 FIRST; bugs #8-10 are important polish but not acquisition-blocking once #7 lands.
 
 ---
 
