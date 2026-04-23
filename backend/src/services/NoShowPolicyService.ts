@@ -415,11 +415,10 @@ export class NoShowPolicyService {
    * slate. no_show_history rows stay intact for audit.
    */
   private async checkTierReset(customerAddress: string): Promise<void> {
+    // Inline subquery with COALESCE so the cascade still fires in a DB
+    // with zero shop_no_show_policy rows (defaults to 3). A WITH + FROM JOIN
+    // would collapse to zero matched rows when the policy table is empty.
     const query = `
-      WITH threshold AS (
-        SELECT deposit_reset_after_successful AS n
-        FROM shop_no_show_policy LIMIT 1
-      )
       UPDATE customers c
       SET
         no_show_tier = CASE
@@ -439,10 +438,12 @@ export class NoShowPolicyService {
           ELSE c.last_no_show_at
         END,
         updated_at = NOW()
-      FROM threshold t
       WHERE c.address = $1
         AND c.no_show_tier IN ('deposit_required', 'caution', 'warning')
-        AND c.successful_appointments_since_tier3 >= COALESCE(t.n, 3)
+        AND c.successful_appointments_since_tier3 >= COALESCE(
+          (SELECT deposit_reset_after_successful FROM shop_no_show_policy LIMIT 1),
+          3
+        )
       RETURNING
         c.address,
         c.no_show_tier AS new_tier,

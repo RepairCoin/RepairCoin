@@ -1,11 +1,12 @@
 /**
- * DisputeController.reverseNoShowPenalty — regression guard
+ * DisputeController.reverseNoShowPenalty — static sanity guard.
  *
- * Context: a typo (`nocctes` instead of `notes`) was shipped in the
- * reversal SQL at DisputeController.ts:696. It caused every dispute
- * approval to throw `column "nocctes" does not exist` at runtime.
- * The function is module-private, so we guard with a static check on
- * the source file rather than a direct unit call.
+ * The real coverage for this function lives in
+ * `backend/tests/integration/no-show-sql.test.ts`, which runs the actual
+ * SQL against Postgres. This file stays as a one-line cheap guard
+ * against the specific `nocctes` typo that caused the original incident
+ * — any future reintroduction fails fast without needing the integration
+ * DB set up.
  */
 import { describe, it, expect } from '@jest/globals';
 import { readFileSync } from 'fs';
@@ -16,18 +17,12 @@ const CONTROLLER_PATH = join(
   '../../src/domains/ServiceDomain/controllers/DisputeController.ts'
 );
 
-describe('DisputeController.reverseNoShowPenalty SQL', () => {
-  const source = readFileSync(CONTROLLER_PATH, 'utf8');
-
-  it('does not reference the historical `nocctes` typo', () => {
-    expect(source).not.toMatch(/nocctes/);
-  });
-
-  it('references `notes NOT LIKE` in the effective-count query', () => {
-    expect(source).toMatch(/notes\s+NOT\s+LIKE\s+'%\[DISPUTE_REVERSED\]%'/);
-  });
-
-  it('marks reversed records with [DISPUTE_REVERSED] in notes (not deletion)', () => {
-    expect(source).toMatch(/\[DISPUTE_REVERSED\]/);
+describe('DisputeController — historical typo guard', () => {
+  it('does not reference the `nocctes` column typo', () => {
+    const source = readFileSync(CONTROLLER_PATH, 'utf8');
+    // Match only as a standalone identifier to avoid false-positives on
+    // comments like "historical typo: nocctes" — require a non-word
+    // boundary immediately adjacent to column-position characters.
+    expect(source).not.toMatch(/[\s."(]nocctes[\s."(]/);
   });
 });

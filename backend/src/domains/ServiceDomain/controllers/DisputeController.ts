@@ -674,7 +674,7 @@ export async function adminResolveDispute(req: AuthenticatedRequest, res: Respon
  * Helper: Reverse a no-show penalty by decrementing the customer's no-show count
  * and recalculating their tier
  */
-async function reverseNoShowPenalty(
+export async function reverseNoShowPenalty(
   pool: ReturnType<typeof getSharedPool>,
   customerAddress: string,
   shopId: string,

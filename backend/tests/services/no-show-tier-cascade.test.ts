@@ -107,8 +107,8 @@ describe('NoShowPolicyService — tier cascade reset', () => {
       const cascade = mockQueryCalls.find(c => /RETURNING/i.test(c.text));
       expect(cascade).toBeDefined();
       const sql = cascade!.text.replace(/\s+/g, ' ');
-      expect(sql).toContain('deposit_reset_after_successful AS n');
-      expect(sql).toContain('COALESCE(t.n, 3)');
+      expect(sql).toContain('SELECT deposit_reset_after_successful FROM shop_no_show_policy LIMIT 1');
+      expect(sql).toMatch(/COALESCE\(\s*\(SELECT deposit_reset_after_successful FROM shop_no_show_policy LIMIT 1\),\s*3\s*\)/);
     });
 
     it('filters to penalized tiers only (never touches normal or suspended)', async () => {
