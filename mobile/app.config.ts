@@ -8,7 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: "FixFlow",
     slug: "repaircoin-app",
     owner: "repaircoin",
-    version: "1.0.0",
+    version: "1.0.1",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "repaircoin",
@@ -40,6 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
+      versionCode: 3,
       googleServicesFile: "./google-services.json",
       package: isProd
         ? "com.repaircoin.app"
@@ -65,6 +66,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
+      "./plugins/withReleaseSigningConfig",
       "expo-router",
       [
         "expo-splash-screen",
