@@ -4,18 +4,16 @@ import {
   ShopAvailability,
   UpdateAvailabilityRequest,
   TimeSlotConfig,
-  DateOverride,
   CreateDateOverrideRequest,
 } from "@/shared/interfaces/appointment.interface";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/shared/services/appointment.services";
 
 export function useUpdateShopAvailabilityMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (availability: UpdateAvailabilityRequest) => {
-      const response = await appointmentApi.updateShopAvailability(availability);
-      return response.data as ShopAvailability;
+      return await appointmentApi.updateShopAvailability(availability) as ShopAvailability;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
@@ -28,8 +26,7 @@ export function useUpdateTimeSlotConfigMutation() {
 
   return useMutation({
     mutationFn: async (config: Partial<TimeSlotConfig>) => {
-      const response = await appointmentApi.updateTimeSlotConfig(config);
-      return response.data as TimeSlotConfig;
+      return await appointmentApi.updateTimeSlotConfig(config) as TimeSlotConfig;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.timeSlotConfig() });
@@ -42,8 +39,7 @@ export function useCreateDateOverrideMutation() {
 
   return useMutation({
     mutationFn: async (override: CreateDateOverrideRequest) => {
-      const response = await appointmentApi.createDateOverride(override);
-      return response.data as DateOverride;
+      return await appointmentApi.createDateOverride(override);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });

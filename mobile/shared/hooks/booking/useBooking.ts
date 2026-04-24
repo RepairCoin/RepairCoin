@@ -7,7 +7,7 @@ import {
   BookingResponse,
 } from "@/shared/interfaces/booking.interfaces";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/shared/services/appointment.services";
 import { Linking } from "react-native";
 import { usePaymentStore } from "@/shared/store/payment.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
@@ -48,8 +48,7 @@ export function useMyAppointmentsQuery(startDate: string, endDate: string) {
   return useQuery({
     queryKey: queryKeys.myAppointments(startDate, endDate),
     queryFn: async () => {
-      const response = await appointmentApi.getMyAppointments(startDate, endDate);
-      return response.data as MyAppointment[];
+      return await appointmentApi.getMyAppointments(startDate, endDate) as MyAppointment[];
     },
     enabled: !!startDate && !!endDate,
     staleTime: 2 * 60 * 1000,

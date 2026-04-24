@@ -25,7 +25,7 @@ export function useShopCustomerGrowthQuery() {
   return useQuery({
     queryKey: queryKeys.shopCustomerGrowth(shopId),
     queryFn: async () => {
-      const response = await shopApi.getCustomerGrowth(shopId);
+      const response = await shopApi.getShopCustomerGrowth(shopId);
       return response?.data;
     },
     enabled: !!shopId,

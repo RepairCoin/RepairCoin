@@ -4,7 +4,6 @@ import { useAuthStore } from "@/shared/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { promoCodeApi } from "@/feature/promo-code/services/promocode.services";
-import { shopApi } from "@/shared/services/shop.services";
 import { CreatePromoCodeRequest } from "@/shared/interfaces/shop.interface";
 
 export function useUpdatePromoCodeStatusMutation() {
@@ -37,7 +36,7 @@ export function useCreatePromoCodeMutation() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return shopApi.createPromoCode(shopId, promoCodeData);
+      return promoCodeApi.createPromoCode(shopId, promoCodeData);
     },
     onSuccess: () => {
       showSuccess("Promo code created successfully!");

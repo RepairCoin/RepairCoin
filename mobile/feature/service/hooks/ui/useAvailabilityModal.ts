@@ -5,7 +5,7 @@ import {
   DateOverride,
 } from "@/shared/interfaces/appointment.interface";
 import { useAppToast } from "@/shared/hooks";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/shared/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../types";
 import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";
 
@@ -54,26 +54,26 @@ export function useAvailabilityModal({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [availRes, configRes, overridesRes] = await Promise.all([
+      const [availData, configData, overridesData] = await Promise.all([
         appointmentApi.getShopAvailability(shopId),
         appointmentApi.getTimeSlotConfig(),
         appointmentApi.getDateOverrides(),
       ]);
 
-      if (availRes.data) {
-        const sorted = [...availRes.data].sort(
+      if (availData) {
+        const sorted = [...availData].sort(
           (a, b) => a.dayOfWeek - b.dayOfWeek
         );
         setAvailability(sorted);
         setOriginalAvailability(sorted);
       }
-      if (configRes.data) {
-        setTimeSlotConfig(configRes.data);
-        setOriginalTimeSlotConfig(configRes.data);
+      if (configData) {
+        setTimeSlotConfig(configData);
+        setOriginalTimeSlotConfig(configData);
       }
-      if (overridesRes.data) {
-        setDateOverrides(overridesRes.data);
-        setOriginalDateOverrides(overridesRes.data);
+      if (overridesData) {
+        setDateOverrides(overridesData);
+        setOriginalDateOverrides(overridesData);
       }
     } catch (error) {
       console.error("Failed to load availability data:", error);

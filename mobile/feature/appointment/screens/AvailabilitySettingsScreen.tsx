@@ -99,14 +99,14 @@ export default function AvailabilitySettingsScreen() {
   const loadAllData = useCallback(async () => {
     if (!shopId) return;
     try {
-      const [availRes, configRes, overrideRes] = await Promise.all([
+      const [availData, configData, overrideData] = await Promise.all([
         appointmentApi.getShopAvailability(shopId),
         appointmentApi.getTimeSlotConfig(),
         appointmentApi.getDateOverrides(),
       ]);
-      setAvailability((availRes.data as ShopAvailability[]) || []);
-      setConfig((configRes.data as TimeSlotConfig) || null);
-      setOverrides((overrideRes.data as DateOverride[]) || []);
+      setAvailability((availData as ShopAvailability[]) || []);
+      setConfig((configData as TimeSlotConfig) || null);
+      setOverrides((overrideData as DateOverride[]) || []);
     } catch (err) {
       console.error("Failed to load availability data:", err);
     } finally {

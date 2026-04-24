@@ -90,7 +90,7 @@ class CustomerApi {
       const response = await apiClient.get<any>(
         `/customers/${walletAddress}/transactions?limit=100`
       );
-      const transactions = response?.data?.transactions || [];
+      const transactions = response?.data?.transactions || response?.transactions || [];
 
       // Check if customer has any earning transactions from this shop
       return transactions.some(

@@ -66,7 +66,7 @@ class PromoCodeApi {
   ): Promise<{ success: boolean; message: string }> {
     try {
       return await apiClient.delete(
-        `/shops/${shopId}/promo-codes/${promoCodeId}?permanent=true`
+        `/shops/${shopId}/promo-codes/${promoCodeId}`
       );
     } catch (error) {
       console.error("[PromoCodeApi] Failed to delete promo code:", error);

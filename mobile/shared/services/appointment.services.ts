@@ -4,7 +4,11 @@ import {
   TimeSlot,
   ShopAvailability,
   TimeSlotConfig,
+  DateOverride,
   CalendarBooking,
+  MyAppointment,
+  UpdateAvailabilityRequest,
+  CreateDateOverrideRequest,
 } from "@/shared/interfaces/appointment.interface";
 
 // ============================================
@@ -102,9 +106,6 @@ class AppointmentApi {
   // Time Slots & Availability
   // ============================================
 
-  /**
-   * Get available time slots for a service on a specific date
-   */
   async getAvailableTimeSlots(
     shopId: string,
     serviceId: string,
@@ -115,118 +116,112 @@ class AppointmentApi {
       const response = await apiClient.get(
         `/services/appointments/available-slots${queryString}`
       );
-      return response.data || [];
+      return response.data || response || [];
     } catch (error: any) {
       console.error("Failed to get available time slots:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Get shop operating hours by day of week
-   */
   async getShopAvailability(shopId: string): Promise<ShopAvailability[]> {
     try {
       const response = await apiClient.get(
         `/services/appointments/shop-availability/${shopId}`
       );
-      return response.data || [];
+      return response.data || response || [];
     } catch (error: any) {
       console.error("Failed to get shop availability:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Get shop's time slot configuration
-   */
-  async getTimeSlotConfig(shopId: string): Promise<TimeSlotConfig | null> {
+  async getTimeSlotConfig(shopId?: string): Promise<TimeSlotConfig | null> {
     try {
-      const response = await apiClient.get(
-        `/services/appointments/time-slot-config/${shopId}`
-      );
-      return response.data || null;
+      const url = shopId
+        ? `/services/appointments/time-slot-config/${shopId}`
+        : `/services/appointments/time-slot-config`;
+      const response = await apiClient.get(url);
+      return response.data || response || null;
     } catch (error: any) {
       console.error("Failed to get time slot config:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Update shop availability for a specific day
-   */
-  async updateShopAvailability(data: {
-    dayOfWeek: number;
-    isOpen: boolean;
-    openTime: string;
-    closeTime: string;
-    breakStartTime?: string;
-    breakEndTime?: string;
-  }): Promise<boolean> {
+  async updateShopAvailability(
+    data: UpdateAvailabilityRequest
+  ): Promise<ShopAvailability> {
     try {
-      await apiClient.put(`/services/appointments/shop-availability`, data);
-      return true;
+      const response = await apiClient.put(
+        `/services/appointments/shop-availability`,
+        data
+      );
+      return response.data || response;
     } catch (error: any) {
       console.error("Failed to update shop availability:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Update time slot configuration
-   */
-  async updateTimeSlotConfig(data: {
-    slotDurationMinutes: number;
-    bufferTimeMinutes: number;
-    maxConcurrentBookings: number;
-    bookingAdvanceDays: number;
-    minBookingHours: number;
-    allowWeekendBooking: boolean;
-  }): Promise<boolean> {
+  async updateTimeSlotConfig(
+    data: Partial<TimeSlotConfig>
+  ): Promise<TimeSlotConfig> {
     try {
-      await apiClient.put(`/services/appointments/time-slot-config`, data);
-      return true;
+      const response = await apiClient.put(
+        `/services/appointments/time-slot-config`,
+        data
+      );
+      return response.data || response;
     } catch (error: any) {
       console.error("Failed to update time slot config:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Create a date override (holiday, special hours)
-   */
-  async createDateOverride(data: {
-    overrideDate: string;
-    isClosed: boolean;
-    customOpenTime?: string;
-    customCloseTime?: string;
-    reason?: string;
-  }): Promise<boolean> {
+  async getDateOverrides(
+    startDate?: string,
+    endDate?: string
+  ): Promise<DateOverride[]> {
     try {
-      await apiClient.post(`/services/appointments/date-overrides`, data);
-      return true;
+      const queryString = buildQueryString({ startDate, endDate });
+      const response = await apiClient.get(
+        `/services/appointments/date-overrides${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get date overrides:", error.message);
+      throw error;
+    }
+  }
+
+  async createDateOverride(
+    data: CreateDateOverrideRequest
+  ): Promise<DateOverride> {
+    try {
+      const response = await apiClient.post(
+        `/services/appointments/date-overrides`,
+        data
+      );
+      return response.data || response;
     } catch (error: any) {
       console.error("Failed to create date override:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Delete a date override
-   */
-  async deleteDateOverride(overrideDate: string): Promise<boolean> {
+  async deleteDateOverride(
+    overrideDate: string
+  ): Promise<{ success: boolean; message?: string }> {
     try {
-      await apiClient.delete(`/services/appointments/date-overrides/${overrideDate}`);
-      return true;
+      return await apiClient.delete(
+        `/services/appointments/date-overrides/${overrideDate}`
+      );
     } catch (error: any) {
       console.error("Failed to delete date override:", error.message);
       throw error;
     }
   }
 
-  /**
-   * Get shop calendar bookings
-   */
   async getShopCalendar(
     startDate: string,
     endDate: string
@@ -236,9 +231,52 @@ class AppointmentApi {
       const response = await apiClient.get(
         `/services/appointments/calendar${queryString}`
       );
-      return response.data || [];
+      return response.data || response || [];
     } catch (error: any) {
       console.error("Failed to get shop calendar:", error.message);
+      throw error;
+    }
+  }
+
+  async updateServiceDuration(
+    serviceId: string,
+    durationMinutes: number
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.put(`/services/${serviceId}/duration`, {
+        durationMinutes,
+      });
+    } catch (error: any) {
+      console.error("Failed to update service duration:", error.message);
+      throw error;
+    }
+  }
+
+  async getMyAppointments(
+    startDate: string,
+    endDate: string
+  ): Promise<MyAppointment[]> {
+    try {
+      const queryString = buildQueryString({ startDate, endDate });
+      const response = await apiClient.get(
+        `/services/appointments/my-appointments${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get my appointments:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelAppointment(
+    orderId: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.post(
+        `/services/appointments/cancel/${orderId}`
+      );
+    } catch (error: any) {
+      console.error("Failed to cancel appointment:", error.message);
       throw error;
     }
   }
@@ -247,9 +285,6 @@ class AppointmentApi {
   // No-Show Management
   // ============================================
 
-  /**
-   * Mark an order as no-show (Shop only)
-   */
   async markOrderAsNoShow(orderId: string, notes?: string): Promise<boolean> {
     try {
       await apiClient.post(`/services/orders/${orderId}/mark-no-show`, {
@@ -262,9 +297,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Get customer's overall no-show status (dashboard banner)
-   */
   async getCustomerNoShowStatus(
     customerAddress: string
   ): Promise<CustomerNoShowStatus | null> {
@@ -280,9 +312,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Get customer's no-show status for a specific shop
-   */
   async getCustomerNoShowStatusForShop(
     customerAddress: string,
     shopId: string
@@ -304,9 +333,6 @@ class AppointmentApi {
   // Shop Direct Reschedule
   // ============================================
 
-  /**
-   * Shop directly reschedules an appointment (no customer approval needed)
-   */
   async directRescheduleOrder(
     orderId: string,
     newDate: string,
@@ -330,9 +356,6 @@ class AppointmentApi {
   // Reschedule Requests (Shop Management)
   // ============================================
 
-  /**
-   * Get all reschedule requests for shop
-   */
   async getShopRescheduleRequests(
     status?: RescheduleRequestStatus | "all"
   ): Promise<RescheduleRequest[]> {
@@ -348,9 +371,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Get count of pending reschedule requests (for badge)
-   */
   async getShopRescheduleRequestCount(): Promise<number> {
     try {
       const response = await apiClient.get(
@@ -363,9 +383,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Approve a customer's reschedule request
-   */
   async approveRescheduleRequest(requestId: string): Promise<boolean> {
     try {
       await apiClient.post(
@@ -378,9 +395,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Reject a customer's reschedule request
-   */
   async rejectRescheduleRequest(
     requestId: string,
     reason?: string
@@ -401,9 +415,6 @@ class AppointmentApi {
   // Reschedule Requests (Customer)
   // ============================================
 
-  /**
-   * Customer requests a reschedule for their booking
-   */
   async createRescheduleRequest(
     orderId: string,
     requestedDate: string,
@@ -422,9 +433,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Customer cancels their pending reschedule request
-   */
   async cancelRescheduleRequest(requestId: string): Promise<boolean> {
     try {
       await apiClient.delete(
@@ -437,9 +445,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Get reschedule request for a specific order (Customer)
-   */
   async getRescheduleRequestForOrder(
     orderId: string
   ): Promise<RescheduleRequest | null> {
@@ -460,9 +465,6 @@ class AppointmentApi {
   // Manual Booking (Walk-in/Phone)
   // ============================================
 
-  /**
-   * Search customers for manual booking
-   */
   async searchCustomers(
     shopId: string,
     query: string
@@ -486,9 +488,6 @@ class AppointmentApi {
     }
   }
 
-  /**
-   * Create a manual booking (walk-in, phone booking)
-   */
   async createManualBooking(
     shopId: string,
     bookingData: ManualBookingData

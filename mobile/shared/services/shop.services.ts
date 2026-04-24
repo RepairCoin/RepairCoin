@@ -88,11 +88,12 @@ class ShopApi {
   }
 
   async getShopCustomerGrowth(
-    shopId: string
+    shopId: string,
+    period: string = "7d"
   ): Promise<ShopCustomerGrowthResponse> {
     try {
       return await apiClient.get<ShopCustomerGrowthResponse>(
-        `/shops/${shopId}/customer-growth?period=7d`
+        `/shops/${shopId}/customer-growth?period=${period}`
       );
     } catch (error: any) {
       console.error("Failed to get shop customer growth:", error.message);
@@ -120,20 +121,6 @@ class ShopApi {
       return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
     } catch (error: any) {
       console.error("Failed to issue reward:", error.message);
-      throw error;
-    }
-  }
-
-  async getCustomerGrowth(
-    shopId: string,
-    period: string = "7d"
-  ): Promise<ShopCustomerGrowthResponse> {
-    try {
-      return await apiClient.get<ShopCustomerGrowthResponse>(
-        `/shops/${shopId}/customer-growth?period=${period}`
-      );
-    } catch (error) {
-      console.error("[ShopHomeApi] Failed to get customer growth:", error);
       throw error;
     }
   }
@@ -168,7 +155,10 @@ class ShopApi {
 
   async updatePromoCodeStatus(shopId: string, promoCodeId: string, isActive: boolean): Promise<PromoCodeResponse> {
     try {
-      return await apiClient.patch(`/shops/${shopId}/promo-codes/${promoCodeId}`, { is_active: isActive });
+      if (!isActive) {
+        return await apiClient.delete(`/shops/${shopId}/promo-codes/${promoCodeId}`);
+      }
+      return await apiClient.put(`/shops/${shopId}/promo-codes/${promoCodeId}`, { is_active: true });
     } catch (error) {
       console.error("Failed to update promo code status:", error);
       throw error;

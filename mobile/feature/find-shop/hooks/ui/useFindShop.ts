@@ -5,7 +5,7 @@ import MapView, { Region, LatLng } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import { useShop } from "@/shared/hooks/shop/useShop";
 import { useAppToast } from "@/shared/hooks";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/shared/services/appointment.services";
 import { serviceApi } from "@/shared/services/service.services";
 import {
   getCurrentLocation,
@@ -109,8 +109,8 @@ export function useFindShop() {
         if (isCancelled) return;
 
         results.forEach((result, index) => {
-          if (result.status === "fulfilled" && result.value?.data) {
-            newAvailabilities[batch[index]] = result.value.data;
+          if (result.status === "fulfilled" && result.value) {
+            newAvailabilities[batch[index]] = result.value;
           }
         });
       }
