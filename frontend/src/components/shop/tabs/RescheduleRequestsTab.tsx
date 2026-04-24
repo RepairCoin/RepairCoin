@@ -166,7 +166,7 @@ export const RescheduleRequestsTab: React.FC = () => {
             >
               {option.label}
               {option.value === 'pending' && pendingCount > 0 && (
-                <span className="ml-1.5 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1 bg-orange-500 text-white text-[10px] font-semibold rounded-full leading-none">
                   {pendingCount}
                 </span>
               )}
