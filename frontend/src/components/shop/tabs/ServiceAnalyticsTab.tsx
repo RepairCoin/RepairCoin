@@ -209,15 +209,15 @@ export function ServiceAnalyticsTab() {
           ) : (
             <div className="space-y-4">
               {topServices.map((service, index) => (
-                <div key={service.serviceId} className="flex items-center justify-between p-4 bg-[#2A2A2A] border border-gray-800 rounded-lg hover:border-[#FFCC00]/50 transition-colors">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#FFCC00] text-black rounded-full font-bold">
+                <div key={service.serviceId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 sm:p-4 bg-[#2A2A2A] border border-gray-800 rounded-lg hover:border-[#FFCC00]/50 transition-colors">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                    <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 bg-[#FFCC00] text-black rounded-full font-bold text-sm">
                       #{index + 1}
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-white">{service.serviceName}</h4>
-                      <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
-                        <span>{service.category}</span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-white truncate">{service.serviceName}</h4>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-gray-400 mt-1">
+                        <span className="capitalize">{service.category}</span>
                         <span>•</span>
                         <span>${service.priceUsd.toFixed(2)}</span>
                         <span>•</span>
@@ -228,18 +228,18 @@ export function ServiceAnalyticsTab() {
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-6 text-center">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-6 text-center sm:flex-shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-800">
                     <div>
                       <div className="text-xs text-gray-400">Orders</div>
-                      <div className="font-semibold text-white">{service.totalOrders}</div>
+                      <div className="font-semibold text-white text-sm sm:text-base">{service.totalOrders}</div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-400">Revenue</div>
-                      <div className="font-semibold text-green-500">${service.totalRevenue.toFixed(2)}</div>
+                      <div className="font-semibold text-green-500 text-sm sm:text-base">${service.totalRevenue.toFixed(2)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-400">Conversion</div>
-                      <div className="font-semibold text-white">{service.conversionRate.toFixed(1)}%</div>
+                      <div className="font-semibold text-white text-sm sm:text-base">{service.conversionRate.toFixed(1)}%</div>
                     </div>
                   </div>
                 </div>
@@ -261,25 +261,25 @@ export function ServiceAnalyticsTab() {
           ) : (
             <div className="space-y-3">
               {categoryBreakdown.map((category) => (
-                <div key={category.category} className="flex items-center justify-between p-3 bg-[#2A2A2A] border border-gray-800 rounded-lg">
-                  <div className="flex-1">
-                    <div className="font-medium capitalize text-white">{category.category}</div>
-                    <div className="text-sm text-gray-400">
+                <div key={category.category} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 bg-[#2A2A2A] border border-gray-800 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium capitalize text-white truncate">{category.category}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">
                       {category.serviceCount} services • Avg ${category.averagePrice.toFixed(2)}
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-6 text-center">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-6 text-center sm:flex-shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-800">
                     <div>
                       <div className="text-xs text-gray-400">Orders</div>
-                      <div className="font-semibold text-white">{category.totalOrders}</div>
+                      <div className="font-semibold text-white text-sm sm:text-base">{category.totalOrders}</div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-400">Revenue</div>
-                      <div className="font-semibold text-green-500">${category.totalRevenue.toFixed(2)}</div>
+                      <div className="font-semibold text-green-500 text-sm sm:text-base">${category.totalRevenue.toFixed(2)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-gray-400">Rating</div>
-                      <div className="font-semibold flex items-center justify-center gap-1 text-white">
+                      <div className="font-semibold flex items-center justify-center gap-1 text-white text-sm sm:text-base">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                         {category.averageRating.toFixed(1)}
                       </div>
