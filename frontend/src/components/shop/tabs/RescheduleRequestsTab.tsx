@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Filter,
   ChevronRight,
+  ChevronDown,
   MessageSquare
 } from 'lucide-react';
 import { appointmentsApi, RescheduleRequestWithDetails } from '@/services/api/appointments';
@@ -133,23 +134,23 @@ export const RescheduleRequestsTab: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Reschedule Requests</h1>
-          <p className="text-gray-400">Manage customer requests to change appointment times</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Reschedule Requests</h1>
+          <p className="text-sm sm:text-base text-gray-400">Manage customer requests to change appointment times</p>
         </div>
         {pendingCount > 0 && (
-          <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl px-4 py-2 flex items-center gap-2">
+          <div className="self-start sm:self-auto bg-orange-500/20 border border-orange-500/30 rounded-xl px-4 py-2 flex items-center gap-2 flex-shrink-0">
             <RefreshCw className="w-5 h-5 text-orange-400" />
-            <span className="text-orange-400 font-semibold">{pendingCount} Pending</span>
+            <span className="text-orange-400 font-semibold text-sm sm:text-base">{pendingCount} Pending</span>
           </div>
         )}
       </div>
 
       {/* Filter */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Filter className="w-4 h-4 text-gray-400" />
         <span className="text-sm text-gray-400">Filter:</span>
         <div className="flex gap-2 flex-wrap">
@@ -157,7 +158,7 @@ export const RescheduleRequestsTab: React.FC = () => {
             <button
               key={option.value}
               onClick={() => setFilterStatus(option.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                 filterStatus === option.value
                   ? 'bg-[#FFCC00] text-black'
                   : 'bg-[#1A1A1A] text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700'
@@ -181,10 +182,10 @@ export const RescheduleRequestsTab: React.FC = () => {
           <span className="ml-3 text-gray-400">Loading requests...</span>
         </div>
       ) : requests.length === 0 ? (
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
-          <RefreshCw className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-          <h3 className="text-xl font-semibold text-white mb-2">No Requests Found</h3>
-          <p className="text-gray-400">
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 sm:p-12 text-center">
+          <RefreshCw className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-600" />
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No Requests Found</h3>
+          <p className="text-sm sm:text-base text-gray-400">
             {filterStatus === 'pending'
               ? 'No pending reschedule requests at the moment'
               : `No ${filterStatus} reschedule requests`}
@@ -198,58 +199,61 @@ export const RescheduleRequestsTab: React.FC = () => {
             return (
               <div
                 key={request.requestId}
-                className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200"
+                className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-4 sm:p-6 hover:border-[#FFCC00]/30 transition-all duration-200"
               >
                 {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white mb-1">{request.serviceName}</h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <User className="w-4 h-4" />
-                      <span>{request.customerName || 'Customer'}</span>
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1 truncate">{request.serviceName}</h3>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-gray-400">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <User className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{request.customerName || 'Customer'}</span>
+                      </div>
                       {request.customerEmail && (
-                        <span className="text-gray-500">({request.customerEmail})</span>
+                        <span className="text-gray-500 truncate">({request.customerEmail})</span>
                       )}
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors.bg} ${statusColors.text} border ${statusColors.border}`}>
+                  <span className={`flex-shrink-0 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold ${statusColors.bg} ${statusColors.text} border ${statusColors.border}`}>
                     {request.status.toUpperCase()}
                   </span>
                 </div>
 
                 {/* Time Change Display */}
-                <div className="flex flex-col md:flex-row gap-4 mb-4 items-stretch">
+                <div className="flex flex-col md:flex-row gap-3 sm:gap-4 mb-4 items-stretch">
                   {/* Original Time */}
-                  <div className="flex-1 bg-[#0D0D0D] border border-gray-800 rounded-xl p-4">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Original Appointment</h4>
+                  <div className="flex-1 bg-[#0D0D0D] border border-gray-800 rounded-xl p-3 sm:p-4">
+                    <h4 className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase mb-2">Original Appointment</h4>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-white">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm">{formatDate(request.originalDate)}</span>
+                        <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm">{formatDate(request.originalDate)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-white">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm">{formatTime(request.originalTimeSlot)}</span>
+                        <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm">{formatTime(request.originalTimeSlot)}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Arrow - centered vertically */}
-                  <div className="hidden md:flex items-center justify-center px-2">
-                    <ChevronRight className="w-6 h-6 text-[#FFCC00]" />
+                  {/* Arrow - down on mobile, right on desktop */}
+                  <div className="flex md:flex items-center justify-center md:px-2">
+                    <ChevronDown className="w-6 h-6 text-[#FFCC00] md:hidden" />
+                    <ChevronRight className="w-6 h-6 text-[#FFCC00] hidden md:block" />
                   </div>
 
                   {/* Requested Time */}
-                  <div className="flex-1 bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-xl p-4">
-                    <h4 className="text-xs font-semibold text-[#FFCC00] uppercase mb-2">Requested New Time</h4>
+                  <div className="flex-1 bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-xl p-3 sm:p-4">
+                    <h4 className="text-[10px] sm:text-xs font-semibold text-[#FFCC00] uppercase mb-2">Requested New Time</h4>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-white">
-                        <Calendar className="w-4 h-4 text-[#FFCC00]" />
-                        <span className="text-sm">{formatDate(request.requestedDate)}</span>
+                        <Calendar className="w-4 h-4 text-[#FFCC00] flex-shrink-0" />
+                        <span className="text-xs sm:text-sm">{formatDate(request.requestedDate)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-white">
-                        <Clock className="w-4 h-4 text-[#FFCC00]" />
-                        <span className="text-sm">{formatTime(request.requestedTimeSlot)}</span>
+                        <Clock className="w-4 h-4 text-[#FFCC00] flex-shrink-0" />
+                        <span className="text-xs sm:text-sm">{formatTime(request.requestedTimeSlot)}</span>
                       </div>
                     </div>
                   </div>
@@ -259,10 +263,10 @@ export const RescheduleRequestsTab: React.FC = () => {
                 {request.customerReason && (
                   <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3 mb-4">
                     <div className="flex items-start gap-2">
-                      <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5" />
-                      <div>
+                      <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <span className="text-xs text-gray-500 font-semibold">Customer&apos;s Reason:</span>
-                        <p className="text-sm text-gray-300">{request.customerReason}</p>
+                        <p className="text-xs sm:text-sm text-gray-300 break-words">{request.customerReason}</p>
                       </div>
                     </div>
                   </div>
@@ -272,10 +276,10 @@ export const RescheduleRequestsTab: React.FC = () => {
                 {request.shopResponseReason && (
                   <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3 mb-4">
                     <div className="flex items-start gap-2">
-                      <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5" />
-                      <div>
+                      <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <span className="text-xs text-gray-500 font-semibold">Your Response:</span>
-                        <p className="text-sm text-gray-300">{request.shopResponseReason}</p>
+                        <p className="text-xs sm:text-sm text-gray-300 break-words">{request.shopResponseReason}</p>
                       </div>
                     </div>
                   </div>
@@ -285,8 +289,8 @@ export const RescheduleRequestsTab: React.FC = () => {
                 {request.status === 'pending' && request.hoursUntilExpiry && request.hoursUntilExpiry < 12 && (
                   <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
                     <div className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-400" />
-                      <span className="text-sm text-red-400">
+                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-red-400">
                         Expires in {Math.round(request.hoursUntilExpiry)} hours
                       </span>
                     </div>
@@ -295,11 +299,11 @@ export const RescheduleRequestsTab: React.FC = () => {
 
                 {/* Actions */}
                 {request.status === 'pending' && (
-                  <div className="flex gap-3 pt-4 border-t border-gray-800">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-gray-800">
                     <button
                       onClick={() => handleApprove(request.requestId)}
                       disabled={processingId === request.requestId}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600/20 text-green-400 border border-green-600/30 rounded-xl hover:bg-green-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                      className="w-full sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600/20 text-green-400 border border-green-600/30 rounded-xl hover:bg-green-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base"
                     >
                       {processingId === request.requestId ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -311,7 +315,7 @@ export const RescheduleRequestsTab: React.FC = () => {
                     <button
                       onClick={() => setShowRejectModal(request.requestId)}
                       disabled={processingId === request.requestId}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl hover:bg-red-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                      className="w-full sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl hover:bg-red-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base"
                     >
                       <XCircle className="w-4 h-4" />
                       Reject
@@ -320,7 +324,7 @@ export const RescheduleRequestsTab: React.FC = () => {
                 )}
 
                 {/* Timestamp */}
-                <div className="text-xs text-gray-500 mt-4">
+                <div className="text-[10px] sm:text-xs text-gray-500 mt-4 break-words">
                   Requested: {new Date(request.createdAt).toLocaleString()}
                   {request.respondedAt && (
                     <> | Responded: {new Date(request.respondedAt).toLocaleString()}</>
@@ -334,10 +338,10 @@ export const RescheduleRequestsTab: React.FC = () => {
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0D0D0D] border border-gray-800 rounded-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-white mb-4">Reject Reschedule Request</h3>
-            <p className="text-gray-400 mb-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1100] p-4">
+          <div className="bg-[#0D0D0D] border border-gray-800 rounded-2xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Reject Reschedule Request</h3>
+            <p className="text-sm sm:text-base text-gray-400 mb-4">
               Optionally provide a reason for rejecting this request. The customer will be notified.
             </p>
             <textarea
@@ -345,30 +349,30 @@ export const RescheduleRequestsTab: React.FC = () => {
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Enter reason (optional)..."
               rows={3}
-              className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors resize-none mb-4"
+              className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg px-4 py-3 text-sm sm:text-base text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors resize-none mb-4"
             />
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => {
                   setShowRejectModal(null);
                   setRejectReason('');
                 }}
                 disabled={processingId !== null}
-                className="flex-1 px-4 py-3 bg-gray-700/20 text-white border border-gray-700/30 rounded-xl hover:bg-gray-700/30 transition-colors font-semibold disabled:opacity-50"
+                className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700/20 text-white border border-gray-700/30 rounded-xl hover:bg-gray-700/30 transition-colors font-semibold disabled:opacity-50 text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleReject(showRejectModal)}
                 disabled={processingId !== null}
-                className="flex-1 px-4 py-3 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl hover:bg-red-600/30 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl hover:bg-red-600/30 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base"
               >
                 {processingId === showRejectModal ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
                 ) : (
-                  <XCircle className="w-4 h-4" />
+                  <XCircle className="w-4 h-4 flex-shrink-0" />
                 )}
-                Reject Request
+                <span className="truncate">Reject Request</span>
               </button>
             </div>
           </div>
