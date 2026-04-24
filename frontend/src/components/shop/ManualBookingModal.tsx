@@ -470,26 +470,26 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
   const selectedService = services.find(s => s.serviceId === selectedServiceId);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={handleClose}>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1100] p-0 sm:p-4" onClick={handleClose}>
       <div
-        className="bg-[#1A1A1A] border border-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-[#1A1A1A] border border-gray-800 sm:rounded-xl max-w-2xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-[#1A1A1A] border-b border-gray-800 p-6 flex items-center justify-between z-10">
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-1">Book Appointment</h2>
-            <p className="text-sm text-gray-400">Manually book an appointment for a customer</p>
+        <div className="sticky top-0 bg-[#1A1A1A] border-b border-gray-800 p-4 sm:p-6 flex items-center justify-between gap-3 z-10">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-1 truncate">Book Appointment</h2>
+            <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 sm:line-clamp-none">Manually book an appointment for a customer</p>
           </div>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="flex-shrink-0 text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Step 1: Customer Selection */}
           <div>
             <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
@@ -500,23 +500,23 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             {!selectedCustomer && !showNewCustomerForm && (
               <div className="space-y-3">
                 <div className="flex gap-2">
-                  <div className="flex-1 relative">
+                  <div className="flex-1 relative min-w-0">
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                      placeholder="Search by name, email, phone, or address..."
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00]"
+                      placeholder="Search by name, email, phone..."
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-9 sm:pr-10 bg-[#0D0D0D] border border-gray-800 rounded-lg text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00]"
                     />
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                   </div>
                   <button
                     onClick={handleSearch}
                     disabled={searching}
-                    className="px-6 py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors disabled:opacity-50"
+                    className="flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors disabled:opacity-50 text-sm sm:text-base"
                   >
-                    {searching ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Search'}
+                    {searching ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : 'Search'}
                   </button>
                 </div>
 
@@ -526,11 +526,11 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
                       <button
                         key={customer.address}
                         onClick={() => selectCustomer(customer)}
-                        className="w-full p-4 text-left hover:bg-[#1A1A1A] transition-colors"
+                        className="w-full p-3 sm:p-4 text-left hover:bg-[#1A1A1A] transition-colors"
                       >
-                        <div className="font-medium text-white">{customer.name || 'Unnamed Customer'}</div>
-                        <div className="text-sm text-gray-400">{customer.email || customer.phone || 'No contact'}</div>
-                        <div className="text-xs text-gray-500 mt-1 font-mono">{customer.address.substring(0, 20)}...</div>
+                        <div className="font-medium text-white truncate">{customer.name || 'Unnamed Customer'}</div>
+                        <div className="text-sm text-gray-400 truncate">{customer.email || customer.phone || 'No contact'}</div>
+                        <div className="text-xs text-gray-500 mt-1 font-mono truncate">{customer.address.substring(0, 20)}...</div>
                         {customer.noShowCount > 0 && (
                           <div className="text-xs text-yellow-500 mt-1">
                             ⚠️ {customer.noShowCount} no-show{customer.noShowCount > 1 ? 's' : ''} ({customer.noShowTier})
@@ -543,7 +543,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
 
                 <button
                   onClick={handleCreateNewCustomer}
-                  className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-800 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0D0D0D] border border-gray-800 text-white rounded-lg hover:bg-[#1A1A1A] transition-colors text-sm sm:text-base"
                 >
                   + Create New Customer
                 </button>
@@ -551,22 +551,22 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             )}
 
             {selectedCustomer && (
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-medium text-white">{selectedCustomer.name || 'Unnamed Customer'}</div>
-                    <div className="text-sm text-gray-400">{selectedCustomer.email || selectedCustomer.phone || 'No contact'}</div>
-                    <div className="text-xs text-gray-500 mt-1 font-mono">{selectedCustomer.address}</div>
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-white truncate">{selectedCustomer.name || 'Unnamed Customer'}</div>
+                    <div className="text-sm text-gray-400 truncate">{selectedCustomer.email || selectedCustomer.phone || 'No contact'}</div>
+                    <div className="text-xs text-gray-500 mt-1 font-mono break-all">{selectedCustomer.address}</div>
                     {selectedCustomer.noShowCount > 0 && (
                       <div className="text-xs text-yellow-500 mt-2 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {selectedCustomer.noShowCount} no-show{selectedCustomer.noShowCount > 1 ? 's' : ''} ({selectedCustomer.noShowTier})
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>{selectedCustomer.noShowCount} no-show{selectedCustomer.noShowCount > 1 ? 's' : ''} ({selectedCustomer.noShowTier})</span>
                       </div>
                     )}
                   </div>
                   <button
                     onClick={() => setSelectedCustomer(null)}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="flex-shrink-0 text-gray-400 hover:text-white transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -575,7 +575,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             )}
 
             {showNewCustomerForm && (
-              <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 space-y-3">
+              <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-white">New Customer</h4>
                   <button
@@ -742,36 +742,36 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             <div className="grid grid-cols-3 gap-2 mb-2">
               <button
                 onClick={() => setPaymentStatus('paid')}
-                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-3 rounded-lg font-medium transition-colors ${
                   paymentStatus === 'paid'
                     ? 'bg-green-500 text-white'
                     : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
                 }`}
               >
-                <div className="text-sm font-semibold">Paid</div>
-                <div className="text-xs opacity-70">Already collected</div>
+                <div className="text-xs sm:text-sm font-semibold">Paid</div>
+                <div className="text-[10px] sm:text-xs opacity-70">Already collected</div>
               </button>
               <button
                 onClick={() => setPaymentStatus('pending')}
-                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-3 rounded-lg font-medium transition-colors ${
                   paymentStatus === 'pending'
                     ? 'bg-amber-500 text-white'
                     : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
                 }`}
               >
-                <div className="text-sm font-semibold">Pending</div>
-                <div className="text-xs opacity-70">Pay at arrival</div>
+                <div className="text-xs sm:text-sm font-semibold">Pending</div>
+                <div className="text-[10px] sm:text-xs opacity-70">Pay at arrival</div>
               </button>
               <button
                 onClick={() => setPaymentStatus('unpaid')}
-                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-3 rounded-lg font-medium transition-colors ${
                   paymentStatus === 'unpaid'
                     ? 'bg-gray-500 text-white'
                     : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
                 }`}
               >
-                <div className="text-sm font-semibold">Unpaid</div>
-                <div className="text-xs opacity-70">No payment</div>
+                <div className="text-xs sm:text-sm font-semibold">Unpaid</div>
+                <div className="text-[10px] sm:text-xs opacity-70">No payment</div>
               </button>
             </div>
 
@@ -779,28 +779,28 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setPaymentStatus('qr_code')}
-                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-3 rounded-lg font-medium transition-colors ${
                   paymentStatus === 'qr_code'
                     ? 'bg-purple-500 text-white'
                     : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
                 }`}
               >
-                <div className="text-sm font-semibold flex items-center justify-center gap-1">
+                <div className="text-xs sm:text-sm font-semibold flex items-center justify-center gap-1">
                   <Smartphone className="w-4 h-4" />
                   QR Code
                 </div>
-                <div className="text-xs opacity-70">Walk-in scan & pay</div>
+                <div className="text-[10px] sm:text-xs opacity-70">Walk-in scan & pay</div>
               </button>
               <button
                 onClick={() => setPaymentStatus('send_link')}
-                className={`px-3 py-3 rounded-lg font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-3 rounded-lg font-medium transition-colors ${
                   paymentStatus === 'send_link'
                     ? 'bg-blue-500 text-white'
                     : 'bg-[#0D0D0D] text-white border border-gray-800 hover:bg-[#1A1A1A]'
                 }`}
               >
-                <div className="text-sm font-semibold">Send Link</div>
-                <div className="text-xs opacity-70">Email payment link</div>
+                <div className="text-xs sm:text-sm font-semibold">Send Link</div>
+                <div className="text-[10px] sm:text-xs opacity-70">Email payment link</div>
               </button>
             </div>
 
@@ -837,28 +837,28 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-[#1A1A1A] border-t border-gray-800 p-6 flex items-center justify-end gap-3">
+        <div className="sticky bottom-0 bg-[#1A1A1A] border-t border-gray-800 p-4 sm:p-6 flex items-center justify-end gap-2 sm:gap-3">
           <button
             onClick={handleClose}
             disabled={submitting}
-            className="px-6 py-3 bg-[#0D0D0D] text-white font-semibold rounded-lg border border-gray-800 hover:bg-[#1A1A1A] transition-colors disabled:opacity-50"
+            className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-3 bg-[#0D0D0D] text-white font-semibold rounded-lg border border-gray-800 hover:bg-[#1A1A1A] transition-colors disabled:opacity-50 text-sm sm:text-base"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-6 py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-3 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base"
           >
             {submitting ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Booking...
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin flex-shrink-0" />
+                <span className="truncate">Booking...</span>
               </>
             ) : (
               <>
-                <CheckCircle className="w-5 h-5" />
-                Book Appointment
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                <span className="truncate">Book Appointment</span>
               </>
             )}
           </button>
@@ -867,13 +867,13 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
 
       {/* QR Code Payment Modal */}
       {showQRModal && qrPaymentLink && qrBookingDetails && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={handleCloseQRModal}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[1110] p-4" onClick={handleCloseQRModal}>
           <div
-            className="bg-[#1A1A1A] border border-gray-800 rounded-xl max-w-md w-full"
+            className="bg-[#1A1A1A] border border-gray-800 rounded-xl max-w-md w-full max-h-[95vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* QR Modal Header */}
-            <div className="border-b border-gray-800 p-6 text-center">
+            <div className="border-b border-gray-800 p-4 sm:p-6 text-center">
               {paymentConfirmed ? (
                 <>
                   <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce">
@@ -894,7 +894,7 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
             </div>
 
             {/* QR Code or Success State */}
-            <div className="p-6 flex flex-col items-center">
+            <div className="p-4 sm:p-6 flex flex-col items-center">
               {paymentConfirmed ? (
                 <div className="w-[200px] h-[200px] bg-green-500/10 border-2 border-green-500/30 rounded-xl flex items-center justify-center mb-4">
                   <CheckCircle2 className="w-20 h-20 text-green-400" />
@@ -911,28 +911,28 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               )}
 
               {/* Booking Details */}
-              <div className="w-full bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
+              <div className="w-full bg-[#0D0D0D] border border-gray-800 rounded-lg p-3 sm:p-4 mb-4">
                 <div className="text-center mb-3">
-                  <div className={`text-3xl font-bold ${paymentConfirmed ? 'text-green-400' : 'text-[#FFCC00]'}`}>
+                  <div className={`text-2xl sm:text-3xl font-bold ${paymentConfirmed ? 'text-green-400' : 'text-[#FFCC00]'}`}>
                     ${qrBookingDetails.totalAmount.toFixed(2)}
                   </div>
                 </div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Service:</span>
-                    <span className="text-white">{qrBookingDetails.serviceName}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 flex-shrink-0">Service:</span>
+                    <span className="text-white text-right truncate">{qrBookingDetails.serviceName}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Date:</span>
-                    <span className="text-white">{qrBookingDetails.bookingDate}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 flex-shrink-0">Date:</span>
+                    <span className="text-white text-right">{qrBookingDetails.bookingDate}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Time:</span>
-                    <span className="text-white">{formatTime12Hour(qrBookingDetails.bookingTimeSlot.substring(0, 5))}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 flex-shrink-0">Time:</span>
+                    <span className="text-white text-right">{formatTime12Hour(qrBookingDetails.bookingTimeSlot.substring(0, 5))}</span>
                   </div>
                   {paymentConfirmed && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Status:</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-400 flex-shrink-0">Status:</span>
                       <span className="text-green-400 font-medium">Paid</span>
                     </div>
                   )}
