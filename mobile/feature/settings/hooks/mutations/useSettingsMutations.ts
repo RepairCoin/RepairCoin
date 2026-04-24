@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 export function useSettingsMutations() {
   const queryClient = useQueryClient();

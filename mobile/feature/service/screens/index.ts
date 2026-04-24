@@ -12,3 +12,7 @@ export { default as CustomerServiceScreen } from "./CustomerServiceScreen";
 export { default as ServicesTabContent } from "./ServicesTabContent";
 export { default as FavoritesTabContent } from "./FavoritesTabContent";
 export { default as BookingsTabContent } from "./BookingsTabContent";
+
+// Review/Rating screens (merged from feature/ratings)
+export { default as WriteReviewScreen } from "./WriteReviewScreen";
+export { default as ServiceReviewsScreen } from "./ServiceReviewsScreen";

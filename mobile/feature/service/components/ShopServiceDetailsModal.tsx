@@ -13,7 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { ReviewData } from "@/shared/interfaces/review.interface";
-import { serviceApi } from "@/shared/services/service.services";
+import { serviceApi } from "../services/service.services";
 import { Alert } from "react-native";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");

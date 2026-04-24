@@ -13,7 +13,7 @@ import {
 import { ManualBookingModal } from "@/feature/booking/components";
 
 // Store
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 // Hooks
 import {
@@ -25,7 +25,7 @@ import {
 // Feature
 import ServicesTab from "@/feature/service/components/ServicesTab";
 import { BookingShopTab } from "@/feature/booking/components";
-import { BookingAnalyticsTab } from "@/feature/booking-analytics/components";
+import { BookingAnalyticsTab } from "@/feature/booking/components";
 
 // Constants
 import { SERVICE_TABS } from "../constants";

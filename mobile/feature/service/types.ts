@@ -80,3 +80,20 @@ export interface PendingAvailabilityChanges {
 
 // Filter types
 export type ServiceStatusFilter = "all" | "active" | "inactive";
+
+// Review/Rating types (merged from feature/ratings)
+export interface ReviewParams {
+  orderId: string;
+  serviceId?: string;
+  serviceName?: string;
+  shopName?: string;
+}
+
+export interface SubmitReviewData {
+  orderId: string;
+  rating: number;
+  comment: string;
+  images?: string[];
+}
+
+export type RatingLevel = 0 | 1 | 2 | 3 | 4 | 5;

@@ -7,7 +7,7 @@ import {
   DateOverride,
   CalendarBooking,
 } from "@/shared/interfaces/appointment.interface";
-import { appointmentApi } from "@/shared/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 
 export function useAvailableTimeSlotsQuery(
   shopId: string,
@@ -66,4 +66,4 @@ export function useShopCalendarQuery(startDate: string, endDate: string) {
   });
 }
 
-// Note: useMyAppointmentsQuery is now in @/shared/hooks/booking/useBooking.ts (global hook)
+// Note: useMyAppointmentsQuery is now in @/feature/booking/hooks/useBooking.ts (global hook)

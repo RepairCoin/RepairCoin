@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { bookingApi } from "@/shared/services/booking.services";
-import { appointmentApi } from "@/shared/services/appointment.services";
+import { bookingApi } from "../../services/booking.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { useAppToast } from "@/shared/hooks";
 
 export function useApproveOrderMutation() {

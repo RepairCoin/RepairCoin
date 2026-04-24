@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useFocusEffect, router } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { Conversation } from "../../types";
 
 export type MessageFilter = "active" | "resolved" | "archived";

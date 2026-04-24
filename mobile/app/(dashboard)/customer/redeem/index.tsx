@@ -1,1 +1,1 @@
-export { CustomerRedeemScreen as default } from "@/feature/redeem-token/screens";
+export { CustomerRedeemScreen as default } from "@/feature/token/screens";

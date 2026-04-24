@@ -13,8 +13,8 @@ import {
 import { Calendar, DateData } from "react-native-calendars";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { appointmentApi, CustomerSearchResult, ManualBookingData } from "@/shared/services/appointment.services";
-import { serviceApi } from "@/shared/services/service.services";
+import { appointmentApi, CustomerSearchResult, ManualBookingData } from "@/feature/appointment/services/appointment.services";
+import { serviceApi } from "@/feature/service/services/service.services";
 import { TimeSlot, ShopAvailability } from "@/shared/interfaces/appointment.interface";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import CustomerSearchInput from "./CustomerSearchInput";

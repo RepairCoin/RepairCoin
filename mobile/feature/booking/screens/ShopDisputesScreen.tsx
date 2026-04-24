@@ -14,7 +14,7 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppToast } from "@/shared/hooks";
 import { disputeApi, DisputeEntry } from "../services/dispute.services";

@@ -1,1 +1,1 @@
-export { BuyTokenScreen as default } from "@/feature/buy-token/screens";
+export { BuyTokenScreen as default } from "@/feature/token/screens";

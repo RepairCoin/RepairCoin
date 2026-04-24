@@ -6,7 +6,7 @@ import {
   TimeSlotConfig,
   CreateDateOverrideRequest,
 } from "@/shared/interfaces/appointment.interface";
-import { appointmentApi } from "@/shared/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 
 export function useUpdateShopAvailabilityMutation() {
   const queryClient = useQueryClient();
@@ -80,4 +80,4 @@ export function useUpdateServiceDurationMutation() {
 }
 
 // Re-export from global hooks (single source of truth)
-export { useCancelAppointmentMutation } from "@/shared/hooks/booking/useBooking";
+export { useCancelAppointmentMutation } from "@/feature/booking/hooks/useBooking";

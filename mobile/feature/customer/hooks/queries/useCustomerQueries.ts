@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { shopApi } from "@/shared/services/shop.services";
-import { customerApi } from "@/shared/services/customer.services";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { shopApi } from "@/feature/shop/services/shop.services";
+import { customerApi } from "@/feature/customer/services/customer.services";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { CustomerData } from "@/shared/interfaces/customer.interface";
 
 // Helper to get numeric value, properly handling 0 vs null/undefined

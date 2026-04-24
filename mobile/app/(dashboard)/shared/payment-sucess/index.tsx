@@ -3,9 +3,9 @@ import { Ionicons, Feather, FontAwesome5 } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePaymentStore, PaymentType, waitForPaymentStoreHydration } from "@/shared/store/payment.store";
-import { useAuthStore } from "@/shared/store/auth.store";
-import { bookingApi } from "@/shared/services/booking.services";
+import { usePaymentStore, PaymentType, waitForPaymentStoreHydration } from "@/feature/booking/store/payment.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { bookingApi } from "@/feature/booking/services/booking.services";
 
 export default function PaymentSuccess() {
   const { order_id } = useLocalSearchParams<{ order_id: string }>();

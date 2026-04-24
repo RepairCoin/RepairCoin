@@ -2,8 +2,8 @@ import { Image, View, Text } from "react-native";
 import React from "react";
 import { CustomerWalletTab } from "../components";
 import NoShowWarningBanner from "../components/NoShowWarningBanner";
-import { useCustomer } from "@/shared/hooks/customer/useCustomer";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useCustomer } from "@/feature/customer/hooks/useCustomer";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { NotificationBell } from "@/feature/notification/components";
 import { MessageButton } from "@/feature/messages/components";
 

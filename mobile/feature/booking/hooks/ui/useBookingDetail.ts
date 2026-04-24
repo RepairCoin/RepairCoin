@@ -13,7 +13,7 @@ import {
 } from "../mutations";
 import { getStatusColor } from "../../utils";
 import { BookingData, BookingStatus } from "@/shared/interfaces/booking.interfaces";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
 
 export function useBookingDetail() {

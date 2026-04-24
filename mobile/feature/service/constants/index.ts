@@ -26,6 +26,25 @@ export const COPY_FEEDBACK_DURATION = 1500;
 export const DEFAULT_TRENDING_LIMIT = 6;
 export const DEFAULT_TRENDING_DAYS = 7;
 
+// Review/Rating constants (merged from feature/ratings)
+export const MAX_COMMENT_LENGTH = 500;
+export const STAR_COUNT = 5;
+
+export const RATING_LABELS: Record<number, string> = {
+  0: "Tap to rate",
+  1: "Poor",
+  2: "Fair",
+  3: "Good",
+  4: "Very Good",
+  5: "Excellent",
+};
+
+export const REVIEW_TIPS = [
+  "Describe what made your experience good or bad",
+  "Mention specific details about the service",
+  "Be honest and constructive",
+];
+
 export { SERVICE_STATUS_OPTIONS } from "./SERVICE_STATUS_OPTIONS";
 export { AVAILABILITY_TABS } from "./AVAILABILITY_TABS";
 export { DAYS, FULL_DAYS } from "./DAYS";

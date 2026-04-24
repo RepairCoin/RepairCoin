@@ -15,3 +15,8 @@ export { useCustomerServiceTab } from "./useCustomerServiceTab";
 export { useServicesTab } from "./useServicesTab";
 export { useFavoritesTab } from "./useFavoritesTab";
 export { useBookingsTab, canCancelAppointment } from "./useBookingsTab";
+
+// Review/Rating hooks (merged from feature/ratings)
+export { useWriteReview } from "./useWriteReview";
+export { useServiceReviews } from "./useServiceReviews";
+export { useShopReviews } from "./useShopReviews";

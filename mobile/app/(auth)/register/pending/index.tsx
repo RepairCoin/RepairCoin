@@ -1,1 +1,1 @@
-export { PendingApprovalScreen as default } from "@/feature/register/screens";
+export { PendingApprovalScreen as default } from "@/feature/auth/screens";

@@ -5,7 +5,7 @@ import {
   DateOverride,
 } from "@/shared/interfaces/appointment.interface";
 import { useAppToast } from "@/shared/hooks";
-import { appointmentApi } from "@/shared/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../types";
 import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";
 

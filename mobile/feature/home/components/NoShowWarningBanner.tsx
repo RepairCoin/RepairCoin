@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import {
   appointmentApi,
   CustomerNoShowStatus,
-} from "@/shared/services/appointment.services";
+} from "@/feature/appointment/services/appointment.services";
 
 interface BannerConfig {
   bgColor: string;

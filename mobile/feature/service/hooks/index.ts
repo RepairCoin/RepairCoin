@@ -33,3 +33,10 @@ export {
 
 // Tab mutations
 export { useServiceToggleMutation } from "./mutations";
+
+// Review/Rating hooks (merged from feature/ratings)
+export { useWriteReview, useServiceReviews, useShopReviews } from "./ui";
+
+// Shared hooks (moved from shared/hooks/)
+export { useService } from "./useService";
+export { useFavorite } from "./useFavorite";

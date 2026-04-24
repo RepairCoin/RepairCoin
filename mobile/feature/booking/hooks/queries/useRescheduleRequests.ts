@@ -3,7 +3,7 @@ import {
   appointmentApi,
   RescheduleRequest,
   RescheduleRequestStatus,
-} from "@/shared/services/appointment.services";
+} from "@/feature/appointment/services/appointment.services";
 
 /**
  * Hook to fetch reschedule requests for a shop

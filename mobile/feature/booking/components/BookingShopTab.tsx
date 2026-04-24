@@ -13,9 +13,9 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
-import { useAuthStore } from "@/shared/store/auth.store";
-import { bookingApi } from "@/shared/services/booking.services";
-import { appointmentApi } from "@/shared/services/appointment.services";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { bookingApi } from "../services/booking.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { useRescheduleRequestCountQuery } from "../hooks/queries";
 import { useQuery } from "@tanstack/react-query";
 import { disputeApi } from "../services/dispute.services";

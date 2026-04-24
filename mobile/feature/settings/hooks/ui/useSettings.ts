@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useSettingsMutations } from "../mutations";
 import { bugReportApi } from "../../services/bugReport.services";
 import type { SettingsRole, SettingsConfig } from "../../types";

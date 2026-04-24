@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuthStore } from "@/shared/store/auth.store";
-import { notificationApi } from "@/shared/services/notification.services";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { notificationApi } from "@/feature/notification/services/notification.services";
 import {
   AppointmentNotificationPreferences,
   GeneralNotificationPreferences,

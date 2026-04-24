@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { appointmentApi } from "@/shared/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { useAppToast } from "@/shared/hooks";
 
 /**

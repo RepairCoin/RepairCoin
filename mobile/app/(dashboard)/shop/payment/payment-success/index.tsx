@@ -1,1 +1,1 @@
-export { PaymentSuccessScreen as default } from "@/feature/payment/screens";
+export { PaymentSuccessScreen as default } from "@/feature/booking/screens";

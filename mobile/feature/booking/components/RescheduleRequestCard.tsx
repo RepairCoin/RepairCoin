@@ -8,7 +8,7 @@ import {
   TextInput,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { RescheduleRequest, RescheduleRequestStatus } from "@/shared/services/appointment.services";
+import { RescheduleRequest, RescheduleRequestStatus } from "@/feature/appointment/services/appointment.services";
 
 interface RescheduleRequestCardProps {
   request: RescheduleRequest;

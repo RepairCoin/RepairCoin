@@ -2,8 +2,8 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { jwtDecode } from "jwt-decode";
 import { router } from "expo-router";
 import { Toast } from "react-native-toast-notifications";
-import { authApi } from "@/shared/services/auth.services";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { authApi } from "@/feature/auth/services/auth.services";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 const GLOBAL_TOAST_OPTIONS = {
   placement: "top" as const,

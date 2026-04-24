@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { router } from "expo-router";
-import { useService } from "@/shared/hooks/service/useService";
-import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { useService } from "../useService";
+import { useFavorite } from "../useFavorite";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { ServiceCategory } from "@/shared/constants/service-categories";

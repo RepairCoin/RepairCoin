@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { router } from "expo-router";
-import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/shared/hooks/booking/useBooking";
+import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/feature/booking/hooks/useBooking";
 import { useAppToast } from "@/shared/hooks";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { BookingFilterTab, BookingStatusFilter } from "../../tab-types";

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { balanceApi } from "@/feature/redeem-token/services/balance.services";
+import { balanceApi } from "@/feature/token/services/balance.services";
 
 export const useBalance = (walletAddress: string) => {
   return useQuery({

@@ -1,9 +1,0 @@
-export { ProfileLoadingState } from "./ProfileLoadingState";
-export { ProfileErrorState } from "./ProfileErrorState";
-export { ShopProfileHeader } from "./ShopProfileHeader";
-export { CustomerProfileHeader } from "./CustomerProfileHeader";
-export { CustomerStats } from "./CustomerStats";
-export { ShopDetailsTab } from "./ShopDetailsTab";
-export { ShopServicesTab } from "./ShopServicesTab";
-export { ContactInfoCard } from "./ContactInfoCard";
-export { CustomerContactInfo } from "./CustomerContactInfo";

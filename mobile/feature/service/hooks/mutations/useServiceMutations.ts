@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { serviceApi } from "@/shared/services/service.services";
+import { serviceApi } from "../../services/service.services";
 import { useAppToast } from "@/shared/hooks";
 import {
   CreateServiceRequest,

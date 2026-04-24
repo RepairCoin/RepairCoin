@@ -1,9 +1,9 @@
-// Re-export from global hooks (single source of truth)
+// Re-export from local useBooking (single source of truth)
 export {
   useShopBookingQuery,
   useCustomerBookingQuery,
   useMyAppointmentsQuery,
-} from "@/shared/hooks/booking/useBooking";
+} from "../useBooking";
 
 // Reschedule request queries
 export {
@@ -13,3 +13,9 @@ export {
 
 // Customer search query
 export { useCustomerSearchQuery } from "./useCustomerSearch";
+
+// Service Orders query (merged from feature/service-orders)
+export { useServiceOrdersQuery } from "./useServiceOrdersQuery";
+
+// Booking Analytics query (merged from feature/booking-analytics)
+export { useBookingAnalyticsQuery } from "./useBookingAnalyticsQuery";

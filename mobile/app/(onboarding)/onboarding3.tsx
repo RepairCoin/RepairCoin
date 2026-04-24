@@ -1,1 +1,1 @@
-export { OnboardingScreen3 as default } from "@/feature/onboarding";
+export { OnboardingScreen3 as default } from "@/feature/auth/screens";

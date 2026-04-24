@@ -17,14 +17,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
-import { useCustomer } from "@/shared/hooks/customer/useCustomer";
-import { useService } from "@/shared/hooks/service/useService";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useCustomer } from "@/feature/customer/hooks/useCustomer";
+import { useService } from "@/feature/service/hooks/useService";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { apiClient } from "@/shared/utilities/axios";
 import { useAppToast } from "@/shared/hooks";
 
 import ActionCard from "@/shared/components/shared/ActionCard";
-import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { useFavorite } from "@/feature/service/hooks/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 import RecentlyViewedSection from "./RecentlyViewedSection";

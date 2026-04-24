@@ -124,3 +124,100 @@ export interface StripeCheckoutResponse {
     finalAmount?: number;
   };
 }
+
+// ============================================
+// Service Orders Types (from service-orders)
+// ============================================
+
+export type OrderFilterType = "all" | "pending" | "paid" | "completed" | "cancelled" | "no_show";
+
+export type BookingStage = "requested" | "paid" | "approved" | "scheduled" | "completed";
+
+export interface ServiceOrderWithDetails {
+  orderId: string;
+  serviceId: string;
+  shopId: string;
+  status: string;
+  totalAmount: number;
+  bookingDate?: string;
+  bookingTime?: string;
+  bookingTimeSlot?: string;
+  bookingEndTime?: string;
+  serviceName: string;
+  serviceImageUrl?: string;
+  serviceCategory?: string;
+  serviceDuration?: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress: string;
+  customerTier?: string;
+  rcnEarned?: number;
+  promoRcn?: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  shopApproved?: boolean;
+  approvedAt?: string;
+  rescheduledAt?: string;
+  rescheduleReason?: string;
+  rescheduleCount?: number;
+  notes?: string;
+  noShow?: boolean;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderStats {
+  pending: number;
+  paid: number;
+  completed: number;
+  revenue: number;
+}
+
+// ============================================
+// Booking Analytics Types (from booking-analytics)
+// ============================================
+
+export type TrendDays = 7 | 30 | 90;
+
+export interface BookingAnalytics {
+  summary: {
+    totalBookings: number;
+    completed: number;
+    noShows: number;
+    cancelled: number;
+    completionRate: number;
+    noShowRate: number;
+    cancellationRate: number;
+    avgLeadTimeDays: number;
+    rescheduledCount: number;
+    avgRescheduleCount: number;
+  };
+  statusBreakdown: Array<{ status: string; count: number }>;
+  busiestDays: Array<{ dayOfWeek: number; count: number }>;
+  peakHours: Array<{ hour: number; count: number }>;
+  cancellationReasons: Array<{ reason: string; count: number }>;
+  bookingTrends: Array<{ date: string; count: number }>;
+}
+
+// ============================================
+// Payment Types (from payment)
+// ============================================
+
+export type PaymentType = "subscription" | "token_purchase";
+
+export type PaymentParams = {
+  clientSecret: string;
+  subscriptionId?: string;
+  purchaseId?: string;
+  amount?: string;
+  totalCost?: string;
+  type?: PaymentType;
+};
+
+export type PaymentSuccessParams = {
+  type?: PaymentType;
+  amount?: string;
+  purchaseId?: string;
+  totalCost?: string;
+};

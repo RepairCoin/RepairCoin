@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
-import { notificationApi } from "@/shared/services/notification.services";
+import { notificationApi } from "@/feature/notification/services/notification.services";
 import { usePushNotificationContext } from "@/shared/providers/PushNotificationProvider";
 import { useAppToast } from "@/shared/hooks";
 import { Notification, TabType } from "../../types";
