@@ -78,10 +78,8 @@ export const useCustomer = () => {
             if (getTokenResult.success) {
               setUserProfile(customerData);
               setAccessToken(getTokenResult.token);
-              setRefreshToken(
-                getTokenResult.data?.refreshToken ||
-                  getTokenResult.refreshToken,
-              );
+              const refreshTk = getTokenResult.data?.refreshToken || getTokenResult.refreshToken || "";
+              setRefreshToken(refreshTk);
               setUserType("customer");
               apiClient.setAuthToken(getTokenResult.token);
               router.push("/register/customer/Success");

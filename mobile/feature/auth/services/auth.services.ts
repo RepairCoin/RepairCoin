@@ -21,7 +21,7 @@ class AuthApi {
 
   async getRefreshToken(refreshToken: string) {
     try {
-      return await apiClient.post(`/auth/refresh`, { refreshToken });
+      return await apiClient.post("/auth/refresh", { refreshToken });
     } catch (error) {
       console.error("Failed to refresh token:", error);
       throw error;

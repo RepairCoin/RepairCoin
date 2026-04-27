@@ -28,12 +28,12 @@ export const useShopSuspended = () => {
     try {
       setIsChecking(true);
       const result = await authApi.checkUserExists(address);
-      if (result?.type !== "shop" || !result?.user) {
+      if (!result.exists || result.type !== "shop" || !result.user) {
         showError("Unable to verify shop status. Please try again.");
         return;
       }
 
-      const latest = result.user;
+      const latest = result.user as Record<string, any>;
       const isActive = latest.isActive ?? latest.active;
       const stillSuspended =
         latest.suspendedAt || (latest.verified && !isActive);

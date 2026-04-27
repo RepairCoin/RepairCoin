@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import { AuthMethod } from "../types";
+export type { AuthMethod };
 
 const secureStorage = {
   getItem: async (name: string) => {

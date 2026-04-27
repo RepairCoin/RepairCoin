@@ -110,6 +110,7 @@
     "react-native-webview": "13.13.5",
     "tailwindcss": "^3.4.17",
     "thirdweb": "^5.105.41",
+    "zod": "^4.3.6",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

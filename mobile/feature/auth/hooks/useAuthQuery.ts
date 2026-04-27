@@ -1,9 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/feature/auth/services/auth.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { router } from "expo-router";
 import apiClient from "@/shared/utilities/axios";
-import { useCallback, useState } from "react";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 
 export const useGetToken = () => {
@@ -57,18 +56,21 @@ export const useConnectWallet = () => {
         setTimeout(() => setIsLoading(false), 500);
         return;
       }
-      
+
+      const user = result.user as Record<string, any>;
+      const userType = result.type;
+
       if (
-        result.type === "shop" &&
-        (!result.user?.verified || !result.user?.active)
+        userType === "shop" &&
+        (!user?.verified || !user?.active)
       ) {
-        setUserProfile(result.user);
+        setUserProfile(user);
         setUserType("shop");
-        const isActive = result.user?.isActive ?? result.user?.active;
+        const isActive = user?.isActive ?? user?.active;
         const isSuspended =
-          !!result.user?.suspendedAt ||
-          !!result.user?.suspended_at ||
-          (result.user?.verified && !isActive);
+          !!user?.suspendedAt ||
+          !!user?.suspended_at ||
+          (user?.verified && !isActive);
         router.replace(
           isSuspended ? "/register/suspended" : "/register/pending",
         );
@@ -79,17 +81,16 @@ export const useConnectWallet = () => {
       try {
         const getTokenResult = await getTokenMutation.mutateAsync(address);
         if (getTokenResult.success) {
-          setUserProfile(result.user);
+          setUserProfile(user);
           setAccessToken(getTokenResult.token);
-          setRefreshToken(
-            getTokenResult.data?.refreshToken || getTokenResult.refreshToken,
-          );
-          setUserType(result.type);
+          const refreshTk = getTokenResult.data?.refreshToken || getTokenResult.refreshToken || "";
+          setRefreshToken(refreshTk);
+          setUserType(userType);
           apiClient.setAuthToken(getTokenResult.token);
 
-          if (result.type === "customer") {
+          if (userType === "customer") {
             router.replace("/customer/tabs/home");
-          } else if (result.type === "shop") {
+          } else if (userType === "shop") {
             router.replace("/shop/tabs/home");
           } else {
             router.replace("/customer/tabs/home");
@@ -104,15 +105,14 @@ export const useConnectWallet = () => {
         }
       } catch (err: any) {
         console.error("[useConnectWallet] Token error:", err);
-        // If token fails for a shop, it might be unverified or suspended
-        if (result.type === "shop") {
-          setUserProfile(result.user);
+        if (userType === "shop") {
+          setUserProfile(user);
           setUserType("shop");
-          const isActive = result.user?.isActive ?? result.user?.active;
+          const isActive = user?.isActive ?? user?.active;
           const isSuspended =
-            !!result.user?.suspendedAt ||
-            !!result.user?.suspended_at ||
-            (result.user?.verified && !isActive);
+            !!user?.suspendedAt ||
+            !!user?.suspended_at ||
+            (user?.verified && !isActive);
           router.replace(
             isSuspended ? "/register/suspended" : "/register/pending",
           );
@@ -127,21 +127,17 @@ export const useConnectWallet = () => {
     },
     onError: (error: any) => {
       console.error("[useConnectWallet] Error:", error);
-
-      // Check if user not found - redirect to register
       if (error?.response?.status === 404 || error?.status === 404) {
         console.log(
           "[useConnectWallet] User not found, redirecting to register...",
         );
         router.replace("/register");
-        // Keep isLoading true until navigation completes to prevent onboarding flash
         setTimeout(() => setIsLoading(false), 500);
         return;
       }
 
       setIsLoading(false);
 
-      // Show user-facing error unless the axios interceptor already did
       if (!error?.__toastShown) {
         const message =
           error?.response?.data?.error ||
