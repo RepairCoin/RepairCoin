@@ -6,10 +6,10 @@ import {
 import { customerApi } from "../services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/feature/auth/hooks/useAuth";
 import apiClient from "@/shared/utilities/axios";
 import { router } from "expo-router";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { useGetToken } from "@/feature/auth/hooks/useAuthQuery";
 
 export const useCustomer = () => {
   const { showError } = useAppToast();
@@ -59,7 +59,6 @@ export const useCustomer = () => {
     const setAccessToken = useAuthStore((state) => state.setAccessToken);
     const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
     const setUserType = useAuthStore((state) => state.setUserType);
-    const { useGetToken } = useAuth();
 
     const getTokenMutation = useGetToken();
 

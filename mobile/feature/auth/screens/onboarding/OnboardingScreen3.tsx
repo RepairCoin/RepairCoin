@@ -5,10 +5,10 @@ import { client } from "@/shared/constants/thirdweb";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
 
-import { useAuth } from "@/feature/auth/hooks/useAuth";
 import { useAuthStore, AuthMethod } from "@/feature/auth/store/auth.store";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
+import { useConnectWallet } from "../../hooks/useAuthQuery";
 
 const globe = require("@/assets/images/onboarding3.png");
 
@@ -57,7 +57,6 @@ export default function OnboardingScreen3({
 
 const ConnectWithMetaMask = () => {
   const { connect } = useConnect();
-  const { useConnectWallet } = useAuth();
   const connectWalletMutation = useConnectWallet();
   const setAuthMethod = useAuthStore((state) => state.setAuthMethod);
   const [showWalletModal, setShowWalletModal] = useState(false);

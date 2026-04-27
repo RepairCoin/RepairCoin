@@ -4,9 +4,9 @@ import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
-import { CustomerFormData } from "../../types";
-import { INITIAL_CUSTOMER_FORM_DATA } from "../../constants";
-import { validateCustomerForm, isValidEmail, hasMinLength } from "../../utils";
+import { CustomerFormData } from "../types";
+import { INITIAL_CUSTOMER_FORM_DATA } from "../constants";
+import { validateCustomerForm, isValidEmail, hasMinLength } from "../utils";
 
 export const useCustomerRegister = () => {
   const { useRegisterCustomer } = useCustomer();
@@ -15,8 +15,6 @@ export const useCustomerRegister = () => {
   const setAccount = useAuthStore((state) => state.setAccount);
   const activeAccount = useActiveAccount();
 
-  // Effective wallet: prefer Zustand (has email for Google login),
-  // fall back to Thirdweb's live wallet (survives hydration races).
   const account = useMemo(() => {
     if (storeAccount?.address) return storeAccount;
     if (activeAccount?.address) {
@@ -25,12 +23,8 @@ export const useCustomerRegister = () => {
     return null;
   }, [storeAccount, activeAccount?.address]);
 
-  // Self-heal: sync Zustand when Thirdweb has a wallet but Zustand doesn't.
   useEffect(() => {
     if (!storeAccount?.address && activeAccount?.address) {
-      console.warn(
-        "[useCustomerRegister] Self-healing: Zustand account null but Thirdweb active — syncing",
-      );
       setAccount({
         address: activeAccount.address,
         email: storeAccount?.email,
@@ -100,11 +94,11 @@ export const useCustomerRegister = () => {
 
   return {
     formData,
-    updateFormData,
     isFormValid,
     isLoading,
+    account,
+    updateFormData,
     validateAndSubmit,
     handleGoBack,
-    account,
   };
 };

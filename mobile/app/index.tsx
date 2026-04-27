@@ -1,12 +1,11 @@
 import { Image, Text, View } from "react-native";
 import Screen from "@/shared/components/ui/Screen";
 import { useEffect } from "react";
-import { useAuth } from "@/feature/auth/hooks/useAuth";
+import { useSplashNavigation } from "@/feature/auth/hooks/useSplashNavigation";
 
 const logo = require("@/assets/images/logo.png");
 
 export default function Splash() {
-  const { useSplashNavigation } = useAuth();
   const { navigate, hasHydrated } = useSplashNavigation();
 
   useEffect(() => {

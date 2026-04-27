@@ -5,19 +5,17 @@ import { authApi } from "@/feature/auth/services/auth.services";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 
 export const useShopSuspended = () => {
-  const logout = useAuthStore((state) => state.logout);
+  const { showSuccess, showError } = useAppToast();
   const userProfile = useAuthStore((state) => state.userProfile);
   const account = useAuthStore((state) => state.account);
   const setUserProfile = useAuthStore((state) => state.setUserProfile);
-  const { showSuccess, showError } = useAppToast();
+  const logout = useAuthStore((state) => state.logout);
   const [isChecking, setIsChecking] = useState(false);
 
   const handleLogout = useCallback(() => {
     logout();
   }, [logout]);
 
-  // Manual re-check against the backend. If the shop was unsuspended, route
-  // back to the dashboard; otherwise refresh the displayed suspension data.
   const handleCheckStatus = useCallback(async () => {
     if (isChecking) return;
     const address = userProfile?.walletAddress || userProfile?.address || account?.address;
@@ -39,7 +37,6 @@ export const useShopSuspended = () => {
       const stillSuspended =
         latest.suspendedAt || (latest.verified && !isActive);
 
-      // Keep the local profile in sync so the screen shows the latest reason.
       setUserProfile(latest);
 
       if (!stillSuspended && isActive && latest.verified) {
