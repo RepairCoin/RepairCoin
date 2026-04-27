@@ -1,0 +1,9 @@
+import { useShop } from "@/feature/profile/shop/hooks/useShop";
+
+/**
+ * Hook for fetching shop profile by ID
+ */
+export const useShopProfileQuery = (shopId: string) => {
+  const { useGetShopById } = useShop();
+  return useGetShopById(shopId);
+};

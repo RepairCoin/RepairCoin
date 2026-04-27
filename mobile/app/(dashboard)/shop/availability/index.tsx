@@ -1,1 +1,1 @@
-export { default } from "@/feature/appointment/screens/AvailabilitySettingsScreen";
+export { default } from "@/feature/transaction/appointment/screens/AvailabilitySettingsScreen";

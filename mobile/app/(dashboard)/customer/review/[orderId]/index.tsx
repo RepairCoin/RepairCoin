@@ -1,1 +1,1 @@
-export { WriteReviewScreen as default } from "@/feature/service/screens";
+export { WriteReviewScreen as default } from "@/feature/services/screens";

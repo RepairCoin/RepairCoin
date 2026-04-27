@@ -1,1 +1,1 @@
-export { TierInfoScreen as default } from "@/feature/customer/screens";
+export { TierInfoScreen as default } from "@/feature/profile/customer/screens";

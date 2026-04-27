@@ -9,7 +9,7 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useShop } from "@/feature/shop/hooks/useShop";
+import { useShop } from "@/feature/profile/shop/hooks/useShop";
 import { ShopFormData, Slide } from "../../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../../constants";
 import { normalizeUrl } from "../../utils";

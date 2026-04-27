@@ -1,1 +1,1 @@
-export { ServiceOrdersScreen as default } from "@/feature/booking/components";
+export { ServiceOrdersScreen as default } from "@/feature/transaction/booking/components";

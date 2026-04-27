@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { usePaymentStore } from "@/feature/booking/store/payment.store";
+import { usePaymentStore } from "@/feature/transaction/booking/store/payment.store";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 export default function PaymentCancel() {

@@ -1,1 +1,1 @@
-export { CustomerProfileScreen as default } from "@/feature/customer/screens";
+export { CustomerProfileScreen as default } from "@/feature/profile/customer/screens";

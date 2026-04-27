@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
-import { shopApi } from "@/feature/shop/services/shop.services";
+import { shopApi } from "@/feature/profile/shop/services/shop.services";
 
 export function useShopByWalletQuery() {
   const { account } = useAuthStore();

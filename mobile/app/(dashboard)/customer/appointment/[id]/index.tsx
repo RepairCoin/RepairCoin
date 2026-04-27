@@ -1,1 +1,1 @@
-export { AppointmentCompleteScreen as default } from "@/feature/appointment/screens";
+export { AppointmentCompleteScreen as default } from "@/feature/transaction/appointment/screens";

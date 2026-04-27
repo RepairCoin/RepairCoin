@@ -15,4 +15,4 @@ export interface WalletTabProps {
 }
 
 // Re-export analytics types for backward compatibility
-export type { TimeRange, ChartFilter, ChartDataPoint, ProfitData, ProfitMetrics } from "@/feature/shop/types";
+export type { TimeRange, ChartFilter, ChartDataPoint, ProfitData, ProfitMetrics } from "@/feature/profile/shop/types";

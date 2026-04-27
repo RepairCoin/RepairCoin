@@ -1,1 +1,1 @@
-export { CustomerServiceScreen as default } from "@/feature/service/screens";
+export { CustomerServiceScreen as default } from "@/feature/services/screens";

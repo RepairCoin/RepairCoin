@@ -10,7 +10,7 @@ import { router } from "expo-router";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
-import { useFavorite } from "@/feature/service/hooks/useFavorite";
+import { useFavorite } from "@/feature/services/hooks/useFavorite";
 
 interface RecentlyViewedSectionProps {
   data: ServiceData[];

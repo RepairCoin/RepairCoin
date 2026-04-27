@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useCustomer } from "@/feature/customer/hooks/useCustomer";
+import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
 import { CustomerFormData } from "../../types";
 import { INITIAL_CUSTOMER_FORM_DATA } from "../../constants";
 import { validateCustomerForm, isValidEmail, hasMinLength } from "../../utils";

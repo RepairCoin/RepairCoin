@@ -5,7 +5,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import {
   appointmentApi,
   CustomerNoShowStatus,
-} from "@/feature/appointment/services/appointment.services";
+} from "@/feature/transaction/appointment/services/appointment.services";
 
 interface BannerConfig {
   bgColor: string;

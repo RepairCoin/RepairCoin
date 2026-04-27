@@ -1,1 +1,1 @@
-export { ServicesFormScreen as default } from "@/feature/service/screens";
+export { ServicesFormScreen as default } from "@/feature/services/screens";

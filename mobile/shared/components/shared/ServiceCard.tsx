@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFavorite } from "@/feature/service/hooks/useFavorite";
+import { useFavorite } from "@/feature/services/hooks/useFavorite";
 import { useHaptics } from "@/shared/hooks/useHaptics";
 
 // Fixed height for grid cards (increased for rating row)

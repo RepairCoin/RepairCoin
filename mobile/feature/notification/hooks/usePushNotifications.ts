@@ -5,7 +5,7 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { usePaymentStore } from "@/feature/booking/store/payment.store";
+import { usePaymentStore } from "@/feature/transaction/booking/store/payment.store";
 import { notificationApi } from "@/feature/notification/services/notification.services";
 import {
   PushNotificationState,

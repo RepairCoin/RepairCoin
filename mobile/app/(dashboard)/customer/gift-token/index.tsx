@@ -1,1 +1,1 @@
-export { GiftTokenScreen as default } from "@/feature/token/screens";
+export { GiftTokenScreen as default } from "@/feature/transaction/token/screens";
