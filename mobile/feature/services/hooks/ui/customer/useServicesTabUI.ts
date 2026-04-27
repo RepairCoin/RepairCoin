@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { ServiceStatusFilter } from "../../../types";
-import { useInfiniteShopServicesQuery } from "../queries/useServiceQueries";
+import { useInfiniteShopServicesQuery } from "../../queries/shop/useServiceQueries";
 
 export function useServicesTabUI() {
   // UI State

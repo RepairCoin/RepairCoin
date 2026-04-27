@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useService } from "../useService";
+import { useService } from "../../useService";
 import { queryKeys } from "@/shared/config/queryClient";
 
 export function useServiceToggleMutation() {

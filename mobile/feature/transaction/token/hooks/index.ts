@@ -1,5 +1,5 @@
 // Re-export constants (for backwards compat with buy-token hooks barrel)
-export { QUICK_AMOUNTS } from "../constants/QUICK_AMOUNTS";
+export { QUICK_AMOUNTS } from "../constants/shared/QUICK_AMOUNTS";
 
 // Query hooks
 export * from "./queries";

@@ -7,8 +7,8 @@ import {
   RedemptionCallbacks,
 } from "../../../types";
 import { useCreateRedemptionSession, useCancelRedemptionSession } from "../../mutations";
-import { useSessionTimer } from "./useSessionTimer";
-import { useSessionPolling } from "./useSessionPolling";
+import { useSessionTimer } from "../customer/useSessionTimer";
+import { useSessionPolling } from "../customer/useSessionPolling";
 
 /**
  * Hook for managing redemption session lifecycle

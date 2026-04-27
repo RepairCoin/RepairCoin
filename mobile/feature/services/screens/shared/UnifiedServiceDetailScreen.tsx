@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useUnifiedServiceDetail } from "../hooks/ui/useUnifiedServiceDetail";
+import { useUnifiedServiceDetail } from "../../hooks/ui/shared/useUnifiedServiceDetail";
 import {
   ServiceDetailHeader,
   ServiceInfoSection,
@@ -17,7 +17,7 @@ import {
   ServiceBottomActions,
   ShareModal,
 } from "../../components";
-import { UnifiedReviewsSection } from "../components/UnifiedReviewsSection";
+import { UnifiedReviewsSection } from "../../components/shared/UnifiedReviewsSection";
 import { FULL_DAYS } from "../../constants";
 
 export default function UnifiedServiceDetailScreen() {

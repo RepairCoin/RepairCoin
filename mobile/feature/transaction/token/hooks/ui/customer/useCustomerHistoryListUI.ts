@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { TransactionData } from "@/shared/interfaces/customer.interface";
-import { useCustomerTransactionsQuery } from "../queries/useCustomerTransactionsQuery";
-import { useHistorySearch } from "./useHistorySearch";
+import { useCustomerTransactionsQuery } from "../../queries/customer/useCustomerTransactionsQuery";
+import { useHistorySearch } from "../shared/useHistorySearch";
 import { useCustomerHistoryFilters } from "./useCustomerHistoryFilters";
 
 export function useCustomerHistoryListUI() {

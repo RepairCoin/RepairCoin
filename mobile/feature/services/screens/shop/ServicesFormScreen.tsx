@@ -18,7 +18,6 @@ import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import SubscriptionModal from "@/shared/components/shop/SubscriptionModal";
-import { AvailabilityModal } from "../components/AvailabilityModal";
 
 // Feature imports
 import {
@@ -26,6 +25,7 @@ import {
   useServiceFormUI,
   useServiceNavigation,
 } from "../../hooks";
+import { AvailabilityModal } from "../../components";
 
 export default function ServicesFormScreen() {
   const params = useLocalSearchParams();

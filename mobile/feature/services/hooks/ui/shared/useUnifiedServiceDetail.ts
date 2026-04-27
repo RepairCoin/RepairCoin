@@ -17,7 +17,7 @@ import {
   useServiceDetailQuery,
   useShopAvailabilityWithConfigQuery,
   useServiceNavigation,
-} from "../../hooks";
+} from "../..";
 
 export function useUnifiedServiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();

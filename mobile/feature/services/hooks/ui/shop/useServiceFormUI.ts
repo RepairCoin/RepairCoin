@@ -12,8 +12,8 @@ import {
   ServiceFormData,
   SubmitFormParams,
 } from "../../../types";
-import { useCreateServiceMutation, useUpdateServiceMutation } from "../mutations/useServiceMutations";
-import { INITIAL_FORM_DATA } from "../../constants/INITIAL_FORM_DATA";
+import { useCreateServiceMutation, useUpdateServiceMutation } from "../../mutations/shop/useServiceMutations";
+import { INITIAL_FORM_DATA } from "../../../constants/shop/INITIAL_FORM_DATA";
 
 export function useServiceFormUI(
   isEditMode: boolean,

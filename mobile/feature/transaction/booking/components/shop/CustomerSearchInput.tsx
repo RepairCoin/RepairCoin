@@ -8,7 +8,7 @@ import {
   FlatList,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useCustomerSearchQuery } from "../hooks/queries";
+import { useCustomerSearchQuery } from "../../hooks/queries";
 import { CustomerSearchResult } from "@/feature/transaction/appointment/services/appointment.services";
 
 interface CustomerSearchInputProps {

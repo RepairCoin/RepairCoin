@@ -7,7 +7,7 @@ import {
 import { useAppToast } from "@/shared/hooks";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "../../../types";
-import { TIME_OPTIONS } from "../../constants/TIME_OPTIONS";
+import { TIME_OPTIONS } from "../../../constants/shop/TIME_OPTIONS";
 
 type TimeField = "openTime" | "closeTime" | "breakStartTime" | "breakEndTime";
 

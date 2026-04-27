@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
-import { useShopTransactionsQuery } from "../queries/useHistoryQueries";
-import { useHistorySearch } from "./useHistorySearch";
+import { useShopTransactionsQuery } from "../../queries/shop/useHistoryQueries";
+import { useHistorySearch } from "../shared/useHistorySearch";
 import { useHistoryFilters } from "./useHistoryFilters";
 
 export function useHistoryListUI() {

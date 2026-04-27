@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useServiceOrdersQuery } from "../queries/useServiceOrdersQuery";
+import { useServiceOrdersQuery } from "../../queries/shop/useServiceOrdersQuery";
 import { bookingApi } from "../../../services/booking.services";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
 import { OrderFilterType, ServiceOrderWithDetails, OrderStats } from "../../../types";
