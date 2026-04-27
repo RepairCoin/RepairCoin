@@ -143,12 +143,12 @@ class ApiClient {
       const response = await authApi.getRefreshToken(refreshToken);
 
       console.log("[ApiClient] Refresh response:", {
-        success: response?.success,
-        hasData: !!response?.data,
+        success: response?.data?.success,
+        hasData: !!response?.data?.data,
         hasAccessToken: !!response?.data?.accessToken,
       });
 
-      if (response.success) {
+      if (response?.data?.success) {
         const { accessToken, refreshToken: newRefreshToken } = response.data;
 
         // Store new tokens in Zustand store

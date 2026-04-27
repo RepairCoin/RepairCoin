@@ -7,6 +7,6 @@ export { default as PendingApprovalScreen } from "./PendingApprovalScreen";
 export { default as ShopSuspendedScreen } from "./ShopSuspendedScreen";
 
 // Onboarding screens
-export { default as OnboardingScreen1 } from "./OnboardingScreen1";
-export { default as OnboardingScreen2 } from "./OnboardingScreen2";
-export { default as OnboardingScreen3 } from "./OnboardingScreen3";
+export { default as OnboardingScreen1 } from "./onboarding/OnboardingScreen1";
+export { default as OnboardingScreen2 } from "./onboarding/OnboardingScreen2";
+export { default as OnboardingScreen3 } from "./onboarding/OnboardingScreen3";

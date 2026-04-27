@@ -1,5 +1,2 @@
-export interface QRCodeConfig {
-  size: number;
-  backgroundColor: string;
-  color: string;
-}
+// Re-export all qrcode interfaces from their canonical location
+export type { QRCodeConfig } from "./services/qrcode.interface";
