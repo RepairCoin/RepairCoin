@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopRewards, useShopBalance, RepairType } from "../useShopRewards";
+import { useShopRewards, useShopBalance, RepairType } from "../../useShopRewards";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 

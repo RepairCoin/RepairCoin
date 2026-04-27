@@ -4,7 +4,7 @@ import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { useTrendingServices } from "../hooks";
+import { useTrendingServices } from "../../hooks";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;

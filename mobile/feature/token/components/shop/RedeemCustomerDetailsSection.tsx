@@ -7,8 +7,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { TIER_STYLES } from "../constants";
-import { CustomerRedemptionData } from "../types";
+import { TIER_STYLES } from "../../constants";
+import { CustomerRedemptionData } from "../../types";
 
 interface CustomerDetailsSectionProps {
   customerAddress: string;

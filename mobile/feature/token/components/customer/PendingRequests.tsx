@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { RedemptionSession } from "../types";
+import { RedemptionSession } from "../../types";
 import { RequestCard } from "./RequestCard";
 
 interface PendingRequestsProps {

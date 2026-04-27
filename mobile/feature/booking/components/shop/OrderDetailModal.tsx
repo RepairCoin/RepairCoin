@@ -8,7 +8,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceOrderWithDetails, BookingStage } from "../types";
+import { ServiceOrderWithDetails, BookingStage } from "../../types";
 import * as Clipboard from "expo-clipboard";
 
 const BOOKING_STAGES: BookingStage[] = [

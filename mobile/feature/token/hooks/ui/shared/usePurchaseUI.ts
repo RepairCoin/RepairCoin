@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useAppToast } from "@/shared/hooks";
-import { useCreateStripeCheckoutMutation } from "../mutations";
+import { useCreateStripeCheckoutMutation } from "../../mutations";
 
 export function usePurchaseUI() {
   const { mutateAsync: createStripeCheckout, isPending: isCreatingCheckout } =

@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { usePaymentStore } from "@/feature/booking/store/payment.store";
 import { useAppToast } from "@/shared/hooks";
-import { purchaseApi } from "../../services/purchase.services";
+import { purchaseApi } from "../../../services/purchase.services";
 
 export function useCreateStripeCheckoutMutation() {
   const { userProfile } = useAuthStore();

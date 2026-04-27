@@ -5,8 +5,8 @@ import {
   SessionStatus,
   CreateRedemptionSessionRequest,
   RedemptionCallbacks,
-} from "../../types";
-import { useCreateRedemptionSession, useCancelRedemptionSession } from "../mutations";
+} from "../../../types";
+import { useCreateRedemptionSession, useCancelRedemptionSession } from "../../mutations";
 import { useSessionTimer } from "./useSessionTimer";
 import { useSessionPolling } from "./useSessionPolling";
 

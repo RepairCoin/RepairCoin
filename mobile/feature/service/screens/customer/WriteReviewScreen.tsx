@@ -1,5 +1,5 @@
 import { View, ScrollView } from "react-native";
-import { useWriteReview } from "../hooks";
+import { useWriteReview } from "../../hooks";
 import {
   ReviewHeader,
   ServiceInfoCard,
@@ -8,7 +8,7 @@ import {
   ImagePicker,
   ReviewTips,
   SubmitButton,
-} from "../components";
+} from "../../components";
 
 export default function WriteReviewScreen() {
   const {

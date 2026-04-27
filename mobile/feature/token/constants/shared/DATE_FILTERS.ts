@@ -1,4 +1,4 @@
-import { DateFilter } from "../types";
+import { DateFilter } from "../../types";
 
 export const DATE_FILTERS: { id: DateFilter; label: string }[] = [
   { id: "all", label: "All Time" },

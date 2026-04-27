@@ -6,8 +6,8 @@ import { queryKeys } from "@/shared/config/queryClient";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useModalStore } from "@/shared/store/common.store";
 import { useAppToast } from "@/shared/hooks";
-import { PaymentParams } from "../../types";
-import { DEFAULT_SUBSCRIPTION_AMOUNT } from "../../constants";
+import { PaymentParams } from "../../../types";
+import { DEFAULT_SUBSCRIPTION_AMOUNT } from "../../../constants";
 
 export function usePayment() {
   const router = useRouter();

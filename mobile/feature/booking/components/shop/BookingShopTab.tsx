@@ -14,11 +14,11 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { bookingApi } from "../services/booking.services";
+import { bookingApi } from "../../services/booking.services";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { useRescheduleRequestCountQuery } from "../hooks/queries";
 import { useQuery } from "@tanstack/react-query";
-import { disputeApi } from "../services/dispute.services";
+import { disputeApi } from "../../services/dispute.services";
 import EnhancedBookingCard from "./EnhancedBookingCard";
 
 // Hooks
@@ -32,7 +32,7 @@ import {
   getScrollableDays,
   getDistinctStatusesForDots,
 } from "@/shared/utilities/calendar";
-import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
+import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../../constants";
 import {
   getBookingStatusColor,
   BOOKING_STATUS_LEGEND,

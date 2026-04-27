@@ -1,8 +1,7 @@
-// Service mutations (serviceApi)
+// Shop mutations
 export {
   useCreateServiceMutation,
   useUpdateServiceMutation,
-} from "./useServiceMutations";
+} from "./shop/useServiceMutations";
 
-// Service toggle mutation (for tab status toggling)
-export { useServiceToggleMutation } from "./useServiceToggleMutation";
+export { useServiceToggleMutation } from "./shop/useServiceToggleMutation";

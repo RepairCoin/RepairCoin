@@ -9,7 +9,7 @@ import {
   ServiceActionModal,
   ShopServiceDetailsModal,
   AddServiceFab,
-} from "../components";
+} from "../../components";
 import { ManualBookingModal } from "@/feature/booking/components";
 
 // Store
@@ -20,15 +20,15 @@ import {
   useServiceTabUI,
   useServiceStatusUI,
   useShopServiceNavigation,
-} from "../hooks/ui";
+} from "../../hooks/ui";
 
 // Feature
-import ServicesTab from "@/feature/service/components/ServicesTab";
+import ServicesTab from "@/feature/service/components/shared/ServicesTab";
 import { BookingShopTab } from "@/feature/booking/components";
 import { BookingAnalyticsTab } from "@/feature/booking/components";
 
 // Constants
-import { SERVICE_TABS } from "../constants";
+import { SERVICE_TABS } from "../../constants";
 
 export default function ShopServiceScreen() {
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);

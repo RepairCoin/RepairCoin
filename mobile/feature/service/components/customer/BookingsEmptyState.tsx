@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BookingFilterTab } from "../tab-types";
+import { BookingFilterTab } from "../../tab-types";
 
 interface BookingsEmptyStateProps {
   filterTab: BookingFilterTab;

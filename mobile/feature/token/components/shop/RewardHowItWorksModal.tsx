@@ -1,6 +1,6 @@
 import { View, Text, Modal, Pressable, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { REWARD_HOW_IT_WORKS_ITEMS as HOW_IT_WORKS_ITEMS } from "../constants";
+import { REWARD_HOW_IT_WORKS_ITEMS as HOW_IT_WORKS_ITEMS } from "../../constants";
 
 interface HowItWorksModalProps {
   visible: boolean;

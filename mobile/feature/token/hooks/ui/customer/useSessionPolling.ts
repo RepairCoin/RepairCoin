@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/feature/shop/services/shop.services";
-import { tokenApi } from "../../services/token.services";
-import { RedemptionSession, SessionStatus, RedemptionCallbacks } from "../../types";
+import { tokenApi } from "../../../services/token.services";
+import { RedemptionSession, SessionStatus, RedemptionCallbacks } from "../../../types";
 
 /**
  * Hook for polling session status

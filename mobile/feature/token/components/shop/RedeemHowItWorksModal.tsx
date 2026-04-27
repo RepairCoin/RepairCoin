@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Modal, Pressable } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { HOW_IT_WORKS_ITEMS } from "../constants";
+import { HOW_IT_WORKS_ITEMS } from "../../constants";
 
 interface HowItWorksModalProps {
   visible: boolean;

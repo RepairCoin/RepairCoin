@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, ScrollView, Image, TextInput, ActivityInd
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ReviewData } from "@/shared/interfaces/review.interface";
-import { serviceApi } from "../services/service.services";
+import { serviceApi } from "../../services/service.services";
 
 interface ReviewCardProps {
   review: ReviewData;

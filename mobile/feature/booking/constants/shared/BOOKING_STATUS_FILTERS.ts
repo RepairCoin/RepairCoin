@@ -1,4 +1,4 @@
-import { BookingFilterStatus } from "../types";
+import { BookingFilterStatus } from "../../types";
 
 export const BOOKING_STATUS_FILTERS: {
   label: string;

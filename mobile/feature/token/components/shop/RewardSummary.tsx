@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { CustomerData } from "../types";
+import { CustomerData } from "../../types";
 
 interface RewardSummaryProps {
   baseReward: number;

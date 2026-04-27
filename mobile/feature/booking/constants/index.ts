@@ -1,7 +1,8 @@
-export { BOOKING_STATUS_FILTERS } from "./BOOKING_STATUS_FILTERS";
-export { DAYS, MONTHS, YEARS } from "./CALENDAR_CONSTANTS";
-export { SERVICE_TABS } from "./SERVICE_TABS";
-export type { ServiceTab } from "./SERVICE_TABS";
+// Shared constants
+export { BOOKING_STATUS_FILTERS } from "./shared/BOOKING_STATUS_FILTERS";
+export { DAYS, MONTHS, YEARS } from "./shared/CALENDAR_CONSTANTS";
+export { SERVICE_TABS } from "./shared/SERVICE_TABS";
+export type { ServiceTab } from "./shared/SERVICE_TABS";
 
-// Payment constants (merged from feature/payment)
-export { DEFAULT_SUBSCRIPTION_AMOUNT, SUBSCRIPTION_PERIOD_DAYS } from "./PAYMENT_CONSTANTS";
+// Shop constants (payment)
+export { DEFAULT_SUBSCRIPTION_AMOUNT, SUBSCRIPTION_PERIOD_DAYS } from "./shop/PAYMENT_CONSTANTS";

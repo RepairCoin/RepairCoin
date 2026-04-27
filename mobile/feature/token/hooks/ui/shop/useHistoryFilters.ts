@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { StatusFilter, DateFilter } from "../../types";
+import { StatusFilter, DateFilter } from "../../../types";
 
 export function useHistoryFilters() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");

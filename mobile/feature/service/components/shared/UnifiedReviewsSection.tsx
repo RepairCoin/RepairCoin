@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ReviewData, ReviewStats } from "@/shared/interfaces/review.interface";
-import { serviceApi } from "../services/service.services";
+import { serviceApi } from "../../services/service.services";
 
 interface UnifiedReviewsSectionProps {
   reviews: ReviewData[];

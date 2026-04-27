@@ -1,5 +1,5 @@
-import { useRedemptionSessions as useRedemptionSessionsQuery } from "../useTokenQueries";
-import { RedemptionSession } from "../../types";
+import { useRedemptionSessions as useRedemptionSessionsQuery } from "../../useTokenQueries";
+import { RedemptionSession } from "../../../types";
 
 /**
  * Hook for fetching customer's redemption sessions

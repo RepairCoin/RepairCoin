@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { QRScanner } from "@/shared/components/shop/QRScanner";
-import { useGiftToken } from "../hooks";
+import { useGiftToken } from "../../hooks";
 import {
   GiftHeader,
   RecipientInput,
@@ -15,7 +15,7 @@ import {
   ValidationMessage,
   GiftButton,
   InfoNote,
-} from "../components";
+} from "../../components";
 
 export default function GiftTokenScreen() {
   const {

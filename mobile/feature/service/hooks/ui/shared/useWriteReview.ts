@@ -5,8 +5,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/shared/utilities/axios";
 import { useAppToast } from "@/shared/hooks";
 import { queryKeys } from "@/shared/config/queryClient";
-import { SubmitReviewData, RatingLevel } from "../../types";
-import { RATING_LABELS } from "../../constants";
+import { SubmitReviewData, RatingLevel } from "../../../types";
+import { RATING_LABELS } from "../../../constants";
 
 export function useWriteReview() {
   const params = useLocalSearchParams();

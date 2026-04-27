@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { CustomerServiceTab } from "../../tab-types";
-import { CUSTOMER_SERVICE_TABS } from "../../constants";
+import { CustomerServiceTab } from "../../../tab-types";
+import { CUSTOMER_SERVICE_TABS } from "../../../constants";
 
 export function useCustomerServiceTab() {
   const [activeTab, setActiveTab] = useState<CustomerServiceTab>("Services");

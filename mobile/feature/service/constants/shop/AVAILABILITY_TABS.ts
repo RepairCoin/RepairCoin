@@ -1,4 +1,4 @@
-import { AvailabilityTab } from "../types";
+import { AvailabilityTab } from "../../types";
 
 export const AVAILABILITY_TABS: { label: string; value: AvailabilityTab }[] = [
   { label: "Hours", value: "hours" },

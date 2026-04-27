@@ -45,15 +45,18 @@ export const REVIEW_TIPS = [
   "Be honest and constructive",
 ];
 
-export { SERVICE_STATUS_OPTIONS } from "./SERVICE_STATUS_OPTIONS";
-export { AVAILABILITY_TABS } from "./AVAILABILITY_TABS";
-export { DAYS, FULL_DAYS } from "./DAYS";
-export { TIME_OPTIONS } from "./TIME_OPTIONS";
-export { INITIAL_FORM_DATA } from "./INITIAL_FORM_DATA";
+// Shop constants
+export { SERVICE_STATUS_OPTIONS } from "./shop/SERVICE_STATUS_OPTIONS";
+export { AVAILABILITY_TABS } from "./shop/AVAILABILITY_TABS";
+export { TIME_OPTIONS } from "./shop/TIME_OPTIONS";
+export { INITIAL_FORM_DATA } from "./shop/INITIAL_FORM_DATA";
+export { SERVICE_TABS } from "./shop/SERVICE_TABS";
+export type { ServiceTab } from "./shop/SERVICE_TABS";
 
-// Tab constants
-export { SERVICE_TABS } from "./SERVICE_TABS";
-export type { ServiceTab } from "./SERVICE_TABS";
+// Shared constants
+export { DAYS, FULL_DAYS } from "./shared/DAYS";
+
+// Customer constants
 export {
   CUSTOMER_SERVICE_TABS,
   TIME_FILTERS,
@@ -62,4 +65,4 @@ export {
   getBookingDateRange,
   STATUS_CONFIG,
   getStatusConfig,
-} from "./CUSTOMER_SERVICE_TABS";
+} from "./customer/CUSTOMER_SERVICE_TABS";

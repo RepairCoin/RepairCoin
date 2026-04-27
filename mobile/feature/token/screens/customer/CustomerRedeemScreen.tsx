@@ -9,14 +9,14 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
-import { useCustomerRedeem } from "../hooks";
+import { useCustomerRedeem } from "../../hooks";
 import {
   BalanceCard,
   PendingRequests,
   QuickActions,
   HowToRedeemModal,
   LoadingOverlay,
-} from "../components";
+} from "../../components";
 
 export default function CustomerRedeemScreen() {
   const {

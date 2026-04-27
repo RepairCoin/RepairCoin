@@ -11,9 +11,9 @@ import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
-import { useHistoryListUI } from "../hooks";
-import { STATUS_FILTERS, DATE_FILTERS } from "../constants";
-import { TransactionHistoryCard, FilterChip } from "../components";
+import { useHistoryListUI } from "../../hooks";
+import { STATUS_FILTERS, DATE_FILTERS } from "../../constants";
+import { TransactionHistoryCard, FilterChip } from "../../components";
 
 export default function ShopHistoryScreen() {
   const {

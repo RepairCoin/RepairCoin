@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { PromoCode } from "../types";
+import { PromoCode } from "../../types";
 
 interface PromoCodeInputProps {
   promoCode: string;

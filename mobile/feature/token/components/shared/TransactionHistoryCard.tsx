@@ -1,6 +1,6 @@
 import { Entypo, Octicons, MaterialIcons, Feather, Ionicons } from "@expo/vector-icons";
 import { View, Text } from "react-native";
-import { Props } from "../types";
+import { Props } from "../../types";
 
 // Convert snake_case to Title Case (e.g., "service_redemption_refund" → "Service Redemption Refund")
 const formatSnakeCase = (text: string): string => {

@@ -1,14 +1,12 @@
 export { useBookingsFilter } from "../useBookingsFilter";
-export { useBookingsData } from "./useBookingsData";
 export { useCalendarUI } from "@/feature/appointment/hooks/ui/useCalendarUI";
-export { useBookingDetail } from "./useBookingDetail";
 
-// Service Orders UI (merged from feature/service-orders)
-export { useServiceOrdersUI } from "./useServiceOrdersUI";
+// Shop UI hooks
+export { useBookingsData } from "./shop/useBookingsData";
+export { useBookingDetail } from "./shop/useBookingDetail";
+export { useServiceOrdersUI } from "./shop/useServiceOrdersUI";
+export { useBookingAnalyticsUI } from "./shop/useBookingAnalyticsUI";
 
-// Booking Analytics UI (merged from feature/booking-analytics)
-export { useBookingAnalyticsUI } from "./useBookingAnalyticsUI";
-
-// Payment UI (merged from feature/payment)
-export { usePayment } from "./usePayment";
-export { usePaymentSuccess } from "./usePaymentSuccess";
+// Shared UI hooks (payment)
+export { usePayment } from "./shared/usePayment";
+export { usePaymentSuccess } from "./shared/usePaymentSuccess";

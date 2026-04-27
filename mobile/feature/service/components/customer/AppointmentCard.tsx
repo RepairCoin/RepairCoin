@@ -1,8 +1,8 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
-import { getStatusConfig } from "../constants";
-import { canCancelAppointment } from "../hooks";
+import { getStatusConfig } from "../../constants";
+import { canCancelAppointment } from "../../hooks";
 
 interface AppointmentCardProps {
   appointment: MyAppointment;

@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from "react";
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { QUICK_AMOUNTS } from "../constants";
-import { CustomerRedemptionData } from "../types";
+import { QUICK_AMOUNTS } from "../../constants";
+import { CustomerRedemptionData } from "../../types";
 
 interface RedemptionAmountSectionProps {
   redemptionAmount: string;

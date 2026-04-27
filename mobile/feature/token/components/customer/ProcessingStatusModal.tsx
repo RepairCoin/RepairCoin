@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { RedemptionSession, SessionStatus } from "../types";
-import { formatAddress } from "../utils";
+import { RedemptionSession, SessionStatus } from "../../types";
+import { formatAddress } from "../../utils";
 
 interface ProcessingStatusModalProps {
   visible: boolean;

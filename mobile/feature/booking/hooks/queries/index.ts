@@ -5,17 +5,11 @@ export {
   useMyAppointmentsQuery,
 } from "../useBooking";
 
-// Reschedule request queries
+// Shop queries
 export {
   useRescheduleRequestsQuery,
   useRescheduleRequestCountQuery,
-} from "./useRescheduleRequests";
-
-// Customer search query
-export { useCustomerSearchQuery } from "./useCustomerSearch";
-
-// Service Orders query (merged from feature/service-orders)
-export { useServiceOrdersQuery } from "./useServiceOrdersQuery";
-
-// Booking Analytics query (merged from feature/booking-analytics)
-export { useBookingAnalyticsQuery } from "./useBookingAnalyticsQuery";
+} from "./shop/useRescheduleRequests";
+export { useCustomerSearchQuery } from "./shop/useCustomerSearch";
+export { useServiceOrdersQuery } from "./shop/useServiceOrdersQuery";
+export { useBookingAnalyticsQuery } from "./shop/useBookingAnalyticsQuery";

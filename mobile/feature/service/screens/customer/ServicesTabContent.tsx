@@ -14,9 +14,9 @@ import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { useServicesTab } from "../hooks";
-import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../components";
-import { ServiceSortOption } from "../tab-types";
+import { useServicesTab } from "../../hooks";
+import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../components";
+import { ServiceSortOption } from "../../tab-types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;

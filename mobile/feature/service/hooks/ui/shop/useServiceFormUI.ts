@@ -11,7 +11,7 @@ import {
   PendingAvailabilityChanges,
   ServiceFormData,
   SubmitFormParams,
-} from "../../types";
+} from "../../../types";
 import { useCreateServiceMutation, useUpdateServiceMutation } from "../mutations/useServiceMutations";
 import { INITIAL_FORM_DATA } from "../../constants/INITIAL_FORM_DATA";
 

@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { useCustomerServiceTab } from "../hooks";
-import { CustomerTabBar } from "../components";
+import { useCustomerServiceTab } from "../../hooks";
+import { CustomerTabBar } from "../../components";
 import ServicesTabContent from "./ServicesTabContent";
 import FavoritesTabContent from "./FavoritesTabContent";
 import BookingsTabContent from "./BookingsTabContent";

@@ -1,6 +1,8 @@
-export { default as BookingDetailScreen } from "./BookingDetailScreen";
-export { default as RescheduleRequestsScreen } from "./RescheduleRequestsScreen";
+// Shop screens
+export { default as BookingDetailScreen } from "./shop/BookingDetailScreen";
+export { default as RescheduleRequestsScreen } from "./shop/RescheduleRequestsScreen";
+export { default as ShopDisputesScreen } from "./shop/ShopDisputesScreen";
 
-// Payment screens (merged from feature/payment)
-export { default as PaymentScreen } from "./PaymentScreen";
-export { default as PaymentSuccessScreen } from "./PaymentSuccessScreen";
+// Shared screens (payment)
+export { default as PaymentScreen } from "./shared/PaymentScreen";
+export { default as PaymentSuccessScreen } from "./shared/PaymentSuccessScreen";

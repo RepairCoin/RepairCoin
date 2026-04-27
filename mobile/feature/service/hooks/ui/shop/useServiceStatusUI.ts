@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { useAppToast } from "@/shared/hooks";
-import { useServiceToggleMutation } from "../mutations";
+import { useServiceToggleMutation } from "../../mutations";
 
 export function useServiceStatusUI() {
   const { toggleServiceStatus } = useServiceToggleMutation();

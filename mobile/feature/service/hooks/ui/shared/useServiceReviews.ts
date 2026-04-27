@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useQuery } from "@tanstack/react-query";
-import { serviceApi } from "../../services/service.services";
+import { serviceApi } from "../../../services/service.services";
 import { queryKeys } from "@/shared/config/queryClient";
 import { ReviewData } from "@/shared/interfaces/review.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";

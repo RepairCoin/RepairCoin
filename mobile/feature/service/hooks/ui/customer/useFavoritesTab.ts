@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
-import { useFavorite } from "../useFavorite";
+import { useFavorite } from "../../useFavorite";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 

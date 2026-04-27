@@ -1,4 +1,4 @@
-import { StatusFilter } from "../types";
+import { StatusFilter } from "../../types";
 
 export const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },

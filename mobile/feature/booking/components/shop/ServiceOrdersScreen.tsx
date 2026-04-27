@@ -12,8 +12,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { useServiceOrdersUI } from "../hooks";
-import { ServiceOrderWithDetails } from "../types";
+import { useServiceOrdersUI } from "../../hooks";
+import { ServiceOrderWithDetails } from "../../types";
 import OrderCard from "./OrderCard";
 import OrderDetailModal from "./OrderDetailModal";
 

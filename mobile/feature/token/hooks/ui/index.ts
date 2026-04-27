@@ -1,26 +1,30 @@
-// Redeem token UI hooks
-export { useSessionTimer } from "./useSessionTimer";
-export { useSessionPolling } from "./useSessionPolling";
-export { useRedemptionSession } from "./useRedemptionSession";
-export { useRedemption } from "./useRedemption";
-export { useRedeemToken } from "./useRedeemToken";
-export { useCustomerRedeem } from "./useCustomerRedeem";
+// Shop UI hooks
+export { useSessionTimer } from "./customer/useSessionTimer";
+export { useSessionPolling } from "./customer/useSessionPolling";
+export { useRedemptionSession } from "./shop/useRedemptionSession";
+export { useRedemption } from "./shop/useRedemption";
+export { useRedeemToken } from "./shop/useRedeemToken";
+export { useCustomerRedeem } from "./customer/useCustomerRedeem";
 
-// Buy token UI hooks
-export { useBuyTokenUI } from "./useBuyTokenUI";
-export { useBuyTokenNavigation } from "./useBuyTokenNavigation";
-export { usePurchaseUI } from "./usePurchaseUI";
-export { usePurchase } from "./usePurchase";
+// Shared - Buy token UI hooks
+export { useBuyTokenUI } from "./shared/useBuyTokenUI";
+export { useBuyTokenNavigation } from "./shared/useBuyTokenNavigation";
+export { usePurchaseUI } from "./shared/usePurchaseUI";
+export { usePurchase } from "./shared/usePurchase";
 
-// Gift token UI hooks
-export { useGiftToken } from "./useGiftToken";
+// Gift UI hooks
+export { useGiftToken } from "./gift/useGiftToken";
 
-// Reward token UI hooks
-export { useRewardToken } from "./useRewardToken";
+// Shop - Reward UI hooks
+export { useRewardToken } from "./shop/useRewardToken";
 
-// History UI hooks
-export { useHistorySearch } from "./useHistorySearch";
-export { useHistoryFilters } from "./useHistoryFilters";
-export { useHistoryListUI } from "./useHistoryListUI";
-export { useCustomerHistoryFilters } from "./useCustomerHistoryFilters";
-export { useCustomerHistoryListUI } from "./useCustomerHistoryListUI";
+// Shared - History UI hooks
+export { useHistorySearch } from "./shared/useHistorySearch";
+
+// Shop - History UI hooks
+export { useHistoryFilters } from "./shop/useHistoryFilters";
+export { useHistoryListUI } from "./shop/useHistoryListUI";
+
+// Customer - History UI hooks
+export { useCustomerHistoryFilters } from "./customer/useCustomerHistoryFilters";
+export { useCustomerHistoryListUI } from "./customer/useCustomerHistoryListUI";

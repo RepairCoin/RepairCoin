@@ -16,9 +16,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { TimeSlotConfig, DateOverride } from "@/shared/interfaces/appointment.interface";
-import { PendingAvailabilityChanges } from "../types";
-import { useAvailabilityModal } from "../hooks";
-import { AVAILABILITY_TABS, FULL_DAYS, TIME_OPTIONS } from "../constants";
+import { PendingAvailabilityChanges } from "../../types";
+import { useAvailabilityModal } from "../../hooks";
+import { AVAILABILITY_TABS, FULL_DAYS, TIME_OPTIONS } from "../../constants";
 
 interface AvailabilityModalProps {
   visible: boolean;

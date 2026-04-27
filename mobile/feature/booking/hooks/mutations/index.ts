@@ -1,4 +1,4 @@
-// Booking mutations
+// Booking mutations (shared - contains both shop and customer mutations)
 export {
   useApproveOrderMutation,
   useCompleteOrderMutation,
@@ -8,7 +8,7 @@ export {
   useRescheduleMutation,
 } from "./useBookingMutations";
 
-// Reschedule request mutations
+// Reschedule request mutations (shared - contains both shop and customer mutations)
 export {
   useApproveRescheduleRequestMutation,
   useRejectRescheduleRequestMutation,
@@ -16,5 +16,5 @@ export {
   useCancelRescheduleRequestMutation,
 } from "./useRescheduleActions";
 
-// Manual booking mutation
-export { useManualBookingMutation } from "./useManualBooking";
+// Shop mutations
+export { useManualBookingMutation } from "./shop/useManualBooking";

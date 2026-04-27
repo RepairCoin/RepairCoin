@@ -1,4 +1,4 @@
-import { TransactionFilter } from "../types";
+import { TransactionFilter } from "../../types";
 
 export const TRANSACTION_FILTERS: { id: TransactionFilter; label: string }[] = [
   { id: "all", label: "All" },

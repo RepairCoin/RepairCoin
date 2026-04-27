@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { STAR_COUNT } from "../constants";
-import { RatingLevel } from "../types";
+import { STAR_COUNT } from "../../constants";
+import { RatingLevel } from "../../types";
 
 interface StarRatingProps {
   rating: RatingLevel;

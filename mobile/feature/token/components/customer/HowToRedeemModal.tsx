@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { HOW_TO_REDEEM_STEPS } from "../constants";
+import { HOW_TO_REDEEM_STEPS } from "../../constants";
 
 interface HowToRedeemModalProps {
   visible: boolean;

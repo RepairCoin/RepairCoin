@@ -1,8 +1,10 @@
-// Redeem token mutations
-export { useCreateRedemptionSession } from "./useCreateRedemptionSession";
-export { useCancelRedemptionSession } from "./useCancelRedemptionSession";
-export { useApproveRedemptionSession } from "./useApproveRedemptionSession";
-export { useRejectRedemptionSession } from "./useRejectRedemptionSession";
+// Shop mutations
+export { useCreateRedemptionSession } from "./shop/useCreateRedemptionSession";
+export { useApproveRedemptionSession } from "./shop/useApproveRedemptionSession";
+export { useRejectRedemptionSession } from "./shop/useRejectRedemptionSession";
 
-// Buy token mutations
-export { useCreateStripeCheckoutMutation } from "./useBuyTokenMutations";
+// Customer mutations
+export { useCancelRedemptionSession } from "./customer/useCancelRedemptionSession";
+
+// Shared mutations
+export { useCreateStripeCheckoutMutation } from "./shared/useBuyTokenMutations";

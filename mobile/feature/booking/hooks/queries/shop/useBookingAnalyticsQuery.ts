@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { bookingAnalyticsApi } from "../../services/bookingAnalytics.services";
-import { TrendDays } from "../../types";
+import { bookingAnalyticsApi } from "../../../services/bookingAnalytics.services";
+import { TrendDays } from "../../../types";
 
 export function useBookingAnalyticsQuery(trendDays: TrendDays) {
   return useQuery({

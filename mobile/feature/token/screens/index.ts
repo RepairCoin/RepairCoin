@@ -1,7 +1,12 @@
-export { default as RedeemTokenScreen } from "./RedeemTokenScreen";
-export { default as CustomerRedeemScreen } from "./CustomerRedeemScreen";
-export { default as BuyTokenScreen } from "./BuyTokenScreen";
-export { default as GiftTokenScreen } from "./GiftTokenScreen";
-export { default as RewardTokenScreen } from "./RewardTokenScreen";
-export { default as ShopHistoryScreen } from "./ShopHistoryScreen";
-export { default as CustomerHistoryScreen } from "./CustomerHistoryScreen";
+// Shop screens
+export { default as RedeemTokenScreen } from "./shop/RedeemTokenScreen";
+export { default as RewardTokenScreen } from "./shop/RewardTokenScreen";
+export { default as ShopHistoryScreen } from "./shop/ShopHistoryScreen";
+
+// Customer screens
+export { default as CustomerRedeemScreen } from "./customer/CustomerRedeemScreen";
+export { default as CustomerHistoryScreen } from "./customer/CustomerHistoryScreen";
+export { default as GiftTokenScreen } from "./customer/GiftTokenScreen";
+
+// Shared screens
+export { default as BuyTokenScreen } from "./shared/BuyTokenScreen";

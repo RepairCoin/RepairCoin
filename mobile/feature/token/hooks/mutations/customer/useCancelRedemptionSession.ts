@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { tokenApi } from "../../services/token.services";
-import { RedemptionCallbacks } from "../../types";
+import { tokenApi } from "../../../services/token.services";
+import { RedemptionCallbacks } from "../../../types";
 
 /**
  * Hook for cancelling a redemption session

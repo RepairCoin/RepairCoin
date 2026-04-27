@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { purchaseApi } from "../../services/purchase.services";
+import { purchaseApi } from "../../../services/purchase.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 export function useShopTransactionsQuery() {

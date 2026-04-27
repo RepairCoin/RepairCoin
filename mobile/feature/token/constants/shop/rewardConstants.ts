@@ -1,4 +1,4 @@
-import { RepairOption, HowItWorksItem } from "../types";
+import { RepairOption, HowItWorksItem } from "../../types";
 
 export const REPAIR_OPTIONS: RepairOption[] = [
   {

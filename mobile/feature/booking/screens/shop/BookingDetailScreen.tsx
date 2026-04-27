@@ -20,7 +20,7 @@ import {
   StatusBanner,
   ShopActions,
   CustomerActions,
-} from "../components";
+} from "../../components";
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { useBookingDetail } from "../hooks/ui/useBookingDetail";

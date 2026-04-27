@@ -1,10 +1,10 @@
-// Service queries (serviceApi)
+// Shop queries (serviceApi)
 export {
   useServicesTabQuery,
   useInfiniteShopServicesQuery,
   useServiceDetailQuery,
   useServiceFormData,
-} from "./useServiceQueries";
+} from "./shop/useServiceQueries";
 
-// Appointment queries (appointmentApi)
-export { useShopAvailabilityWithConfigQuery } from "./useAppointmentQueries";
+// Shared queries (appointmentApi)
+export { useShopAvailabilityWithConfigQuery } from "./shared/useAppointmentQueries";

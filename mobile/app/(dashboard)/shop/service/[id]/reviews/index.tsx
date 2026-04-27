@@ -1,1 +1,1 @@
-export { default } from "@/feature/service/screens/ServiceReviewsScreen";
+export { default } from "@/feature/service/screens/shared/ServiceReviewsScreen";

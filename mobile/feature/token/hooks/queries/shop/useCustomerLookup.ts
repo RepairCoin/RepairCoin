@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { balanceApi } from "../../services/balance.services";
+import { balanceApi } from "../../../services/balance.services";
 import { customerApi } from "@/feature/customer/services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { CustomerRedemptionData, CustomerTier } from "../../types";
+import { CustomerRedemptionData, CustomerTier } from "../../../types";
 
 // Cross-shop redemption limit (20% of lifetime earnings)
 const CROSS_SHOP_LIMIT_PERCENTAGE = 0.20;

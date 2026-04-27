@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { useShopBookingQuery, useCustomerBookingQuery } from "../queries";
+import { useShopBookingQuery, useCustomerBookingQuery } from "../../queries";
 import {
   useApproveOrderMutation,
   useCompleteOrderMutation,
@@ -10,7 +10,7 @@ import {
   useMarkNoShowMutation,
   useRescheduleMutation,
   useCreateRescheduleRequestMutation,
-} from "../mutations";
+} from "../../mutations";
 import { getStatusColor } from "../../utils";
 import { BookingData, BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/feature/auth/store/auth.store";

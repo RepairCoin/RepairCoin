@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { TransactionFilter, DateFilter } from "../../types";
+import { TransactionFilter, DateFilter } from "../../../types";
 
 export function useCustomerHistoryFilters() {
   const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>("all");

@@ -1,4 +1,4 @@
-import { HowItWorksItem } from "../types";
+import { HowItWorksItem } from "../../types";
 
 export const HOW_IT_WORKS_ITEMS: HowItWorksItem[] = [
   {

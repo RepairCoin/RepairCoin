@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookingData } from "@/shared/interfaces/booking.interfaces";
-import { BookingFilterStatus } from "../../types";
-import { bookingApi } from "../../services/booking.services";
+import { BookingFilterStatus } from "../../../types";
+import { bookingApi } from "../../../services/booking.services";
 
 export function useBookingsData(statusFilter: BookingFilterStatus) {
   const { data, isLoading, error, refetch } = useQuery({

@@ -16,9 +16,9 @@ import {
   AdditionalInfoSection,
   ServiceBottomActions,
   ShareModal,
-} from "../components";
+} from "../../components";
 import { UnifiedReviewsSection } from "../components/UnifiedReviewsSection";
-import { FULL_DAYS } from "../constants";
+import { FULL_DAYS } from "../../constants";
 
 export default function UnifiedServiceDetailScreen() {
   const {

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { bookingApi } from "../../services/booking.services";
+import { bookingApi } from "../../../services/booking.services";
 
 export function useServiceOrdersQuery() {
   return useQuery({

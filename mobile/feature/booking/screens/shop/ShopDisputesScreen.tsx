@@ -17,7 +17,7 @@ import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppToast } from "@/shared/hooks";
-import { disputeApi, DisputeEntry } from "../services/dispute.services";
+import { disputeApi, DisputeEntry } from "../../services/dispute.services";
 
 type DisputeFilter = "pending" | "approved" | "rejected" | "all";
 

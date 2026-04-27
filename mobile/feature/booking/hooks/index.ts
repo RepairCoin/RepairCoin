@@ -4,14 +4,14 @@ export {
   useCustomerBookingQuery,
 } from "./queries";
 
-// Service Orders
-export { useServiceOrdersQuery } from "./queries/useServiceOrdersQuery";
-export { useServiceOrdersUI } from "./ui/useServiceOrdersUI";
+// Shop - Service Orders
+export { useServiceOrdersQuery } from "./queries/shop/useServiceOrdersQuery";
+export { useServiceOrdersUI } from "./ui/shop/useServiceOrdersUI";
 
-// Booking Analytics
-export { useBookingAnalyticsQuery } from "./queries/useBookingAnalyticsQuery";
-export { useBookingAnalyticsUI } from "./ui/useBookingAnalyticsUI";
+// Shop - Booking Analytics
+export { useBookingAnalyticsQuery } from "./queries/shop/useBookingAnalyticsQuery";
+export { useBookingAnalyticsUI } from "./ui/shop/useBookingAnalyticsUI";
 
-// Payment
-export { usePayment } from "./ui/usePayment";
-export { usePaymentSuccess } from "./ui/usePaymentSuccess";
+// Shared - Payment
+export { usePayment } from "./ui/shared/usePayment";
+export { usePaymentSuccess } from "./ui/shared/usePaymentSuccess";

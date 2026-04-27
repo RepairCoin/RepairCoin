@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RedemptionSession, SessionStatus } from "../../types";
+import { RedemptionSession, SessionStatus } from "../../../types";
 
 /**
  * Hook for managing session countdown timer

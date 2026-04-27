@@ -1,10 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
-import { tokenApi } from "../../services/token.services";
+import { tokenApi } from "../../../services/token.services";
 import {
   CreateRedemptionSessionRequest,
   RedemptionSession,
   RedemptionCallbacks,
-} from "../../types";
+} from "../../../types";
 
 /**
  * Hook for creating a redemption session

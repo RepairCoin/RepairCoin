@@ -8,14 +8,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
-import { useServiceReviews } from "../hooks";
+import { useServiceReviews } from "../../hooks";
 import {
   ReviewsHeader,
   RatingFilter,
   RatingSummary,
   ReviewCard,
   EmptyReviewsState,
-} from "../components";
+} from "../../components";
 
 export default function ServiceReviewsScreen() {
   const {

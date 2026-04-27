@@ -1,18 +1,16 @@
-export { default as ServicesFormScreen } from "./ServicesFormScreen";
-export { default as TrendingServicesScreen } from "./TrendingServicesScreen";
+// Shop screens
+export { default as ServicesFormScreen } from "./shop/ServicesFormScreen";
+export { default as ShopServiceScreen } from "./shop/ShopServiceScreen";
+export { default as ServiceGroupSettingsScreen } from "./shop/ServiceGroupSettingsScreen";
 
-// Unified service detail screen (works for both customer and shop)
-export { default as UnifiedServiceDetailScreen } from "./UnifiedServiceDetailScreen";
+// Customer screens
+export { default as CustomerServiceScreen } from "./customer/CustomerServiceScreen";
+export { default as ServicesTabContent } from "./customer/ServicesTabContent";
+export { default as FavoritesTabContent } from "./customer/FavoritesTabContent";
+export { default as BookingsTabContent } from "./customer/BookingsTabContent";
+export { default as TrendingServicesScreen } from "./customer/TrendingServicesScreen";
+export { default as WriteReviewScreen } from "./customer/WriteReviewScreen";
 
-// Shop tab screens
-export { default as ShopServiceScreen } from "./ShopServiceScreen";
-
-// Customer tab screens
-export { default as CustomerServiceScreen } from "./CustomerServiceScreen";
-export { default as ServicesTabContent } from "./ServicesTabContent";
-export { default as FavoritesTabContent } from "./FavoritesTabContent";
-export { default as BookingsTabContent } from "./BookingsTabContent";
-
-// Review/Rating screens (merged from feature/ratings)
-export { default as WriteReviewScreen } from "./WriteReviewScreen";
-export { default as ServiceReviewsScreen } from "./ServiceReviewsScreen";
+// Shared screens
+export { default as UnifiedServiceDetailScreen } from "./shared/UnifiedServiceDetailScreen";
+export { default as ServiceReviewsScreen } from "./shared/ServiceReviewsScreen";

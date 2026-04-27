@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "../tab-types";
+import { CustomerServiceStatusFilter, ServiceSortOption, PriceRange } from "../../tab-types";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 
 interface ServiceFilterModalProps {

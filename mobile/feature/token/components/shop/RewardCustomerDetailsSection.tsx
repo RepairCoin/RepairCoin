@@ -3,7 +3,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import CustomerInfoCard from "./CustomerInfoCard";
 import CustomerWarning from "./CustomerWarning";
 import PromoCodeInput from "./PromoCodeInput";
-import { CustomerData, PromoCode } from "../types";
+import { CustomerData, PromoCode } from "../../types";
 
 interface CustomerDetailsSectionProps {
   customerAddress: string;

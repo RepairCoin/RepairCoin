@@ -1,11 +1,11 @@
-// Redeem token queries
-export { useCustomerLookup } from "./useCustomerLookup";
-export { useCustomerRedeemData } from "./useCustomerRedeemData";
-export { useRedemptionSessions } from "./useRedemptionSessions";
+// Shop queries
+export { useCustomerLookup } from "./shop/useCustomerLookup";
+export { useShopTransactionsQuery } from "./shop/useHistoryQueries";
 
-// Buy token queries
-export { useBuyTokenQueries } from "./useBuyTokenQueries";
+// Customer queries
+export { useCustomerRedeemData } from "./customer/useCustomerRedeemData";
+export { useRedemptionSessions } from "./customer/useRedemptionSessions";
+export { useCustomerTransactionsQuery } from "./customer/useCustomerTransactionsQuery";
 
-// History queries
-export { useShopTransactionsQuery } from "./useHistoryQueries";
-export { useCustomerTransactionsQuery } from "./useCustomerTransactionsQuery";
+// Shared queries
+export { useBuyTokenQueries } from "./shared/useBuyTokenQueries";

@@ -1,12 +1,12 @@
 import { View, Text, TouchableOpacity, Animated } from "react-native";
 import Screen from "@/shared/components/ui/Screen";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
-import { usePaymentSuccess } from "../hooks";
+import { usePaymentSuccess } from "../../hooks";
 import {
   SuccessIcon,
   TokenPurchaseDetails,
   SubscriptionDetails,
-} from "../components";
+} from "../../components";
 
 export default function PaymentSuccessScreen() {
   const {

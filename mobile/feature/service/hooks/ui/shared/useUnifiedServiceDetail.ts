@@ -4,15 +4,15 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useQuery } from "@tanstack/react-query";
-import { useService } from "../useService";
+import { useService } from "../../useService";
 import { useCustomer } from "@/feature/customer/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
-import { serviceApi } from "../../services/service.services";
+import { serviceApi } from "../../../services/service.services";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { queryKeys } from "@/shared/config/queryClient";
-import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION, FULL_DAYS } from "../../constants";
-import { TierInfo, RewardCalculation } from "../../types";
+import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION, FULL_DAYS } from "../../../constants";
+import { TierInfo, RewardCalculation } from "../../../types";
 import {
   useServiceDetailQuery,
   useShopAvailabilityWithConfigQuery,

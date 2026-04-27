@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useBookingAnalyticsUI } from "../hooks";
-import { TrendDays } from "../types";
+import { useBookingAnalyticsUI } from "../../hooks";
+import { TrendDays } from "../../types";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

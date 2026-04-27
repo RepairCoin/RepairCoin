@@ -1,7 +1,7 @@
 import { ScrollView, RefreshControl } from "react-native";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { QRScanner } from "@/shared/components/shop/QRScanner";
-import { useRewardToken } from "../hooks";
+import { useRewardToken } from "../../hooks";
 import {
   RewardHeader,
   RewardCustomerDetailsSection as CustomerDetailsSection,
@@ -10,7 +10,7 @@ import {
   RewardHowItWorksModal as HowItWorksModal,
   ConfirmRewardModal,
   RecentRewards,
-} from "../components";
+} from "../../components";
 
 export default function RewardTokenScreen() {
   const {
