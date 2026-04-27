@@ -1,7 +1,7 @@
 import Screen from "@/shared/components/ui/Screen";
 import { Entypo, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { View, Text, ImageBackground, Pressable } from "react-native";
-import { useChooseRole } from "../hooks/useChooseRole";
+import { useChooseRole } from "../../hooks/useChooseRole";
 
 export default function ChooseRoleScreen() {
   const { handleLogout, handleCustomerPress, handleShopPress } = useChooseRole();

@@ -2,8 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import apiClient from "@/shared/utilities/axios";
-import { router } from "expo-router";
-import { notificationApi } from "@/feature/notification/services/notification.services";
+import { AuthMethod } from "../types";
 
 const secureStorage = {
   getItem: async (name: string) => {
@@ -18,16 +17,7 @@ const secureStorage = {
   },
 };
 
-export type AuthMethod =
-  | "google"
-  | "metamask"
-  | "walletconnect"
-  | "coinbase"
-  | "rainbow"
-  | null;
-
 interface AuthState {
-  // State
   account: any;
   accessToken: string | null;
   refreshToken: string | null;
@@ -37,8 +27,6 @@ interface AuthState {
   hasHydrated: boolean;
   isLoading: boolean;
   authMethod: AuthMethod;
-
-  // Actions
   setAccount: (account: any) => void;
   setAccessToken: (accessToken: string) => void;
   setRefreshToken: (refreshToken: string) => void;
@@ -47,7 +35,7 @@ interface AuthState {
   setHasHydrated: (state: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
   setAuthMethod: (method: AuthMethod) => void;
-  logout: (navigate?: boolean) => Promise<void>;
+  resetState: () => void;
   checkStoredAuth: () => Promise<void>;
 }
 
@@ -55,7 +43,6 @@ export const useAuthStore = create<AuthState>()(
   persist(
     devtools(
       (set, get) => ({
-        // Initial state
         account: null,
         accessToken: null,
         refreshToken: null,
@@ -65,36 +52,27 @@ export const useAuthStore = create<AuthState>()(
         hasHydrated: false,
         isLoading: false,
         authMethod: null,
-
-        // Actions
         setAccount: (account) => {
           set({ account }, false, "setAccount");
         },
-
         setHasHydrated: (state) => {
           set({ hasHydrated: state }, false, "setHasHydrated");
         },
-
         setIsLoading: (isLoading) => {
           set({ isLoading }, false, "setIsLoading");
         },
-
         setAuthMethod: (method) => {
           set({ authMethod: method }, false, "setAuthMethod");
         },
-
         setAccessToken: (accessToken) => {
           set({ accessToken }, false, "setAccessToken");
         },
-
         setRefreshToken: (refreshToken) => {
           set({ refreshToken }, false, "setRefreshToken");
         },
-
         setUserType: (userType) => {
           set({ userType }, false, "setUserType");
         },
-
         setUserProfile: (userProfile) => {
           set(
             {
@@ -105,7 +83,6 @@ export const useAuthStore = create<AuthState>()(
             "setUserProfile",
           );
         },
-
         checkStoredAuth: async () => {
           const state = get();
           if (!state.accessToken || !state.userType) {
@@ -148,49 +125,7 @@ export const useAuthStore = create<AuthState>()(
             set({ isLoading: false }, false, "checkStoredAuth:end");
           }
         },
-
-        logout: async (navigate = true) => {
-          const state = get();
-
-          // Clear axios auth header immediately so no further requests
-          // trigger token-refresh loops while we clean up.
-          apiClient.clearAuthHeader();
-
-          // Best-effort push token deactivation — fire and forget so a
-          // dead token can't block logout.
-          notificationApi.deactivateAllPushTokens().catch((error) => {
-            console.error("[Auth] Error deactivating push tokens:", error);
-          });
-
-          // Disconnect wallet if any
-          if (state.account?.disconnect) {
-            try {
-              await state.account.disconnect();
-              console.log("[Auth] Account disconnected");
-            } catch (error) {
-              console.error("[Auth] Error disconnecting:", error);
-            }
-          }
-
-          // Clear SecureStore (this is what Zustand persist uses)
-          try {
-            const keys = [
-              "auth-store",
-              "repairCoin_authData",
-              "repairCoin_authToken",
-              "repairCoin_userType",
-              "repairCoin_walletAddress",
-              "payment-session-storage",
-            ];
-            await Promise.all(
-              keys.map((key) => SecureStore.deleteItemAsync(key)),
-            );
-            console.log("[Auth] SecureStore cleared");
-          } catch (error) {
-            console.error("[Auth] Error clearing SecureStore:", error);
-          }
-
-          // Reset Zustand state
+        resetState: () => {
           set(
             {
               account: null,
@@ -203,14 +138,8 @@ export const useAuthStore = create<AuthState>()(
               authMethod: null,
             },
             false,
-            "logout",
+            "resetState",
           );
-
-          console.log("[Auth] User logged out successfully");
-
-          if (navigate) {
-            router.replace("/onboarding1");
-          }
         },
       }),
       { name: "auth-store" },
@@ -226,7 +155,6 @@ export const useAuthStore = create<AuthState>()(
         userProfile: state.userProfile,
         isAuthenticated: state.isAuthenticated,
         authMethod: state.authMethod,
-        // Exclude isLoading and hasHydrated from persistence
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

@@ -9,3 +9,11 @@ export type {
   ThirdSlideProps,
   FourthSlideProps,
 } from "./services/auth.interface";
+
+export type AuthMethod =
+  | "google"
+  | "metamask"
+  | "walletconnect"
+  | "coinbase"
+  | "rainbow"
+  | null;

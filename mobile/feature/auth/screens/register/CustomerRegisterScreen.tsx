@@ -12,7 +12,7 @@ import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { useCustomerRegister } from "../hooks/useCustomerRegister";
+import { useCustomerRegister } from "../../hooks/useCustomerRegister";
 
 export default function CustomerRegisterScreen() {
   const {

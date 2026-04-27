@@ -406,12 +406,10 @@ class ApiClient {
     this.isClearingAuth = true;
 
     try {
-      const { logout, isAuthenticated } = useAuthStore.getState();
+      const { resetState, isAuthenticated } = useAuthStore.getState();
 
-      // Run the store's logout pipeline (clears Zustand + SecureStore,
-      // disconnects wallet, deactivates push tokens). Skip navigation here —
-      // we'll do it after logout resolves so it happens once.
-      await logout(false);
+      // Reset Zustand state (clear tokens, profile, etc.)
+      resetState();
 
       // Only navigate if the user was actually authenticated; otherwise a
       // dropped public call shouldn't punt them to onboarding.

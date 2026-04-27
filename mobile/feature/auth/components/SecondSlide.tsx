@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Alert } from "react-native";
+import { View, Text, ScrollView, Alert, StyleSheet } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import { useMemo } from "react";
@@ -7,7 +7,7 @@ import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { NavigableSlideProps } from "../types";
-import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS, pickerSelectStyles } from "../constants";
+import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../constants";
 import { validateShopSecondSlide, hasMinLength } from "../utils";
 
 export default function SecondSlide({
@@ -21,7 +21,7 @@ export default function SecondSlide({
       formData.name,
       formData.companySize,
       formData.monthlyRevenue,
-      formData.website
+      formData.website,
     );
 
     if (errors.length > 0) {
@@ -75,7 +75,7 @@ export default function SecondSlide({
                 onValueChange={(value) => updateFormData("companySize", value)}
                 items={COMPANY_SIZE_OPTIONS}
                 placeholder={{ label: "Select company size", value: "" }}
-                style={pickerSelectStyles}
+                style={styles}
                 useNativeAndroidPickerStyle={false}
               />
             </View>
@@ -92,10 +92,12 @@ export default function SecondSlide({
             <View className="flex-1 ml-3">
               <RNPickerSelect
                 value={formData.monthlyRevenue}
-                onValueChange={(value) => updateFormData("monthlyRevenue", value)}
+                onValueChange={(value) =>
+                  updateFormData("monthlyRevenue", value)
+                }
                 items={MONTHLY_REVENUE_OPTIONS}
                 placeholder={{ label: "Select monthly revenue", value: "" }}
-                style={pickerSelectStyles}
+                style={styles}
                 useNativeAndroidPickerStyle={false}
               />
             </View>
@@ -148,3 +150,21 @@ export default function SecondSlide({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  inputIOS: {
+    height: 48,
+    fontSize: 16,
+    color: "#fff",
+    paddingVertical: 12,
+  },
+  inputAndroid: {
+    height: 48,
+    fontSize: 16,
+    color: "#fff",
+    paddingVertical: 12,
+  },
+  placeholder: {
+    color: "#666",
+  },
+});

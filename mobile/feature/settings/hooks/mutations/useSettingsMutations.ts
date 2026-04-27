@@ -1,18 +1,10 @@
-import { useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useLogout } from "@/feature/auth/hooks/useLogout";
 
 export function useSettingsMutations() {
-  const queryClient = useQueryClient();
-  const logout = useAuthStore((state) => state.logout);
-
-  const performLogout = useCallback(async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await logout(true);
-  }, [queryClient, logout]);
+  const { logout, isLoggingOut } = useLogout();
 
   return {
-    performLogout,
+    performLogout: logout,
+    isLoggingOut,
   };
 }

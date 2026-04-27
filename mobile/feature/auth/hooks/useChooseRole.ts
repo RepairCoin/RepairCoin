@@ -1,13 +1,12 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
-import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useLogout } from "./useLogout";
 
 export const useChooseRole = () => {
-  const logout = useAuthStore((state) => state.logout);
+  const { logout } = useLogout();
 
   const handleLogout = useCallback(() => {
     logout();
-    router.replace("/onboarding1");
   }, [logout]);
 
   const handleCustomerPress = useCallback(() => {
@@ -19,8 +18,8 @@ export const useChooseRole = () => {
   }, []);
 
   return {
-    handleLogout,
     handleCustomerPress,
     handleShopPress,
+    handleLogout,
   };
 };

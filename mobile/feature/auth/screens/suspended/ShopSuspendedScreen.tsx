@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import Screen from "@/shared/components/ui/Screen";
 import { Ionicons } from "@expo/vector-icons";
-import { useShopSuspended } from "../hooks/useShopSuspended";
+import { useShopSuspended } from "../../hooks/useShopSuspended";
 
 export default function ShopSuspendedScreen() {
   const { userProfile, isChecking, handleLogout, handleCheckStatus } =

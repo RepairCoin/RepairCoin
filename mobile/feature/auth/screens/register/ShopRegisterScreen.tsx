@@ -1,15 +1,15 @@
 import React, { useCallback } from "react";
 import { FlatList, View } from "react-native";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { useShopRegister } from "../hooks/useShopRegister";
+import { useShopRegister } from "../../hooks/useShopRegister";
 import {
   FirstSlide,
   SecondSlide,
   ThirdSlide,
   SocialMediaSlide,
   FourthSlide,
-} from "../components";
-import { Slide } from "../types";
+} from "../../components";
+import { Slide } from "../../types";
 
 export default function ShopRegisterScreen() {
   const {

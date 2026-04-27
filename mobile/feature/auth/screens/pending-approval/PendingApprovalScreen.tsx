@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import Screen from "@/shared/components/ui/Screen";
 import { Ionicons } from "@expo/vector-icons";
-import { usePendingApproval } from "../hooks/usePendingApproval";
+import { usePendingApproval } from "../../hooks/usePendingApproval";
 
 export default function PendingApprovalScreen() {
   const { userProfile, handleLogout } = usePendingApproval();

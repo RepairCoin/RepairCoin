@@ -7,18 +7,13 @@ export const INITIAL_CUSTOMER_FORM_DATA: CustomerFormData = {
 };
 
 export const INITIAL_SHOP_FORM_DATA: ShopFormData = {
-  // Shop Information
   shopId: "",
   name: "",
   walletAddress: "",
-
-  // Personal Information
   firstName: "",
   lastName: "",
   email: "",
   phone: "",
-
-  // Business Information
   address: "",
   city: "",
   country: "",
@@ -26,17 +21,11 @@ export const INITIAL_SHOP_FORM_DATA: ShopFormData = {
   monthlyRevenue: "",
   website: "",
   referral: "",
-
-  // Social Media
   facebook: "",
   twitter: "",
   instagram: "",
-
-  // Wallet Information
   reimbursementAddress: "",
   fixflowShopId: "",
-
-  // Location (for mapping)
   location: {
     city: "",
     state: "",
@@ -44,8 +33,6 @@ export const INITIAL_SHOP_FORM_DATA: ShopFormData = {
     lat: "",
     lng: "",
   },
-
-  // Terms and Conditions
   acceptTerms: false,
 };
 

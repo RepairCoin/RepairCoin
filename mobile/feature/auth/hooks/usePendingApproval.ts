@@ -1,14 +1,14 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useLogout } from "./useLogout";
 
 export const usePendingApproval = () => {
-  const logout = useAuthStore((state) => state.logout);
+  const { logout } = useLogout();
   const userProfile = useAuthStore((state) => state.userProfile);
 
   const handleLogout = useCallback(() => {
     logout();
-    router.replace("/onboarding1");
   }, [logout]);
 
   const handleRefresh = useCallback(async () => {

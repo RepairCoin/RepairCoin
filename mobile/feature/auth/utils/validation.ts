@@ -1,35 +1,24 @@
-// Email validation
 export const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email.trim());
 };
 
-// Phone validation (minimum 7 digits for international numbers)
 export const isValidPhone = (phone: string): boolean => {
   const digits = phone.replace(/\D/g, "");
   return digits.length >= 7;
 };
 
-// Ethereum address validation
 export const isValidEthAddress = (address: string): boolean => {
   const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
   return ethAddressRegex.test(address);
 };
 
-// URL validation — accepts URLs with or without the protocol prefix so
-// users can type "facebook.com/page" or "https://facebook.com/page".
-// Use normalizeUrl() before persisting so the stored value always has a
-// scheme and is safe to open as a clickable link.
 export const isValidUrl = (url: string): boolean => {
   const urlRegex =
     /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-@]*)*\/?$/;
   return urlRegex.test(url.trim());
 };
 
-// Prepend https:// to URLs the user typed without a protocol. Empty strings
-// are returned as-is (URL fields are optional). Values that don't look like
-// URLs at all (no dot) are returned untouched so isValidUrl() can reject
-// them downstream.
 export const normalizeUrl = (url: string): string => {
   if (!url) return "";
   const trimmed = url.trim();
@@ -43,12 +32,10 @@ export const normalizeUrl = (url: string): string => {
   return trimmed;
 };
 
-// Minimum length validation
 export const hasMinLength = (value: string, minLength: number): boolean => {
   return value.trim().length >= minLength;
 };
 
-// Customer form validation
 export const validateCustomerForm = (
   fullName: string,
   email: string
@@ -70,7 +57,6 @@ export const validateCustomerForm = (
   return errors;
 };
 
-// Shop first slide validation (personal info)
 export const validateShopFirstSlide = (
   firstName: string,
   lastName: string,
@@ -98,7 +84,6 @@ export const validateShopFirstSlide = (
   return errors;
 };
 
-// Shop second slide validation (business info)
 export const validateShopSecondSlide = (
   name: string,
   companySize: string,
@@ -126,7 +111,6 @@ export const validateShopSecondSlide = (
   return errors;
 };
 
-// Shop third slide validation (location & wallet)
 export const validateShopThirdSlide = (
   address: string,
   city: string,
@@ -159,7 +143,6 @@ export const validateShopThirdSlide = (
   return errors;
 };
 
-// Shop social media slide validation
 export const validateShopSocialMediaSlide = (
   facebook: string,
   instagram: string,

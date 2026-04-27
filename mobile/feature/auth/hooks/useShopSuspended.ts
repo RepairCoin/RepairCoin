@@ -3,13 +3,14 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { authApi } from "@/feature/auth/services/auth.services";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { useLogout } from "./useLogout";
 
 export const useShopSuspended = () => {
   const { showSuccess, showError } = useAppToast();
   const userProfile = useAuthStore((state) => state.userProfile);
   const account = useAuthStore((state) => state.account);
   const setUserProfile = useAuthStore((state) => state.setUserProfile);
-  const logout = useAuthStore((state) => state.logout);
+  const { logout } = useLogout();
   const [isChecking, setIsChecking] = useState(false);
 
   const handleLogout = useCallback(() => {
