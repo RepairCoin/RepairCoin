@@ -6,6 +6,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { Controller } from "react-hook-form";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
@@ -16,11 +17,11 @@ import { useCustomerRegister } from "../../hooks/useCustomerRegister";
 
 export default function CustomerRegisterScreen() {
   const {
-    formData,
-    updateFormData,
+    control,
+    errors,
     isFormValid,
     isLoading,
-    validateAndSubmit,
+    onSubmit,
     handleGoBack,
     account,
   } = useCustomerRegister();
@@ -54,24 +55,38 @@ export default function CustomerRegisterScreen() {
               title="Personal Information"
             />
 
-            <FormInput
-              label="Full Name"
-              icon={<Ionicons name="person-outline" size={20} color="#FFCC00" />}
-              value={formData.fullName}
-              onChangeText={(text) => updateFormData("fullName", text)}
-              placeholder="Enter your full name"
-              maxLength={100}
+            <Controller
+              control={control}
+              name="fullName"
+              render={({ field: { onChange, value } }) => (
+                <FormInput
+                  label="Full Name"
+                  icon={<Ionicons name="person-outline" size={20} color="#FFCC00" />}
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder="Enter your full name"
+                  maxLength={100}
+                  error={errors.fullName?.message}
+                />
+              )}
             />
 
-            <FormInput
-              label="Email Address"
-              icon={<Ionicons name="mail-outline" size={20} color="#FFCC00" />}
-              value={formData.email}
-              onChangeText={(text) => updateFormData("email", text)}
-              placeholder="Enter your email address"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              maxLength={255}
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <FormInput
+                  label="Email Address"
+                  icon={<Ionicons name="mail-outline" size={20} color="#FFCC00" />}
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder="Enter your email address"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  maxLength={255}
+                  error={errors.email?.message}
+                />
+              )}
             />
 
             <SectionHeader
@@ -79,15 +94,21 @@ export default function CustomerRegisterScreen() {
               title="Referral (Optional)"
             />
 
-            <FormInput
-              label="Referral Code"
-              icon={<Feather name="gift" size={20} color="#FFCC00" />}
-              value={formData.referral}
-              onChangeText={(text) => updateFormData("referral", text)}
-              placeholder="Enter referral code"
-              autoCapitalize="none"
-              helperText="Earn bonus tokens when you sign up with a referral code"
-              maxLength={50}
+            <Controller
+              control={control}
+              name="referral"
+              render={({ field: { onChange, value } }) => (
+                <FormInput
+                  label="Referral Code"
+                  icon={<Feather name="gift" size={20} color="#FFCC00" />}
+                  value={value ?? ""}
+                  onChangeText={onChange}
+                  placeholder="Enter referral code"
+                  autoCapitalize="none"
+                  helperText="Earn bonus tokens when you sign up with a referral code"
+                  maxLength={50}
+                />
+              )}
             />
 
             <SectionHeader
@@ -124,7 +145,7 @@ export default function CustomerRegisterScreen() {
           >
             <PrimaryButton
               title={isLoading ? "Creating Account..." : "Create Account"}
-              onPress={validateAndSubmit}
+              onPress={onSubmit}
               disabled={!isFormValid || isLoading}
               loading={isLoading}
             />

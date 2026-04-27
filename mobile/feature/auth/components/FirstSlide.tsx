@@ -1,46 +1,20 @@
-import { View, Text, ScrollView, Alert } from "react-native";
+import { View, Text, ScrollView } from "react-native";
+import { Controller } from "react-hook-form";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
-import { useMemo } from "react";
 import FormInput from "@/shared/components/ui/FormInput";
 import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { FirstSlideProps } from "../types";
-import { validateShopFirstSlide, isValidEmail, isValidPhone, hasMinLength } from "../utils";
 import { THEME_COLORS } from "@/shared/constants/Colors";
 
 export default function FirstSlide({
   handleGoBack,
   handleGoNext,
-  formData,
-  updateFormData,
+  control,
+  errors,
 }: FirstSlideProps) {
-  const validateAndProceed = () => {
-    const errors = validateShopFirstSlide(
-      formData.firstName,
-      formData.lastName,
-      formData.email,
-      formData.phone
-    );
-
-    if (errors.length > 0) {
-      Alert.alert("Validation Error", errors.join("\n"));
-      return;
-    }
-
-    handleGoNext();
-  };
-
-  const isFormValid = useMemo(() => {
-    return (
-      hasMinLength(formData.firstName, 2) &&
-      hasMinLength(formData.lastName, 2) &&
-      isValidEmail(formData.email) &&
-      isValidPhone(formData.phone)
-    );
-  }, [formData.firstName, formData.lastName, formData.email, formData.phone]);
-
   return (
     <View className="w-full h-full">
       <AppHeader title="Register Shop" onBackPress={handleGoBack} />
@@ -65,24 +39,38 @@ export default function FirstSlide({
           title="Personal Information"
         />
 
-        <FormInput
-          label="First Name"
-          icon={<Feather name="user" size={20} color="#FFCC00" />}
-          value={formData.firstName}
-          onChangeText={(value) => updateFormData("firstName", value)}
-          placeholder="Enter your first name"
-          autoCapitalize="words"
-          maxLength={100}
+        <Controller
+          control={control}
+          name="firstName"
+          render={({ field: { onChange, value } }) => (
+            <FormInput
+              label="First Name"
+              icon={<Feather name="user" size={20} color="#FFCC00" />}
+              value={value}
+              onChangeText={onChange}
+              placeholder="Enter your first name"
+              autoCapitalize="words"
+              maxLength={100}
+              error={errors.firstName?.message}
+            />
+          )}
         />
 
-        <FormInput
-          label="Last Name"
-          icon={<Feather name="user" size={20} color="#FFCC00" />}
-          value={formData.lastName}
-          onChangeText={(value) => updateFormData("lastName", value)}
-          placeholder="Enter your last name"
-          autoCapitalize="words"
-          maxLength={100}
+        <Controller
+          control={control}
+          name="lastName"
+          render={({ field: { onChange, value } }) => (
+            <FormInput
+              label="Last Name"
+              icon={<Feather name="user" size={20} color="#FFCC00" />}
+              value={value}
+              onChangeText={onChange}
+              placeholder="Enter your last name"
+              autoCapitalize="words"
+              maxLength={100}
+              error={errors.lastName?.message}
+            />
+          )}
         />
 
         <SectionHeader
@@ -90,22 +78,35 @@ export default function FirstSlide({
           title="Contact Information"
         />
 
-        <FormInput
-          label="Email Address"
-          icon={<Feather name="mail" size={20} color="#FFCC00" />}
-          value={formData.email}
-          onChangeText={(value) => updateFormData("email", value)}
-          placeholder="Enter your email address"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          maxLength={255}
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { onChange, value } }) => (
+            <FormInput
+              label="Email Address"
+              icon={<Feather name="mail" size={20} color="#FFCC00" />}
+              value={value}
+              onChangeText={onChange}
+              placeholder="Enter your email address"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              maxLength={255}
+              error={errors.email?.message}
+            />
+          )}
         />
 
-        <PhoneInput
-          label="Phone Number"
-          value={formData.phone}
-          onChangePhone={(value) => updateFormData("phone", value)}
-          defaultCountryCode="US"
+        <Controller
+          control={control}
+          name="phone"
+          render={({ field: { onChange, value } }) => (
+            <PhoneInput
+              label="Phone Number"
+              value={value}
+              onChangePhone={onChange}
+              defaultCountryCode="US"
+            />
+          )}
         />
 
         <View className="bg-[#2A2A2C] rounded-xl p-4 mt-2 flex-row">
@@ -125,11 +126,7 @@ export default function FirstSlide({
           borderTopColor: "#2A2A2C",
         }}
       >
-        <PrimaryButton
-          title="Continue"
-          onPress={validateAndProceed}
-          disabled={!isFormValid}
-        />
+        <PrimaryButton title="Continue" onPress={handleGoNext} />
       </View>
     </View>
   );

@@ -13,17 +13,17 @@ import { Slide } from "../../types";
 
 export default function ShopRegisterScreen() {
   const {
-    formData,
+    control,
+    errors,
     slides,
     isPending,
     account,
     flatRef,
     width,
-    updateFormData,
     onScroll,
     handleGoBack,
     handleGoNext,
-    handleSubmit,
+    onSubmit,
   } = useShopRegister();
 
   const renderSlide = useCallback(
@@ -31,8 +31,8 @@ export default function ShopRegisterScreen() {
       const slideProps = {
         handleGoBack,
         handleGoNext,
-        formData,
-        updateFormData,
+        control,
+        errors,
       };
 
       return (
@@ -46,9 +46,9 @@ export default function ShopRegisterScreen() {
           {item.key === "5" && (
             <FourthSlide
               handleGoBack={handleGoBack}
-              handleSubmit={handleSubmit}
-              formData={formData}
-              updateFormData={updateFormData}
+              handleSubmit={onSubmit}
+              control={control}
+              errors={errors}
               isLoading={isPending}
             />
           )}
@@ -58,10 +58,10 @@ export default function ShopRegisterScreen() {
     [
       handleGoBack,
       handleGoNext,
-      formData,
-      updateFormData,
+      control,
+      errors,
       account?.address,
-      handleSubmit,
+      onSubmit,
       isPending,
       width,
     ]

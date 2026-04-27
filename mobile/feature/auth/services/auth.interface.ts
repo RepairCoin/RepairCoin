@@ -1,3 +1,6 @@
+import { Control, FieldErrors } from "react-hook-form";
+import type { ShopRegisterData } from "../dto/register.dto";
+
 export interface CustomerFormData {
   fullName: string;
   email: string;
@@ -42,11 +45,8 @@ export interface Slide {
 
 export interface BaseSlideProps {
   handleGoBack: () => void;
-  formData: ShopFormData;
-  updateFormData: <K extends keyof ShopFormData>(
-    field: K,
-    value: ShopFormData[K],
-  ) => void;
+  control: Control<ShopRegisterData>;
+  errors: FieldErrors<ShopRegisterData>;
 }
 
 export interface NavigableSlideProps extends BaseSlideProps {

@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
 } from "react-native";
+import { useState } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useActiveAccount } from "thirdweb/react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useShop } from "@/feature/profile/shop/hooks/useShop";
-import { ShopFormData, Slide } from "../types";
+import { ShopRegisterDto, type ShopRegisterData } from "../dto";
+import { Slide } from "../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../constants";
 import { normalizeUrl } from "../utils";
 
@@ -20,6 +24,15 @@ const generateShopId = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `SHOP-${timestamp}-${random}`;
+};
+
+// Fields to validate per slide
+const SLIDE_FIELDS: Record<string, (keyof ShopRegisterData)[]> = {
+  "1": ["firstName", "lastName", "email", "phone"],
+  "2": ["name", "companySize", "monthlyRevenue"],
+  "3": ["address", "city", "country"],
+  "4": ["facebook", "twitter", "instagram"],
+  "5": ["acceptTerms"],
 };
 
 export const useShopRegister = () => {
@@ -49,24 +62,27 @@ export const useShopRegister = () => {
   const { showError } = useAppToast();
 
   const [index, setIndex] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<ShopFormData>({
-    ...INITIAL_SHOP_FORM_DATA,
-    shopId: generateShopId(),
-    email: storeAccount?.email || "",
+
+  const {
+    control,
+    handleSubmit,
+    trigger,
+    formState: { errors, isSubmitting },
+  } = useForm<ShopRegisterData>({
+    resolver: zodResolver(ShopRegisterDto),
+    defaultValues: {
+      ...INITIAL_SHOP_FORM_DATA,
+      shopId: generateShopId(),
+      walletAddress: account?.address || "",
+      email: storeAccount?.email || "",
+    },
+    mode: "onChange",
   });
 
   const isPending = isRegistering || isSubmitting;
 
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides = useMemo(() => SHOP_REGISTER_SLIDES, []);
-
-  const updateFormData = useCallback(
-    <K extends keyof ShopFormData>(field: K, value: ShopFormData[K]) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
 
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
@@ -81,50 +97,55 @@ export const useShopRegister = () => {
     }
   }, [index]);
 
-  const handleGoNext = useCallback(() => {
+  const handleGoNext = useCallback(async () => {
+    const currentSlide = slides[index]?.key;
+    const fieldsToValidate = SLIDE_FIELDS[currentSlide];
+
+    if (fieldsToValidate) {
+      const isValid = await trigger(fieldsToValidate);
+      if (!isValid) return;
+    }
+
     if (index < slides.length - 1) {
       flatRef.current?.scrollToIndex({ index: index + 1, animated: true });
     }
-  }, [index, slides.length]);
+  }, [index, slides, trigger]);
 
-  const handleSubmit = useCallback(() => {
-    if (isSubmitting) return;
+  const onSubmit = useCallback(
+    (data: ShopRegisterData) => {
+      if (!account?.address) {
+        showError(
+          "Wallet not connected. Please return to the welcome screen and connect your wallet.",
+        );
+        return;
+      }
 
-    if (!account?.address) {
-      showError(
-        "Wallet not connected. Please return to the welcome screen and connect your wallet.",
-      );
-      return;
-    }
+      const submissionData = {
+        ...data,
+        website: normalizeUrl(data.website),
+        facebook: normalizeUrl(data.facebook),
+        instagram: normalizeUrl(data.instagram),
+        twitter: normalizeUrl(data.twitter),
+        walletAddress: account.address,
+      };
 
-    setIsSubmitting(true);
-
-    const submissionData = {
-      ...formData,
-      website: normalizeUrl(formData.website),
-      facebook: normalizeUrl(formData.facebook),
-      instagram: normalizeUrl(formData.instagram),
-      twitter: normalizeUrl(formData.twitter),
-      walletAddress: account.address,
-    };
-
-    registerShop(submissionData, {
-      onSettled: () => setIsSubmitting(false),
-    });
-  }, [formData, account, registerShop, showError, isSubmitting]);
+      registerShop(submissionData);
+    },
+    [account, registerShop, showError],
+  );
 
   return {
-    formData,
+    control,
+    errors,
     index,
     slides,
     isPending,
     account,
     flatRef,
     width,
-    updateFormData,
     onScroll,
     handleGoBack,
     handleGoNext,
-    handleSubmit,
+    onSubmit: handleSubmit(onSubmit),
   };
 };

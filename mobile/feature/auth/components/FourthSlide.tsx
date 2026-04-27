@@ -1,4 +1,5 @@
 import { View, Text, ScrollView } from "react-native";
+import { Controller, useWatch } from "react-hook-form";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
@@ -11,10 +12,11 @@ import { TERMS_ITEMS } from "../constants";
 export default function FourthSlide({
   handleGoBack,
   handleSubmit,
-  formData,
-  updateFormData,
+  control,
   isLoading = false,
 }: FourthSlideProps) {
+  const acceptTerms = useWatch({ control, name: "acceptTerms" });
+
   return (
     <View className="w-full h-full">
       <AppHeader title="Review & Submit" onBackPress={handleGoBack} />
@@ -29,14 +31,20 @@ export default function FourthSlide({
           title="Additional Details (Optional)"
         />
 
-        <FormInput
-          label="FixFlow Shop ID"
-          icon={<Feather name="link" size={20} color="#FFCC00" />}
-          value={formData.fixflowShopId}
-          onChangeText={(value) => updateFormData("fixflowShopId", value)}
-          placeholder="Enter FixFlow Shop ID"
-          maxLength={100}
-          helperText="If you use FixFlow for your repair business"
+        <Controller
+          control={control}
+          name="fixflowShopId"
+          render={({ field: { onChange, value } }) => (
+            <FormInput
+              label="FixFlow Shop ID"
+              icon={<Feather name="link" size={20} color="#FFCC00" />}
+              value={value}
+              onChangeText={onChange}
+              placeholder="Enter FixFlow Shop ID"
+              maxLength={100}
+              helperText="If you use FixFlow for your repair business"
+            />
+          )}
         />
 
         <SectionHeader
@@ -55,23 +63,29 @@ export default function FourthSlide({
           ))}
         </View>
 
-        <View className="flex-row items-start mt-6 mb-4">
-          <Checkbox
-            value={formData.acceptTerms}
-            onValueChange={(value) => updateFormData("acceptTerms", value)}
-            color={formData.acceptTerms ? "#FFCC00" : undefined}
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              borderColor: formData.acceptTerms ? "#FFCC00" : "#666",
-            }}
-          />
-          <Text className="ml-3 text-gray-300 text-sm flex-1">
-            I confirm that I have read and accept the terms and conditions and
-            privacy policy.
-          </Text>
-        </View>
+        <Controller
+          control={control}
+          name="acceptTerms"
+          render={({ field: { onChange, value } }) => (
+            <View className="flex-row items-start mt-6 mb-4">
+              <Checkbox
+                value={value}
+                onValueChange={onChange}
+                color={value ? "#FFCC00" : undefined}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  borderColor: value ? "#FFCC00" : "#666",
+                }}
+              />
+              <Text className="ml-3 text-gray-300 text-sm flex-1">
+                I confirm that I have read and accept the terms and conditions and
+                privacy policy.
+              </Text>
+            </View>
+          )}
+        />
 
         <View className="bg-[#FFCC00]/10 rounded-xl p-4 flex-row border border-[#FFCC00]/30">
           <Ionicons name="shield-checkmark" size={20} color="#FFCC00" />
@@ -93,7 +107,7 @@ export default function FourthSlide({
         <PrimaryButton
           title={isLoading ? "Registering..." : "Register Shop"}
           onPress={handleSubmit}
-          disabled={!formData.acceptTerms || isLoading}
+          disabled={!acceptTerms || isLoading}
           loading={isLoading}
         />
       </View>

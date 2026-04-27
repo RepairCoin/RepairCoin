@@ -1,6 +1,7 @@
-import { View, Text, ScrollView, Alert, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { Controller, useWatch } from "react-hook-form";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
@@ -9,60 +10,17 @@ import LocationPickerModal, {
   SelectedLocation,
 } from "@/shared/components/shared/LocationPickerModal";
 import { ThirdSlideProps } from "../types";
-import { validateShopThirdSlide, isValidEthAddress, hasMinLength } from "../utils";
 
 export default function ThirdSlide({
   handleGoBack,
   handleGoNext,
-  formData,
-  updateFormData,
+  control,
+  errors,
   address,
 }: ThirdSlideProps) {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
-  const handleLocationSelect = (location: SelectedLocation) => {
-    updateFormData("location", {
-      ...formData.location,
-      lat: location.lat.toString(),
-      lng: location.lng.toString(),
-    });
-    setShowLocationPicker(false);
-  };
-
-  const validateAndProceed = () => {
-    const errors = validateShopThirdSlide(
-      formData.address,
-      formData.city,
-      formData.country,
-      address,
-      formData.reimbursementAddress
-    );
-
-    if (errors.length > 0) {
-      Alert.alert("Validation Error", errors.join("\n"));
-      return;
-    }
-
-    handleGoNext();
-  };
-
-  const isFormValid = useMemo(() => {
-    return (
-      hasMinLength(formData.address, 3) &&
-      hasMinLength(formData.city, 2) &&
-      hasMinLength(formData.country, 2) &&
-      address &&
-      isValidEthAddress(address) &&
-      (formData.reimbursementAddress.trim() === "" ||
-        isValidEthAddress(formData.reimbursementAddress.trim()))
-    );
-  }, [
-    formData.address,
-    formData.city,
-    formData.country,
-    address,
-    formData.reimbursementAddress,
-  ]);
+  const location = useWatch({ control, name: "location" });
 
   return (
     <>
@@ -79,61 +37,109 @@ export default function ThirdSlide({
             title="Shop Location"
           />
 
-          <FormInput
-            label="Street Address"
-            icon={<Ionicons name="location-outline" size={20} color="#FFCC00" />}
-            value={formData.address}
-            onChangeText={(value) => updateFormData("address", value)}
-            placeholder="Enter your street address"
-            maxLength={255}
+          <Controller
+            control={control}
+            name="address"
+            render={({ field: { onChange, value } }) => (
+              <FormInput
+                label="Street Address"
+                icon={<Ionicons name="location-outline" size={20} color="#FFCC00" />}
+                value={value}
+                onChangeText={onChange}
+                placeholder="Enter your street address"
+                maxLength={255}
+                error={errors.address?.message}
+              />
+            )}
           />
 
-          <FormInput
-            label="City"
-            icon={<Ionicons name="business-outline" size={20} color="#FFCC00" />}
-            value={formData.city}
-            onChangeText={(value) => updateFormData("city", value)}
-            placeholder="Enter your city"
-            maxLength={100}
+          <Controller
+            control={control}
+            name="city"
+            render={({ field: { onChange, value } }) => (
+              <FormInput
+                label="City"
+                icon={<Ionicons name="business-outline" size={20} color="#FFCC00" />}
+                value={value}
+                onChangeText={onChange}
+                placeholder="Enter your city"
+                maxLength={100}
+                error={errors.city?.message}
+              />
+            )}
           />
 
-          <FormInput
-            label="Country"
-            icon={<Feather name="flag" size={20} color="#FFCC00" />}
-            value={formData.country}
-            onChangeText={(value) => updateFormData("country", value)}
-            placeholder="Enter your country"
-            maxLength={100}
+          <Controller
+            control={control}
+            name="country"
+            render={({ field: { onChange, value } }) => (
+              <FormInput
+                label="Country"
+                icon={<Feather name="flag" size={20} color="#FFCC00" />}
+                value={value}
+                onChangeText={onChange}
+                placeholder="Enter your country"
+                maxLength={100}
+                error={errors.country?.message}
+              />
+            )}
           />
 
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
-              Pin Location on Map
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowLocationPicker(true)}
-              activeOpacity={0.7}
-            >
-              <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
-                <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
-                  <Ionicons name="map" size={20} color="#000" />
-                </View>
-                <View className="flex-1">
-                  {formData.location.lat && formData.location.lng ? (
-                    <Text className="text-white text-base">
-                      {parseFloat(formData.location.lat).toFixed(6)},{" "}
-                      {parseFloat(formData.location.lng).toFixed(6)}
-                    </Text>
-                  ) : (
-                    <Text className="text-gray-500 text-base">
-                      Tap to select location
-                    </Text>
-                  )}
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#666" />
+          <Controller
+            control={control}
+            name="location"
+            render={({ field: { onChange } }) => (
+              <View className="mb-4">
+                <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+                  Pin Location on Map
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowLocationPicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
+                    <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
+                      <Ionicons name="map" size={20} color="#000" />
+                    </View>
+                    <View className="flex-1">
+                      {location?.lat && location?.lng ? (
+                        <Text className="text-white text-base">
+                          {parseFloat(location.lat).toFixed(6)},{" "}
+                          {parseFloat(location.lng).toFixed(6)}
+                        </Text>
+                      ) : (
+                        <Text className="text-gray-500 text-base">
+                          Tap to select location
+                        </Text>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                  </View>
+                </TouchableOpacity>
+
+                <LocationPickerModal
+                  visible={showLocationPicker}
+                  onClose={() => setShowLocationPicker(false)}
+                  onConfirm={(loc: SelectedLocation) => {
+                    onChange({
+                      ...location,
+                      lat: loc.lat.toString(),
+                      lng: loc.lng.toString(),
+                    });
+                    setShowLocationPicker(false);
+                  }}
+                  initialLocation={
+                    location?.lat && location?.lng
+                      ? {
+                          lat: parseFloat(location.lat),
+                          lng: parseFloat(location.lng),
+                        }
+                      : undefined
+                  }
+                />
               </View>
-            </TouchableOpacity>
-          </View>
+            )}
+          />
 
           <SectionHeader
             icon={<Ionicons name="wallet" size={16} color="#000" />}
@@ -151,17 +157,21 @@ export default function ThirdSlide({
             helperText={address ? "Used for shop operations and token management" : undefined}
           />
 
-          <FormInput
-            label="Reimbursement Address (Optional)"
-            icon={<Ionicons name="card-outline" size={20} color="#FFCC00" />}
-            value={formData.reimbursementAddress}
-            onChangeText={(value) =>
-              updateFormData("reimbursementAddress", value)
-            }
-            placeholder="Enter reimbursement address (0x...)"
-            autoCapitalize="none"
-            maxLength={42}
-            helperText="Where to receive payments for token redemptions"
+          <Controller
+            control={control}
+            name="reimbursementAddress"
+            render={({ field: { onChange, value } }) => (
+              <FormInput
+                label="Reimbursement Address (Optional)"
+                icon={<Ionicons name="card-outline" size={20} color="#FFCC00" />}
+                value={value}
+                onChangeText={onChange}
+                placeholder="Enter reimbursement address (0x...)"
+                autoCapitalize="none"
+                maxLength={42}
+                helperText="Where to receive payments for token redemptions"
+              />
+            )}
           />
 
           <View className="bg-[#2A2A2C] rounded-xl p-4 mt-2 flex-row">
@@ -181,27 +191,9 @@ export default function ThirdSlide({
             borderTopColor: "#2A2A2C",
           }}
         >
-          <PrimaryButton
-            title="Continue"
-            onPress={validateAndProceed}
-            disabled={!isFormValid}
-          />
+          <PrimaryButton title="Continue" onPress={handleGoNext} />
         </View>
       </View>
-
-      <LocationPickerModal
-        visible={showLocationPicker}
-        onClose={() => setShowLocationPicker(false)}
-        onConfirm={handleLocationSelect}
-        initialLocation={
-          formData.location.lat && formData.location.lng
-            ? {
-                lat: parseFloat(formData.location.lat),
-                lng: parseFloat(formData.location.lng),
-              }
-            : undefined
-        }
-      />
     </>
   );
 }

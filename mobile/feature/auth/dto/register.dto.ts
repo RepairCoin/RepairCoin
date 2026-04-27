@@ -1,21 +1,17 @@
 import { z } from "zod/v4";
 
 export const CustomerRegisterDto = z.object({
-  fullName: z
-    .string()
-    .min(2, "Name must be at least 2 characters"),
-  email: z
-    .string()
-    .email("Please enter a valid email address"),
-  referral: z.string().optional().default(""),
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  referral: z.string(),
 });
 
 export const ShopLocationDto = z.object({
-  city: z.string().default(""),
-  state: z.string().default(""),
-  zipCode: z.string().default(""),
-  lat: z.string().default(""),
-  lng: z.string().default(""),
+  city: z.string(),
+  state: z.string(),
+  zipCode: z.string(),
+  lat: z.string(),
+  lng: z.string(),
 });
 
 export const ShopRegisterDto = z.object({
@@ -29,15 +25,15 @@ export const ShopRegisterDto = z.object({
   address: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
   country: z.string().min(1, "Country is required"),
-  companySize: z.string().default(""),
-  monthlyRevenue: z.string().default(""),
-  website: z.string().default(""),
-  referral: z.string().default(""),
-  facebook: z.string().default(""),
-  twitter: z.string().default(""),
-  instagram: z.string().default(""),
-  reimbursementAddress: z.string().default(""),
-  fixflowShopId: z.string().default(""),
+  companySize: z.string(),
+  monthlyRevenue: z.string(),
+  website: z.string(),
+  referral: z.string(),
+  facebook: z.string(),
+  twitter: z.string(),
+  instagram: z.string(),
+  reimbursementAddress: z.string(),
+  fixflowShopId: z.string(),
   location: ShopLocationDto,
   acceptTerms: z.boolean(),
 });

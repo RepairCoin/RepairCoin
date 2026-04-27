@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { router } from "expo-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
-import { CustomerFormData } from "../types";
+import { CustomerRegisterDto, type CustomerRegisterData } from "../dto";
 import { INITIAL_CUSTOMER_FORM_DATA } from "../constants";
-import { validateCustomerForm, isValidEmail, hasMinLength } from "../utils";
 
 export const useCustomerRegister = () => {
   const { useRegisterCustomer } = useCustomer();
@@ -14,6 +15,7 @@ export const useCustomerRegister = () => {
   const storeAccount = useAuthStore((state) => state.account);
   const setAccount = useAuthStore((state) => state.setAccount);
   const activeAccount = useActiveAccount();
+  const { showError } = useAppToast();
 
   const account = useMemo(() => {
     if (storeAccount?.address) return storeAccount;
@@ -32,73 +34,53 @@ export const useCustomerRegister = () => {
     }
   }, [storeAccount?.address, activeAccount?.address, setAccount, storeAccount?.email]);
 
-  const { showError } = useAppToast();
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<CustomerFormData>({
-    ...INITIAL_CUSTOMER_FORM_DATA,
-    email: storeAccount?.email || "",
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<CustomerRegisterData>({
+    resolver: zodResolver(CustomerRegisterDto),
+    defaultValues: {
+      ...INITIAL_CUSTOMER_FORM_DATA,
+      email: storeAccount?.email || "",
+    },
+    mode: "onChange",
   });
 
   const isLoading = isPending || isSubmitting;
 
-  const updateFormData = useCallback(
-    (field: keyof CustomerFormData, value: string) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
+  const onSubmit = useCallback(
+    (data: CustomerRegisterData) => {
+      if (!account?.address) {
+        showError(
+          "Wallet not connected. Please return to the welcome screen and connect your wallet.",
+        );
+        return;
+      }
+
+      const submissionData = {
+        ...data,
+        name: data.fullName,
+        referralCode: data.referral,
+        walletAddress: account.address,
+      };
+
+      registerCustomer(submissionData);
     },
-    [],
+    [account, registerCustomer, showError],
   );
-
-  const isFormValid = useMemo(() => {
-    return (
-      !!account?.address &&
-      hasMinLength(formData.fullName, 2) &&
-      isValidEmail(formData.email)
-    );
-  }, [formData.fullName, formData.email, account?.address]);
-
-  const validateAndSubmit = useCallback(() => {
-    if (isSubmitting) return;
-
-    if (!account?.address) {
-      showError(
-        "Wallet not connected. Please return to the welcome screen and connect your wallet.",
-      );
-      return;
-    }
-
-    const errors = validateCustomerForm(formData.fullName, formData.email);
-
-    if (errors.length > 0) {
-      showError(errors.join("\n"));
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const submissionData = {
-      ...formData,
-      name: formData.fullName,
-      referralCode: formData.referral,
-      walletAddress: account.address,
-    };
-
-    registerCustomer(submissionData, {
-      onSettled: () => setIsSubmitting(false),
-    });
-  }, [formData, account, registerCustomer, showError, isSubmitting]);
 
   const handleGoBack = useCallback(() => {
     router.back();
   }, []);
 
   return {
-    formData,
-    isFormValid,
+    control,
+    errors,
+    isFormValid: isValid && !!account?.address,
     isLoading,
     account,
-    updateFormData,
-    validateAndSubmit,
+    onSubmit: handleSubmit(onSubmit),
     handleGoBack,
   };
 };
