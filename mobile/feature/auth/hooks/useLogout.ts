@@ -26,16 +26,12 @@ export const useLogout = () => {
 
     try {
       setIsLoggingOut(true);
-
-      // Clear axios auth header
       apiClient.clearAuthHeader();
 
-      // Deactivate push tokens (fire and forget)
       notificationApi.deactivateAllPushTokens().catch((error) => {
         console.error("[Logout] Error deactivating push tokens:", error);
       });
 
-      // Disconnect wallet if connected
       if (account?.disconnect) {
         try {
           await account.disconnect();
@@ -44,7 +40,6 @@ export const useLogout = () => {
         }
       }
 
-      // Clear SecureStore
       try {
         await Promise.all(
           SECURE_STORE_KEYS.map((key) => SecureStore.deleteItemAsync(key)),
@@ -53,12 +48,9 @@ export const useLogout = () => {
         console.error("[Logout] Error clearing SecureStore:", error);
       }
 
-      // Clear React Query cache
       queryClient.clear();
       await queryClient.cancelQueries();
       queryClient.removeQueries();
-
-      // Reset Zustand state
       resetState();
 
       if (navigate) {
