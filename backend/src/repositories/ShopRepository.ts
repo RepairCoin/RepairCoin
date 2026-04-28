@@ -157,16 +157,16 @@ export class ShopRepository extends BaseRepository {
       const query = `
         INSERT INTO shops (
           shop_id, name, address, phone, email, wallet_address,
-          reimbursement_address, verified, active, cross_shop_enabled,
+          reimbursement_address, verified, active,
           total_tokens_issued, total_redemptions, total_reimbursements,
           join_date, last_activity, fixflow_shop_id,
           location_city, location_state, location_zip_code, location_lat, location_lng,
           facebook, twitter, instagram,
           first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country, category
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
         RETURNING shop_id
       `;
-      
+
       const values = [
         shop.shopId,
         shop.name,
@@ -177,7 +177,6 @@ export class ShopRepository extends BaseRepository {
         shop.reimbursementAddress?.toLowerCase(),
         shop.verified || false,
         shop.active !== false,
-        shop.crossShopEnabled || false,
         shop.totalTokensIssued || 0,
         shop.totalRedemptions || 0,
         shop.totalReimbursements || 0,
