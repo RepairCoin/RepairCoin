@@ -16,20 +16,20 @@ export default function GmailCallbackPage() {
     if (error) {
       setStatus('error');
       toast.error(error || 'Gmail connection failed');
-      setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
+      setTimeout(() => router.push('/shop'), 2000);
       return;
     }
 
     if (success === 'true') {
       setStatus('success');
       toast.success('Gmail connected successfully!');
-      setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
+      setTimeout(() => router.push('/shop'), 2000);
       return;
     }
 
     setStatus('error');
     toast.error('Unknown callback state');
-    setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
+    setTimeout(() => router.push('/shop'), 2000);
   }, [searchParams, router]);
 
   return (
