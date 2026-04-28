@@ -27,8 +27,8 @@
 
 | Phase | Engineer side | Operator side |
 |---|---|---|
-| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Inventory complete (2026-04-28).** All previously-blocked items now answered: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); subdomain recon done (app.fixflow.ai in use → preserve; fix/funnel/info effectively dead). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Still blocked:** Zeff's Google Cloud Console project access (separate critical path — see Phase 0 / Google Cloud blocker section). **Still pending:** Play/App Store access; cutover date selection. |
-| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **READY to proceed once `app.fixflow.ai` ownership is team-confirmed.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Pre-stage steps available now (Vercel domain add + verification TXT) — no impact on live marketing page or email. |
+| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **OAuth integrations verified end-to-end on staging (Calendar + Gmail) — three Gmail bugs found and fixed in 2026-04-28 session, see section 7 below.** | **Inventory complete (2026-04-28).** All previously-blocked items now answered: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); subdomain recon done (app.fixflow.ai in use → preserve; fix/funnel/info effectively dead). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Zeff Google Cloud Console blocker bypassed** — new `fixflow-project` Cloud project created, OAuth clients live, staging env vars updated. **Still pending:** Play/App Store access; cutover date selection. |
+| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). OAuth callback flow refactored for Gmail (GET handler added, frontend redirect fixed). See "What was applied in this session" below. | **READY to proceed once `app.fixflow.ai` ownership is team-confirmed.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Pre-stage steps available now (Vercel domain add + verification TXT) — no impact on live marketing page or email. |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
 | Phase 4 — Mobile Rebuild | Not started. Post-cutover (not on critical path). | Post-cutover. |
@@ -182,17 +182,59 @@ Significantly de-risked from 2026-04-22:
 | TLS cert provisioning failure | Unknown (CAA records not checked) | ✅ Pre-cleared — CAA records already authorize Let's Encrypt |
 | Marketing page goes down | Concern (preserve vs replace?) | ✅ Acceptable — placeholder, OK to lose |
 
-#### 6. What still remains
+#### 6. Google Cloud Console blocker bypassed — `fixflow-project` created
 
-- **Team confirmation** that `app.fixflow.ai` is theirs to preserve (low-blocker; the plan already preserves it either way, but confirms the destination is internally owned)
-- **Zeff Google Cloud Console access** — separate critical path, unchanged from 2026-04-22 (see Google Cloud Console blocker section)
+Original Zeff-owned Cloud Console project remained inaccessible. Bypassed by spinning up a brand-new Google Cloud project (`fixflow-project`, project number `948748310237`) under our control and creating fresh OAuth clients there. New Client IDs registered with redirect URIs covering all four environments:
+
+- `https://api-staging.repaircoin.ai/api/shops/calendar/callback/google` (and `/gmail/callback`)
+- `https://api-staging.fixflow.ai/api/shops/calendar/callback/google` (and `/gmail/callback`)
+- `https://api.repaircoin.ai/api/shops/calendar/callback/google` (and `/gmail/callback`)
+- `https://api.fixflow.ai/api/shops/calendar/callback/google` (and `/gmail/callback`)
+- `http://localhost:4000/...` for dev
+
+OAuth consent screen kept in **Testing mode** (test users explicitly added). Production publish + Google verification deferred until `fixflow.ai` is live with hosted privacy/terms pages — Gmail uses sensitive scopes (`gmail.send`, `gmail.compose`) so verification will take 4-8 weeks once submitted.
+
+Staging env vars updated on DigitalOcean: `GOOGLE_CALENDAR_CLIENT_ID/SECRET/REDIRECT_URI`, `GMAIL_CLIENT_ID/SECRET/REDIRECT_URI`, both encryption keys.
+
+#### 7. OAuth integrations verified end-to-end on staging
+
+**Calendar:** Connect flow walked from the shop dashboard, Google consent → Allow → backend exchange → tokens stored → frontend success toast. ✅ Working.
+
+**Gmail:** Initial test failed. Three real bugs found and fixed in this session:
+
+1. **`frontend/src/services/api/gmail.ts` double-unwrap** (commit `87ac3345`)
+   - Service file did `response.data` after `await apiClient.get(...)`, but the apiClient interceptor *already* returns `response.data`. Effectively unwrapped twice, dropping the `{ success, data }` wrapper. Handler then threw "Failed to get authorization URL" because `response.success` was undefined.
+   - Fix: return the body directly, mirroring the working `calendar.ts` pattern.
+
+2. **`backend/src/domains/ShopDomain/routes/gmail.routes.ts` missing GET handler** (commit `2d584b07`)
+   - Gmail callback route only registered POST. Google's OAuth always redirects via GET with `code` and `state` in the query string, so the redirect hit "Route not found" and aborted connect.
+   - Fix: register both GET (no JWT required, shopId comes from `state` param) and POST (programmatic, with auth). Updated the controller to branch on `req.method`, redirect to a frontend success/error page on GET, return JSON on POST.
+
+3. **`frontend/src/app/shop/gmail/callback/page.tsx` wrong redirect target** (commit `1024f6fe`)
+   - Success/error redirects pointed to `/shop/settings?tab=social`, which doesn't exist as a Next.js route. Settings is a tab inside `/shop`. Connection succeeded but landed on a 404.
+   - Fix: redirect to `/shop` (matching the Calendar callback). Also removed the now-redundant POST call from the frontend page, since the backend GET handler already exchanged the code before redirecting.
+
+After all three commits Gmail connect now works end-to-end on staging — same flow as Calendar.
+
+#### 8. What still remains
+
+- ✅ ~~OAuth setup~~ — done.
+- ✅ ~~Marketing page / Hostinger access / email preservation / DNS strategy~~ — done.
+- **Team confirmation** that `app.fixflow.ai` is internally owned (the plan preserves it either way, this just confirms the destination)
 - **Cutover date** — original 2026-04-26 missed; pick new evening-PH window once team aligned
-- **Pre-stage steps** that can happen now without team blockers:
-  1. Add fixflow.ai to Vercel project; obtain verification TXT and Vercel DNS target
+- **Production env var update** — once staging proves stable for ~24-48h, mirror the new OAuth Client IDs/secrets and redirect URIs to the prod DigitalOcean app
+- **Pre-stage steps** ready to execute now without team blockers:
+  1. Add `fixflow.ai` to Vercel project; obtain verification TXT and Vercel DNS target
   2. Add the verification TXT at Hostinger (risk-free — TXT only, no traffic impact)
-  3. Add api.fixflow.ai to DigitalOcean app's Domains list (non-disruptive)
+  3. Add `api.fixflow.ai` to DigitalOcean app's Domains list (non-disruptive)
   4. Set up sacrificial subdomain test (e.g., `migrate-test.fixflow.ai` → Vercel) to validate stack before touching apex
-  5. Continue Google Cloud OAuth setup with fixflow.ai redirect URIs added in parallel
+- **Google verification path** (NOT cutover-blocking but rollout-blocking)
+  - Hosted `fixflow.ai/privacy` and `fixflow.ai/terms` pages (required for Google's app verification)
+  - Public homepage describing the app
+  - Demo video showing OAuth flow + scope justification
+  - Verified domain ownership in Search Console
+  - Submit Gmail/Calendar OAuth client for verification → 4-8 week review window — has to start *after* fixflow.ai is live
+- **Mobile rebuild (Phase 4)** — post-cutover, not on critical path
 
 ---
 

@@ -230,7 +230,91 @@ git stash pop                      # restore stashed files
 
 ## Deployment Log
 
-### 2026-04-03
+### 2026-04-28 — Gmail/Calendar OAuth + shop registration hotfix
+
+**Why this deploy is non-routine:** unlike a code-only push, it bundles a production-blocking bugfix, env-var rotation (Cloud Console project change), and Cloud Console test-user adds. Skipping any of those leaves prod broken in a subtler way than before.
+
+#### What's being deployed
+
+| Commit (on `main`, pending merge to `prod`) | Scope | Effect |
+|---|---|---|
+| `87ac3345` | `frontend/src/services/api/gmail.ts` | Removes a double `.data` unwrap that broke Gmail Connect on staging |
+| `2d584b07` | `backend gmail.routes.ts` + `GmailController.ts` | Adds GET handler on `/api/shops/gmail/callback` so Google's OAuth redirect succeeds (was POST-only and 404'd) |
+| `1024f6fe` | `frontend/.../shop/gmail/callback/page.tsx` | Redirects to `/shop` (correct) instead of nonexistent `/shop/settings?tab=social` |
+| `34eb3b92` | `backend/src/repositories/ShopRepository.ts` | **Production-blocking** — drops `cross_shop_enabled` from `createShop` INSERT. Migration 006 dropped that column from prod, but the code kept writing to it, 500'ing every prod registration |
+
+#### Manual prerequisite #1 — Cloud Console test users (do FIRST)
+
+Before flipping prod env vars, add prod ops/test emails to the `fixflow-project` test-user list. Without this, OAuth blocks with "FixFlow has not completed the Google verification process".
+
+- URL: https://console.cloud.google.com/auth/audience
+- Confirm project picker reads `fixflow-project` (not `Zeff Cloud Console`)
+- Test users → + ADD USERS → save
+
+#### Manual prerequisite #2 — Update DigitalOcean prod env vars
+
+Source values come from staging (already verified end-to-end this session).
+
+| Variable | Current prod value | New prod value | Why |
+|---|---|---|---|
+| `GOOGLE_CALENDAR_CLIENT_ID` | `854830853827-1ub6cg2tticq8vpatg4af4e6svqcfr43...` (Zeff project) | `948748310237-8vd3ock6e2scaack7tks84ii1645ms4r.apps.googleusercontent.com` | Switch to `fixflow-project` Cloud project |
+| `GOOGLE_CALENDAR_CLIENT_SECRET` | (Zeff project secret) | New secret from `fixflow-project` Calendar OAuth client | Pair with new Client ID |
+| `GOOGLE_CALENDAR_REDIRECT_URI` | **`http://localhost:4000/api/shops/calendar/callback/google`** ← bug | `https://api.repaircoin.ai/api/shops/calendar/callback/google` | Localhost on prod is broken; prod URI is registered with Google |
+| `GOOGLE_CALENDAR_ENCRYPTION_KEY` | (current value) | Same as staging (or fresh 32-byte hex) | Required to decrypt stored tokens |
+| `GMAIL_CLIENT_ID` | **missing** | `948748310237-nr8frccg4la5k17mn7ejnt0mt4urkkit.apps.googleusercontent.com` | Gmail uses a separate OAuth client |
+| `GMAIL_CLIENT_SECRET` | **missing** | New secret from `fixflow-project` Gmail OAuth client | Pair with Gmail Client ID |
+| `GMAIL_REDIRECT_URI` | **missing** | `https://api.repaircoin.ai/api/shops/gmail/callback` | Backend GET handler reads tokens here |
+| `GMAIL_ENCRYPTION_KEY` | **missing** | Same as staging (or fresh 32-byte hex) | Required to decrypt Gmail tokens |
+
+> Generate a fresh 32-byte hex key if needed: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+> Mark `*_SECRET` and `*_ENCRYPTION_KEY` rows as **encrypted (SECRET)** in DO.
+
+#### Code deploy (after manual prerequisites)
+
+```bash
+git fetch origin
+git checkout prod
+git pull origin prod
+git merge --ff-only origin/main
+git push origin prod
+```
+
+DO + Vercel auto-deploy on push to `prod`.
+
+#### Smoke tests after deploy
+
+| # | Test | Expected |
+|---|---|---|
+| A | Register a fresh shop on `repaircoin.ai/register/shop` (Incognito, fresh wallet) | 201 + "Shop registered successfully", redirect to verification screen |
+| B | Connect Google Calendar from a logged-in shop on prod | Redirect through `api.repaircoin.ai/.../calendar/callback/google?...`, success toast, settings card shows connected |
+| C | Connect Gmail from same shop | Redirect through `api.repaircoin.ai/.../gmail/callback?...`, success toast, settings card shows connected |
+| D | Eyeball: customer earn/redeem, shop dashboard loads, admin login | Same as before, no regressions |
+
+If A fails: there's a *second* schema drift we haven't caught — pull DO logs for the actual SQL error.
+If B/C fails: re-check Cloud Console test-user list and DO env-var values; OAuth issues almost always trace to one of those two.
+
+#### Database
+
+**No migrations to run.** Production already has the post-006 schema we want; staging has the pre-006 schema (still has `cross_shop_enabled`). Reconciling staging is a follow-up, not a blocker.
+
+#### Rollback
+
+| If this breaks | Do this |
+|---|---|
+| Env var swap (Step 2) | DO → edit the bad var back to its old value → DO redeploys → reverts |
+| Code push (Step 3) | `git revert <bad-sha>` on `main`, fast-forward `prod` again. Force-push to `prod` only as last resort. |
+| Smoke test fails | Pull DO logs first — don't roll back without seeing the actual error |
+
+#### Open follow-ups (not blocking this deploy)
+
+1. Apply migration 006 on **staging** so it matches prod (schema drift cleanup)
+2. Wider `crossShopEnabled` cleanup in `ShopRepository.ts` (3 explicit references still reference the dropped column)
+3. Google verification path: hosted privacy/terms/homepage, demo video, domain verification — required before non-test-list users can connect Gmail. 4-8 week review window once submitted.
+
+---
+
+### 2026-04-03 — Major rebrand + Calendar/moderation features
 - **Deployed by**: deo/dev → main → prod
 - **Commits**: ~110 commits (notification preferences fix, group rewards dropdown fix, mobile features, map overhaul, Google Calendar, moderation system, privacy policy page, FixFlow rebrand)
 - **Migrations**: None new — all existing migrations already applied
