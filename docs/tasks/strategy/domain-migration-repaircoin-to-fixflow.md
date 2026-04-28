@@ -19,7 +19,7 @@
 
 **Last updated:** 2026-04-28 by engineer session.
 
-**Cutover target:** TBD — original 2026-04-26 missed due to fixflow.ai DNS + Google Cloud Console blockers. Pending owner approval of new date once `app.fixflow.ai` confirmation lands.
+**Cutover target:** TBD — original 2026-04-26 missed due to fixflow.ai DNS + Google Cloud Console blockers. All blockers cleared as of 2026-04-29; pending team alignment on a new evening-PH window.
 
 **Strategy locked in (2026-04-28):** keep nameservers at Hostinger, edit records there directly, preserve Google Workspace email + `app.fixflow.ai` SaaS subdomain. See "What happened in this session (2026-04-28)" below for the precise edit list.
 
@@ -27,7 +27,7 @@
 
 | Phase | Engineer side | Operator side |
 |---|---|---|
-| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **OAuth integrations verified end-to-end on staging AND prod (Calendar + Gmail) — three Gmail bugs found and fixed in 2026-04-28 session, see sections 7-8 below.** | **Inventory complete (2026-04-28).** All previously-blocked items now answered: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); subdomain recon done (app.fixflow.ai in use → preserve; fix/funnel/info effectively dead). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Zeff Google Cloud Console blocker bypassed** — new `fixflow-project` Cloud project, OAuth clients live, staging + prod env vars updated. **Still pending:** Play/App Store access; cutover date selection. |
+| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **OAuth integrations verified end-to-end on staging AND prod (Calendar + Gmail) — three Gmail bugs found and fixed in 2026-04-28 session, see sections 7-8 below.** | **Inventory complete + ALL subdomain ownership confirmed by team (2026-04-29).** Findings: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); `app.fixflow.ai` confirmed in active use via Go High Level whitelabel (MUST preserve); `fix.fixflow.ai` will be backed up + taken down by team; `funnel.fixflow.ai` and `info.fixflow.ai` not active (safe to ignore or clean up post-cutover). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Zeff Google Cloud Console blocker bypassed** — new `fixflow-project` Cloud project, OAuth clients live, staging + prod env vars updated. **Still pending:** Play/App Store access; cutover date selection. |
 | Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). OAuth callback flow refactored for Gmail (GET handler added, frontend redirect fixed). All shipped to prod 2026-04-28 — see `staging-to-production-deployment.md`. | **READY to pre-stage now.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Vercel TXT verification + DO domain add can run today without traffic impact. |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
@@ -102,7 +102,7 @@ TTL propagation on repaircoin.ai (Phase 0 Step 1) continues in the background �
 
 ### What happened in this session (2026-04-28)
 
-**fixflow.ai DNS blocker fully resolved** — strategy locked in, ready to proceed when team confirms `app.fixflow.ai` ownership.
+**fixflow.ai DNS blocker fully resolved** — strategy locked in, all subdomain ownership confirmed by team on 2026-04-29 (see section 6.5 for the precise team responses). Pre-stage work (Phase 1A) executed 2026-04-28; cutover ready to schedule.
 
 #### 1. Marketing page confirmation
 
@@ -121,10 +121,10 @@ Operator exported the full fixflow.ai zone (saved at `c:\dev\fixflow.ai.txt`, no
 - **Nameservers are Hostinger** (`athena.dns-parking.com.`, `apollo.dns-parking.com.`)
 
 Existing subdomains discovered:
-- `app.fixflow.ai` CNAME → `whitelabel.ludicrous.cloud` — **IN USE** per operator's live check (white-label SaaS, likely a FixFlow product)
-- `fix.fixflow.ai` ALIAS → Hostinger CDN — same content as marketing page (mirror)
-- `funnel.fixflow.ai` ALIAS → Hostinger CDN — empty/placeholder, no functional content
-- `info.fixflow.ai` CNAME → `sites.ludicrous.cloud` — returns 404 (broken destination)
+- `app.fixflow.ai` CNAME → `whitelabel.ludicrous.cloud` — **IN ACTIVE USE via Go High Level whitelabel** (team-confirmed 2026-04-29). MUST PRESERVE — leave the CNAME completely untouched.
+- `fix.fixflow.ai` ALIAS → Hostinger CDN — mirror of the marketing page. **Team will back up + take down before cutover** (operator-owned, not engineer task).
+- `funnel.fixflow.ai` ALIAS → Hostinger CDN — **not active** per team (2026-04-29). Safe to ignore during cutover or clean up post-cutover.
+- `info.fixflow.ai` CNAME → `sites.ludicrous.cloud` — **not active / 404** per team (2026-04-29). Safe to ignore during cutover or clean up post-cutover.
 - `www.fixflow.ai` CNAME → Hostinger CDN — current marketing page www variant
 
 #### 3. DNS strategy locked: keep nameservers at Hostinger
@@ -177,7 +177,7 @@ Significantly de-risked from 2026-04-22:
 | Risk | 2026-04-22 status | 2026-04-28 status |
 |---|---|---|
 | Email outage at cutover | Unknown (didn't know if email was on @fixflow.ai) | ✅ Eliminated — MX/SPF/DMARC stay untouched |
-| `app.fixflow.ai` outage | Unknown | ✅ Eliminated — CNAME stays untouched (pending team confirmation) |
+| `app.fixflow.ai` outage | Unknown | ✅ Eliminated — confirmed in active use via Go High Level (2026-04-29); CNAME stays untouched |
 | 1-24h DNS propagation gap | Likely (nameserver switch path) | ✅ Eliminated — editing records at Hostinger, no nameserver change |
 | TLS cert provisioning failure | Unknown (CAA records not checked) | ✅ Pre-cleared — CAA records already authorize Let's Encrypt |
 | Marketing page goes down | Concern (preserve vs replace?) | ✅ Acceptable — placeholder, OK to lose |
@@ -195,6 +195,21 @@ Original Zeff-owned Cloud Console project remained inaccessible. Bypassed by spi
 OAuth consent screen kept in **Testing mode** (test users explicitly added). Production publish + Google verification deferred until `fixflow.ai` is live with hosted privacy/terms pages — Gmail uses sensitive scopes (`gmail.send`, `gmail.compose`) so verification will take 4-8 weeks once submitted.
 
 Staging env vars updated on DigitalOcean: `GOOGLE_CALENDAR_CLIENT_ID/SECRET/REDIRECT_URI`, `GMAIL_CLIENT_ID/SECRET/REDIRECT_URI`, both encryption keys.
+
+#### 6.5 Team-confirmed subdomain status (2026-04-29)
+
+Team responded to the four open subdomain questions raised during 2026-04-28 inventory. Recorded verbatim for the deploy log:
+
+| Subdomain | Team's answer | Cutover treatment |
+|---|---|---|
+| `app.fixflow.ai` | **"via GHL natin and active"** (Go High Level, in use) | **Leave CNAME completely untouched.** Highest-priority preserve. |
+| `fix.fixflow.ai` | **"shouldnt be a separate site. so pls back up and take down (ill do this)"** | Operator-owned cleanup. Engineer-side: nothing to do. |
+| `funnel.fixflow.ai` | **"not active"** | No action required. Optional Phase 5 cleanup. |
+| `info.fixflow.ai` | **"not found"** (already 404) | No action required. Optional Phase 5 cleanup. |
+
+This clears the last team-side ownership blocker for the migration. The DNS plan from section 4 stands unchanged — it already preserved `app.fixflow.ai` regardless of the answer, but the confirmation removes the "what if it's actually internal-critical?" risk.
+
+**Operator-side action item:** back up + take down `fix.fixflow.ai` at any point before cutover. Not engineer-blocking; can run in parallel with Phase 1A pre-stage.
 
 #### 7. OAuth integrations verified end-to-end on staging
 
@@ -255,8 +270,8 @@ Both prod URIs were already registered with the `fixflow-project` OAuth clients 
 
 **Now blocking next phase:**
 
-1. **Team confirmation** that `app.fixflow.ai` is internally owned. The DNS plan preserves it either way; this just confirms the destination.
-2. **Cutover date** — original 2026-04-26 missed; pick a new evening-PH window once aligned. Rough effort estimate: 4-6 hour window (DNS edit + Vercel redeploy + smoke tests + DO domain attach + cookie/CORS validation).
+1. **Cutover date** — original 2026-04-26 missed; pick a new evening-PH window once aligned. All technical and ownership blockers cleared (2026-04-29). Rough effort estimate: 4-6 hour window (DNS edit + Vercel redeploy + smoke tests + DO domain attach + cookie/CORS validation).
+2. **Team-side prerequisite** — operator to back up + take down `fix.fixflow.ai` (mirror of marketing page) at any point before cutover. Not engineer-blocking; can run in parallel with Phase 1A pre-stage.
 
 **Pre-stage steps ready to execute now (no team blockers, low risk):**
 
@@ -282,7 +297,7 @@ In the interim, real shop owners' Gmail connect attempts will hit "FixFlow has n
 
 #### 10. Phase 1A — Pre-stage `fixflow.ai` infrastructure (DO NEXT, ~45 min total)
 
-While we wait on team confirmation of `app.fixflow.ai` ownership, every other piece of the migration stack can be set up *now* without disrupting email, the existing marketing page, or `app.fixflow.ai`. The goal: at cutover hour, the only edit is flipping the apex `@` ALIAS — not provisioning Vercel, certs, and DO domains in a tight window.
+With `app.fixflow.ai` ownership confirmed (2026-04-29 — Go High Level whitelabel, must preserve), every piece of the migration stack can be set up *now* without disrupting email, the existing marketing page, or the GHL subdomain. The goal: at cutover hour, the only edits are flipping the apex `@` ALIAS and `www` CNAME — not provisioning Vercel, certs, and DO domains in a tight window.
 
 **Risk profile of this phase:** zero traffic impact, zero email impact, zero downtime. Adding domains to Vercel/DO and adding TXT records doesn't route any traffic; it just provisions what we'll route to later.
 
