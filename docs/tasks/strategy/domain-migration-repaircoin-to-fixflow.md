@@ -17,17 +17,18 @@
 
 ## Current State Snapshot (READ THIS FIRST)
 
-**Last updated:** 2026-04-21 by engineer session.
+**Last updated:** 2026-04-28 by engineer session.
 
-**Cutover target:** 2026-04-26, evening PH time (21:00 PH = 13:00 UTC).
-**Days remaining:** 5 from 2026-04-21.
+**Cutover target:** TBD — original 2026-04-26 missed due to fixflow.ai DNS + Google Cloud Console blockers. Pending owner approval of new date once `app.fixflow.ai` confirmation lands.
+
+**Strategy locked in (2026-04-28):** keep nameservers at Hostinger, edit records there directly, preserve Google Workspace email + `app.fixflow.ai` SaaS subdomain. See "What happened in this session (2026-04-28)" below for the precise edit list.
 
 ### Where we are
 
 | Phase | Engineer side | Operator side |
 |---|---|---|
-| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Operator inventory mostly complete (2026-04-22).** Confirmed: `COOKIE_DOMAIN=.repaircoin.ai` in prod, DO prod = 1 instance (autodeploy from main), Stripe uses DO-generated webhook hostname (not api.repaircoin.ai), Thirdweb has no domain restrictions. **TTL lowering on repaircoin.ai CNAMEs DONE at 600s (GoDaddy minimum).** **Still blocked:** fixflow.ai DNS on Hostinger + live marketing site (awaiting owner); Google Cloud Console prod project owned by Zeff (awaiting Zeff's IAM access grant). **Still pending:** Play/App Store access. |
-| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **BLOCKED — new blocker found 2026-04-22:** fixflow.ai DNS is managed at **Hostinger**, not GoDaddy (nameservers delegated). Also, fixflow.ai currently serves a live FixFlow marketing/lead-gen landing page. Awaiting owner confirmation on (1) is the marketing page a placeholder to replace, or content to preserve? (2) does the team have Hostinger account access? (3) is there any email on @fixflow.ai currently? Until answered, DO NOT touch fixflow.ai DNS or nameservers. |
+| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **New finding: auth is hybrid (cookies + localStorage), not localStorage-only — see inventory doc.** | **Inventory complete (2026-04-28).** All previously-blocked items now answered: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); subdomain recon done (app.fixflow.ai in use → preserve; fix/funnel/info effectively dead). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Still blocked:** Zeff's Google Cloud Console project access (separate critical path — see Phase 0 / Google Cloud blocker section). **Still pending:** Play/App Store access; cutover date selection. |
+| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). See "What was applied in this session" below. | **READY to proceed once `app.fixflow.ai` ownership is team-confirmed.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Pre-stage steps available now (Vercel domain add + verification TXT) — no impact on live marketing page or email. |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
 | Phase 4 — Mobile Rebuild | Not started. Post-cutover (not on critical path). | Post-cutover. |
@@ -98,6 +99,102 @@ TTL propagation on repaircoin.ai (Phase 0 Step 1) continues in the background �
 - Play Store + App Store listing URLs (website / support / privacy)
 - GoDaddy access restoration (blocks Phase 0 TTL + Phase 1 DNS)
 - Confirm whether there's a separate `repaircon-staging` DO app on a different branch, or backend really runs staging + prod off the same `main` branch (affects pre-cutover validation strategy).
+
+### What happened in this session (2026-04-28)
+
+**fixflow.ai DNS blocker fully resolved** — strategy locked in, ready to proceed when team confirms `app.fixflow.ai` ownership.
+
+#### 1. Marketing page confirmation
+
+Owner confirmed: the FixFlow WordPress marketing page on Hostinger is a **placeholder, OK to take down**. No content preservation or relocation needed. Removes the largest sub-blocker from the 2026-04-22 inventory.
+
+#### 2. Hostinger DNS zone exported and analyzed
+
+Operator exported the full fixflow.ai zone (saved at `c:\dev\fixflow.ai.txt`, not committed). Findings:
+
+- **Email IS configured at @fixflow.ai** via Google Workspace
+  - MX → `smtp.google.com` priority 5
+  - SPF TXT → `v=spf1 include:_spf.google.com ~all`
+  - DMARC TXT at `_dmarc` → `v=DMARC1; p=none`
+  - **All three records MUST be preserved** — answers Q3 from 2026-04-22 (yes, email is live)
+- **CAA records already allow Let's Encrypt** (12 entries including `letsencrypt.org`) — Vercel auto-cert provisioning will work without modification
+- **Nameservers are Hostinger** (`athena.dns-parking.com.`, `apollo.dns-parking.com.`)
+
+Existing subdomains discovered:
+- `app.fixflow.ai` CNAME → `whitelabel.ludicrous.cloud` — **IN USE** per operator's live check (white-label SaaS, likely a FixFlow product)
+- `fix.fixflow.ai` ALIAS → Hostinger CDN — same content as marketing page (mirror)
+- `funnel.fixflow.ai` ALIAS → Hostinger CDN — empty/placeholder, no functional content
+- `info.fixflow.ai` CNAME → `sites.ludicrous.cloud` — returns 404 (broken destination)
+- `www.fixflow.ai` CNAME → Hostinger CDN — current marketing page www variant
+
+#### 3. DNS strategy locked: keep nameservers at Hostinger
+
+Originally considered switching nameservers to GoDaddy for consolidation. **Rejected** — would force recreating every record (email, CAA, all subdomains) at GoDaddy before nameserver flip, with a 1-24h propagation gap during which **email would bounce** and `app.fixflow.ai` SaaS would go offline. No operational benefit during cutover.
+
+**Decision:** edit records directly at Hostinger. Touch only the apex (`@`) and `www` records + add `api`, `api-staging`, `staging`. Leave email, CAA, `app`, `fix`, `funnel`, `info` records alone.
+
+#### 4. Precise Hostinger record edit list (final)
+
+For Phase 1 + Phase 3 cutover, only these records change:
+
+**ADD (new records, before cutover):**
+```
+api          CNAME  <DigitalOcean prod app hostname>     TTL 300
+api-staging  CNAME  <DigitalOcean staging app hostname>  TTL 300
+staging      CNAME  cname.vercel-dns.com                 TTL 300
+_vercel      TXT    <Vercel verification value>          TTL 300
+```
+
+**MODIFY (at cutover hour, replaces marketing page):**
+```
+@   ALIAS  fixflow.ai.cdn.hstgr.net.       →   @   <Vercel A record per Vercel instructions>
+www CNAME  www.fixflow.ai.cdn.hstgr.net.   →   www CNAME  cname.vercel-dns.com
+```
+
+**LEAVE ALONE (preserve):**
+```
+@ MX 5 smtp.google.com                   (Google Workspace email — preserves @fixflow.ai)
+@ TXT  v=spf1 include:_spf.google.com... (SPF for email)
+_dmarc TXT v=DMARC1; p=none               (DMARC for email)
+@ CAA  × 12 records                       (TLS cert authorization — already allows Let's Encrypt)
+@ NS   athena.dns-parking.com             (keep nameservers at Hostinger)
+@ NS   apollo.dns-parking.com
+app    CNAME whitelabel.ludicrous.cloud   (in use — preserve)
+SOA record                                (auto-managed)
+```
+
+**OPTIONAL CLEANUP (Phase 5 — non-blocking):**
+```
+fix    ALIAS fix.fixflow.ai.cdn.hstgr.net.    (mirror — harmless to delete or keep)
+funnel ALIAS funnel.fixflow.ai.cdn.hstgr.net. (empty placeholder — harmless to delete or keep)
+info   CNAME sites.ludicrous.cloud            (broken 404 — harmless to delete or keep)
+```
+
+#### 5. Risk profile after this session
+
+Significantly de-risked from 2026-04-22:
+
+| Risk | 2026-04-22 status | 2026-04-28 status |
+|---|---|---|
+| Email outage at cutover | Unknown (didn't know if email was on @fixflow.ai) | ✅ Eliminated — MX/SPF/DMARC stay untouched |
+| `app.fixflow.ai` outage | Unknown | ✅ Eliminated — CNAME stays untouched (pending team confirmation) |
+| 1-24h DNS propagation gap | Likely (nameserver switch path) | ✅ Eliminated — editing records at Hostinger, no nameserver change |
+| TLS cert provisioning failure | Unknown (CAA records not checked) | ✅ Pre-cleared — CAA records already authorize Let's Encrypt |
+| Marketing page goes down | Concern (preserve vs replace?) | ✅ Acceptable — placeholder, OK to lose |
+
+#### 6. What still remains
+
+- **Team confirmation** that `app.fixflow.ai` is theirs to preserve (low-blocker; the plan already preserves it either way, but confirms the destination is internally owned)
+- **Zeff Google Cloud Console access** — separate critical path, unchanged from 2026-04-22 (see Google Cloud Console blocker section)
+- **Cutover date** — original 2026-04-26 missed; pick new evening-PH window once team aligned
+- **Pre-stage steps** that can happen now without team blockers:
+  1. Add fixflow.ai to Vercel project; obtain verification TXT and Vercel DNS target
+  2. Add the verification TXT at Hostinger (risk-free — TXT only, no traffic impact)
+  3. Add api.fixflow.ai to DigitalOcean app's Domains list (non-disruptive)
+  4. Set up sacrificial subdomain test (e.g., `migrate-test.fixflow.ai` → Vercel) to validate stack before touching apex
+  5. Continue Google Cloud OAuth setup with fixflow.ai redirect URIs added in parallel
+
+---
 
 ### What was applied in this session (2026-04-21 engineer PR)
 
