@@ -23,8 +23,25 @@ router.get('/connect', authMiddleware, requireRole(['shop']), gmailController.co
 /**
  * @swagger
  * /api/shops/gmail/callback:
+ *   get:
+ *     summary: Handle Gmail OAuth callback (GET — Google redirect)
+ *     tags: [Gmail]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: state
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Redirects to frontend callback page with success/error query
  *   post:
- *     summary: Handle Gmail OAuth callback
+ *     summary: Handle Gmail OAuth callback (POST — programmatic)
  *     tags: [Gmail]
  *     security:
  *       - bearerAuth: []
@@ -43,6 +60,10 @@ router.get('/connect', authMiddleware, requireRole(['shop']), gmailController.co
  *       200:
  *         description: Gmail connected successfully
  */
+// GET handler for Google OAuth callback (Google redirects here after authorization — no JWT)
+router.get('/callback', gmailController.handleGmailCallback);
+
+// POST handler for manual callback (frontend programmatic exchange)
 router.post('/callback', authMiddleware, requireRole(['shop']), gmailController.handleGmailCallback);
 
 /**
