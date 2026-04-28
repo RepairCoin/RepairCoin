@@ -45,7 +45,6 @@ export default function OnboardingScreen3({
               className={`h-2 ${slideIndex === 2 ? "w-10" : "w-2"} rounded-full bg-[#FFCC00] ${slideIndex === 2 ? "" : "opacity-50"}`}
             />
           </View>
-
           <View className="flex-row gap-4 items-center">
             <ConnectWithMetaMask />
           </View>
@@ -80,7 +79,6 @@ const ConnectWithMetaMask = () => {
       await connect(async () => {
         let w;
         switch (walletId) {
-          // Social Login Options
           case "google":
             w = createWallet("inApp");
             await w.connect({
@@ -88,30 +86,23 @@ const ConnectWithMetaMask = () => {
               strategy: "google",
             });
             break;
-
-          // Wallet Apps
           case "metamask":
             w = createWallet("io.metamask");
             await w.connect({ client });
             break;
-
           case "walletconnect":
             w = walletConnect();
             await w.connect({ client });
             break;
-
           case "coinbase":
             w = createWallet("com.coinbase.wallet");
             await w.connect({ client });
             break;
-
           case "rainbow":
             w = createWallet("me.rainbow");
             await w.connect({ client });
             break;
-
           default:
-            // Default to Google login
             w = createWallet("inApp");
             await w.connect({
               client,
@@ -119,36 +110,24 @@ const ConnectWithMetaMask = () => {
             });
         }
 
-        // Check if cancelled while connecting
         if (isCancelledRef.current) {
           throw new Error("Connection cancelled");
         }
 
-        // Get the wallet address after successful connection
         const account = w.getAccount();
         if (account) {
           const address = account.address;
 
-          // Get email for Google sign-in
           let email: string | undefined;
           if (walletId === "google") {
             try {
               email = await getUserEmail({ client });
-              console.log("[ConnectWallet] Google email:", email);
             } catch (err) {
               console.log("[ConnectWallet] Could not get email:", err);
             }
           }
 
-          console.log(
-            `[ConnectWallet] ${walletId} connected successfully:`,
-            address
-          );
-
-          // Store the auth method for wallet auto-reconnection on app restart
           setAuthMethod(walletId as AuthMethod);
-
-          // Check customer data with the connected address (pass email for registration)
           connectWalletMutation.mutate({ address, email });
           setShowWalletModal(false);
         }
@@ -165,7 +144,6 @@ const ConnectWithMetaMask = () => {
     }
   };
 
-  // Use local state to control UI, so we can cancel and reset
   const showLoading = isLocalConnecting || connectWalletMutation.isPending;
 
   return (

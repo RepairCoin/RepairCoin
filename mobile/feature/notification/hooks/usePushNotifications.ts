@@ -75,13 +75,10 @@ export function usePushNotifications() {
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#FFCC00",
     });
-
-    console.log("[Push] Android notification channels created");
   }, []);
 
   const registerForPushNotifications = useCallback(async () => {
     if (isRegistering.current) {
-      console.log("[Push] Registration already in progress, skipping");
       return null;
     }
 
@@ -91,7 +88,6 @@ export function usePushNotifications() {
         error: "Push notifications require a physical device",
         isLoading: false,
       }));
-      console.log("[Push] Not a physical device, skipping registration");
       return null;
     }
 
@@ -119,7 +115,6 @@ export function usePushNotifications() {
           error: "Push notification permission denied",
           isLoading: false,
         }));
-        console.log("[Push] Permission denied");
         return null;
       }
 
@@ -135,9 +130,6 @@ export function usePushNotifications() {
       });
       const expoPushToken = tokenResult.data;
 
-      console.log("[Push] Got Expo push token:", expoPushToken);
-
-      // Register token with backend
       if (accessToken) {
         try {
           await notificationApi.registerPushToken({
@@ -147,8 +139,6 @@ export function usePushNotifications() {
             deviceName: Device.deviceName || undefined,
             appVersion: Constants.expoConfig?.version,
           });
-
-          console.log("[Push] Token registered with backend");
 
           setState({
             expoPushToken,
@@ -194,11 +184,9 @@ export function usePushNotifications() {
 
   const handleNotificationReceived = useCallback(
     (notification: Notifications.Notification) => {
-      console.log("[Push] Notification received:", notification);
       const data = notification.request.content.data as NotificationData;
 
       if (data?.type) {
-        console.log("[Push] Notification type:", data.type);
       }
     },
     []
@@ -206,33 +194,26 @@ export function usePushNotifications() {
 
   const handleNotificationResponse = useCallback(
     (response: Notifications.NotificationResponse) => {
-      console.log("[Push] Notification tapped:", response);
       const data = response.notification.request.content
         .data as NotificationData;
 
       const responseId = response.notification.request.identifier;
       if (lastHandledResponseId.current === responseId) {
-        console.log("[Push] Skipping already-handled response:", responseId);
         return;
       }
       lastHandledResponseId.current = responseId;
 
       if (AppState.currentState !== "active") {
-        console.log("[Push] Skipping response navigation — app not active");
         return;
       }
 
       if (usePaymentStore.getState().activeSession) {
-        console.log(
-          "[Push] Skipping response navigation — active payment session is being resolved by deep link"
-        );
         return;
       }
 
       const currentUserType = userTypeRef.current;
 
       if (!currentUserType) {
-        console.log("[Push] Skipping response navigation — no userType yet");
         return;
       }
 
@@ -303,7 +284,6 @@ export function usePushNotifications() {
 
     try {
       await notificationApi.deactivatePushToken(state.expoPushToken);
-      console.log("[Push] Token deactivated");
     } catch (error) {
       console.error("[Push] Failed to deactivate token:", error);
     }
@@ -320,7 +300,6 @@ export function usePushNotifications() {
   const unregisterAllPushNotifications = useCallback(async () => {
     try {
       await notificationApi.deactivateAllPushTokens();
-      console.log("[Push] All tokens deactivated");
     } catch (error) {
       console.error("[Push] Failed to deactivate all tokens:", error);
     }
@@ -363,10 +342,7 @@ export function usePushNotifications() {
 
   useEffect(() => {
     const subscription = Notifications.addPushTokenListener(async (newToken) => {
-      console.log("[Push] Native token refreshed:", newToken.data);
-
       if (isRegistering.current) {
-        console.log("[Push] Skipping refresh - registration in progress");
         return;
       }
 
@@ -385,8 +361,6 @@ export function usePushNotifications() {
           });
           const expoPushToken = tokenResult.data;
 
-          console.log("[Push] Got refreshed Expo push token:", expoPushToken);
-
           if (expoPushToken !== state.expoPushToken) {
             await notificationApi.registerPushToken({
               expoPushToken,
@@ -401,8 +375,6 @@ export function usePushNotifications() {
               expoPushToken,
               isRegistered: true,
             }));
-
-            console.log("[Push] Refreshed token registered");
           }
         } catch (error) {
           console.error("[Push] Failed to register refreshed token:", error);
