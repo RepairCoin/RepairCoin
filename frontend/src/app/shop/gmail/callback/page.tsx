@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { gmailApi } from '@/services/api/gmail';
 import { toast } from 'react-hot-toast';
 
 export default function GmailCallbackPage() {
@@ -11,40 +10,27 @@ export default function GmailCallbackPage() {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
 
   useEffect(() => {
-    handleCallback();
-  }, []);
-
-  const handleCallback = async () => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
+    const success = searchParams.get('success');
     const error = searchParams.get('error');
 
     if (error) {
       setStatus('error');
-      toast.error('Gmail connection cancelled');
+      toast.error(error || 'Gmail connection failed');
       setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
       return;
     }
 
-    if (!code) {
-      setStatus('error');
-      toast.error('Missing authorization code');
-      setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
-      return;
-    }
-
-    try {
-      await gmailApi.handleCallback(code, state || '');
+    if (success === 'true') {
       setStatus('success');
       toast.success('Gmail connected successfully!');
       setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
-    } catch (error) {
-      console.error('Callback error:', error);
-      setStatus('error');
-      toast.error('Failed to connect Gmail');
-      setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
+      return;
     }
-  };
+
+    setStatus('error');
+    toast.error('Unknown callback state');
+    setTimeout(() => router.push('/shop/settings?tab=social'), 2000);
+  }, [searchParams, router]);
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">

@@ -48,15 +48,24 @@ export class GmailController {
   };
 
   /**
-   * POST /api/shops/gmail/callback
+   * GET/POST /api/shops/gmail/callback
    * Handle OAuth callback from Gmail
+   * Accepts both GET (from Google redirect) and POST (from frontend)
    */
   handleGmailCallback = async (req: Request, res: Response): Promise<void> => {
+    const isGet = req.method === 'GET';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+
     try {
-      const { code, state } = req.body;
-      const shopId = req.user?.shopId || state;
+      const code = isGet ? (req.query.code as string) : req.body.code;
+      const state = isGet ? (req.query.state as string) : req.body.state;
+      const shopId = state || req.user?.shopId;
 
       if (!code || !shopId) {
+        if (isGet) {
+          res.redirect(`${frontendUrl}/shop/gmail/callback?error=${encodeURIComponent('Missing authorization code or shop ID')}`);
+          return;
+        }
         res.status(400).json({
           success: false,
           error: 'Missing authorization code or shop ID',
@@ -66,12 +75,24 @@ export class GmailController {
 
       await this.gmailService.handleOAuthCallback(code, shopId);
 
+      if (isGet) {
+        res.redirect(`${frontendUrl}/shop/gmail/callback?success=true`);
+        return;
+      }
+
       res.status(200).json({
         success: true,
         message: 'Gmail connected successfully',
       });
     } catch (error) {
       logger.error('Error in handleGmailCallback:', error);
+
+      if (isGet) {
+        const errorMessage = error instanceof Error ? error.message : 'Connection failed';
+        res.redirect(`${frontendUrl}/shop/gmail/callback?error=${encodeURIComponent(errorMessage)}`);
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Failed to complete Gmail connection',
