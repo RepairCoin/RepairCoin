@@ -27,8 +27,8 @@
 
 | Phase | Engineer side | Operator side |
 |---|---|---|
-| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **OAuth integrations verified end-to-end on staging (Calendar + Gmail) — three Gmail bugs found and fixed in 2026-04-28 session, see section 7 below.** | **Inventory complete (2026-04-28).** All previously-blocked items now answered: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); subdomain recon done (app.fixflow.ai in use → preserve; fix/funnel/info effectively dead). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Zeff Google Cloud Console blocker bypassed** — new `fixflow-project` Cloud project created, OAuth clients live, staging env vars updated. **Still pending:** Play/App Store access; cutover date selection. |
-| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). OAuth callback flow refactored for Gmail (GET handler added, frontend redirect fixed). See "What was applied in this session" below. | **READY to proceed once `app.fixflow.ai` ownership is team-confirmed.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Pre-stage steps available now (Vercel domain add + verification TXT) — no impact on live marketing page or email. |
+| Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **OAuth integrations verified end-to-end on staging AND prod (Calendar + Gmail) — three Gmail bugs found and fixed in 2026-04-28 session, see sections 7-8 below.** | **Inventory complete (2026-04-28).** All previously-blocked items now answered: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); subdomain recon done (app.fixflow.ai in use → preserve; fix/funnel/info effectively dead). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Zeff Google Cloud Console blocker bypassed** — new `fixflow-project` Cloud project, OAuth clients live, staging + prod env vars updated. **Still pending:** Play/App Store access; cutover date selection. |
+| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). OAuth callback flow refactored for Gmail (GET handler added, frontend redirect fixed). All shipped to prod 2026-04-28 — see `staging-to-production-deployment.md`. | **READY to pre-stage now.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Vercel TXT verification + DO domain add can run today without traffic impact. |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
 | Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
 | Phase 4 — Mobile Rebuild | Not started. Post-cutover (not on critical path). | Post-cutover. |
@@ -216,25 +216,174 @@ Staging env vars updated on DigitalOcean: `GOOGLE_CALENDAR_CLIENT_ID/SECRET/REDI
 
 After all three commits Gmail connect now works end-to-end on staging — same flow as Calendar.
 
-#### 8. What still remains
+#### 8. OAuth promoted to production (later same day, 2026-04-28)
 
-- ✅ ~~OAuth setup~~ — done.
-- ✅ ~~Marketing page / Hostinger access / email preservation / DNS strategy~~ — done.
-- **Team confirmation** that `app.fixflow.ai` is internally owned (the plan preserves it either way, this just confirms the destination)
-- **Cutover date** — original 2026-04-26 missed; pick new evening-PH window once team aligned
-- **Production env var update** — once staging proves stable for ~24-48h, mirror the new OAuth Client IDs/secrets and redirect URIs to the prod DigitalOcean app
-- **Pre-stage steps** ready to execute now without team blockers:
-  1. Add `fixflow.ai` to Vercel project; obtain verification TXT and Vercel DNS target
-  2. Add the verification TXT at Hostinger (risk-free — TXT only, no traffic impact)
-  3. Add `api.fixflow.ai` to DigitalOcean app's Domains list (non-disruptive)
-  4. Set up sacrificial subdomain test (e.g., `migrate-test.fixflow.ai` → Vercel) to validate stack before touching apex
-- **Google verification path** (NOT cutover-blocking but rollout-blocking)
-  - Hosted `fixflow.ai/privacy` and `fixflow.ai/terms` pages (required for Google's app verification)
-  - Public homepage describing the app
-  - Demo video showing OAuth flow + scope justification
-  - Verified domain ownership in Search Console
-  - Submit Gmail/Calendar OAuth client for verification → 4-8 week review window — has to start *after* fixflow.ai is live
-- **Mobile rebuild (Phase 4)** — post-cutover, not on critical path
+Promoted the 3 Gmail OAuth fixes from `main` to `prod` (commits `87ac3345`, `2d584b07`, `1024f6fe`) along with the prod env-var rotation onto the `fixflow-project` OAuth clients. Runbook + log: `docs/tasks/strategy/staging-to-production-deployment.md`.
+
+**Env var swap mistake + recovery:**
+
+Initial prod env-var update copied staging values verbatim, including the redirect URI host. Result:
+
+```
+Click Connect Gmail on repaircoin.ai (PROD)
+  ↓ prod backend builds OAuth URL with redirect_uri = api-staging.repaircoin.ai/...   ← wrong host
+  ↓ Google redirects browser to that staging URL
+  ↓ STAGING backend handles the callback, exchanges code, stores token in STAGING DB
+  ↓ Staging redirects to staging FRONTEND_URL → user lands on staging homepage
+```
+
+OAuth flow looked successful from the user's perspective, but the tokens landed in the wrong database — prod had no record of the connection.
+
+Fix on DO prod env vars:
+
+| Variable | Wrong (copied from staging) | Correct |
+|---|---|---|
+| `GMAIL_REDIRECT_URI` | `https://api-staging.repaircoin.ai/api/shops/gmail/callback` | `https://api.repaircoin.ai/api/shops/gmail/callback` |
+| `GOOGLE_CALENDAR_REDIRECT_URI` | `https://api-staging.repaircoin.ai/api/shops/calendar/callback/google` | `https://api.repaircoin.ai/api/shops/calendar/callback/google` |
+
+Both prod URIs were already registered with the `fixflow-project` OAuth clients (we'd registered all four envs upfront), so this was an env-var-only fix — no Cloud Console change. After the swap + DO redeploy, disconnect-then-reconnect cycle stored tokens in the correct prod DB. Calendar + Gmail end-to-end verified on prod.
+
+**Lesson worth carrying forward:** when copying env vars between environments, always grep for the host portion of every URL-shaped value. `api-staging.repaircoin.ai` ≠ `api.repaircoin.ai` ≠ `api-staging.fixflow.ai` ≠ `api.fixflow.ai` — same OAuth client accepts all four, but only one is correct per environment, and Google won't tell you you used the wrong one because the URI *is* registered.
+
+#### 9. What still remains
+
+**Done since this section was last revised:**
+- ✅ ~~OAuth setup~~
+- ✅ ~~Marketing page / Hostinger access / email preservation / DNS strategy~~
+- ✅ ~~Production OAuth env vars~~ (executed today, including the redirect-URI fix in section 8)
+- ✅ ~~Promote OAuth code to prod~~ (3 Gmail fixes — see `staging-to-production-deployment.md`)
+
+**Now blocking next phase:**
+
+1. **Team confirmation** that `app.fixflow.ai` is internally owned. The DNS plan preserves it either way; this just confirms the destination.
+2. **Cutover date** — original 2026-04-26 missed; pick a new evening-PH window once aligned. Rough effort estimate: 4-6 hour window (DNS edit + Vercel redeploy + smoke tests + DO domain attach + cookie/CORS validation).
+
+**Pre-stage steps ready to execute now (no team blockers, low risk):**
+
+1. Add `fixflow.ai` to the Vercel project → obtain verification TXT and Vercel DNS target.
+2. Add the verification TXT at Hostinger (risk-free — TXT only, no traffic impact, no email impact).
+3. Add `api.fixflow.ai` to the DigitalOcean prod app's Domains list (DO will provision a cert and start serving, but nothing routes there until the DNS CNAME flips).
+4. Set up sacrificial subdomain test (`migrate-test.fixflow.ai` → Vercel) to validate the full Vercel + DO + cookie-domain stack before touching the apex.
+5. Once `fixflow.ai` Vercel deploy is up at the test subdomain, walk a full shop OAuth flow end-to-end from the new domain — same playbook we just used on `repaircoin.ai` prod.
+
+**Rollout path after cutover (NOT cutover-blocking but customer-rollout-blocking):**
+
+Real (non-test-list) shop owners cannot connect Gmail until the OAuth consent screen is published to Production with Google's app verification. Gmail uses sensitive scopes (`gmail.send`, `gmail.compose`), so verification is mandatory. 4-8 week review window. Has to start *after* `fixflow.ai` is live because Google verifies the live URLs.
+
+Verification submission requires:
+- Hosted `fixflow.ai/privacy` and `fixflow.ai/terms` pages
+- Public homepage describing the app + scope justifications
+- Demo video walking the OAuth flow and showing scope use
+- Verified domain ownership in Google Search Console (added at `_google-site-verification` TXT record)
+
+In the interim, real shop owners' Gmail connect attempts will hit "FixFlow has not completed the Google verification process" unless individually added to the test-user list (max 100). Acceptable for a slow controlled rollout but not for general availability.
+
+**Mobile rebuild (Phase 4)** — post-cutover, not on critical path. Expo deep-link scheme migration documented in Phase 2 env-ification PR; mobile rebuild + store re-submission only triggers once the cutover is committed.
+
+#### 10. Phase 1A — Pre-stage `fixflow.ai` infrastructure (DO NEXT, ~45 min total)
+
+While we wait on team confirmation of `app.fixflow.ai` ownership, every other piece of the migration stack can be set up *now* without disrupting email, the existing marketing page, or `app.fixflow.ai`. The goal: at cutover hour, the only edit is flipping the apex `@` ALIAS — not provisioning Vercel, certs, and DO domains in a tight window.
+
+**Risk profile of this phase:** zero traffic impact, zero email impact, zero downtime. Adding domains to Vercel/DO and adding TXT records doesn't route any traffic; it just provisions what we'll route to later.
+
+##### Step 1 — Vercel: add `fixflow.ai` (10 min)
+
+1. Vercel dashboard → production RepairCoin frontend project → **Settings → Domains**
+2. **Add Domain** → `fixflow.ai`
+3. **Add Domain** → `www.fixflow.ai`
+4. Vercel returns:
+   - A **verification TXT** value (use in Step 2)
+   - A **DNS target** (`cname.vercel-dns.com`) — keep for cutover hour, not used now
+5. Save both values into a secure note
+
+##### Step 2 — Hostinger: add verification TXT records (5 min, zero traffic impact)
+
+In Hostinger DNS for fixflow.ai:
+
+1. Add the `_vercel` TXT record from Step 1:
+   ```
+   Type:  TXT
+   Name:  _vercel
+   Value: <Vercel verification value>
+   TTL:   300
+   ```
+2. While editing, also add the placeholder for Google Search Console (used during Google verification later — safe to add now):
+   ```
+   Type:  TXT
+   Name:  @
+   Value: <google-site-verification value, after registering domain in Search Console>
+   TTL:   300
+   ```
+3. Save. Vercel detects the TXT within ~minutes and marks `fixflow.ai` as **verified**. Still won't serve traffic until the apex `@` ALIAS flips at cutover.
+4. **Don't touch the apex `@` ALIAS or `www` CNAME** in this phase — those are the cutover-hour edits.
+
+##### Step 3 — DigitalOcean: add `api.fixflow.ai` to prod backend (5 min)
+
+1. DO → Apps → **production backend app** → Settings → **Domains** → Add Domain → `api.fixflow.ai`
+2. DO will start provisioning a Let's Encrypt cert. CAA records on fixflow.ai (per section 4) already authorize Let's Encrypt, so this should provision in 1-3 min.
+3. DO marks the domain as "Active" once cert is issued. It's now reachable at `api.fixflow.ai` from DO's edge — but no traffic flows there until Hostinger DNS adds the CNAME.
+
+##### Step 4 — Sacrificial canary: `migrate-test.fixflow.ai` (15 min)
+
+This is the most valuable verification step. Builds end-to-end FixFlow infrastructure on a throwaway hostname so cutover is risk-tested.
+
+1. Hostinger DNS → add:
+   ```
+   Type:  CNAME
+   Name:  migrate-test
+   Value: cname.vercel-dns.com
+   TTL:   300
+   ```
+2. Vercel → same project → Settings → Domains → Add `migrate-test.fixflow.ai` → wait for cert (~2-5 min)
+3. Once Vercel says "Active", open `https://migrate-test.fixflow.ai` in a browser
+4. **Verification checklist:**
+   - [ ] Page renders the live frontend (Vercel serving correctly)
+   - [ ] DevTools → Network → API requests succeed (CORS allowlist from Phase 1 actually permits `fixflow.ai`)
+   - [ ] Try shop login — likely fails because cookie is set on `.repaircoin.ai`. **Document the failure mode.** This tells us whether cutover needs cookie-rewriting code or just accepts a one-time relogin.
+   - [ ] Try Calendar Connect from the canary — confirms OAuth callback chain still works when frontend is on a new domain (the redirect_uri stays at `api.repaircoin.ai/...` for now, which is fine and registered)
+   - [ ] Check console for any hardcoded `repaircoin.ai` URL leftover from Phase 2 env-ification — anything that breaks here is something to fix before cutover
+
+##### What we know after Phase 1A
+
+When all four steps are green, we have evidence that:
+- Vercel is correctly configured for `fixflow.ai`
+- Let's Encrypt provisions certs on `api.fixflow.ai` and `*.fixflow.ai`
+- DNS at Hostinger accepts our edits and propagates correctly
+- The full app stack runs on a fixflow.ai-hosted page
+
+Cutover hour shrinks to: edit apex `@` ALIAS at Hostinger + add `www` CNAME → done in 30 seconds, propagates in 5-10 min on the existing 300s TTL.
+
+#### 11. Phase 1B — Async content work (start in parallel, customer-rollout-blocking)
+
+These are NOT cutover-blocking but ARE blockers for the post-cutover Gmail rollout (Google verification needs them live and reachable on `fixflow.ai`). Starting now removes weeks from the critical path because Google review takes 4-8 weeks once submitted.
+
+| Asset | What it is | Why it's needed |
+|---|---|---|
+| `fixflow.ai/privacy` | Privacy policy | Google verification — must explicitly disclose Gmail/Calendar data usage, retention, sharing |
+| `fixflow.ai/terms` | Terms of service | Google verification |
+| `fixflow.ai` (homepage) | Public homepage describing FixFlow | Google verification — needs to match what the consent screen claims the app does |
+| Demo video (~2-3 min) | Narrated OAuth walkthrough with per-scope justification | Google verification — required for sensitive scope (`gmail.send`, `gmail.compose`) review |
+| Search Console verification | TXT record at fixflow.ai apex | Required to submit OAuth client for verification |
+
+These can be drafted by anyone with content/marketing skills — not engineer-blocking.
+
+#### 12. Phase 1C — Engineering polish on the canary (today, ~30 min)
+
+After Phase 1A canary is up, use it to surface anything Phase 2 env-ification missed:
+
+1. **Hardcoded URL grep** — `grep -rn "repaircoin\.ai" frontend/src backend/src` and review every match. Anything not in a comment, config default, or env-loader fallback needs to be env-driven before cutover.
+2. **Cookie behavior test** — log a shop in via `migrate-test.fixflow.ai`, inspect cookies, confirm whether cross-domain auth needs intervention or works "for free".
+3. **Email/asset URL audit** — open a transactional email rendered through `migrate-test.fixflow.ai` and confirm logo/asset URLs use `PUBLIC_ASSET_URL` env var (already env-ified in Phase 2 — this just verifies in practice).
+
+#### 13. Suggested next working session — quick reference
+
+| Order | Effort | Action | Phase |
+|---|---|---|---|
+| 1 | 45 min | Phase 1A pre-stage (Vercel + Hostinger TXT + DO Domains + canary) | 1A |
+| 2 | 30 min | Phase 1C engineering polish on the canary (hardcoded URL grep + cookie test) | 1C |
+| 3 | Async | Phase 1B content drafting (privacy, terms, homepage, demo video script) | 1B |
+| 4 | When team aligns | Lock cutover date | 3 |
+| 5 | Cutover hour | Apex DNS flip — runbook in section 4 above | 3 |
 
 ---
 
