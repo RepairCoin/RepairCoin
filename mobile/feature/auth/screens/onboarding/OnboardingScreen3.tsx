@@ -25,7 +25,7 @@ export default function OnboardingScreen3({
       resizeMode="cover"
       className="h-full w-full px-8"
     >
-      <View className="mt-auto mb-20 h-[28%] w-full bg-black rounded-3xl px-6 py-4">
+      <View className="mt-auto mb-20 h-[30%] w-full bg-black rounded-3xl px-6 py-4">
         <Text className="text-white text-3xl font-bold">
           Ready to Earn?{"\n"}Connect and Explore
         </Text>

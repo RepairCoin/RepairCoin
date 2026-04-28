@@ -19,7 +19,7 @@ export default function OnboardingScreen1({ slideIndex = 0 }: OnboardingStep1Pro
       resizeMode="cover"
       className="h-full w-full px-8"
     >
-      <View className="mt-auto mb-20 h-[27%] w-full bg-black rounded-3xl px-6 py-8">
+      <View className="mt-auto mb-20 h-[30%] w-full bg-black rounded-3xl px-6 py-8">
         <Text className="text-white text-3xl font-bold">
           Earn Rewards on{"\n"}Everyday Services
         </Text>

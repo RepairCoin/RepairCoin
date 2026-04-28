@@ -5,7 +5,6 @@ import {
   Dimensions,
   View,
   ActivityIndicator,
-  Text,
 } from "react-native";
 import { PanGestureHandler } from "react-native-gesture-handler";
 import Animated, {
@@ -19,7 +18,6 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import OnboardingOne from "./onboarding1";
 import OnboardingTwo from "./onboarding2";
 import OnboardingThree from "./onboarding3";
-import { Ionicons } from "@expo/vector-icons";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -67,12 +65,6 @@ export default function OnboardingLayout() {
   if (isLoading) {
     return (
       <View className="h-full w-full bg-black items-center justify-center px-8">
-        <Text className="text-white text-2xl font-bold text-center mb-2">
-          Getting things ready
-        </Text>
-        <Text className="text-gray-400 text-base text-center mb-10">
-          Opening your dashboard...
-        </Text>
         <ActivityIndicator size="large" color="#FFCC00" />
       </View>
     );
