@@ -17,9 +17,9 @@
 
 ## Current State Snapshot (READ THIS FIRST)
 
-**Last updated:** 2026-04-28 by engineer session.
+**Last updated:** 2026-04-29 by engineer session.
 
-**Cutover target:** TBD — original 2026-04-26 missed due to fixflow.ai DNS + Google Cloud Console blockers. All blockers cleared as of 2026-04-29; pending team alignment on a new evening-PH window.
+**Cutover status:** ✅ **COMPLETE — fixflow.ai is live on Vercel as of 2026-04-29.** Apex DNS flipped at Hostinger (`@` ALIAS → `cname.vercel-dns.com`, `www` CNAME → `cname.vercel-dns.com`). Vercel cert provisioned. RepairCoin frontend now serves on both `repaircoin.ai` and `fixflow.ai`. Email, `app.fixflow.ai` (GHL whitelabel), and existing `repaircoin.ai` users all unaffected.
 
 **Strategy locked in (2026-04-28):** keep nameservers at Hostinger, edit records there directly, preserve Google Workspace email + `app.fixflow.ai` SaaS subdomain. See "What happened in this session (2026-04-28)" below for the precise edit list.
 
@@ -28,11 +28,11 @@
 | Phase | Engineer side | Operator side |
 |---|---|---|
 | Phase 0 — Planning & Prep | **Engineer inventory complete** → `docs/tasks/strategy/phase-0-inventory.md`. **OAuth integrations verified end-to-end on staging AND prod (Calendar + Gmail) — three Gmail bugs found and fixed in 2026-04-28 session, see sections 7-8 below.** | **Inventory complete + ALL subdomain ownership confirmed by team (2026-04-29).** Findings: marketing page = placeholder/expendable; Hostinger access available; Google Workspace email at @fixflow.ai (MUST preserve); `app.fixflow.ai` confirmed in active use via Go High Level whitelabel (MUST preserve); `fix.fixflow.ai` will be backed up + taken down by team; `funnel.fixflow.ai` and `info.fixflow.ai` not active (safe to ignore or clean up post-cutover). DNS strategy locked: keep nameservers at Hostinger, edit records there. **Zeff Google Cloud Console blocker bypassed** — new `fixflow-project` Cloud project, OAuth clients live, staging + prod env vars updated. **Still pending:** Play/App Store access; cutover date selection. |
-| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist applied to `backend/src/app.ts` (fully additive; safe to deploy without DNS). OAuth callback flow refactored for Gmail (GET handler added, frontend redirect fixed). All shipped to prod 2026-04-28 — see `staging-to-production-deployment.md`. | **READY to pre-stage now.** Plan: edit records at Hostinger (not nameserver swap). Hostinger zone exported and analyzed; precise edit list documented in 2026-04-28 session notes. Vercel TXT verification + DO domain add can run today without traffic impact. |
+| Phase 1 — Parallel Infra | **Engineer side DONE.** CORS allowlist + Phase 2 env-ification + OAuth callback flow refactor all shipped to prod (2026-04-28). Phase 1A pre-stage + Phase 1C engineering polish completed 2026-04-29 — backend dynamic cookie domain, frontend dynamic API URL, 41-file sweep, latent staging routing bug fixed. See sections 10 and 12 below. | **DONE — `migrate-test.fixflow.ai` canary serving live app with first-party `.fixflow.ai` cookies; `api.fixflow.ai` Active on DO with Let's Encrypt cert.** Cutover-hour reduces to a single Hostinger DNS edit (~30 min total including smoke tests). |
 | Phase 2 — Codebase Prep | **Engineer side DONE (backward-compatible).** Deep-link scheme env-ified (4 backend emitters). Frontend metadataBase + OG URLs env-ified. Backend hardcoded URLs (MarketingService logo, admin settings supportEmail, email-template preview reset link, swagger contact + production server URL) env-ified. Mobile eas.json changes deferred to Phase 4 rebuild. | Nothing until Phase 1 completes. |
-| Phase 3 — Cutover | Not started. Gated by Phase 1 + Phase 2 verification. | Gated by Phase 1 + Phase 2. |
+| Phase 3 — Cutover | **✅ DONE (2026-04-29).** Apex `@` ALIAS → `cname.vercel-dns.com`, `www` CNAME → `cname.vercel-dns.com`. Cert provisioned automatically by Vercel via existing CAA records. WordPress marketing page replaced by live RepairCoin app. Hit two minor friction points during the edit (Hostinger CDN-validation rejected an A record at apex; switched to ALIAS pointing at Vercel's legacy CNAME target — functionally identical). Smoke tests passed: HTTPS valid, apex 307-redirects to www, www serves Next.js build. | Operator side: cutover save executed by operator at the Hostinger DNS panel. Marketing page is now offline. |
 | Phase 4 — Mobile Rebuild | Not started. Post-cutover (not on critical path). | Post-cutover. |
-| Phase 5 — Soak & Cleanup | Not started. | Not started. |
+| Phase 5 — Soak & Cleanup | Not started. Operator items: take down `fix.fixflow.ai` mirror; optionally clean up inactive `funnel.fixflow.ai` and `info.fixflow.ai`. | Not started. |
 
 ### What happened in this session (2026-04-21)
 
@@ -262,44 +262,59 @@ Both prod URIs were already registered with the `fixflow-project` OAuth clients 
 
 #### 9. What still remains
 
-**Done since this section was last revised:**
-- ✅ ~~OAuth setup~~
+**Done across this migration effort (2026-04-21 → 2026-04-29):**
+- ✅ ~~Phase 0 inventory~~ (engineer + operator side, including team-confirmed subdomain status)
+- ✅ ~~Phase 1 CORS allowlist + Phase 2 env-ification~~ (backend + frontend both made domain-agnostic)
 - ✅ ~~Marketing page / Hostinger access / email preservation / DNS strategy~~
-- ✅ ~~Production OAuth env vars~~ (executed today, including the redirect-URI fix in section 8)
-- ✅ ~~Promote OAuth code to prod~~ (3 Gmail fixes — see `staging-to-production-deployment.md`)
+- ✅ ~~OAuth Cloud Console blocker~~ (bypassed via `fixflow-project`, prod Calendar + Gmail verified end-to-end)
+- ✅ ~~Production OAuth env vars~~ (including the redirect-URI host-mismatch recovery in section 8)
+- ✅ ~~Phase 1A pre-stage (Vercel + Hostinger TXT + DO Domains + canary)~~ — see section 10
+- ✅ ~~Phase 1C engineering polish~~ — see section 12 (dynamic cookie domain on backend, dynamic API/WS URL on frontend, 44-file sweep, latent staging-routes-to-prod bug fixed)
+- ✅ ~~`api.fixflow.ai` live with Let's Encrypt cert~~ (active on DO, returns healthy from prod backend)
+- ✅ ~~`migrate-test.fixflow.ai` canary fully validates cutover stack~~ — login works, cookies first-party on `.fixflow.ai`, all admin/shop/customer flows work
 
-**Now blocking next phase:**
+**Cutover-blocking items: ✅ NONE.** Phase 3 executed and verified 2026-04-29.
 
-1. **Cutover date** — original 2026-04-26 missed; pick a new evening-PH window once aligned. All technical and ownership blockers cleared (2026-04-29). Rough effort estimate: 4-6 hour window (DNS edit + Vercel redeploy + smoke tests + DO domain attach + cookie/CORS validation).
-2. **Team-side prerequisite** — operator to back up + take down `fix.fixflow.ai` (mirror of marketing page) at any point before cutover. Not engineer-blocking; can run in parallel with Phase 1A pre-stage.
+**Remaining engineer-touched work (none of it cutover-blocking — fixflow.ai is already live):**
 
-**Pre-stage steps ready to execute now (no team blockers, low risk):**
+1. **Dynamic `FRONTEND_URL` on backend** (~30 min) — backend currently has `FRONTEND_URL=https://repaircoin.ai` env var. After cutover, OAuth callbacks (Calendar, Gmail) redirect users back to `${FRONTEND_URL}/...` regardless of whether they started on fixflow.ai. UX issue, not a breakage. Fix is symmetric with `getCookieDomain(req)` and `getApiBaseUrl()` — derive `FRONTEND_URL` from request host. Same call-site pattern as the cookie helper. **Hard prerequisite before flipping the repaircoin.ai → fixflow.ai redirect (item 3).**
+2. **Add `staging.fixflow.ai` + `api-staging.fixflow.ai`** (~30 min) — staging is currently only at `staging.repaircoin.ai`. Code already routes correctly for `staging.fixflow.ai` (helper has the explicit matchers, CORS allowlist permits both). All that's missing is the actual DNS + DO domain + Vercel domain wire-up (mirror of what we did for prod, but pointing at staging infra). Adds parity with the prod cutover.
+3. **Redirect `repaircoin.ai` → `fixflow.ai` (DEFERRED, on record)** — long-term plan: retire repaircoin.ai as the primary user-facing domain. Vercel domain redirect (307 Temporary, then upgrade to 308 Permanent after soak). Pre-conditions: TODO #1 done, fixflow.ai soaked for ≥7 days with real traffic, Phase 1B content at least partially live. Scope is **frontend only** — `api.repaircoin.ai`, `staging.repaircoin.ai`, and `api-staging.repaircoin.ai` keep working as legacy aliases for mobile / webhooks / OAuth callbacks / staging clients. See section 13 item 3 + sub-section "Pre-conditions for the `repaircoin.ai → fixflow.ai` redirect" for the full plan and rollback path.
 
-1. Add `fixflow.ai` to the Vercel project → obtain verification TXT and Vercel DNS target.
-2. Add the verification TXT at Hostinger (risk-free — TXT only, no traffic impact, no email impact).
-3. Add `api.fixflow.ai` to the DigitalOcean prod app's Domains list (DO will provision a cert and start serving, but nothing routes there until the DNS CNAME flips).
-4. Set up sacrificial subdomain test (`migrate-test.fixflow.ai` → Vercel) to validate the full Vercel + DO + cookie-domain stack before touching the apex.
-5. Once `fixflow.ai` Vercel deploy is up at the test subdomain, walk a full shop OAuth flow end-to-end from the new domain — same playbook we just used on `repaircoin.ai` prod.
+**Operator-side cleanup (low-priority, anytime):**
 
-**Rollout path after cutover (NOT cutover-blocking but customer-rollout-blocking):**
+- Take down `fix.fixflow.ai` (Hostinger CDN mirror of marketing page) — operator-owned task per team's 2026-04-29 confirmation.
+- Optional: remove inactive `funnel.fixflow.ai` and `info.fixflow.ai` records. Both confirmed not in active use.
+
+**Customer-rollout-blocking (NOT cutover-blocking, but starts the long-pole timeline):**
 
 Real (non-test-list) shop owners cannot connect Gmail until the OAuth consent screen is published to Production with Google's app verification. Gmail uses sensitive scopes (`gmail.send`, `gmail.compose`), so verification is mandatory. 4-8 week review window. Has to start *after* `fixflow.ai` is live because Google verifies the live URLs.
 
-Verification submission requires:
+Verification submission requires (Phase 1B — async content work, see section 11):
 - Hosted `fixflow.ai/privacy` and `fixflow.ai/terms` pages
 - Public homepage describing the app + scope justifications
 - Demo video walking the OAuth flow and showing scope use
-- Verified domain ownership in Google Search Console (added at `_google-site-verification` TXT record)
+- Verified domain ownership in Google Search Console (TXT record at the apex)
 
 In the interim, real shop owners' Gmail connect attempts will hit "FixFlow has not completed the Google verification process" unless individually added to the test-user list (max 100). Acceptable for a slow controlled rollout but not for general availability.
 
 **Mobile rebuild (Phase 4)** — post-cutover, not on critical path. Expo deep-link scheme migration documented in Phase 2 env-ification PR; mobile rebuild + store re-submission only triggers once the cutover is committed.
 
-#### 10. Phase 1A — Pre-stage `fixflow.ai` infrastructure (DO NEXT, ~45 min total)
+#### 10. Phase 1A — Pre-stage `fixflow.ai` infrastructure ✅ COMPLETE (2026-04-29)
 
-With `app.fixflow.ai` ownership confirmed (2026-04-29 — Go High Level whitelabel, must preserve), every piece of the migration stack can be set up *now* without disrupting email, the existing marketing page, or the GHL subdomain. The goal: at cutover hour, the only edits are flipping the apex `@` ALIAS and `www` CNAME — not provisioning Vercel, certs, and DO domains in a tight window.
+All four steps executed end-to-end. Canary at `migrate-test.fixflow.ai` validates the full stack with first-party cookies and live OAuth flows. Cutover-hour work shrank from ~4-6 hours to ~30 minutes (single apex DNS edit + smoke tests).
 
-**Risk profile of this phase:** zero traffic impact, zero email impact, zero downtime. Adding domains to Vercel/DO and adding TXT records doesn't route any traffic; it just provisions what we'll route to later.
+**What's actually live now:**
+- `fixflow.ai` and `www.fixflow.ai` added to Vercel project; `Invalid Configuration` placeholder is expected and intentional (DNS for those records doesn't flip until cutover hour)
+- `api.fixflow.ai` Active on DigitalOcean prod app; Let's Encrypt cert provisioned via existing CAA records; `https://api.fixflow.ai/api/health` returns healthy from prod backend
+- `migrate-test.fixflow.ai` Active in Vercel; serves the live RepairCoin frontend; full app verified working with first-party `.fixflow.ai` cookies (not just auth — admin tabs, shop dashboard, customer flows all work)
+- Hostinger DNS additions: `migrate-test CNAME cname.vercel-dns.com` + `api CNAME urchin-app-dy2ak.ondigitalocean.app` (both at TTL 300, zero impact on existing records)
+
+**Cutover-hour DNS values captured (DO NOT add yet):**
+- Apex `@` → `A 216.150.1.1` (replaces current `ALIAS fixflow.ai.cdn.hstgr.net.`)
+- `www` → `CNAME c5c0396adfbd943b.vercel-dns-017.com.` (replaces current `CNAME www.fixflow.ai.cdn.hstgr.net.`)
+
+**Risk profile:** zero traffic impact, zero email impact, zero downtime. Adding domains to Vercel/DO and adding TXT/CNAME records for new subdomains doesn't route any traffic; it just provisions what we'll route to later.
 
 ##### Step 1 — Vercel: add `fixflow.ai` (10 min)
 
@@ -382,23 +397,112 @@ These are NOT cutover-blocking but ARE blockers for the post-cutover Gmail rollo
 
 These can be drafted by anyone with content/marketing skills — not engineer-blocking.
 
-#### 12. Phase 1C — Engineering polish on the canary (today, ~30 min)
+#### 12. Phase 1C — Engineering polish on the canary ✅ COMPLETE (2026-04-29)
 
-After Phase 1A canary is up, use it to surface anything Phase 2 env-ification missed:
+The canary surfaced three classes of issues that Phase 2 env-ification missed. All shipped to prod.
 
-1. **Hardcoded URL grep** — `grep -rn "repaircoin\.ai" frontend/src backend/src` and review every match. Anything not in a comment, config default, or env-loader fallback needs to be env-driven before cutover.
-2. **Cookie behavior test** — log a shop in via `migrate-test.fixflow.ai`, inspect cookies, confirm whether cross-domain auth needs intervention or works "for free".
-3. **Email/asset URL audit** — open a transactional email rendered through `migrate-test.fixflow.ai` and confirm logo/asset URLs use `PUBLIC_ASSET_URL` env var (already env-ified in Phase 2 — this just verifies in practice).
+**Bug 1: Cross-site cookies blocked** — auth cookies were `SameSite=Lax`, which blocks `withCredentials` on cross-origin XHR. Even with the CORS allowlist correct, `migrate-test.fixflow.ai` → `api.repaircoin.ai` calls had cookies stripped → 401.
+- **Fix:** `SameSite=None` in production at all 7 cookie call sites in `routes/auth.ts` and `middleware/auth.ts`. Local dev keeps `Lax` (Secure isn't set over HTTP, so None+Secure would be invalid).
 
-#### 13. Suggested next working session — quick reference
+**Bug 2: Cross-domain Set-Cookie rejected** — once the canary tried to use `api.fixflow.ai`, the backend was still hardcoding `Domain=.repaircoin.ai`. Browsers reject a Set-Cookie from `api.fixflow.ai` that scopes to `.repaircoin.ai` (different registrable domain), so login looked successful but no cookie ever stuck.
+- **Fix:** added `backend/src/utils/cookies.ts#getCookieDomain(req)`. Reads request host and returns `.fixflow.ai` for fixflow.ai requests, `.repaircoin.ai` for repaircoin.ai requests, `localhost` in dev. Used at all 6 active cookie call sites. Same mapping idea on both sides — backend dynamic cookie domain, frontend dynamic API URL.
 
-| Order | Effort | Action | Phase |
-|---|---|---|---|
-| 1 | 45 min | Phase 1A pre-stage (Vercel + Hostinger TXT + DO Domains + canary) | 1A |
-| 2 | 30 min | Phase 1C engineering polish on the canary (hardcoded URL grep + cookie test) | 1C |
-| 3 | Async | Phase 1B content drafting (privacy, terms, homepage, demo video script) | 1B |
-| 4 | When team aligns | Lock cutover date | 3 |
-| 5 | Cutover hour | Apex DNS flip — runbook in section 4 above | 3 |
+**Bug 3: Hardcoded `process.env.NEXT_PUBLIC_API_URL` in 41 frontend call sites** — `apiClient` (axios) was fixed first to derive base URL from `window.location`, but 41 other components / services / app routes still called `fetch(\`${process.env.NEXT_PUBLIC_API_URL}/...\`)` directly. Those bypassed the fix → still hit `api.repaircoin.ai` from the `fixflow.ai` canary → 401 (no cookie).
+- **Fix:** extracted `getApiBaseUrl()` and `getWebSocketUrl()` to `frontend/src/utils/apiUrl.ts`. Replaced every direct env-var reference with the helper across 41 files. Removed dead `frontend/src/utils/wsUrl.ts`. (`useNotifications.ts` calls `getWebSocketUrl()` directly now.)
+
+**Bonus: latent staging-routes-to-prod bug found and fixed** — the first version of the frontend helper used `host.endsWith('.repaircoin.ai')`, which matched `staging.repaircoin.ai` and silently routed it to `api.repaircoin.ai` (PROD!). The corrected matcher checks staging hosts first by exact match before falling through to the prod suffix patterns. Verified post-deploy that `staging.repaircoin.ai` is back to hitting `api-staging.repaircoin.ai`.
+
+**Verification status (2026-04-29):**
+- `migrate-test.fixflow.ai` — full app works, cookies first-party on `.fixflow.ai`, all admin tabs (Customers Grouped, Treasury, Transactions, Shops Management, etc.) work
+- `repaircoin.ai` — no regression, still routes to `api.repaircoin.ai`
+- `staging.repaircoin.ai` — routes to `api-staging.repaircoin.ai` (latent bug fixed)
+- All three confirmed via Network-tab inspection on Vercel-deployed prod build
+
+#### 13. Remaining TODO list — post-cutover
+
+Phase 3 cutover is **✅ DONE** as of 2026-04-29. fixflow.ai is live. Everything below is **post-cutover polish** — none of it is critical.
+
+| # | Effort | Action | Why | Owner |
+|---|---|---|---|---|
+| 1 | ~30 min | **Dynamic `FRONTEND_URL` on backend** — derive from request host like `getCookieDomain(req)` and `getApiBaseUrl()` already do. Fix call sites in `routes/auth.ts` (logout, password reset, etc.) and any controller that redirects to `${FRONTEND_URL}/...`. | Polishes OAuth UX — users who start on fixflow.ai currently land back on repaircoin.ai post-Google-consent. Functional, just inconsistent. **Hard prerequisite for #3 below — without this, the redirect causes a double-bounce on OAuth.** | Engineer |
+| 2 | ~30 min | **Add `staging.fixflow.ai` + `api-staging.fixflow.ai`** — mirror prod cutover but for staging infra. DO staging app domain add → Hostinger CNAME → Vercel domain add scoped to `main` branch → Hostinger CNAME for staging frontend. Code already supports it (helper matchers, CORS allowlist). | Parity with prod. Lets us validate `getApiBaseUrl()` staging-host matchers in practice. Eventually allows retiring `*.repaircoin.ai`. | Engineer |
+| 3 | ~5 min in Vercel UI | **Redirect `repaircoin.ai` → `fixflow.ai` (DEFERRED, on record)** — Vercel domain config: set `repaircoin.ai` to "Redirect to Another Domain" → `fixflow.ai`, type 307 (Temporary). Same for `www.repaircoin.ai` → `fixflow.ai`. **DO NOT redirect `api.repaircoin.ai`** (mobile + webhooks + OAuth callbacks still depend on it). **DO NOT redirect `staging.repaircoin.ai`** until #2 lands. After 2-4 weeks of confidence, upgrade redirect type from 307 to 308 (Permanent) for SEO juice transfer. | Long-term plan: retire `repaircoin.ai` as a primary domain. fixflow.ai becomes the single user-facing brand. Existing repaircoin.ai users get one-time relogin (cookies don't cross domains) — acceptable UX cost. | Engineer (Vercel UI) |
+| 4 | Async | **Phase 1B content** — privacy policy at `fixflow.ai/privacy`, terms at `fixflow.ai/terms`, public homepage at `fixflow.ai`, demo video (~2-3 min) of OAuth flow, domain verification TXT for Google Search Console. | Required to submit Gmail/Calendar OAuth client for Google verification. Without verification, only test-list users (max 100) can connect Gmail. | Content/ops |
+| 5 | Async, after #4 | **Submit Gmail OAuth client for Google verification.** Submission triggers a 4-8 week review. | Unlocks Gmail Connect for non-test-list shop owners. Sensitive scope (`gmail.send`, `gmail.compose`) requires Google's review. | Engineer + ops |
+| 6 | Anytime | **Operator: take down `fix.fixflow.ai`** mirror; optional cleanup of inactive `funnel.fixflow.ai` and `info.fixflow.ai` records at Hostinger. | Cleanup; not blocking anything. | Operator |
+| 7 | Anytime, post-cutover | **Phase 4 — Mobile rebuild.** Update Expo `app.config.ts` to use array scheme (preserve `repaircoin://` AND add `fixflow://` deep-link scheme). Rebuild + resubmit to Play Store and App Store. | Existing mobile app continues working with `repaircoin://` deep links until the rebuild ships. New scheme rolls out with the next mobile release. | Mobile + ops (store creds) |
+| 8 | Anytime | **DNS hygiene sweep** — review CAA, check for any records still pointing at Hostinger CDN that we missed. Only `fix.fixflow.ai` and `funnel.fixflow.ai` were known to point there at cutover; verify. | Belt and suspenders before retiring legacy domains. | Engineer |
+
+Engineering side after cutover: items 1, 2, 3 are engineer-touched. None are urgent. Items 4-8 are async / non-engineering.
+
+##### Pre-conditions for the `repaircoin.ai → fixflow.ai` redirect (#3 above)
+
+The redirect is on the roadmap but **deferred**. Flip it only after all of these are true:
+
+1. **TODO #1 done** — backend `FRONTEND_URL` is dynamic per request host. Otherwise OAuth flows on fixflow.ai still redirect through repaircoin.ai post-consent → the new redirect bounces the user back to fixflow.ai. Double-redirect, ugly UX, user-visible flicker.
+2. **fixflow.ai has soaked for at least 7 days** with real (non-test) traffic. Verify zero increase in error rates, no missed integrations, no third-party clients silently broken.
+3. **Phase 1B content** is at least partially live (privacy + terms reachable on fixflow.ai). The redirect actively pushes users to fixflow.ai; it should be a credible destination, not a half-built shell.
+4. **Team comms**: customer/shop email or in-app banner announcing the domain change ("you'll be redirected to fixflow.ai and asked to log in once") goes out before the flip.
+5. **Mobile rebuild plan in motion** — once redirect is live, any mobile client deep-link references that point at `repaircoin.ai` instead of `repaircoin://` (URL-link variants) would also redirect. Verify no such links exist or migrate them ahead of time.
+
+##### Scope of the redirect (what flips and what doesn't)
+
+| Hostname | Action at redirect time | Why |
+|---|---|---|
+| `repaircoin.ai` | Redirect → `fixflow.ai` (Vercel domain config, 307) | Primary brand flip |
+| `www.repaircoin.ai` | Redirect → `www.fixflow.ai` (or `fixflow.ai`) | Same |
+| `api.repaircoin.ai` | **DO NOT redirect** | Mobile app, Stripe webhook, Google OAuth callback URIs all still depend on it |
+| `staging.repaircoin.ai` | **DO NOT redirect** until TODO #2 (`staging.fixflow.ai` set up) lands | No destination to redirect to yet |
+| `api-staging.repaircoin.ai` | **DO NOT redirect** | Staging clients (web + mobile dev builds) hit it directly |
+| `app.repaircoin.ai` (if exists) | Whatever the team owns it for; out of scope of this migration | — |
+
+**Roll-back path:** Vercel redirect is a UI toggle. Disable it → traffic returns to repaircoin.ai serving the live app immediately (browsers cached at most ~hours of 307; 308 caches longer, which is why we use 307 first). No data lost, no DNS changes needed.
+
+##### Long-term: retire `repaircoin.ai` entirely
+
+After redirect is in place and stable for ~3-6 months, options for the next stage:
+
+1. **Drop frontend serving on repaircoin.ai** — once 100% of users have moved to fixflow.ai cookies and bookmarks. Vercel domain config keeps redirecting forever; no need to actively serve content there.
+2. **Drop `api.repaircoin.ai`** — only after Phase 4 mobile rebuild is shipped, all third-party integrations (Stripe webhooks, Google OAuth) have been migrated to `api.fixflow.ai`, and the long tail of mobile clients on the old build has updated. Probably 6-12 months out.
+3. **Eventually let the `repaircoin.ai` domain registration lapse** OR keep it indefinitely for brand-protection.
+
+This is documented as the **plan**, not a near-term action. No timeline locked in.
+
+#### 14. Phase 3 cutover — what actually happened (2026-04-29)
+
+**Sequence:**
+1. Verified pre-flight checklist (apex/api/canary all green; email + GHL preserved by plan)
+2. Operator opened Hostinger DNS → fixflow.ai zone
+3. Tried to edit apex `@` from `ALIAS fixflow.ai.cdn.hstgr.net.` to `A 216.150.1.1` — **rejected by Hostinger validation**: "Cannot add A/AAAA record when CDN is enabled". Hostinger's CDN feature blocks A/AAAA records at the apex while CDN is active.
+4. **Pivoted to legacy ALIAS path** (Vercel's "old" target still works per their own UI message): set apex to `ALIAS @ cname.vercel-dns.com TTL 300` — accepted, no CDN conflict.
+5. Set `www CNAME cname.vercel-dns.com TTL 300` — accepted.
+6. Watched DNS propagation: public DNS (Cloudflare 1.1.1.1, Google 8.8.8.8, authoritative Hostinger NS) all returned Vercel IPs (76.76.21.x / 66.33.60.x range) within ~2 minutes.
+7. First HTTPS check returned the WordPress marketing page momentarily (local DNS cache served stale Hostinger answer); within ~1 minute that cleared and curl returned Vercel-served Next.js content.
+8. Vercel UI flipped both `fixflow.ai` and `www.fixflow.ai` from "Invalid Configuration" → ✅ valid (with a "DNS Change Recommended" yellow tag — informational only, not an error; Vercel prefers their newer per-domain CNAME but the legacy `cname.vercel-dns.com` works fine).
+9. Browser smoke test in Incognito on `https://fixflow.ai`: live RepairCoin frontend rendered, identical to `repaircoin.ai`.
+
+**Why we used the legacy CNAME target instead of Vercel's recommended new IP:**
+- Vercel recommended apex `A 216.150.1.1` and www `CNAME c5c0396adfbd943b.vercel-dns-017.com.` (per-domain target).
+- Hostinger's "CDN enabled" validation blocked the A record at apex.
+- The fix would have been to disable Hostinger's CDN feature entirely (separate UI flow, different consequences).
+- Vercel explicitly states their **legacy** target `cname.vercel-dns.com` continues to work via ALIAS — same backend routing, same cert pipeline, different DNS-record encoding.
+- Chose the legacy path: same outcome, fewer Hostinger settings touched.
+
+**For consistency**, both apex (ALIAS) and www (CNAME) point at the same target `cname.vercel-dns.com`. If Hostinger ever drops ALIAS support or Vercel ever retires the legacy target, the fallback is to disable Hostinger CDN and use the new IP-based records. Both are documented above.
+
+**Final DNS state at Hostinger (post-cutover):**
+```
+@   ALIAS  cname.vercel-dns.com                  TTL 300   ← NEW (was: ALIAS fixflow.ai.cdn.hstgr.net.)
+www CNAME  cname.vercel-dns.com                  TTL 300   ← NEW (was: CNAME www.fixflow.ai.cdn.hstgr.net.)
+api          CNAME  urchin-app-dy2ak.ondigitalocean.app    TTL 300   (added 2026-04-29 pre-stage)
+migrate-test CNAME  cname.vercel-dns.com                   TTL 300   (canary, kept as rehearsal env)
+app   CNAME  whitelabel.ludicrous.cloud                    TTL 300   (Go High Level — UNTOUCHED)
+fix   ALIAS  fix.fixflow.ai.cdn.hstgr.net.                 TTL 300   (operator to take down)
+funnel ALIAS funnel.fixflow.ai.cdn.hstgr.net.              TTL 300   (inactive — optional cleanup)
+info  CNAME  sites.ludicrous.cloud                         TTL 300   (404/inactive — optional cleanup)
+@ MX 5 smtp.google.com                                     TTL 300   (Google Workspace — UNTOUCHED)
+SPF, DMARC, CAA × 12, NS                                              (UNTOUCHED)
+```
 
 ---
 
