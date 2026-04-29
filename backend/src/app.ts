@@ -237,6 +237,8 @@ class RepairCoinApp {
           // fixflow.ai staging domains
           'https://staging.fixflow.ai',
           'https://api-staging.fixflow.ai',
+          // fixflow.ai migration canary (temporary, remove post-cutover)
+          'https://migrate-test.fixflow.ai',
           process.env.FRONTEND_URL
         ].filter(Boolean);
 
