@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import apiClient from '@/services/api/client';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 interface RedeemTabProps {
   shopId: string;
@@ -36,7 +37,7 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
     setSuccess(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/verify-redemption`, {
+      const response = await fetch(`${getApiBaseUrl()}/tokens/verify-redemption`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

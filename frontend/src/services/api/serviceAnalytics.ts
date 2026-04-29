@@ -1,7 +1,6 @@
 // frontend/src/services/api/serviceAnalytics.ts
 import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 // Types
 export interface ShopServiceMetrics {
@@ -158,7 +157,7 @@ export const serviceAnalyticsApi = {
     if (options?.trendDays) params.append('trendDays', options.trendDays.toString());
 
     const response = await axios.get<{ success: boolean; data: ShopAnalyticsSummary }>(
-      `${API_URL}/services/analytics/shop${params.toString() ? '?' + params.toString() : ''}`,
+      `${getApiBaseUrl()}/services/analytics/shop${params.toString() ? '?' + params.toString() : ''}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -166,7 +165,7 @@ export const serviceAnalyticsApi = {
 
   async getShopOverview(): Promise<ShopServiceMetrics> {
     const response = await axios.get<{ success: boolean; data: ShopServiceMetrics }>(
-      `${API_URL}/services/analytics/shop/overview`,
+      `${getApiBaseUrl()}/services/analytics/shop/overview`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -174,7 +173,7 @@ export const serviceAnalyticsApi = {
 
   async getTopServices(limit: number = 10): Promise<ServicePerformance[]> {
     const response = await axios.get<{ success: boolean; data: ServicePerformance[] }>(
-      `${API_URL}/services/analytics/shop/top-services?limit=${limit}`,
+      `${getApiBaseUrl()}/services/analytics/shop/top-services?limit=${limit}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -182,7 +181,7 @@ export const serviceAnalyticsApi = {
 
   async getShopOrderTrends(days: number = 30): Promise<OrderTrend[]> {
     const response = await axios.get<{ success: boolean; data: OrderTrend[] }>(
-      `${API_URL}/services/analytics/shop/trends?days=${days}`,
+      `${getApiBaseUrl()}/services/analytics/shop/trends?days=${days}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -190,7 +189,7 @@ export const serviceAnalyticsApi = {
 
   async getShopCategoryBreakdown(): Promise<CategoryPerformance[]> {
     const response = await axios.get<{ success: boolean; data: CategoryPerformance[] }>(
-      `${API_URL}/services/analytics/shop/categories`,
+      `${getApiBaseUrl()}/services/analytics/shop/categories`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -198,7 +197,7 @@ export const serviceAnalyticsApi = {
 
   async getGroupPerformanceAnalytics(): Promise<GroupPerformanceAnalytics> {
     const response = await axios.get<{ success: boolean; data: GroupPerformanceAnalytics }>(
-      `${API_URL}/services/analytics/shop/group-performance`,
+      `${getApiBaseUrl()}/services/analytics/shop/group-performance`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -206,7 +205,7 @@ export const serviceAnalyticsApi = {
 
   async getBookingAnalytics(trendDays: number = 30): Promise<BookingAnalytics> {
     const response = await axios.get<{ success: boolean; data: BookingAnalytics }>(
-      `${API_URL}/services/analytics/shop/bookings?trendDays=${trendDays}`,
+      `${getApiBaseUrl()}/services/analytics/shop/bookings?trendDays=${trendDays}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -219,7 +218,7 @@ export const serviceAnalyticsApi = {
     if (options?.trendDays) params.append('trendDays', options.trendDays.toString());
 
     const response = await axios.get<{ success: boolean; data: PlatformAnalyticsSummary }>(
-      `${API_URL}/services/analytics/platform${params.toString() ? '?' + params.toString() : ''}`,
+      `${getApiBaseUrl()}/services/analytics/platform${params.toString() ? '?' + params.toString() : ''}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -227,7 +226,7 @@ export const serviceAnalyticsApi = {
 
   async getPlatformOverview(): Promise<PlatformServiceMetrics> {
     const response = await axios.get<{ success: boolean; data: PlatformServiceMetrics }>(
-      `${API_URL}/services/analytics/platform/overview`,
+      `${getApiBaseUrl()}/services/analytics/platform/overview`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -235,7 +234,7 @@ export const serviceAnalyticsApi = {
 
   async getTopShops(limit: number = 10): Promise<TopPerformingShop[]> {
     const response = await axios.get<{ success: boolean; data: TopPerformingShop[] }>(
-      `${API_URL}/services/analytics/platform/top-shops?limit=${limit}`,
+      `${getApiBaseUrl()}/services/analytics/platform/top-shops?limit=${limit}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -243,7 +242,7 @@ export const serviceAnalyticsApi = {
 
   async getPlatformOrderTrends(days: number = 30): Promise<OrderTrend[]> {
     const response = await axios.get<{ success: boolean; data: OrderTrend[] }>(
-      `${API_URL}/services/analytics/platform/trends?days=${days}`,
+      `${getApiBaseUrl()}/services/analytics/platform/trends?days=${days}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -251,7 +250,7 @@ export const serviceAnalyticsApi = {
 
   async getPlatformCategoryPerformance(limit: number = 10): Promise<CategoryPerformance[]> {
     const response = await axios.get<{ success: boolean; data: CategoryPerformance[] }>(
-      `${API_URL}/services/analytics/platform/categories?limit=${limit}`,
+      `${getApiBaseUrl()}/services/analytics/platform/categories?limit=${limit}`,
       { withCredentials: true }
     );
     return response.data.data;
@@ -259,7 +258,7 @@ export const serviceAnalyticsApi = {
 
   async getMarketplaceHealthScore(): Promise<MarketplaceHealthScore> {
     const response = await axios.get<{ success: boolean; data: MarketplaceHealthScore }>(
-      `${API_URL}/services/analytics/platform/health`,
+      `${getApiBaseUrl()}/services/analytics/platform/health`,
       { withCredentials: true }
     );
     return response.data.data;

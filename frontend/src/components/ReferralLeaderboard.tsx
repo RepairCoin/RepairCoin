@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 interface LeaderboardEntry {
   referrerAddress: string;
@@ -29,7 +30,7 @@ export function ReferralLeaderboard() {
   const loadLeaderboard = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/leaderboard`);
+      const response = await fetch(`${getApiBaseUrl()}/referrals/leaderboard`);
       
       if (response.ok) {
         const result = await response.json();

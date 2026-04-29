@@ -1,6 +1,8 @@
 // Wallet Detection Service
 // Detects wallet type and returns appropriate routing
 
+import { getApiBaseUrl } from '@/utils/apiUrl';
+
 export type WalletType = 'customer' | 'shop' | 'admin' | 'unknown';
 
 interface WalletDetectionResult {
@@ -12,10 +14,12 @@ interface WalletDetectionResult {
 
 export class WalletDetectionService {
   private static instance: WalletDetectionService;
-  private apiUrl: string;
+  private constructor() {}
 
-  private constructor() {
-    this.apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  // Read base URL lazily so the helper picks up the runtime hostname
+  // (singleton instantiation order can otherwise cap us to the SSR env value).
+  private get apiUrl(): string {
+    return getApiBaseUrl();
   }
 
   static getInstance(): WalletDetectionService {

@@ -3,6 +3,7 @@
 import React, { useState, useRef, ChangeEvent } from "react";
 import { toast } from "react-hot-toast";
 import { Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface ImageUploaderProps {
   /**
@@ -99,7 +100,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           : "shop-banner"
       }`;
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`;
+      const url = `${getApiBaseUrl()}${endpoint}`;
 
       const response = await fetch(url, {
         method: "POST",

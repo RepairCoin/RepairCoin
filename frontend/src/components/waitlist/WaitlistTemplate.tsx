@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import axios from "axios";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import Link from "next/link";
 import Image from "next/image";
 import { CampaignConfig } from "@/app/waitlist/[source]/config";
@@ -32,7 +33,7 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
     const trackPageVisit = async () => {
       try {
         await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/waitlist/track-visit`,
+          `${getApiBaseUrl()}/waitlist/track-visit`,
           { source: config.source }
         );
       } catch {
@@ -64,7 +65,7 @@ export default function WaitlistTemplate({ config }: WaitlistTemplateProps) {
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/waitlist/submit`,
+        `${getApiBaseUrl()}/waitlist/submit`,
         {
           email: email.toLowerCase(),
           userType,

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { X } from "lucide-react";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface Shop {
   shopId: string;
@@ -95,7 +96,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
       });
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}`,
+        `${getApiBaseUrl()}/admin/shops/${shopId}`,
         {
           method: "PUT",
           headers: {

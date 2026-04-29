@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuthStore } from "@/stores/authStore";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import Image from "next/image";
 
 const client = createThirdwebClient({
@@ -36,7 +37,7 @@ export default function ChoosePage() {
     try {
       // Check for shop application
       const shopResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/wallet/${walletAddress}`
+        `${getApiBaseUrl()}/shops/wallet/${walletAddress}`
       );
       if (shopResponse.ok) {
         const shopData = await shopResponse.json();
@@ -55,7 +56,7 @@ export default function ChoosePage() {
 
       // Check for customer registration
       const customerResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${walletAddress}`
+        `${getApiBaseUrl()}/customers/${walletAddress}`
       );
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();

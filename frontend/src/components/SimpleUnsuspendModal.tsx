@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface SimpleUnsuspendModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export const SimpleUnsuspendModal: React.FC<SimpleUnsuspendModalProps> = ({
 
     try {
       // Make the request without authentication (temporarily until customer auth is implemented)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/request-unsuspend`, {
+      const response = await fetch(`${getApiBaseUrl()}/customers/${customerAddress}/request-unsuspend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

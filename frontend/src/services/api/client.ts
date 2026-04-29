@@ -1,39 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { recordAuthFailure } from "@/utils/authRecovery";
-
-/**
- * Pick the API base URL based on the frontend's current hostname.
- *
- * This is symmetric with backend/src/utils/cookies.ts#getCookieDomain — the
- * frontend self-routes to whichever API host shares the parent domain so the
- * auth cookie is first-party (Set-Cookie can succeed and the browser will
- * send it back without third-party-cookie blocking).
- *
- * Mapping:
- *   fixflow.ai / *.fixflow.ai     -> https://api.fixflow.ai/api
- *   repaircoin.ai / *.repaircoin.ai -> https://api.repaircoin.ai/api
- *   anything else (incl. SSR)     -> NEXT_PUBLIC_API_URL or localhost
- *
- * SSR note: window is undefined during server rendering, so SSR falls back
- * to the build-time env var. Most data fetching in this app is client-side
- * via this axios instance, so SSR exposure is minimal.
- */
-const getBaseURL = (): string => {
-  if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
-  }
-  const host = window.location.hostname.toLowerCase();
-  if (host === "fixflow.ai" || host.endsWith(".fixflow.ai")) {
-    return "https://api.fixflow.ai/api";
-  }
-  if (host === "repaircoin.ai" || host.endsWith(".repaircoin.ai")) {
-    return "https://api.repaircoin.ai/api";
-  }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
-};
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 const apiClient = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: getApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },
@@ -209,10 +179,10 @@ apiClient.interceptors.response.use(
 
           // Try to refresh the token
           // The refresh token is in httpOnly cookie and sent automatically.
-          // Use getBaseURL() so the refresh hits the same API host the rest
+          // Use getApiBaseUrl() so the refresh hits the same API host the rest
           // of the app is talking to (api.fixflow.ai vs api.repaircoin.ai).
           await axios.post(
-            `${getBaseURL()}/auth/refresh`,
+            `${getApiBaseUrl()}/auth/refresh`,
             {},
             { withCredentials: true }
           );

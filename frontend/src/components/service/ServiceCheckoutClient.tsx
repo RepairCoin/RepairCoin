@@ -6,6 +6,7 @@ import { DollarSign, Clock, MapPin, Star, Calendar, Loader2, AlertCircle, Shoppi
 import { ShopServiceWithShopInfo } from '@/services/api/services';
 import { useAuthStore } from '@/stores/authStore';
 import { ServiceCheckoutModal } from '@/components/customer/ServiceCheckoutModal';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 import { sanitizeDescription } from '@/utils/sanitize';
 
 interface ServiceCheckoutClientProps {
@@ -30,7 +31,7 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/services/${serviceId}`,
+        `${getApiBaseUrl()}/services/${serviceId}`,
         {
           credentials: 'include',
         }

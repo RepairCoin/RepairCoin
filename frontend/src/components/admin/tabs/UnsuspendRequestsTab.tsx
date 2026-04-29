@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 interface UnsuspendRequest {
   id: string;
@@ -42,7 +43,7 @@ export function UnsuspendRequestsTab({ generateAdminToken, onError }: UnsuspendR
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending`, {
+      const response = await fetch(`${getApiBaseUrl()}/admin/unsuspend-requests?status=pending`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
@@ -83,7 +84,7 @@ export function UnsuspendRequestsTab({ generateAdminToken, onError }: UnsuspendR
         ? `/admin/unsuspend-requests/${selectedRequest.id}/approve`
         : `/admin/unsuspend-requests/${selectedRequest.id}/reject`;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

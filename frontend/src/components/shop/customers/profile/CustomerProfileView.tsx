@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { CustomerInfoCard } from "./CustomerInfoCard";
 import { CustomerSnapshotPanel } from "./CustomerSnapshotPanel";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import { CustomerProfileTabs } from "./CustomerProfileTabs";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
 import { getOrCreateConversation } from "@/services/api/messaging";
@@ -138,7 +139,7 @@ export const CustomerProfileView: React.FC<CustomerProfileViewProps> = ({
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customer-profile/${customerAddress}?bookingsPage=1&bookingsLimit=5&transactionsPage=1&transactionsLimit=5`,
+        `${getApiBaseUrl()}/shops/${shopId}/customer-profile/${customerAddress}?bookingsPage=1&bookingsLimit=5&transactionsPage=1&transactionsLimit=5`,
         { credentials: "include" }
       );
 

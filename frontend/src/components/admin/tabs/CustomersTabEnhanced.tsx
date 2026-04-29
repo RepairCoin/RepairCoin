@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import {
   Store,
   Search,
@@ -347,7 +348,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     setBalanceLoading(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/${address}/balance`,
+        `${getApiBaseUrl()}/admin/customers/${address}/balance`,
         {
           credentials: 'include',
         }
@@ -438,7 +439,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       // Cookies sent automatically with apiClient
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending&entityType=customer`,
+        `${getApiBaseUrl()}/admin/unsuspend-requests?status=pending&entityType=customer`,
         {
           credentials: 'include'
         }
@@ -478,7 +479,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           : `/admin/unsuspend-requests/${requestId}/reject`;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
+        `${getApiBaseUrl()}${endpoint}`,
         {
           method: "POST",
           credentials: 'include',
@@ -509,7 +510,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       // Cookies sent automatically with apiClient
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/grouped-by-shop`,
+        `${getApiBaseUrl()}/admin/customers/grouped-by-shop`,
         {
           credentials: 'include',
           headers: {

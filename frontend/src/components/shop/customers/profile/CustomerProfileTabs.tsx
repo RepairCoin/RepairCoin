@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import {
   ClipboardCheck,
   ArrowUpRight,
@@ -212,7 +213,7 @@ const BookingsTab: React.FC<{
     setLoading(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/services/orders/shop?customerAddress=${encodeURIComponent(customerAddress)}&page=${page}&limit=${pagination.limit}`,
+        `${getApiBaseUrl()}/services/orders/shop?customerAddress=${encodeURIComponent(customerAddress)}&page=${page}&limit=${pagination.limit}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to fetch bookings");
@@ -319,7 +320,7 @@ const TransactionsTab: React.FC<{
     setLoading(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customer-profile/${customerAddress}?bookingsPage=1&bookingsLimit=0&transactionsPage=${page}&transactionsLimit=${pagination.limit}`,
+        `${getApiBaseUrl()}/shops/${shopId}/customer-profile/${customerAddress}?bookingsPage=1&bookingsLimit=0&transactionsPage=${page}&transactionsLimit=${pagination.limit}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to fetch transactions");

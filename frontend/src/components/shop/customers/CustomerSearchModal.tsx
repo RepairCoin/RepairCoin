@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Search, X, User, Loader2 } from "lucide-react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface CustomerSearchResult {
   address: string;
@@ -53,7 +54,7 @@ export default function CustomerSearchModal({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api";
+  const API_URL = getApiBaseUrl();
 
   // Auto-focus search input when modal opens
   useEffect(() => {

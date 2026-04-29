@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import {
   Camera,
   X,
@@ -221,7 +222,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
         try {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}`
+            `${getApiBaseUrl()}/customers/${customerAddress}`
           );
 
           // Don't update state if this effect was cancelled
@@ -535,9 +536,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
     try {
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL
-        }/customers?search=${encodeURIComponent(query)}&page=1&limit=10`,
+        `${getApiBaseUrl()}/customers?search=${encodeURIComponent(query)}&page=1&limit=10`,
         {
           credentials: "include",
           headers: { "Content-Type": "application/json" },

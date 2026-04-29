@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle, DollarSign, Gem, Store, Coins, Gift, Banknote, RefreshCcw } from 'lucide-react';
 import { AutoCompletePurchases } from '../AutoCompletePurchases';
 import { TreasurySyncProvider } from '@/hooks/useTreasurySync';
@@ -253,12 +254,12 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
 
       // Load both regular treasury data and the enhanced stats with warnings
       const [response, warningsResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, {
+        fetch(`${getApiBaseUrl()}/admin/treasury`, {
           headers: {
             'Authorization': `Bearer ${adminToken}`
           }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury/stats-with-warnings`, {
+        fetch(`${getApiBaseUrl()}/admin/treasury/stats-with-warnings`, {
           headers: {
             'Authorization': `Bearer ${adminToken}`
           }
@@ -322,7 +323,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury/rcg`, {
+      const response = await fetch(`${getApiBaseUrl()}/admin/treasury/rcg`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
@@ -356,7 +357,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury/update`, {
+      const response = await fetch(`${getApiBaseUrl()}/admin/treasury/update`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,

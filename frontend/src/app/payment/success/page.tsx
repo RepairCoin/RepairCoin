@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface PaymentSummary {
   orderId: string;
@@ -34,9 +35,8 @@ function PaymentSuccessContent() {
 
     const fetchSummary = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
         const response = await axios.get(
-          `${apiUrl}/services/orders/${orderId}/payment-summary`
+          `${getApiBaseUrl()}/services/orders/${orderId}/payment-summary`
         );
         if (response.data.success) {
           setSummary(response.data.data);

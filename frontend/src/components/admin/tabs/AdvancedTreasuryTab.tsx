@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 import {
   CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle,
   DollarSign, Users, TrendingUp, Settings, History, Send, Shield,
@@ -278,7 +279,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
       // Cookies sent automatically with apiClient
 
       // Load basic treasury stats
-      const treasuryResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, {
+      const treasuryResponse = await fetch(`${getApiBaseUrl()}/admin/treasury`, {
         credentials: 'include'
       });
       if (treasuryResponse.ok) {
