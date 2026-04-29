@@ -1,5 +1,6 @@
 import { View, Text, ScrollView } from "react-native";
-import { Controller, useWatch } from "react-hook-form";
+import { Controller, useWatch, useFormContext } from "react-hook-form";
+import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
@@ -12,9 +13,9 @@ import { TERMS_ITEMS } from "../../constants";
 export default function FourthSlide({
   handleGoBack,
   handleSubmit,
-  control,
   isLoading = false,
 }: FourthSlideProps) {
+  const { control } = useFormContext<ShopRegisterData>();
   const acceptTerms = useWatch({ control, name: "acceptTerms" });
 
   return (

@@ -63,12 +63,7 @@ export const useShopRegister = () => {
 
   const [index, setIndex] = useState(0);
 
-  const {
-    control,
-    handleSubmit,
-    trigger,
-    formState: { errors, isSubmitting },
-  } = useForm<ShopRegisterData>({
+  const form = useForm<ShopRegisterData>({
     resolver: zodResolver(ShopRegisterDto),
     defaultValues: {
       ...INITIAL_SHOP_FORM_DATA,
@@ -79,7 +74,7 @@ export const useShopRegister = () => {
     mode: "onChange",
   });
 
-  const isPending = isRegistering || isSubmitting;
+  const isPending = isRegistering || form.formState.isSubmitting;
 
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides = useMemo(() => SHOP_REGISTER_SLIDES, []);
@@ -102,14 +97,14 @@ export const useShopRegister = () => {
     const fieldsToValidate = SLIDE_FIELDS[currentSlide];
 
     if (fieldsToValidate) {
-      const isValid = await trigger(fieldsToValidate);
+      const isValid = await form.trigger(fieldsToValidate);
       if (!isValid) return;
     }
 
     if (index < slides.length - 1) {
       flatRef.current?.scrollToIndex({ index: index + 1, animated: true });
     }
-  }, [index, slides, trigger]);
+  }, [index, slides, form]);
 
   const onSubmit = useCallback(
     (data: ShopRegisterData) => {
@@ -135,9 +130,7 @@ export const useShopRegister = () => {
   );
 
   return {
-    control,
-    errors,
-    index,
+    form,
     slides,
     isPending,
     account,
@@ -146,6 +139,6 @@ export const useShopRegister = () => {
     onScroll,
     handleGoBack,
     handleGoNext,
-    onSubmit: handleSubmit(onSubmit),
+    onSubmit: form.handleSubmit(onSubmit),
   };
 };

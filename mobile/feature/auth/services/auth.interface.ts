@@ -1,6 +1,3 @@
-import { Control, FieldErrors } from "react-hook-form";
-import type { ShopRegisterData } from "../dto/register.dto";
-
 export interface CustomerFormData {
   fullName: string;
   email: string;
@@ -45,8 +42,6 @@ export interface Slide {
 
 export interface BaseSlideProps {
   handleGoBack: () => void;
-  control: Control<ShopRegisterData>;
-  errors: FieldErrors<ShopRegisterData>;
 }
 
 export interface NavigableSlideProps extends BaseSlideProps {
@@ -63,3 +58,11 @@ export interface FourthSlideProps extends BaseSlideProps {
   handleSubmit: () => void;
   isLoading?: boolean;
 }
+
+export type AuthMethod =
+  | "google"
+  | "metamask"
+  | "walletconnect"
+  | "coinbase"
+  | "rainbow"
+  | null;

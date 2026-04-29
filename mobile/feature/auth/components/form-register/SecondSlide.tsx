@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, StyleSheet } from "react-native";
-import { Controller } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
+import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
@@ -12,9 +13,9 @@ import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../../constants";
 export default function SecondSlide({
   handleGoBack,
   handleGoNext,
-  control,
-  errors,
 }: NavigableSlideProps) {
+  const { control, formState: { errors } } = useFormContext<ShopRegisterData>();
+
   return (
     <View className="w-full h-full">
       <AppHeader title="Business Info" onBackPress={handleGoBack} />

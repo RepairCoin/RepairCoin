@@ -13,9 +13,6 @@ export interface Coordinates {
   longitude: number;
 }
 
-/**
- * Request location permissions and get current position
- */
 export async function getCurrentLocation(): Promise<Coordinates | null> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -38,56 +35,17 @@ export async function getCurrentLocation(): Promise<Coordinates | null> {
   }
 }
 
-/**
- * Reverse geocode coordinates to get address
- * Uses Nominatim API for detailed address components (barangay, municipality, etc.)
- */
 export async function reverseGeocode(
   latitude: number,
   longitude: number
 ): Promise<GeocodedAddress | null> {
-  // Use Nominatim API for all platforms - better international address support
-  // especially for Filipino addresses (barangay, municipality, province)
   return reverseGeocodeNominatim(latitude, longitude);
 }
 
-/**
- * Format expo-location geocode result
- */
-function formatExpoGeocode(
-  result: Location.LocationGeocodedAddress
-): GeocodedAddress {
-  const parts: string[] = [];
-
-  if (result.streetNumber) parts.push(result.streetNumber);
-  if (result.street) parts.push(result.street);
-
-  const streetAddress = parts.join(" ");
-
-  const addressParts: string[] = [];
-  if (streetAddress) addressParts.push(streetAddress);
-  if (result.city) addressParts.push(result.city);
-  if (result.region) addressParts.push(result.region);
-  if (result.postalCode) addressParts.push(result.postalCode);
-
-  return {
-    address: addressParts.join(", ") || "Unknown location",
-    city: result.city || undefined,
-    state: result.region || undefined,
-    zipCode: result.postalCode || undefined,
-    country: result.country || undefined,
-  };
-}
-
-/**
- * Reverse geocode using Nominatim (OpenStreetMap) API
- * Includes timeout to prevent hanging
- */
 async function reverseGeocodeNominatim(
   latitude: number,
   longitude: number
 ): Promise<GeocodedAddress | null> {
-  // Create abort controller with 10 second timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -127,21 +85,14 @@ async function reverseGeocodeNominatim(
   }
 }
 
-/**
- * Format Nominatim API result
- * Handles Filipino address components (barangay, municipality, etc.)
- */
 function formatNominatimResult(data: any): GeocodedAddress {
   const addr = data.address || {};
 
-  // Build street address (house number + road/street)
   const streetParts: string[] = [];
   if (addr.house_number) streetParts.push(addr.house_number);
   if (addr.road || addr.street) streetParts.push(addr.road || addr.street);
   const streetAddress = streetParts.join(" ");
 
-  // Get barangay (Filipino neighborhood/district)
-  // Nominatim uses various fields for barangay
   const barangay =
     addr.neighbourhood ||
     addr.quarter ||
@@ -149,7 +100,6 @@ function formatNominatimResult(data: any): GeocodedAddress {
     addr.village ||
     undefined;
 
-  // Get municipality/city
   const municipality =
     addr.city ||
     addr.town ||
@@ -157,7 +107,6 @@ function formatNominatimResult(data: any): GeocodedAddress {
     addr.city_district ||
     undefined;
 
-  // Get province/state/region
   const province =
     addr.state ||
     addr.province ||
@@ -165,10 +114,8 @@ function formatNominatimResult(data: any): GeocodedAddress {
     addr.state_district ||
     undefined;
 
-  // Get postal code
   const zipCode = addr.postcode || undefined;
 
-  // Build full address with all components
   const addressParts: string[] = [];
   if (streetAddress) addressParts.push(streetAddress);
   if (barangay) addressParts.push(barangay);
@@ -176,7 +123,6 @@ function formatNominatimResult(data: any): GeocodedAddress {
   if (province) addressParts.push(province);
   if (zipCode) addressParts.push(zipCode);
 
-  // Use display_name as fallback for complete address
   const fullAddress =
     addressParts.length > 0
       ? addressParts.join(", ")
@@ -191,22 +137,14 @@ function formatNominatimResult(data: any): GeocodedAddress {
   };
 }
 
-/**
- * Check if location permissions are granted
- */
 export async function checkLocationPermission(): Promise<boolean> {
   const { status } = await Location.getForegroundPermissionsAsync();
   return status === "granted";
 }
 
-/**
- * Forward geocode an address to get coordinates
- * Uses expo-location first, then Nominatim as fallback
- */
 export async function geocodeAddress(
   address: string
 ): Promise<Coordinates | null> {
-  // Try expo-location first (works well on iOS)
   try {
     const results = await Location.geocodeAsync(address);
     if (results && results.length > 0) {
@@ -219,13 +157,9 @@ export async function geocodeAddress(
     console.log("Expo geocoding error:", error);
   }
 
-  // Fallback to Nominatim API (more reliable on Android)
   return geocodeWithNominatim(address);
 }
 
-/**
- * Forward geocode using Nominatim (OpenStreetMap) API
- */
 async function geocodeWithNominatim(
   address: string
 ): Promise<Coordinates | null> {

@@ -1,5 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import { Controller, useWatch } from "react-hook-form";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
+import { Controller, useWatch, useFormContext } from "react-hook-form";
+import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
@@ -10,14 +16,14 @@ import LocationPickerModal, {
   SelectedLocation,
 } from "@/shared/components/shared/LocationPickerModal";
 import { ThirdSlideProps } from "../../types";
+import { reverseGeocode } from "@/feature/find-shop/services/geocoding.services";
 
 export default function ThirdSlide({
   handleGoBack,
   handleGoNext,
-  control,
-  errors,
   address,
 }: ThirdSlideProps) {
+  const { control, setValue, formState: { errors } } = useFormContext<ShopRegisterData>();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const location = useWatch({ control, name: "location" });
@@ -88,7 +94,7 @@ export default function ThirdSlide({
           <Controller
             control={control}
             name="location"
-            render={({ field: { onChange } }) => (
+            render={() => (
               <View className="mb-4">
                 <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
                   Pin Location on Map
@@ -120,12 +126,20 @@ export default function ThirdSlide({
                 <LocationPickerModal
                   visible={showLocationPicker}
                   onClose={() => setShowLocationPicker(false)}
-                  onConfirm={(loc: SelectedLocation) => {
-                    onChange({
-                      ...location,
+                  onConfirm={async (loc: SelectedLocation) => {
+                    setValue("location", {
                       lat: loc.lat.toString(),
                       lng: loc.lng.toString(),
-                    });
+                      city: "", state: "", zipCode: "",
+                    }, { shouldValidate: true });
+
+                    const result = await reverseGeocode(loc.lat, loc.lng);
+                    if (result) {
+                      setValue("address", result.address, { shouldValidate: true });
+                      setValue("city", result.city || "", { shouldValidate: true });
+                      setValue("country", result.country || "", { shouldValidate: true });
+                    }
+
                     setShowLocationPicker(false);
                   }}
                   initialLocation={

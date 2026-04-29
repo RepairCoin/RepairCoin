@@ -1,5 +1,6 @@
 import { View, Text, ScrollView } from "react-native";
-import { Controller } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
+import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
@@ -10,8 +11,9 @@ import { NavigableSlideProps } from "../../types";
 export default function SocialMediaSlide({
   handleGoBack,
   handleGoNext,
-  control,
 }: NavigableSlideProps) {
+  const { control } = useFormContext<ShopRegisterData>();
+
   return (
     <View className="w-full h-full">
       <AppHeader title="Social Media" onBackPress={handleGoBack} />
