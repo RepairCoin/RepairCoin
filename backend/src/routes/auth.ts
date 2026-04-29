@@ -63,7 +63,7 @@ const setAuthCookie = (res: Response, token: string) => {
   const cookieOptions: any = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
-    sameSite: 'lax' as 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
+    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
     maxAge: 2 * 60 * 60 * 1000, // 2 hours (changed from 24h for better security)
     path: '/',
   };
@@ -132,7 +132,7 @@ const generateAndSetTokens = async (
   const baseCookieOptions: any = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
-    sameSite: 'lax' as 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
+    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
     path: '/'
   };
 
@@ -1386,7 +1386,7 @@ router.post('/logout', async (req, res) => {
     const clearOptions: any = {
       httpOnly: true,
       secure: isProduction || process.env.COOKIE_SECURE === 'true',
-      sameSite: 'lax' as 'lax',
+      sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
       path: '/'
     };
 
@@ -1497,7 +1497,7 @@ router.post('/refresh', async (req, res) => {
     const cookieOptions: any = {
       httpOnly: true,
       secure: isProduction || process.env.COOKIE_SECURE === 'true',
-      sameSite: 'lax' as 'lax',
+      sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/'
     };
@@ -1588,7 +1588,7 @@ router.get('/test-cookie', (req, res) => {
   const cookieOptions: any = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
-    sameSite: 'lax' as 'lax',
+    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
     maxAge: 60 * 1000, // 1 minute
     path: '/'
   };
