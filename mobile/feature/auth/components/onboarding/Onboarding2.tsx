@@ -19,15 +19,17 @@ export default function OnboardingScreen2({ slideIndex = 1 }: OnboardingStep2Pro
       resizeMode="cover"
       className="h-full w-full px-8"
     >
-      <View className="mt-auto mb-20 h-[30%] w-full bg-black rounded-3xl px-6 py-8">
-        <Text className="text-white text-3xl font-bold">
-          Book, Earn, and Redeem{"\n"}Your Rewards
-        </Text>
-        <Text className="text-gray-400 mt-4">
-          Earn tokens when you book, track your balance in real time, and redeem anytime.
-        </Text>
+      <View className="mt-auto mb-20 h-[28%] w-full bg-black rounded-3xl p-6 flex flex-col justify-between">
+        <View>
+          <Text className="text-white text-2xl font-bold">
+            Book, Earn, and Redeem{"\n"}Your Rewards
+          </Text>
+          <Text className="text-gray-400 mt-4">
+            Earn tokens when you book, track your balance in real time, and redeem anytime.
+          </Text>
+        </View>
         
-        <View className="flex-row justify-between mt-auto items-center pt-6">
+        <View className="flex-row justify-between items-center">
           <View className="flex-row gap-2 items-center">
             <View className={`h-2 ${slideIndex === 0 ? "w-10" : "w-2"} rounded-full bg-[#FFCC00] ${slideIndex === 0 ? "" : "opacity-50"}`} />
             <View className={`h-2 ${slideIndex === 1 ? "w-10" : "w-2"} rounded-full bg-[#FFCC00] ${slideIndex === 1 ? "" : "opacity-50"}`} />

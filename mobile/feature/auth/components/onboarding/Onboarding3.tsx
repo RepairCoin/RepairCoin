@@ -25,15 +25,17 @@ export default function OnboardingScreen3({
       resizeMode="cover"
       className="h-full w-full px-8"
     >
-      <View className="mt-auto mb-20 h-[30%] w-full bg-black rounded-3xl px-6 py-4">
-        <Text className="text-white text-3xl font-bold">
-          Ready to Earn?{"\n"}Connect and Explore
-        </Text>
-        <Text className="text-gray-400 mt-4">
-          Tap to connect, earn, and use your rewards across all your favorite services.
-        </Text>
+      <View className="mt-auto mb-20 h-[28%] w-full bg-black rounded-3xl p-6 flex flex-col justify-between">
+        <View>
+          <Text className="text-white text-2xl font-bold">
+            Ready to Earn?{"\n"}Connect and Explore
+          </Text>
+          <Text className="text-gray-400 mt-4">
+            Tap to connect, earn, and use your rewards across all your favorite services.
+          </Text>
+        </View>
 
-        <View className="flex-row justify-between mt-auto items-center pt-6">
+        <View className="flex-row justify-between items-center">
           <View className="flex-row gap-2 items-center">
             <View
               className={`h-2 ${slideIndex === 0 ? "w-10" : "w-2"} rounded-full bg-[#FFCC00] ${slideIndex === 0 ? "" : "opacity-50"}`}
