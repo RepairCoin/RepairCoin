@@ -54,11 +54,11 @@ export const useLogout = () => {
       resetState();
 
       if (navigate) {
-        router.replace("/onboarding1");
+        router.replace("/(auth)");
       }
     } catch (error) {
       console.error("[Logout] Error during logout:", error);
-      router.replace("/onboarding1");
+      router.replace("/(auth)");
     } finally {
       setIsLoggingOut(false);
     }

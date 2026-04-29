@@ -6,8 +6,8 @@ import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
-import { NavigableSlideProps } from "../types";
-import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../constants";
+import { NavigableSlideProps } from "../../types";
+import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../../constants";
 
 export default function SecondSlide({
   handleGoBack,

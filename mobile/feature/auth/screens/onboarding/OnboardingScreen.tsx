@@ -15,9 +15,9 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import OnboardingOne from "./onboarding1";
-import OnboardingTwo from "./onboarding2";
-import OnboardingThree from "./onboarding3";
+import OnboardingOne from "../../components/onboarding/Onboarding1";
+import OnboardingTwo from "../../components/onboarding/Onboarding2";
+import OnboardingThree from "../../components/onboarding/Onboarding3";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

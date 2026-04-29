@@ -17,7 +17,7 @@ export const useSplashNavigation = () => {
     }
 
     if (!isAuthenticated || !userProfile?.address || !accessToken) {
-      router.replace("/onboarding1");
+      router.replace("/(auth)");
       return;
     }
 
@@ -45,7 +45,7 @@ export const useSplashNavigation = () => {
         );
       }
     } else {
-      router.replace("/onboarding1");
+      router.replace("/(auth)");
     }
   };
 

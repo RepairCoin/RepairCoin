@@ -8,7 +8,7 @@ import {
   ThirdSlide,
   SocialMediaSlide,
   FourthSlide,
-} from "../../components";
+} from "../../components/form-register";
 import { Slide } from "../../types";
 
 export default function ShopRegisterScreen() {

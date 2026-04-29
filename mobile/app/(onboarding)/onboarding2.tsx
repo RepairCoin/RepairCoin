@@ -1,1 +1,0 @@
-export { OnboardingScreen2 as default } from "@/feature/auth/screens";

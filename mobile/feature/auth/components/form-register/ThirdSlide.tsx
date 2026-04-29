@@ -9,7 +9,7 @@ import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import LocationPickerModal, {
   SelectedLocation,
 } from "@/shared/components/shared/LocationPickerModal";
-import { ThirdSlideProps } from "../types";
+import { ThirdSlideProps } from "../../types";
 
 export default function ThirdSlide({
   handleGoBack,
