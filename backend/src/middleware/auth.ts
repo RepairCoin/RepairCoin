@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
 import { AdminService } from '../domains/admin/services/AdminService';
 import { getSubscriptionEnforcementService } from '../services/SubscriptionEnforcementService';
+import { getCookieDomain } from '../utils/cookies';
 
 interface BaseJWTPayload {
   address: string;
@@ -155,7 +156,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           });
 
           // Set new access token in cookie
-          // Using 'lax' for sameSite as it works for subdomain setup (api.repaircoin.ai <-> repaircoin.ai)
           const cookieOptions: any = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -164,14 +164,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             path: '/'
           };
 
-          // Set domain for cookie sharing
-          const isProduction = process.env.NODE_ENV === 'production';
-          const cookieDomain = process.env.COOKIE_DOMAIN;
-          if (isProduction && cookieDomain) {
+          const cookieDomain = getCookieDomain(req);
+          if (cookieDomain) {
             cookieOptions.domain = cookieDomain;
-          } else if (!isProduction) {
-            // In development, set domain to 'localhost' (without port) so cookies work across different ports
-            cookieOptions.domain = 'localhost';
           }
 
           res.cookie('auth_token', newAccessToken, cookieOptions);
@@ -260,7 +255,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         });
 
         // Set cookie options
-        // Using 'lax' for sameSite as it works for subdomain setup (api.repaircoin.ai <-> repaircoin.ai)
         const cookieOptions: any = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
@@ -269,13 +263,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           path: '/'
         };
 
-        // Set domain for cookie sharing
-        const isProduction = process.env.NODE_ENV === 'production';
-        const cookieDomain = process.env.COOKIE_DOMAIN;
-        if (isProduction && cookieDomain) {
+        const cookieDomain = getCookieDomain(req);
+        if (cookieDomain) {
           cookieOptions.domain = cookieDomain;
-        } else if (!isProduction) {
-          cookieOptions.domain = 'localhost';
         }
 
         // Set the new access token cookie

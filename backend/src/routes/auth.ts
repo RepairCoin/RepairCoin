@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { getLocationFromIP } from '../utils/geoip';
+import { getCookieDomain } from '../utils/cookies';
 
 const router = Router();
 
@@ -125,23 +126,20 @@ const generateAndSetTokens = async (
   });
 
   const isProduction = process.env.NODE_ENV === 'production';
-  const cookieDomain = process.env.COOKIE_DOMAIN; // e.g., '.repaircoin.ai' for subdomain setup
+  // Pick cookie Domain based on the request host so the cookie is first-party
+  // for whichever frontend originated the request (fixflow.ai vs repaircoin.ai).
+  const cookieDomain = getCookieDomain(req);
 
-  // Cookie options for subdomain authentication
-  // With subdomain setup (api.repaircoin.ai), we can use sameSite: 'lax' for better security
+  // Cookie options for cross-domain auth during the fixflow.ai migration window.
   const baseCookieOptions: any = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
-    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
+    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
     path: '/'
   };
 
-  // Set domain for cookie sharing
-  if (isProduction && cookieDomain) {
-    baseCookieOptions.domain = cookieDomain; // e.g., '.repaircoin.ai'
-  } else if (!isProduction) {
-    // In development, set domain to 'localhost' (without port) so cookies work across different ports
-    baseCookieOptions.domain = 'localhost';
+  if (cookieDomain) {
+    baseCookieOptions.domain = cookieDomain;
   }
 
   // Set access token as httpOnly cookie (15 minutes)
@@ -1380,9 +1378,10 @@ router.post('/logout', async (req, res) => {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieDomain = process.env.COOKIE_DOMAIN;
+    // Match the domain used when setting the cookie (fixflow.ai vs repaircoin.ai).
+    const cookieDomain = getCookieDomain(req);
 
-    // Cookie clear options must match the options used when setting the cookie
+    // Cookie clear options must match the options used when setting the cookie.
     const clearOptions: any = {
       httpOnly: true,
       secure: isProduction || process.env.COOKIE_SECURE === 'true',
@@ -1390,8 +1389,7 @@ router.post('/logout', async (req, res) => {
       path: '/'
     };
 
-    // Set domain if configured (for subdomain setup)
-    if (isProduction && cookieDomain) {
+    if (cookieDomain) {
       clearOptions.domain = cookieDomain;
     }
 
@@ -1491,9 +1489,8 @@ router.post('/refresh', async (req, res) => {
     });
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieDomain = process.env.COOKIE_DOMAIN;
+    const cookieDomain = getCookieDomain(req);
 
-    // Cookie options for subdomain setup
     const cookieOptions: any = {
       httpOnly: true,
       secure: isProduction || process.env.COOKIE_SECURE === 'true',
@@ -1502,12 +1499,8 @@ router.post('/refresh', async (req, res) => {
       path: '/'
     };
 
-    // Set domain for cookie sharing
-    if (isProduction && cookieDomain) {
+    if (cookieDomain) {
       cookieOptions.domain = cookieDomain;
-    } else if (!isProduction) {
-      // In development, set domain to 'localhost' (without port) so cookies work across different ports
-      cookieOptions.domain = 'localhost';
     }
 
     // Set new access token cookie
@@ -1582,7 +1575,7 @@ router.get('/test-cookie', (req, res) => {
   const cookies = req.cookies || {};
 
   const isProduction = process.env.NODE_ENV === 'production';
-  const cookieDomain = process.env.COOKIE_DOMAIN;
+  const cookieDomain = getCookieDomain(req);
 
   // Set a test cookie with subdomain configuration
   const cookieOptions: any = {
@@ -1593,12 +1586,8 @@ router.get('/test-cookie', (req, res) => {
     path: '/'
   };
 
-  // Set domain for cookie sharing
-  if (isProduction && cookieDomain) {
+  if (cookieDomain) {
     cookieOptions.domain = cookieDomain;
-  } else if (!isProduction) {
-    // In development, set domain to 'localhost' (without port) so cookies work across different ports
-    cookieOptions.domain = 'localhost';
   }
 
   res.cookie('test_cookie', 'test_value_' + Date.now(), cookieOptions);
