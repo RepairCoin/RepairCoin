@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useActiveAccount } from "thirdweb/react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import { getContract, prepareContractCall, sendTransaction, readContract, eth_getBalance } from "thirdweb";
 import { createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
@@ -235,7 +236,7 @@ export default function ThirdwebPayment({
     try {
       console.log('Completing purchase:', { purchaseId, transactionHash });
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/complete`, {
+      const response = await fetch(`${getApiBaseUrl()}/shops/purchase/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

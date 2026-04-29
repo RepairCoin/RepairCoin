@@ -3,7 +3,7 @@ import { useNotificationStore, Notification as NotificationType } from '../store
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
 import { usePushSubscription } from './usePushSubscription';
-import { WS_URL } from '@/utils/wsUrl';
+import { getWebSocketUrl } from '@/utils/apiUrl';
 import { setActiveSocket } from '@/utils/wsClient';
 
 interface UseNotificationsOptions {
@@ -157,7 +157,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
 
     try {
       console.log('🔌 Connecting to WebSocket with authentication cookies...');
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(getWebSocketUrl());
       wsRef.current = ws;
 
       ws.onopen = () => {

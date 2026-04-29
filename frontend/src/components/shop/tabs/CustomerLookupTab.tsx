@@ -6,6 +6,7 @@ import QrScanner from "qr-scanner";
 import { Camera, X, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import CustomerCard from "@/components/shop/customers/CustomerCard";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import { CustomerProfileView } from "@/components/shop/customers/profile";
 
 // Search result from API
@@ -70,7 +71,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
     try {
       // Use /api/customers endpoint to search ALL customers (not just shop-specific)
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers?search=${encodeURIComponent(searchTerm)}&page=1&limit=50`,
+        `${getApiBaseUrl()}/customers?search=${encodeURIComponent(searchTerm)}&page=1&limit=50`,
         {
           credentials: "include", // Send HTTP-only cookies for auth
           headers: {

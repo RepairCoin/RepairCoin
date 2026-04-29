@@ -1,12 +1,13 @@
 import { Metadata } from 'next';
 import { ShopServiceWithShopInfo } from '@/services/api/services';
 import { ServicePageClient } from './ServicePageClient';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 // Server-side function to fetch service details for meta tags
 async function getServiceForMeta(serviceId: string): Promise<ShopServiceWithShopInfo | null> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-    const response = await fetch(`${apiUrl}/services/${serviceId}`, {
+    // SSR: getApiBaseUrl() falls back to NEXT_PUBLIC_API_URL when window is undefined
+    const response = await fetch(`${getApiBaseUrl()}/services/${serviceId}`, {
       next: { revalidate: 60 }, // Cache for 60 seconds
       headers: {
         'Content-Type': 'application/json',

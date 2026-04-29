@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { toast } from "react-hot-toast";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import {
   Store,
   Search,
@@ -147,7 +148,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending&entityType=shop`,
+        `${getApiBaseUrl()}/admin/unsuspend-requests?status=pending&entityType=shop`,
         {
           headers: {
             Authorization: `Bearer ${adminToken}`,
@@ -196,7 +197,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           : `/admin/unsuspend-requests/${requestId}/reject`;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
+        `${getApiBaseUrl()}${endpoint}`,
         {
           method: "POST",
           headers: {

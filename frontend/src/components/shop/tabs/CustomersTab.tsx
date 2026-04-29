@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/services/api/client";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import QrScanner from "qr-scanner";
 import {
   Users,
@@ -244,7 +245,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers?search=${encodeURIComponent(searchTerm)}&page=1&limit=50`,
+        `${getApiBaseUrl()}/customers?search=${encodeURIComponent(searchTerm)}&page=1&limit=50`,
         {
           credentials: "include",
           headers: {

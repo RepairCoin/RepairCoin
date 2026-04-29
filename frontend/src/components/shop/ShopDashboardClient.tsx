@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -618,7 +619,7 @@ export default function ShopDashboardClient() {
               ) {
                 try {
                   const checkResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchase.id}`,
+                    `${getApiBaseUrl()}/shops/purchase-sync/check-payment/${purchase.id}`,
                     {
                       method: "POST",
                       headers: {

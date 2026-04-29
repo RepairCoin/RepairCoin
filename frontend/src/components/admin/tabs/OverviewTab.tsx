@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 import {
   Users,
   Building2,
@@ -64,11 +65,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
         // Parallel fetch both data sources
         const [treasuryResponse, customersResponse] = await Promise.allSettled([
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`,
+            `${getApiBaseUrl()}/admin/treasury`,
             { credentials: 'include' }
           ),
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=2&orderBy=last_earned_date&order=DESC`,
+            `${getApiBaseUrl()}/admin/customers?limit=2&orderBy=last_earned_date&order=DESC`,
             { credentials: 'include' }
           )
         ]);

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Activity, Store, Users, Coins, ArrowRight, Gift, ShoppingCart, UserPlus, CheckCircle, XCircle, Clock, Building2, DollarSign, UserCheck, MapPin, User, CreditCard, Target, Globe, ClipboardList } from 'lucide-react';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, Column } from '@/components/ui/DataTable';
 
@@ -58,8 +59,8 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
         // Fetch recent shop registrations and approvals
         try {
           const [activeShops, pendingShops] = await Promise.all([
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?limit=5&orderBy=join_date&order=DESC`, { headers }),
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&limit=5`, { headers })
+            fetch(`${getApiBaseUrl()}/admin/shops?limit=5&orderBy=join_date&order=DESC`, { headers }),
+            fetch(`${getApiBaseUrl()}/admin/shops?verified=false&limit=5`, { headers })
           ]);
 
           if (activeShops.ok) {
@@ -112,7 +113,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
 
         // Fetch recent RCN purchases by shops
         try {
-          const treasuryRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, { headers });
+          const treasuryRes = await fetch(`${getApiBaseUrl()}/admin/treasury`, { headers });
           if (treasuryRes.ok) {
             const treasuryData = await treasuryRes.json();
             treasuryData.data?.recentPurchases?.forEach((purchase: any, index: number) => {
@@ -141,7 +142,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
 
         // Fetch recent customer registrations
         try {
-          const customersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=5`, { headers });
+          const customersRes = await fetch(`${getApiBaseUrl()}/admin/customers?limit=5`, { headers });
           if (customersRes.ok) {
             const customerData = await customersRes.json();
             customerData.data?.customers?.forEach((customer: any, index: number) => {

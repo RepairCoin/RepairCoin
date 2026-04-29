@@ -1,5 +1,7 @@
 'use client';
 
+import { getApiBaseUrl } from '@/utils/apiUrl';
+
 /**
  * Token Debug Panel
  *
@@ -95,7 +97,7 @@ export const TokenDebugPanel: React.FC = () => {
     try {
       // Use XMLHttpRequest to access response headers (fetch doesn't expose custom headers easily)
       const xhr = new XMLHttpRequest();
-      xhr.open('GET', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/session`, false);
+      xhr.open('GET', `${getApiBaseUrl()}/auth/session`, false);
       xhr.withCredentials = true;
       xhr.send();
 

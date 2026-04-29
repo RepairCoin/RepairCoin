@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins, Calendar, Ban } from "lucide-react";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { createPaymentIntent } from "@/services/api/services";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useCustomerStore } from "@/stores/customerStore";
@@ -79,8 +80,7 @@ const CheckoutForm: React.FC<{
       } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
         // Payment succeeded - now confirm on backend to update order status
         try {
-          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-          const confirmResponse = await fetch(`${backendUrl}/services/orders/confirm`, {
+          const confirmResponse = await fetch(`${getApiBaseUrl()}/services/orders/confirm`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 interface CreateAdminTabProps {}
 
@@ -26,7 +27,7 @@ export function CreateAdminTab({}: CreateAdminTabProps) {
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/create-admin`, {
+      const response = await fetch(`${getApiBaseUrl()}/admin/create-admin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import {
   Activity,
   Store,
@@ -130,11 +131,11 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = () 
         try {
           const [activeShops, pendingShops] = await Promise.all([
             fetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?limit=5&orderBy=join_date&order=DESC`,
+              `${getApiBaseUrl()}/admin/shops?limit=5&orderBy=join_date&order=DESC`,
               { credentials: 'include' }
             ),
             fetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&limit=5`,
+              `${getApiBaseUrl()}/admin/shops?verified=false&limit=5`,
               { credentials: 'include' }
             ),
           ]);

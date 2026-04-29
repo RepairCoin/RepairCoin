@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface UnsuspendRequestModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export const UnsuspendRequestModal: React.FC<UnsuspendRequestModalProps> = ({
       // Get auth token from localStorage or session
       const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/request-unsuspend`, {
+      const response = await fetch(`${getApiBaseUrl()}/customers/${customerAddress}/request-unsuspend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import { CheckCircle, XCircle, Clock, QrCode, Download, X, Check, Loader2, RefreshCw, ShieldCheck, Wallet, Hourglass } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
@@ -125,7 +126,7 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
 
   const loadShops = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/shops`);
+      const response = await fetch(`${getApiBaseUrl()}/customers/shops`);
       if (response.ok) {
         const result = await response.json();
         const activeShops = result.data.shops.filter(

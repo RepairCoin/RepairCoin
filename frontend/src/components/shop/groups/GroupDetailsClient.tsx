@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import {
   Users, Coins, Copy, Check, Shield,
   BookOpen, FileText, Activity, ChevronRight, Home, Dumbbell
@@ -61,7 +62,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const fetchShopData = async (shopId: string) => {
     setShopDataLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/shops/${shopId}`, {
         credentials: 'include',
       });
 
@@ -72,7 +73,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
           let enhancedShopData = result.data;
           try {
-            const subResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
+            const subResponse = await fetch(`${getApiBaseUrl()}/shops/subscription/status`, {
               credentials: 'include',
             });
             if (subResponse.ok) {

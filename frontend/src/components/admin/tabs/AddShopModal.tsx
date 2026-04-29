@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { X } from "lucide-react";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface AddShopModalProps {
   isOpen: boolean;
@@ -77,7 +78,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
     setLoading(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/create-shop`,
+        `${getApiBaseUrl()}/admin/create-shop`,
         {
           method: "POST",
           headers: {

@@ -1,7 +1,6 @@
 import { ShopRegistrationFormData, ExistingApplication } from '@/types/shop';
 import apiClient from '@/services/api/client';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 export class ShopService {
   /**
@@ -21,7 +20,7 @@ export class ShopService {
       if (params?.limit) query.set('limit', String(params.limit));
 
       const qs = query.toString();
-      const url = `${API_URL}/customers/shops${qs ? `?${qs}` : ''}`;
+      const url = `${getApiBaseUrl()}/customers/shops${qs ? `?${qs}` : ''}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -44,7 +43,7 @@ export class ShopService {
    */
   static async checkExistingApplication(walletAddress: string): Promise<ExistingApplication> {
     try {
-      const response = await fetch(`${API_URL}/shops/wallet/${walletAddress}`);
+      const response = await fetch(`${getApiBaseUrl()}/shops/wallet/${walletAddress}`);
       console.log("Registration check - API Response Status:", response.status);
       console.log("Registration check - Fetching for wallet:", walletAddress);
 
@@ -130,10 +129,10 @@ export class ShopService {
     };
 
     console.log("Submitting shop registration:", registrationData);
-    console.log("API URL:", `${API_URL}/shops/register`);
+    console.log("API URL:", `${getApiBaseUrl()}/shops/register`);
 
     try {
-      const response = await fetch(`${API_URL}/shops/register`, {
+      const response = await fetch(`${getApiBaseUrl()}/shops/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

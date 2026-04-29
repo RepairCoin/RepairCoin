@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Coins, BarChart3, CheckCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 interface Transaction {
   id: number;
@@ -52,7 +53,7 @@ export function TransactionsTab({ generateAdminToken, onError }: TransactionsTab
       
       // Get treasury data for shop RCN purchases
       try {
-        const treasuryResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, { headers });
+        const treasuryResponse = await fetch(`${getApiBaseUrl()}/admin/treasury`, { headers });
         if (treasuryResponse.ok) {
           const treasuryData = await treasuryResponse.json();
           if (treasuryData.data?.recentPurchases) {

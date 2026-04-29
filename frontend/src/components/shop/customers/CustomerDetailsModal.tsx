@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Loader2, Wallet, TrendingUp, Clock, MapPin, Mail, Trophy, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 interface CustomerTransaction {
   id: string;
@@ -79,16 +80,16 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
     try {
       // Fetch customer details, balance, transactions, and analytics in parallel
       const [detailsRes, balanceRes, transactionsRes, analyticsRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}`, {
+        fetch(`${getApiBaseUrl()}/customers/${customerAddress}`, {
           credentials: "include",
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/balance/${customerAddress}`, {
+        fetch(`${getApiBaseUrl()}/tokens/balance/${customerAddress}`, {
           credentials: "include",
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/transactions?limit=10`, {
+        fetch(`${getApiBaseUrl()}/customers/${customerAddress}/transactions?limit=10`, {
           credentials: "include",
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}/analytics`, {
+        fetch(`${getApiBaseUrl()}/customers/${customerAddress}/analytics`, {
           credentials: "include",
         }),
       ]);

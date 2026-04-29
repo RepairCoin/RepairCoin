@@ -5,6 +5,7 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useTreasurySync } from '@/hooks/useTreasurySync';
+import { getApiBaseUrl } from '@/utils/apiUrl';
 
 export const AutoCompletePurchases: React.FC = () => {
   const { generateAdminToken } = useAdminDashboard();
@@ -25,7 +26,7 @@ export const AutoCompletePurchases: React.FC = () => {
     setLoadingStats(true);
     try {
       const token = await generateAdminToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/purchases/pending-stats`, {
+      const response = await fetch(`${getApiBaseUrl()}/admin/purchases/pending-stats`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -51,7 +52,7 @@ export const AutoCompletePurchases: React.FC = () => {
     try {
       const token = await generateAdminToken();
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/purchases/auto-complete-old-purchases`,
+        `${getApiBaseUrl()}/admin/purchases/auto-complete-old-purchases`,
         {
           method: 'POST',
           headers: {

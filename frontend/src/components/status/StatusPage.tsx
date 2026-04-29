@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { getApiBaseUrl } from '@/utils/apiUrl'
 
 interface HealthData {
   status: 'healthy' | 'degraded' | 'unhealthy'
@@ -79,8 +80,8 @@ const StatusPage: React.FC = () => {
 
   const fetchHealthData = async () => {
     try {
-      // Use environment variable for API URL, fallback to localhost for development
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
+      // Resolve API URL from current host (works for repaircoin.ai, fixflow.ai, staging, dev)
+      const API_URL = getApiBaseUrl()
       const BASE_URL = API_URL.replace('/api', '')
 
       // Fetch health data
