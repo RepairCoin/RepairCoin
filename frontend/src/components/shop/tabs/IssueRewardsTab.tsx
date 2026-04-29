@@ -717,12 +717,12 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Column - Customer Details & Repair Type */}
         <div className="lg:col-span-2">
           {/* Customer Details Card */}
           <div className="bg-[#101010] rounded-t-xl border border-gray-800">
-            <div className="px-6 py-4 border-b border-gray-800">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#FFCC00]/20 flex items-center justify-center">
@@ -742,7 +742,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       />
                     </svg>
                   </div>
-                  <h3 className="text-[#FFCC00] font-semibold text-lg">
+                  <h3 className="text-[#FFCC00] font-semibold text-base sm:text-lg">
                     Customer Details
                   </h3>
                 </div>
@@ -759,7 +759,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   {/* How it works tooltip */}
                   {showHowItWorks && (
                     <div
-                      className="absolute right-0 top-full mt-2 w-72 bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden"
+                      className="absolute right-0 top-full mt-2 w-[min(18rem,calc(100vw-2rem))] bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden"
                       onMouseEnter={() => setShowHowItWorks(true)}
                       onMouseLeave={() => setShowHowItWorks(false)}
                     >
@@ -815,13 +815,13 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               {/* Wallet Address */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
                   Customer Name or Wallet Address
                 </label>
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
                     <input
@@ -959,7 +959,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   <button
                     onClick={startQRScanner}
                     disabled={isBlocked}
-                    className={`px-4 py-3 font-semibold rounded-lg transition-all flex items-center gap-2 ${
+                    className={`px-3 sm:px-4 py-3 font-semibold rounded-lg transition-all flex items-center gap-2 flex-shrink-0 ${
                       isBlocked
                         ? "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
                         : "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
@@ -967,7 +967,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     title={isBlocked ? blockReason : "Scan customer's QR code"}
                   >
                     <Camera className="w-5 h-5" />
-                    <span>Scan QR</span>
+                    <span className="hidden sm:inline">Scan QR</span>
                   </button>
                 </div>
               </div>
@@ -995,7 +995,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     }
                     placeholder="Enter or Select Promo Code.."
                     disabled={isBlocked}
-                    className={`w-full px-4 py-3 bg-white border text-black rounded-lg focus:ring-2 focus:border-transparent transition-all placeholder:text-gray-600 ${
+                    className={`w-full pl-4 pr-28 py-3 bg-white border text-black rounded-lg focus:ring-2 focus:border-transparent transition-all placeholder:text-gray-600 ${
                       isBlocked ? "opacity-50 cursor-not-allowed" :
                       promoBonus > 0
                         ? "border-[#FFCC00] focus:ring-[#FFCC00]"
@@ -1114,8 +1114,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               {/* Customer Info Display */}
               {customerInfo && (
                 <div className="bg-[#0D0D0D] rounded-lg p-4 border border-gray-700">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+                    <div className="flex items-center flex-wrap gap-2 sm:gap-4">
                       <div
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
                           TIER_STYLES[customerInfo.tier]
@@ -1130,7 +1130,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         </span>
                       </div>
                     </div>
-                    <span className="text-green-400 text-sm font-medium">
+                    <span className="text-green-400 text-xs sm:text-sm font-medium">
                       ✅ No Earning Limits
                     </span>
                   </div>
@@ -1238,18 +1238,18 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
           {/* Select Repair Type Card */}
           <div className="bg-[#101010] rounded-b-xl border border-gray-800">
-            <div className="px-6 py-4 border-b border-gray-800">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-800">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#FFCC00]/20 flex items-center justify-center">
                   <Wrench className="w-4 h-4 text-[#FFCC00]" />
                 </div>
-                <h3 className="text-[#FFCC00] font-semibold text-lg">
+                <h3 className="text-[#FFCC00] font-semibold text-base sm:text-lg">
                   Select Repair Type
                 </h3>
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {/* Custom Amount Option */}
               <div className="mb-6 bg-[#212121] p-4 rounded-lg border border-gray-700">
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -1288,7 +1288,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
                 {/* Custom Amount Inputs - Always visible when Custom is selected */}
                 <div
-                  className={`mt-4 grid grid-cols-2 gap-4 transition-all ${
+                  className={`mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 transition-all ${
                     repairType === "custom" ? "opacity-100" : "opacity-50"
                   }`}
                 >
@@ -1415,7 +1415,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       }`}></div>
 
                       {/* Bottom - RCN value */}
-                      <div className="px-8">
+                      <div className="px-2 sm:px-8">
                         <p
                           className={`lg:text-xl text-lg font-bold ${
                             repairType === option.type
@@ -1449,10 +1449,10 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
         {/* Right Column - Reward Calculator */}
         <div className="lg:col-span-1">
-          <div className="sticky top-6">
+          <div className="lg:sticky lg:top-6">
             <div className="bg-[#101010] rounded-xl border border-gray-800">
               {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-800">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#FFCC00]/20 flex items-center justify-center">
@@ -1469,7 +1469,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         />
                       </svg>
                     </div>
-                    <h3 className="text-[#FFCC00] font-semibold text-lg">
+                    <h3 className="text-[#FFCC00] font-semibold text-base sm:text-lg">
                       Reward Calculator
                     </h3>
                   </div>
@@ -1486,7 +1486,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     {/* Calculator info tooltip */}
                     {showCalculatorInfo && (
                       <div
-                        className="absolute right-0 top-full mt-2 w-72 bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden"
+                        className="absolute right-0 top-full mt-2 w-[min(18rem,calc(100vw-2rem))] bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden"
                         onMouseEnter={() => setShowCalculatorInfo(true)}
                         onMouseLeave={() => setShowCalculatorInfo(false)}
                       >
@@ -1535,7 +1535,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               </div>
 
               {/* Calculator Content */}
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 {/* Available Balance */}
                 <div className="flex items-center justify-between py-3 border-b border-gray-800">
                   <span className="text-gray-400">Available Balance</span>
