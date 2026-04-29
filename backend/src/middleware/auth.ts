@@ -159,7 +159,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           const cookieOptions: any = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax' as 'lax',
+            sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
             maxAge: 15 * 60 * 1000, // 15 minutes
             path: '/'
           };
@@ -264,7 +264,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         const cookieOptions: any = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax' as 'lax',
+          sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
           maxAge: 15 * 60 * 1000, // 15 minutes
           path: '/'
         };
