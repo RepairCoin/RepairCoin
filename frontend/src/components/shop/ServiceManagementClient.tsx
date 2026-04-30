@@ -4,9 +4,8 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Edit, Settings, Calendar, Loader2, Star, Home, ChevronRight, HeartHandshake } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { getServiceById, updateService, ShopService, UpdateServiceData } from "@/services/api/services";
+import { getServiceById, ShopService } from "@/services/api/services";
 import { sanitizeDescription } from "@/utils/sanitize";
-import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 
 // Import the per-service components
 import { ServiceAvailabilitySettings } from "@/components/shop/service/ServiceAvailabilitySettings";
@@ -34,7 +33,6 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
   const [service, setService] = useState<ShopService | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     // Check URL params for tab
@@ -64,21 +62,6 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
       router.push("/shop?tab=services");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleUpdateService = async (data: UpdateServiceData) => {
-    if (!service) return;
-
-    try {
-      await updateService(service.serviceId, data);
-      toast.success("Service updated successfully!");
-      setShowEditModal(false);
-      loadService();
-    } catch (error) {
-      console.error("Error updating service:", error);
-      toast.error("Failed to update service");
-      throw error;
     }
   };
 
@@ -148,7 +131,7 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
           </div>
           {activeTab === 'overview' && (
             <button
-              onClick={() => setShowEditModal(true)}
+              onClick={() => router.push(`/shop/services/${serviceId}/edit`)}
               className="flex items-center justify-center gap-2 bg-[#FFCC00] text-black font-semibold px-4 sm:px-5 py-2 rounded-lg hover:bg-[#FFD700] transition-colors duration-200 w-full sm:w-auto flex-shrink-0"
             >
               <Edit className="w-4 h-4" />
@@ -326,15 +309,6 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
           )}
         </div>
 
-        {/* Edit Service Modal */}
-        {showEditModal && (
-          <CreateServiceModal
-            onClose={() => setShowEditModal(false)}
-            onSubmit={handleUpdateService}
-            initialData={service}
-            isEditing
-          />
-        )}
       </div>
     </div>
   );

@@ -25,15 +25,12 @@ import { sanitizeDescription } from "@/utils/sanitize";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import {
   getShopServices,
-  createService,
   updateService,
   deleteService,
   ShopService,
-  CreateServiceData,
   UpdateServiceData,
   SERVICE_CATEGORIES,
 } from "@/services/api/services";
-import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
 
@@ -119,7 +116,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const router = useRouter();
   const [services, setServices] = useState<ShopService[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingService, setDeletingService] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<ShopService | null>(null);
   const [qrModalService, setQrModalService] = useState<ShopService | null>(null);
@@ -159,21 +155,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleCreateService = async (data: CreateServiceData | UpdateServiceData) => {
-    try {
-      // Cast to CreateServiceData since this modal is only used for creating
-      await createService(data as CreateServiceData);
-      toast.success("Service created successfully!");
-      setShowCreateModal(false);
-      setCurrentPage(1);
-      loadServices();
-    } catch (error) {
-      console.error("Error creating service:", error);
-      toast.error("Failed to create service");
-      throw error;
     }
   };
 
@@ -265,7 +246,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 });
                 return;
               }
-              setShowCreateModal(true);
+              router.push("/shop/services/new");
             }}
             disabled={!canCreateServices}
             title={canCreateServices ? "Create New Service" : "Subscription or 10,000+ RCG required"}
@@ -299,7 +280,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 });
                 return;
               }
-              setShowCreateModal(true);
+              router.push("/shop/services/new");
             }}
             disabled={!canCreateServices}
             className={`inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-xl transition-all duration-200 ${
@@ -633,14 +614,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
             </div>
           )}
         </>
-      )}
-
-      {/* Create Service Modal */}
-      {showCreateModal && (
-        <CreateServiceModal
-          onClose={() => setShowCreateModal(false)}
-          onSubmit={handleCreateService}
-        />
       )}
 
       {/* Service Details Modal */}
