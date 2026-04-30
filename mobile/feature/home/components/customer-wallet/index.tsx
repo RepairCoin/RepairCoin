@@ -15,7 +15,6 @@ import { router } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
 import { useService } from "@/feature/services/hooks/useService";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
@@ -145,12 +144,6 @@ export default function CustomerWalletTab() {
     );
     return sortedServices.slice(0, 4);
   }, [servicesData]);
-
-  const getCategoryLabel = (category?: string) => {
-    if (!category) return "Other";
-    const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
-    return cat?.label || category;
-  };
 
   const handleServicePress = (item: ServiceData) => {
     router.push(`/customer/service/${item.serviceId}`);
@@ -298,7 +291,6 @@ export default function CustomerWalletTab() {
           <RecentlyViewedSection
             data={recentlyViewedData}
             isLoading={recentlyViewedLoading}
-            getCategoryLabel={getCategoryLabel}
             onServicePress={handleServicePress}
           />
         )}
@@ -307,7 +299,6 @@ export default function CustomerWalletTab() {
             handleViewAllTrendingServices={handleViewAllTrendingServices}
             trendingLoading={trendingLoading}
             trendingData={trendingData}
-            getCategoryLabel={getCategoryLabel}
             handleServicePress={(item) => handleServicePress(item)}
             favoritedIds={favoritedIds}
           />
@@ -317,7 +308,6 @@ export default function CustomerWalletTab() {
             handleViewAllServices={handleViewAllServices}
             servicesLoading={servicesLoading}
             displayedServices={displayedServices}
-            getCategoryLabel={getCategoryLabel}
             handleServicePress={handleServicePress}
             favoritedIds={favoritedIds}
           />

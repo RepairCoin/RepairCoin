@@ -14,7 +14,6 @@ interface TrendingSectionProps {
   handleViewAllTrendingServices: () => void;
   trendingLoading: boolean;
   trendingData: ServiceData[] | undefined;
-  getCategoryLabel: (category: string) => string;
   handleServicePress: (item: ServiceData) => void;
   favoritedIds: Set<string>;
 }
@@ -23,7 +22,6 @@ export default function TrendingSection({
   handleViewAllTrendingServices,
   trendingLoading,
   trendingData,
-  getCategoryLabel,
   handleServicePress,
   favoritedIds,
 }: TrendingSectionProps) {
@@ -54,7 +52,7 @@ export default function TrendingSection({
               <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
                 <ServiceCard
                   imageUrl={item.imageUrl}
-                  category={getCategoryLabel(item.category)}
+                  category={item.category}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}

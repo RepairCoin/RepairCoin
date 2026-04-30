@@ -15,14 +15,12 @@ import { useFavorite } from "@/feature/services/hooks/useFavorite";
 interface RecentlyViewedSectionProps {
   data: ServiceData[];
   isLoading: boolean;
-  getCategoryLabel: (category?: string) => string;
   onServicePress: (service: ServiceData) => void;
 }
 
 export default function RecentlyViewedSection({
   data,
   isLoading,
-  getCategoryLabel,
   onServicePress,
 }: RecentlyViewedSectionProps) {
   const { useGetFavorites } = useFavorite();
@@ -64,7 +62,7 @@ export default function RecentlyViewedSection({
               <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
                 <ServiceCard
                   imageUrl={item.imageUrl}
-                  category={getCategoryLabel(item.category)}
+                  category={item.category}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}

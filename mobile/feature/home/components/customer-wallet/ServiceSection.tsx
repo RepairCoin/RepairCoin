@@ -14,7 +14,6 @@ interface ServiceSectionProps {
   handleViewAllServices: () => void;
   servicesLoading: boolean;
   displayedServices: ServiceData[];
-  getCategoryLabel: (category: string) => string;
   handleServicePress: (item: ServiceData) => void;
   favoritedIds: Set<string>;
 }
@@ -23,7 +22,6 @@ export default function ServiceSection({
   handleViewAllServices,
   servicesLoading,
   displayedServices,
-  getCategoryLabel,
   handleServicePress,
   favoritedIds,
 }: ServiceSectionProps) {
@@ -54,7 +52,7 @@ export default function ServiceSection({
               <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
                 <ServiceCard
                   imageUrl={item.imageUrl}
-                  category={getCategoryLabel(item.category)}
+                  category={item.category}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
