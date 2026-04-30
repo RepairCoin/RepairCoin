@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import { shopApi } from "@/feature/profile/shop/services/shop.services";
 import { customerApi } from "@/feature/profile/customer/services/customer.services";
 import { useAppToast } from "@/shared/hooks";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 
 // Tier bonuses constants
 const TIER_BONUSES = {
@@ -58,8 +59,9 @@ export function useIssueReward(resetInputs?: () => void) {
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
   const shopWalletAddress = useAuthStore((state) => state.account?.address);
   const { showSuccess, showError } = useAppToast();
+  const { guard, reset } = useSubmitGuard();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (request: RewardRequest) => {
       if (!shopId) {
         throw new Error("Shop not authenticated");
@@ -67,22 +69,18 @@ export function useIssueReward(resetInputs?: () => void) {
       return shopApi.issueReward(shopId, request);
     },
     onSuccess: (data, variables) => {
-      // Show success toast
       showSuccess(`Successfully issued ${data.data?.totalReward} RCN to customer!`);
 
-      // Reset all form inputs
       if (resetInputs) {
         resetInputs();
       }
 
-      // Invalidate customer info to refresh their earnings
       if (variables.customerAddress) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.customerInfo(variables.customerAddress),
         });
       }
 
-      // Invalidate shop data to refresh balance and issued tokens count on home tab
       if (shopWalletAddress) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.shopByWalletAddress(shopWalletAddress),
@@ -106,7 +104,15 @@ export function useIssueReward(resetInputs?: () => void) {
 
       showError(errorMessage);
     },
+    onSettled: reset,
   });
+
+  return {
+    ...mutation,
+    mutate: (request: RewardRequest, options?: Parameters<typeof mutation.mutate>[1]) => {
+      guard(() => mutation.mutate(request, options));
+    },
+  };
 }
 
 // Hook for managing repair type and calculations
@@ -321,7 +327,7 @@ export function useShopPromoCodes() {
       if (!shopId) {
         throw new Error("No shop ID found");
       }
-      return shopApi.getShopPromoCodes(shopId);
+      return shopApi.getPromoCodes(shopId);
     },
     enabled: !!shopId,
     select: (data) => data.data || [],

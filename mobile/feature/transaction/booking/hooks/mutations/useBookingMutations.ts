@@ -2,12 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { bookingApi } from "../../services/booking.services";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
 import { useAppToast } from "@/shared/hooks";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 
 export function useApproveOrderMutation() {
   const queryClient = useQueryClient();
   const { showSuccess, showError, showInfo } = useAppToast();
+  const { guard, reset } = useSubmitGuard();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (orderId: string) => {
       return bookingApi.approveOrder(orderId);
     },
@@ -27,14 +29,23 @@ export function useApproveOrderMutation() {
 
       showError(errorMessage || "Failed to approve booking. Please try again.");
     },
+    onSettled: reset,
   });
+
+  return {
+    ...mutation,
+    mutate: (orderId: string, options?: Parameters<typeof mutation.mutate>[1]) => {
+      guard(() => mutation.mutate(orderId, options));
+    },
+  };
 }
 
 export function useCompleteOrderMutation() {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useAppToast();
+  const { guard, reset } = useSubmitGuard();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (orderId: string) => {
       return bookingApi.updateOrderStatus(orderId, "completed");
     },
@@ -46,7 +57,15 @@ export function useCompleteOrderMutation() {
       console.error("Failed to complete order:", error);
       showError(error.message || "Failed to complete booking. Please try again.");
     },
+    onSettled: reset,
   });
+
+  return {
+    ...mutation,
+    mutate: (orderId: string, options?: Parameters<typeof mutation.mutate>[1]) => {
+      guard(() => mutation.mutate(orderId, options));
+    },
+  };
 }
 
 export function useCancelOrderMutation() {

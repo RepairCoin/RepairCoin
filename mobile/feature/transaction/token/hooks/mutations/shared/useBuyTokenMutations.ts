@@ -3,14 +3,16 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { usePaymentStore } from "@/feature/transaction/booking/store/payment.store";
 import { useAppToast } from "@/shared/hooks";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { purchaseApi } from "../../../services/purchase.services";
 
 export function useCreateStripeCheckoutMutation() {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId;
   const { showError } = useAppToast();
+  const { guard, reset } = useSubmitGuard();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (amount: number) => {
       if (!shopId) {
         throw new Error("Shop not authenticated");
@@ -56,5 +58,13 @@ export function useCreateStripeCheckoutMutation() {
         showError(error.message || "Failed to initiate purchase. Please try again.");
       }
     },
+    onSettled: reset,
   });
+
+  return {
+    ...mutation,
+    mutate: (amount: number, options?: Parameters<typeof mutation.mutate>[1]) => {
+      guard(() => mutation.mutate(amount, options));
+    },
+  };
 }

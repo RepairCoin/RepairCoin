@@ -11,6 +11,7 @@ import { appointmentApi } from "@/feature/transaction/appointment/services/appoi
 import { Linking } from "react-native";
 import { usePaymentStore } from "../store/payment.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 
 interface QueryOptions {
   enabled?: boolean;
@@ -70,8 +71,9 @@ export function useCreateBookingMutation() {
 
 export function useCreateStripeCheckoutMutation() {
   const { showError } = useAppToast();
+  const { guard, reset } = useSubmitGuard();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
       return bookingApi.createStripeCheckout(data);
     },
@@ -79,8 +81,6 @@ export function useCreateStripeCheckoutMutation() {
       const orderId = response.data.orderId;
       const sessionId = response.data.sessionId;
 
-      // Store the session data so we can validate and confirm on success screen
-      // This prevents stale navigation and enables payment confirmation
       usePaymentStore.getState().setActiveSession({
         type: "service_booking",
         orderId,
@@ -89,14 +89,12 @@ export function useCreateStripeCheckoutMutation() {
         rcnRedeemed: response.data.rcnRedeemed,
       });
 
-      // Open the Stripe checkout URL in the browser
       const checkoutUrl = response.data.checkoutUrl;
       if (checkoutUrl) {
         const canOpen = await Linking.canOpenURL(checkoutUrl);
         if (canOpen) {
           await Linking.openURL(checkoutUrl);
         } else {
-          // Clear the session since we couldn't open the browser
           usePaymentStore.getState().clearSession();
           showError("Unable to open browser. Please try again or contact support.");
         }
@@ -113,7 +111,15 @@ export function useCreateStripeCheckoutMutation() {
         showError(error.message || "Failed to initiate booking. Please try again.");
       }
     },
+    onSettled: reset,
   });
+
+  return {
+    ...mutation,
+    mutate: (data: BookingFormData, options?: Parameters<typeof mutation.mutate>[1]) => {
+      guard(() => mutation.mutate(data, options));
+    },
+  };
 }
 
 export function useCancelAppointmentMutation() {

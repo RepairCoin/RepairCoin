@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { tokenApi } from "../services/token.services";
 import {
   GiftTokenRequest,
@@ -14,14 +15,15 @@ export const useToken = () => {
    * Hook to transfer/gift tokens to another user
    */
   const useTransferToken = () => {
-    return useMutation({
+    const { guard, reset } = useSubmitGuard();
+
+    const mutation = useMutation({
       mutationFn: async (payload: GiftTokenRequest) => {
         const response: GiftTokenResponse =
           await tokenApi.transferToken(payload);
         return response.data;
       },
       onSuccess: (_, variables) => {
-        // Invalidate relevant queries after successful transfer
         queryClient.invalidateQueries({
           queryKey: queryKeys.customerProfile(variables.fromAddress),
         });
@@ -36,7 +38,15 @@ export const useToken = () => {
         console.error("[useTransferToken] Error:", error);
         throw error;
       },
+      onSettled: reset,
     });
+
+    return {
+      ...mutation,
+      mutateAsync: (payload: GiftTokenRequest, options?: Parameters<typeof mutation.mutateAsync>[1]) => {
+        return guard(() => mutation.mutateAsync(payload, options)) ?? Promise.reject(new Error("Already submitting"));
+      },
+    };
   };
 
   /**

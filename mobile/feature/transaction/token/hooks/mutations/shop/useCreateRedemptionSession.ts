@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { tokenApi } from "../../../services/token.services";
 import {
   CreateRedemptionSessionRequest,
@@ -6,13 +7,11 @@ import {
   RedemptionCallbacks,
 } from "../../../types";
 
-/**
- * Hook for creating a redemption session
- */
 export const useCreateRedemptionSession = (callbacks?: RedemptionCallbacks) => {
   const { onSessionCreated, onError } = callbacks || {};
+  const { guard, reset } = useSubmitGuard();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (request: CreateRedemptionSessionRequest) => {
       return await tokenApi.createRedemptionSession(request);
     },
@@ -41,5 +40,13 @@ export const useCreateRedemptionSession = (callbacks?: RedemptionCallbacks) => {
         error instanceof Error ? error : new Error("Failed to create redemption session")
       );
     },
+    onSettled: reset,
   });
+
+  return {
+    ...mutation,
+    mutate: (request: CreateRedemptionSessionRequest, options?: Parameters<typeof mutation.mutate>[1]) => {
+      guard(() => mutation.mutate(request, options));
+    },
+  };
 };
