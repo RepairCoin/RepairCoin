@@ -10,7 +10,7 @@ class PromoCodeApi {
   async getPromoCodes(shopId: string): Promise<PromoCodesListResponse> {
     try {
       return await apiClient.get<PromoCodesListResponse>(
-        `/shops/${shopId}/promo-codes`
+        `/shops/${shopId}/promo-codes`,
       );
     } catch (error) {
       console.error("[PromoCodeApi] Failed to get promo codes:", error);
@@ -20,12 +20,12 @@ class PromoCodeApi {
 
   async createPromoCode(
     shopId: string,
-    data: CreatePromoCodeRequest
+    data: CreatePromoCodeRequest,
   ): Promise<PromoCodeResponse> {
     try {
       return await apiClient.post<PromoCodeResponse>(
         `/shops/${shopId}/promo-codes`,
-        data
+        data,
       );
     } catch (error) {
       console.error("[PromoCodeApi] Failed to create promo code:", error);
@@ -36,25 +36,23 @@ class PromoCodeApi {
   async updateStatus(
     shopId: string,
     promoCodeId: string,
-    isActive: boolean
+    isActive: boolean,
   ): Promise<{ success: boolean; message: string }> {
     try {
       if (!isActive) {
-        // Deactivate using DELETE
         return await apiClient.delete(
-          `/shops/${shopId}/promo-codes/${promoCodeId}`
+          `/shops/${shopId}/promo-codes/${promoCodeId}`,
         );
       } else {
-        // Reactivate using PUT
         return await apiClient.put(
           `/shops/${shopId}/promo-codes/${promoCodeId}`,
-          { is_active: true }
+          { is_active: true },
         );
       }
     } catch (error) {
       console.error(
         "[PromoCodeApi] Failed to update promo code status:",
-        error
+        error,
       );
       throw error;
     }
@@ -62,11 +60,11 @@ class PromoCodeApi {
 
   async deletePromoCode(
     shopId: string,
-    promoCodeId: string
+    promoCodeId: string,
   ): Promise<{ success: boolean; message: string }> {
     try {
       return await apiClient.delete(
-        `/shops/${shopId}/promo-codes/${promoCodeId}`
+        `/shops/${shopId}/promo-codes/${promoCodeId}`,
       );
     } catch (error) {
       console.error("[PromoCodeApi] Failed to delete promo code:", error);
@@ -79,12 +77,12 @@ class PromoCodeApi {
     request: {
       code: string;
       customer_address: string;
-    }
+    },
   ): Promise<PromoCodeValidateResponse> {
     try {
       return await apiClient.post(
         `/shops/${shopId}/promo-codes/validate`,
-        request
+        request,
       );
     } catch (error: any) {
       console.error("Failed to validate promo code:", error.message);

@@ -1,7 +1,36 @@
 import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface";
 
-// Home Types
 export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
+export type BonusType = "fixed" | "percentage";
+export type TimeRange = "day" | "month" | "year";
+export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
+
+export type SubscriptionFeature = {
+  id: string;
+  label: string;
+};
+
+export type SubscriptionFormData = {
+  shopName: string;
+  email: string;
+  phoneNumber: string;
+  shopAddress: string;
+  acceptTerms: boolean;
+};
+
+export type SubscriptionResponse = {
+  success: boolean;
+  error?: string;
+  data?: {
+    isPendingResume?: boolean;
+    message?: string;
+    paymentUrl?: string;
+    nextSteps?: string;
+    clientSecret?: string;
+    subscriptionId?: string;
+  };
+};
+
 
 export interface ShopHomeData {
   shopData: ShopData | undefined;
@@ -15,9 +44,6 @@ export interface WalletTabProps {
   growthData?: CustomerGrowthData;
 }
 
-// Analytics Types
-export type TimeRange = "day" | "month" | "year";
-export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
 
 export interface ChartDataPoint {
   value: number;
@@ -42,34 +68,6 @@ export interface ProfitMetrics {
   profitTrend: "up" | "down" | "flat";
 }
 
-// Subscription Types
-export type SubscriptionFormData = {
-  shopName: string;
-  email: string;
-  phoneNumber: string;
-  shopAddress: string;
-  acceptTerms: boolean;
-};
-
-export type SubscriptionResponse = {
-  success: boolean;
-  error?: string;
-  data?: {
-    isPendingResume?: boolean;
-    message?: string;
-    paymentUrl?: string;
-    nextSteps?: string;
-    clientSecret?: string;
-    subscriptionId?: string;
-  };
-};
-
-export type SubscriptionFeature = {
-  id: string;
-  label: string;
-};
-
-// Shop Edit Profile Types
 export interface ShopEditFormData {
   name: string;
   email: string;
@@ -93,14 +91,10 @@ export interface ShopEditFormData {
   };
 }
 
-// Profile Tab Types
 export interface ProfileTab {
   key: string;
   label: string;
 }
-
-// Promo Code Types
-export type BonusType = "fixed" | "percentage";
 
 export interface PromoCodeFormData {
   code: string;

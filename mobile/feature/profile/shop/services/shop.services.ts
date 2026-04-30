@@ -10,11 +10,8 @@ import {
   PromoCodeResponse,
   PromoCodeValidateResponse,
   ShopResponse,
-  ShopData,
   RewardRequest,
   RewardResponse,
-  TransactionsResponse,
-  PurchasesResponse,
 } from "@/shared/interfaces/shop.interface";
 
 class ShopApi {
@@ -29,13 +26,13 @@ class ShopApi {
 
   async updateShopDetails(
     shopId: string,
-    shopData: ShopFormData
+    shopData: ShopFormData,
   ): Promise<{ message: string; success: boolean }> {
     try {
-      const response = await apiClient.put<{ message: string; success: boolean }>(
-        `/shops/${shopId}/details`,
-        shopData
-      );
+      const response = await apiClient.put<{
+        message: string;
+        success: boolean;
+      }>(`/shops/${shopId}/details`, shopData);
       return response;
     } catch (error: any) {
       console.error("Failed to update shop details:", error.message, error);
@@ -55,7 +52,7 @@ class ShopApi {
   async getShopById(shopId: string): Promise<ShopByWalletAddressResponse> {
     try {
       return await apiClient.get<ShopByWalletAddressResponse>(
-        `/shops/${shopId}`
+        `/shops/${shopId}`,
       );
     } catch (error: any) {
       console.error("Failed to get shop by ID:", error.message);
@@ -64,11 +61,11 @@ class ShopApi {
   }
 
   async getShopByWalletAddress(
-    walletAddress: string
+    walletAddress: string,
   ): Promise<ShopByWalletAddressResponse> {
     try {
       return await apiClient.get<ShopByWalletAddressResponse>(
-        `/shops/wallet/${walletAddress}`
+        `/shops/wallet/${walletAddress}`,
       );
     } catch (error) {
       console.error("Failed to get shop by wallet address:", error);
@@ -79,7 +76,7 @@ class ShopApi {
   async getShopCustomers(shopId: string): Promise<ShopCustomersResponse> {
     try {
       return await apiClient.get<ShopCustomersResponse>(
-        `/shops/${shopId}/customers?limit=100`
+        `/shops/${shopId}/customers?limit=100`,
       );
     } catch (error) {
       console.error("Failed to get shop customers:", error);
@@ -89,11 +86,11 @@ class ShopApi {
 
   async getShopCustomerGrowth(
     shopId: string,
-    period: string = "7d"
+    period: string = "7d",
   ): Promise<ShopCustomerGrowthResponse> {
     try {
       return await apiClient.get<ShopCustomerGrowthResponse>(
-        `/shops/${shopId}/customer-growth?period=${period}`
+        `/shops/${shopId}/customer-growth?period=${period}`,
       );
     } catch (error: any) {
       console.error("Failed to get shop customer growth:", error.message);
@@ -103,7 +100,7 @@ class ShopApi {
 
   async processRedemption(
     shopId: string,
-    request: ProcessRedemptionRequest
+    request: ProcessRedemptionRequest,
   ): Promise<ProcessRedemptionResponse> {
     try {
       return await apiClient.post(`/shops/${shopId}/redeem`, request);
@@ -115,7 +112,7 @@ class ShopApi {
 
   async issueReward(
     shopId: string,
-    request: RewardRequest
+    request: RewardRequest,
   ): Promise<RewardResponse> {
     try {
       return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
@@ -125,7 +122,6 @@ class ShopApi {
     }
   }
 
-  // Promo Code Methods
   async getShopPromoCodes(shopId: string): Promise<{ data: any[] }> {
     try {
       return await apiClient.get(`/shops/${shopId}/promo-codes`);
@@ -135,7 +131,10 @@ class ShopApi {
     }
   }
 
-  async createPromoCode(shopId: string, data: CreatePromoCodeRequest): Promise<PromoCodeResponse> {
+  async createPromoCode(
+    shopId: string,
+    data: CreatePromoCodeRequest,
+  ): Promise<PromoCodeResponse> {
     try {
       return await apiClient.post(`/shops/${shopId}/promo-codes`, data);
     } catch (error) {
@@ -144,21 +143,36 @@ class ShopApi {
     }
   }
 
-  async validatePromoCode(shopId: string, data: { code: string; customer_address: string }): Promise<PromoCodeValidateResponse> {
+  async validatePromoCode(
+    shopId: string,
+    data: { code: string; customer_address: string },
+  ): Promise<PromoCodeValidateResponse> {
     try {
-      return await apiClient.post(`/shops/${shopId}/promo-codes/validate`, data);
+      return await apiClient.post(
+        `/shops/${shopId}/promo-codes/validate`,
+        data,
+      );
     } catch (error) {
       console.error("Failed to validate promo code:", error);
       throw error;
     }
   }
 
-  async updatePromoCodeStatus(shopId: string, promoCodeId: string, isActive: boolean): Promise<PromoCodeResponse> {
+  async updatePromoCodeStatus(
+    shopId: string,
+    promoCodeId: string,
+    isActive: boolean,
+  ): Promise<PromoCodeResponse> {
     try {
       if (!isActive) {
-        return await apiClient.delete(`/shops/${shopId}/promo-codes/${promoCodeId}`);
+        return await apiClient.delete(
+          `/shops/${shopId}/promo-codes/${promoCodeId}`,
+        );
       }
-      return await apiClient.put(`/shops/${shopId}/promo-codes/${promoCodeId}`, { is_active: true });
+      return await apiClient.put(
+        `/shops/${shopId}/promo-codes/${promoCodeId}`,
+        { is_active: true },
+      );
     } catch (error) {
       console.error("Failed to update promo code status:", error);
       throw error;
@@ -167,7 +181,9 @@ class ShopApi {
 
   async getRecentRewards(shopId: string, limit: number = 5): Promise<any> {
     try {
-      return await apiClient.get(`/shops/${shopId}/transactions?type=reward&limit=${limit}`);
+      return await apiClient.get(
+        `/shops/${shopId}/transactions?type=reward&limit=${limit}`,
+      );
     } catch (error: any) {
       console.error("Failed to get recent rewards:", error.message);
       throw error;

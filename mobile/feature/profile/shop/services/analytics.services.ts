@@ -8,11 +8,11 @@ class AnalyticsApi {
   async getShopTransactions(
     shopId: string,
     startDate: string,
-    endDate: string
+    endDate: string,
   ): Promise<TransactionsResponse> {
     try {
       return await apiClient.get(
-        `/shops/${shopId}/transactions?startDate=${startDate}&endDate=${endDate}`
+        `/shops/${shopId}/transactions?startDate=${startDate}&endDate=${endDate}`,
       );
     } catch (error: any) {
       console.error("Failed to get shop transactions:", error.message);
@@ -23,11 +23,11 @@ class AnalyticsApi {
   async getShopPurchases(
     shopId: string,
     startDate: string,
-    endDate: string
+    endDate: string,
   ): Promise<PurchasesResponse> {
     try {
       return await apiClient.get(
-        `/shops/${shopId}/purchases?startDate=${startDate}&endDate=${endDate}`
+        `/shops/${shopId}/purchases?startDate=${startDate}&endDate=${endDate}`,
       );
     } catch (error: any) {
       console.error("Failed to get shop purchases:", error.message);

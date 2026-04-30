@@ -1,4 +1,3 @@
-// Re-export all shop profile interfaces from their canonical location
 export type {
   TimeRange,
   ChartFilter,
