@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   View,
   Text,
@@ -5,17 +6,16 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Controller, useWatch, useFormContext } from "react-hook-form";
-import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import LocationPickerModal, {
   SelectedLocation,
 } from "@/shared/components/shared/LocationPickerModal";
-import { ThirdSlideProps } from "../../types";
 import { reverseGeocode } from "@/feature/find-shop/services/geocoding.services";
+import { ThirdSlideProps } from "../../types";
+import type { ShopRegisterData } from "../../dto/register.dto";
 
 export default function ThirdSlide({
   handleGoNext,

@@ -1,11 +1,11 @@
 import { View, Text, ScrollView } from "react-native";
 import { Controller, useFormContext } from "react-hook-form";
-import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { NavigableSlideProps } from "../../types";
+import type { ShopRegisterData } from "../../dto/register.dto";
 
 export default function SocialMediaSlide({
   handleGoNext,

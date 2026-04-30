@@ -6,8 +6,8 @@ import FormInput from "@/shared/components/ui/FormInput";
 import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
-import { FirstSlideProps } from "../../types";
 import { THEME_COLORS } from "@/shared/constants/Colors";
+import { FirstSlideProps } from "../../types";
 
 export default function FirstSlide({
   handleGoNext,
