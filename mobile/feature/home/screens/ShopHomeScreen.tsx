@@ -2,12 +2,12 @@ import React, { useCallback, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { useHomeDataUI } from "../hooks";
-import { ShopTabs } from "../types";
+import { useHomeDataUI } from "@/feature/profile/shop/hooks";
+import { ShopTabs } from "@/feature/profile/shop/services/shop.interface";
 import { PromoCodeTab } from "@/feature/profile/shop/components";
 import { AnalyticsTab } from "@/feature/profile/shop/components";
 import { NotificationBell } from "@/feature/notification/components";
-import { MessageButton } from "@/feature/messages/components";
+import { MessageButton } from "../components";
 import { ShopWalletTab } from "../components";
 
 export default function Home() {
@@ -16,7 +16,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];
 
-  // Refetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       refetch();

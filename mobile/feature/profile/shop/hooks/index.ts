@@ -15,3 +15,7 @@ export { useCreatePromoCode } from "./ui/useCreatePromoCode";
 
 // Shop hooks
 export { useShop } from "./useShop";
+
+// Home hooks
+export { useHomeDataUI } from "./ui/useHomeDataUI";
+export { useShopByWalletQuery, useShopCustomerGrowthQuery } from "./queries/useShopHomeQueries";

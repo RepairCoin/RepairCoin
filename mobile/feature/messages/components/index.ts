@@ -1,4 +1,3 @@
-export { default as MessageButton } from "./MessageButton";
 export { default as EmptyConversations } from "./EmptyConversations";
 export { default as ConversationItem } from "./ConversationItem";
 export { default as ChatHeader } from "./ChatHeader";

@@ -1,5 +1,8 @@
 import { useCallback } from "react";
-import { useShopByWalletQuery, useShopCustomerGrowthQuery } from "../queries/useShopQueries";
+import {
+  useShopByWalletQuery,
+  useShopCustomerGrowthQuery,
+} from "../queries/useShopHomeQueries";
 
 export function useHomeDataUI() {
   const {

@@ -1,7 +1,7 @@
+import { useCallback, useState } from "react";
 import { View, Pressable, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
 
@@ -20,7 +20,6 @@ export default function MessageButton({ userType = "customer" }: MessageButtonPr
       const response = await messageApi.getUnreadCount();
       setUnreadCount(response.count || 0);
     } catch (error) {
-      // Silently fail - API may not be implemented yet
       setUnreadCount(0);
     }
   }, [isAuthenticated]);
@@ -45,7 +44,6 @@ export default function MessageButton({ userType = "customer" }: MessageButtonPr
       className="bg-[#121212] rounded-full items-center justify-center"
     >
       <Feather name="message-circle" size={20} color="white" />
-
       {unreadCount > 0 && (
         <View
           style={{

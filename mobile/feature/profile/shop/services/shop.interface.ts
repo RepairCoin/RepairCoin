@@ -1,3 +1,20 @@
+import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface";
+
+// Home Types
+export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
+
+export interface ShopHomeData {
+  shopData: ShopData | undefined;
+  growthData: CustomerGrowthData | undefined;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+export interface WalletTabProps {
+  shopData: ShopData;
+  growthData?: CustomerGrowthData;
+}
+
 // Analytics Types
 export type TimeRange = "day" | "month" | "year";
 export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
