@@ -12,12 +12,9 @@ function CustomerDetailSection({
   growthData?: CustomerGrowthData;
 }) {
   const router = useRouter();
-
-  // Fetch customers for fallback calculations (like web version)
   const { data: customerData } = useShopCustomersQuery();
   const customers = customerData?.customers || [];
 
-  // Calculate fallback values from customers list (same as web)
   const fallbackStats = useMemo(() => {
     if (customers.length === 0) {
       return {
@@ -27,19 +24,16 @@ function CustomerDetailSection({
       };
     }
 
-    // Regular customers: 5+ transactions
     const regularCustomers = customers.filter(
       (c) => (c.total_transactions || 0) >= 5
     ).length;
 
-    // Average earnings per customer
     const totalEarnings = customers.reduce(
       (sum, c) => sum + (c.lifetimeEarnings || 0),
       0
     );
     const avgEarningsPerCustomer = Math.round(totalEarnings / customers.length);
 
-    // Active this week: last transaction within 7 days
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const activeThisWeek = customers.filter((c) => {
       const lastTransaction = new Date(c.last_transaction_date || 0);
@@ -53,7 +47,6 @@ function CustomerDetailSection({
     };
   }, [customers]);
 
-  // Use API values, fall back to computed values if API returns 0
   const displayStats = {
     totalCustomers: growthData?.totalCustomers || customers.length,
     regularCustomers: growthData?.regularCustomers || fallbackStats.regularCustomers,
@@ -63,7 +56,6 @@ function CustomerDetailSection({
 
   return (
     <View>
-      {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center">
           <Ionicons name="people" size={20} color="#FFCC00" />
@@ -80,7 +72,6 @@ function CustomerDetailSection({
         </Pressable>
       </View>
 
-      {/* Stats Grid 2x2 */}
       <View className="gap-2">
         <View className="flex-row">
           <StatCard

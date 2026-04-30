@@ -13,7 +13,6 @@ import {
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
@@ -22,7 +21,6 @@ import { useService } from "@/feature/services/hooks/useService";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { apiClient } from "@/shared/utilities/axios";
 import { useAppToast } from "@/shared/hooks";
-
 import ActionCard from "@/shared/components/shared/ActionCard";
 import { useFavorite } from "@/feature/services/hooks/useFavorite";
 import TrendingSection from "./TrendingSection";
@@ -31,12 +29,11 @@ import RecentlyViewedSection from "./RecentlyViewedSection";
 
 export default function CustomerWalletTab() {
   const { account, userProfile } = useAuthStore();
-  const walletAddress = account?.address || userProfile?.walletAddress || userProfile?.address;
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { useGetAllServicesQuery, useGetTrendingServices, useGetRecentlyViewed } = useService();
   const { useGetFavorites } = useFavorite();
+  const walletAddress = account?.address || userProfile?.walletAddress || userProfile?.address;
 
-  // Use the token balance hook
   const {
     data: customerData,
     isLoading,
@@ -44,7 +41,6 @@ export default function CustomerWalletTab() {
     refetch,
   } = useGetCustomerByWalletAddress(walletAddress);
 
-  // Get services
   const {
     data: servicesData,
     isLoading: servicesLoading,
@@ -57,24 +53,20 @@ export default function CustomerWalletTab() {
     refetch: refetchTrending,
   } = useGetTrendingServices({ limit: 4, days: 7 });
 
-  // Get recently viewed services
   const {
     data: recentlyViewedData,
     isLoading: recentlyViewedLoading,
     refetch: refetchRecentlyViewed,
   } = useGetRecentlyViewed({ limit: 8 });
 
-  // Fetch favorites for heart icon
   const { data: favoritesData, refetch: refetchFavorites } = useGetFavorites();
 
-  // Create a Set of favorited service IDs for O(1) lookup
   const 
   favoritedIds = useMemo(() => {
     if (!favoritesData) return new Set<string>();
     return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
   }, [favoritesData]);
 
-  // Pull-to-refresh state
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -94,7 +86,6 @@ export default function CustomerWalletTab() {
 
   const totalBalance = customerData?.customer?.currentRcnBalance || 0;
 
-  // Mint to wallet state
   const [showMintModal, setShowMintModal] = useState(false);
   const [mintAmount, setMintAmount] = useState("");
   const { showSuccess, showError } = useAppToast();
@@ -141,7 +132,6 @@ export default function CustomerWalletTab() {
     totalEarned: customerData?.customer?.lifetimeEarnings,
   };
 
-  // Get latest 4 active services (sorted by createdAt descending)
   const displayedServices = useMemo(() => {
     if (!servicesData || !Array.isArray(servicesData)) {
       return [];
@@ -174,7 +164,6 @@ export default function CustomerWalletTab() {
     router.push("/customer/service/trending");
   };
 
-  // Early return for missing data
   if (!walletAddress) {
     return (
       <View className="flex-1 justify-center items-center mt-20">
@@ -210,7 +199,6 @@ export default function CustomerWalletTab() {
           />
         }
       >
-        {/* Balance Card */}
         <ActionCard
           balance={tokenData.balance}
           tier={tokenData.tier}
@@ -243,8 +231,6 @@ export default function CustomerWalletTab() {
             },
           ]}
         />
-
-        {/* Mint to Wallet Modal */}
         <Modal visible={showMintModal} transparent animationType="fade">
           <Pressable
             className="flex-1 bg-black/60 justify-center items-center"
@@ -308,8 +294,6 @@ export default function CustomerWalletTab() {
             </Pressable>
           </Pressable>
         </Modal>
-
-        {/* Recently Viewed Section */}
         {recentlyViewedData && recentlyViewedData.length > 0 && (
           <RecentlyViewedSection
             data={recentlyViewedData}
@@ -318,8 +302,6 @@ export default function CustomerWalletTab() {
             onServicePress={handleServicePress}
           />
         )}
-
-        {/* Trending Services Section */}
         {trendingData && trendingData.length > 0 && (
           <TrendingSection
             handleViewAllTrendingServices={handleViewAllTrendingServices}
@@ -330,7 +312,6 @@ export default function CustomerWalletTab() {
             favoritedIds={favoritedIds}
           />
         )}
-        {/* Choose Service Section */}
         {displayedServices && displayedServices.length > 0 && (
           <ServiceSection
             handleViewAllServices={handleViewAllServices}

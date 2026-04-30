@@ -1,17 +1,21 @@
-import { Image, View, Text } from "react-native";
 import React from "react";
-import { CustomerWalletTab } from "../components";
-import NoShowWarningBanner from "../components/NoShowWarningBanner";
+import { Image, View, Text } from "react-native";
 import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { NotificationBell } from "@/feature/notification/components";
-import { MessageButton } from "@/feature/messages/components";
+import {
+  CustomerWalletTab,
+  MessageButton,
+  NoShowWarningBanner,
+} from "../components";
 
 export default function CustomerDashboard() {
-  const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
+  const { account } = useAuthStore();
 
-  const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
+  const { data: customerData } = useGetCustomerByWalletAddress(
+    account?.address,
+  );
 
   return (
     <View className="flex-1 bg-zinc-950">
@@ -22,7 +26,10 @@ export default function CustomerDashboard() {
             className="w-[30%] h-10"
             resizeMode="contain"
           />
-          <View style={{ marginRight: -10 }} className="flex-row items-center gap-2">
+          <View
+            style={{ marginRight: -10 }}
+            className="flex-row items-center gap-2"
+          >
             <MessageButton userType="customer" />
             <NotificationBell userType="customer" />
           </View>

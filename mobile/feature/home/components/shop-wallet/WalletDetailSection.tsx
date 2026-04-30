@@ -7,13 +7,10 @@ import StatCard from "@/shared/components/ui/StatCard";
 function WalletDetailSection({ shopData }: { shopData: ShopData }) {
   return (
     <View>
-      {/* Header */}
       <View className="flex-row items-center mb-3">
         <Ionicons name="pie-chart" size={20} color="#FFCC00" />
         <Text className="text-white text-lg font-semibold ml-2">Token Overview</Text>
       </View>
-
-      {/* Stats Row */}
       <View className="flex-row">
         <StatCard
           value={shopData?.totalRcnPurchased ?? 0}

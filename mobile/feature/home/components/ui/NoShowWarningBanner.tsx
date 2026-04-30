@@ -96,11 +96,11 @@ export default function NoShowWarningBanner() {
       if (!account?.address) return;
       try {
         const result = await appointmentApi.getCustomerNoShowStatus(
-          account.address
+          account.address,
         );
         setStatus(result);
       } catch (error) {
-        // Silently fail - don't block home screen
+        console.error("Error fetching no-show status:", error);
       }
     };
 
@@ -117,14 +117,11 @@ export default function NoShowWarningBanner() {
       className={`${config.bgColor} border ${config.borderColor} rounded-2xl p-4 mb-3`}
     >
       <View className="flex-row items-start">
-        {/* Icon */}
         <View
           className={`${config.iconBgColor} w-10 h-10 rounded-full items-center justify-center mr-3`}
         >
           <Ionicons name={config.icon} size={22} color={config.iconColor} />
         </View>
-
-        {/* Content */}
         <View className="flex-1">
           <View className="flex-row items-center justify-between">
             <Text className="text-white font-semibold text-sm">
@@ -141,8 +138,6 @@ export default function NoShowWarningBanner() {
           </View>
 
           <Text className="text-gray-400 text-xs mt-1">{config.message}</Text>
-
-          {/* Restrictions List */}
           {config.showRestrictions && status.restrictions.length > 0 && (
             <View className="mt-2">
               {status.restrictions.map((restriction, index) => (
@@ -155,8 +150,6 @@ export default function NoShowWarningBanner() {
               ))}
             </View>
           )}
-
-          {/* Deposit Required Progress */}
           {status.tier === "deposit_required" && (
             <View className="bg-white/5 rounded-lg p-2.5 mt-2.5">
               <Text className="text-green-400 text-xs font-medium">
@@ -167,8 +160,6 @@ export default function NoShowWarningBanner() {
               </Text>
             </View>
           )}
-
-          {/* Suspended Info */}
           {status.tier === "suspended" && (
             <View className="bg-white/5 rounded-lg p-2.5 mt-2.5">
               <Text className="text-gray-300 text-xs">
@@ -177,8 +168,6 @@ export default function NoShowWarningBanner() {
               </Text>
             </View>
           )}
-
-          {/* Tips */}
           {config.showTips && (
             <View className="mt-2.5 pt-2.5 border-t border-white/10">
               <Text className="text-gray-500 text-[10px] font-medium mb-1">

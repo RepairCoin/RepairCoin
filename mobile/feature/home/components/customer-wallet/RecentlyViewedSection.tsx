@@ -28,7 +28,6 @@ export default function RecentlyViewedSection({
   const { useGetFavorites } = useFavorite();
   const { data: favoritesData } = useGetFavorites();
 
-  // Create a Set of favorited service IDs for O(1) lookup
   const favoritedIds = React.useMemo(() => {
     if (!favoritesData) return new Set<string>();
     return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
@@ -40,7 +39,6 @@ export default function RecentlyViewedSection({
 
   return (
     <View className="mt-5">
-      {/* Header */}
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-row items-center">
           <Ionicons name="time-outline" size={22} color="#FFCC00" />
@@ -50,8 +48,6 @@ export default function RecentlyViewedSection({
           <Text className="text-[#FFCC00] text-sm font-semibold">View All</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Recently Viewed Cards - Horizontal Slider */}
       {isLoading ? (
         <SkeletonHorizontalCards count={3} cardWidth={280} />
       ) : data && data.length > 0 ? (
@@ -72,8 +68,9 @@ export default function RecentlyViewedSection({
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
-        avgRating={item.avgRating}
-        reviewCount={item.reviewCount}                  duration={item.durationMinutes}
+                  avgRating={item.avgRating}
+                  reviewCount={item.reviewCount}
+                  duration={item.durationMinutes}
                   onPress={() => onServicePress(item)}
                   showFavoriteButton
                   serviceId={item.serviceId}
