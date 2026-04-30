@@ -1,6 +1,5 @@
 import { useCallback } from "react";
-import { useShopPromoCodesQuery } from "../queries/usePromoCodeQueries";
-import { useUpdatePromoCodeStatusMutation } from "../mutations/usePromoCodeMutations";
+import { useShopPromoCodesQuery, useUpdatePromoCodeStatusMutation } from "./useShopQuery";
 
 export function usePromoCodeUI() {
   const { data: promoCodes, isLoading, error, refetch } = useShopPromoCodesQuery();

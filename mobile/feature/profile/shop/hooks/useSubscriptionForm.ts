@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useShop } from "../useShop";
+import { useShop } from "./useShopQuery";
 import { apiClient } from "@/shared/utilities/axios";
-import { SubscriptionFormData, SubscriptionResponse } from "../../types";
+import { SubscriptionFormData, SubscriptionResponse } from "../types";
 
 export function useSubscriptionForm() {
   const router = useRouter();
@@ -25,7 +25,6 @@ export function useSubscriptionForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Pre-fill form with existing shop data
   useEffect(() => {
     if (shopData) {
       setFormData((prev) => ({
@@ -57,7 +56,6 @@ export function useSubscriptionForm() {
       setIsLoading(true);
       setError(null);
 
-      // Validate form
       if (
         !formData.email ||
         !formData.shopName ||
@@ -69,7 +67,6 @@ export function useSubscriptionForm() {
         return;
       }
 
-      // Use the mobile-specific endpoint that returns clientSecret for native payment
       const result = await apiClient.post<SubscriptionResponse>(
         "/shops/subscription/subscribe-mobile",
         {
@@ -80,14 +77,11 @@ export function useSubscriptionForm() {
         }
       );
 
-      // Check if response is successful
       if (!result.success) {
         throw new Error(result.error || "Failed to create subscription");
       }
 
-      // Handle native payment with clientSecret
       if (result.data?.clientSecret) {
-        // Navigate to native payment screen with clientSecret
         router.push({
           pathname: "/shop/payment/payment-card",
           params: {
@@ -96,10 +90,8 @@ export function useSubscriptionForm() {
           },
         });
       } else {
-        // Fallback: Show success message if no payment required
         showSuccess(result.data?.nextSteps || result.data?.message || "Subscription created successfully!");
 
-        // Redirect to dashboard after a delay
         setTimeout(() => {
           router.push("/shop/tabs/home");
         }, 3000);

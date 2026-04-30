@@ -4,14 +4,10 @@ import * as ImagePicker from "expo-image-picker";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useShopProfileByWalletQuery } from "../queries";
-import { useUpdateShopProfileMutation } from "../mutations";
-import { ShopEditFormData } from "../../types";
-import { isValidEmail } from "../../utils";
+import { useShopProfileByWalletQuery, useUpdateShopProfileMutation } from "./useShopQuery";
+import { ShopEditFormData } from "../types";
+import { isValidEmail } from "../utils";
 
-/**
- * Hook for shop edit profile screen
- */
 export const useShopEditProfile = () => {
   const { account, accessToken } = useAuthStore();
   const { data: shopData } = useShopProfileByWalletQuery(account?.address || "");
@@ -47,7 +43,6 @@ export const useShopEditProfile = () => {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 
-  // Initialize form data when shop data loads
   useEffect(() => {
     if (shopData) {
       setFormData({
@@ -72,7 +67,6 @@ export const useShopEditProfile = () => {
           zipCode: shopData.location?.zipCode || "",
         },
       });
-      // Always set preview images (even if null/empty)
       setSelectedLogo(shopData.logoUrl || null);
       setSelectedBanner(shopData.bannerUrl || null);
     }
@@ -94,7 +88,6 @@ export const useShopEditProfile = () => {
     setShowLocationPicker(false);
   }, []);
 
-  // Upload image to server
   const uploadImage = useCallback(async (
     uri: string,
     type: "logo" | "banner"
@@ -153,7 +146,6 @@ export const useShopEditProfile = () => {
     }
   }, [accessToken]);
 
-  // Handle logo pick
   const handleLogoPick = useCallback(async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -178,13 +170,11 @@ export const useShopEditProfile = () => {
       if (uploadedUrl) {
         setFormData((prev) => ({ ...prev, logoUrl: uploadedUrl }));
       } else {
-        // Revert to previous image on failure
         setSelectedLogo(formData.logoUrl || null);
       }
     }
   }, [uploadImage, formData.logoUrl]);
 
-  // Handle banner pick
   const handleBannerPick = useCallback(async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -209,19 +199,16 @@ export const useShopEditProfile = () => {
       if (uploadedUrl) {
         setFormData((prev) => ({ ...prev, bannerUrl: uploadedUrl }));
       } else {
-        // Revert to previous image on failure
         setSelectedBanner(formData.bannerUrl || null);
       }
     }
   }, [uploadImage, formData.bannerUrl]);
 
-  // Remove logo
   const removeLogo = useCallback(() => {
     setSelectedLogo(null);
     setFormData((prev) => ({ ...prev, logoUrl: "" }));
   }, []);
 
-  // Remove banner
   const removeBanner = useCallback(() => {
     setSelectedBanner(null);
     setFormData((prev) => ({ ...prev, bannerUrl: "" }));
@@ -259,7 +246,6 @@ export const useShopEditProfile = () => {
     setShowLocationPicker,
     isPending: updateShopMutation.isPending,
     goBack,
-    // Image upload
     selectedLogo,
     selectedBanner,
     isUploadingLogo,

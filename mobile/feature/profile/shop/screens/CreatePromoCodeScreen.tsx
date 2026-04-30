@@ -47,7 +47,6 @@ export default function CreatePromoCodeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
       >
-        {/* Code Input */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Code *</Text>
           <TextInput
@@ -60,8 +59,6 @@ export default function CreatePromoCodeScreen() {
             autoCapitalize="characters"
           />
         </View>
-
-        {/* Name Input */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Name *</Text>
           <TextInput
@@ -72,8 +69,6 @@ export default function CreatePromoCodeScreen() {
             className="bg-zinc-900 text-white p-3 rounded-xl"
           />
         </View>
-
-        {/* Description Input */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Description (Optional)</Text>
           <TextInput
@@ -87,8 +82,6 @@ export default function CreatePromoCodeScreen() {
             textAlignVertical="top"
           />
         </View>
-
-        {/* Bonus Type Dropdown */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Bonus Type *</Text>
           <View className="bg-zinc-900 rounded-xl">
@@ -105,8 +98,6 @@ export default function CreatePromoCodeScreen() {
             </Picker>
           </View>
         </View>
-
-        {/* Bonus Value Input */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">
             Bonus Value * {formData.bonusType === "percentage" ? "(%)" : "(RCN)"}
@@ -120,8 +111,6 @@ export default function CreatePromoCodeScreen() {
             keyboardType="decimal-pad"
           />
         </View>
-
-        {/* Max Bonus (only for percentage) */}
         {formData.bonusType === "percentage" && (
           <View className="mb-4">
             <Text className="text-white text-sm mb-2">Max Bonus (RCN) (Optional)</Text>
@@ -135,8 +124,6 @@ export default function CreatePromoCodeScreen() {
             />
           </View>
         )}
-
-        {/* Start Date */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Start Date *</Text>
           <Pressable
@@ -156,8 +143,6 @@ export default function CreatePromoCodeScreen() {
             />
           )}
         </View>
-
-        {/* End Date */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">End Date *</Text>
           <Pressable
@@ -179,8 +164,6 @@ export default function CreatePromoCodeScreen() {
             />
           )}
         </View>
-
-        {/* Total Usage Limit */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Total Usage Limit (Optional)</Text>
           <TextInput
@@ -192,8 +175,6 @@ export default function CreatePromoCodeScreen() {
             keyboardType="number-pad"
           />
         </View>
-
-        {/* Per Customer Limit */}
         <View className="mb-4">
           <Text className="text-white text-sm mb-2">Per Customer Limit (Optional)</Text>
           <TextInput
@@ -205,8 +186,6 @@ export default function CreatePromoCodeScreen() {
             keyboardType="number-pad"
           />
         </View>
-
-        {/* Create Button */}
         <Pressable
           onPress={handleSubmit}
           disabled={isPending}

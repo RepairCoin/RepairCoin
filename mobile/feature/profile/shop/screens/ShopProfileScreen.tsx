@@ -3,16 +3,16 @@ import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { TabButtons } from "@/shared/components/ui/TabButtons";
 import { handleLink } from "@/shared/utilities/linking";
 import { formatDate } from "@/shared/utilities/format";
+import { ProfileLoadingState } from "@/feature/profile/customer/components/ProfileLoadingState";
+import { ProfileErrorState } from "@/feature/profile/customer/components/ProfileErrorState";
+import { useShopProfileScreen } from "../hooks/useShopProfileScreen";
+import { SHOP_PROFILE_TABS } from "../constants";
+import { useLocalSearchParams } from "expo-router";
 import {
   ShopProfileHeader,
   ShopDetailsTab,
   ShopServicesTab,
 } from "../components";
-import { ProfileLoadingState } from "@/feature/profile/customer/components/ProfileLoadingState";
-import { ProfileErrorState } from "@/feature/profile/customer/components/ProfileErrorState";
-import { useShopProfileScreen } from "../hooks/ui";
-import { SHOP_PROFILE_TABS } from "../constants";
-import { useLocalSearchParams } from "expo-router";
 
 interface ShopProfileScreenProps {
   shopId: string;

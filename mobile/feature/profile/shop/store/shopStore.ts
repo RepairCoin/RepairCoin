@@ -37,11 +37,9 @@ interface ShopState {
   } | null;
   purchaseAmount: number;
   purchasing: boolean;
-
   setShopsData: (shopsData: { shops: shopData[]; count: number }) => void;
   setPurchaseAmount: (amount: number) => void;
   setPurchasing: (purchasing: boolean) => void;
-
 }
 
 export const useShopStore = create<ShopState>()(
@@ -49,15 +47,12 @@ export const useShopStore = create<ShopState>()(
     shopsData: null,
     purchaseAmount: 5,
     purchasing: false,
-
     setShopsData: (shopsData) => {
       set({ shopsData }, false, "setShopsData");
     },
-
     setPurchaseAmount: (amount) => {
       set({ purchaseAmount: amount }, false, "setPurchaseAmount");
     },
-
     setPurchasing: (purchasing) => {
       set({ purchasing }, false, "setPurchasing");
     },

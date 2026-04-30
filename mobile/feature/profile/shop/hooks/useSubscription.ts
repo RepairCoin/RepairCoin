@@ -3,7 +3,7 @@ import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useShop } from "../useShop";
+import { useShop } from "./useShopQuery";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
 
@@ -54,7 +54,6 @@ export function useSubscription() {
   const isSubscribed = shopData?.operational_status === "subscription_qualified";
   const isPendingCancellation = subscriptionDetails?.cancelAtPeriodEnd === true;
 
-  // Fetch subscription details when screen is focused
   const fetchSubscriptionDetails = useCallback(async () => {
     if (!isSubscribed) {
       setSubscriptionDetails(null);
@@ -64,7 +63,6 @@ export function useSubscription() {
     try {
       console.log("[Subscription] Fetching subscription status...");
 
-      // Use a longer timeout (30 seconds) for this endpoint since it calls Stripe API
       const result = await apiClient.get<SubscriptionStatusResponse>(
         "/shops/subscription/status",
         { timeout: 30000 }
@@ -85,14 +83,10 @@ export function useSubscription() {
       }
     } catch (error: any) {
       console.error("[Subscription] Failed to fetch subscription details:", error?.message || error);
-
-      // Even if fetch fails, don't block the UI - user can still see subscription status
-      // They just won't see the reactivate button until refresh succeeds
       setSubscriptionDetails(null);
     }
   }, [isSubscribed]);
 
-  // Refetch when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchSubscriptionDetails();
@@ -122,7 +116,6 @@ export function useSubscription() {
   };
 
   const showCancellationReasonPrompt = () => {
-    // Alert.prompt is iOS-only, so on Android we just cancel directly
     if (Platform.OS === "ios") {
       Alert.prompt(
         "Cancellation Reason",
@@ -143,7 +136,6 @@ export function useSubscription() {
         "default"
       );
     } else {
-      // Android: cancel without reason prompt
       cancelSubscription();
     }
   };
@@ -158,7 +150,6 @@ export function useSubscription() {
       );
 
       if (result.success) {
-        // Refetch data first, then show toast
         await refetch();
         await fetchSubscriptionDetails();
 
@@ -222,7 +213,6 @@ export function useSubscription() {
     router.back();
   };
 
-  // Format expiration date for display
   const expirationDate = subscriptionDetails?.currentPeriodEnd
     ? new Date(subscriptionDetails.currentPeriodEnd)
     : null;

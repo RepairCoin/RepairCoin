@@ -12,7 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useShop } from "@/feature/profile/shop/hooks/useShop";
+import { useShop } from "@/feature/profile/shop/hooks/useShopQuery";
 import { ShopRegisterDto, type ShopRegisterData } from "../dto";
 import { Slide } from "../types";
 import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../constants";

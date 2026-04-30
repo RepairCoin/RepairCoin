@@ -1,21 +1,18 @@
 import { useCallback, useMemo } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { Transaction, Purchase } from "@/shared/interfaces/shop.interface";
-import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../../types";
-import { useShopAnalyticsQuery } from "../queries/useAnalyticsQueries";
+import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../types";
+import { useShopAnalyticsQuery } from "./useShopQuery";
 import { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";
 
 export function useAnalyticsDataUI() {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId || "";
 
-  // Time range state
   const { timeRange, setTimeRange } = useAnalyticsTimeRange();
 
-  // Query
   const { data: rawData, isLoading, error, refetch } = useShopAnalyticsQuery(shopId, timeRange);
 
-  // Format date by range
   const formatDateByRange = useCallback(
     (date: Date, range: TimeRange): string => {
       switch (range) {
@@ -32,7 +29,6 @@ export function useAnalyticsDataUI() {
     []
   );
 
-  // Format label for chart display
   const formatLabel = useCallback(
     (dateStr: string, range: TimeRange): string => {
       switch (range) {
@@ -51,7 +47,6 @@ export function useAnalyticsDataUI() {
     []
   );
 
-  // Process raw data to profit data
   const profitData = useMemo((): ProfitData[] => {
     if (!rawData) return [];
 
@@ -68,7 +63,6 @@ export function useAnalyticsDataUI() {
       }
     >();
 
-    // Process purchases (costs)
     purchases.forEach((purchase: Purchase) => {
       if (purchase.status === "completed" || !purchase.status) {
         const date = formatDateByRange(
@@ -92,7 +86,6 @@ export function useAnalyticsDataUI() {
       }
     });
 
-    // Process transactions (revenue)
     transactions.forEach((transaction: Transaction) => {
       if (transaction.type === "reward" || transaction.type === "mint") {
         const date = formatDateByRange(
@@ -106,7 +99,6 @@ export function useAnalyticsDataUI() {
           rcnIssued: 0,
         };
 
-        // Calculate repair revenue
         let repairRevenue = 0;
         if (transaction.repairAmount) {
           repairRevenue = transaction.repairAmount;
@@ -124,7 +116,6 @@ export function useAnalyticsDataUI() {
       }
     });
 
-    // Convert to array and sort by date
     return Array.from(dataMap.entries())
       .map(([date, data]) => ({
         date,
@@ -141,7 +132,6 @@ export function useAnalyticsDataUI() {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [rawData, timeRange, formatDateByRange]);
 
-  // Calculate metrics
   const metrics = useMemo((): ProfitMetrics | null => {
     if (profitData.length === 0) return null;
 
@@ -154,7 +144,6 @@ export function useAnalyticsDataUI() {
     const averageProfitMargin =
       totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
-    // Calculate trend
     const midPoint = Math.floor(profitData.length / 2);
     const firstHalf = profitData.slice(0, midPoint);
     const secondHalf = profitData.slice(midPoint);
@@ -183,10 +172,7 @@ export function useAnalyticsDataUI() {
     };
   }, [profitData]);
 
-  // Transform to chart data format
   const chartData = useMemo(() => {
-    // Single profit/loss line with colored dots (matching web version)
-    // Positive values = profit (green), Negative values = loss (red)
     const profitLossChartData = profitData.map((item) => ({
       value: item.profit,
       label: formatLabel(item.date, timeRange),
@@ -217,15 +203,12 @@ export function useAnalyticsDataUI() {
   }, [profitData, timeRange, formatLabel]);
 
   return {
-    // Data
     profitData,
     chartData,
     metrics,
-    // Query state
     isLoading,
     error,
     refetch,
-    // Time range
     timeRange,
     setTimeRange,
   };

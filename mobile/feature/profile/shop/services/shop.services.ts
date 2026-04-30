@@ -8,10 +8,13 @@ import {
   ProcessRedemptionResponse,
   CreatePromoCodeRequest,
   PromoCodeResponse,
+  PromoCodesListResponse,
   PromoCodeValidateResponse,
   ShopResponse,
   RewardRequest,
   RewardResponse,
+  TransactionsResponse,
+  PurchasesResponse,
 } from "@/shared/interfaces/shop.interface";
 
 class ShopApi {
@@ -122,11 +125,26 @@ class ShopApi {
     }
   }
 
-  async getShopPromoCodes(shopId: string): Promise<{ data: any[] }> {
+  async getRecentRewards(shopId: string, limit: number = 5): Promise<any> {
     try {
-      return await apiClient.get(`/shops/${shopId}/promo-codes`);
+      return await apiClient.get(
+        `/shops/${shopId}/transactions?type=reward&limit=${limit}`,
+      );
+    } catch (error: any) {
+      console.error("Failed to get recent rewards:", error.message);
+      throw error;
+    }
+  }
+
+  // Promo Code Methods
+
+  async getPromoCodes(shopId: string): Promise<PromoCodesListResponse> {
+    try {
+      return await apiClient.get<PromoCodesListResponse>(
+        `/shops/${shopId}/promo-codes`,
+      );
     } catch (error) {
-      console.error("Failed to get shop promo codes:", error);
+      console.error("Failed to get promo codes:", error);
       throw error;
     }
   }
@@ -179,13 +197,48 @@ class ShopApi {
     }
   }
 
-  async getRecentRewards(shopId: string, limit: number = 5): Promise<any> {
+  async deletePromoCode(
+    shopId: string,
+    promoCodeId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      return await apiClient.delete(
+        `/shops/${shopId}/promo-codes/${promoCodeId}`,
+      );
+    } catch (error) {
+      console.error("Failed to delete promo code:", error);
+      throw error;
+    }
+  }
+
+  // Analytics Methods
+
+  async getShopTransactions(
+    shopId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<TransactionsResponse> {
     try {
       return await apiClient.get(
-        `/shops/${shopId}/transactions?type=reward&limit=${limit}`,
+        `/shops/${shopId}/transactions?startDate=${startDate}&endDate=${endDate}`,
       );
     } catch (error: any) {
-      console.error("Failed to get recent rewards:", error.message);
+      console.error("Failed to get shop transactions:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopPurchases(
+    shopId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<PurchasesResponse> {
+    try {
+      return await apiClient.get(
+        `/shops/${shopId}/purchases?startDate=${startDate}&endDate=${endDate}`,
+      );
+    } catch (error: any) {
+      console.error("Failed to get shop purchases:", error.message);
       throw error;
     }
   }

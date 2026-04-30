@@ -52,10 +52,8 @@ export default function SubscriptionScreen() {
     <ThemedView className="w-full h-full">
       <View className="pt-16 px-4 gap-4 flex-1">
         <SubscriptionHeader title="Subscription" onBack={handleGoBack} />
-
         <View className="flex-1 justify-center items-center">
           <View className="bg-[#212121] rounded-2xl p-6 w-full">
-            {/* Pending Cancellation Warning Banner */}
             {isPendingCancellation && (
               <View className="bg-orange-500/20 border border-orange-500/50 rounded-xl p-4 mb-4 flex-row items-center">
                 <Ionicons name="warning" size={24} color="#f97316" />
@@ -69,7 +67,6 @@ export default function SubscriptionScreen() {
                 </View>
               </View>
             )}
-
             <View className="items-center mb-6">
               <SubscriptionIcon isSubscribed={isSubscribed} />
               <Text className="text-white text-xl font-bold mb-2">
@@ -79,7 +76,6 @@ export default function SubscriptionScreen() {
                 {getSubheaderText()}
               </Text>
             </View>
-
             <SubscriptionStatusBadge
               isSubscribed={isSubscribed}
               isPendingCancellation={isPendingCancellation}
