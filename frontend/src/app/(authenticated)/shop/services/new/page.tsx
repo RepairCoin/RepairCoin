@@ -49,14 +49,24 @@ export default function NewServicePage() {
   // ServiceForm owns the source of truth; this updates via its onFormDataChange callback.
   const [previewData, setPreviewData] = useState<CreateServiceData>(EMPTY_FORM_DATA);
 
-  // AI Sales Assistant state — local only in Phase 1, dropped on save.
+  // AI Sales Assistant state — Phase 2 persists this on save.
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiTone, setAiTone] = useState<AITone>("professional");
   const [aiSuggestUpsells, setAiSuggestUpsells] = useState(false);
   const [aiBookingAssistance, setAiBookingAssistance] = useState(false);
 
   const handleSubmit = async (data: CreateServiceData | UpdateServiceData) => {
-    const created = await createService(data as CreateServiceData);
+    // Merge AI Sales Assistant state into the create payload. ServiceForm owns
+    // the rest of formData; AI state lives at this page level so the preview's
+    // bot badge can mirror it. We stitch them together here at submit time.
+    const payload: CreateServiceData = {
+      ...(data as CreateServiceData),
+      aiSalesEnabled: aiEnabled,
+      aiTone,
+      aiSuggestUpsells,
+      aiBookingAssistance,
+    };
+    const created = await createService(payload);
     if (!created) {
       toast.error("Service could not be created. Please try again.");
       return;

@@ -12,7 +12,10 @@
  * differences in the new UI without depending on a live LLM.
  */
 
-export type AITone = "friendly" | "professional" | "urgent";
+import type { AITone } from "@/services/api/services";
+
+// Re-export so existing consumers that imported AITone from this file still work.
+export type { AITone };
 
 export const AI_PREVIEW_MOCKS: Record<AITone, string[]> = {
   friendly: [

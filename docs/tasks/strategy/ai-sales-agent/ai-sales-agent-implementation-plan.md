@@ -589,17 +589,368 @@ The "Decisions to lock before starting" list above was settled during implementa
 
 ---
 
-## Phase 2 preview (NOT for this task)
+---
 
-After Phase 1 is soaked and stable:
+# Phase 2 — Backend persistence for AI Sales Assistant settings
 
-1. Migration 107: add `ai_sales_enabled`, `ai_tone`, `ai_suggest_upsells`, `ai_booking_assistance`, `ai_custom_instructions` columns to `shop_services`
-2. Update backend `createService` / `updateService` to accept and persist the new fields
-3. Update frontend `CreateServiceData` / `UpdateServiceData` types
-4. `ServiceForm` saves AI section state on submit (currently it's dropped)
-5. Re-load existing services with AI flags pre-filled when editing
+**Status:** Not started — ready to begin once Phase 1 is on prod (or in parallel with Phase 1's prod soak; they don't conflict)
+**Effort:** ~2 hours
+**Blocker:** None — no API key needed
+**Independence:** Doesn't depend on Phase 1's prod ship; can land any time after Phase 1 lives on staging
 
-Effort: ~2 hours total. Independent PR after Phase 1 ships.
+## Goal
+
+Phase 1 shipped a fully-interactive AI Sales Assistant section (toggle, tone tabs, sample replies, checkboxes), but **the values aren't saved**. On submit, ServiceForm sends the existing form fields (name, category, description, price, image, tags, active) and the AI state is dropped on the floor. When a shop owner reloads the edit page, the AI section resets to defaults.
+
+Phase 2 closes the gap: the four (or five) AI settings persist to the database, round-trip through the API, and pre-fill correctly when editing. **No AI behavior changes** — the replies are still mocked, no Anthropic calls. Just plumbing the existing UI state into the DB.
+
+## Why this is the natural next step
+
+- **Zero new architecture.** No new domains, no new services, no Claude API key. Just one migration + a handful of edits to existing files.
+- **Closes the "configures-but-doesn't-save" honesty gap.** Today, shop owners who toggle the AI on for a service think their setting is saved. It isn't. Every day this lives like that erodes a tiny bit of trust.
+- **Sets up Phase 3 cleanly.** When Claude integration ships, the data shape is already in the DB for every existing service. No backfill needed.
+- **Demonstrates incremental progress.** Stakeholders see the feature evolving each phase rather than waiting weeks for the full Claude rollout.
+
+## Scope decisions
+
+Lock these before starting:
+
+- [ ] **Include `ai_custom_instructions TEXT` column?** The strategy doc lists it as part of the Phase 1 MVP DB additions but Phase 1 didn't ship UI for it. Two paths:
+  - **Yes (recommended)** — add the column now, leave it nullable, no UI in Phase 2. Keeps the migration single-shot. UI can be added in Phase 2.5 or whenever shop owners ask for it. Future-proofs the schema.
+  - **No** — only add the 4 columns we have UI for. Saves a 1-line migration entry, but means we'll do another `ALTER TABLE` later.
+
+- [ ] **Disclosure badge wording in `AISalesAssistantSection.tsx`** — currently reads *"AI features ship in a future update. Configure now to be ready."*. After Phase 2, the toggle states are saved, but AI behavior still doesn't exist (Phase 3). Update wording to reflect "settings are saved, behavior still pending" — proposed: *"AI replies activate in a future update. Your configuration is saved."*
+
+- [ ] **Defaults for existing services** — `ALTER TABLE ... ADD COLUMN ai_sales_enabled BOOLEAN DEFAULT FALSE` means existing rows get `ai_sales_enabled = false` automatically. Confirm this is the desired default (most likely yes — opt-in feature).
+
+## File map
+
+### NEW
+
+```
+backend/migrations/
+  └── 107_add_shop_services_ai_columns.sql       (or whatever the next number is — confirm)
+```
+
+### EDITED
+
+```
+backend/src/repositories/ShopServiceRepository.ts (or wherever shop_services queries live)
+  → SELECT/INSERT/UPDATE include ai_sales_enabled, ai_tone, ai_suggest_upsells,
+    ai_booking_assistance, ai_custom_instructions
+  → snake_case ↔ camelCase mapping in the row → object transform
+
+backend/src/domains/ServiceDomain/controllers/ServiceController.ts (or equivalent)
+  → createService accepts: aiSalesEnabled, aiTone, aiSuggestUpsells, aiBookingAssistance,
+    aiCustomInstructions
+  → updateService same
+  → validate aiTone is one of ['friendly', 'professional', 'urgent']
+  → response shape includes the AI fields
+
+frontend/src/services/api/services.ts
+  → Add to ShopService:        aiSalesEnabled?, aiTone?, aiSuggestUpsells?,
+                                aiBookingAssistance?, aiCustomInstructions?
+  → Add to CreateServiceData:  same
+  → Add to UpdateServiceData:  same
+  → Type aiTone as: 'friendly' | 'professional' | 'urgent'
+
+frontend/src/app/(authenticated)/shop/services/new/page.tsx
+  → handleSubmit merges page-level AI state into the payload before calling createService:
+      const payload = {
+        ...data,
+        aiSalesEnabled, aiTone, aiSuggestUpsells, aiBookingAssistance,
+      };
+
+frontend/src/app/(authenticated)/shop/services/[serviceId]/edit/page.tsx
+  → Same submit-merge as above
+  → Load effect: when service is fetched, seed page-level AI state from the response
+      setAiEnabled(data.aiSalesEnabled ?? false);
+      setAiTone(data.aiTone ?? 'professional');
+      setAiSuggestUpsells(data.aiSuggestUpsells ?? false);
+      setAiBookingAssistance(data.aiBookingAssistance ?? false);
+
+frontend/src/components/shop/service/AISalesAssistantSection.tsx
+  → Update the disclosure badge wording (per "Scope decisions" above)
+```
+
+### UNTOUCHED
+
+- `ServiceForm.tsx` — stays as-is. Page-level submit wrapping is enough; we don't need ServiceForm to know about AI fields.
+- `ServiceFormPreview.tsx` — already reads `aiEnabled` prop from the page. No change needed.
+- `aiPreviewMocks.ts` — sample replies stay hardcoded for Phase 2. Replaced by live Claude calls in Phase 3.
+- `CreateServiceModal.tsx` — still in repo from Phase 1; unaffected by Phase 2.
+
+## Task list
+
+### Task 1 — Migration `107_add_shop_services_ai_columns.sql` (~10 min)
+
+Confirm the next available migration number first (`ls backend/migrations/ | tail -5`). If 107 is taken, bump.
+
+```sql
+-- Add AI Sales Assistant configuration columns to shop_services.
+-- All defaults make existing services opt out; per-service opt-in via the
+-- AI Sales Assistant section on the create/edit page.
+
+ALTER TABLE shop_services
+  ADD COLUMN IF NOT EXISTS ai_sales_enabled BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS ai_tone VARCHAR(20) DEFAULT 'professional',
+  ADD COLUMN IF NOT EXISTS ai_suggest_upsells BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS ai_booking_assistance BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS ai_custom_instructions TEXT;
+
+-- Enforce valid tones at the DB level. CHECK is NOT VALID at first to skip
+-- the existing-row scan (rows we just inserted have the default 'professional'
+-- which is valid), then VALIDATE to lock it in.
+ALTER TABLE shop_services
+  ADD CONSTRAINT chk_shop_services_ai_tone
+  CHECK (ai_tone IN ('friendly', 'professional', 'urgent'))
+  NOT VALID;
+
+ALTER TABLE shop_services
+  VALIDATE CONSTRAINT chk_shop_services_ai_tone;
+
+COMMENT ON COLUMN shop_services.ai_sales_enabled IS
+  'Whether the AI Sales Assistant is enabled for this service. Default false (opt-in).';
+COMMENT ON COLUMN shop_services.ai_tone IS
+  'Tone for AI responses. One of: friendly, professional, urgent.';
+COMMENT ON COLUMN shop_services.ai_suggest_upsells IS
+  'Whether the AI should mention related services from the same shop.';
+COMMENT ON COLUMN shop_services.ai_booking_assistance IS
+  'Whether the AI should help customers book appointments inline.';
+COMMENT ON COLUMN shop_services.ai_custom_instructions IS
+  'Optional shop-authored instructions that customize AI behavior for this service.';
+```
+
+**Acceptance:** migration runs cleanly on staging; existing services have `ai_sales_enabled=false` and `ai_tone='professional'`.
+
+### Task 2 — Backend types + repository (~30 min)
+
+In whatever file holds the `ShopService` interface backend-side:
+
+```typescript
+export interface ShopServiceRow {
+  // ... existing fields
+  ai_sales_enabled: boolean;
+  ai_tone: 'friendly' | 'professional' | 'urgent';
+  ai_suggest_upsells: boolean;
+  ai_booking_assistance: boolean;
+  ai_custom_instructions: string | null;
+}
+```
+
+In the repository (`backend/src/repositories/ShopServiceRepository.ts` or similar):
+
+- `SELECT *` queries should pick up the new columns automatically; if the repo uses explicit column lists, append the new ones
+- `INSERT` / `UPDATE` statements need new placeholders for the AI fields
+- The row-to-domain-object mapper translates `ai_sales_enabled → aiSalesEnabled`, etc.
+
+**Acceptance:** GET returns AI fields; POST/PUT persist them; DB query log shows the new columns.
+
+### Task 3 — Backend controller — accept + validate (~20 min)
+
+In `ServiceController.ts` (or wherever the create/update handlers live):
+
+```typescript
+const VALID_TONES = ['friendly', 'professional', 'urgent'] as const;
+
+// Inside createService / updateService:
+const {
+  // ... existing destructured fields
+  aiSalesEnabled,
+  aiTone,
+  aiSuggestUpsells,
+  aiBookingAssistance,
+  aiCustomInstructions,
+} = req.body;
+
+// Validate tone if provided (defaults are fine, only validate non-default writes)
+if (aiTone !== undefined && !VALID_TONES.includes(aiTone)) {
+  return res.status(400).json({ error: `aiTone must be one of: ${VALID_TONES.join(', ')}` });
+}
+
+// Optional: cap ai_custom_instructions length (e.g., 2000 chars) to prevent
+// abuse — shop owners shouldn't paste megabytes of text here.
+if (aiCustomInstructions && aiCustomInstructions.length > 2000) {
+  return res.status(400).json({ error: 'aiCustomInstructions must be 2000 characters or less' });
+}
+
+// Pass through to repository — let the DB defaults handle undefined values.
+```
+
+**Acceptance:** invalid tone returns 400; valid create/update round-trip persists.
+
+### Task 4 — Frontend types (~10 min)
+
+`frontend/src/services/api/services.ts`:
+
+```typescript
+export type AITone = 'friendly' | 'professional' | 'urgent';
+
+export interface ShopService {
+  // ... existing fields
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
+}
+
+export interface CreateServiceData {
+  // ... existing fields
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
+}
+
+export interface UpdateServiceData {
+  // ... existing fields (same additions)
+}
+```
+
+The existing `AITone` type in `aiPreviewMocks.ts` should be re-exported from here OR the import in `AISalesAssistantSection.tsx` should switch to the canonical types in `services.ts`. Pick one; don't duplicate.
+
+**Acceptance:** TypeScript compiles; all consumers of ShopService get the new optional fields.
+
+### Task 5 — Wire up submit on the new + edit pages (~20 min)
+
+`frontend/src/app/(authenticated)/shop/services/new/page.tsx`:
+
+```tsx
+const handleSubmit = async (data: CreateServiceData | UpdateServiceData) => {
+  const payload: CreateServiceData = {
+    ...(data as CreateServiceData),
+    aiSalesEnabled: aiEnabled,
+    aiTone,
+    aiSuggestUpsells,
+    aiBookingAssistance,
+  };
+  const created = await createService(payload);
+  // ... rest unchanged
+};
+```
+
+Same wrapper in the edit page's `handleSubmit`. The page already owns the AI state from Phase 1 — we're just passing it through to the API now instead of dropping it.
+
+**Acceptance:** create a new service with AI enabled, check the DB row has the AI columns set; edit it, change tone, save, confirm DB updated.
+
+### Task 6 — Edit page seeds AI state from loaded service (~15 min)
+
+`frontend/src/app/(authenticated)/shop/services/[serviceId]/edit/page.tsx`:
+
+In the existing load effect, after `setService(data)` and `setPreviewData({...})`, also seed AI state:
+
+```tsx
+setAiEnabled(data.aiSalesEnabled ?? false);
+setAiTone(data.aiTone ?? 'professional');
+setAiSuggestUpsells(data.aiSuggestUpsells ?? false);
+setAiBookingAssistance(data.aiBookingAssistance ?? false);
+```
+
+**Acceptance:** edit a service that has AI enabled → reload the edit page → AI section shows the saved state, not defaults.
+
+### Task 7 — Update the disclosure badge wording (~5 min)
+
+`frontend/src/components/shop/service/AISalesAssistantSection.tsx`:
+
+```tsx
+<p className="text-xs text-gray-500 italic">
+  AI replies activate in a future update. Your configuration is saved.
+</p>
+```
+
+(Or whatever wording wins the "Scope decisions" question above.)
+
+**Acceptance:** badge text reflects the new "saved-but-not-yet-active" state.
+
+### Task 8 — Backfill existing services? (skip — defaults handle it)
+
+Migration 107's `DEFAULT FALSE` and `DEFAULT 'professional'` clauses mean existing rows already have correct values after the migration runs. No backfill task required. Leaving this here as a "we explicitly considered and rejected backfill" note for future readers.
+
+## Total effort
+
+| Task | Effort |
+|---|---|
+| 1. Migration 107 | ~10 min |
+| 2. Backend types + repository | ~30 min |
+| 3. Backend controller — accept + validate | ~20 min |
+| 4. Frontend types | ~10 min |
+| 5. Wire up submit on both pages | ~20 min |
+| 6. Edit page seeds AI state from server | ~15 min |
+| 7. Disclosure badge wording | ~5 min |
+| **Total** | **~110 min (~2 hr)** |
+
+## Testing checklist
+
+### Backend
+
+- [ ] Migration 107 runs cleanly on a staging DB with existing services
+- [ ] Existing services have correct defaults (`ai_sales_enabled=false`, `ai_tone='professional'`)
+- [ ] CHECK constraint rejects invalid tone (`UPDATE ... SET ai_tone='loud'` fails)
+- [ ] `POST /api/services` with `aiSalesEnabled: true, aiTone: 'friendly'` persists correctly
+- [ ] `POST /api/services` with no AI fields uses defaults (false/'professional'/false/false/null)
+- [ ] `POST /api/services` with `aiTone: 'invalid'` returns 400
+- [ ] `PUT /api/services/:id` with new AI values overwrites
+- [ ] `PUT /api/services/:id` without AI fields leaves existing AI values intact (be explicit about merge vs overwrite — pick one)
+- [ ] `GET /api/services/:id` response includes AI fields
+- [ ] `aiCustomInstructions: '<2000 char string>'` accepted; `>2000` rejected with 400
+
+### Frontend
+
+- [ ] Create page → toggle AI on → pick tone Friendly → check both checkboxes → submit → toast success → DB row reflects all 4 values
+- [ ] Edit page → AI section pre-fills with saved values (not defaults)
+- [ ] Edit page → toggle AI off → save → reload → AI section is off
+- [ ] Edit page → change tone → save → reload → tone matches
+- [ ] Disclosure badge wording reflects "configuration is saved"
+
+### Smoke tests
+
+- [ ] Existing services without AI fields render correctly (defaults from migration)
+- [ ] Live preview's AI bot badge appears/disappears as user toggles in real time (already worked in Phase 1, regression-check it still does)
+- [ ] No console errors on either new or edit page
+- [ ] Form submission round-trip latency unchanged
+
+## Rollback plan
+
+Phase 2 is split across 3 layers (DB, backend, frontend). Each rolls back independently.
+
+| Layer | If broken | Rollback action |
+|---|---|---|
+| Migration 107 | DB columns unusable | Don't drop columns (data loss). Stop reading/writing them in code by reverting Tasks 2-3, then leave the columns in place. They're nullable/defaulted; harmless. |
+| Backend controller / repo | API rejects valid requests | `git revert` Tasks 2-3. Frontend continues sending AI fields; backend ignores them; AI state silently drops on save (back to Phase 1 behavior). No 500s. |
+| Frontend submit-merge | Page can't save | `git revert` Task 5. Pages send only the existing fields. Backend already handles the case where AI fields are absent. |
+| Frontend edit pre-fill | AI section shows wrong defaults | `git revert` Task 6. AI section starts at defaults; user re-configures and re-saves. |
+| Disclosure badge wording | Misleading copy | One-line text edit. |
+
+The safest order to ship is **migration → backend → frontend types → frontend submit-merge → edit pre-fill → badge wording**. Each step is forward-compatible: a half-shipped state is "old behavior + new column" rather than "broken UI."
+
+## Out of scope (defer to Phase 2.5 or Phase 3)
+
+- UI for `ai_custom_instructions` — column is added in Phase 2 but no textarea exposed yet
+- Per-shop `ai_shop_settings` table (global enable, monthly budget cap, etc.) — Phase 3
+- Live Anthropic API previews replacing `aiPreviewMocks.ts` — Phase 3
+- AI badge on customer-facing service detail page — Phase 3 once replies actually exist
+- Audit log table `ai_agent_messages` — Phase 3
+
+## Suggested execution order
+
+If you have one focused 2-hour block:
+
+1. Tasks 1 → 2 → 3 (backend in one shot, gets staged immediately)
+2. Push the backend; verify staging migration applied via `psql` or admin tool
+3. Tasks 4 → 5 → 6 → 7 (frontend, all in one PR)
+4. Push frontend
+5. Smoke test on staging
+6. Same `main → prod` chain we used for Phase 1
+
+If you want to split: backend-only PR first (just Tasks 1-3) goes live silently — no UI consumes the new fields yet, so it's invisible to users. Then frontend PR a day later. Slower but lower-risk if the migration has any surprises.
+
+## Connection to Phase 3
+
+When Phase 3 (Claude integration) ships, the columns this phase added are exactly what `ContextBuilder.ts` reads to build the system prompt per-service. No additional schema needed at that layer. Phase 3 adds the new tables (`ai_agent_messages`, `ai_shop_settings`) but the service-level config you're persisting in Phase 2 is the durable foundation.
+
+---
 
 ## Phase 3 preview (NOT for this task)
 

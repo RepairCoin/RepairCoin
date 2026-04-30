@@ -159,10 +159,13 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
         </div>
       </div>
 
-      {/* Disclosure — Phase 1 visual-only honesty marker. Remove in Phase 3. */}
+      {/* Disclosure — Phase 2: configuration is persisted, but AI replies
+          (the actual customer-facing behavior) still ship in Phase 3 once
+          Anthropic Claude integration lands. Remove this block when Phase 3
+          ships and AI is fully active. */}
       <div className="mt-4 pt-3 border-t border-gray-200">
         <p className="text-xs text-gray-500 italic">
-          AI features ship in a future update. Configure now to be ready.
+          AI replies activate in a future update. Your configuration is saved.
         </p>
       </div>
     </div>
