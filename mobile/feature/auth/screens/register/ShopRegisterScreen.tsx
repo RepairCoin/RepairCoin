@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { FlatList, View } from "react-native";
 import { FormProvider } from "react-hook-form";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useShopRegister } from "../../hooks/useShopRegister";
 import {
   FirstSlide,
@@ -9,8 +10,17 @@ import {
   ThirdSlide,
   SocialMediaSlide,
   FourthSlide,
+  ProgressBar,
 } from "../../components/form-register";
 import { Slide } from "../../types";
+
+const SLIDE_TITLES = [
+  "Register Shop",
+  "Business Info",
+  "Location & Wallet",
+  "Social Media",
+  "Review & Submit",
+];
 
 export default function ShopRegisterScreen() {
   const {
@@ -20,6 +30,7 @@ export default function ShopRegisterScreen() {
     account,
     flatRef,
     width,
+    currentStep,
     onScroll,
     handleGoBack,
     handleGoNext,
@@ -28,40 +39,35 @@ export default function ShopRegisterScreen() {
 
   const renderSlide = useCallback(
     ({ item }: { item: Slide }) => {
+      const idx = parseInt(item.key) - 1;
       return (
         <View style={{ width }}>
-          {item.key === "1" && (
-            <FirstSlide handleGoBack={handleGoBack} handleGoNext={handleGoNext} />
-          )}
-          {item.key === "2" && (
-            <SecondSlide handleGoBack={handleGoBack} handleGoNext={handleGoNext} />
-          )}
-          {item.key === "3" && (
+          {idx === 0 && <FirstSlide handleGoNext={handleGoNext} />}
+          {idx === 1 && <SecondSlide handleGoNext={handleGoNext} />}
+          {idx === 2 && (
             <ThirdSlide
-              handleGoBack={handleGoBack}
               handleGoNext={handleGoNext}
               address={account?.address}
             />
           )}
-          {item.key === "4" && (
-            <SocialMediaSlide handleGoBack={handleGoBack} handleGoNext={handleGoNext} />
-          )}
-          {item.key === "5" && (
-            <FourthSlide
-              handleGoBack={handleGoBack}
-              handleSubmit={onSubmit}
-              isLoading={isPending}
-            />
+          {idx === 3 && <SocialMediaSlide handleGoNext={handleGoNext} />}
+          {idx === 4 && (
+            <FourthSlide handleSubmit={onSubmit} isLoading={isPending} />
           )}
         </View>
       );
     },
-    [handleGoBack, handleGoNext, account?.address, onSubmit, isPending, width]
+    [handleGoBack, handleGoNext, account?.address, onSubmit, isPending, width],
   );
 
   return (
     <FormProvider {...form}>
       <ThemedView className="flex-1">
+        <AppHeader
+          title={SLIDE_TITLES[currentStep]}
+          onBackPress={handleGoBack}
+        />
+        <ProgressBar currentStep={currentStep} />
         <FlatList
           ref={flatRef}
           data={slides}

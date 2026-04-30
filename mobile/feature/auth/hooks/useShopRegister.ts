@@ -136,6 +136,8 @@ export const useShopRegister = () => {
     account,
     flatRef,
     width,
+    currentStep: index,
+    totalSteps: slides.length,
     onScroll,
     handleGoBack,
     handleGoNext,

@@ -2,7 +2,6 @@ import { View, Text, ScrollView } from "react-native";
 import { Controller, useFormContext } from "react-hook-form";
 import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
 import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
@@ -11,15 +10,12 @@ import { FirstSlideProps } from "../../types";
 import { THEME_COLORS } from "@/shared/constants/Colors";
 
 export default function FirstSlide({
-  handleGoBack,
   handleGoNext,
 }: FirstSlideProps) {
   const { control, formState: { errors } } = useFormContext<ShopRegisterData>();
 
   return (
     <View className="w-full h-full">
-      <AppHeader title="Register Shop" onBackPress={handleGoBack} />
-
       <ScrollView
         className="flex-1 px-6"
         showsVerticalScrollIndicator={false}

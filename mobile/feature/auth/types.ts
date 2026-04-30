@@ -3,7 +3,6 @@ export type {
   ShopLocation,
   ShopFormData,
   Slide,
-  BaseSlideProps,
   NavigableSlideProps,
   FirstSlideProps,
   ThirdSlideProps,

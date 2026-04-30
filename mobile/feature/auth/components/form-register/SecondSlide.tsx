@@ -3,7 +3,6 @@ import { Controller, useFormContext } from "react-hook-form";
 import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
-import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
@@ -11,15 +10,12 @@ import { NavigableSlideProps } from "../../types";
 import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../../constants";
 
 export default function SecondSlide({
-  handleGoBack,
   handleGoNext,
 }: NavigableSlideProps) {
   const { control, formState: { errors } } = useFormContext<ShopRegisterData>();
 
   return (
     <View className="w-full h-full">
-      <AppHeader title="Business Info" onBackPress={handleGoBack} />
-
       <ScrollView
         className="flex-1 px-6"
         showsVerticalScrollIndicator={false}

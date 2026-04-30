@@ -40,11 +40,7 @@ export interface Slide {
   key: string;
 }
 
-export interface BaseSlideProps {
-  handleGoBack: () => void;
-}
-
-export interface NavigableSlideProps extends BaseSlideProps {
+export interface NavigableSlideProps {
   handleGoNext: () => void;
 }
 
@@ -54,7 +50,7 @@ export interface ThirdSlideProps extends NavigableSlideProps {
   address: string;
 }
 
-export interface FourthSlideProps extends BaseSlideProps {
+export interface FourthSlideProps {
   handleSubmit: () => void;
   isLoading?: boolean;
 }

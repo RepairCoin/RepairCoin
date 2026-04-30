@@ -3,7 +3,6 @@ import { Controller, useWatch, useFormContext } from "react-hook-form";
 import type { ShopRegisterData } from "../../dto/register.dto";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
-import { AppHeader } from "@/shared/components/ui/AppHeader";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
@@ -11,7 +10,6 @@ import { FourthSlideProps } from "../../types";
 import { TERMS_ITEMS } from "../../constants";
 
 export default function FourthSlide({
-  handleGoBack,
   handleSubmit,
   isLoading = false,
 }: FourthSlideProps) {
@@ -20,8 +18,6 @@ export default function FourthSlide({
 
   return (
     <View className="w-full h-full">
-      <AppHeader title="Review & Submit" onBackPress={handleGoBack} />
-
       <ScrollView
         className="flex-1 px-6"
         showsVerticalScrollIndicator={false}
