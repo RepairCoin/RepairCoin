@@ -20,7 +20,7 @@ The hard constraint: **the existing service create/edit must keep working** duri
 | Phase | Scope | Blocker | Effort |
 |---|---|---|---|
 | **1 — Frontend page-based UI** (this doc) | Migrate create/edit from modal → dedicated pages. AI section ships as visual-only with mocked previews. | None (no API key needed) | ~5-6 hours |
-| **2 — Backend AI columns + persisted toggles** | Migration 107 adds 5 columns to `shop_services`; create/update endpoints accept and persist the AI toggle states. No AI behavior yet. | None | ~2 hours |
+| **2 — Backend AI columns + persisted toggles** | Migration 108 adds 5 columns to `shop_services`; create/update endpoints accept and persist the AI toggle states. No AI behavior yet. | None | ~2 hours |
 | **3 — Claude integration** | Build `AIAgentDomain`, hook into `MessageService`, ship MVP per strategy doc | Anthropic API key | ~3-4 weeks |
 
 This doc details Phase 1. Phases 2 and 3 are referenced but not fleshed out — they get their own task docs once Phase 1 is live.
@@ -443,7 +443,7 @@ These belong in Phases 2 and 3 — listed here so they don't accidentally creep 
 
 | Item | Phase | Why not now |
 |---|---|---|
-| AI toggle states persisted to DB | 2 | Requires migration 107 + backend changes |
+| AI toggle states persisted to DB | 2 | Requires migration 108 + backend changes |
 | `ai_custom_instructions` field on form | 2 | Same reason |
 | Anthropic SDK integration | 3 | No API key |
 | `AIAgentDomain` backend code | 3 | Same |
@@ -629,7 +629,7 @@ Lock these before starting:
 
 ```
 backend/migrations/
-  └── 107_add_shop_services_ai_columns.sql       (or whatever the next number is — confirm)
+  └── 108_add_shop_services_ai_columns.sql       (or whatever the next number is — confirm)
 ```
 
 ### EDITED
@@ -682,7 +682,7 @@ frontend/src/components/shop/service/AISalesAssistantSection.tsx
 
 ## Task list
 
-### Task 1 — Migration `107_add_shop_services_ai_columns.sql` (~10 min)
+### Task 1 — Migration `108_add_shop_services_ai_columns.sql` (~10 min)
 
 Confirm the next available migration number first (`ls backend/migrations/ | tail -5`). If 107 is taken, bump.
 
@@ -866,13 +866,13 @@ setAiBookingAssistance(data.aiBookingAssistance ?? false);
 
 ### Task 8 — Backfill existing services? (skip — defaults handle it)
 
-Migration 107's `DEFAULT FALSE` and `DEFAULT 'professional'` clauses mean existing rows already have correct values after the migration runs. No backfill task required. Leaving this here as a "we explicitly considered and rejected backfill" note for future readers.
+Migration 108's `DEFAULT FALSE` and `DEFAULT 'professional'` clauses mean existing rows already have correct values after the migration runs. No backfill task required. Leaving this here as a "we explicitly considered and rejected backfill" note for future readers.
 
 ## Total effort
 
 | Task | Effort |
 |---|---|
-| 1. Migration 107 | ~10 min |
+| 1. Migration 108 | ~10 min |
 | 2. Backend types + repository | ~30 min |
 | 3. Backend controller — accept + validate | ~20 min |
 | 4. Frontend types | ~10 min |
@@ -885,7 +885,7 @@ Migration 107's `DEFAULT FALSE` and `DEFAULT 'professional'` clauses mean existi
 
 ### Backend
 
-- [ ] Migration 107 runs cleanly on a staging DB with existing services
+- [ ] Migration 108 runs cleanly on a staging DB with existing services
 - [ ] Existing services have correct defaults (`ai_sales_enabled=false`, `ai_tone='professional'`)
 - [ ] CHECK constraint rejects invalid tone (`UPDATE ... SET ai_tone='loud'` fails)
 - [ ] `POST /api/services` with `aiSalesEnabled: true, aiTone: 'friendly'` persists correctly
@@ -917,7 +917,7 @@ Phase 2 is split across 3 layers (DB, backend, frontend). Each rolls back indepe
 
 | Layer | If broken | Rollback action |
 |---|---|---|
-| Migration 107 | DB columns unusable | Don't drop columns (data loss). Stop reading/writing them in code by reverting Tasks 2-3, then leave the columns in place. They're nullable/defaulted; harmless. |
+| Migration 108 | DB columns unusable | Don't drop columns (data loss). Stop reading/writing them in code by reverting Tasks 2-3, then leave the columns in place. They're nullable/defaulted; harmless. |
 | Backend controller / repo | API rejects valid requests | `git revert` Tasks 2-3. Frontend continues sending AI fields; backend ignores them; AI state silently drops on save (back to Phase 1 behavior). No 500s. |
 | Frontend submit-merge | Page can't save | `git revert` Task 5. Pages send only the existing fields. Backend already handles the case where AI fields are absent. |
 | Frontend edit pre-fill | AI section shows wrong defaults | `git revert` Task 6. AI section starts at defaults; user re-configures and re-saves. |
