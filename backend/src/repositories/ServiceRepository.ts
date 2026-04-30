@@ -2,6 +2,8 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 
+export type AITone = 'friendly' | 'professional' | 'urgent';
+
 export interface ShopService {
   serviceId: string;
   shopId: string;
@@ -20,6 +22,12 @@ export interface ShopService {
   groupExclusive?: boolean;
   groupTokenRewardPercentage?: number;
   groupBonusMultiplier?: number;
+  // AI Sales Assistant — Phase 2 persistence (UI lives in AISalesAssistantSection.tsx)
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {
@@ -51,6 +59,12 @@ export interface CreateServiceParams {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  // AI Sales Assistant — optional on create (defaults to disabled per migration 107)
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface UpdateServiceParams {
@@ -62,6 +76,12 @@ export interface UpdateServiceParams {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  // AI Sales Assistant
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface ServiceFilters {
@@ -103,8 +123,9 @@ export class ServiceRepository extends BaseRepository {
       const query = `
         INSERT INTO shop_services (
           service_id, shop_id, service_name, description, price_usd,
-          duration_minutes, category, image_url, tags, active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          duration_minutes, category, image_url, tags, active,
+          ai_sales_enabled, ai_tone, ai_suggest_upsells, ai_booking_assistance, ai_custom_instructions
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `;
 
@@ -118,7 +139,13 @@ export class ServiceRepository extends BaseRepository {
         params.category,
         params.imageUrl || null,
         params.tags || [],
-        params.active !== undefined ? params.active : true
+        params.active !== undefined ? params.active : true,
+        // AI fields — undefined falls back to DB defaults via DEFAULT clauses on the columns
+        params.aiSalesEnabled ?? false,
+        params.aiTone ?? 'professional',
+        params.aiSuggestUpsells ?? false,
+        params.aiBookingAssistance ?? false,
+        params.aiCustomInstructions ?? null
       ];
 
       const result = await this.pool.query(query, values);
@@ -483,7 +510,7 @@ export class ServiceRepository extends BaseRepository {
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
         ${favoritesJoin}
         ${whereClause}
-        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, s.created_at, s.updated_at, s.group_id, s.group_exclusive, s.group_token_reward_percentage, s.group_bonus_multiplier, sh.shop_id, sh.name, sh.address, sh.phone, sh.email, sh.location_lat, sh.location_lng, sh.location_city, sh.location_state, sh.location_zip_code${customerAddress ? ', sf.customer_address' : ''}
+        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, s.created_at, s.updated_at, s.group_id, s.group_exclusive, s.group_token_reward_percentage, s.group_bonus_multiplier, s.ai_sales_enabled, s.ai_tone, s.ai_suggest_upsells, s.ai_booking_assistance, s.ai_custom_instructions, sh.shop_id, sh.name, sh.address, sh.phone, sh.email, sh.location_lat, sh.location_lng, sh.location_city, sh.location_state, sh.location_zip_code${customerAddress ? ', sf.customer_address' : ''}
         ${orderByClause}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
@@ -531,7 +558,13 @@ export class ServiceRepository extends BaseRepository {
         category: 'category',
         imageUrl: 'image_url',
         tags: 'tags',
-        active: 'active'
+        active: 'active',
+        // AI Sales Assistant
+        aiSalesEnabled: 'ai_sales_enabled',
+        aiTone: 'ai_tone',
+        aiSuggestUpsells: 'ai_suggest_upsells',
+        aiBookingAssistance: 'ai_booking_assistance',
+        aiCustomInstructions: 'ai_custom_instructions'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -615,7 +648,15 @@ export class ServiceRepository extends BaseRepository {
       groupId: row.group_id || undefined,
       groupExclusive: row.group_exclusive || false,
       groupTokenRewardPercentage: row.group_token_reward_percentage ? parseFloat(row.group_token_reward_percentage) : undefined,
-      groupBonusMultiplier: row.group_bonus_multiplier ? parseFloat(row.group_bonus_multiplier) : undefined
+      groupBonusMultiplier: row.group_bonus_multiplier ? parseFloat(row.group_bonus_multiplier) : undefined,
+      // AI Sales Assistant — fall back to defaults if columns are missing
+      // (e.g. legacy services from before migration 107). Migration 107 sets
+      // sane defaults so this is mostly defensive.
+      aiSalesEnabled: row.ai_sales_enabled ?? false,
+      aiTone: row.ai_tone ?? 'professional',
+      aiSuggestUpsells: row.ai_suggest_upsells ?? false,
+      aiBookingAssistance: row.ai_booking_assistance ?? false,
+      aiCustomInstructions: row.ai_custom_instructions ?? null
     };
   }
 

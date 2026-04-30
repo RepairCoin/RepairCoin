@@ -18,6 +18,13 @@ export type ServiceCategory =
 
 export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show' | 'expired';
 
+/**
+ * AI Sales Assistant tone — controls the persona/voice of AI replies for a
+ * service. Source of truth for both shop dashboard and (future) Claude
+ * integration.
+ */
+export type AITone = 'friendly' | 'professional' | 'urgent';
+
 export interface ShopService {
   serviceId: string;
   shopId: string;
@@ -44,6 +51,13 @@ export interface ShopService {
     estimatedTokens?: number;
     available?: boolean;
   }>;
+  // AI Sales Assistant — Phase 2 persistence (UI in AISalesAssistantSection.tsx).
+  // AI behavior itself ships in Phase 3 once Anthropic Claude integration lands.
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {
@@ -135,6 +149,12 @@ export interface CreateServiceData {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  // AI Sales Assistant
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface UpdateServiceData {
@@ -146,6 +166,12 @@ export interface UpdateServiceData {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  // AI Sales Assistant
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface CreatePaymentIntentData {

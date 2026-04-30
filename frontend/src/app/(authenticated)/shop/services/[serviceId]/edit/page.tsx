@@ -76,6 +76,13 @@ export default function EditServicePage() {
             tags: data.tags || [],
             active: data.active !== undefined ? data.active : true,
           });
+          // Seed AI Sales Assistant state from the loaded service so the AI
+          // section reflects what's actually persisted, not the defaults.
+          // Falls back to defaults for legacy services from before migration 107.
+          setAiEnabled(data.aiSalesEnabled ?? false);
+          setAiTone(data.aiTone ?? "professional");
+          setAiSuggestUpsells(data.aiSuggestUpsells ?? false);
+          setAiBookingAssistance(data.aiBookingAssistance ?? false);
         } else {
           toast.error("Service not found");
           router.push("/shop?tab=services");
@@ -97,7 +104,17 @@ export default function EditServicePage() {
   }, [serviceId, router]);
 
   const handleSubmit = async (data: CreateServiceData | UpdateServiceData) => {
-    const updated = await updateService(serviceId, data as UpdateServiceData);
+    // Merge AI Sales Assistant state into the update payload. Same pattern as
+    // the create page — ServiceForm owns the standard fields, AI state lives
+    // at this page level, stitched together at submit time.
+    const payload: UpdateServiceData = {
+      ...(data as UpdateServiceData),
+      aiSalesEnabled: aiEnabled,
+      aiTone,
+      aiSuggestUpsells,
+      aiBookingAssistance,
+    };
+    const updated = await updateService(serviceId, payload);
     if (!updated) {
       toast.error("Service could not be updated. Please try again.");
       return;

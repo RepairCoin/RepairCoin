@@ -1,9 +1,12 @@
 // backend/src/domains/ServiceDomain/services/ServiceManagementService.ts
-import { ServiceRepository, ShopService, CreateServiceParams, UpdateServiceParams, ServiceFilters, ShopServiceWithShopInfo } from '../../../repositories/ServiceRepository';
+import { ServiceRepository, ShopService, CreateServiceParams, UpdateServiceParams, ServiceFilters, ShopServiceWithShopInfo, AITone } from '../../../repositories/ServiceRepository';
 import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { PaginatedResult } from '../../../repositories/BaseRepository';
+
+const VALID_AI_TONES: ReadonlyArray<AITone> = ['friendly', 'professional', 'urgent'] as const;
+const MAX_AI_CUSTOM_INSTRUCTIONS_LENGTH = 2000;
 
 export interface CreateServiceRequest {
   shopId: string;
@@ -14,6 +17,12 @@ export interface CreateServiceRequest {
   category: string;
   imageUrl?: string;
   tags?: string[];
+  // AI Sales Assistant — Phase 2 persistence (UI in AISalesAssistantSection.tsx)
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export interface UpdateServiceRequest {
@@ -25,6 +34,12 @@ export interface UpdateServiceRequest {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
+  // AI Sales Assistant
+  aiSalesEnabled?: boolean;
+  aiTone?: AITone;
+  aiSuggestUpsells?: boolean;
+  aiBookingAssistance?: boolean;
+  aiCustomInstructions?: string | null;
 }
 
 export class ServiceManagementService {
@@ -41,6 +56,40 @@ export class ServiceManagementService {
     if (!description) return description;
     // Strip all HTML tags
     return description.replace(/<[^>]*>/g, '');
+  }
+
+  /**
+   * Validate AI Sales Assistant fields. Throws on invalid input.
+   * Called from create + update paths so the rules stay in one place.
+   */
+  private validateAIFields(input: {
+    aiTone?: AITone;
+    aiCustomInstructions?: string | null;
+  }): void {
+    if (input.aiTone !== undefined && !VALID_AI_TONES.includes(input.aiTone)) {
+      throw new Error(`aiTone must be one of: ${VALID_AI_TONES.join(', ')}`);
+    }
+    if (
+      input.aiCustomInstructions !== undefined &&
+      input.aiCustomInstructions !== null &&
+      input.aiCustomInstructions.length > MAX_AI_CUSTOM_INSTRUCTIONS_LENGTH
+    ) {
+      throw new Error(
+        `aiCustomInstructions must be ${MAX_AI_CUSTOM_INSTRUCTIONS_LENGTH} characters or less`
+      );
+    }
+  }
+
+  /**
+   * Sanitize ai_custom_instructions — strip HTML to prevent XSS in any
+   * future surface that renders this field. Same approach as description.
+   */
+  private sanitizeAICustomInstructions(
+    input: string | null | undefined
+  ): string | null | undefined {
+    if (input === undefined) return undefined;
+    if (input === null) return null;
+    return input.replace(/<[^>]*>/g, '');
   }
 
   /**
@@ -112,6 +161,9 @@ export class ServiceManagementService {
       // Validate and sanitize tags
       const sanitizedTags = this.validateAndSanitizeTags(request.tags);
 
+      // Validate AI Sales Assistant fields
+      this.validateAIFields(request);
+
       // Generate unique service ID
       const serviceId = `srv_${uuidv4()}`;
 
@@ -124,7 +176,14 @@ export class ServiceManagementService {
         durationMinutes: request.durationMinutes,
         category: request.category,
         imageUrl: request.imageUrl,
-        tags: sanitizedTags
+        tags: sanitizedTags,
+        // AI Sales Assistant — undefined values fall through to repo's
+        // ?? fallbacks (defined in ServiceRepository.createService values array)
+        aiSalesEnabled: request.aiSalesEnabled,
+        aiTone: request.aiTone,
+        aiSuggestUpsells: request.aiSuggestUpsells,
+        aiBookingAssistance: request.aiBookingAssistance,
+        aiCustomInstructions: this.sanitizeAICustomInstructions(request.aiCustomInstructions)
       };
 
       const service = await this.repository.createService(params);
@@ -254,6 +313,9 @@ export class ServiceManagementService {
         ? this.validateAndSanitizeTags(updates.tags)
         : undefined;
 
+      // Validate AI Sales Assistant fields (no-op if none provided)
+      this.validateAIFields(updates);
+
       const params: UpdateServiceParams = {
         serviceName: updates.serviceName,
         description: this.sanitizeDescription(updates.description),
@@ -262,7 +324,14 @@ export class ServiceManagementService {
         category: updates.category,
         imageUrl: updates.imageUrl,
         tags: sanitizedTags,
-        active: updates.active
+        active: updates.active,
+        // AI Sales Assistant — only fields that were sent get included
+        // (the repository's dynamic fieldMappings skip undefined values)
+        aiSalesEnabled: updates.aiSalesEnabled,
+        aiTone: updates.aiTone,
+        aiSuggestUpsells: updates.aiSuggestUpsells,
+        aiBookingAssistance: updates.aiBookingAssistance,
+        aiCustomInstructions: this.sanitizeAICustomInstructions(updates.aiCustomInstructions)
       };
 
       const service = await this.repository.updateService(serviceId, params);
