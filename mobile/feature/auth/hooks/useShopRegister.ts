@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+
 import {
   FlatList,
   NativeSyntheticEvent,
@@ -12,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { useShop } from "@/feature/profile/shop/hooks/useShopQuery";
 import { ShopRegisterDto, type ShopRegisterData } from "../dto";
 import { Slide } from "../types";
@@ -59,6 +61,7 @@ export const useShopRegister = () => {
 
   const { useRegisterShop } = useShop();
   const { mutate: registerShop, isPending: isRegistering } = useRegisterShop();
+  const { guard, reset } = useSubmitGuard();
   const { showError } = useAppToast();
 
   const [index, setIndex] = useState(0);
@@ -115,18 +118,22 @@ export const useShopRegister = () => {
         return;
       }
 
-      const submissionData = {
-        ...data,
-        website: normalizeUrl(data.website),
-        facebook: normalizeUrl(data.facebook),
-        instagram: normalizeUrl(data.instagram),
-        twitter: normalizeUrl(data.twitter),
-        walletAddress: account.address,
-      };
+      guard(() => {
+        const submissionData = {
+          ...data,
+          website: normalizeUrl(data.website),
+          facebook: normalizeUrl(data.facebook),
+          instagram: normalizeUrl(data.instagram),
+          twitter: normalizeUrl(data.twitter),
+          walletAddress: account.address,
+        };
 
-      registerShop(submissionData);
+        registerShop(submissionData, {
+          onSettled: reset,
+        });
+      });
     },
-    [account, registerShop, showError],
+    [account, registerShop, showError, guard, reset],
   );
 
   return {

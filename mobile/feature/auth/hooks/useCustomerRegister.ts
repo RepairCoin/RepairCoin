@@ -5,17 +5,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
+import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
 import { CustomerRegisterDto, type CustomerRegisterData } from "../dto";
 import { INITIAL_CUSTOMER_FORM_DATA } from "../constants";
 
 export const useCustomerRegister = () => {
+  const { showError } = useAppToast();
   const { useRegisterCustomer } = useCustomer();
   const { mutate: registerCustomer, isPending } = useRegisterCustomer();
+  const activeAccount = useActiveAccount();
+  const { guard, reset } = useSubmitGuard();
   const storeAccount = useAuthStore((state) => state.account);
   const setAccount = useAuthStore((state) => state.setAccount);
-  const activeAccount = useActiveAccount();
-  const { showError } = useAppToast();
 
   const account = useMemo(() => {
     if (storeAccount?.address) return storeAccount;
@@ -58,16 +60,20 @@ export const useCustomerRegister = () => {
         return;
       }
 
-      const submissionData = {
-        ...data,
-        name: data.fullName,
-        referralCode: data.referral,
-        walletAddress: account.address,
-      };
+      guard(() => {
+        const submissionData = {
+          ...data,
+          name: data.fullName,
+          referralCode: data.referral,
+          walletAddress: account.address,
+        };
 
-      registerCustomer(submissionData);
+        registerCustomer(submissionData, {
+          onSettled: reset,
+        });
+      });
     },
-    [account, registerCustomer, showError],
+    [account, registerCustomer, showError, guard, reset],
   );
 
   const handleGoBack = useCallback(() => {
