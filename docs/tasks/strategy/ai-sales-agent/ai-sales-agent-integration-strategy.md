@@ -1,8 +1,14 @@
 # Strategy: AI Sales Agent Integration for Services & Bookings
 
 **Created:** 2026-04-27
-**Status:** Proposal (pre-implementation)
+**Status:** Partially implemented — UI + persistence shipped (Phases 1, 2, 2.5); Claude integration pending API key (Phase 3).
 **Scope:** Per-service AI sales assistant for the FixFlow web + mobile apps
+
+> **Implementation status (2026-05-01)** — This doc is the design/architecture reference. For current build state, see `ai-sales-agent-implementation-plan.md` (sibling file). Quick summary:
+> - **Phase 1** (frontend page-based UI, modal → page migration): ✅ shipped to prod
+> - **Phase 2** (migration 108 + 5 AI columns on `shop_services` + repo/service-layer plumbing): ✅ on `main`, applied to staging DB. **Prod deploy still pending.**
+> - **Phase 2.5** (exec copy iteration — "Auto Sales & Booking" label, micro-proof, narrative mocks with emoji + time slots): ✅ applied locally on `deo/dev`. **Not yet committed.**
+> - **Phase 3** (this doc's MVP — Claude integration): ⏳ blocked on Anthropic API key.
 
 ---
 
@@ -327,14 +333,23 @@ For platform-wide (say 1,000 active shops × 100 convos = 100K conversations), *
 
 ## What to do next (concrete first steps)
 
-1. **Get an Anthropic API key.** Free trial covers proof-of-concept. Move to a paid tier with prompt caching enabled.
-2. **Confirm the four UI columns** on the screenshot match what's planned. If yes, write migration 107 (or whichever version is next):
+Status as of 2026-05-01 — items 2 + 4 already done; items 1, 3, 5 still open.
+
+1. ⏳ **Get an Anthropic API key.** Free trial covers proof-of-concept. Move to a paid tier with prompt caching enabled. *This is the current blocker — everything below depends on it.*
+2. ✅ **Confirm the four UI columns** on the screenshot match what's planned. **DONE** — actually shipped 5 columns (added `ai_custom_instructions` for future-proofing) via **migration 108** (originally numbered 107 but renumbered due to a collision with an orphan `create_import_jobs_table` migration row in staging's `schema_migrations`):
    ```sql
-   ALTER TABLE shop_services ADD COLUMN ai_sales_enabled ...
+   -- backend/migrations/108_add_shop_services_ai_columns.sql
+   ALTER TABLE shop_services ADD COLUMN ai_sales_enabled BOOLEAN DEFAULT FALSE,
+     ADD COLUMN ai_tone VARCHAR(20) DEFAULT 'professional',
+     ADD COLUMN ai_suggest_upsells BOOLEAN DEFAULT FALSE,
+     ADD COLUMN ai_booking_assistance BOOLEAN DEFAULT FALSE,
+     ADD COLUMN ai_custom_instructions TEXT;
+   -- + CHECK constraint on ai_tone IN ('friendly','professional','urgent')
    ```
-3. **Spike: build a single endpoint** `POST /api/ai/preview` that takes a service ID + sample question, calls Claude with the tone-templated system prompt, returns the reply. This proves the round-trip works end-to-end before committing to architecture.
-4. **Decide MVP scope cutoff** — Phase 1 as described, or include tool use? My recommendation: Phase 1 first, ship and learn from real customer messages for 2 weeks, then Phase 2.
-5. **Budget alignment** — finalize per-shop monthly cap and how it fits into the $500/mo Stripe subscription tier (is AI included? add-on? metered?).
+   Repository, service-layer validation, frontend types, and create/edit pages all wired through Phase 2. Migration applied to staging via one-shot Node script when auto-runner skipped it. **Prod deploy still pending.**
+3. ⏳ **Spike: build a single endpoint** `POST /api/ai/preview` that takes a service ID + sample question, calls Claude with the tone-templated system prompt, returns the reply. This proves the round-trip works end-to-end before committing to architecture. *Blocked on item 1.*
+4. ✅ **Decide MVP scope cutoff** — **DONE** — locked on Phase 1 (button-based booking / Flavor B), no tool-use in MVP. Ship and learn from real customer messages for 2 weeks, then Phase 2.
+5. ⏳ **Budget alignment** — finalize per-shop monthly cap and how it fits into the $500/mo Stripe subscription tier (is AI included? add-on? metered?). Recommend revisiting once API key is in hand and we have realistic per-conversation cost data.
 
 ---
 

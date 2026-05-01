@@ -59,7 +59,7 @@ export interface CreateServiceParams {
   imageUrl?: string;
   tags?: string[];
   active?: boolean;
-  // AI Sales Assistant — optional on create (defaults to disabled per migration 107)
+  // AI Sales Assistant — optional on create (defaults to disabled per migration 108)
   aiSalesEnabled?: boolean;
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
@@ -650,7 +650,7 @@ export class ServiceRepository extends BaseRepository {
       groupTokenRewardPercentage: row.group_token_reward_percentage ? parseFloat(row.group_token_reward_percentage) : undefined,
       groupBonusMultiplier: row.group_bonus_multiplier ? parseFloat(row.group_bonus_multiplier) : undefined,
       // AI Sales Assistant — fall back to defaults if columns are missing
-      // (e.g. legacy services from before migration 107). Migration 107 sets
+      // (e.g. legacy services from before migration 108). Migration 108 sets
       // sane defaults so this is mostly defensive.
       aiSalesEnabled: row.ai_sales_enabled ?? false,
       aiTone: row.ai_tone ?? 'professional',
