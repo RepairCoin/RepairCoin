@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { Users } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { LoadingSpinner, Pagination, EmptyState, FilterTabs, SectionHeader } from "./shared";
+import { LoadingSpinner, Pagination, EmptyState, FilterTabs } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { formatDate } from "./utils/formatters";
 import { usePagination } from "@/hooks/usePagination";
 import { ITEMS_PER_PAGE } from "./constants";

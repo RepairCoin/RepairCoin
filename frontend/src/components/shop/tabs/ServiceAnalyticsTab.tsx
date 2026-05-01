@@ -79,9 +79,10 @@ export function ServiceAnalyticsTab() {
     <div className="space-y-6">
       {/* Header */}
       <SectionHeader
+        variant="page"
         title="Service Marketplace Analytics"
         subtitle="Track your service performance and revenue"
-        actions={
+        action={
           <div className="flex items-center gap-2">
             {[7, 30, 90].map((days) => (
               <button

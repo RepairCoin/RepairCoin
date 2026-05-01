@@ -5,24 +5,48 @@ import { MoreVertical } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+export type SectionHeaderVariant = "page" | "section";
+
 interface SectionHeaderProps {
-  /** Icon component to display */
-  icon: LucideIcon;
-  /** Section title */
+  /** Visual style. `"page"` for top-of-page headers, `"section"` for sub-section headers. */
+  variant?: SectionHeaderVariant;
+  /** Optional Lucide icon shown before the title. */
+  icon?: LucideIcon;
   title: string;
-  /** Optional subtitle */
-  subtitle?: string;
-  /** Optional action element (button, etc.) */
+  subtitle?: ReactNode;
+  /** Action element (button, FilterTabs, etc.). Inline on `sm+`, collapsed behind a kebab menu on mobile. */
   action?: ReactNode;
-  /** Additional CSS classes */
   className?: string;
 }
 
-/**
- * Reusable section header component with icon and optional action.
- * On mobile, the action collapses behind a 3-dot menu.
- */
-export default function SectionHeader({
+const VARIANT_STYLES: Record<
+  SectionHeaderVariant,
+  {
+    container: string;
+    icon: string;
+    title: string;
+    subtitle: string;
+    actionDesktop: string;
+  }
+> = {
+  page: {
+    container: "flex items-center justify-between gap-3 mb-6",
+    icon: "w-5 h-5 sm:w-6 sm:h-6 text-[#FFCC00] flex-shrink-0",
+    title: "text-xl sm:text-2xl font-bold text-white mb-1",
+    subtitle: "text-sm sm:text-base text-gray-400",
+    actionDesktop: "hidden sm:flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3",
+  },
+  section: {
+    container: "flex items-center justify-between gap-2 mb-4 sm:mb-6",
+    icon: "w-4 h-4 sm:w-5 sm:h-5 text-[#FFCC00] flex-shrink-0",
+    title: "text-[#FFCC00] font-semibold text-sm sm:text-base truncate",
+    subtitle: "text-xs sm:text-sm text-gray-400 truncate",
+    actionDesktop: "hidden sm:block",
+  },
+};
+
+export function SectionHeader({
+  variant = "section",
   icon: Icon,
   title,
   subtitle,
@@ -31,6 +55,8 @@ export default function SectionHeader({
 }: SectionHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const styles = VARIANT_STYLES[variant];
+  const TitleTag = variant === "page" ? "h1" : "h3";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -46,23 +72,19 @@ export default function SectionHeader({
   }, [menuOpen]);
 
   return (
-    <div className={`flex items-center justify-between gap-2 mb-4 sm:mb-6 ${className}`}>
+    <div className={`${styles.container} ${className}`}>
       <div className="flex items-center gap-2 min-w-0">
-        <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFCC00] flex-shrink-0" />
+        {Icon && <Icon className={styles.icon} />}
         <div className="min-w-0">
-          <h3 className="text-[#FFCC00] font-semibold text-sm sm:text-base truncate">{title}</h3>
-          {subtitle && (
-            <p className="text-xs sm:text-sm text-gray-400 truncate">{subtitle}</p>
-          )}
+          <TitleTag className={styles.title}>{title}</TitleTag>
+          {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
         </div>
       </div>
 
       {action && (
         <>
-          {/* Desktop: render action inline */}
-          <div className="hidden sm:block">{action}</div>
+          <div className={styles.actionDesktop}>{action}</div>
 
-          {/* Mobile: 3-dot menu */}
           <div className="relative sm:hidden flex-shrink-0" ref={menuRef}>
             <button
               type="button"
@@ -87,3 +109,5 @@ export default function SectionHeader({
     </div>
   );
 }
+
+export default SectionHeader;

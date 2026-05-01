@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Coins, RefreshCw, ArrowUpCircle, ArrowDownCircle, TrendingUp, Users, PieChart } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { LoadingSpinner, Modal, SectionHeader } from "./shared";
+import { LoadingSpinner, Modal } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 interface ImprovedRcnAllocationCardProps {
   groupId: string;

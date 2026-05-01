@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Users, Search, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { LoadingSpinner, Pagination, EmptyState, SectionHeader } from "./shared";
+import { LoadingSpinner, Pagination, EmptyState } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { formatAddress } from "./utils/formatters";
 import { CUSTOMERS_PER_PAGE } from "./constants";
 

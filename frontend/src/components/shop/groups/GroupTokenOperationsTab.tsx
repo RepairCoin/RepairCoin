@@ -5,7 +5,8 @@ import { toast } from "react-hot-toast";
 import { Coins, TrendingUp, TrendingDown, Camera, X } from "lucide-react";
 import QrScanner from "qr-scanner";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { SectionHeader, Modal } from "./shared";
+import { Modal } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 interface GroupTokenOperationsTabProps {
   groupId: string;

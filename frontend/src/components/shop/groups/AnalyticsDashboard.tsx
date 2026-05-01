@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Activity, Coins, Users, ArrowUpRight, ArrowDownRight, BarChart3, Clock, Heart } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { SectionHeader } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 interface AnalyticsDashboardProps {
   groupId: string;
