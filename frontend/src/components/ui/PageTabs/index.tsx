@@ -11,8 +11,8 @@ export interface PageTab<T extends string = string> {
   key: T;
   /** Visible label. */
   label: string;
-  /** Lucide icon shown before the label. */
-  icon: LucideIcon;
+  /** Optional Lucide icon shown before the label. */
+  icon?: LucideIcon;
   /** Show a small red dot badge after the label. */
   hasBadge?: boolean;
 }
@@ -110,11 +110,11 @@ export function PageTabs<T extends string = string>({
               onClick={() => onTabChange(tab.key)}
               className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                 isActive
-                  ? "bg-white text-black"
+                  ? "bg-[#FFCC00] text-black"
                   : "bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-gray-600"
               }`}
             >
-              <Icon className="w-4 h-4" />
+              {Icon && <Icon className="w-4 h-4" />}
               <span>{tab.label}</span>
               {tab.hasBadge && (
                 <span className="w-2 h-2 bg-red-500 rounded-full" />

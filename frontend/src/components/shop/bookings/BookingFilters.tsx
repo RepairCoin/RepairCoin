@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Search, MessageSquare, AlertTriangle } from "lucide-react";
+import { PageTabs, type PageTab } from "@/components/ui/PageTabs";
 import { BookingStatus, MockBooking } from "./mockData";
 
 interface FilterCounts {
@@ -12,14 +13,16 @@ interface FilterCounts {
   cancelled: number;
 }
 
+type MainTabKey = 'bookings' | 'messages' | 'expired';
+
 interface BookingFiltersProps {
   activeFilter: string;
   onFilterChange: (filter: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   bookings: MockBooking[];
-  activeTab: 'bookings' | 'messages' | 'expired';
-  onTabChange: (tab: 'bookings' | 'messages' | 'expired') => void;
+  activeTab: MainTabKey;
+  onTabChange: (tab: MainTabKey) => void;
   unreadMessagesCount: number;
   filterCounts?: FilterCounts;
 }
@@ -43,57 +46,29 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
     cancelled: bookings.filter(b => b.status === 'cancelled').length
   };
 
-  const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'paid', label: 'Paid' },
-    { key: 'completed', label: 'Completed' },
-    { key: 'cancelled', label: 'Cancelled' }
+  const mainTabs: PageTab<MainTabKey>[] = [
+    { key: 'bookings', label: 'Bookings', icon: Search },
+    { key: 'messages', label: 'Messages', icon: MessageSquare, hasBadge: unreadMessagesCount > 0 },
+    { key: 'expired', label: 'Expired', icon: AlertTriangle },
+  ];
+
+  const filterTabs: PageTab[] = [
+    { key: 'all', label: `All (${filterCounts.all})` },
+    { key: 'pending', label: `Pending (${filterCounts.pending})` },
+    { key: 'paid', label: `Paid (${filterCounts.paid})` },
+    { key: 'completed', label: `Completed (${filterCounts.completed})` },
+    { key: 'cancelled', label: `Cancelled (${filterCounts.cancelled})` },
   ];
 
   return (
     <div className="space-y-4">
       {/* Main Tabs: Bookings / Messages / Expired */}
-      <div className="flex items-center gap-2 border-b border-gray-800 pb-4">
-        <button
-          onClick={() => onTabChange('bookings')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'bookings'
-              ? 'bg-[#1A1A1A] text-white border border-gray-700'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <Search className="w-4 h-4" />
-          Bookings
-        </button>
-        <button
-          onClick={() => onTabChange('messages')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors relative ${
-            activeTab === 'messages'
-              ? 'bg-[#1A1A1A] text-white border border-gray-700'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Messages
-          {unreadMessagesCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-              {unreadMessagesCount}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => onTabChange('expired')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'expired'
-              ? 'bg-[#1A1A1A] text-white border border-gray-700'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          Expired
-        </button>
-      </div>
+      <PageTabs
+        tabs={mainTabs}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        className="border-b border-gray-800 pb-4"
+      />
 
       {activeTab === 'bookings' && (
         <>
@@ -110,21 +85,11 @@ export const BookingFilters: React.FC<BookingFiltersProps> = ({
           </div>
 
           {/* Filter Pills */}
-          <div className="flex flex-wrap gap-2">
-            {filters.map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => onFilterChange(filter.key)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeFilter === filter.key
-                    ? 'bg-white text-black'
-                    : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-gray-600'
-                }`}
-              >
-                {filter.label} ({filterCounts[filter.key as keyof typeof filterCounts]})
-              </button>
-            ))}
-          </div>
+          <PageTabs
+            tabs={filterTabs}
+            activeTab={activeFilter}
+            onTabChange={onFilterChange}
+          />
         </>
       )}
     </div>
