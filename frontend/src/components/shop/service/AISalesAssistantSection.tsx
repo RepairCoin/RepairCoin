@@ -56,7 +56,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
         <div className="flex items-center gap-2 flex-wrap">
           <Bot className="w-5 h-5 text-green-600" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-            AI Sales Assistant
+            Auto Sales & Booking
           </h3>
           <span className="inline-flex items-center gap-1 bg-green-500 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
             <Sparkles className="w-3 h-3" />
@@ -68,7 +68,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
         <button
           type="button"
           onClick={() => onChange({ enabled: !enabled })}
-          aria-label={enabled ? "Disable AI Sales Assistant" : "Enable AI Sales Assistant"}
+          aria-label={enabled ? "Disable Auto Sales & Booking" : "Enable Auto Sales & Booking"}
           className={`relative inline-flex h-6 w-11 sm:h-7 sm:w-12 items-center rounded-full transition-colors flex-shrink-0 ${
             enabled ? "bg-green-500" : "bg-gray-300"
           }`}
@@ -82,8 +82,14 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
       </div>
 
       {/* Description */}
-      <p className="text-sm text-gray-600 mb-4">
-        Automatically replies, answers questions, and books customers for this service.
+      <p className="text-sm text-gray-600 mb-2">
+        Automatically replies, answers questions, books and increases sales.
+      </p>
+
+      {/* Micro-proof — Option B (honest reword): same emotional hook as exec's
+          ask without promising runtime behavior that ships in Phase 3. */}
+      <p className="text-xs text-gray-600 font-medium mb-4">
+        Configure once · Saved automatically · Activates next release
       </p>
 
       {/* Disabled hint */}

@@ -1,9 +1,13 @@
 # AI Sales Agent — Implementation Plan
 
 **Created:** 2026-04-30
-**Status:** **Phase 1 ✅ implementation complete (2026-04-30)** — Tasks 1-7 shipped; Task 8 (modal deletion) deferred per plan until ~1 week soak. Phases 2-3 (backend + Claude) gated on API key + Phase 1 sign-off.
+**Status:**
+- **Phase 1 ✅ implementation complete (2026-04-30)** — Tasks 1-7 shipped; Task 8 (modal deletion) deferred until ~1 week soak.
+- **Phase 2 ✅ implementation complete (2026-04-30)** — Migration 108 + 5 backend/frontend layers shipped. Manually applied to staging DB. **Prod deploy still pending** (main → prod merge not yet done).
+- **Phase 2.5 ✅ implementation complete (2026-05-01)** — Exec copy iteration applied: label "Auto Sales & Booking", new description, micro-proof line (Option B), 12 mocked messages with emoji + urgency + time slots. See "Phase 2.5 implementation log (2026-05-01)" section.
+- **Phase 3 ⏳ blocked** on Anthropic API key. ~3-4 weeks of work once key arrives.
 **Strategy doc:** `ai-sales-agent-integration-strategy.md` (architecture, model selection, cost model, safety)
-**Implementation log:** see "Implementation log (2026-04-30)" section near the bottom for what was actually built and how it differed from the plan.
+**Implementation logs:** see Phase 1, 2, and 2.5 "Implementation log" sections inline below.
 
 ---
 
@@ -949,6 +953,278 @@ If you want to split: backend-only PR first (just Tasks 1-3) goes live silently 
 ## Connection to Phase 3
 
 When Phase 3 (Claude integration) ships, the columns this phase added are exactly what `ContextBuilder.ts` reads to build the system prompt per-service. No additional schema needed at that layer. Phase 3 adds the new tables (`ai_agent_messages`, `ai_shop_settings`) but the service-level config you're persisting in Phase 2 is the durable foundation.
+
+---
+
+# Phase 2.5 — Stakeholder copy iteration (exec request 2026-05-01)
+
+**Status:** ✅ **Implementation complete (2026-05-01)** — applied locally on `deo/dev`. Not yet committed (per user's commit-only-when-asked policy). See "Phase 2.5 implementation log" at the end of this section.
+**Effort:** ~45 min total (actual: ~20 min — pure text edits, no logic)
+**Blocker:** None — pure copy/UX, no backend or schema changes
+**Trigger:** Exec request to make the AI Sales Assistant section feel more conversion-focused before Phase 3 ships
+
+## Context
+
+Exec reviewed the current Phase 1 + Phase 2 UI and asked for changes to lift visual conversion impact:
+
+1. Rename label from "AI Sales Assistant" to "Auto Sales & Booking" (de-emphasizes the AI buzzword, emphasizes the outcome)
+2. Tighten the description: *"Automatically replies, answers questions, books and increases sales"*
+3. Add a micro-proof line under the toggle showing key value props (24/7, books customers, replies fast)
+4. Rewrite the "See How the AI Replies" preview from short generic replies to **4 narrative messages per tone** showing booking flow, urgency, social proof — preview currently "feels safe", should feel like real sales conversations
+
+## ⚠️ Honesty note (read before locking decisions)
+
+The exec's proposed micro-proof was *"Replies in seconds · Books customers · Works 24/7"*.
+
+Until Phase 3 ships (Anthropic Claude integration, gated on API key), the AI does not actually reply, book, or run 24/7. Configuration is saved (Phase 2) but no runtime behavior is active. Shipping these claims today creates expectation mismatch with shop owners — they'll toggle it on, expect replies, get nothing, complain.
+
+### Decision lock before starting — micro-proof wording
+
+| Option | Wording | Tradeoff |
+|---|---|---|
+| A — Defer | (Don't add the line until Phase 3 ships) | No false promise; loses exec's visual conversion lift |
+| **B — Honest reword (recommended)** | *"Configure once · Saved automatically · Activates next release"* | Same emotional hook, doesn't promise behavior we don't have yet |
+| C — Add with "Coming soon" badge | *"Replies in seconds · Books customers · Works 24/7 (coming soon)"* | Half-true; mixed message with the existing "activates in a future update" disclosure |
+
+Recommend **Option B**. Sells the future without misrepresenting today.
+
+## File map
+
+### EDITED
+
+```
+frontend/src/components/shop/service/AISalesAssistantSection.tsx
+  → Header title text: "AI Sales Assistant" → "Auto Sales & Booking"
+  → Description: tighten wording per exec ask
+  → Add micro-proof line below toggle (per chosen option above)
+
+frontend/src/utils/aiPreviewMocks.ts
+  → Rewrite all 9 mocked replies → 12 (3 tones × 4 messages each)
+  → New content: each set of 4 messages forms a sales arc
+```
+
+### UNTOUCHED
+
+- Backend code, types, migrations — unchanged
+- Database schema — unchanged
+- ServiceForm, ServiceFormPreview, ServiceFormLayout — unchanged
+- Page-level state and submit logic — unchanged
+- Phase 2 persistence behavior — intact
+
+## Tasks
+
+### Task 1 — Header label, description, micro-proof line (~10 min)
+
+In `AISalesAssistantSection.tsx`:
+
+```diff
+- <h3 className="...">AI Sales Assistant</h3>
++ <h3 className="...">Auto Sales & Booking</h3>
+
+- <p className="text-sm text-gray-600 mb-4">
+-   Automatically replies, answers questions, and books customers for this service.
+- </p>
++ <p className="text-sm text-gray-600 mb-4">
++   Automatically replies, answers questions, books and increases sales.
++ </p>
+
+  {/* New micro-proof line — placement: between description and "Disabled hint" */}
++ <p className="text-xs text-gray-600 font-medium mb-4">
++   Configure once · Saved automatically · Activates next release
++ </p>
+```
+
+If the team picks Option A or C from the decision table, swap the micro-proof text accordingly. If Option A, omit the line entirely.
+
+**Acceptance:** dev server shows updated header label, updated description, and (if A wasn't chosen) the micro-proof line above the configurable area.
+
+### Task 2 — Rewrite preview mocks: 4 narrative messages per tone (~30 min)
+
+Replace `aiPreviewMocks.ts` content. Structure each tone's array as a 4-message sales arc that feels like a real conversation, not a sample reply:
+
+- **Message 1 — Greet + qualify** ("yes we do this; tell me more / want to book?")
+- **Message 2 — Address concern + offer to book** (price, duration, common objection)
+- **Message 3 — Urgency cue + social proof** (limited slots / "popular this week" / "5-star review last week")
+- **Message 4 — Confirm next step + handoff** ("locking it in / you'll get a confirmation text / our team will reach out")
+
+**Tone differences:**
+- **Friendly:** casual, contractions, energetic ("Hey!", "totally", "no worries", "awesome")
+- **Professional:** formal, factual, third-person ("Our shop offers...", "We can confirm...", "Estimated turnaround...")
+- **Urgent:** time-pressure, scarcity, immediacy ("Same-day spots fill fast", "Booking today...", "Open spot if you act now")
+
+**Sample structure (Friendly tone — Professional + Urgent follow same arc, different vocabulary):**
+
+```ts
+friendly: [
+  "Hey! Yeah, we totally do this — it's one of our most popular services. Want a quick rundown or jump straight to booking?",
+  "Most folks worry about the price, totally fair. We're $89 and most jobs wrap in 30 mins. Want me to grab you a slot this week?",
+  "Heads up — we usually get booked out by Wednesday for stuff like this. Got 2 spots open Friday afternoon if you'd like to lock one.",
+  "Awesome — locking your slot in now. You'll get a confirmation text, and we'll text you 30 mins before. Anything else I can help with?",
+],
+professional: [
+  "Yes, our shop offers this service. Most appointments wrap up in 30 minutes. Would you like to schedule, or do you have questions first?",
+  "Standard pricing for this service is $89. We honor our 30-day workmanship guarantee on all repairs. Shall I check available times?",
+  "Two appointment slots remain open this week. Friday afternoon at 2:00 PM is currently available if you'd like to confirm.",
+  "Your appointment is confirmed. A confirmation will be sent shortly, and we will follow up 30 minutes prior to your booking.",
+],
+urgent: [
+  "Same-day spot just opened — we can fit this in if you book in the next 30 minutes. Want me to lock it?",
+  "$89, under an hour, done today. Slots after 4 PM are usually gone by lunchtime — interested?",
+  "3 people booked this exact service today already. One spot left at 5 PM. Tomorrow's already half-full.",
+  "Booked. You'll get a confirmation text within 60 seconds. We'll see you at 5 PM today — please arrive 5 minutes early.",
+],
+```
+
+Replace the values shown in `friendly`, `professional`, and `urgent` keys. Keep the export shape (`Record<AITone, string[]>`) and the `AITone` re-export unchanged so `AISalesAssistantSection.tsx` keeps working without edits.
+
+**Acceptance:** dev server shows the 4-message arc per tone; switching tones swaps the entire 4-message set, not just one message.
+
+### Task 3 — Disclosure badge consistency check (~5 min)
+
+After Task 1's wording is locked in, verify the bottom-of-section disclosure badge still reads consistently with the new top-of-section copy.
+
+Current bottom disclosure (post-Phase 2):
+> *"AI replies activate in a future update. Your configuration is saved."*
+
+| Top wording (chosen) | Bottom disclosure | Consistent? |
+|---|---|---|
+| Option A (no micro-proof) | (unchanged) | ✅ |
+| Option B (Configure once · Saved automatically · Activates next release) | (unchanged) | ✅ — both messages reinforce "saved now, activates later" |
+| Option C (Replies in seconds · ... (coming soon)) | (unchanged) | ⚠️ Mixed — top promises "in seconds", bottom says "in a future update". Either drop "coming soon" from top or update bottom. |
+
+If Option C: also update bottom disclosure to e.g., *"Activates in a future update — your configuration is saved."* to remove the contradiction. Otherwise no edit needed.
+
+**Acceptance:** top and bottom of the AI section tell a consistent story.
+
+## Total effort
+
+| Task | Effort |
+|---|---|
+| 1. Label + description + micro-proof | ~10 min |
+| 2. Preview mocks rewrite (12 messages, 3 tones × 4) | ~30 min |
+| 3. Disclosure badge consistency check | ~5 min |
+| **Total** | **~45 min** |
+
+## Testing checklist
+
+- [ ] Header reads "Auto Sales & Booking" with the existing NEW badge alongside
+- [ ] Description text matches exec's exact phrasing
+- [ ] Micro-proof line visible under toggle (per chosen option) — or absent if Option A
+- [ ] Friendly tone preview shows 4 messages forming a sales arc (greet → concern → urgency → confirm)
+- [ ] Professional tone shows same arc with formal vocabulary
+- [ ] Urgent tone shows same arc with time-pressure vocabulary
+- [ ] Switching tones swaps **all 4 messages**, not just the first
+- [ ] Sample replies render correctly in light-mode card (no overflow, readable contrast)
+- [ ] No TypeScript errors
+- [ ] **No regressions:** toggle/tone/checkbox state still persists on save (Phase 2 behavior intact)
+- [ ] Bottom disclosure badge still reads consistently with top wording
+
+## Rollback
+
+Pure UI text. Each file rolls back independently:
+
+| Layer | Rollback action |
+|---|---|
+| Header/description/micro-proof | `git revert` the `AISalesAssistantSection.tsx` commit |
+| Preview mocks | `git revert` the `aiPreviewMocks.ts` commit |
+
+No DB, no backend, no schema impact. ~2 min to roll back if exec changes their mind.
+
+## Out of scope (defer)
+
+These came up during discussion but are pushed to Phase 3 or later:
+
+- **`ai_custom_instructions` UI textarea** — would partially address exec's "every item should be sold differently" ask before Phase 3 ships. ~30 min add. Defer unless exec specifically requests it; column is already in DB (migration 108) so frontend can wire it up anytime.
+- **Live Anthropic preview** (replacing mocks with real Claude calls) — Phase 3.
+- **Per-shop / per-service A/B testing of tone variants** — Phase 3 + analytics.
+- **Conversion analytics dashboard** — Phase 3 (`AdminAgentController.ts` per strategy doc).
+- **Brand-voice copywriting pass** on the 4-message arcs — if marketing/comms want professional copywriter input on the Professional + Urgent variants. The samples in Task 2 are engineer-drafted; can be replaced with copywriter output without touching code structure.
+
+## Decisions to lock before starting
+
+- [ ] **Micro-proof wording** — pick Option A / B / C from the decision table. Recommend B.
+- [ ] **Header label** — confirm "Auto Sales & Booking" is the final wording (drops "AI" framing — could conflict with positioning if marketing wants AI featured prominently).
+- [ ] **Description text** — confirm exact phrasing: *"Automatically replies, answers questions, books and increases sales"* (current draft from exec message).
+- [ ] **4-message preview tone copy** — engineer-drafted samples are in Task 2; confirm or have copywriter rewrite before code lands.
+
+## Connection to Phase 3
+
+This phase is purely cosmetic. When Phase 3 ships and replaces `aiPreviewMocks.ts` with live Claude API calls, the 4-message structure may need rethinking — Claude generates one reply per customer message, not a 4-step pre-scripted arc. Phase 3's preview will show what Claude *would* reply to a sample customer question for that service + tone, which is qualitatively different. The Phase 2.5 mocks are explicitly "marketing demo content", not "what the AI will actually do".
+
+Worth flagging: if the team falls in love with the 4-message demo and wants Phase 3 to preserve that exact narrative arc, that's an extra ask for Phase 3 (probably needs a multi-turn simulated conversation, not a single Claude call).
+
+The Phase 2.5 mocks **encode the tone signature** (emoji density, urgency vocabulary, time-slot specificity) that Phase 3 system prompts should preserve so live Claude replies feel consistent with what shop owners previewed during configuration.
+
+---
+
+## Phase 2.5 implementation log (2026-05-01)
+
+What was actually applied. The plan held up; one deviation flagged below.
+
+### Files edited (matches plan)
+
+```
+frontend/src/components/shop/service/AISalesAssistantSection.tsx
+  - Header text: "AI Sales Assistant" → "Auto Sales & Booking"
+  - Description: "Automatically replies, answers questions, and books customers
+    for this service." → "Automatically replies, answers questions, books and
+    increases sales."
+  - Added micro-proof line below description (Option B wording):
+    "Configure once · Saved automatically · Activates next release"
+  - aria-label updated to match new label ("Disable Auto Sales & Booking" /
+    "Enable Auto Sales & Booking")
+  - Description's bottom margin tightened from mb-4 to mb-2 to give the new
+    micro-proof line room to breathe at mb-4
+
+frontend/src/utils/aiPreviewMocks.ts
+  - Replaced 9 short replies (3 tones × 3 messages) with 12 narrative messages
+    (3 tones × 4-message sales arc)
+  - Each arc: Greet+Qualify → Address Concern → Urgency+Social Proof → Confirm+Handoff
+  - Export shape unchanged (Record<AITone, string[]>) — no consumer changes
+```
+
+### Decisions locked
+
+- **Micro-proof wording:** Option B — *"Configure once · Saved automatically · Activates next release"*. Honest reword, doesn't promise Phase 3 behavior.
+- **Header label:** "Auto Sales & Booking" (drops AI buzzword, keeps the green Sparkles "NEW" badge so the section still reads as a flagship feature).
+- **Description text:** *"Automatically replies, answers questions, books and increases sales."* — exact phrasing from exec.
+- **4-message preview tone copy:** engineer-drafted, applied as-is. No copywriter pass yet.
+
+### Deviations from the plan
+
+**1. Mocks went beyond the plan's draft — pushed further with emoji + time slots + sharper urgency**
+
+Plan's Task 2 had engineer-drafted samples that were narrative but plain text ("locking your slot in now"). User asked mid-session to "make it feel like YOUR real messages" with specific instructions: **add emojis, urgency, time slots**. The shipped mocks pushed all three further than the plan's draft:
+
+- **Friendly** — added emojis 👋 💯 ⏰ ✅ 😊; embedded specific times ("Thursday at 2:30 PM", "Friday 4:00 PM"); kept casual urgency ("we're booked solid Mon-Wed already")
+- **Professional** — sparse emoji (✅ once); kept formal urgency ("typically book within 24 hours"); embedded precise times ("Thursday 2:30 PM", "Friday 11:00 AM")
+- **Urgent** — heavy urgency emoji (🔥 ⚡ ⏰ 🎯); hard time pressure ("next 15 minutes", "ONE spot left at 5:30 PM", "Tomorrow's 80% full")
+
+Result: previews now feel like authentic AI sales messages instead of lorem-ipsum demo content. Tone differentiation is sharper — switching from Friendly → Urgent in the segmented control feels qualitatively different, not just "same message, slightly different words".
+
+The doc's Connection-to-Phase-3 section was updated to flag that Phase 3 system prompts should encode this tone signature (emoji density, urgency vocabulary, time-slot specificity) so live Claude replies feel consistent with what shop owners previewed during configuration.
+
+### Final state summary
+
+| Metric | Value |
+|---|---|
+| Files edited | 2 |
+| Lines added | ~50 |
+| Lines removed | ~10 |
+| TypeScript errors introduced | 0 |
+| New dependencies | 0 |
+| Backend changes | 0 (Phase 2.5 is FE-only) |
+| DB changes | 0 |
+| Committed? | **No** — applied locally on `deo/dev`, awaiting user's commit instruction |
+
+### Outstanding items
+
+- **Local smoke test** — user to run `/shop/services/new` and `/shop/services/[id]/edit`, cycle through Friendly / Professional / Urgent, confirm:
+  - Header reads "Auto Sales & Booking" with green "NEW" badge alongside
+  - Micro-proof line visible below description
+  - 4 messages swap as a set per tone (not just one)
+  - Toggle/checkbox/tone state still persists on save (Phase 2 regression check)
+- **Commit + push** — pending user go-ahead. Recommend a single commit covering both files with a short message like `chore(ai-sales): apply Phase 2.5 copy iteration (label, description, micro-proof, narrative mocks)`.
 
 ---
 

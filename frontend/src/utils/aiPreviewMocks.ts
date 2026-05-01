@@ -1,8 +1,17 @@
 /**
- * AI sales assistant preview mocks (Phase 1 only — visual demo).
+ * AI sales assistant preview mocks (Phase 1 / 2.5 — visual demo).
  *
  * These are hardcoded sample replies the "See How the AI Replies" preview
  * shows on the Create/Edit Service page when the shop owner picks a tone.
+ *
+ * Phase 2.5 rewrote these from 3 short generic replies into a 4-message
+ * narrative sales arc per tone (greet → concern → urgency → confirm),
+ * pushed further with emojis, embedded time slots, and stronger urgency
+ * cues so the preview feels like real AI sales messages, not lorem-ipsum.
+ *
+ * The arc is deliberately marketing-demo content, not "what Claude will
+ * actually do" — Phase 3 replies are single-turn responses to live
+ * customer messages, not a pre-scripted 4-step funnel.
  *
  * Phase 3 replaces these with live calls to the Anthropic API via the
  * `POST /api/ai/preview` endpoint described in
@@ -19,18 +28,21 @@ export type { AITone };
 
 export const AI_PREVIEW_MOCKS: Record<AITone, string[]> = {
   friendly: [
-    "Hey! Yeah, we totally do this — usually takes about 30-45 mins. Want me to find you a spot this week?",
-    "We can do that quickly and safely for you. Want to add optional protection while we're at it?",
-    "Most jobs like this come in around the price you saw. Want me to walk you through what's included?",
+    "Hey! 👋 Yeah, we totally do this — it's one of our most popular services this month. Want a quick rundown or jump straight to booking?",
+    "Totally fair on the price 💯 We're $89 and most jobs wrap in 30 mins. I've got Thursday at 2:30 PM open — want me to grab it for you?",
+    "Heads up ⏰ — we're booked solid Mon-Wed already. Only 2 slots left this week: Thursday 2:30 PM and Friday 4:00 PM. Which one works?",
+    "Locked in for Thursday at 2:30 PM ✅ You'll get a confirmation text in 30 secs, and we'll ping you 30 mins before. Anything else I can help with? 😊",
   ],
   professional: [
-    "Your device repair will take approximately 30-45 minutes. We also offer optional protection upgrades.",
-    "We can complete your repair quickly and safely. Would you like to include a screen protector?",
-    "Estimated repair is under 45 minutes. Optional add-ons are available for extended protection.",
+    "Yes, our shop offers this service. Most appointments are completed within 30 minutes. Would you like to schedule, or do you have questions first?",
+    "Standard pricing is $89, with our 30-day workmanship guarantee included. We have availability Thursday at 2:30 PM or Friday at 11:00 AM — which would you prefer?",
+    "Two appointment slots remain this week: Thursday 2:30 PM and Friday 11:00 AM. Both typically book within 24 hours. Shall I reserve one for you? ✅",
+    "Confirmed: Thursday at 2:30 PM. You will receive a confirmation message within 60 seconds, followed by a reminder 30 minutes prior to your appointment.",
   ],
   urgent: [
-    "We can usually fit this in same-day if you book in the next hour — want me to lock in a slot?",
-    "Same-day service is limited. Want me to check what we have open right now?",
-    "Most repairs of this type are done in under an hour. Booking now keeps you ahead of the queue.",
+    "🔥 Same-day spot just opened — 4:00 PM today. Books in the next 15 minutes get priority. Want it?",
+    "⚡ $89, under an hour, done today. Last 2 slots: 4:00 PM and 5:30 PM. After 4 PM usually goes by lunch — moving fast.",
+    "⏰ 3 customers booked this exact service today already. ONE spot left at 5:30 PM. Tomorrow's already 80% full. Lock it now?",
+    "🎯 Booked: 5:30 PM today. Confirmation text incoming. Please arrive 5 minutes early — we'll have your repair ready to go.",
   ],
 };
