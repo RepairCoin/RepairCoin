@@ -2,17 +2,24 @@ import { Image, Text, View } from "react-native";
 import Screen from "@/shared/components/ui/Screen";
 import { useEffect } from "react";
 import { useSplashNavigation } from "@/feature/auth/hooks/useSplashNavigation";
+import { useAppStore } from "@/shared/store/app.store";
 
 const logo = require("@/assets/images/logo.png");
 
 export default function Splash() {
   const { navigate, hasHydrated } = useSplashNavigation();
+  const initApp = useAppStore((s) => s.initApp);
+  const appHydrated = useAppStore((s) => s.hasHydrated);
 
   useEffect(() => {
-    if (hasHydrated) {
+    initApp();
+  }, []);
+
+  useEffect(() => {
+    if (hasHydrated && appHydrated) {
       navigate();
     }
-  }, [hasHydrated]);
+  }, [hasHydrated, appHydrated]);
 
   return (
     <Screen>

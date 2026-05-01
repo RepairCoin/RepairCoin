@@ -1,6 +1,7 @@
-import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { router } from "expo-router";
 import apiClient from "@/shared/utilities/axios";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useAppStore } from "@/shared/store/app.store";
 
 export const useSplashNavigation = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -9,6 +10,7 @@ export const useSplashNavigation = () => {
   const accessToken = useAuthStore((state) => state.accessToken);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const account = useAuthStore((state) => state.account);
+  const hasSeenOnboarding = useAppStore((state) => state.hasSeenOnboarding);
   const setAccount = useAuthStore((state) => state.setAccount);
 
   const navigate = async () => {
@@ -16,8 +18,18 @@ export const useSplashNavigation = () => {
       return;
     }
 
-    if (!isAuthenticated || !userProfile?.address || !accessToken) {
+    if (!hasSeenOnboarding) {
       router.replace("/(auth)");
+      return;
+    }
+
+    if (!isAuthenticated || !userProfile?.address || !accessToken) {
+      router.replace("/(auth)/connect");
+      return;
+    }
+
+    if (!account) {
+      router.replace("/(auth)/connect");
       return;
     }
 

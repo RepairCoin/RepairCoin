@@ -54,11 +54,11 @@ export const useLogout = () => {
       resetState();
 
       if (navigate) {
-        router.replace("/(auth)");
+        router.replace("/(auth)/connect");
       }
     } catch (error) {
       console.error("[Logout] Error during logout:", error);
-      router.replace("/(auth)");
+      router.replace("/(auth)/connect");
     } finally {
       setIsLoggingOut(false);
     }

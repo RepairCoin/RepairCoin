@@ -48,3 +48,6 @@ GoogleService-Info.plist
 
 app-example
 google-play-service-account.json
+
+# Release keystore
+*.keystore
