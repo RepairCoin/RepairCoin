@@ -24,9 +24,7 @@ export const exportServices = async (options: ExportOptions): Promise<Blob> => {
       `${process.env.NEXT_PUBLIC_API_URL}/services/export?${params.toString()}`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include', // Send httpOnly cookies
       }
     );
 
@@ -50,9 +48,7 @@ export const downloadTemplate = async (format: 'xlsx' | 'csv' = 'xlsx'): Promise
       `${process.env.NEXT_PUBLIC_API_URL}/services/template?format=${format}`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include', // Send httpOnly cookies
       }
     );
 
@@ -89,9 +85,7 @@ export const importServices = async (
       `${process.env.NEXT_PUBLIC_API_URL}/services/import`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include', // Send httpOnly cookies
         body: formData,
       }
     );
@@ -138,9 +132,7 @@ export const sendTestImport = async (
       `${process.env.NEXT_PUBLIC_API_URL}/services/import/test`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        credentials: 'include', // Send httpOnly cookies
         body: formData,
       }
     );
