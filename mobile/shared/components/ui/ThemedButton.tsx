@@ -14,6 +14,7 @@ export type ThemedButtonProps = {
   loading?: boolean;
   loadingTitle?: string;
   variant?: "primary" | "secondary";
+  customStyle?: any;
 };
 
 export function ThemedButton(props: ThemedButtonProps) {
@@ -34,6 +35,7 @@ export function ThemedButton(props: ThemedButtonProps) {
           borderWidth: variant == "secondary" ? 1 : 0,
           backgroundColor: variant == "secondary" ? "transparent" : theme.tint,
         },
+        props.customStyle
       ]}
       onPress={(e) => {
         haptics.selection();
