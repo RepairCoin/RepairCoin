@@ -4,33 +4,28 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppStore } from "@/shared/store/app.store";
 
 export const useSplashNavigation = () => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const userProfile = useAuthStore((state) => state.userProfile);
-  const userType = useAuthStore((state) => state.userType);
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const hasHydrated = useAuthStore((state) => state.hasHydrated);
-  const account = useAuthStore((state) => state.account);
+  const { 
+    isAuthenticated,
+    userProfile,
+    userType,
+    accessToken,
+    hasHydrated,
+    account,
+    setAccount
+  } = useAuthStore();
   const hasSeenOnboarding = useAppStore((state) => state.hasSeenOnboarding);
-  const setAccount = useAuthStore((state) => state.setAccount);
 
   const navigate = async () => {
     if (!hasHydrated) {
       return;
     }
 
-    console.log("hasSeenOnboarding", hasSeenOnboarding);
-
     if (!hasSeenOnboarding) {
       router.replace("/(auth)/onboarding");
       return;
     }
 
-    if (!isAuthenticated || !userProfile?.address || !accessToken) {
-      router.replace("/(auth)/connect");
-      return;
-    }
-
-    if (!account) {
+    if (!isAuthenticated || !userProfile?.address || !accessToken || !account) {
       router.replace("/(auth)/connect");
       return;
     }
