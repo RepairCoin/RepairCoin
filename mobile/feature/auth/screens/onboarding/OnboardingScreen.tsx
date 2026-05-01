@@ -14,7 +14,6 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import { useAuthStore } from "@/feature/auth/store/auth.store";
 import OnboardingOne from "../../components/onboarding/Onboarding1";
 import OnboardingTwo from "../../components/onboarding/Onboarding2";
 import OnboardingThree from "../../components/onboarding/Onboarding3";
@@ -22,8 +21,6 @@ import OnboardingThree from "../../components/onboarding/Onboarding3";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function OnboardingLayout() {
-  const isLoading = useAuthStore((state) => state.isLoading);
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const translateX = useSharedValue(0);
 
@@ -61,14 +58,6 @@ export default function OnboardingLayout() {
       transform: [{ translateX: translateX.value }],
     };
   });
-
-  if (isLoading) {
-    return (
-      <View className="h-full w-full bg-black items-center justify-center px-8">
-        <ActivityIndicator size="large" color="#FFCC00" />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-black">

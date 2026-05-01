@@ -295,7 +295,7 @@ class ApiClient {
       resetState();
 
       if (isAuthenticated) {
-        router.replace("/(auth)");
+        router.replace("/(auth)/connect");
       }
     } catch (error) {
       console.error("Failed to clear auth:", error);

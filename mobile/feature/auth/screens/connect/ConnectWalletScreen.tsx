@@ -1,16 +1,32 @@
 import React, { useState, useRef, useCallback } from "react";
-import { Text, View, ImageBackground, Image, Pressable } from "react-native";
+import {
+  Text,
+  View,
+  ImageBackground,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { useConnect } from "thirdweb/react";
-import { client } from "@/shared/constants/thirdweb";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
 import { useAuthStore, AuthMethod } from "@/feature/auth/store/auth.store";
+import { useConnectWallet } from "@/feature/auth/hooks/useAuthQuery";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
-import { useConnectWallet } from "@/feature/auth/hooks/useAuthQuery";
 import Screen from "@/shared/components/ui/Screen";
+import { client } from "@/shared/constants/thirdweb";
 
 export default function ConnectWalletScreen() {
+  const { isLoading } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <View className="h-full w-full bg-black items-center justify-center px-8">
+        <ActivityIndicator size="large" color="#FFCC00" />
+      </View>
+    );
+  }
+  
   return (
     <Screen>
       <ImageBackground resizeMode="cover" className="h-full w-full px-8">

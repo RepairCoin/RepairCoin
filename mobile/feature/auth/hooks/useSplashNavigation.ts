@@ -18,8 +18,10 @@ export const useSplashNavigation = () => {
       return;
     }
 
+    console.log("hasSeenOnboarding", hasSeenOnboarding);
+
     if (!hasSeenOnboarding) {
-      router.replace("/(auth)");
+      router.replace("/(auth)/onboarding");
       return;
     }
 
@@ -57,7 +59,7 @@ export const useSplashNavigation = () => {
         );
       }
     } else {
-      router.replace("/(auth)");
+      router.replace("/(auth)/connect");
     }
   };
 
