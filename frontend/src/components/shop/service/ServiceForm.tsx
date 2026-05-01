@@ -13,19 +13,14 @@ import { ImageUploader } from "../ImageUploader";
 /**
  * ServiceForm
  *
- * Shop service create/edit form fields.
- *
- * This is the page-based replacement for the form half of CreateServiceModal.
- * The modal's chrome (overlay, dialog wrapper, header X button) is dropped.
- * The right-column live preview is split out into ServiceFormPreview (Task 2).
- *
- * Phase 1 scope: existing fields only — name, category, description, price,
- * image, tags, active status. The AI Sales Assistant section ships in Task 3
- * as a separate component composed alongside this one.
- *
- * Parent owns no form state. ServiceForm owns formData internally and
+ * Shop service create/edit form fields. Owns formData internally and
  * optionally calls onFormDataChange on every edit so a sibling preview
  * component can mirror the same state.
+ *
+ * Fields: name, category, description, price, image, tags, active.
+ * The AI Sales Assistant section is composed alongside (not inside) this
+ * component — it lives at the page level so create/edit pages can persist
+ * its state at submit.
  */
 
 const CategoryDropdown: React.FC<{

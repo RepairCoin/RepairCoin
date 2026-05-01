@@ -32,8 +32,6 @@ import { StarRating } from "./StarRating";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
-import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
-import { createService, CreateServiceData, UpdateServiceData } from "@/services/api/services";
 import { useAuthStore } from "@/stores/authStore";
 import * as messagingApi from "@/services/api/messaging";
 import BookingAnalyticsTab from "@/components/shop/tabs/BookingAnalyticsTab";
@@ -87,7 +85,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [operatingHours, setOperatingHours] = useState<any>(null);
   const [isOpenNow, setIsOpenNow] = useState(false);
   const [isMessaging, setIsMessaging] = useState(false);
-  const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
   const [customerCount, setCustomerCount] = useState<number | null>(null);
 
   const [reviews, setReviews] = useState<ServiceReview[]>([]);
@@ -283,20 +280,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
       setSelectedService(prev => prev ? { ...prev, isFavorited } : prev);
     }
   };
-
-  const handleCreateService = async (data: CreateServiceData | UpdateServiceData) => {
-    try {
-      await createService(data as CreateServiceData);
-      toast.success("Service created successfully!");
-      setShowCreateServiceModal(false);
-      // Reload services list
-      loadShopData();
-    } catch (error) {
-      console.error("Error creating service:", error);
-      toast.error("Failed to create service");
-    }
-  };
-
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -756,7 +739,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-white">My Services</h3>
                 <button
-                  onClick={() => setShowCreateServiceModal(true)}
+                  onClick={() => router.push('/shop/services/new')}
                   className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg font-semibold transition-colors"
                 >
                   <Plus className="w-5 h-5" />
@@ -774,7 +757,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                 <p className="text-gray-400">This shop hasn't added any services yet.</p>
                 {isPreviewMode && (
                   <button
-                    onClick={() => setShowCreateServiceModal(true)}
+                    onClick={() => router.push('/shop/services/new')}
                     className="mt-6 px-6 py-3 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg font-semibold transition-colors"
                   >
                     Create Your First Service
@@ -1062,13 +1045,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         />
       )}
 
-      {/* Create Service Modal */}
-      {showCreateServiceModal && isPreviewMode && (
-        <CreateServiceModal
-          onClose={() => setShowCreateServiceModal(false)}
-          onSubmit={handleCreateService}
-        />
-      )}
     </div>
   );
 };
