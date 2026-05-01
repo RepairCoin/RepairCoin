@@ -69,6 +69,31 @@ export function PageTabs<T extends string = string>({
     };
   }, [updateScrollState]);
 
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const activeButton = root.querySelector<HTMLButtonElement>(
+      `[data-tab-key="${activeTab}"]`
+    );
+    if (!activeButton) return;
+
+    const containerRect = root.getBoundingClientRect();
+    const buttonRect = activeButton.getBoundingClientRect();
+    const padding = 16;
+
+    if (buttonRect.left < containerRect.left + padding) {
+      root.scrollBy({
+        left: buttonRect.left - containerRect.left - padding,
+        behavior: "smooth",
+      });
+    } else if (buttonRect.right > containerRect.right - padding) {
+      root.scrollBy({
+        left: buttonRect.right - containerRect.right + padding,
+        behavior: "smooth",
+      });
+    }
+  }, [activeTab]);
+
   const scrollByDirection = (direction: "left" | "right") => {
     const root = scrollRef.current;
     if (!root) return;
@@ -107,6 +132,7 @@ export function PageTabs<T extends string = string>({
               key={tab.key}
               role="tab"
               aria-selected={isActive}
+              data-tab-key={tab.key}
               onClick={() => onTabChange(tab.key)}
               className={`relative flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                 isActive
