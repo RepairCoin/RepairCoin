@@ -3676,7 +3676,205 @@ export function initializeRoutes(stripe: StripeService): Router {
     }
   );
 
+  // ==================== IMPORT/EXPORT ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/export:
+   *   get:
+   *     summary: Export services to Excel or CSV (Shop only)
+   *     description: Export all shop services to Excel or CSV format
+   *     tags: [Services, Import/Export]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: format
+   *         schema:
+   *           type: string
+   *           enum: [xlsx, csv]
+   *         description: Export file format - xlsx or csv, defaults to xlsx
+   *       - in: query
+   *         name: activeOnly
+   *         schema:
+   *           type: boolean
+   *         description: Export only active services, defaults to false
+   *       - in: query
+   *         name: includeMetadata
+   *         schema:
+   *           type: boolean
+   *         description: Include metadata like ratings and reviews, defaults to false
+   *     responses:
+   *       200:
+   *         description: File download
+   *         content:
+   *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       401:
+   *         description: Authentication required
+   *       403:
+   *         description: Not authorized (shop role required)
+   */
+  router.get(
+    '/export',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { exportRateLimiter } = await import('../../middleware/importRateLimit');
+      exportRateLimiter(req, res, async () => {
+        const { exportServices } = await import('./controllers/ImportExportController');
+        return exportServices(req, res);
+      });
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/template:
+   *   get:
+   *     summary: Download import template (Shop only)
+   *     description: Download blank import template with sample data
+   *     tags: [Services, Import/Export]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: format
+   *         schema:
+   *           type: string
+   *           enum: [xlsx, csv]
+   *         description: Template file format - xlsx or csv, defaults to xlsx
+   *       - in: query
+   *         name: includeSamples
+   *         schema:
+   *           type: boolean
+   *         description: Include sample data rows, defaults to true
+   *     responses:
+   *       200:
+   *         description: Template file download
+   *       401:
+   *         description: Authentication required
+   */
+  router.get(
+    '/template',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { downloadTemplate } = await import('./controllers/ImportExportController');
+      return downloadTemplate(req, res);
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/import:
+   *   post:
+   *     summary: Import services from Excel or CSV (Shop only)
+   *     description: Import services in bulk from uploaded file
+   *     tags: [Services, Import/Export]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - file
+   *             properties:
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: Excel or CSV file (max 10MB, max 1000 rows)
+   *               mode:
+   *                 type: string
+   *                 enum: [add, merge, replace]
+   *                 default: add
+   *                 description: Import mode (add=new only, merge=update+add, replace=delete all+import)
+   *               dryRun:
+   *                 type: boolean
+   *                 default: false
+   *                 description: Validate only without importing
+   *               onDuplicateName:
+   *                 type: string
+   *                 enum: [skip, update, rename, error]
+   *                 default: skip
+   *                 description: How to handle duplicate service names
+   *     responses:
+   *       200:
+   *         description: Import completed successfully
+   *       400:
+   *         description: Validation errors
+   *       401:
+   *         description: Authentication required
+   *       403:
+   *         description: Shop not qualified (subscription or 10K+ RCG required)
+   *       413:
+   *         description: File too large
+   *       422:
+   *         description: Invalid file format
+   *       429:
+   *         description: Rate limit exceeded (5 imports per hour)
+   */
+  router.post(
+    '/import',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { importRateLimiter } = await import('../../middleware/importRateLimit');
+      const { uploadMiddleware } = await import('../../middleware/fileUpload');
+
+      importRateLimiter(req, res, () => {
+        uploadMiddleware.single('file')(req, res, async (err: any) => {
+          if (err) {
+            return res.status(400).json({
+              success: false,
+              error: err.message
+            });
+          }
+          const { importServices } = await import('./controllers/ImportExportController');
+          return importServices(req, res);
+        });
+      });
+    }
+  );
+
+  /**
+   * @swagger
+   * /api/services/import/{jobId}:
+   *   get:
+   *     summary: Get import job status (Shop only)
+   *     description: Check the status of an import job
+   *     tags: [Services, Import/Export]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: jobId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Import job ID
+   *     responses:
+   *       200:
+   *         description: Job status retrieved
+   *       401:
+   *         description: Authentication required
+   *       404:
+   *         description: Job not found or expired
+   */
+  router.get(
+    '/import/:jobId',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    async (req, res) => {
+      const { getImportStatus } = await import('./controllers/ImportExportController');
+      return getImportStatus(req, res);
+    }
+  );
+
   return router;
 }
-
-export default router;

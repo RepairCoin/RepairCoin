@@ -27,6 +27,7 @@ import crossShopRoutes from './crossShop';
 import exportDataRoutes from './exportData';
 import balanceRoutes from './balance';
 import notificationPreferencesRoutes from './notificationPreferences';
+import importExportRoutes from './importExport';
 
 const router = Router();
 
@@ -48,6 +49,9 @@ router.use('/balance', balanceRoutes);
 
 // Register notification preferences routes (must be before /:address dynamic route)
 router.use('/', notificationPreferencesRoutes);
+
+// Register import/export routes (must be before /:address dynamic route)
+router.use('/', importExportRoutes);
 
 // ==================== ACCOUNT CLAIM ROUTES ====================
 

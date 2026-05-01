@@ -20,6 +20,8 @@ import {
   HeartHandshake,
   Flag,
   QrCode,
+  Upload,
+  Download,
 } from "lucide-react";
 import { sanitizeDescription } from "@/utils/sanitize";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
@@ -33,6 +35,8 @@ import {
 } from "@/services/api/services";
 import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
+import { ServiceImportModal } from "@/components/shop/modals/ServiceImportModal";
+import { ServiceExportModal } from "@/components/shop/modals/ServiceExportModal";
 
 interface ShopData {
   shopName?: string;
@@ -119,6 +123,8 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [deletingService, setDeletingService] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<ShopService | null>(null);
   const [qrModalService, setQrModalService] = useState<ShopService | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -207,16 +213,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   // This now includes proper handling of 'paused' status
   const canCreateServices = subscriptionStatus.canPerformOperations;
 
-  // Debug log for subscription status
-  console.log('[ServicesTab] Subscription check:', {
-    operational_status: shopData?.operational_status,
-    subscriptionActive: shopData?.subscriptionActive,
-    isPaused: subscriptionStatus.isPaused,
-    isRcgQualified: subscriptionStatus.isRcgQualified,
-    canPerformOperations: subscriptionStatus.canPerformOperations,
-    statusMessage: subscriptionStatus.statusMessage
-  });
-
   if (loading) {
     return (
       <div className="bg-[#101010] min-h-[600px] rounded-xl p-6 flex items-center justify-center">
@@ -237,6 +233,32 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           <h2 className="text-xl font-semibold text-white">
             Services ({services.length})
           </h2>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Import/Export Buttons */}
+          <button
+            onClick={() => setShowImportModal(true)}
+            disabled={!canCreateServices}
+            title={canCreateServices ? "Import Services" : "Subscription or 10,000+ RCG required"}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              canCreateServices
+                ? "bg-gray-800 text-white hover:bg-gray-700 border border-gray-700"
+                : "bg-gray-800 text-gray-500 cursor-not-allowed opacity-50 border border-gray-700"
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </button>
+
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-gray-800 text-white hover:bg-gray-700 border border-gray-700"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+
           <button
             onClick={() => {
               if (!canCreateServices) {
@@ -635,6 +657,24 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           serviceId={qrModalService.serviceId}
           serviceName={qrModalService.serviceName}
           shopName={shopData?.shopName || shopData?.name || 'Shop'}
+        />
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <ServiceImportModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
+            loadServices();
+            setShowImportModal(false);
+          }}
+        />
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <ServiceExportModal
+          onClose={() => setShowExportModal(false)}
         />
       )}
     </div>
