@@ -186,13 +186,14 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
     <div className="max-w-7xl mx-auto p-3 sm:p-6">
       {/* Header */}
       <SectionHeader
+        variant="page"
         title={serviceName ? 'Service Bookings' : 'Appointment Calendar'}
         subtitle={serviceName ? (
           <>Showing bookings for <span className="text-[#FFCC00]">{serviceName}</span></>
         ) : (
           'View and manage your bookings'
         )}
-        actions={
+        action={
           <>
             <div className="flex items-center gap-2 sm:gap-3">
               <button

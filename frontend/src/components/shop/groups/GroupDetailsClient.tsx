@@ -9,6 +9,8 @@ import {
   Users, Coins, Copy, Check, Shield,
   BookOpen, FileText, Activity, ChevronRight, Home, Dumbbell
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import GroupMembersTab from "./GroupMembersTab";
 import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
@@ -20,18 +22,14 @@ import ImprovedRcnAllocationCard from "./ImprovedRcnAllocationCard";
 import { useAuthStore } from "../../../stores/authStore";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { LoadingSpinner } from "./shared";
+import { PageTabs } from "@/components/ui/PageTabs";
+import type { PageTab } from "@/components/ui/PageTabs";
+import { CardCarousel } from "@/components/ui/CardCarousel";
 import { formatDate } from "./utils/formatters";
 import type { GroupDetailsTab } from "./types";
 
 interface GroupDetailsClientProps {
   groupId: string;
-}
-
-interface TabConfig {
-  key: GroupDetailsTab;
-  label: string;
-  icon: React.ElementType;
-  hasBadge?: boolean;
 }
 
 export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps) {
@@ -161,7 +159,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   }
 
   // Define tabs based on access level
-  const tabs: TabConfig[] = [
+  const tabs: PageTab<GroupDetailsTab>[] = [
     { key: "overview", label: "Overview", icon: BookOpen },
     ...(isRestrictedAccess ? [] : [
       { key: "members" as GroupDetailsTab, label: "Members", icon: Users, hasBadge: true },
@@ -175,44 +173,49 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   return (
     <DashboardLayout userRole="shop">
       {shopDataLoading ? (
-        <div className="px-12 py-8" />
+        <div className="py-8" />
       ) : (
         <SubscriptionGuard shopData={shopData}>
-          <div className="px-12 py-8 min-h-screen">
+          <div className="min-h-screen py-4 sm:py-8">
+            <div className="max-w-screen-2xl w-[96%] mx-auto">
             {/* Breadcrumb and Header */}
-            <div className="mb-8">
-              <nav className="flex items-center gap-3 text-base mb-3">
-                <button onClick={() => router.push("/shop")} className="text-gray-400 hover:text-white transition-colors">
-                  <Home className="w-5 h-5" />
-                </button>
-                <ChevronRight className="w-5 h-5 text-gray-500" />
+            <div className="mb-6 sm:mb-8">
+              <nav className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                 <button
-                  onClick={() => router.push("/shop/groups")}
-                  className="flex items-center gap-2 text-[#FFCC00] hover:text-[#FFD700] transition-colors font-medium"
+                  onClick={() => router.push("/shop")}
+                  className="p-1 rounded hover:bg-[#303236] transition-colors flex-shrink-0"
+                  title="Go to Overview"
                 >
-                  <Users className="w-5 h-5" />
-                  <span>Affiliate Groups</span>
+                  <Home className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-white transition-colors" />
                 </button>
-                <ChevronRight className="w-5 h-5 text-gray-500" />
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
                 <button
                   onClick={() => router.push("/shop/groups")}
-                  className="text-white hover:text-[#FFCC00] transition-colors font-medium"
+                  className="flex items-center gap-1 sm:gap-1.5 hover:text-[#FFD700] transition-colors flex-shrink-0"
+                >
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFCC00]" />
+                  <span className="text-sm sm:text-base font-medium text-[#FFCC00] hidden sm:inline">Affiliate Groups</span>
+                </button>
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0 hidden sm:inline-block" />
+                <button
+                  onClick={() => router.push("/shop/groups")}
+                  className="text-sm sm:text-base font-medium text-white hover:text-[#FFCC00] transition-colors flex-shrink-0 hidden sm:inline"
                 >
                   My Groups
                 </button>
-                <ChevronRight className="w-5 h-5 text-gray-500" />
-                <span className="text-[#FFCC00] font-medium">{group.groupName}</span>
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                <span className="text-sm sm:text-base font-medium text-[#FFCC00] truncate max-w-[160px] sm:max-w-[240px] md:max-w-none">{group.groupName}</span>
               </nav>
-              <p className="text-gray-400 text-sm">Browse, track, and grow your affiliate communities effortlessly.</p>
+              <p className="text-xs sm:text-sm text-gray-400">Browse, track, and grow your affiliate communities effortlessly.</p>
             </div>
 
             {/* Header Card */}
-            <div className="bg-[#101010] rounded-xl p-6 mb-6">
+            <div className="bg-[#101010] rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
               <div className="flex items-center gap-2 mb-1">
-                <Dumbbell className="w-5 h-5 text-white" />
-                <h1 className="text-lg font-semibold text-white">{group.groupName}</h1>
+                <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0" />
+                <h1 className="text-base sm:text-lg font-semibold text-white truncate">{group.groupName}</h1>
               </div>
-              <p className="text-gray-500 text-sm mb-6">
+              <p className="text-gray-500 text-xs sm:text-sm mb-4 sm:mb-6">
                 {group.description || "Welcome to this affiliate group."}
               </p>
 
@@ -230,29 +233,12 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-md font-medium transition-all duration-200 whitespace-nowrap ${
-                      isActive
-                        ? "bg-[#FFCC00] text-[#101010]"
-                        : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="text-sm font-medium">{tab.label}</span>
-                    {tab.hasBadge && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <PageTabs
+              tabs={tabs}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              className="mb-4 sm:mb-6"
+            />
 
             {/* Tab Content */}
             <div>
@@ -305,6 +291,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                 </div>
               )}
             </div>
+            </div>
           </div>
         </SubscriptionGuard>
       )}
@@ -327,31 +314,31 @@ function RestrictedAccessBanner({ membershipStatus, onJoinGroup, onGoBack, joini
   return (
     <div className={`${
       isPending ? 'bg-blue-500/10 border-blue-500/30' : 'bg-orange-500/10 border-orange-500/30'
-    } border rounded-xl p-6`}>
-      <div className="flex items-start gap-4">
+    } border rounded-xl p-4 sm:p-6`}>
+      <div className="flex items-start gap-3 sm:gap-4">
         <div className={`flex-shrink-0 p-2 ${
           isPending ? 'bg-blue-500/20' : 'bg-orange-500/20'
         } rounded-lg`}>
-          <Shield className={`w-6 h-6 ${isPending ? 'text-blue-400' : 'text-orange-400'}`} />
+          <Shield className={`w-5 h-5 sm:w-6 sm:h-6 ${isPending ? 'text-blue-400' : 'text-orange-400'}`} />
         </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-bold text-white mb-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base sm:text-lg font-bold text-white mb-2">
             {isPending ? 'Membership Request Pending' : 'Join Group to Access Full Features'}
           </h3>
-          <p className="text-gray-300 mb-4">
+          <p className="text-gray-300 text-xs sm:text-sm mb-4">
             {isPending
               ? 'Your request to join this group is awaiting approval from the group admin. Once approved, you will have access to all group features including token operations, member list, transactions, and analytics.'
               : 'You need to be a member to view detailed information including token details, members, transactions, and analytics. Send a join request to access all features.'}
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {membershipStatus === null && (
               <button
                 onClick={onJoinGroup}
                 disabled={joiningGroup}
-                className="px-6 py-2.5 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {joiningGroup ? (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
                     Joining...
                   </span>
@@ -362,7 +349,7 @@ function RestrictedAccessBanner({ membershipStatus, onJoinGroup, onGoBack, joini
             )}
             <button
               onClick={onGoBack}
-              className={`px-4 py-2 ${
+              className={`px-4 py-2 text-sm sm:text-base ${
                 isPending ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
               } text-white font-semibold rounded-lg transition-all duration-200`}
             >
@@ -381,33 +368,37 @@ interface GroupStatsCardsProps {
   inviteCodeCopied: boolean;
 }
 
+interface StatCardItem {
+  icon: LucideIcon;
+  label: string;
+  body: ReactNode;
+}
+
 function GroupStatsCards({ group, onCopyInviteCode, inviteCodeCopied }: GroupStatsCardsProps) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-[#1e1f22] rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Coins className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Token</span>
-        </div>
+  const cards: StatCardItem[] = [
+    {
+      icon: Coins,
+      label: "Token",
+      body: (
         <p className="text-white font-semibold">
           {group.customTokenSymbol} • {group.customTokenName}
         </p>
-      </div>
-
-      <div className="bg-[#1e1f22] rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Users className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Members</span>
-        </div>
-        <p className="text-white font-semibold text-xl">{group.memberCount || 0}</p>
-        <p className="text-gray-500 text-xs">Active participants</p>
-      </div>
-
-      <div className="bg-[#1e1f22] rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Copy className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Invite Code</span>
-        </div>
+      ),
+    },
+    {
+      icon: Users,
+      label: "Members",
+      body: (
+        <>
+          <p className="text-white font-semibold text-xl">{group.memberCount || 0}</p>
+          <p className="text-gray-500 text-xs">Active participants</p>
+        </>
+      ),
+    },
+    {
+      icon: Copy,
+      label: "Invite Code",
+      body: (
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-white font-semibold tracking-wider">
             {group.inviteCode}
@@ -423,19 +414,36 @@ function GroupStatsCards({ group, onCopyInviteCode, inviteCodeCopied }: GroupSta
             )}
           </button>
         </div>
-      </div>
+      ),
+    },
+    {
+      icon: Shield,
+      label: "Group Privacy",
+      body: (
+        <>
+          <p className="text-white font-semibold">PUBLIC</p>
+          <p className="text-gray-500 text-xs">
+            Created: {formatDate(group.createdAt, { shortFormat: true })}
+          </p>
+        </>
+      ),
+    },
+  ];
 
-      <div className="bg-[#1e1f22] rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Shield className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Group Privacy</span>
+  return (
+    <CardCarousel>
+      {cards.map(({ icon: Icon, label, body }) => (
+        <div key={label} className="bg-[#1e1f22] rounded-lg p-3 sm:p-4 h-full">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
+            <Icon className="w-4 h-4 text-[#FFCC00]" />
+            <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">
+              {label}
+            </span>
+          </div>
+          {body}
         </div>
-        <p className="text-white font-semibold">PUBLIC</p>
-        <p className="text-gray-500 text-xs">
-          Created: {formatDate(group.createdAt, { shortFormat: true })}
-        </p>
-      </div>
-    </div>
+      ))}
+    </CardCarousel>
   );
 }
 
@@ -448,31 +456,31 @@ function OverviewTab({ group, isRestrictedAccess }: OverviewTabProps) {
   const isPending = group.membershipStatus === 'pending';
 
   return (
-    <div className="bg-[#101010] rounded-xl p-6">
-      <div className="flex items-center gap-2 mb-5">
-        <Dumbbell className="w-5 h-5 text-[#FFCC00]" />
-        <h3 className="text-[#FFCC00] font-semibold">Group Overview</h3>
+    <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
+      <div className="flex items-center gap-2 mb-4 sm:mb-5">
+        <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFCC00]" />
+        <h3 className="text-[#FFCC00] font-semibold text-sm sm:text-base">Group Overview</h3>
       </div>
 
       {isRestrictedAccess ? (
         <div className="space-y-4">
-          <div className={`p-5 ${
+          <div className={`p-4 sm:p-5 ${
             isPending ? 'bg-blue-500/10 border-blue-500/30' : 'bg-orange-500/10 border-orange-500/30'
           } border rounded-lg`}>
-            <div className="flex items-start gap-4">
-              <Shield className={`w-6 h-6 ${
+            <div className="flex items-start gap-3 sm:gap-4">
+              <Shield className={`w-5 h-5 sm:w-6 sm:h-6 ${
                 isPending ? 'text-blue-400' : 'text-orange-400'
               } flex-shrink-0 mt-0.5`} />
-              <div>
-                <h4 className="text-base font-bold text-white mb-2">
+              <div className="min-w-0">
+                <h4 className="text-sm sm:text-base font-bold text-white mb-2">
                   {isPending ? 'Awaiting Approval' : 'Members Only Content'}
                 </h4>
-                <p className="text-gray-300 text-sm mb-3">
+                <p className="text-gray-300 text-xs sm:text-sm mb-3">
                   {isPending
                     ? 'Your membership request is pending admin approval. Once approved, you will gain access to:'
                     : 'This group\'s detailed information is only visible to members. Join the group to access:'}
                 </p>
-                <ul className="list-disc list-inside space-y-1.5 text-gray-300 text-sm">
+                <ul className="list-disc list-inside space-y-1.5 text-gray-300 text-xs sm:text-sm">
                   <li>Custom token details and operations</li>
                   <li>Member roster and management</li>
                   <li>Transaction history and analytics</li>
@@ -484,26 +492,26 @@ function OverviewTab({ group, isRestrictedAccess }: OverviewTabProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-[#1e1f22] rounded-lg p-5">
+          <div className="bg-[#1e1f22] rounded-lg p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-gray-400 text-sm font-medium">Group Description</p>
+              <p className="text-gray-400 text-xs sm:text-sm font-medium">Group Description</p>
               <button className="text-gray-500 hover:text-white transition-colors">
                 <FileText className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
+            <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
               {group.description || "No description provided."}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[#1e1f22] rounded-lg p-5">
-              <p className="text-gray-400 text-sm font-medium mb-2">Date Created</p>
-              <p className="text-white text-sm">{formatDate(group.createdAt)}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4 sm:p-5">
+              <p className="text-gray-400 text-xs sm:text-sm font-medium mb-2">Date Created</p>
+              <p className="text-white text-xs sm:text-sm">{formatDate(group.createdAt)}</p>
             </div>
-            <div className="bg-[#1e1f22] rounded-lg p-5">
-              <p className="text-gray-400 text-sm font-medium mb-2">Last Updated</p>
-              <p className="text-white text-sm">{formatDate(group.updatedAt, { includeTime: true })}</p>
+            <div className="bg-[#1e1f22] rounded-lg p-4 sm:p-5">
+              <p className="text-gray-400 text-xs sm:text-sm font-medium mb-2">Last Updated</p>
+              <p className="text-white text-xs sm:text-sm">{formatDate(group.updatedAt, { includeTime: true })}</p>
             </div>
           </div>
         </div>

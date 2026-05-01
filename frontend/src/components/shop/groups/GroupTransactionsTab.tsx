@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { TrendingUp, TrendingDown, History } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { LoadingSpinner, Pagination, EmptyState, FilterTabs, SectionHeader } from "./shared";
+import { LoadingSpinner, Pagination, EmptyState, FilterTabs } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { formatDateTime, formatAddress, formatTransactionId } from "./utils/formatters";
 import { TRANSACTIONS_PER_PAGE } from "./constants";
 import type { TransactionFilterType, FilterOption } from "./types";
@@ -69,7 +70,7 @@ export default function GroupTransactionsTab({
   };
 
   return (
-    <div className="bg-[#101010] rounded-xl p-6">
+    <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
       <SectionHeader
         icon={History}
         title="Transaction History"
@@ -95,23 +96,23 @@ export default function GroupTransactionsTab({
             {transactions.map((tx) => (
               <div
                 key={tx.id}
-                className="bg-[#1e1f22] rounded-lg p-4 hover:bg-[#2a2b2f] transition-colors"
+                className="bg-[#1e1f22] rounded-lg p-3 sm:p-4 hover:bg-[#2a2b2f] transition-colors"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex items-start justify-between gap-2 sm:gap-3">
+                  <div className="flex-1 min-w-0">
                     {/* Type and Amount */}
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
                       {tx.type === "earn" ? (
-                        <div className="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-green-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
                           <TrendingUp className="w-4 h-4 text-green-500" />
                         </div>
                       ) : (
-                        <div className="w-8 h-8 bg-orange-600/20 rounded-lg flex items-center justify-center">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-orange-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
                           <TrendingDown className="w-4 h-4 text-orange-500" />
                         </div>
                       )}
-                      <div>
-                        <p className="font-semibold text-white">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white text-sm sm:text-base truncate">
                           {tx.type === "earn" ? "+" : "-"}
                           {tx.amount} {tokenSymbol}
                         </p>
@@ -122,16 +123,16 @@ export default function GroupTransactionsTab({
                     </div>
 
                     {/* Details */}
-                    <div className="ml-11 space-y-1">
-                      <p className="text-sm text-gray-300">
+                    <div className="sm:ml-11 space-y-1">
+                      <p className="text-xs sm:text-sm text-gray-300 break-all">
                         <span className="text-gray-500">Customer:</span>{" "}
                         {formatAddress(tx.customerAddress)}
                       </p>
-                      <p className="text-sm text-gray-300">
+                      <p className="text-xs sm:text-sm text-gray-300 break-all">
                         <span className="text-gray-500">Shop:</span> {tx.shopId}
                       </p>
                       {tx.reason && (
-                        <p className="text-sm text-gray-400 italic">
+                        <p className="text-xs sm:text-sm text-gray-400 italic break-words">
                           <span className="text-gray-500">Reason:</span> {tx.reason}
                         </p>
                       )}
@@ -140,8 +141,8 @@ export default function GroupTransactionsTab({
                   </div>
 
                   {/* Transaction ID */}
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 font-mono">
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
                       {formatTransactionId(tx.id)}
                     </p>
                   </div>

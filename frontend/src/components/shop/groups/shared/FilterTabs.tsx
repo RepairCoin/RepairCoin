@@ -26,7 +26,7 @@ export default function FilterTabs<T extends string>({
   className = "",
 }: FilterTabsProps<T>) {
   return (
-    <div className={`flex gap-2 ${className}`}>
+    <div className={`flex gap-1.5 sm:gap-2 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0 scrollbar-hide ${className}`}>
       {options.map((option) => {
         const isActive = value === option.value;
         const activeColor = option.activeColor || option.color || "bg-[#FFCC00]";
@@ -37,7 +37,7 @@ export default function FilterTabs<T extends string>({
             key={option.value}
             onClick={() => onChange(option.value)}
             disabled={disabled}
-            className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`relative flex-shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 ${
               isActive
                 ? `${activeColor} ${activeTextColor}`
                 : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"

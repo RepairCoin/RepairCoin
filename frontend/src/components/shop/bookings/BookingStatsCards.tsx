@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Clock, CheckCircle, DollarSign, Receipt } from "lucide-react";
+import { CardCarousel } from "@/components/ui/CardCarousel";
 import { MockBooking } from "./mockData";
 
 interface StatusCounts {
@@ -55,11 +56,11 @@ export const BookingStatsCards: React.FC<BookingStatsCardsProps> = ({ bookings, 
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => (
+    <CardCarousel mobileEdgeBleedClassName="">
+      {stats.map((stat) => (
         <div
-          key={index}
-          className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors"
+          key={stat.label}
+          className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors h-full"
         >
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-xl ${stat.bgColor}`}>
@@ -72,6 +73,6 @@ export const BookingStatsCards: React.FC<BookingStatsCardsProps> = ({ bookings, 
           </div>
         </div>
       ))}
-    </div>
+    </CardCarousel>
   );
 };

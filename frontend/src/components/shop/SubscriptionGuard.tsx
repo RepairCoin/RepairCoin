@@ -114,27 +114,27 @@ const BlockedOverlay: React.FC<{
 
   return (
     <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-20 rounded-lg">
-      <div className="sticky top-1/2 -translate-y-1/2 flex items-center justify-center">
-        <div className="text-center p-6 max-w-md">
-          <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+      <div className="sticky top-1/2 -translate-y-1/2 flex items-center justify-center px-3 sm:px-0">
+        <div className="text-center p-4 sm:p-6 max-w-md w-full">
+          <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
             isYellowTheme ? 'bg-yellow-500/20' : isRedTheme ? 'bg-red-500/20' : 'bg-orange-500/20'
           }`}>
-            <AlertTriangle className={`w-8 h-8 ${
+            <AlertTriangle className={`w-6 h-6 sm:w-8 sm:h-8 ${
               isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
             }`} />
           </div>
-          <h3 className={`text-lg font-bold mb-2 ${
+          <h3 className={`text-base sm:text-lg font-bold mb-2 ${
             isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
           }`}>
             {getTitle()}
           </h3>
-          <p className="text-gray-300 text-sm">
+          <p className="text-gray-300 text-xs sm:text-sm">
             {getMessage()}
           </p>
           {isSubscriptionBlock && (
             <button
               onClick={() => router.push('/shop?tab=subscription')}
-              className={`mt-4 px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 ${
+              className={`mt-3 sm:mt-4 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 ${
                 isRedTheme
                   ? 'bg-red-500 hover:bg-red-600 text-white'
                   : 'bg-orange-500 hover:bg-orange-600 text-white'
@@ -173,24 +173,24 @@ export const SubscriptionWarningBanner: React.FC<{
   };
 
   return (
-    <div className={`border-2 rounded-xl p-4 ${
+    <div className={`border-2 rounded-xl p-3 sm:p-4 ${
       isYellowTheme
         ? 'bg-yellow-900/20 border-yellow-500/50'
         : isRedTheme
           ? 'bg-red-900/20 border-red-500/50'
           : 'bg-orange-900/20 border-orange-500/50'
     } ${className}`}>
-      <div className="flex items-start gap-3">
-        <AlertTriangle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+      <div className="flex items-start gap-2 sm:gap-3">
+        <AlertTriangle className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 mt-0.5 ${
           isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
         }`} />
-        <div className="flex-1">
-          <h4 className={`font-semibold ${
+        <div className="flex-1 min-w-0">
+          <h4 className={`font-semibold text-sm sm:text-base ${
             isYellowTheme ? 'text-yellow-400' : isRedTheme ? 'text-red-400' : 'text-orange-400'
           }`}>
             {getTitle()}
           </h4>
-          <p className="text-gray-300 text-sm mt-1">
+          <p className="text-gray-300 text-xs sm:text-sm mt-1 break-words">
             {status.statusMessage}
           </p>
         </div>

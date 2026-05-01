@@ -16,6 +16,7 @@ import { client } from "@/utils/thirdweb";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { useSubscriptionCheck } from "@/hooks/useSubscriptionCheck";
 import { LoadingSpinner, EmptyState } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import type { GroupSortOption } from "./types";
 import { GROUP_SORT_OPTIONS } from "./constants";
 
@@ -37,7 +38,9 @@ export default function AffiliateShopGroupsClient() {
   // My Groups: client-side search
   const [myGroupsSearch, setMyGroupsSearch] = useState("");
 
-  // Discover Groups: search & pagination
+  // Discover Groups: lazy-loaded on first tab switch (or invalidated after create/join)
+  const [discoverLoaded, setDiscoverLoaded] = useState(false);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverSearch, setDiscoverSearch] = useState("");
   const [discoverPage, setDiscoverPage] = useState(1);
   const [discoverTotalItems, setDiscoverTotalItems] = useState(0);
@@ -57,42 +60,26 @@ export default function AffiliateShopGroupsClient() {
     userProfile?.shopId
   );
 
-  useEffect(() => {
-    if (!authInitialized) return;
-
-    if ((account?.address || userProfile?.address) && isAuthenticated && userType === 'shop') {
-      loadData();
-    } else if (authInitialized) {
-      setLoading(false);
-    }
-  }, [account?.address, authInitialized, isAuthenticated, userType]);
-
-  const loadData = async () => {
+  const loadMyGroups = useCallback(async () => {
     try {
       setLoading(true);
-      const [myGroupsData, allGroupsResult] = await Promise.all([
-        shopGroupsAPI.getMyGroups(),
-        shopGroupsAPI.getAllGroups({ page: 1, limit: 20 }),
-      ]);
+      const myGroupsData = await shopGroupsAPI.getMyGroups();
       setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
-      setAllGroups(allGroupsResult.items);
-      setDiscoverTotalItems(allGroupsResult.pagination.totalItems);
-      setDiscoverHasMore(allGroupsResult.pagination.hasMore);
-      setDiscoverPage(1);
     } catch (error) {
-      console.error("Error loading groups:", error);
+      console.error("Error loading my groups:", error);
       toast.error("Failed to load shop groups");
       setMyGroups([]);
-      setAllGroups([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const loadDiscoverGroups = useCallback(async (search: string, page: number, append: boolean = false) => {
     try {
       if (append) {
         setDiscoverLoadingMore(true);
+      } else {
+        setDiscoverLoading(true);
       }
       const result = await shopGroupsAPI.getAllGroups({ search: search || undefined, page, limit: 20 });
       if (append) {
@@ -103,11 +90,44 @@ export default function AffiliateShopGroupsClient() {
       setDiscoverTotalItems(result.pagination.totalItems);
       setDiscoverHasMore(result.pagination.hasMore);
       setDiscoverPage(page);
+      setDiscoverLoaded(true);
     } catch (error) {
       console.error("Error loading discover groups:", error);
     } finally {
       setDiscoverLoadingMore(false);
+      setDiscoverLoading(false);
     }
+  }, []);
+
+  // Initial load: only fetch My Groups; Discover is lazy-loaded on tab switch.
+  useEffect(() => {
+    if (!authInitialized) return;
+
+    if ((account?.address || userProfile?.address) && isAuthenticated && userType === 'shop') {
+      loadMyGroups();
+    } else {
+      setLoading(false);
+    }
+  }, [account?.address, userProfile?.address, authInitialized, isAuthenticated, userType, loadMyGroups]);
+
+  // Lazy-load Discover on first switch to that tab (or after invalidation).
+  useEffect(() => {
+    if (
+      activeTab === "discover" &&
+      !discoverLoaded &&
+      !discoverLoading &&
+      isAuthenticated &&
+      userType === 'shop'
+    ) {
+      loadDiscoverGroups(discoverSearch, 1, false);
+    }
+  }, [activeTab, discoverLoaded, discoverLoading, discoverSearch, isAuthenticated, userType, loadDiscoverGroups]);
+
+  // Cancel pending search debounce on unmount to avoid stale state updates.
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
   }, []);
 
   const handleSearchChange = useCallback((value: string) => {
@@ -164,7 +184,8 @@ export default function AffiliateShopGroupsClient() {
       await shopGroupsAPI.createGroup(data);
       toast.success("Shop group created successfully!");
       setShowCreateModal(false);
-      loadData();
+      setDiscoverLoaded(false);
+      loadMyGroups();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       console.error("Error creating group:", error);
@@ -182,7 +203,8 @@ export default function AffiliateShopGroupsClient() {
         toast.success("Join request submitted! Waiting for admin approval.");
       }
       setShowJoinModal(false);
-      loadData();
+      setDiscoverLoaded(false);
+      loadMyGroups();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       console.error("Error joining group:", error);
@@ -191,21 +213,28 @@ export default function AffiliateShopGroupsClient() {
     }
   };
 
-  const handleGroupClick = (groupId: string) => {
+  const handleGroupClick = useCallback((groupId: string) => {
     router.push(`/shop/groups/${groupId}`);
-  };
+  }, [router]);
 
   const getSortLabel = (option: GroupSortOption) => {
     return GROUP_SORT_OPTIONS.find(o => o.value === option)?.label || "Members";
   };
 
-  const isGroupLeader = (group: shopGroupsAPI.AffiliateShopGroup) => {
-    return group.creatorShopId === shopId;
-  };
+  const isGroupLeader = useCallback(
+    (group: shopGroupsAPI.AffiliateShopGroup) => group.creatorShopId === shopId,
+    [shopId]
+  );
 
-  const isGroupMember = (groupId: string) => {
-    return myGroups.some(g => g.groupId === groupId);
-  };
+  // O(1) membership check — Set is rebuilt only when myGroups changes.
+  const myGroupIds = useMemo(
+    () => new Set(myGroups.map(g => g.groupId)),
+    [myGroups]
+  );
+  const isGroupMember = useCallback(
+    (groupId: string) => myGroupIds.has(groupId),
+    [myGroupIds]
+  );
 
   // Show loading state while auth is initializing or wallet is auto-connecting
   if (!authInitialized || authLoading || isAutoConnecting) {
@@ -221,12 +250,12 @@ export default function AffiliateShopGroupsClient() {
   // Not connected state
   if (!account) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] px-4 py-16 sm:py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-100">
           <div className="text-center">
-            <div className="text-6xl mb-6">🏪</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Affiliate Groups</h1>
-            <p className="text-gray-600 mb-8">Connect your shop wallet to access affiliate groups</p>
+            <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">🏪</div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">Affiliate Groups</h1>
+            <p className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8">Connect your shop wallet to access affiliate groups</p>
             <ConnectButton client={client} theme="light" connectModal={{ size: "wide" }} />
           </div>
         </div>
@@ -238,50 +267,50 @@ export default function AffiliateShopGroupsClient() {
     <>
       <DashboardLayout userRole="shop">
         {checkingSubscription ? (
-          <div className="px-12 py-8" />
+          <div className="px-4 sm:px-6 lg:px-12 py-4 sm:py-6 lg:py-8" />
         ) : (
           <SubscriptionGuard shopData={shopData}>
-            <div className="px-12 py-8 min-h-screen">
+            <div className="px-4 sm:px-6 lg:px-12 py-4 sm:py-6 lg:py-8 min-h-screen">
               {/* Breadcrumb and Header */}
-              <div className="mb-8">
-                <nav className="flex items-center gap-3 text-base mb-3">
+              <div className="mb-6 sm:mb-8">
+                <nav className="flex items-center gap-2 sm:gap-3 text-sm sm:text-base mb-2 sm:mb-3 flex-wrap">
                   <Link href="/shop" className="text-gray-400 hover:text-white transition-colors">
-                    <Home className="w-5 h-5" />
+                    <Home className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Link>
-                  <ChevronRight className="w-5 h-5 text-gray-500" />
-                  <Link href="/shop/groups" className="flex items-center gap-2 text-[#FFCC00] hover:text-[#FFD700] transition-colors font-medium">
-                    <Users className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                  <Link href="/shop/groups" className="flex items-center gap-1.5 sm:gap-2 text-[#FFCC00] hover:text-[#FFD700] transition-colors font-medium">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>Affiliate Groups</span>
                   </Link>
                   {activeTab === "discover" && (
                     <>
-                      <ChevronRight className="w-5 h-5 text-gray-500" />
+                      <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                       <span className="text-[#FFCC00] font-medium">Discover Groups</span>
                     </>
                   )}
                 </nav>
-                <p className="text-gray-400 text-sm">
+                <p className="text-gray-400 text-xs sm:text-sm">
                   Browse, track, and grow your affiliate communities effortlessly.
                 </p>
               </div>
 
               {/* Subscription Warning */}
               {!checkingSubscription && !subscriptionActive && (
-                <div className="mb-6 bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
+                <div className="mb-6 bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 sm:p-4">
+                  <div className="flex items-start gap-2 sm:gap-3">
                     <div className="flex-shrink-0">
-                      <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-orange-400 font-semibold mb-1">Subscription or RCG Qualification Required</h3>
-                      <p className="text-orange-300 text-sm mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-orange-400 font-semibold text-sm sm:text-base mb-1">Subscription or RCG Qualification Required</h3>
+                      <p className="text-orange-300 text-xs sm:text-sm mb-3">
                         You need an active RepairCoin subscription ($500/month) or RCG qualification (10K+ RCG tokens) to create or join affiliate shop groups.
                       </p>
                       <button
                         onClick={() => router.push('/shop/subscription-form')}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
+                        className="px-3 sm:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs sm:text-sm font-medium"
                       >
                         Subscribe Now
                       </button>
@@ -291,96 +320,99 @@ export default function AffiliateShopGroupsClient() {
               )}
 
               {/* Header with Tabs and Actions */}
-              <div className="mb-6 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center border-y border-[#303236] py-4">
-                {/* Tab Bar */}
-                <div className="bg-[#1e1f22] p-1 rounded-md flex gap-2">
-                  <button
-                    onClick={() => setActiveTab("my-groups")}
-                    className={`px-4 py-2.5 rounded font-medium text-base transition-colors ${
-                      activeTab === "my-groups"
-                        ? "bg-[#FFCC00] text-[#101010]"
-                        : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
-                    }`}
-                  >
-                    My Groups ({myGroups.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("discover")}
-                    className={`px-4 py-2.5 rounded font-medium text-base transition-colors ${
-                      activeTab === "discover"
-                        ? "bg-[#FFCC00] text-[#101010]"
-                        : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
-                    }`}
-                  >
-                    Discover Groups ({discoverTotalItems})
-                  </button>
-                </div>
-
-                {/* Action Buttons and Sort */}
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => subscriptionActive && setShowJoinModal(true)}
-                    disabled={!subscriptionActive}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors ${
-                      subscriptionActive
-                        ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
-                        : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
-                    }`}
-                    title={!subscriptionActive ? "Active subscription required" : ""}
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    <span className="text-sm font-medium">Join Group</span>
-                  </button>
-
-                  <button
-                    onClick={() => subscriptionActive && setShowCreateModal(true)}
-                    disabled={!subscriptionActive}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors ${
-                      subscriptionActive
-                        ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
-                        : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
-                    }`}
-                    title={!subscriptionActive ? "Active subscription required" : ""}
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span className="text-sm font-medium">Create Group</span>
-                  </button>
-
-                  {/* Sort Dropdown */}
-                  <div className="relative">
+              <SectionHeader
+                variant="page"
+                className="border-y border-[#303236] py-3 sm:py-4"
+                title={
+                  <div className="p-1 rounded-md flex gap-1 sm:gap-2 overflow-x-auto">
                     <button
-                      onClick={() => setShowSortDropdown(!showSortDropdown)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50 transition-colors"
+                      onClick={() => setActiveTab("my-groups")}
+                      className={`flex-1 lg:flex-none whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 rounded font-medium text-sm sm:text-base transition-colors ${
+                        activeTab === "my-groups"
+                          ? "bg-[#FFCC00] text-[#101010]"
+                          : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
+                      }`}
                     >
-                      <span className="text-xs text-[#535353]">Sort by</span>
-                      <span className="text-sm font-medium">{getSortLabel(sortBy)}</span>
-                      <ChevronDown className="w-5 h-5" />
+                      My Groups ({myGroups.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("discover")}
+                      className={`flex-1 lg:flex-none whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 rounded font-medium text-sm sm:text-base transition-colors ${
+                        activeTab === "discover"
+                          ? "bg-[#FFCC00] text-[#101010]"
+                          : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
+                      }`}
+                    >
+                      Discover Groups{discoverLoaded ? ` (${discoverTotalItems})` : ""}
+                    </button>
+                  </div>
+                }
+                action={
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <button
+                      onClick={() => subscriptionActive && setShowJoinModal(true)}
+                      disabled={!subscriptionActive}
+                      className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border transition-colors ${
+                        subscriptionActive
+                          ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                          : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+                      }`}
+                      title={!subscriptionActive ? "Active subscription required" : ""}
+                    >
+                      <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-xs sm:text-sm font-medium">Join Group</span>
                     </button>
 
-                    {showSortDropdown && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
-                        <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#dde2e4] rounded-md shadow-lg z-20">
-                          {GROUP_SORT_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSortBy(option.value);
-                                setShowSortDropdown(false);
-                              }}
-                              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                sortBy === option.value ? "text-[#FFCC00] font-medium" : "text-[#101010]"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                    <button
+                      onClick={() => subscriptionActive && setShowCreateModal(true)}
+                      disabled={!subscriptionActive}
+                      className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border transition-colors ${
+                        subscriptionActive
+                          ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                          : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+                      }`}
+                      title={!subscriptionActive ? "Active subscription required" : ""}
+                    >
+                      <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-xs sm:text-sm font-medium">Create Group</span>
+                    </button>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowSortDropdown(!showSortDropdown)}
+                        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50 transition-colors"
+                      >
+                        <span className="text-[10px] sm:text-xs text-[#535353]">Sort by</span>
+                        <span className="text-xs sm:text-sm font-medium">{getSortLabel(sortBy)}</span>
+                        <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+
+                      {showSortDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#dde2e4] rounded-md shadow-lg z-20">
+                            {GROUP_SORT_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setSortBy(option.value);
+                                  setShowSortDropdown(false);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                  sortBy === option.value ? "text-[#FFCC00] font-medium" : "text-[#101010]"
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
+                }
+              />
 
               {/* Content */}
               {loading ? (
@@ -389,17 +421,17 @@ export default function AffiliateShopGroupsClient() {
                 <div>
                   {activeTab === "my-groups" ? (
                     myGroups.length === 0 ? (
-                      <div className="bg-[#101010] rounded-lg p-12">
+                      <div className="bg-[#101010] rounded-lg p-6 sm:p-12">
                         <EmptyState
                           icon={Users}
                           title="No Groups Yet"
                           description="Create your first shop group or join an existing one"
                           action={
-                            <div className="flex gap-4 justify-center">
+                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                               <button
                                 onClick={() => subscriptionActive && setShowCreateModal(true)}
                                 disabled={!subscriptionActive}
-                                className={`px-6 py-3 rounded-lg transition-colors font-medium ${
+                                className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg transition-colors font-medium text-sm sm:text-base ${
                                   subscriptionActive
                                     ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
                                     : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
@@ -411,7 +443,7 @@ export default function AffiliateShopGroupsClient() {
                               <button
                                 onClick={() => subscriptionActive && setShowJoinModal(true)}
                                 disabled={!subscriptionActive}
-                                className={`px-6 py-3 rounded-lg transition-colors ${
+                                className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg transition-colors text-sm sm:text-base ${
                                   subscriptionActive
                                     ? "bg-gray-700 text-white hover:bg-gray-600"
                                     : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
@@ -428,28 +460,28 @@ export default function AffiliateShopGroupsClient() {
                       <div>
                         {/* My Groups Search */}
                         {myGroups.length > 3 && (
-                          <div className="relative mb-6">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <div className="relative mb-4 sm:mb-6">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                             <input
                               type="text"
                               value={myGroupsSearch}
                               onChange={(e) => setMyGroupsSearch(e.target.value)}
                               placeholder="Search your groups..."
-                              className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                              className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-sm sm:text-base bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                             />
                             {myGroupsSearch && (
                               <button
                                 onClick={() => setMyGroupsSearch("")}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                               >
-                                <X className="w-5 h-5" />
+                                <X className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                             )}
                           </div>
                         )}
 
                         {sortedMyGroups.length === 0 && myGroupsSearch ? (
-                          <div className="bg-[#101010] rounded-lg p-12">
+                          <div className="bg-[#101010] rounded-lg p-6 sm:p-12">
                             <EmptyState
                               icon={Search}
                               title="No Groups Found"
@@ -457,7 +489,7 @@ export default function AffiliateShopGroupsClient() {
                             />
                           </div>
                         ) : (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         {sortedMyGroups.map((group) => (
                           <GroupCard
                             key={group.groupId}
@@ -474,72 +506,81 @@ export default function AffiliateShopGroupsClient() {
                   ) : (
                     <div>
                       {/* Search Input */}
-                      <div className="relative mb-6">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <div className="relative mb-4 sm:mb-6">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <input
                           type="text"
                           value={discoverSearch}
                           onChange={(e) => handleSearchChange(e.target.value)}
                           placeholder="Search groups by name or token symbol..."
-                          className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                          className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-sm sm:text-base bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                         />
                         {discoverSearch && (
                           <button
                             onClick={() => { setDiscoverSearch(""); loadDiscoverGroups("", 1, false); }}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                           >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                         )}
                       </div>
 
-                      {/* Results count */}
-                      <p className="text-sm text-gray-400 mb-4">
-                        Showing {allGroups.length} of {discoverTotalItems} groups
-                      </p>
-
-                      {sortedAllGroups.length === 0 ? (
-                        <div className="bg-[#101010] rounded-lg p-12">
-                          <EmptyState
-                            icon={TrendingUp}
-                            title={discoverSearch ? "No Groups Found" : "No Groups Available"}
-                            description={discoverSearch ? `No groups matching "${discoverSearch}"` : "Be the first to create a shop group!"}
-                          />
-                        </div>
+                      {discoverLoading && allGroups.length === 0 ? (
+                        <LoadingSpinner message="Loading groups..." />
                       ) : (
                         <>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {sortedAllGroups.map((group) => (
-                              <GroupCard
-                                key={group.groupId}
-                                group={group}
-                                onClick={() => handleGroupClick(group.groupId)}
-                                showMemberBadge={isGroupMember(group.groupId)}
-                                isLeader={isGroupLeader(group)}
-                                isDiscoverTab={!isGroupMember(group.groupId)}
-                                onJoinClick={() => subscriptionActive && setShowJoinModal(true)}
-                              />
-                            ))}
-                          </div>
+                          {/* Results count */}
+                          <p className="text-xs sm:text-sm text-gray-400 mb-4">
+                            Showing {allGroups.length} of {discoverTotalItems} groups
+                          </p>
 
-                          {/* Load More Button */}
-                          {discoverHasMore && (
-                            <div className="flex justify-center mt-6">
-                              <button
-                                onClick={handleLoadMore}
-                                disabled={discoverLoadingMore}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
-                              >
-                                {discoverLoadingMore ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Loading...
-                                  </>
-                                ) : (
-                                  <>Load More Groups</>
-                                )}
-                              </button>
+                          {sortedAllGroups.length === 0 ? (
+                            <div className="bg-[#101010] rounded-lg p-6 sm:p-12">
+                              <EmptyState
+                                icon={TrendingUp}
+                                title={discoverSearch ? "No Groups Found" : "No Groups Available"}
+                                description={discoverSearch ? `No groups matching "${discoverSearch}"` : "Be the first to create a shop group!"}
+                              />
                             </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                                {sortedAllGroups.map((group) => {
+                                  const isMember = isGroupMember(group.groupId);
+                                  return (
+                                    <GroupCard
+                                      key={group.groupId}
+                                      group={group}
+                                      onClick={() => handleGroupClick(group.groupId)}
+                                      showMemberBadge={isMember}
+                                      isLeader={isGroupLeader(group)}
+                                      isDiscoverTab={!isMember}
+                                      onJoinClick={() => subscriptionActive && setShowJoinModal(true)}
+                                    />
+                                  );
+                                })}
+                              </div>
+
+                              {/* Load More Button */}
+                              {discoverHasMore && (
+                                <div className="flex justify-center mt-6">
+                                  <button
+                                    onClick={handleLoadMore}
+                                    disabled={discoverLoadingMore}
+                                    className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                                  >
+                                    {discoverLoadingMore ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Loading...
+                                      </>
+                                    ) : (
+                                      <>Load More Groups</>
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                            </>
                           )}
                         </>
                       )}

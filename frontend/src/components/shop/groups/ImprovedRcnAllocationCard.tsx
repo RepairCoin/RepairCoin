@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Coins, RefreshCw, ArrowUpCircle, ArrowDownCircle, TrendingUp, Users, PieChart } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { LoadingSpinner, Modal, SectionHeader } from "./shared";
+import { LoadingSpinner, Modal } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 interface ImprovedRcnAllocationCardProps {
   groupId: string;
@@ -108,10 +109,10 @@ export default function ImprovedRcnAllocationCard({
 
   if (loading) {
     return (
-      <div className="bg-[#101010] rounded-xl p-6">
+      <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
         <div className="animate-pulse">
-          <div className="h-5 bg-[#1e1f22] rounded w-1/3 mb-6"></div>
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="h-5 bg-[#1e1f22] rounded w-1/3 mb-4 sm:mb-6"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="h-32 bg-[#1e1f22] rounded-lg"></div>
             <div className="h-32 bg-[#1e1f22] rounded-lg"></div>
           </div>
@@ -138,7 +139,7 @@ export default function ImprovedRcnAllocationCard({
 
   return (
     <>
-      <div className="bg-[#101010] rounded-xl p-6">
+      <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
         <SectionHeader
           icon={Coins}
           title="RCN Allocations"
@@ -146,7 +147,7 @@ export default function ImprovedRcnAllocationCard({
           action={
             <button
               onClick={loadData}
-              className="p-2 rounded-lg bg-[#1e1f22] hover:bg-[#2a2b2f] transition-colors"
+              className="p-2 rounded-lg bg-[#1e1f22] hover:bg-[#2a2b2f] transition-colors flex-shrink-0"
               title="Refresh"
             >
               <RefreshCw className="w-4 h-4 text-gray-400" />
@@ -155,86 +156,86 @@ export default function ImprovedRcnAllocationCard({
         />
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
           {/* YOUR ALLOCATION */}
-          <div className="bg-[#1e1f22] border border-[#FFCC00]/20 rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-white font-medium flex items-center gap-2">
-                <div className="w-2 h-2 bg-[#FFCC00] rounded-full"></div>
-                Your Allocation
+          <div className="bg-[#1e1f22] border border-[#FFCC00]/20 rounded-lg p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+              <h4 className="text-white text-sm sm:text-base font-medium flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 bg-[#FFCC00] rounded-full flex-shrink-0"></div>
+                <span className="truncate">Your Allocation</span>
               </h4>
-              <span className="text-xs font-medium px-2 py-1 bg-[#FFCC00]/10 text-[#FFCC00] rounded">
+              <span className="text-[10px] sm:text-xs font-medium px-2 py-1 bg-[#FFCC00]/10 text-[#FFCC00] rounded flex-shrink-0 whitespace-nowrap">
                 {yourContributionPercent}% of total
               </span>
             </div>
 
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">Allocated:</span>
-                <span className="text-lg font-semibold text-[#FFCC00]">{yourAllocated.toLocaleString()} RCN</span>
+            <div className="space-y-2 sm:space-y-3 mb-4">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-400">Allocated:</span>
+                <span className="text-base sm:text-lg font-semibold text-[#FFCC00] whitespace-nowrap">{yourAllocated.toLocaleString()} RCN</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">Used (Backing):</span>
-                <span className="text-base font-medium text-blue-400">{yourUsed.toLocaleString()} RCN</span>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-400">Used (Backing):</span>
+                <span className="text-sm sm:text-base font-medium text-blue-400 whitespace-nowrap">{yourUsed.toLocaleString()} RCN</span>
               </div>
-              <div className="flex justify-between items-center pt-3 border-t border-gray-700">
-                <span className="text-sm font-medium text-gray-300">Available:</span>
-                <span className="text-lg font-semibold text-green-400">{yourAvailable.toLocaleString()} RCN</span>
+              <div className="flex justify-between items-center pt-2 sm:pt-3 border-t border-gray-700 gap-2">
+                <span className="text-xs sm:text-sm font-medium text-gray-300">Available:</span>
+                <span className="text-base sm:text-lg font-semibold text-green-400 whitespace-nowrap">{yourAvailable.toLocaleString()} RCN</span>
               </div>
             </div>
 
-            <p className="text-xs text-gray-500 italic">
+            <p className="text-[11px] sm:text-xs text-gray-500 italic">
               Available RCN can be used to issue tokens or withdrawn back to your shop.
             </p>
           </div>
 
           {/* TOTAL GROUP POOL */}
-          <div className="bg-[#1e1f22] rounded-lg p-5">
-            <h4 className="text-white font-medium flex items-center gap-2 mb-4">
-              <Users className="w-4 h-4 text-gray-400" />
+          <div className="bg-[#1e1f22] rounded-lg p-4 sm:p-5">
+            <h4 className="text-white text-sm sm:text-base font-medium flex items-center gap-2 mb-3 sm:mb-4">
+              <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
               Total Group Pool
             </h4>
 
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">Total Allocated:</span>
-                <span className="text-lg font-semibold text-white">{totalGroupAllocated.toLocaleString()} RCN</span>
+            <div className="space-y-2 sm:space-y-3 mb-4">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-400">Total Allocated:</span>
+                <span className="text-base sm:text-lg font-semibold text-white whitespace-nowrap">{totalGroupAllocated.toLocaleString()} RCN</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">Total Used:</span>
-                <span className="text-base font-medium text-blue-400">{totalGroupUsed.toLocaleString()} RCN</span>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-400">Total Used:</span>
+                <span className="text-sm sm:text-base font-medium text-blue-400 whitespace-nowrap">{totalGroupUsed.toLocaleString()} RCN</span>
               </div>
-              <div className="flex justify-between items-center pt-3 border-t border-gray-700">
-                <span className="text-sm font-medium text-gray-300">Total Available:</span>
-                <span className="text-lg font-semibold text-green-400">{totalGroupAvailable.toLocaleString()} RCN</span>
+              <div className="flex justify-between items-center pt-2 sm:pt-3 border-t border-gray-700 gap-2">
+                <span className="text-xs sm:text-sm font-medium text-gray-300">Total Available:</span>
+                <span className="text-base sm:text-lg font-semibold text-green-400 whitespace-nowrap">{totalGroupAvailable.toLocaleString()} RCN</span>
               </div>
             </div>
 
-            <p className="text-xs text-gray-500 italic">
+            <p className="text-[11px] sm:text-xs text-gray-500 italic">
               Combined resources from all {members.length} active member{members.length !== 1 ? "s" : ""}.
             </p>
           </div>
         </div>
 
         {/* Shop Main Balance */}
-        <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-1">Your Shop&apos;s Main RCN Balance</p>
-              <p className="text-xl font-bold text-[#FFCC00]">{shopRcnBalance.toLocaleString()} RCN</p>
+        <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Your Shop&apos;s Main RCN Balance</p>
+              <p className="text-lg sm:text-xl font-bold text-[#FFCC00] truncate">{shopRcnBalance.toLocaleString()} RCN</p>
             </div>
-            <PieChart className="w-6 h-6 text-gray-600" />
+            <PieChart className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 flex-shrink-0" />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-2">
             Allocate RCN from your main balance to this group to issue tokens
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
             onClick={() => setShowAllocateModal(true)}
-            className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-2.5 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <ArrowUpCircle className="w-4 h-4" />
             Allocate to Group
@@ -243,21 +244,21 @@ export default function ImprovedRcnAllocationCard({
           {yourAvailable > 0 && (
             <button
               onClick={() => setShowWithdrawModal(true)}
-              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 border border-gray-700"
+              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 text-sm sm:text-base rounded-lg transition-colors flex items-center justify-center gap-2 border border-gray-700"
             >
-              <ArrowDownCircle className="w-4 h-4" />
-              Withdraw ({yourAvailable.toLocaleString()} RCN)
+              <ArrowDownCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Withdraw ({yourAvailable.toLocaleString()} RCN)</span>
             </button>
           )}
         </div>
 
         {/* Info Box */}
-        <div className="mt-6 bg-[#1e1f22] rounded-lg p-4">
+        <div className="mt-4 sm:mt-6 bg-[#1e1f22] rounded-lg p-3 sm:p-4">
           <h5 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[#FFCC00]" />
             How It Works
           </h5>
-          <ul className="space-y-1.5 text-xs text-gray-400">
+          <ul className="space-y-1.5 text-[11px] sm:text-xs text-gray-400">
             <li>• Each shop allocates RCN independently - your allocation is yours alone</li>
             <li>• You can only issue tokens using YOUR allocated RCN (1:2 ratio: 100 tokens = 50 RCN)</li>
             <li>• Used RCN backs active tokens and cannot be withdrawn until tokens are redeemed</li>
@@ -281,7 +282,7 @@ export default function ImprovedRcnAllocationCard({
                 setShowAllocateModal(false);
                 setAmount("");
               }}
-              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-3 px-4 rounded-lg transition-colors border border-gray-700"
+              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-2.5 sm:py-3 px-4 text-sm sm:text-base rounded-lg transition-colors border border-gray-700"
               disabled={submitting}
             >
               Cancel
@@ -289,7 +290,7 @@ export default function ImprovedRcnAllocationCard({
             <button
               onClick={handleAllocate}
               disabled={submitting || !amount}
-              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-2.5 sm:py-3 px-4 text-sm sm:text-base rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Allocating..." : "Allocate"}
             </button>
@@ -307,7 +308,7 @@ export default function ImprovedRcnAllocationCard({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-4 py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-base sm:text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                 min="0"
                 step="0.01"
               />
@@ -342,7 +343,7 @@ export default function ImprovedRcnAllocationCard({
                 setShowWithdrawModal(false);
                 setAmount("");
               }}
-              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-3 px-4 rounded-lg transition-colors border border-gray-700"
+              className="flex-1 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-medium py-2.5 sm:py-3 px-4 text-sm sm:text-base rounded-lg transition-colors border border-gray-700"
               disabled={submitting}
             >
               Cancel
@@ -350,7 +351,7 @@ export default function ImprovedRcnAllocationCard({
             <button
               onClick={handleWithdraw}
               disabled={submitting || !amount}
-              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold py-2.5 sm:py-3 px-4 text-sm sm:text-base rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Withdrawing..." : "Withdraw"}
             </button>
@@ -368,7 +369,7 @@ export default function ImprovedRcnAllocationCard({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-4 py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-[#1e1f22] border border-gray-700 rounded-lg text-white text-base sm:text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                 min="0"
                 step="0.01"
                 max={yourAvailable}

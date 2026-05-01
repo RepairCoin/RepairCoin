@@ -5,7 +5,8 @@ import { toast } from "react-hot-toast";
 import { Coins, TrendingUp, TrendingDown, Camera, X } from "lucide-react";
 import QrScanner from "qr-scanner";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { SectionHeader, Modal } from "./shared";
+import { Modal } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 interface GroupTokenOperationsTabProps {
   groupId: string;
@@ -209,47 +210,47 @@ export default function GroupTokenOperationsTab({
   };
 
   return (
-    <div className="bg-[#101010] rounded-xl p-6">
+    <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
       <SectionHeader icon={Coins} title="Token Operations" />
 
       {/* Operation Type Selector */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4 sm:mb-6">
         <button
           onClick={() => setOperationType("earn")}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+          className={`flex-1 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-2 ${
             operationType === "earn"
               ? "bg-green-600 text-white"
               : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
           }`}
         >
-          <TrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4 flex-shrink-0" />
           Issue Tokens
         </button>
         <button
           onClick={() => setOperationType("redeem")}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+          className={`flex-1 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-2 ${
             operationType === "redeem"
               ? "bg-orange-600 text-white"
               : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
           }`}
         >
-          <TrendingDown className="w-4 h-4" />
+          <TrendingDown className="w-4 h-4 flex-shrink-0" />
           Redeem Tokens
         </button>
       </div>
 
       {/* RCN Balance & Requirement Display */}
       {operationType === "earn" && (
-        <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-gray-300">Your RCN Balance</p>
-            <p className="text-lg font-bold text-[#FFCC00]">{shopRcnBalance.toFixed(2)} RCN</p>
+        <div className="bg-[#1e1f22] border border-blue-500/20 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs sm:text-sm font-medium text-gray-300">Your RCN Balance</p>
+            <p className="text-base sm:text-lg font-bold text-[#FFCC00] whitespace-nowrap">{shopRcnBalance.toFixed(2)} RCN</p>
           </div>
-          <p className="text-xs text-gray-400 mb-2">
+          <p className="text-[11px] sm:text-xs text-gray-400 mb-2">
             <strong>RCN Backing Requirement:</strong> 1:2 ratio (100 {tokenSymbol} requires 50 RCN)
           </p>
           {amount && parseFloat(amount) > 0 && (
-            <p className="text-xs text-gray-400">
+            <p className="text-[11px] sm:text-xs text-gray-400">
               Issuing <strong>{amount} {tokenSymbol}</strong> requires{" "}
               <strong className="text-[#FFCC00]">{(parseFloat(amount) / 2).toFixed(2)} RCN</strong>
             </p>
@@ -258,8 +259,8 @@ export default function GroupTokenOperationsTab({
       )}
 
       {/* Customer Lookup */}
-      <div className="bg-[#1e1f22] rounded-lg p-4 mb-6">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
+      <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
           Customer Wallet Address *
         </label>
         <div className="flex gap-2">
@@ -268,33 +269,33 @@ export default function GroupTokenOperationsTab({
             value={customerAddress}
             onChange={(e) => setCustomerAddress(e.target.value.toLowerCase())}
             placeholder="0x..."
-            className="flex-1 px-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00] text-sm"
+            className="flex-1 min-w-0 px-3 sm:px-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00] text-sm"
           />
           <button
             onClick={startQRScanner}
-            className="px-4 py-2 bg-[#FFCC00] text-[#101010] hover:bg-[#FFD700] font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+            className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-[#101010] hover:bg-[#FFD700] font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0"
             title="Scan customer's QR code"
           >
             <Camera className="w-4 h-4" />
-            <span className="hidden sm:inline">Scan QR</span>
+            <span className="hidden sm:inline text-sm">Scan QR</span>
           </button>
         </div>
 
         {/* Customer Balance Display */}
         {customerBalance && (
-          <div className="mt-4 p-4 bg-[#101010] rounded-lg border border-gray-700">
-            <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="mt-4 p-3 sm:p-4 bg-[#101010] rounded-lg border border-gray-700">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
               <div>
-                <p className="text-xs text-gray-400 mb-1">Current Balance</p>
-                <p className="text-xl font-bold text-[#FFCC00]">{customerBalance.balance} {tokenSymbol}</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mb-1">Current Balance</p>
+                <p className="text-lg sm:text-xl font-bold text-[#FFCC00] break-words">{customerBalance.balance} {tokenSymbol}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">Lifetime Earned</p>
-                <p className="text-base font-bold text-green-500">{customerBalance.lifetimeEarned} {tokenSymbol}</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mb-1">Lifetime Earned</p>
+                <p className="text-sm sm:text-base font-bold text-green-500 break-words">{customerBalance.lifetimeEarned} {tokenSymbol}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">Lifetime Redeemed</p>
-                <p className="text-base font-bold text-orange-500">{customerBalance.lifetimeRedeemed} {tokenSymbol}</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mb-1">Lifetime Redeemed</p>
+                <p className="text-sm sm:text-base font-bold text-orange-500 break-words">{customerBalance.lifetimeRedeemed} {tokenSymbol}</p>
               </div>
             </div>
           </div>
@@ -302,9 +303,9 @@ export default function GroupTokenOperationsTab({
       </div>
 
       {/* Transaction Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
             Amount ({tokenSymbol}) *
           </label>
           <input
@@ -315,12 +316,12 @@ export default function GroupTokenOperationsTab({
             min="0"
             step="0.01"
             required
-            className="w-full px-4 py-2 bg-[#1e1f22] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00] text-sm"
+            className="w-full px-3 sm:px-4 py-2 bg-[#1e1f22] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00] text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
             Reason (optional)
           </label>
           <input
@@ -332,14 +333,14 @@ export default function GroupTokenOperationsTab({
                 ? "e.g., Oil change service"
                 : "e.g., Discount on brake service"
             }
-            className="w-full px-4 py-2 bg-[#1e1f22] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00] text-sm"
+            className="w-full px-3 sm:px-4 py-2 bg-[#1e1f22] border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00] text-sm"
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className={`w-full py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full py-2.5 sm:py-3 text-sm sm:text-base rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             operationType === "earn"
               ? "bg-green-600 hover:bg-green-700 text-white"
               : "bg-orange-600 hover:bg-orange-700 text-white"
@@ -354,8 +355,8 @@ export default function GroupTokenOperationsTab({
       </form>
 
       {/* Info Box */}
-      <div className="mt-6 bg-[#1e1f22] rounded-lg p-4">
-        <p className="text-sm text-gray-400">
+      <div className="mt-4 sm:mt-6 bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+        <p className="text-xs sm:text-sm text-gray-400">
           {operationType === "earn" ? (
             <>
               <strong className="text-gray-300">Issue Tokens:</strong> Give custom tokens to customers for
@@ -380,7 +381,7 @@ export default function GroupTokenOperationsTab({
         <div className="relative rounded-lg overflow-hidden bg-black">
           <video
             ref={videoRef}
-            className="w-full h-64 object-cover rounded-lg"
+            className="w-full h-56 sm:h-64 object-cover rounded-lg"
             playsInline
             muted
           />
@@ -402,13 +403,13 @@ export default function GroupTokenOperationsTab({
           )}
         </div>
 
-        <p className="text-gray-400 text-sm mt-4 text-center">
+        <p className="text-gray-400 text-xs sm:text-sm mt-3 sm:mt-4 text-center">
           Position the customer&apos;s QR code within the frame to scan their wallet address
         </p>
 
         <button
           onClick={stopQRScanner}
-          className="w-full mt-4 px-4 py-3 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white rounded-lg transition-colors font-medium border border-gray-700"
+          className="w-full mt-3 sm:mt-4 px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-[#1e1f22] hover:bg-[#2a2b2f] text-white rounded-lg transition-colors font-medium border border-gray-700"
         >
           Cancel Scan
         </button>

@@ -1196,24 +1196,24 @@ export function CampaignBuilderModal({
 
   return (
     <Dialog open={open} onOpenChange={() => onClose(false)}>
-      <DialogContent className="bg-[#1a1a1a] border-gray-800 max-w-6xl max-h-[95vh] p-0 overflow-hidden" aria-describedby={undefined}>
+      <DialogContent className="bg-[#1a1a1a] border-gray-800 z-[1100] w-screen h-[100dvh] max-w-full max-h-[100dvh] sm:w-full sm:max-w-6xl sm:h-auto sm:max-h-[95vh] p-0 overflow-hidden rounded-none sm:rounded-lg flex flex-col gap-0 [&>button.absolute]:hidden" aria-describedby={undefined}>
         <VisuallyHidden>
           <DialogTitle>Campaign Builder</DialogTitle>
         </VisuallyHidden>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
               onClick={() => onClose(false)}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors shrink-0"
             >
               <ArrowLeft className="w-5 h-5 text-gray-400" />
             </button>
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-sm sm:text-lg font-semibold text-white truncate">
               {viewOnly ? 'View Campaign' : 'Design Your Campaign'}
             </h2>
             {viewOnly && existingCampaign?.status && (
-              <span className={`px-2 py-1 text-xs font-medium rounded ${
+              <span className={`px-2 py-1 text-xs font-medium rounded shrink-0 ${
                 existingCampaign.status === 'sent' ? 'bg-green-500/20 text-green-400' :
                 existingCampaign.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' :
                 existingCampaign.status === 'cancelled' ? 'bg-red-500/20 text-red-400' :
@@ -1223,10 +1223,11 @@ export function CampaignBuilderModal({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {viewOnly ? (
               <Button
                 onClick={() => onClose(false)}
+                size="sm"
                 className="bg-yellow-500 hover:bg-yellow-600 text-black"
               >
                 Close
@@ -1235,18 +1236,21 @@ export function CampaignBuilderModal({
               <>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => handleSave(false)}
                   disabled={saving}
                   className="border-gray-600 text-gray-300 hover:bg-gray-800"
                 >
-                  <Save className="w-4 h-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Draft'}
+                  <Save className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Draft'}</span>
                 </Button>
                 <Button
+                  size="sm"
                   onClick={() => setStep('audience')}
                   className="bg-yellow-500 hover:bg-yellow-600 text-black"
                 >
-                  Select Audience
+                  <span className="sm:hidden">Next</span>
+                  <span className="hidden sm:inline">Select Audience</span>
                 </Button>
               </>
             )}
@@ -1254,16 +1258,16 @@ export function CampaignBuilderModal({
         </div>
 
         {/* Steps indicator */}
-        <div className="flex items-center justify-center gap-8 py-3 border-b border-gray-800 bg-[#141414]">
+        <div className="flex items-center justify-center gap-3 sm:gap-8 py-2 sm:py-3 border-b border-gray-800 bg-[#141414]">
           {['design', 'audience', 'delivery'].map((s, i) => (
             <button
               key={s}
               onClick={() => setStep(s as any)}
-              className={`flex items-center gap-2 text-sm ${
+              className={`flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm ${
                 step === s ? 'text-yellow-500' : 'text-gray-500'
               }`}
             >
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+              <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs ${
                 step === s ? 'bg-yellow-500 text-black' : 'bg-gray-700'
               }`}>
                 {i + 1}
@@ -1274,11 +1278,11 @@ export function CampaignBuilderModal({
         </div>
 
         {/* Content based on step */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden min-h-0">
           {step === 'design' && (
-            <div className="flex h-[calc(95vh-140px)]">
+            <div className="flex flex-col lg:flex-row h-full lg:h-[calc(95vh-140px)] overflow-hidden">
               {/* Preview */}
-              <div className="flex-1 bg-gray-800 p-6 overflow-auto">
+              <div className="flex-1 min-h-0 bg-gray-800 p-4 sm:p-6 overflow-auto">
                 <div className="mb-4">
                   <Label className="text-gray-300">Campaign Name</Label>
                   <Input
@@ -1304,7 +1308,7 @@ export function CampaignBuilderModal({
 
               {/* Editor Panel */}
               {viewOnly ? (
-                <div className="w-80 bg-[#1a1a1a] border-l border-gray-800 overflow-auto p-4">
+                <div className="w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto p-4">
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Send className="w-8 h-8 text-green-400" />
@@ -1337,7 +1341,7 @@ export function CampaignBuilderModal({
                   </div>
                 </div>
               ) : (
-              <div className="w-80 bg-[#1a1a1a] border-l border-gray-800 overflow-auto">
+              <div className="w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto max-h-[50vh] lg:max-h-none">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="w-full bg-gray-800 rounded-none">
                     <TabsTrigger value="blocks" className="flex-1">Blocks</TabsTrigger>
@@ -1439,15 +1443,15 @@ export function CampaignBuilderModal({
           )}
 
           {step === 'audience' && (
-            <div className="p-6 max-w-3xl mx-auto overflow-auto h-[calc(95vh-140px)]">
-              <h3 className="text-xl font-semibold text-white mb-4">Select Your Audience</h3>
-              <p className="text-gray-400 text-sm mb-6">All customers are selected by default. Uncheck customers you don&apos;t want to include.</p>
+            <div className="p-4 sm:p-6 max-w-3xl mx-auto overflow-auto h-full lg:h-[calc(95vh-140px)]">
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Select Your Audience</h3>
+              <p className="text-gray-400 text-xs sm:text-sm mb-4 sm:mb-6">All customers are selected by default. Uncheck customers you don&apos;t want to include.</p>
 
               {/* Filter and Sort Controls */}
               {!viewOnly && (
-              <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
                 {/* Search */}
-                <div className="relative flex-1 min-w-[200px]">
+                <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     placeholder="Search customers..."
@@ -1462,7 +1466,7 @@ export function CampaignBuilderModal({
 
                 {/* Filter Dropdown */}
                 <Select value={customerFilter} onValueChange={(v: any) => setCustomerFilter(v)}>
-                  <SelectTrigger className="w-[170px] bg-gray-800 border-gray-700 text-white">
+                  <SelectTrigger className="flex-1 sm:flex-none sm:w-[170px] bg-gray-800 border-gray-700 text-white">
                     <SelectValue placeholder="Filter" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
@@ -1474,7 +1478,7 @@ export function CampaignBuilderModal({
 
                 {/* Sort Dropdown */}
                 <Select value={customerSort} onValueChange={(v: any) => setCustomerSort(v)}>
-                  <SelectTrigger className="w-[180px] bg-gray-800 border-gray-700 text-white">
+                  <SelectTrigger className="flex-1 sm:flex-none sm:w-[180px] bg-gray-800 border-gray-700 text-white">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
@@ -1485,12 +1489,12 @@ export function CampaignBuilderModal({
                 </Select>
 
                 {/* Select/Deselect All */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleSelectAllCustomers}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="flex-1 sm:flex-none border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     Select All
                   </Button>
@@ -1498,7 +1502,7 @@ export function CampaignBuilderModal({
                     variant="outline"
                     size="sm"
                     onClick={handleDeselectAllCustomers}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="flex-1 sm:flex-none border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     Deselect All
                   </Button>
@@ -1507,7 +1511,7 @@ export function CampaignBuilderModal({
               )}
 
               {/* Customer List */}
-              <div className="bg-gray-800 rounded-lg p-4">
+              <div className="bg-gray-800 rounded-lg p-3 sm:p-4">
                 <div className="space-y-2 max-h-[350px] overflow-y-auto">
                   {loadingCustomers ? (
                     <div className="text-center py-8 text-gray-400">Loading customers...</div>
@@ -1609,11 +1613,11 @@ export function CampaignBuilderModal({
               </div>
 
               {!viewOnly && (
-                <div className="flex justify-between mt-6">
+                <div className="flex flex-col-reverse sm:flex-row justify-between gap-2 sm:gap-0 mt-6">
                   <Button
                     variant="outline"
                     onClick={() => setStep('design')}
-                    className="border-gray-600 text-gray-300"
+                    className="border-gray-600 text-gray-300 w-full sm:w-auto"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Design
@@ -1621,7 +1625,7 @@ export function CampaignBuilderModal({
                   <Button
                     onClick={() => setStep('delivery')}
                     disabled={selectedCustomers.size === 0}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50 w-full sm:w-auto"
                   >
                     Continue to Delivery
                   </Button>
@@ -1631,8 +1635,8 @@ export function CampaignBuilderModal({
           )}
 
           {step === 'delivery' && (
-            <div className="p-6 max-w-2xl mx-auto overflow-auto h-[calc(95vh-140px)]">
-              <h3 className="text-xl font-semibold text-white mb-6">Delivery Method</h3>
+            <div className="p-4 sm:p-6 max-w-2xl mx-auto overflow-auto h-full lg:h-[calc(95vh-140px)]">
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-4 sm:mb-6">Delivery Method</h3>
 
               <div className="space-y-3">
                 {[
@@ -1690,21 +1694,21 @@ export function CampaignBuilderModal({
               </div>
 
               {!viewOnly && (
-                <div className="flex justify-between mt-8">
+                <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 sm:gap-0 mt-8">
                   <Button
                     variant="outline"
                     onClick={() => setStep('audience')}
-                    className="border-gray-600 text-gray-300"
+                    className="border-gray-600 text-gray-300 w-full sm:w-auto"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Audience
                   </Button>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                     <Button
                       variant="outline"
                       onClick={() => handleSave(false)}
                       disabled={saving}
-                      className="border-gray-600 text-gray-300"
+                      className="border-gray-600 text-gray-300 w-full sm:w-auto"
                     >
                       <Save className="w-4 h-4 mr-2" />
                       Save as Draft
@@ -1712,7 +1716,7 @@ export function CampaignBuilderModal({
                     <Button
                       onClick={() => handleSave(true)}
                       disabled={saving || sending}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                     >
                       <Send className="w-4 h-4 mr-2" />
                       {sending ? 'Sending...' : 'Send Now'}

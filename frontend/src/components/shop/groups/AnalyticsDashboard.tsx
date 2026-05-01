@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Activity, Coins, Users, ArrowUpRight, ArrowDownRight, BarChart3, Clock, Heart } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
-import { SectionHeader } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 interface AnalyticsDashboardProps {
   groupId: string;
@@ -26,11 +26,11 @@ export default function AnalyticsDashboard({ groupId }: AnalyticsDashboardProps)
 
   if (loading) {
     return (
-      <div className="bg-[#101010] rounded-[20px] p-6">
+      <div className="bg-[#101010] rounded-[20px] p-4 sm:p-6">
         <SectionHeader icon={Activity} title="Analytics Overview" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-            <div key={i} className="bg-[#1e1f22] rounded-xl p-4 animate-pulse">
+            <div key={i} className="bg-[#1e1f22] rounded-xl p-3 sm:p-4 animate-pulse">
               <div className="h-4 bg-gray-700 rounded w-1/2 mb-3"></div>
               <div className="h-8 bg-gray-700 rounded w-1/3"></div>
             </div>
@@ -42,9 +42,9 @@ export default function AnalyticsDashboard({ groupId }: AnalyticsDashboardProps)
 
   if (!analytics) {
     return (
-      <div className="bg-[#101010] rounded-[20px] p-6">
+      <div className="bg-[#101010] rounded-[20px] p-4 sm:p-6">
         <SectionHeader icon={Activity} title="Analytics Overview" />
-        <p className="text-gray-400">Unable to load analytics data</p>
+        <p className="text-gray-400 text-sm">Unable to load analytics data</p>
       </div>
     );
   }
@@ -62,41 +62,41 @@ export default function AnalyticsDashboard({ groupId }: AnalyticsDashboardProps)
   ];
 
   return (
-    <div className="bg-[#101010] rounded-[20px] p-6">
+    <div className="bg-[#101010] rounded-[20px] p-4 sm:p-6">
       <SectionHeader icon={Activity} title="Analytics Overview" />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-[#1e1f22] rounded-xl p-4">
+            <div key={index} className="bg-[#1e1f22] rounded-xl p-3 sm:p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Icon className="w-4 h-4 text-[#FFCC00]" />
-                <span className="text-[#FFCC00] text-sm">{stat.label}</span>
+                <Icon className="w-4 h-4 text-[#FFCC00] flex-shrink-0" />
+                <span className="text-[#FFCC00] text-xs sm:text-sm truncate">{stat.label}</span>
               </div>
-              <div className="text-2xl font-bold text-white">{stat.value}</div>
+              <div className="text-xl sm:text-2xl font-bold text-white">{stat.value}</div>
             </div>
           );
         })}
       </div>
 
       {/* Group Health Card */}
-      <div className="bg-[#1e1f22] rounded-xl p-4 max-w-[280px]">
+      <div className="bg-[#1e1f22] rounded-xl p-3 sm:p-4 max-w-full sm:max-w-[280px]">
         <div className="flex items-center gap-2 mb-2">
           <Heart className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-sm">Group Health</span>
+          <span className="text-[#FFCC00] text-xs sm:text-sm">Group Health</span>
         </div>
         <div className="flex items-center gap-2">
           {analytics.totalTokensCirculating > 0 ? (
             <>
               <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-white font-semibold">Healthy</span>
+              <span className="text-white text-sm sm:text-base font-semibold">Healthy</span>
             </>
           ) : (
             <>
               <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-              <span className="text-white font-semibold">Starting</span>
+              <span className="text-white text-sm sm:text-base font-semibold">Starting</span>
             </>
           )}
         </div>
