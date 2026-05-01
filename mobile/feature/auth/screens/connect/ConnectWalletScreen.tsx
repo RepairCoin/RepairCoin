@@ -1,11 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
-import {
-  Text,
-  View,
-  ImageBackground,
-  Image,
-  ActivityIndicator,
-} from "react-native";
+import { Text, View, Image, ActivityIndicator } from "react-native";
 import { useConnect } from "thirdweb/react";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
@@ -26,32 +20,30 @@ export default function ConnectWalletScreen() {
       </View>
     );
   }
-  
+
   return (
     <Screen>
-      <ImageBackground resizeMode="cover" className="h-full w-full px-8">
-        <View className="px-6 pt-16 pb-20 w-full h-full items-center gap-16">
-          <View className="w-full flex-1 items-center justify-center">
-            <View className="items-center">
-              <Image
-                source={require("@/assets/images/logo2.png")}
-                className="w-60 h-60"
-                resizeMode="contain"
-              />
-              <Text className="text-[#ffffff] text-6xl italic font-bold">
-                FixFlow
-              </Text>
-            </View>
-            <Text className="text-[#ffffff] mt-10 text-center w-full">
-              Discover, connect and earn RCN with trusted service providers, all
-              in one platform
+      <View className="px-6 pt-16 pb-20 w-full h-full items-center gap-16">
+        <View className="w-full flex-1 items-center justify-center">
+          <View className="items-center">
+            <Image
+              source={require("@/assets/images/logo2.png")}
+              className="w-60 h-60"
+              resizeMode="contain"
+            />
+            <Text className="text-[#ffffff] text-6xl italic font-bold">
+              FixFlow
             </Text>
           </View>
-          <View className="w-[90%]">
-            <ConnectWithMetaMask />
-          </View>
+          <Text className="text-[#ffffff] mt-10 text-center w-full">
+            Discover, connect and earn RCN with trusted service providers, all
+            in one platform
+          </Text>
         </View>
-      </ImageBackground>
+        <View className="w-[90%]">
+          <ConnectWithMetaMask />
+        </View>
+      </View>
     </Screen>
   );
 }
