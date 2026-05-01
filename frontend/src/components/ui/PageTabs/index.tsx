@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import styles from "./PageTabs.module.css";
 
 export interface PageTab<T extends string = string> {
   /** Stable identifier for the tab. */
@@ -26,9 +29,32 @@ export function PageTabs<T extends string = string>({
   onTabChange,
   className = "",
 }: PageTabsProps<T>) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (root.scrollWidth <= root.clientWidth) return;
+      const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (delta === 0) return;
+      e.preventDefault();
+      root.scrollBy({ left: delta, behavior: "auto" });
+    };
+
+    root.addEventListener("wheel", onWheel, { passive: false });
+    return () => root.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
     <div
-      className={`flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap ${className}`}
+      ref={scrollRef}
+      className={cn(
+        "flex gap-2 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap",
+        styles.hideScrollbar,
+        className
+      )}
       role="tablist"
     >
       {tabs.map((tab) => {
