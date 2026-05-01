@@ -23,7 +23,7 @@ const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
 /**
  * File filter function for Multer
  */
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: any, file: any, cb: multer.FileFilterCallback) => {
   // Check MIME type
   if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     return cb(new Error('Invalid file type. Only .xlsx, .xls, and .csv files are allowed.'));
