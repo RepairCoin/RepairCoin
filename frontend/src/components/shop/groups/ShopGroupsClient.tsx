@@ -16,6 +16,7 @@ import { client } from "@/utils/thirdweb";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { useSubscriptionCheck } from "@/hooks/useSubscriptionCheck";
 import { LoadingSpinner, EmptyState } from "./shared";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import type { GroupSortOption } from "./types";
 import { GROUP_SORT_OPTIONS } from "./constants";
 
@@ -319,96 +320,99 @@ export default function AffiliateShopGroupsClient() {
               )}
 
               {/* Header with Tabs and Actions */}
-              <div className="mb-6 flex flex-col lg:flex-row gap-3 sm:gap-4 justify-between items-stretch lg:items-center border-y border-[#303236] py-3 sm:py-4">
-                {/* Tab Bar */}
-                <div className="bg-[#1e1f22] p-1 rounded-md flex gap-1 sm:gap-2 overflow-x-auto">
-                  <button
-                    onClick={() => setActiveTab("my-groups")}
-                    className={`flex-1 lg:flex-none whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 rounded font-medium text-sm sm:text-base transition-colors ${
-                      activeTab === "my-groups"
-                        ? "bg-[#FFCC00] text-[#101010]"
-                        : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
-                    }`}
-                  >
-                    My Groups ({myGroups.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("discover")}
-                    className={`flex-1 lg:flex-none whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 rounded font-medium text-sm sm:text-base transition-colors ${
-                      activeTab === "discover"
-                        ? "bg-[#FFCC00] text-[#101010]"
-                        : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
-                    }`}
-                  >
-                    Discover Groups{discoverLoaded ? ` (${discoverTotalItems})` : ""}
-                  </button>
-                </div>
-
-                {/* Action Buttons and Sort */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                  <button
-                    onClick={() => subscriptionActive && setShowJoinModal(true)}
-                    disabled={!subscriptionActive}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border transition-colors ${
-                      subscriptionActive
-                        ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
-                        : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
-                    }`}
-                    title={!subscriptionActive ? "Active subscription required" : ""}
-                  >
-                    <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-xs sm:text-sm font-medium">Join Group</span>
-                  </button>
-
-                  <button
-                    onClick={() => subscriptionActive && setShowCreateModal(true)}
-                    disabled={!subscriptionActive}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border transition-colors ${
-                      subscriptionActive
-                        ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
-                        : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
-                    }`}
-                    title={!subscriptionActive ? "Active subscription required" : ""}
-                  >
-                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-xs sm:text-sm font-medium">Create Group</span>
-                  </button>
-
-                  {/* Sort Dropdown */}
-                  <div className="relative">
+              <SectionHeader
+                variant="page"
+                className="border-y border-[#303236] py-3 sm:py-4"
+                title={
+                  <div className="p-1 rounded-md flex gap-1 sm:gap-2 overflow-x-auto">
                     <button
-                      onClick={() => setShowSortDropdown(!showSortDropdown)}
-                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50 transition-colors"
+                      onClick={() => setActiveTab("my-groups")}
+                      className={`flex-1 lg:flex-none whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 rounded font-medium text-sm sm:text-base transition-colors ${
+                        activeTab === "my-groups"
+                          ? "bg-[#FFCC00] text-[#101010]"
+                          : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
+                      }`}
                     >
-                      <span className="text-[10px] sm:text-xs text-[#535353]">Sort by</span>
-                      <span className="text-xs sm:text-sm font-medium">{getSortLabel(sortBy)}</span>
-                      <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                      My Groups ({myGroups.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("discover")}
+                      className={`flex-1 lg:flex-none whitespace-nowrap px-3 sm:px-4 py-2 sm:py-2.5 rounded font-medium text-sm sm:text-base transition-colors ${
+                        activeTab === "discover"
+                          ? "bg-[#FFCC00] text-[#101010]"
+                          : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
+                      }`}
+                    >
+                      Discover Groups{discoverLoaded ? ` (${discoverTotalItems})` : ""}
+                    </button>
+                  </div>
+                }
+                action={
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <button
+                      onClick={() => subscriptionActive && setShowJoinModal(true)}
+                      disabled={!subscriptionActive}
+                      className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border transition-colors ${
+                        subscriptionActive
+                          ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                          : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+                      }`}
+                      title={!subscriptionActive ? "Active subscription required" : ""}
+                    >
+                      <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-xs sm:text-sm font-medium">Join Group</span>
                     </button>
 
-                    {showSortDropdown && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
-                        <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#dde2e4] rounded-md shadow-lg z-20">
-                          {GROUP_SORT_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setSortBy(option.value);
-                                setShowSortDropdown(false);
-                              }}
-                              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                                sortBy === option.value ? "text-[#FFCC00] font-medium" : "text-[#101010]"
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                    <button
+                      onClick={() => subscriptionActive && setShowCreateModal(true)}
+                      disabled={!subscriptionActive}
+                      className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border transition-colors ${
+                        subscriptionActive
+                          ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                          : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+                      }`}
+                      title={!subscriptionActive ? "Active subscription required" : ""}
+                    >
+                      <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-xs sm:text-sm font-medium">Create Group</span>
+                    </button>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowSortDropdown(!showSortDropdown)}
+                        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md border bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50 transition-colors"
+                      >
+                        <span className="text-[10px] sm:text-xs text-[#535353]">Sort by</span>
+                        <span className="text-xs sm:text-sm font-medium">{getSortLabel(sortBy)}</span>
+                        <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+
+                      {showSortDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#dde2e4] rounded-md shadow-lg z-20">
+                            {GROUP_SORT_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setSortBy(option.value);
+                                  setShowSortDropdown(false);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                                  sortBy === option.value ? "text-[#FFCC00] font-medium" : "text-[#101010]"
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
+                }
+              />
 
               {/* Content */}
               {loading ? (

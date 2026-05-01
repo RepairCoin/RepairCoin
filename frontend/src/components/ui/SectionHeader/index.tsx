@@ -12,7 +12,11 @@ interface SectionHeaderProps {
   variant?: SectionHeaderVariant;
   /** Optional Lucide icon shown before the title. */
   icon?: LucideIcon;
-  title: string;
+  /**
+   * Heading content. Pass a `string` to render inside a styled `<h1>`/`<h3>` (per variant).
+   * Pass a `ReactNode` (e.g. a tab bar) to render the node as-is — caller owns styling.
+   */
+  title: ReactNode;
   subtitle?: ReactNode;
   /** Action element (button, FilterTabs, etc.). Inline on `sm+`, collapsed behind a kebab menu on mobile. */
   action?: ReactNode;
@@ -76,7 +80,11 @@ export function SectionHeader({
       <div className="flex items-center gap-2 min-w-0">
         {Icon && <Icon className={styles.icon} />}
         <div className="min-w-0">
-          <TitleTag className={styles.title}>{title}</TitleTag>
+          {typeof title === "string" ? (
+            <TitleTag className={styles.title}>{title}</TitleTag>
+          ) : (
+            title
+          )}
           {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
         </div>
       </div>

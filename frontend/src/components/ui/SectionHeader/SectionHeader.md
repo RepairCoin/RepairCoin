@@ -23,7 +23,7 @@ Default is `"section"`.
 | ----------- | ----------------------------- | -------- | ------------------------------------------------------------------------ |
 | `variant`   | `"page" \| "section"`         | no       | Style preset. Defaults to `"section"`.                                   |
 | `icon`      | `LucideIcon`                  | no       | Icon component rendered before the title (yellow).                       |
-| `title`     | `string`                      | yes      | Heading text.                                                            |
+| `title`     | `string \| ReactNode`         | yes      | If `string`, rendered as a styled `<h1>`/`<h3>` per variant. If a node, rendered as-is (use for tab bars or custom headings — caller styles it). |
 | `subtitle`  | `ReactNode`                   | no       | Supporting text below the title. Accepts JSX for inline highlights.      |
 | `action`    | `ReactNode`                   | no       | Right-aligned controls. Inline on `sm`+, collapses to kebab on mobile.   |
 | `className` | `string`                      | no       | Extra classes appended to the root container.                            |
@@ -80,6 +80,24 @@ import { Coins } from "lucide-react";
   subtitle="Manage your group token backing"
 />
 ```
+
+### Custom title (tab bar) instead of text
+
+```tsx
+<SectionHeader
+  variant="page"
+  className="border-y border-[#303236] py-3 sm:py-4"
+  title={
+    <div className="flex gap-2">
+      <button onClick={() => setTab("a")}>Tab A</button>
+      <button onClick={() => setTab("b")}>Tab B</button>
+    </div>
+  }
+  action={<ActionButtons />}
+/>
+```
+
+When `title` is a node, no `<h1>`/`<h3>` is wrapped — caller controls the markup. Use this for toolbar-style headers where the primary content is a control rather than text.
 
 ### Subtitle with inline highlight
 
