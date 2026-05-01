@@ -9,6 +9,8 @@ import {
   Users, Coins, Copy, Check, Shield,
   BookOpen, FileText, Activity, ChevronRight, Home, Dumbbell
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import GroupMembersTab from "./GroupMembersTab";
 import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
@@ -22,6 +24,7 @@ import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { LoadingSpinner } from "./shared";
 import { PageTabs } from "@/components/ui/PageTabs";
 import type { PageTab } from "@/components/ui/PageTabs";
+import { CardCarousel } from "@/components/ui/CardCarousel";
 import { formatDate } from "./utils/formatters";
 import type { GroupDetailsTab } from "./types";
 
@@ -365,33 +368,37 @@ interface GroupStatsCardsProps {
   inviteCodeCopied: boolean;
 }
 
+interface StatCardItem {
+  icon: LucideIcon;
+  label: string;
+  body: ReactNode;
+}
+
 function GroupStatsCards({ group, onCopyInviteCode, inviteCodeCopied }: GroupStatsCardsProps) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-        <div className="flex items-center gap-2 mb-2 sm:mb-3">
-          <Coins className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Token</span>
-        </div>
+  const cards: StatCardItem[] = [
+    {
+      icon: Coins,
+      label: "Token",
+      body: (
         <p className="text-white font-semibold">
           {group.customTokenSymbol} • {group.customTokenName}
         </p>
-      </div>
-
-      <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-        <div className="flex items-center gap-2 mb-2 sm:mb-3">
-          <Users className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Members</span>
-        </div>
-        <p className="text-white font-semibold text-xl">{group.memberCount || 0}</p>
-        <p className="text-gray-500 text-xs">Active participants</p>
-      </div>
-
-      <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-        <div className="flex items-center gap-2 mb-2 sm:mb-3">
-          <Copy className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Invite Code</span>
-        </div>
+      ),
+    },
+    {
+      icon: Users,
+      label: "Members",
+      body: (
+        <>
+          <p className="text-white font-semibold text-xl">{group.memberCount || 0}</p>
+          <p className="text-gray-500 text-xs">Active participants</p>
+        </>
+      ),
+    },
+    {
+      icon: Copy,
+      label: "Invite Code",
+      body: (
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-white font-semibold tracking-wider">
             {group.inviteCode}
@@ -407,19 +414,36 @@ function GroupStatsCards({ group, onCopyInviteCode, inviteCodeCopied }: GroupSta
             )}
           </button>
         </div>
-      </div>
+      ),
+    },
+    {
+      icon: Shield,
+      label: "Group Privacy",
+      body: (
+        <>
+          <p className="text-white font-semibold">PUBLIC</p>
+          <p className="text-gray-500 text-xs">
+            Created: {formatDate(group.createdAt, { shortFormat: true })}
+          </p>
+        </>
+      ),
+    },
+  ];
 
-      <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
-        <div className="flex items-center gap-2 mb-2 sm:mb-3">
-          <Shield className="w-4 h-4 text-[#FFCC00]" />
-          <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">Group Privacy</span>
+  return (
+    <CardCarousel>
+      {cards.map(({ icon: Icon, label, body }) => (
+        <div key={label} className="bg-[#1e1f22] rounded-lg p-3 sm:p-4 h-full">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
+            <Icon className="w-4 h-4 text-[#FFCC00]" />
+            <span className="text-[#FFCC00] text-xs font-semibold uppercase tracking-wide">
+              {label}
+            </span>
+          </div>
+          {body}
         </div>
-        <p className="text-white font-semibold">PUBLIC</p>
-        <p className="text-gray-500 text-xs">
-          Created: {formatDate(group.createdAt, { shortFormat: true })}
-        </p>
-      </div>
-    </div>
+      ))}
+    </CardCarousel>
   );
 }
 
