@@ -20,18 +20,13 @@ import ImprovedRcnAllocationCard from "./ImprovedRcnAllocationCard";
 import { useAuthStore } from "../../../stores/authStore";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
 import { LoadingSpinner } from "./shared";
+import { PageTabs } from "@/components/ui/PageTabs";
+import type { PageTab } from "@/components/ui/PageTabs";
 import { formatDate } from "./utils/formatters";
 import type { GroupDetailsTab } from "./types";
 
 interface GroupDetailsClientProps {
   groupId: string;
-}
-
-interface TabConfig {
-  key: GroupDetailsTab;
-  label: string;
-  icon: React.ElementType;
-  hasBadge?: boolean;
 }
 
 export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps) {
@@ -161,7 +156,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   }
 
   // Define tabs based on access level
-  const tabs: TabConfig[] = [
+  const tabs: PageTab<GroupDetailsTab>[] = [
     { key: "overview", label: "Overview", icon: BookOpen },
     ...(isRestrictedAccess ? [] : [
       { key: "members" as GroupDetailsTab, label: "Members", icon: Users, hasBadge: true },
@@ -235,29 +230,12 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex flex-wrap gap-2 mb-4 sm:mb-6">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-white text-black'
-                        : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                    {tab.hasBadge && (
-                      <span className="w-2 h-2 bg-red-500 rounded-full" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <PageTabs
+              tabs={tabs}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              className="mb-4 sm:mb-6"
+            />
 
             {/* Tab Content */}
             <div>
