@@ -95,7 +95,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
 
   if (loading) {
     return (
-      <div className="bg-[#101010] rounded-[20px] p-8">
+      <div className="bg-[#101010] rounded-[20px] p-4 sm:p-8">
         <LoadingSpinner message="Loading members..." />
       </div>
     );
@@ -120,7 +120,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
   ];
 
   return (
-    <div className="bg-[#101010] rounded-[20px] p-6">
+    <div className="bg-[#101010] rounded-[20px] p-4 sm:p-6">
       <SectionHeader
         icon={Users}
         title="Group Members"
@@ -169,7 +169,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
             <>
               <button
                 onClick={() => setViewingApplication(null)}
-                className="flex-1 px-6 py-3 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
+                className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
               >
                 Close
               </button>
@@ -180,7 +180,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
                       handleApproveMember(viewingApplication.shopId);
                       setViewingApplication(null);
                     }}
-                    className="flex-1 px-6 py-3 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold rounded-xl transition-all duration-200"
+                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold rounded-xl transition-all duration-200"
                   >
                     Accept
                   </button>
@@ -189,7 +189,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
                       handleRejectMember(viewingApplication.shopId);
                       setViewingApplication(null);
                     }}
-                    className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-200"
+                    className="px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-200"
                   >
                     Reject
                   </button>
@@ -198,18 +198,18 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
             </>
           }
         >
-          <div className="space-y-4">
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <p className="text-sm text-gray-400 mb-1">Applied on</p>
-              <p className="text-white font-medium">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Applied on</p>
+              <p className="text-white text-sm sm:text-base font-medium">
                 {formatDate(viewingApplication.joinedAt)}
               </p>
             </div>
 
             {viewingApplication.requestMessage && (
-              <div className="bg-[#1e1f22] rounded-lg p-4">
-                <p className="text-sm text-gray-400 mb-1">Message</p>
-                <p className="text-white">&quot;{viewingApplication.requestMessage}&quot;</p>
+              <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Message</p>
+                <p className="text-white text-sm sm:text-base break-words">&quot;{viewingApplication.requestMessage}&quot;</p>
               </div>
             )}
           </div>
@@ -227,20 +227,20 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
             <>
               <button
                 onClick={() => setMemberToRemove(null)}
-                className="flex-1 px-6 py-3 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
+                className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRemoveMember}
-                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-200"
+                className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-200"
               >
                 Remove
               </button>
             </>
           }
         >
-          <p className="text-gray-400">
+          <p className="text-gray-400 text-sm sm:text-base">
             Are you sure you want to remove{" "}
             <span className="font-semibold text-white">
               {memberToRemove.shopName || memberToRemove.shopId}
@@ -283,30 +283,34 @@ function MembersTable({
     startIndex,
   } = usePagination(members, { itemsPerPage: ITEMS_PER_PAGE });
 
+  const tableMinWidth = activeFilter === "active"
+    ? (isCurrentUserAdmin ? "min-w-[820px]" : "min-w-[720px]")
+    : (isCurrentUserAdmin ? "min-w-[640px]" : "min-w-[520px]");
+
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <table className={`w-full ${tableMinWidth}`}>
           <thead>
             <tr className="border-b border-gray-800">
-              <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm w-12">#</th>
-              <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Shop</th>
+              <th className="text-left py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm w-10 sm:w-12">#</th>
+              <th className="text-left py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Shop</th>
               {activeFilter === "active" ? (
                 <>
-                  <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Rank</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Allocated</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Used</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Available</th>
+                  <th className="text-left py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Rank</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm whitespace-nowrap">RCN Allocated</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm whitespace-nowrap">RCN Used</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm whitespace-nowrap">RCN Available</th>
                   {isCurrentUserAdmin && (
-                    <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Action</th>
+                    <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Action</th>
                   )}
                 </>
               ) : (
                 <>
-                  <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Date Applied</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">View Application</th>
+                  <th className="text-left py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm whitespace-nowrap">Date Applied</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm whitespace-nowrap">View Application</th>
                   {isCurrentUserAdmin && (
-                    <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Action</th>
+                    <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Action</th>
                   )}
                 </>
               )}
@@ -319,17 +323,17 @@ function MembersTable({
 
               return (
                 <tr key={member.shopId} className="border-b border-gray-800/50 hover:bg-[#1e1f22]/50">
-                  <td className="py-4 px-4 text-white font-medium">{rowNumber}</td>
-                  <td className="py-4 px-4">
+                  <td className="py-3 sm:py-4 px-3 sm:px-4 text-white text-sm sm:text-base font-medium">{rowNumber}</td>
+                  <td className="py-3 sm:py-4 px-3 sm:px-4">
                     <div className="flex items-center gap-2">
-                      <div>
-                        <p className="text-white font-medium flex items-center gap-2">
-                          {member.shopName || member.shopId}
+                      <div className="min-w-0">
+                        <p className="text-white text-sm sm:text-base font-medium flex items-center gap-2 truncate">
+                          <span className="truncate">{member.shopName || member.shopId}</span>
                           {member.role === "admin" && (
-                            <Crown className="w-4 h-4 text-[#FFCC00]" />
+                            <Crown className="w-4 h-4 text-[#FFCC00] flex-shrink-0" />
                           )}
                         </p>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-gray-500 text-xs sm:text-sm">
                           {activeFilter === "active"
                             ? `Joined ${formatDate(member.joinedAt, { shortFormat: true })}`
                             : ""}
@@ -340,39 +344,39 @@ function MembersTable({
 
                   {activeFilter === "active" ? (
                     <>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {member.role === "admin" ? (
-                            <span className="px-3 py-1 bg-[#FFCC00] text-[#101010] text-xs font-semibold rounded-lg">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-[#FFCC00] text-[#101010] text-[10px] sm:text-xs font-semibold rounded-lg">
                               Admin
                             </span>
                           ) : (
-                            <span className="px-3 py-1 bg-[#1e1f22] text-white text-xs font-semibold rounded-lg border border-gray-700">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-[#1e1f22] text-white text-[10px] sm:text-xs font-semibold rounded-lg border border-gray-700">
                               Member
                             </span>
                           )}
                           {isCurrentUser && (
-                            <span className="px-3 py-1 bg-[#FFCC00] text-[#101010] text-xs font-semibold rounded-lg">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-[#FFCC00] text-[#101010] text-[10px] sm:text-xs font-semibold rounded-lg">
                               You
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-center text-white">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-white text-sm sm:text-base whitespace-nowrap">
                         {member.allocatedRcn?.toLocaleString() || 0}
                       </td>
-                      <td className="py-4 px-4 text-center text-white">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-white text-sm sm:text-base whitespace-nowrap">
                         {member.usedRcn?.toLocaleString() || 0}
                       </td>
-                      <td className="py-4 px-4 text-center text-white">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center text-white text-sm sm:text-base whitespace-nowrap">
                         {member.availableRcn?.toLocaleString() || 0}
                       </td>
                       {isCurrentUserAdmin && (
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">
                           {!isCurrentUser && member.role !== 'admin' ? (
                             <button
                               onClick={() => onRemove(member)}
-                              className="px-3 py-1.5 text-red-400 hover:text-white hover:bg-red-600 text-xs font-medium rounded-lg border border-red-500/30 transition-all duration-200"
+                              className="px-3 py-1.5 text-red-400 hover:text-white hover:bg-red-600 text-[11px] sm:text-xs font-medium rounded-lg border border-red-500/30 transition-all duration-200 whitespace-nowrap"
                             >
                               Remove
                             </button>
@@ -384,30 +388,30 @@ function MembersTable({
                     </>
                   ) : (
                     <>
-                      <td className="py-4 px-4 text-white">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-white text-sm sm:text-base whitespace-nowrap">
                         {formatDate(member.joinedAt, { shortFormat: true })}
                       </td>
-                      <td className="py-4 px-4 text-center">
+                      <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">
                         <button
                           onClick={() => onViewApplication(member)}
-                          className="inline-flex items-center gap-1.5 text-[#FFCC00] hover:text-[#FFD700] text-sm font-medium"
+                          className="inline-flex items-center gap-1.5 text-[#FFCC00] hover:text-[#FFD700] text-xs sm:text-sm font-medium whitespace-nowrap"
                         >
                           <Mail className="w-4 h-4" />
                           View Application
                         </button>
                       </td>
                       {isCurrentUserAdmin && (
-                        <td className="py-4 px-4">
+                        <td className="py-3 sm:py-4 px-3 sm:px-4">
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => onApprove(member.shopId)}
-                              className="px-4 py-1.5 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] text-sm font-semibold rounded-lg transition-all duration-200"
+                              className="px-3 sm:px-4 py-1.5 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200"
                             >
                               Accept
                             </button>
                             <button
                               onClick={() => onReject(member.shopId)}
-                              className="px-4 py-1.5 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white text-sm font-semibold rounded-lg border border-gray-700 transition-all duration-200"
+                              className="px-3 sm:px-4 py-1.5 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white text-xs sm:text-sm font-semibold rounded-lg border border-gray-700 transition-all duration-200"
                             >
                               Reject
                             </button>

@@ -57,16 +57,16 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
 
   if (loading && customers.length === 0) {
     return (
-      <div className="bg-[#101010] rounded-xl p-6">
+      <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
         <LoadingSpinner message="Loading customers..." showSparkles />
       </div>
     );
   }
 
   return (
-    <div className="bg-[#101010] rounded-xl p-6">
+    <div className="bg-[#101010] rounded-xl p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <SectionHeader
           icon={Users}
           title="Customers"
@@ -101,14 +101,14 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
       ) : (
         <>
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+            <table className="w-full min-w-[560px]">
               <thead>
                 <tr className="border-b border-gray-800">
-                  <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Customer</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Balance</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Earned</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Redeemed</th>
+                  <th className="text-left py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Customer</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Balance</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Earned</th>
+                  <th className="text-center py-2 sm:py-3 px-3 sm:px-4 text-gray-400 font-medium text-xs sm:text-sm">Redeemed</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,33 +117,33 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
                     key={customer.customerAddress}
                     className="border-b border-gray-800/50 hover:bg-[#1e1f22]/50"
                   >
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#1e1f22] flex items-center justify-center">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#1e1f22] flex items-center justify-center flex-shrink-0">
                           <Wallet className="w-4 h-4 text-[#FFCC00]" />
                         </div>
-                        <div>
-                          <p className="text-white font-medium">{customer.customerName || "Unknown"}</p>
-                          <p className="text-gray-500 text-xs font-mono">
+                        <div className="min-w-0">
+                          <p className="text-white font-medium text-sm sm:text-base truncate">{customer.customerName || "Unknown"}</p>
+                          <p className="text-gray-500 text-[10px] sm:text-xs font-mono truncate">
                             {formatAddress(customer.customerAddress)}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="text-white font-semibold">{customer.balance.toLocaleString()}</span>
-                      <span className="text-[#FFCC00] text-xs ml-1">{group?.customTokenSymbol}</span>
+                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-center whitespace-nowrap">
+                      <span className="text-white font-semibold text-sm sm:text-base">{customer.balance.toLocaleString()}</span>
+                      <span className="text-[#FFCC00] text-[10px] sm:text-xs ml-1">{group?.customTokenSymbol}</span>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
                         <TrendingUp className="w-3 h-3 text-green-400" />
-                        <span className="text-green-400 font-semibold">{customer.lifetimeEarned.toLocaleString()}</span>
+                        <span className="text-green-400 font-semibold text-sm sm:text-base">{customer.lifetimeEarned.toLocaleString()}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
                         <TrendingDown className="w-3 h-3 text-blue-400" />
-                        <span className="text-blue-400 font-semibold">{customer.lifetimeRedeemed.toLocaleString()}</span>
+                        <span className="text-blue-400 font-semibold text-sm sm:text-base">{customer.lifetimeRedeemed.toLocaleString()}</span>
                       </div>
                     </td>
                   </tr>
