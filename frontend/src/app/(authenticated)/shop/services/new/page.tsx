@@ -17,18 +17,14 @@ import {
 import type { AITone } from "@/utils/aiPreviewMocks";
 
 /**
- * Create New Service page (Task 4 of Phase 1).
+ * Create New Service page.
  *
- * Page-based replacement for the create flow that previously used the
- * CreateServiceModal. The modal is still in the codebase as a fallback —
- * this page coexists with it until Tasks 6-7 flip the navigation.
+ * Layout: breadcrumb header + 2-column body with form on the left and a
+ * sticky live-preview card on the right.
  *
- * Layout matches `sc1.jpeg`: breadcrumb header + 2-column body with form
- * on the left and a sticky live-preview card on the right.
- *
- * AI Sales Assistant section ships as visual-only in Phase 1 — toggle
- * state lives in this page's local state and is dropped on save. Phase 2
- * adds DB columns and persists the AI state. Phase 3 wires it to Claude.
+ * AI Sales Assistant state (enabled, tone, upsells, booking-assistance)
+ * lives at the page level and merges into the create payload at submit
+ * so the persisted shop_services row matches what the user configured.
  */
 
 const EMPTY_FORM_DATA: CreateServiceData = {

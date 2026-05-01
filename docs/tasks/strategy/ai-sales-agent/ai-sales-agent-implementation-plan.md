@@ -2,7 +2,7 @@
 
 **Created:** 2026-04-30
 **Status:**
-- **Phase 1 ✅ implementation complete (2026-04-30)** — Tasks 1-7 shipped; Task 8 (modal deletion) deferred until ~1 week soak.
+- **Phase 1 ✅ implementation complete** — Tasks 1-7 shipped 2026-04-30. **Task 8 ✅ done 2026-05-01** — `CreateServiceModal.tsx` deleted; migrated a missed consumer (`ShopProfileClient.tsx` preview-mode "Create Service" button) to `router.push('/shop/services/new')` along the way.
 - **Phase 2 ✅ implementation complete (2026-04-30)** — Migration 108 + 5 backend/frontend layers shipped. Manually applied to staging DB. **Prod deploy still pending** (main → prod merge not yet done).
 - **Phase 2.5 ✅ implementation complete (2026-05-01)** — Exec copy iteration applied: label "Auto Sales & Booking", new description, micro-proof line (Option B), 12 mocked messages with emoji + urgency + time slots. See "Phase 2.5 implementation log (2026-05-01)" section.
 - **Phase 3 ⏳ blocked** on Anthropic API key. ~3-4 weeks of work once key arrives.
@@ -226,19 +226,38 @@ frontend/src/services/api/services.ts
 
 **Acceptance:** clicking "Edit" on a service detail page routes to the edit page instead of opening the modal. The detail page's other tabs (overview / availability / calendar / reviews) still work.
 
-### Task 8 — Cleanup: delete `CreateServiceModal.tsx` (deferred ~1 week, ~15 min) ⏳ PENDING (post-soak)
+### Task 8 — Cleanup: delete `CreateServiceModal.tsx` ✅ DONE (2026-05-01)
 
-**Run only after:** Tasks 1-7 are deployed and soaked for 5-7 days with no rollback signals.
+**What actually happened:** the soak grep found a consumer the original plan missed — `frontend/src/components/customer/ShopProfileClient.tsx` was still importing + mounting `CreateServiceModal` in `isPreviewMode` (the shop owner's "Preview as Customer" view of their own profile). Two button entry points: the Services sub-tab "+ Create Service" button (line 759), and the empty-state "Create Your First Service" button (line 777).
 
-**Steps:**
-1. Verify `CreateServiceModal` has no remaining imports anywhere in `frontend/src/`:
-   ```bash
-   grep -rn "CreateServiceModal" frontend/src/
-   ```
-2. If clean: delete `frontend/src/components/shop/modals/CreateServiceModal.tsx`
-3. If anything still references it: stop, investigate, do not delete
+**Why this consumer mattered:** the legacy modal predates Phases 1-2.5 entirely — it has **no AI Sales Assistant section**, no live-preview pane, and (after Phase 2) doesn't send AI fields to the backend. Shop owners who created services from the Profile preview were silently getting a stripped-down create flow. Migrating this consumer was a small UX regression fix on top of the cleanup.
 
-**Acceptance:** modal file deleted, no import errors anywhere.
+**Steps actually run:**
+
+1. Final import check via `Grep`: surfaced 1 real consumer (`ShopProfileClient.tsx`) plus 2 stale doc-comment references in `new/page.tsx` and `ServiceForm.tsx`.
+2. **Migrated `ShopProfileClient.tsx`** (mirrors the pattern from `ServicesTab.tsx` + `ServiceManagementClient.tsx`):
+   - Removed `CreateServiceModal` import (line 35)
+   - Removed `createService`, `CreateServiceData`, `UpdateServiceData` import (line 36) — only used by the now-deleted handler
+   - Removed `showCreateServiceModal` state
+   - Removed `handleCreateService` function (~12 lines)
+   - Removed `<CreateServiceModal>` mount block (~6 lines)
+   - Replaced 2 onClick handlers: `setShowCreateServiceModal(true)` → `router.push('/shop/services/new')`. `useRouter` was already imported and `router` already initialized (line 77).
+3. Deleted `frontend/src/components/shop/modals/CreateServiceModal.tsx` via `git rm`.
+4. Refreshed stale doc comments in `new/page.tsx` (lines 19-32) and `ServiceForm.tsx` (lines 13-29) to remove dead `CreateServiceModal` references and Phase/Task numbering rot.
+5. Ran `tsc --noEmit` — zero new errors in touched files (pre-existing 278 unrelated admin/chart errors unchanged).
+
+**Trade-off accepted:** clicking "Create Service" from the Profile preview view now navigates to `/shop/services/new`, leaving the preview context. After successful create, lands on `/shop?tab=services`, not back on the profile preview. Acceptable — preview is a verification surface, not a primary workflow, and the new page has its own preview pane.
+
+**Files changed:**
+
+```
+modified:   frontend/src/components/customer/ShopProfileClient.tsx
+modified:   frontend/src/components/shop/service/ServiceForm.tsx       (doc comment refresh)
+modified:   frontend/src/app/(authenticated)/shop/services/new/page.tsx (doc comment refresh)
+deleted:    frontend/src/components/shop/modals/CreateServiceModal.tsx
+```
+
+**Acceptance:** modal file deleted, no import errors anywhere, `Grep CreateServiceModal frontend/src` returns zero matches.
 
 ---
 
