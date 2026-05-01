@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import ActionCard from "@/shared/components/shared/ActionCard";
 import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface";
 import WalletDetailSection from "./WalletDetailSection";
@@ -33,17 +33,16 @@ export default function ShopWalletTab({
 }: ShopWalletTabProps) {
   const [refreshing, setRefreshing] = useState(false);
 
+  const router = useRouter();
+  const { account } = useAuthStore();
+
   const handleRefresh = useCallback(() => {
     if (!onRefresh) return;
     setRefreshing(true);
     onRefresh();
-    // Give a brief delay for visual feedback
     setTimeout(() => setRefreshing(false), 1000);
   }, [onRefresh]);
-  const router = useRouter();
-  const { account } = useAuthStore();
 
-  // Early return for missing data
   if (!account) {
     return (
       <View className="flex-1 justify-center items-center mt-20">
@@ -74,7 +73,6 @@ export default function ShopWalletTab({
         scrollEventThrottle={16}
         bounces={true}
       >
-        {/* Balance Card with Quick Actions */}
         <ActionCard
           balance={shopData?.purchasedRcnBalance}
           isLoading={false}
@@ -105,7 +103,6 @@ export default function ShopWalletTab({
           ]}
         />
 
-        {/* Subscription Card */}
         {shopData?.operational_status !== "subscription_qualified" &&
           shopData?.operational_status !== "rcg_qualified" && (
           <View className="rounded-3xl overflow-hidden">
@@ -120,7 +117,6 @@ export default function ShopWalletTab({
               style={{ minHeight: Platform.OS === "ios" ? 180 : 160, backgroundColor: '#1a1a1c' }}
             >
               <View className="p-6 flex-1 justify-between">
-                {/* Logo + Title */}
                 <View>
                   <View className="flex-row items-center mb-3 ml-[-12px]">
                     <Image
@@ -129,14 +125,10 @@ export default function ShopWalletTab({
                       resizeMode="contain"
                     />
                   </View>
-
-                  {/* Tagline */}
                   <Text className="text-[#FFCC00] text-sm">
                     The Repair Industry's Loyalty Coin
                   </Text>
                 </View>
-
-                {/* Subscribe Button */}
                 <TouchableOpacity
                   onPress={() => router.push("/shop/subscription")}
                   className="bg-[#FFCC00] rounded-xl py-3 px-6 self-start mt-4"
@@ -150,8 +142,6 @@ export default function ShopWalletTab({
             </ImageBackground>
           </View>
         )}
-
-        {/* Detail Cards */}
         <WalletDetailSection shopData={shopData} />
         <CustomerDetailSection growthData={growthData} />
       </ScrollView>

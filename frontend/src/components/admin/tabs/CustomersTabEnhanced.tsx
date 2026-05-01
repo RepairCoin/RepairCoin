@@ -23,11 +23,15 @@ import {
   Star,
   Grid,
   List,
+  Upload,
+  Download,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CustomerImportModal from "../modals/CustomerImportModal";
+import CustomerExportModal from "../modals/CustomerExportModal";
 
 interface Customer {
   address: string;
@@ -145,6 +149,8 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     customer: Customer | null;
   }>({ isOpen: false, customer: null });
   const [mintLoading, setMintLoading] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -745,6 +751,24 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Monitor Shops
           </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm md:text-base font-medium"
+              title="Import Customers"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Import</span>
+            </button>
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm md:text-base font-medium"
+              title="Export Customers"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+          </div>
         </div>
         {/* Controls */}
         <div className="p-4 md:p-6 border-b border-gray-700/50 space-y-4">
@@ -1807,6 +1831,21 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           </div>
         </div>
       )}
+
+      {/* Import Modal */}
+      <CustomerImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={() => {
+          loadCustomersData();
+        }}
+      />
+
+      {/* Export Modal */}
+      <CustomerExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
     </div>
   );
 };

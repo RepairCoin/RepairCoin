@@ -14,7 +14,6 @@ interface ServiceSectionProps {
   handleViewAllServices: () => void;
   servicesLoading: boolean;
   displayedServices: ServiceData[];
-  getCategoryLabel: (category: string) => string;
   handleServicePress: (item: ServiceData) => void;
   favoritedIds: Set<string>;
 }
@@ -23,13 +22,11 @@ export default function ServiceSection({
   handleViewAllServices,
   servicesLoading,
   displayedServices,
-  getCategoryLabel,
   handleServicePress,
   favoritedIds,
 }: ServiceSectionProps) {
   return (
     <View className="mt-5">
-      {/* Header */}
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-row items-center">
           <Ionicons name="grid" size={20} color="#FFCC00" />
@@ -39,8 +36,6 @@ export default function ServiceSection({
           <Text className="text-[#FFCC00] text-sm font-semibold">View All</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Service Cards - Horizontal Slider */}
       {servicesLoading ? (
         <SkeletonHorizontalCards count={3} cardWidth={280} />
       ) : displayedServices.length > 0 ? (
@@ -57,12 +52,13 @@ export default function ServiceSection({
               <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
                 <ServiceCard
                   imageUrl={item.imageUrl}
-                  category={getCategoryLabel(item.category)}
+                  category={item.category}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
-        avgRating={item.avgRating}
-        reviewCount={item.reviewCount}                  duration={item.durationMinutes}
+                  avgRating={item.avgRating}
+                  reviewCount={item.reviewCount}
+                  duration={item.durationMinutes}
                   onPress={() => handleServicePress(item)}
                   showFavoriteButton
                   serviceId={item.serviceId}

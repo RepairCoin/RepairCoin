@@ -1,1 +1,1 @@
-export { RewardTokenScreen as default } from "@/feature/reward-token/screens";
+export { RewardTokenScreen as default } from "@/feature/transaction/token/screens";

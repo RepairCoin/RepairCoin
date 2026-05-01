@@ -1,1 +1,1 @@
-export { ShopSuccessScreen as default } from "@/feature/register/screens";
+export { ShopSuccessScreen as default } from "@/feature/auth/screens";

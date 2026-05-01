@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { useFavorite } from "@/feature/services/hooks/useFavorite";
 import { useHaptics } from "@/shared/hooks/useHaptics";
+import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
-// Fixed height for grid cards (increased for rating row)
 const CARD_HEIGHT = 255;
 
 interface ServiceCardProps {
@@ -32,10 +32,8 @@ interface ServiceCardProps {
   onMenuPress?: () => void;
   variant?: "grid" | "list";
   showTrendingBadge?: boolean;
-  // Rating
   avgRating?: number;
   reviewCount?: number;
-  // Favorites
   showFavoriteButton?: boolean;
   serviceId?: string;
   isFavorited?: boolean;
@@ -43,7 +41,7 @@ interface ServiceCardProps {
 
 function ServiceCard({
   imageUrl,
-  category,
+  category: rawCategory,
   title,
   description,
   price,
@@ -64,19 +62,17 @@ function ServiceCard({
   serviceId,
   isFavorited: initialFavorited,
 }: ServiceCardProps) {
+  const category = getCategoryLabel(rawCategory);
   const { useToggleFavorite } = useFavorite();
   const { toggleFavorite } = useToggleFavorite();
   const haptics = useHaptics();
 
-  // Local state for instant UI feedback
   const [localFavorited, setLocalFavorited] = useState(initialFavorited);
 
-  // Sync with prop when it changes
   useEffect(() => {
     setLocalFavorited(initialFavorited);
   }, [initialFavorited]);
 
-  // Memoize image source to prevent re-renders
   const imageSource = useMemo(
     () => (imageUrl ? { uri: imageUrl } : null),
     [imageUrl]
@@ -85,9 +81,7 @@ function ServiceCard({
   const handleFavoritePress = useCallback(() => {
     if (!serviceId) return;
     haptics.selection();
-    // Update UI instantly
     setLocalFavorited((prev) => {
-      // Then make API call in background
       toggleFavorite(serviceId, !!prev);
       return !prev;
     });
@@ -103,13 +97,11 @@ function ServiceCard({
     });
   };
 
-  // List View Layout
   if (variant === "list") {
     return (
       <View className="mx-4 my-2">
         <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
           <View className="bg-gray-900 rounded-xl overflow-hidden flex-row">
-            {/* Image */}
             <View className="relative">
               {imageSource ? (
                 <Image
@@ -135,7 +127,6 @@ function ServiceCard({
               )}
             </View>
 
-            {/* Content */}
             <View className="flex-1 p-3 justify-between">
               <View>
                 <View className="flex-row items-center justify-between mb-1">
@@ -182,7 +173,6 @@ function ServiceCard({
               </View>
             </View>
 
-            {/* Menu Button */}
             {showMenu && (
               <TouchableOpacity
                 onPress={onMenuPress}
@@ -198,7 +188,6 @@ function ServiceCard({
     );
   }
 
-  // Grid View Layout (default)
   return (
     <View style={{ width: "100%" }}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -296,7 +285,6 @@ function ServiceCard({
                 )}
               </View>
 
-              {/* Rating */}
               {avgRating != null && avgRating > 0 ? (
                 <View className="flex-row items-center mb-1">
                   <Ionicons name="star" size={12} color="#FFCC00" />

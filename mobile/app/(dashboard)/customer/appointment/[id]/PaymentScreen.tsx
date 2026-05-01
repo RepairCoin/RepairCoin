@@ -1,1 +1,1 @@
-export { AppointmentPaymentScreen as default } from "@/feature/appointment/screens";
+export { AppointmentPaymentScreen as default } from "@/feature/transaction/appointment/screens";

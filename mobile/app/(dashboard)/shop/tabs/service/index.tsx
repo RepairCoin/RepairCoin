@@ -1,1 +1,1 @@
-export { ShopServiceScreen as default } from "@/feature/service/screens";
+export { ShopServiceScreen as default } from "@/feature/services/screens";

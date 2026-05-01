@@ -1,4 +1,4 @@
-// Re-export types from interfaces
+// Re-export all message interfaces from their canonical location
 export type {
   Conversation,
   Message,
@@ -12,4 +12,4 @@ export type {
   GetUnreadCountResponse,
   MarkAsReadResponse,
   StartConversationResponse,
-} from "@/shared/interfaces/message.interface";
+} from "./services/message.interface";

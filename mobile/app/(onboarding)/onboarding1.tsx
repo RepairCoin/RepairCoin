@@ -1,1 +1,0 @@
-export { OnboardingScreen1 as default } from "@/feature/onboarding";

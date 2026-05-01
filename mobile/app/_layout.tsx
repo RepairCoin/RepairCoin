@@ -1,4 +1,3 @@
-// CRITICAL: These polyfills MUST be imported FIRST before any other imports
 import "react-native-get-random-values";
 
 import { useEffect } from "react";
@@ -22,7 +21,6 @@ import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
 
-// All supported wallets for auto-reconnection
 const wallets = [
   createWallet("inApp"),
   createWallet("io.metamask"),
@@ -31,11 +29,6 @@ const wallets = [
   createWallet("me.rainbow"),
 ];
 
-/**
- * Restores the last connected wallet session on app launch.
- * For social login (Google) users, this reconnects the embedded wallet
- * so useActiveAccount() returns a valid account for signing.
- */
 function WalletAutoConnect() {
   useAutoConnect({
     client,

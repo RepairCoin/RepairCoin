@@ -3,15 +3,15 @@ import { Platform } from "react-native";
 import { router } from "expo-router";
 import MapView, { Region, LatLng } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
-import { useShop } from "@/shared/hooks/shop/useShop";
+import { useShop } from "@/feature/profile/shop/hooks/useShopQuery";
 import { useAppToast } from "@/shared/hooks";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
-import { serviceApi } from "@/shared/services/service.services";
+import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 import {
   getCurrentLocation,
   geocodeAddress,
   Coordinates,
-} from "@/shared/services/geocoding.services";
+} from "@/feature/find-shop/services/geocoding.services";
 import {
   fetchRoute,
   metersToMiles,
@@ -109,8 +109,8 @@ export function useFindShop() {
         if (isCancelled) return;
 
         results.forEach((result, index) => {
-          if (result.status === "fulfilled" && result.value?.data) {
-            newAvailabilities[batch[index]] = result.value.data;
+          if (result.status === "fulfilled" && result.value) {
+            newAvailabilities[batch[index]] = result.value;
           }
         });
       }

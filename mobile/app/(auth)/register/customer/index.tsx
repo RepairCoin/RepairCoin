@@ -1,1 +1,1 @@
-export { CustomerRegisterScreen as default } from "@/feature/register/screens";
+export { CustomerRegisterScreen as default } from "@/feature/auth/screens";

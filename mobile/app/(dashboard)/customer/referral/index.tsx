@@ -1,1 +1,1 @@
-export { ReferralScreen as default } from "@/feature/referral/screens";
+export { ReferralScreen as default } from "@/feature/profile/customer/screens";

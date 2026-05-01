@@ -1,0 +1,22 @@
+// Re-export all customer profile interfaces from their canonical location
+export type {
+  CustomerCardProps,
+  ViewMode,
+  TierFilter,
+  SortBy,
+  TierConfig,
+  TierProgress,
+  HowItWorksStep,
+  ReferralStats,
+  CopyableFieldProps,
+  TierProgressCardProps,
+  CustomerData,
+  CustomerTier,
+  CustomerProfileProps,
+  CustomerStatsProps,
+  CustomerEditFormData,
+  ContactInfoItem,
+  ProfileTab,
+  ProfileLoadingProps,
+  ProfileErrorProps,
+} from "./services/customer.interface";

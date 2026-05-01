@@ -8,7 +8,7 @@ import {
   FontAwesome6,
 } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
-import { useAuthStore } from "@/shared/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useHaptics } from "@/shared/hooks/useHaptics";
 
 interface TabItem {

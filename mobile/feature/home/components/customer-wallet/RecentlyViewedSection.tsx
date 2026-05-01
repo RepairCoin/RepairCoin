@@ -10,25 +10,22 @@ import { router } from "expo-router";
 import { ServiceData } from "@/shared/interfaces/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
-import { useFavorite } from "@/shared/hooks/favorite/useFavorite";
+import { useFavorite } from "@/feature/services/hooks/useFavorite";
 
 interface RecentlyViewedSectionProps {
   data: ServiceData[];
   isLoading: boolean;
-  getCategoryLabel: (category?: string) => string;
   onServicePress: (service: ServiceData) => void;
 }
 
 export default function RecentlyViewedSection({
   data,
   isLoading,
-  getCategoryLabel,
   onServicePress,
 }: RecentlyViewedSectionProps) {
   const { useGetFavorites } = useFavorite();
   const { data: favoritesData } = useGetFavorites();
 
-  // Create a Set of favorited service IDs for O(1) lookup
   const favoritedIds = React.useMemo(() => {
     if (!favoritesData) return new Set<string>();
     return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
@@ -40,7 +37,6 @@ export default function RecentlyViewedSection({
 
   return (
     <View className="mt-5">
-      {/* Header */}
       <View className="flex-row justify-between items-center mb-4">
         <View className="flex-row items-center">
           <Ionicons name="time-outline" size={22} color="#FFCC00" />
@@ -50,8 +46,6 @@ export default function RecentlyViewedSection({
           <Text className="text-[#FFCC00] text-sm font-semibold">View All</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Recently Viewed Cards - Horizontal Slider */}
       {isLoading ? (
         <SkeletonHorizontalCards count={3} cardWidth={280} />
       ) : data && data.length > 0 ? (
@@ -68,12 +62,13 @@ export default function RecentlyViewedSection({
               <View key={item.serviceId} style={{ width: 280, marginRight: 6 }}>
                 <ServiceCard
                   imageUrl={item.imageUrl}
-                  category={getCategoryLabel(item.category)}
+                  category={item.category}
                   title={item.serviceName}
                   description={item.description}
                   price={item.priceUsd}
-        avgRating={item.avgRating}
-        reviewCount={item.reviewCount}                  duration={item.durationMinutes}
+                  avgRating={item.avgRating}
+                  reviewCount={item.reviewCount}
+                  duration={item.durationMinutes}
                   onPress={() => onServicePress(item)}
                   showFavoriteButton
                   serviceId={item.serviceId}

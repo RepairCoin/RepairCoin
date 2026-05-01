@@ -1,1 +1,1 @@
-export { default } from "@/feature/appointment/screens/NoShowPolicyScreen";
+export { default } from "@/feature/transaction/appointment/screens/NoShowPolicyScreen";
