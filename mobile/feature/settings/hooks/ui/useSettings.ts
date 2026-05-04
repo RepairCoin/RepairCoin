@@ -32,7 +32,7 @@ export function useSettings(role: SettingsRole) {
       await performLogout();
     } catch (error) {
       console.error("[Logout] Error during logout:", error);
-      router.replace("/onboarding1");
+      router.replace("/(auth)/connect");
     } finally {
       setIsLoggingOut(false);
     }

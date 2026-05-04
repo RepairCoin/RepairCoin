@@ -1,54 +1,19 @@
 import React, { useState, useRef, useCallback } from "react";
-import { Text, View, Image, ActivityIndicator } from "react-native";
+import { Text, View, ActivityIndicator } from "react-native";
 import { useConnect } from "thirdweb/react";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
 import { useAuthStore, AuthMethod } from "@/feature/auth/store/auth.store";
 import { useConnectWallet } from "@/feature/auth/hooks/useAuthQuery";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
+import VideoBackground from "@/shared/components/ui/VideoBackground";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
-import Screen from "@/shared/components/ui/Screen";
 import { client } from "@/shared/constants/thirdweb";
+
+const video = require("@/assets/clips/onboarding1.mp4");
 
 export default function ConnectWalletScreen() {
   const { isLoading } = useAuthStore();
-
-  if (isLoading) {
-    return (
-      <View className="h-full w-full bg-black items-center justify-center px-8">
-        <ActivityIndicator size="large" color="#FFCC00" />
-      </View>
-    );
-  }
-
-  return (
-    <Screen>
-      <View className="px-6 pt-16 pb-20 w-full h-full items-center gap-16">
-        <View className="w-full flex-1 items-center justify-center">
-          <View className="items-center">
-            <Image
-              source={require("@/assets/images/logo2.png")}
-              className="w-60 h-60"
-              resizeMode="contain"
-            />
-            <Text className="text-[#ffffff] text-6xl italic font-bold">
-              FixFlow
-            </Text>
-          </View>
-          <Text className="text-[#ffffff] mt-10 text-center w-full">
-            Discover, connect and earn RCN with trusted service providers, all
-            in one platform
-          </Text>
-        </View>
-        <View className="w-[90%]">
-          <ConnectWithMetaMask />
-        </View>
-      </View>
-    </Screen>
-  );
-}
-
-const ConnectWithMetaMask = () => {
   const { connect } = useConnect();
   const connectWalletMutation = useConnectWallet();
   const setAuthMethod = useAuthStore((state) => state.setAuthMethod);
@@ -140,16 +105,39 @@ const ConnectWithMetaMask = () => {
 
   const showLoading = isLocalConnecting || connectWalletMutation.isPending;
 
+  if (isLoading) {
+    return (
+      <View className="h-full w-full bg-black items-center justify-center px-8">
+        <ActivityIndicator size="large" color="#FFCC00" />
+      </View>
+    );
+  }
+
   return (
-    <>
-      <ThemedButton
-        title="Connect"
-        variant="primary"
-        loading={showLoading}
-        loadingTitle="Connecting..."
-        onPress={() => setShowWalletModal(true)}
-        customStyle={{ paddingVertical: 12, borderRadius: 12 }}
-      />
+    <VideoBackground source={video}>
+      <View className="h-full w-full px-8">
+        <View className="mt-auto mb-20 h-[28%] w-full bg-black rounded-3xl p-6 flex flex-col justify-between">
+          <View>
+            <Text className="text-white text-2xl font-bold">
+              Ready to Earn?{"\n"}Connect and Explore
+            </Text>
+            <Text className="text-gray-400 mt-4">
+              Tap to connect, earn, and use your rewards across all your favorite
+              services.
+            </Text>
+          </View>
+
+          <View className="flex-row justify-end items-center">
+            <ThemedButton
+              title="Connect"
+              variant="primary"
+              loading={showLoading}
+              loadingTitle="Connecting..."
+              onPress={() => setShowWalletModal(true)}
+            />
+          </View>
+        </View>
+      </View>
 
       <WalletSelectionModal
         visible={showWalletModal}
@@ -158,6 +146,6 @@ const ConnectWithMetaMask = () => {
         isConnecting={showLoading}
         connectingWallet={connectingWallet}
       />
-    </>
+    </VideoBackground>
   );
-};
+}
