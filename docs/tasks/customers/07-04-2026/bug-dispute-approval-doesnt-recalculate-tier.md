@@ -1,12 +1,14 @@
 # Bug: Dispute Approval Doesn't Properly Recalculate No-Show Tier
 
-## Status: Open
+## Status: ✅ Completed (2026-05-04)
 ## Priority: Critical
 ## Date: 2026-04-07
+## Closed: 2026-05-04
 ## Category: Bug - No-Show Dispute / Tier System
 ## Reported by: QA
 ## Customer: Mike (gossipmcallen@gmail.com, 0xe3e20bfa5a7edadb92fc89801bb756697b3c5640)
 ## Booking: BK-2AD215 at El Pajaro (shop_id: 1111)
+## Follow-up bug discovered during verification: see `docs/tasks/customers/04-05-2026/bug-fresh-no-show-trigger-off-by-one.md`
 
 ---
 
@@ -141,3 +143,45 @@ When a customer reaches `suspended` tier, `booking_suspended_until` should be se
 - All disputes approved → count drops below suspension threshold → tier should drop
 - Dispute rejected → no change to count or tier
 - Multiple disputes approved in sequence → each recalculates correctly
+
+---
+
+## Verification Log (2026-05-04)
+
+Verified the dispute-approval recalculation logic is correctly implemented in code. All 4 of the doc's "Expected Behavior After Dispute Approval" requirements are met by `reverseNoShowPenalty` in `backend/src/domains/ServiceDomain/controllers/DisputeController.ts:677-755`.
+
+### What was verified
+
+| Doc requirement | Implementation | Status |
+|---|---|---|
+| Count effective no-shows excluding reversed | Lines 692-698 — `COUNT(*) WHERE notes NOT LIKE '%[DISPUTE_REVERSED]%'` (across all shops) | ✅ |
+| Set `no_show_count` = effective count | Line 740 — `SET no_show_count = $1` (no decrement; absolute set) | ✅ |
+| Recalculate tier based on effective count using shop policy | Lines 702-733 — reads `shop_no_show_policy` thresholds with sensible defaults (suspension=5, deposit=3, caution=2) when policy missing | ✅ |
+| Set/clear `booking_suspended_until` accordingly | Line 742 — set to `NOW() + duration_days` when tier crosses suspension; NULL otherwise | ✅ |
+
+### Implementation differences from the doc's proposal
+
+- **Reversal marker:** doc proposed filtering by `dispute_status != 'approved'`. Implementation uses a `[DISPUTE_REVERSED]` notes marker instead. Functionally equivalent because both writes happen atomically in `approveDispute` → `reverseNoShowPenalty`.
+- **Helper extraction:** the recalculation lives in a single exported helper `reverseNoShowPenalty`, called from 3 sites (auto-approval at line 194, shop approval at line 404, admin approval at line 655). DRY win.
+- **Bonus correctness:** also nulls `last_no_show_at` when effective count reaches 0 (line 744) and updates the `deposit_required` boolean to match the new tier (line 747). Internal consistency wins beyond what the doc asked.
+
+### What this fix correctly resolves
+
+For Mike's reported scenario specifically:
+- Future dispute approvals on his record will correctly recalculate effective count, tier, and `booking_suspended_until`
+- The "decrement below 0" bug from the original report is eliminated — count is now SET to an absolute value derived from `no_show_history`, never decremented
+- The "stale tier after dispute" bug is eliminated — tier is recalculated from effective count
+- The "unknown date in banner" bug is eliminated for post-dispute-approval state
+
+### Follow-up bug discovered during verification
+
+While tracing the fresh-no-show flow (the doc's third file callout — `OrderController.ts | Ensure booking_suspended_until is set when reaching suspended tier`), an off-by-one bug was found in the `trg_update_customer_tier` trigger. The trigger fires `AFTER INSERT ON no_show_history` but before `incrementCustomerNoShowCount` runs in TypeScript code, so the trigger reads the OLD `no_show_count` value. Customer reaching suspension via fresh no-shows ends up at `count=N, tier=<previous tier>, booking_suspended_until=NULL` — the same "unknown date" symptom Mike originally reported, but via a different code path that the dispute fix doesn't address.
+
+This is tracked separately at:
+**`docs/tasks/customers/04-05-2026/bug-fresh-no-show-trigger-off-by-one.md`**
+
+The two are related but independently fixable. The dispute fix in this task is correct as-is and ships standalone. The trigger off-by-one needs its own fix (preferred path: rewrite the trigger to count `no_show_history` rows directly, mirroring `reverseNoShowPenalty`'s approach — single source of truth).
+
+### Closing rationale
+
+This task's primary scope (dispute approval recalculation) is complete and verified in code. Closing as `Completed`. The fresh-no-show off-by-one is out of scope for this doc — it's a separate failure mode that affects ANY customer reaching suspension via fresh no-shows (no dispute needed). Tracking that as its own task gives the next implementer a clean scope and avoids re-opening this doc just to expand its scope.

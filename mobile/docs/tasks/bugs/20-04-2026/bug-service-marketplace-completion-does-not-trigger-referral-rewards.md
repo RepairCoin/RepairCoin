@@ -2,9 +2,9 @@
 
 **Status:** Open
 **Priority:** High
-**Est. Effort:** 30-45 minutes
+**Est. Effort:** 30-45 minutes (primary fix) + 30 min (backfill) + 5 min (idempotency verification) = ~75 min total
 **Created:** 2026-04-20
-**Updated:** 2026-04-20
+**Updated:** 2026-05-04 (re-verified open in code; added live test evidence on staging; added prerequisites + tightened backfill scope)
 
 ---
 
@@ -15,6 +15,37 @@ When a referred customer (referee) completes their first booking through the **s
 The referral system was built around a legacy "shop issues manual repair reward" flow. The service marketplace flow — which is now the primary path for customers to earn RCN — does not call the referral-completion handler. Every referral whose referee uses the service marketplace to complete their first repair gets stuck pending indefinitely.
 
 This is a separate bug from `completed/bug-customer-name-referral-field-mismatch.md` (commit `272ef9f8`, which fixed the mobile-side field-name mismatch that was preventing referral *records* from being created at all). The mobile-side fix is working: referral rows are being created correctly at registration time. What doesn't work is the *completion* step once the referee starts earning.
+
+---
+
+## ⚠️ Prerequisites — verify these BEFORE applying the fix
+
+The fix below assumes `completeReferralOnFirstRepair` is idempotent. If it's not, the fix will double-pay bonuses on edge cases (webhook retries, order-status flapping cancel→re-complete, manual re-trigger after admin intervention). Verify both items below before committing the fix.
+
+### P1 — Idempotency check (5 min, mandatory)
+
+Read `backend/src/services/ReferralService.ts` around the `completeReferralOnFirstRepair` method (currently around line 219). Confirm the function:
+
+1. **Checks the referral row's `status` BEFORE paying** — if the row is already `status='completed'` (or any non-pending state), it returns `{ referralCompleted: false }` without re-minting bonuses.
+2. **Uses a transaction OR a unique constraint** to prevent double-payment if the function is called twice in parallel (e.g., two webhook retries firing simultaneously).
+3. **Validates that `metadata.awaitingFirstRepair === true`** — the row must be in the awaiting state to be eligible for completion.
+
+Decision matrix:
+
+| What you find | Action |
+|---|---|
+| Function checks status + early-returns when not pending | ✅ Idempotent. Proceed to the fix. |
+| Function checks status but no transaction/lock | ⚠️ Single-call idempotent but vulnerable to concurrent double-fire. Acceptable for now if `service.order_completed` is published exactly once per order. Add a TODO to harden later. |
+| Function does NOT check status before paying | ❌ STOP. Add the status check FIRST in a separate commit. Then apply the marketplace fix. Otherwise webhook retries will multiply bonuses. |
+
+### P2 — Verify the bug is still present (30 sec)
+
+Run:
+```bash
+grep -rn "completeReferralOnFirstRepair\|getReferralService" backend/src/domains/token/ --include="*.ts"
+```
+
+Expected output: zero matches. If you see any matches in `token/services/TokenService.ts` or `token/TokenDomain.ts`, someone already shipped a fix and this doc is stale — STOP and re-investigate before duplicating the work.
 
 ---
 
@@ -150,15 +181,22 @@ Not strictly required for the fix; file separately if team wants it.
 
 ---
 
-## Backfilling Existing Pending Referrals
+## Backfilling Existing Pending Referrals — REQUIRED before closing this task
 
-The fix only helps **future** completions. Referrals that were created under the broken flow (including the test-case row id=37 for Anna ← Qua Ting) will remain `status='pending'` unless backfilled.
+The primary fix only helps **future** completions. Referrals that were created under the broken flow will remain `status='pending'` unless backfilled. Known stuck rows on staging as of 2026-05-04:
 
-### Option 1 — manual per-row fix (quickest for the test case)
+- referral id=37 — Anna (`0xc04f08e45d3b61f5e7df499914fd716af9854021`) ← Qua Ting (`UM9W57BM`)
+- referral id=38 — Deo Nuts (`0x3d4841b6e2b1f49ef54ea7a794328582c6d5c14d`, `testdeo016@gmail.com`) ← Lee Ann (`U2LYCTFY`, `0x960aa947468cfd80b8e275c61abce19e13d6a9e3`)
+
+There are likely more on prod that we haven't enumerated.
+
+> **Skipping the backfill ships a half-fix.** New referrals after the deploy will work, but every customer who registered with a referral code and completed their first marketplace booking BEFORE the deploy stays stuck — referrer never paid 25 RCN, referee never paid the 10 RCN welcome bonus. Silently disadvantages early adopters of the referral funnel. **Apply backfill alongside the primary fix; don't punt to a follow-up.**
+
+### Option 1 — manual per-row fix (quickest for the staging test cases)
 
 Admin/DB operator runs `ReferralService.completeReferralOnFirstRepair(<referee>, <shopId>, <repairAmount>)` directly, or invokes the admin endpoint if one exists. Suitable while only a handful of pending-but-should-be-complete rows exist on staging.
 
-### Option 2 — one-time backfill script (recommended before shipping the fix to prod)
+### Option 2 — one-time backfill script (REQUIRED for prod)
 
 Before rolling out the backend fix to production, run a script that scans for stuck referrals and completes them:
 
@@ -182,7 +220,7 @@ For each row returned, call `completeReferralOnFirstRepair`. This catches every 
 
 ### Option 3 — skip backfill, accept data loss
 
-If the team decides the bonuses for stuck referrals aren't worth the backfill effort, leave existing pending referrals as-is. Not recommended because it silently disadvantages early adopters who followed the referral funnel correctly.
+**NOT RECOMMENDED.** If the team explicitly decides bonuses for stuck referrals aren't worth the backfill effort, leave existing pending referrals as-is. This silently disadvantages every early adopter who followed the referral funnel correctly and is exactly the kind of decision that erodes trust in the referral feature. Only choose this if there's an explicit business sign-off and a documented apology / make-good plan for affected users.
 
 ---
 
@@ -241,3 +279,51 @@ No mobile changes. No DB schema changes.
   - An audit of every other completion-triggered side-effect (notifications, group tokens, tier promotions, no-show clearance) to confirm they're wired to BOTH paths. Worth a separate investigation task — this specific bug may not be the only such gap.
   - Moving the referral-completion call to a shared listener on `service.order_completed` and/or a synthetic `repair.completed` event that both paths publish. Cleaner long-term architecture, larger change. File as an enhancement after the fix lands.
 - **Test customer for QA on staging (once deleted and re-registered):** use Qua Ting's current referral code (`UM9W57BM`) on a freshly-created wallet + email pair; book a service at any shop via marketplace; mark completed. The described verification items should all pass.
+
+---
+
+## Verified live on staging — 2026-05-04
+
+Re-verified the bug exists in code and reproduced live on staging today. Adding fresh evidence:
+
+### New test case captured 2026-05-04 14:21:51 PHT
+
+- **Referrer (Lee Ann):** `0x960aa947468cfd80b8e275c61abce19e13d6a9e3`, email `ac_baniqued@yahoo.com`, referral code `U2LYCTFY`
+- **Referee (Deo Nuts):** `0x3d4841b6e2b1f49ef54ea7a794328582c6d5c14d`, email `testdeo016@gmail.com`, registered 2026-05-04 14:13 PHT using code `U2LYCTFY`
+- **Booking:** `BK-2D458A` → `ord_2fa8b575-3379-4840-b07a-1f70f92d458a` at shop `dc_shopu`, $69, status `completed`, completed 2026-05-04 14:21:51 PHT (4 minutes after creation)
+
+### Live DB state confirms the bug
+
+| Expected | Actual |
+|---|---|
+| Lee Ann (referrer) gets 25 RCN | ❌ no transaction; her last activity was a 2026-03-16 redemption |
+| Deo Nuts (referee) gets 10 RCN base service earning | ✅ `mint 10.00` recorded with reason "Service marketplace completion - $69", metadata `{"source":"service_marketplace","tierBonus":0,"baseTokens":10,"totalTokens":10}` |
+| Deo Nuts (referee) gets ADDITIONAL 10 RCN referee welcome bonus | ❌ no second transaction |
+| Referral row id=38 transitions to `status='completed'` | ❌ still `status='pending'`, `reward_amount=0`, `referee_bonus=0`, `completed_at=null`, `metadata.awaitingFirstRepair=true` |
+
+### Code state confirmed open
+
+```
+$ grep -rn "completeReferralOnFirstRepair" backend/src/domains/token/
+(no matches)
+```
+
+Only legacy caller remains: `backend/src/domains/shop/routes/index.ts:2419` (manual repair reward). The marketplace path is still uninstrumented.
+
+### Post-fix re-test plan (use this after applying the primary fix on staging)
+
+1. Run the backfill (Option 2 in the Backfill section) — referral id=37 and id=38 should both transition to `status='completed'` with bonuses paid out
+2. Verify Lee Ann's balance increased by 25 RCN
+3. Verify Deo Nuts's balance increased by an ADDITIONAL 10 RCN (so her transaction list shows TWO mints: the existing 10 RCN service marketplace + a new 10 RCN referee bonus)
+4. Verify referral row id=38: `status='completed'`, `reward_amount=25`, `referee_bonus=10`, `completed_at` populated
+5. Delete `testdeo016@gmail.com` again (use `backend/scripts/delete-customer-by-email.ts`), re-register fresh with code `U2LYCTFY`, book another service, mark completed → confirm the FIX path (not just the backfill) works for new completions
+
+If steps 4 and 5 both pass, fix is verified end-to-end on staging. Promote to prod, run the same backfill query against prod, and re-verify with a small spot-check sample.
+
+### Files / scripts available at handoff time (2026-05-04)
+
+- `backend/scripts/check-customer-by-email.ts` — read-only customer lookup with related-data summary
+- `backend/scripts/delete-customer-by-email.ts` — safety-gated customer purge for re-test
+- `backend/scripts/investigate-booking-rewards.ts` — pulls order + customer + transactions + referral row + referrer transactions for a given booking ID (BK-XXXXXX or full ord_*)
+
+These are useful for both pre-deploy diagnosis and post-fix verification. Currently in working tree, untracked.
