@@ -4,7 +4,9 @@
 **Priority:** Medium
 **Est. Effort:** 30-45 minutes
 **Created:** 2026-04-20
-**Updated:** 2026-04-20
+**Updated:** 2026-05-04 — re-verified open in code; paths refreshed for the mobile refactor that moved `feature/history/` and `feature/redeem-token/` into `feature/transaction/token/`
+
+> **Path refresh note (2026-05-04):** Mobile codebase was refactored after this doc was written. Several files moved. Paths and line numbers below have been updated to current code. The bug itself is unchanged — the QuickActions push still goes to a tab route, the screen still has no back-nav control.
 
 ---
 
@@ -16,8 +18,8 @@ When the screen is accessed as the **History tab root** (bottom tab bar), a back
 
 Affects:
 
-- Redeem screen → QuickActions "History" quick-action (`mobile/feature/redeem-token/components/QuickActions.tsx:21`)
-- Push notification taps that route to history (`mobile/feature/notification/constants/index.ts:7,11,24,28`, `mobile/shared/hooks/notification/usePushNotifications.ts:258,273`)
+- Redeem screen → QuickActions "History" quick-action (`mobile/feature/transaction/token/components/customer/QuickActions.tsx:21`)
+- Push notification taps that route to history (`mobile/feature/notification/constants/index.ts:7,11,24,28`, `mobile/feature/notification/hooks/usePushNotifications.ts:230,242`)
 
 ---
 
@@ -35,14 +37,14 @@ So the fix has to address both: the screen must optionally render a back control
 
 ## Evidence
 
-- `mobile/feature/history/screens/CustomerHistoryScreen.tsx` — grep for `router.back`, `arrow-back`, `AppHeader`, `headerLeft`, `onBackPress` returns zero matches. No back-nav component anywhere in the file.
-- `mobile/feature/redeem-token/components/QuickActions.tsx:21`:
+- `mobile/feature/transaction/token/screens/customer/CustomerHistoryScreen.tsx` — grep for `router.back`, `arrow-back`, `AppHeader`, `headerLeft`, `onBackPress`, `hideHeader` returns zero matches. No back-nav component anywhere in the file. (Re-verified 2026-05-04.)
+- `mobile/feature/transaction/token/components/customer/QuickActions.tsx:21`:
   ```tsx
   onPress={() => { haptics.selection(); router.push("/customer/tabs/history"); }}
   ```
-  Pushes to a tab route, producing tab-switch behaviour, not a stack push.
+  Pushes to a tab route, producing tab-switch behaviour, not a stack push. (Unchanged in code as of 2026-05-04.)
 - Visually confirmed on device 2026-04-20: Transaction History screen shows no header arrow; the only way out is bottom tabs or a gesture.
-- The screen is also mounted as the tab root at `mobile/app/(dashboard)/customer/tabs/history/index.tsx`. Any fix must preserve the clean tab-root appearance.
+- The screen is also mounted as the tab root at `mobile/app/(dashboard)/customer/tabs/history/index.tsx` (a 1-line re-export from the feature module). Any fix must preserve the clean tab-root appearance.
 
 ---
 
@@ -53,7 +55,7 @@ So the fix has to address both: the screen must optionally render a back control
 Create a new route `mobile/app/(dashboard)/customer/history.tsx` that renders the same `CustomerHistoryScreen` component wrapped in a header with a back button. Change Redeem's quick-action (and any other push-entry callers) to push to this route instead of the tab route:
 
 ```tsx
-// QuickActions.tsx
+// QuickActions.tsx (current location: feature/transaction/token/components/customer/)
 router.push("/customer/history"); // instead of "/customer/tabs/history"
 ```
 
@@ -62,7 +64,7 @@ router.push("/customer/history"); // instead of "/customer/tabs/history"
 import { View } from "react-native";
 import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
-import { CustomerHistoryScreen } from "@/feature/history/screens";
+import CustomerHistoryScreen from "@/feature/transaction/token/screens/customer/CustomerHistoryScreen";
 
 export default function CustomerHistoryPushScreen() {
   return (
@@ -74,7 +76,9 @@ export default function CustomerHistoryPushScreen() {
 }
 ```
 
-Then add a `hideHeader` prop to `CustomerHistoryScreen` so the pushed variant can suppress its own title (the new wrapper supplies one with a back button). Tab root continues to render its own title via the existing header.
+Then add a `hideHeader` prop to `CustomerHistoryScreen` so the pushed variant can suppress its own title (the new wrapper supplies one with a back button). Tab root continues to render its own title via the existing header. The tab-root route at `app/(dashboard)/customer/tabs/history/index.tsx` is currently a 1-line `export { CustomerHistoryScreen as default } from "@/feature/transaction/token/screens"` — no change needed there.
+
+> **Verify the import path before committing.** The `feature/transaction/token/screens/index.ts` (or `screens/customer/index.ts`) barrel may or may not re-export `CustomerHistoryScreen` — check `git ls-files mobile/feature/transaction/token/screens/` and adjust the import accordingly. The default export from the screen file itself is the canonical fallback.
 
 Pros: Clean stack push with real back behaviour. Tab root untouched. Reuses the feature screen component.
 Cons: Requires a new route file and a prop on the screen component. Every push-entry caller must switch to the new path.
@@ -120,17 +124,17 @@ Use Option B only if the team strongly prefers not to add a new route file. In t
 
 | File | Change |
 |------|--------|
-| `mobile/app/(dashboard)/customer/history.tsx` (new) | Wrapper screen with `AppHeader` + back button, renders `CustomerHistoryScreen hideHeader` |
-| `mobile/feature/history/screens/CustomerHistoryScreen.tsx` | Accept `hideHeader?: boolean` prop; when true, skip rendering the built-in title |
-| `mobile/feature/redeem-token/components/QuickActions.tsx` | Change `router.push("/customer/tabs/history")` → `router.push("/customer/history")` |
-| `mobile/feature/notification/constants/index.ts` | Audit the 4 history route references (lines 7, 11, 24, 28) — decide whether notification-driven navigation should switch tab (current) or push with back button (new). Most likely keep tab switch for notifications; only change Redeem's push. |
-| `mobile/shared/hooks/notification/usePushNotifications.ts:258,273` | Same audit — likely no change, notifications usually want tab switch |
+| `mobile/app/(dashboard)/customer/history.tsx` (NEW file) | Wrapper screen with `AppHeader` + back button, renders `CustomerHistoryScreen hideHeader` |
+| `mobile/feature/transaction/token/screens/customer/CustomerHistoryScreen.tsx` | Accept `hideHeader?: boolean` prop; when true, skip rendering the built-in title |
+| `mobile/feature/transaction/token/components/customer/QuickActions.tsx:21` | Change `router.push("/customer/tabs/history")` → `router.push("/customer/history")` |
+| `mobile/feature/notification/constants/index.ts` (lines 7, 11, 24, 28) | Audit the 4 history route references — decide whether notification-driven navigation should switch tab (current) or push with back button (new). Most likely keep tab switch for notifications; only change Redeem's push. |
+| `mobile/feature/notification/hooks/usePushNotifications.ts` (lines 230, 242) | Same audit — likely no change, notifications usually want tab switch |
 
 ### For Option B
 
 | File | Change |
 |------|--------|
-| `mobile/feature/history/screens/CustomerHistoryScreen.tsx` | Add conditional back button wired to `navigation.canGoBack()` + `router.back()` |
+| `mobile/feature/transaction/token/screens/customer/CustomerHistoryScreen.tsx` | Add conditional back button wired to `navigation.canGoBack()` + `router.back()` |
 
 ---
 
