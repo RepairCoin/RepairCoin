@@ -12,6 +12,9 @@ import { client } from "@/shared/constants/thirdweb";
 
 const video = require("@/assets/clips/onboarding1.mp4");
 
+const isStaging =
+  process.env.EXPO_PUBLIC_API_URL?.includes("staging") || __DEV__;
+
 export default function ConnectWalletScreen() {
   const { isLoading } = useAuthStore();
   const { connect } = useConnect();
@@ -146,6 +149,12 @@ export default function ConnectWalletScreen() {
         isConnecting={showLoading}
         connectingWallet={connectingWallet}
       />
+
+      {isStaging && (
+        <View className="absolute top-14 self-center bg-yellow-500/80 px-4 py-1 rounded-full">
+          <Text className="text-black text-xs font-bold">STAGING</Text>
+        </View>
+      )}
     </VideoBackground>
   );
 }
