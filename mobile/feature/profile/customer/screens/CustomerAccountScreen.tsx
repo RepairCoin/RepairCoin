@@ -1,4 +1,3 @@
-// Libraries
 import React from "react";
 import {
   ScrollView,
@@ -11,15 +10,10 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-// Hooks
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useCustomer } from "../hooks/useCustomer";
-
-// Components
 import { TierProgressCard } from "../components";
 
-// Constants
 const COLORS = {
   primary: "#FFCC00",
   success: "#22C55E",
