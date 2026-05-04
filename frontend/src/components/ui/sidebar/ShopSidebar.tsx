@@ -109,6 +109,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           tabId: "services",
         },
         {
+          title: "Inventory",
+          href: "/shop?tab=inventory",
+          icon: <ShoppingBagIcon className="w-5 h-5" />,
+          tabId: "inventory",
+        },
+        {
           title: "Bookings",
           href: "/shop?tab=bookings",
           icon: <ClipboardCheckIcon className="w-5 h-5" />,

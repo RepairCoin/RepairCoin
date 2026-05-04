@@ -41,6 +41,11 @@ const TAB_CONFIG: Record<string, {
     icon: <HeartHandshakeIcon className="w-5 h-5" />,
     description: "Manage your service offerings and pricing",
   },
+  inventory: {
+    title: "Inventory",
+    icon: <ShoppingBagIcon className="w-5 h-5" />,
+    description: "Manage your inventory items and stock levels",
+  },
   messages: {
     title: "Messages",
     icon: <MessageCircle className="w-5 h-5" />,

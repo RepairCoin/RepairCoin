@@ -27,6 +27,7 @@ import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
+import { InventoryTab } from "@/components/shop/tabs/InventoryTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
@@ -1307,6 +1308,12 @@ export default function ShopDashboardClient() {
           {activeTab === "services" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <ServicesTab shopId={shopData.shopId} shopData={shopData} />
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "inventory" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <InventoryTab shopId={shopData.shopId} />
             </SubscriptionGuard>
           )}
 
