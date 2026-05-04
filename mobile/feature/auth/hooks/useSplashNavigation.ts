@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import apiClient from "@/shared/utilities/axios";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useAppStore } from "@/shared/store/app.store";
 
 export const useSplashNavigation = () => {
   const { 
@@ -13,20 +12,14 @@ export const useSplashNavigation = () => {
     account,
     setAccount
   } = useAuthStore();
-  const hasSeenOnboarding = useAppStore((state) => state.hasSeenOnboarding);
 
   const navigate = async () => {
     if (!hasHydrated) {
       return;
     }
 
-    if (!hasSeenOnboarding) {
-      router.replace("/(auth)/onboarding");
-      return;
-    }
-
     if (!isAuthenticated || !userProfile?.address || !accessToken || !account) {
-      router.replace("/(auth)/connect");
+      router.replace("/connect");
       return;
     }
 
@@ -54,7 +47,7 @@ export const useSplashNavigation = () => {
         );
       }
     } else {
-      router.replace("/(auth)/connect");
+      router.replace("/connect");
     }
   };
 
