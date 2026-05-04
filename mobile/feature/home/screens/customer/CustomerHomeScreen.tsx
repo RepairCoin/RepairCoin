@@ -2,12 +2,12 @@ import React from "react";
 import { Image, View, Text } from "react-native";
 import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { NotificationBell } from "@/feature/notification/components";
 import {
   CustomerWalletTab,
   MessageButton,
   NoShowWarningBanner,
-} from "../components";
+  NotificationBell,
+} from "./../../components";
 
 export default function CustomerDashboard() {
   const { useGetCustomerByWalletAddress } = useCustomer();

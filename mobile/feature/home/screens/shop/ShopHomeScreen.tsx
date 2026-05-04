@@ -4,11 +4,13 @@ import { useFocusEffect } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useHomeDataUI } from "@/feature/profile/shop/hooks";
 import { ShopTabs } from "@/feature/profile/shop/services/shop.interface";
-import { PromoCodeTab } from "@/feature/profile/shop/components";
-import { AnalyticsTab } from "@/feature/profile/shop/components";
-import { NotificationBell } from "@/feature/notification/components";
-import { MessageButton } from "../components";
-import { ShopWalletTab } from "../components";
+import {
+  ShopWalletTab,
+  PromoCodeTab,
+  AnalyticsTab,
+  MessageButton,
+  NotificationBell,
+} from "../../components";
 
 export default function Home() {
   const { shopData, growthData, refetch } = useHomeDataUI();
@@ -19,7 +21,7 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       refetch();
-    }, [])
+    }, []),
   );
 
   return (
@@ -31,7 +33,10 @@ export default function Home() {
             className="w-[30%] h-10"
             resizeMode="contain"
           />
-          <View style={{ marginRight: -10 }} className="flex-row items-center gap-2">
+          <View
+            style={{ marginRight: -10 }}
+            className="flex-row items-center gap-2"
+          >
             <MessageButton userType="shop" />
             <NotificationBell userType="shop" />
           </View>
@@ -72,7 +77,11 @@ export default function Home() {
           })}
         </View>
         {activeTab === "Wallet" && shopData && (
-          <ShopWalletTab shopData={shopData} growthData={growthData} onRefresh={refetch} />
+          <ShopWalletTab
+            shopData={shopData}
+            growthData={growthData}
+            onRefresh={refetch}
+          />
         )}
         {activeTab === "Promo Code" && shopData && <PromoCodeTab />}
         {activeTab === "Analysis" && shopData && <AnalyticsTab />}
