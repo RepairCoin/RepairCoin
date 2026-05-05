@@ -2,35 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { CustomerCardProps } from "../types";
-
-const getTierConfig = (tier: string) => {
-  switch (tier?.toLowerCase()) {
-    case "gold":
-      return {
-        color: "#FFD700",
-        bgColor: "rgba(255, 215, 0, 0.15)",
-        icon: "crown",
-      };
-    case "silver":
-      return {
-        color: "#C0C0C0",
-        bgColor: "rgba(192, 192, 192, 0.15)",
-        icon: "medal",
-      };
-    case "bronze":
-      return {
-        color: "#CD7F32",
-        bgColor: "rgba(205, 127, 50, 0.15)",
-        icon: "medal-outline",
-      };
-    default:
-      return {
-        color: "#666",
-        bgColor: "rgba(102, 102, 102, 0.15)",
-        icon: "medal-outline",
-      };
-  }
-};
+import { getTierConfig } from "../utils/getTier";
 
 const getInitials = (name: string) => {
   if (!name) return "?";
@@ -39,7 +11,7 @@ const getInitials = (name: string) => {
   return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
 };
 
-const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string) => {
   if (!dateString) return null;
   const date = new Date(dateString);
   const now = new Date();

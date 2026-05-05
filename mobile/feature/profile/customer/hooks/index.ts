@@ -5,8 +5,8 @@ export { useShopCustomersQuery, useCustomerProfileQuery } from "./queries";
 export { useUpdateCustomerProfileMutation } from "./mutations";
 
 // UI
-export { useCustomerSearch, useCustomerListUI } from "./ui";
-export type { ViewMode } from "./ui";
+export { useCustomerSearch } from "./ui";
+export { useCustomerListUI } from "@/feature/profile/shop/customers/hooks";
 
 // Tier Info
 export { useTierInfo } from "./ui";

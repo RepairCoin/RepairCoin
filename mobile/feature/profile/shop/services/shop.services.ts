@@ -2,17 +2,12 @@ import apiClient from "@/shared/utilities/axios";
 import {
   ShopFormData,
   ShopByWalletAddressResponse,
-  ShopCustomersResponse,
-  ShopCustomerGrowthResponse,
   ProcessRedemptionRequest,
   ProcessRedemptionResponse,
-  CreatePromoCodeRequest,
   ShopResponse,
   RewardRequest,
   RewardResponse,
 } from "@/shared/interfaces/shop.interface";
-import { promoCodeApi } from "../promo-code/services/promoCode.services";
-import { analyticsApi } from "../../../transaction/analytics/services/analytics.services";
 
 class ShopApi {
   async register(payload: ShopFormData) {
@@ -73,31 +68,6 @@ class ShopApi {
     }
   }
 
-  async getShopCustomers(shopId: string): Promise<ShopCustomersResponse> {
-    try {
-      return await apiClient.get<ShopCustomersResponse>(
-        `/shops/${shopId}/customers?limit=100`,
-      );
-    } catch (error) {
-      console.error("Failed to get shop customers:", error);
-      throw error;
-    }
-  }
-
-  async getShopCustomerGrowth(
-    shopId: string,
-    period: string = "7d",
-  ): Promise<ShopCustomerGrowthResponse> {
-    try {
-      return await apiClient.get<ShopCustomerGrowthResponse>(
-        `/shops/${shopId}/customer-growth?period=${period}`,
-      );
-    } catch (error: any) {
-      console.error("Failed to get shop customer growth:", error.message);
-      throw error;
-    }
-  }
-
   async processRedemption(
     shopId: string,
     request: ProcessRedemptionRequest,
@@ -132,15 +102,6 @@ class ShopApi {
       throw error;
     }
   }
-
-  getPromoCodes = (shopId: string) => promoCodeApi.getPromoCodes(shopId);
-  createPromoCode = (shopId: string, data: CreatePromoCodeRequest) => promoCodeApi.createPromoCode(shopId, data);
-  validatePromoCode = (shopId: string, data: { code: string; customer_address: string }) => promoCodeApi.validatePromoCode(shopId, data);
-  updatePromoCodeStatus = (shopId: string, promoCodeId: string, isActive: boolean) => promoCodeApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
-  deletePromoCode = (shopId: string, promoCodeId: string) => promoCodeApi.deletePromoCode(shopId, promoCodeId);
-
-  getShopTransactions = (shopId: string, startDate: string, endDate: string) => analyticsApi.getShopTransactions(shopId, startDate, endDate);
-  getShopPurchases = (shopId: string, startDate: string, endDate: string) => analyticsApi.getShopPurchases(shopId, startDate, endDate);
 }
 
 export const shopApi = new ShopApi();

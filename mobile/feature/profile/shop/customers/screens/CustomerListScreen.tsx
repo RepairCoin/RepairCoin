@@ -1,4 +1,3 @@
-// Libraries
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -13,38 +12,15 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-
-// Services
 import { messageApi } from "@/feature/messages/services/message.services";
-
-// Components
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
-import CustomerCard from "../components/CustomerCard";
-
-// Hooks
 import { useCustomerListUI } from "../hooks";
-import type { TierFilter, SortBy } from "../hooks/ui/useCustomerListUI";
-
-// Others
 import { CustomerData } from "@/shared/interfaces/customer.interface";
+import { SORT_OPTIONS, TIER_OPTIONS } from "../constants";
+import { CustomerCard } from "../components";
 
-// Filter Options
-const TIER_OPTIONS: { value: TierFilter; label: string }[] = [
-  { value: "all", label: "All Tiers" },
-  { value: "bronze", label: "Bronze" },
-  { value: "silver", label: "Silver" },
-  { value: "gold", label: "Gold" },
-];
-
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: "recent", label: "Most Recent" },
-  { value: "earnings", label: "Highest Earnings" },
-  { value: "active", label: "Most Active" },
-];
-
-// Tab Button Component
 function TabButton({
   label,
   icon,

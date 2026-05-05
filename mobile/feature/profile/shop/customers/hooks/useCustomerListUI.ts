@@ -1,11 +1,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { CustomerData } from "@/shared/interfaces/customer.interface";
-import { useShopCustomersQuery, useSearchAllCustomersQuery } from "../queries/useCustomerQueries";
-import { useCustomerSearch } from "./useCustomerSearch";
-import type { ViewMode, TierFilter, SortBy } from "../../types";
-
-// Re-export types for backwards compatibility
-export type { ViewMode, TierFilter, SortBy } from "../../types";
+import { useShopCustomersQuery, useSearchAllCustomersQuery } from "@/feature/profile/customer/hooks/queries/useCustomerQueries";
+import { useCustomerSearch } from "@/feature/profile/customer/hooks/ui/useCustomerSearch";
+import { ViewMode, TierFilter, SortBy } from "../types";
 
 export function useCustomerListUI() {
   const [refreshing, setRefreshing] = useState(false);
@@ -14,18 +11,13 @@ export function useCustomerListUI() {
   const [hasSearchedAll, setHasSearchedAll] = useState(false);
   const [searchAllPage, setSearchAllPage] = useState(1);
   const [accumulatedResults, setAccumulatedResults] = useState<CustomerData[]>([]);
-
-  // Filters for My Customers tab
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
 
-  // Search for My Customers tab
   const { searchText, setSearchText, debouncedSearchText, hasSearchQuery, clearSearch } = useCustomerSearch();
 
-  // Query for My Customers
   const { data: shopCustomerData, isLoading: isLoadingMyCustomers, error: myCustomersError, refetch: refetchMyCustomers } = useShopCustomersQuery();
 
-  // Query for Search All Customers
   const {
     data: searchAllData,
     isLoading: isSearchingAll,
@@ -34,8 +26,8 @@ export function useCustomerListUI() {
     isFetching: isFetchingSearchAll,
   } = useSearchAllCustomersQuery(searchAllQuery, hasSearchedAll, searchAllPage);
 
-  // Accumulate results when new page data arrives
   const prevDataRef = useRef(searchAllData);
+  
   useEffect(() => {
     if (searchAllData && searchAllData !== prevDataRef.current) {
       prevDataRef.current = searchAllData;
@@ -48,11 +40,9 @@ export function useCustomerListUI() {
     }
   }, [searchAllData, searchAllPage]);
 
-  // Filter and sort My Customers
   const myCustomers = useMemo((): CustomerData[] => {
     let customers = shopCustomerData?.customers || [];
 
-    // Filter by search text (debounced)
     if (debouncedSearchText.trim()) {
       const query = debouncedSearchText.toLowerCase();
       customers = customers.filter((customer: CustomerData) =>
@@ -61,14 +51,12 @@ export function useCustomerListUI() {
       );
     }
 
-    // Filter by tier
     if (tierFilter !== "all") {
       customers = customers.filter((customer: CustomerData) =>
         customer?.tier?.toLowerCase() === tierFilter
       );
     }
 
-    // Sort customers
     customers = [...customers].sort((a, b) => {
       switch (sortBy) {
         case "earnings":
@@ -86,14 +74,12 @@ export function useCustomerListUI() {
     return customers;
   }, [shopCustomerData, debouncedSearchText, tierFilter, sortBy]);
 
-  // Customer counts
   const myCustomerCount = myCustomers.length;
   const totalMyCustomerCount = shopCustomerData?.customers?.length || 0;
   const searchAllResultCount = accumulatedResults.length;
   const searchAllTotalCount = searchAllData?.pagination?.total || 0;
   const hasMoreSearchResults = searchAllResultCount < searchAllTotalCount;
 
-  // Handle refresh
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
@@ -109,7 +95,6 @@ export function useCustomerListUI() {
     }
   }, [viewMode, hasSearchedAll, refetchMyCustomers, refetchSearchAll]);
 
-  // Handle search all customers
   const handleSearchAll = useCallback(() => {
     if (searchAllQuery.trim()) {
       setSearchAllPage(1);
@@ -119,14 +104,12 @@ export function useCustomerListUI() {
     }
   }, [searchAllQuery, refetchSearchAll]);
 
-  // Load more search results
   const handleLoadMore = useCallback(() => {
     if (hasMoreSearchResults && !isFetchingSearchAll) {
       setSearchAllPage((prev) => prev + 1);
     }
   }, [hasMoreSearchResults, isFetchingSearchAll]);
 
-  // Clear search all
   const clearSearchAll = useCallback(() => {
     setSearchAllQuery("");
     setHasSearchedAll(false);
@@ -134,10 +117,8 @@ export function useCustomerListUI() {
     setAccumulatedResults([]);
   }, []);
 
-  // Switch tabs
   const handleTabChange = useCallback((tab: ViewMode) => {
     setViewMode(tab);
-    // Clear searches when switching tabs
     if (tab === "my-customers") {
       clearSearchAll();
     } else {
@@ -145,34 +126,28 @@ export function useCustomerListUI() {
     }
   }, [clearSearch, clearSearchAll]);
 
-  // Reset filters
   const resetFilters = useCallback(() => {
     setTierFilter("all");
     setSortBy("recent");
   }, []);
 
   return {
-    // View mode
     viewMode,
     setViewMode: handleTabChange,
-    // My Customers data
     myCustomers,
     myCustomerCount,
     totalMyCustomerCount,
     isLoadingMyCustomers,
     myCustomersError,
-    // My Customers search
     searchText,
     setSearchText,
     hasSearchQuery,
     clearSearch,
-    // My Customers filters
     tierFilter,
     setTierFilter,
     sortBy,
     setSortBy,
     resetFilters,
-    // Search All Customers
     searchAllQuery,
     setSearchAllQuery,
     searchAllResults: accumulatedResults,
@@ -183,14 +158,11 @@ export function useCustomerListUI() {
     hasSearchedAll,
     handleSearchAll,
     clearSearchAll,
-    // Pagination
     hasMoreSearchResults,
     isLoadingMore: isFetchingSearchAll && searchAllPage > 1,
     handleLoadMore,
-    // Refresh
     refreshing,
     handleRefresh,
-    // Legacy exports for backwards compatibility
     customers: myCustomers,
     customerCount: myCustomerCount,
     totalCount: totalMyCustomerCount,

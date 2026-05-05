@@ -1,6 +1,3 @@
-// Original customer components
-export { default as CustomerCard } from "./CustomerCard";
-
 // Tier Info components (from feature/tier-info)
 export { TierBenefits } from "./TierBenefits";
 export { AllTiersOverview } from "./AllTiersOverview";

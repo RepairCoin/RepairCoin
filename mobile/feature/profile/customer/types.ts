@@ -1,6 +1,5 @@
 // Re-export all customer profile interfaces from their canonical location
 export type {
-  CustomerCardProps,
   ViewMode,
   TierFilter,
   SortBy,
