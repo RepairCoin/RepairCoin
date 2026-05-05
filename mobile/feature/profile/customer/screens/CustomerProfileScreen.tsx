@@ -4,8 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import {
-  ProfileLoadingState,
-  ProfileErrorState,
   CustomerProfileHeader,
   CustomerStats,
   CustomerContactInfo
@@ -14,6 +12,8 @@ import { useCustomerProfileScreen } from "../hooks/ui";
 import { useLocalSearchParams } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { ProfileErrorState } from "@/shared/components/ui/ProfileErrorState";
+import { ProfileLoadingState } from "@/shared/components/ui/ProfileLoadingState";
 
 export default function CustomerProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

@@ -1,18 +1,18 @@
 import { View, ScrollView } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { TabButtons } from "@/shared/components/ui/TabButtons";
 import { handleLink } from "@/shared/utilities/linking";
 import { formatDate } from "@/shared/utilities/format";
-import { ProfileLoadingState } from "@/feature/profile/customer/components/ProfileLoadingState";
-import { ProfileErrorState } from "@/feature/profile/customer/components/ProfileErrorState";
+import { ProfileLoadingState } from "@/shared/components/ui/ProfileLoadingState";
+import { ProfileErrorState } from "@/shared/components/ui/ProfileErrorState";
 import { useShopProfileScreen } from "../hooks/useShopProfileScreen";
-import { SHOP_PROFILE_TABS } from "../constants";
-import { useLocalSearchParams } from "expo-router";
+import { SHOP_PROFILE_TABS } from "./../constants";
 import {
   ShopProfileHeader,
   ShopDetailsTab,
   ShopServicesTab,
-} from "../components";
+} from "../../components";
 
 interface ShopProfileScreenProps {
   shopId: string;
