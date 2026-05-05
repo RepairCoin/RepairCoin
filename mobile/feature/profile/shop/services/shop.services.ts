@@ -7,15 +7,12 @@ import {
   ProcessRedemptionRequest,
   ProcessRedemptionResponse,
   CreatePromoCodeRequest,
-  PromoCodeResponse,
-  PromoCodesListResponse,
-  PromoCodeValidateResponse,
   ShopResponse,
   RewardRequest,
   RewardResponse,
-  TransactionsResponse,
-  PurchasesResponse,
 } from "@/shared/interfaces/shop.interface";
+import { promoCodeApi } from "../promo-code/services/promoCode.services";
+import { analyticsApi } from "../analytics/services/analytics.services";
 
 class ShopApi {
   async register(payload: ShopFormData) {
@@ -136,112 +133,18 @@ class ShopApi {
     }
   }
 
-  // Promo Code Methods
+  // Promo Code Methods - delegated to promoCodeApi
+  // @deprecated Use promoCodeApi from '@/feature/profile/shop/promo-code/services/promoCode.services' directly
+  getPromoCodes = (shopId: string) => promoCodeApi.getPromoCodes(shopId);
+  createPromoCode = (shopId: string, data: CreatePromoCodeRequest) => promoCodeApi.createPromoCode(shopId, data);
+  validatePromoCode = (shopId: string, data: { code: string; customer_address: string }) => promoCodeApi.validatePromoCode(shopId, data);
+  updatePromoCodeStatus = (shopId: string, promoCodeId: string, isActive: boolean) => promoCodeApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
+  deletePromoCode = (shopId: string, promoCodeId: string) => promoCodeApi.deletePromoCode(shopId, promoCodeId);
 
-  async getPromoCodes(shopId: string): Promise<PromoCodesListResponse> {
-    try {
-      return await apiClient.get<PromoCodesListResponse>(
-        `/shops/${shopId}/promo-codes`,
-      );
-    } catch (error) {
-      console.error("Failed to get promo codes:", error);
-      throw error;
-    }
-  }
-
-  async createPromoCode(
-    shopId: string,
-    data: CreatePromoCodeRequest,
-  ): Promise<PromoCodeResponse> {
-    try {
-      return await apiClient.post(`/shops/${shopId}/promo-codes`, data);
-    } catch (error) {
-      console.error("Failed to create promo code:", error);
-      throw error;
-    }
-  }
-
-  async validatePromoCode(
-    shopId: string,
-    data: { code: string; customer_address: string },
-  ): Promise<PromoCodeValidateResponse> {
-    try {
-      return await apiClient.post(
-        `/shops/${shopId}/promo-codes/validate`,
-        data,
-      );
-    } catch (error) {
-      console.error("Failed to validate promo code:", error);
-      throw error;
-    }
-  }
-
-  async updatePromoCodeStatus(
-    shopId: string,
-    promoCodeId: string,
-    isActive: boolean,
-  ): Promise<PromoCodeResponse> {
-    try {
-      if (!isActive) {
-        return await apiClient.delete(
-          `/shops/${shopId}/promo-codes/${promoCodeId}`,
-        );
-      }
-      return await apiClient.put(
-        `/shops/${shopId}/promo-codes/${promoCodeId}`,
-        { is_active: true },
-      );
-    } catch (error) {
-      console.error("Failed to update promo code status:", error);
-      throw error;
-    }
-  }
-
-  async deletePromoCode(
-    shopId: string,
-    promoCodeId: string,
-  ): Promise<{ success: boolean; message: string }> {
-    try {
-      return await apiClient.delete(
-        `/shops/${shopId}/promo-codes/${promoCodeId}`,
-      );
-    } catch (error) {
-      console.error("Failed to delete promo code:", error);
-      throw error;
-    }
-  }
-
-  // Analytics Methods
-
-  async getShopTransactions(
-    shopId: string,
-    startDate: string,
-    endDate: string,
-  ): Promise<TransactionsResponse> {
-    try {
-      return await apiClient.get(
-        `/shops/${shopId}/transactions?startDate=${startDate}&endDate=${endDate}`,
-      );
-    } catch (error: any) {
-      console.error("Failed to get shop transactions:", error.message);
-      throw error;
-    }
-  }
-
-  async getShopPurchases(
-    shopId: string,
-    startDate: string,
-    endDate: string,
-  ): Promise<PurchasesResponse> {
-    try {
-      return await apiClient.get(
-        `/shops/${shopId}/purchases?startDate=${startDate}&endDate=${endDate}`,
-      );
-    } catch (error: any) {
-      console.error("Failed to get shop purchases:", error.message);
-      throw error;
-    }
-  }
+  // Analytics Methods - delegated to analyticsApi
+  // @deprecated Use analyticsApi from '@/feature/profile/shop/analytics/services/analytics.services' directly
+  getShopTransactions = (shopId: string, startDate: string, endDate: string) => analyticsApi.getShopTransactions(shopId, startDate, endDate);
+  getShopPurchases = (shopId: string, startDate: string, endDate: string) => analyticsApi.getShopPurchases(shopId, startDate, endDate);
 }
 
 export const shopApi = new ShopApi();

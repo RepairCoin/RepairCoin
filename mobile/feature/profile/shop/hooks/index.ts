@@ -16,7 +16,7 @@ export { useAnalyticsDataUI } from "./useAnalyticsDataUI";
 export { useSubscription } from "./useSubscription";
 export { useSubscriptionForm } from "./useSubscriptionForm";
 export { usePromoCodeUI } from "./usePromoCodeUI";
-export { useCreatePromoCode } from "./useCreatePromoCode";
+export { useCreatePromoCode } from "../promo-code/hooks/useCreatePromoCode";
 export { useHomeDataUI } from "./useHomeDataUI";
 export { useShopEditProfile } from "./useShopEditProfile";
 export { useShopProfileScreen } from "./useShopProfileScreen";

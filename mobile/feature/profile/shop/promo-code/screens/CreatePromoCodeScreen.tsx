@@ -10,8 +10,8 @@ import {
 import { AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useCreatePromoCode } from "../hooks";
-import { formatDate } from "../utils";
+import { useCreatePromoCode } from "../../hooks";
+import { formatDate } from "../../utils";
 import { BonusType } from "../types";
 
 export default function CreatePromoCodeScreen() {
