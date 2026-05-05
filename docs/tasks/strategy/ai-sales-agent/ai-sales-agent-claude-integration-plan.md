@@ -238,26 +238,41 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 
 **Follow-up note for future tasks:** the Task 13 step "Set `ai_global_enabled=false` for ALL shops by default in prod" (the cautious-rollout SQL UPDATE) is no longer needed — the schema default handles it. Update Task 13 verification accordingly.
 
-### Task 3 — `AnthropicClient` + retry/backoff + prompt caching (~1 day)
+### Task 3 — `AnthropicClient` + retry/backoff + prompt caching ✅ DONE (2026-05-05)
 
 **Goal:** A typed wrapper around the SDK that handles retry, error normalization, and prompt caching. Single source of truth for Claude calls.
 
+**Status:** Shipped on branch `deo/phase-3-task-3`. Pending PR + merge to main.
+
 **Steps:**
-1. Create `backend/src/domains/AIAgentDomain/services/AnthropicClient.ts`
-2. Methods:
-   - `complete(systemPrompt: PromptCacheable, messages: ChatMessage[], model: ClaudeModel, maxTokens: number): Promise<ClaudeResponse>`
-   - Internal: 3 retries on 429/5xx with exponential backoff (1s, 2s, 4s), surface 4xx errors directly
-   - Internal: emit `cache_control: { type: 'ephemeral' }` on the system prompt + service-catalog blocks
-3. Define `ChatMessage`, `PromptCacheable`, `ClaudeResponse`, `ClaudeModel` types in `backend/src/domains/AIAgentDomain/types.ts`
-4. Cost calculation helper: `calculateCost(usage: ResponseUsage, model: ClaudeModel): number` — returns USD based on per-million-token pricing
-5. Add unit tests (mock the SDK) — verify retry behavior, error mapping, cost math
+1. ✅ Created `backend/src/domains/AIAgentDomain/services/AnthropicClient.ts`
+2. ✅ `complete(options: AnthropicCallOptions): Promise<ClaudeResponse>` — single-options-bag signature (cleaner than positional args from the plan)
+   - 3 retries on 429/5xx with exponential backoff (1s → 2s → 4s)
+   - 4xx (except 429) surfaces immediately without retry
+   - `cache_control: { type: 'ephemeral' }` attached when block.cache=true
+3. ✅ Types in `backend/src/domains/AIAgentDomain/types.ts`: `ChatMessage`, `PromptCacheable`, `ClaudeResponse`, `ClaudeModel`, `ResponseUsage`, `AnthropicCallOptions`
+4. ✅ Cost calculator: `static calculateCost(usage, model)` — USD per call broken down by input + output + cache_write + cache_read rates per Anthropic 2026-05 pricing
+5. ✅ 15 unit tests in `backend/tests/ai-agent/AnthropicClient.test.ts` — cover cost calculation across models, retry behavior on 429/5xx, immediate-fail on 400/401, max-retry exhaustion, prompt-cache header attachment, instantiation guards
 
-**Acceptance:**
-- `tsc --noEmit` clean
-- Unit tests pass
-- A sample call from a test script returns a valid Claude response (use the staging API key)
+**Acceptance verified:**
+- ✅ `tsc --noEmit` — 0 errors
+- ✅ All 15 unit tests pass (covers cost math, retry, error mapping, cache headers, missing-key guard)
+- ✅ Real-API smoke test against staging via temp script: two calls to Claude Sonnet 4.6 returned valid responses, latency 2-4s, cost ~$0.0003/call. Smoke test deleted post-validation.
 
-**Rollback:** delete the file. No production callers yet.
+**Deviations from plan:**
+
+- **Single-options-bag signature** instead of positional args: `complete(options: AnthropicCallOptions)`. Cleaner extensibility (adding `temperature` later doesn't break callers). Same semantics, just nicer DX.
+- **Static `calculateCost`** instead of an instance method — no per-call state needed; same call works for live cost calc and historical recomputation.
+- **`getPricing()` static accessor added** — exposes the pricing table read-only for tests + spend-cap pre-checks. Not in the plan but trivial and useful.
+
+**Pricing table noted in code:** verified against Anthropic's 2026-05-05 pricing page. If pricing changes, update `PRICING_USD_PER_MTOK` constant in `AnthropicClient.ts`. Historical `ai_agent_messages.cost_usd` rows aren't recalculated — they store what was charged at request time, which is correct.
+
+**Files changed:**
+- `backend/src/domains/AIAgentDomain/types.ts` (NEW, ~80 lines)
+- `backend/src/domains/AIAgentDomain/services/AnthropicClient.ts` (NEW, ~190 lines)
+- `backend/tests/ai-agent/AnthropicClient.test.ts` (NEW, ~250 lines, 15 tests)
+
+**Rollback:** delete the new files. No production callers yet (only Tasks 4-5 will use this; not yet built).
 
 ### Task 4 — `ContextBuilder` + `PromptTemplates` (~1.5 days)
 
