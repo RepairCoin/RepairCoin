@@ -7,17 +7,17 @@ import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "../services/shop.services";
 import { useService } from "@/feature/services/hooks/useService";
 import {
-  ShopCustomerGrowthResponse,
-  ShopCustomersResponse,
   ShopFormData,
   ShopResponse,
   ShopByWalletAddressResponse,
   TransactionsResponse,
   PurchasesResponse,
   PromoCodesListResponse,
-  CreatePromoCodeRequest,
 } from "@/shared/interfaces/shop.interface";
 import { TimeRange } from "../types";
+import { promoCodeApi } from "../promo-code/services/promoCode.services";
+import { analyticsApi } from "@/feature/transaction/analytics/services/analytics.services";
+import { shopCustomerApi } from "../customers/services/shopCustomer.services";
 
 export function useShop() {
   const { showError } = useAppToast();
@@ -63,8 +63,7 @@ export function useShop() {
     return useQuery({
       queryKey: queryKeys.shopCustomers(shopId),
       queryFn: async () => {
-        const response: ShopCustomersResponse =
-          await shopApi.getShopCustomers(shopId);
+        const response = await shopCustomerApi.getShopCustomers(shopId);
         return response.data;
       },
       staleTime: 10 * 60 * 1000,
@@ -75,8 +74,7 @@ export function useShop() {
     return useQuery({
       queryKey: queryKeys.shopCustomerGrowth(shopId),
       queryFn: async () => {
-        const response: ShopCustomerGrowthResponse =
-          await shopApi.getShopCustomerGrowth(shopId);
+        const response = await shopCustomerApi.getShopCustomerGrowth(shopId);
         return response?.data;
       },
       staleTime: 10 * 60 * 1000,
@@ -87,7 +85,7 @@ export function useShop() {
     return useQuery({
       queryKey: queryKeys.shopPromoCodes(shopId),
       queryFn: async () => {
-        const response: any = await shopApi.getPromoCodes(shopId);
+        const response: any = await promoCodeApi.getPromoCodes(shopId);
         return response.data;
       },
       enabled: !!shopId,
@@ -185,13 +183,13 @@ export function useShopAnalyticsQuery(shopId: string, timeRange: TimeRange) {
       purchases: PurchasesResponse;
     }> => {
       const [transactions, purchases] = await Promise.all([
-        shopApi
+        analyticsApi
           .getShopTransactions(shopId, startDate, endDate)
           .catch(() => ({
             success: false,
             data: { transactions: [], total: 0, totalPages: 0, page: 1 },
           })),
-        shopApi.getShopPurchases(shopId, startDate, endDate).catch(() => ({
+        analyticsApi.getShopPurchases(shopId, startDate, endDate).catch(() => ({
           success: false,
           data: {
             items: [],
@@ -219,7 +217,7 @@ export function useShopPromoCodesQuery() {
   return useQuery({
     queryKey: queryKeys.shopPromoCodes(shopId),
     queryFn: async () => {
-      const response: PromoCodesListResponse = await shopApi.getPromoCodes(shopId);
+      const response: PromoCodesListResponse = await promoCodeApi.getPromoCodes(shopId);
       return response.data || response.items || [];
     },
     enabled: !!shopId,
@@ -250,7 +248,7 @@ export function useShopCustomerGrowthQuery() {
   return useQuery({
     queryKey: queryKeys.shopCustomerGrowth(shopId),
     queryFn: async () => {
-      const response = await shopApi.getShopCustomerGrowth(shopId);
+      const response = await shopCustomerApi.getShopCustomerGrowth(shopId);
       return response?.data;
     },
     enabled: !!shopId,
@@ -284,7 +282,7 @@ export function useUpdatePromoCodeStatusMutation() {
       promoCodeId: string;
       isActive: boolean;
     }) => {
-      return shopApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
+      return promoCodeApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

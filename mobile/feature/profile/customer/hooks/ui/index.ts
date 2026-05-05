@@ -1,6 +1,4 @@
 export { useCustomerSearch } from "./useCustomerSearch";
-export { useCustomerListUI } from "./useCustomerListUI";
-export type { ViewMode, TierFilter, SortBy } from "./useCustomerListUI";
 
 // Tier Info hooks (from feature/tier-info)
 export { useTierInfo } from "./useTierInfo";
