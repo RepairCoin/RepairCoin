@@ -5,7 +5,6 @@ export {
   useShopByWalletQuery,
   useShopCustomerGrowthQuery,
   useShopProfileByWalletQuery,
-  useShopProfileQuery,
   useShopServicesQuery,
   useUpdatePromoCodeStatusMutation,
   useUpdateShopProfileMutation,
@@ -17,5 +16,5 @@ export { useSubscriptionForm } from "./useSubscriptionForm";
 export { usePromoCodeUI } from "./usePromoCodeUI";
 export { useCreatePromoCode } from "../promo-code/hooks/useCreatePromoCode";
 export { useHomeDataUI } from "./useHomeDataUI";
-export { useShopEditProfile } from "./useShopEditProfile";
-export { useShopProfileScreen } from "./useShopProfileScreen";
+export { useShopEditProfile } from "../profile/hooks/useShopEditProfile";
+export { useShopProfileScreen } from "../profile/hooks/useShopProfileScreen";

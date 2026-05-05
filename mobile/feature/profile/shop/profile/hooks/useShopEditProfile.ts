@@ -4,9 +4,9 @@ import * as ImagePicker from "expo-image-picker";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useShopProfileByWalletQuery, useUpdateShopProfileMutation } from "./useShopQuery";
-import { ShopEditFormData } from "../types";
-import { isValidEmail } from "../utils";
+import { useShopProfileByWalletQuery, useUpdateShopProfileMutation } from "../../hooks/useShopQuery";
+import { ShopEditFormData } from "../../types";
+import { isValidEmail } from "../../utils";
 
 export const useShopEditProfile = () => {
   const { account, accessToken } = useAuthStore();

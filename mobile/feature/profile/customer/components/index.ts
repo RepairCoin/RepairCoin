@@ -16,8 +16,6 @@ export { default as CopyableField } from "./CopyableField";
 export { default as TierProgressCard } from "./TierProgressCard";
 
 // Profile components (from feature/profile - customer parts)
-export { ProfileLoadingState } from "./ProfileLoadingState";
-export { ProfileErrorState } from "./ProfileErrorState";
 export { CustomerProfileHeader } from "./CustomerProfileHeader";
 export { CustomerStats } from "./CustomerStats";
 export { ContactInfoCard } from "./ContactInfoCard";

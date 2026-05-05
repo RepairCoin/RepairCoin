@@ -2,11 +2,12 @@ import { useState, useCallback } from "react";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { messageApi } from "@/feature/messages/services/message.services";
-import { useShopProfileQuery } from "./useShopQuery";
-import { INITIAL_CHAT_MESSAGE } from "../constants";
+import { INITIAL_CHAT_MESSAGE } from "./../constants";
+import { useShop } from "../../hooks";
 
 export const useShopProfileScreen = (shopId: string) => {
-  const { data: shopData, isLoading, error } = useShopProfileQuery(shopId);
+  const shopApi = useShop();
+  const { data: shopData, isLoading, error } = shopApi.useGetShopById(shopId);
   const [activeTab, setActiveTab] = useState("services");
   const [isStartingChat, setIsStartingChat] = useState(false);
 
