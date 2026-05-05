@@ -183,6 +183,21 @@ export class StartupValidationService {
       recommendations.push('Set JWT_SECRET to at least 32 characters');
     }
 
+    // Check Anthropic AI integration env (Phase 3)
+    // Required in production once Phase 3 customer-facing rollout ships;
+    // for now (skeleton phase) warn-only so dev/staging can run without it.
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!process.env.ANTHROPIC_API_KEY) {
+      const message = 'ANTHROPIC_API_KEY is not set';
+      if (isProduction) {
+        issues.push(message);
+        recommendations.push('Set ANTHROPIC_API_KEY in production env (required once Phase 3 AI features are live)');
+      } else {
+        // Non-prod: warn-only via recommendations; AI calls will throw at request time
+        recommendations.push(`${message} (non-fatal in dev/staging; AI endpoints will return 500 if invoked)`);
+      }
+    }
+
     return {
       isValid: issues.length === 0,
       issues,
