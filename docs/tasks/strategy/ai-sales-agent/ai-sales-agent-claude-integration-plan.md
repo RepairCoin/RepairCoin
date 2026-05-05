@@ -167,45 +167,76 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 
 ## Task list
 
-### Task 1 — Foundation: Anthropic SDK + AIAgentDomain skeleton (~4 hours)
+### Task 1 — Foundation: Anthropic SDK + AIAgentDomain skeleton ✅ DONE (2026-05-05)
 
 **Goal:** add the dependency, create empty domain shell, register with `DomainRegistry`. No functional change yet.
 
-**Steps:**
-1. Add to `backend/package.json`: `"@anthropic-ai/sdk": "^0.x"` (latest stable — verify at install time)
-2. Add env vars to `backend/.env.example`:
-   ```
-   ANTHROPIC_API_KEY=
-   ANTHROPIC_DEFAULT_MODEL=claude-sonnet-4-6
-   ANTHROPIC_FALLBACK_MODEL=claude-haiku-4-5-20251001
-   ```
-3. Create `backend/src/domains/AIAgentDomain/index.ts` implementing `DomainModule`:
-   - `name = 'ai-agent'`
-   - `mountPath = '/api/ai'`
-   - Empty router for now
-4. Register in `backend/src/app.ts`: `domainRegistry.register(new AIAgentDomain())`
-5. Add `ANTHROPIC_API_KEY` validation to `StartupValidationService` — error on startup if missing in production env
-
-**Acceptance:** server starts cleanly with the new domain registered; `/api/system/info` lists `ai-agent`. No new endpoints respond yet (router is empty).
-
-**Rollback:** `git revert` the commit. No DB or runtime side effects.
-
-### Task 2 — Migration 109: `ai_agent_messages` + `ai_shop_settings` (~1 hour)
-
-**Goal:** add the two tables. Idempotent SQL with `IF NOT EXISTS`. Confirm migration number 109 is available first (`ls backend/migrations/ | tail -5`).
+**Status:** Shipped on branch `deo/phase-3-task-1`, commit `3d1f9616`. Pending PR + merge to main.
 
 **Steps:**
-1. Create `backend/migrations/109_create_ai_agent_tables.sql` with the SQL from the Architecture section above
-2. Add `INSERT INTO ai_shop_settings (shop_id) SELECT shop_id FROM shops ON CONFLICT DO NOTHING;` to backfill defaults for existing shops
-3. Run on staging via `npm run db:migrate` or manual `psql` if the runner has issues (per the precedent set by migration 108)
+1. ✅ Add to `backend/package.json`: `"@anthropic-ai/sdk": "^0.93.0"`
+2. ⏭ ~~Add env vars to `backend/.env.example`~~ — **SKIPPED**: file does not exist in this repo. Env vars are documented inline in `AIAgentDomain/index.ts` JSDoc instead. Future enhancement: introduce `.env.example` if the team adopts that convention.
+3. ✅ Create `backend/src/domains/AIAgentDomain/index.ts` implementing `DomainModule`:
+   - `name = 'ai'` ← **deviation: changed from `'ai-agent'`**
+   - Empty router with one health-check endpoint (`GET /api/ai/health`) for sanity verification
+4. ✅ Register in `backend/src/app.ts`: `domainRegistry.register(new AIAgentDomain())` after InventoryDomain
+5. ✅ Add `ANTHROPIC_API_KEY` validation to `StartupValidationService.validateEnvironmentConfig()` — error in production, warn-only in dev/staging
 
-**Acceptance:**
-- Both tables exist on staging
-- Every existing shop has a row in `ai_shop_settings` with default budget=$20/mo, ai_global_enabled=true
-- Indexes exist
-- `ai_agent_messages` is queryable (returns empty)
+**Deviations from plan:**
 
-**Rollback:** `DROP TABLE ai_agent_messages; DROP TABLE ai_shop_settings;` — destructive, but no data loss matters since both tables were just created. Better: leave the tables, just don't read/write from them in code.
+- **No `mountPath` field in DomainModule.** The plan called for `mountPath = '/api/ai'` as a separate field, but the existing `DomainModule` interface doesn't have one. Routes are mounted at `/api/${domain.name}` by `DomainRegistry.getRoutes()` in `app.ts:454-458`. To match the strategy doc's `/api/ai` mount path, **set `name = 'ai'`** (instead of `'ai-agent'` as the plan suggested). Folder kept as `AIAgentDomain/` for descriptiveness.
+- **Production-vs-non-production split for env validation.** The plan said "error on startup if missing in production env" — implemented as: production raises an `issues` entry (causes `isValid=false`), non-production raises a `recommendations` entry (warn-only, server still starts). This matches how `JWT_SECRET` is validated in the same method.
+- **No `.env.example` file in repo.** Documented env vars in `AIAgentDomain/index.ts` JSDoc rather than introducing a new file convention.
+
+**Acceptance verified:**
+- ✅ TypeScript: 0 errors
+- ✅ Server boots clean (`npm run dev`); startup logs show `Domain registered: ai`, `✅ Domain initialized: ai`, `Domain route registered: /api/ai`
+- ✅ `GET /api/ai/health` returns the skeleton metadata JSON
+- ✅ Spike script (`scripts/_spike-anthropic.ts`, deleted after run) verified end-to-end Sonnet 4.6 call: 16 input tokens, 10 output tokens, 2.6s latency, ~$0.0003 cost
+
+**Rollback:** `git revert 3d1f9616`. No DB or runtime side effects.
+
+**Files changed:**
+- `backend/package.json` (+1 dep)
+- `backend/package-lock.json` (auto-update)
+- `backend/src/app.ts` (+2 lines: import + register)
+- `backend/src/services/StartupValidationService.ts` (+15 lines: env validation block)
+- `backend/src/domains/AIAgentDomain/index.ts` (NEW, 30 lines)
+- `backend/src/domains/AIAgentDomain/routes.ts` (NEW, 23 lines)
+
+### Task 2 — Migration 110: `ai_agent_messages` + `ai_shop_settings` ✅ DONE (2026-05-05)
+
+**Goal:** add the two tables. Idempotent SQL with `IF NOT EXISTS`.
+
+**Status:** Applied to staging via one-shot Node script (auto-runner precedent from migration 108). Migration file shipped on branch `deo/phase-3-task-2`. Pending PR + merge to main.
+
+**Migration number:** **110** (not 109 — collision with `109_create_inventory_tables.sql` from the inventory feature that landed on main between Phase 3 plan creation and Task 2 execution)
+
+**Steps:**
+1. ✅ Created `backend/migrations/110_create_ai_agent_tables.sql` with the SQL from the Architecture section above
+2. ✅ Backfill row included: `INSERT INTO ai_shop_settings (shop_id) SELECT shop_id FROM shops ON CONFLICT (shop_id) DO NOTHING;`
+3. ✅ Applied on staging via one-shot ts-node script (transaction-wrapped, manual schema_migrations row insert)
+
+**Deviations from plan:**
+
+- **Migration number bumped 109 → 110** due to collision with the inventory feature's migration that landed first.
+- **`ai_global_enabled` default flipped from `true` to `false`.** Safer (opt-in), consistent with `shop_services.ai_sales_enabled` from Phase 2 (also defaults false), and removes the need for Task 13's "UPDATE all shops to false on prod" step. This is now baked into the schema default.
+- **`service_id` is a soft reference (no FK), VARCHAR(255) not UUID.** Pre-existing schema drift on `shop_services`: migration 036 declares `service_id` as `UUID PRIMARY KEY`, but the live tables on staging have it as `VARCHAR` with NO PK constraint. PostgreSQL refused the FK because there's no unique constraint to reference. Workaround: store as `VARCHAR(255)` with a partial index for query performance. A follow-up migration can re-introduce the FK once the shop_services drift is fixed (separate concern, out of scope for Phase 3).
+- **`conversation_id` and `customer_address` types corrected** to match the live messaging schema (`VARCHAR(255)` not UUID/VARCHAR(42) as the plan originally specified).
+
+**Acceptance verified on staging:**
+- ✅ Both tables created (`ai_agent_messages`, `ai_shop_settings`)
+- ✅ All 42 existing shops backfilled into `ai_shop_settings` (1:1 with shops table)
+- ✅ All defaults correct: `ai_global_enabled=false`, `monthly_budget_usd=20.00`, `escalation_threshold=5`
+- ✅ Indexes created (4 on `ai_agent_messages`, 1 partial on `ai_shop_settings.ai_global_enabled WHERE true`)
+- ✅ `schema_migrations` row recorded (version=110, name=`create_ai_agent_tables`)
+
+**Files changed:**
+- `backend/migrations/110_create_ai_agent_tables.sql` (NEW, ~110 lines including comments)
+
+**Rollback:** `DROP TABLE ai_agent_messages CASCADE; DROP TABLE ai_shop_settings CASCADE; DELETE FROM schema_migrations WHERE version = 110;` Both tables are empty (no production data) so no loss. Better: leave tables in place, ignore in code if Phase 3 needs to be paused.
+
+**Follow-up note for future tasks:** the Task 13 step "Set `ai_global_enabled=false` for ALL shops by default in prod" (the cautious-rollout SQL UPDATE) is no longer needed — the schema default handles it. Update Task 13 verification accordingly.
 
 ### Task 3 — `AnthropicClient` + retry/backoff + prompt caching (~1 day)
 
