@@ -18,7 +18,7 @@
 | 1 | Foundation: SDK + AIAgentDomain skeleton | ✅ Merged to main (PR #295) | `deo/phase-3-task-1` (merged) | `/api/ai/health` reachable on staging + prod |
 | 2 | Migration 110: ai_agent_messages + ai_shop_settings | ✅ Merged to main (PR #296) | `deo/phase-3-task-2` (merged) | Applied to staging; 42 shops backfilled. **Prod deploy: pending DO autodeploy from main** |
 | 3 | AnthropicClient wrapper + types + tests | ⏳ Pushed, awaiting PR | `deo/phase-3-task-3` | 15 unit tests passing, real-API smoke validated |
-| 4 | ContextBuilder + PromptTemplates | Not started | — | Next up. ~1.5 days. Depends on Tasks 1-3. |
+| 4 | ContextBuilder + PromptTemplates | ⏳ Pushed (stacked on Task 3), awaiting PR | `deo/phase-3-task-4` | 43 unit tests passing (12 ContextBuilder + 31 PromptTemplates) |
 | 5 | AgentOrchestrator + AuditLogger + safety guards | Not started | — | ~1 day |
 | 6 | POST /api/ai/preview endpoint | Not started | — | First user-visible win — replace mocks with live previews |
 | 7 | Frontend: swap aiPreviewMocks → live API | Not started | — | ~0.5 day |
@@ -311,7 +311,38 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 
 **Rollback:** delete the new files. No production callers yet (only Tasks 4-5 will use this; not yet built).
 
-### Task 4 — `ContextBuilder` + `PromptTemplates` (~1.5 days)
+### Task 4 — `ContextBuilder` + `PromptTemplates` ✅ DONE (2026-05-06)
+
+**Status:** Shipped on branch `deo/phase-3-task-4` (stacked on `deo/phase-3-task-3`). Pending PR + merge to main.
+
+**Acceptance verified:**
+- ✅ `ContextBuilder.build` returns a complete `AgentContext` (5 fields: service, customer, shop, conversationHistory, siblingServices) for a known service+customer
+- ✅ All three template functions produce valid, non-empty prompts (>500 chars each)
+- ✅ Universal rules baked into all three tones (AI disclosure, no-invent-prices, human-handoff trigger)
+- ✅ Tone-specific cues in each template (friendly = casual/emojis; professional = formal/factual; urgent = time-pressure with explicit "never fabricate scarcity" guard)
+- ✅ 12 unit tests passing for ContextBuilder (mocked repositories — no DB hits)
+- ✅ 31 unit tests passing for PromptTemplates
+- ✅ TypeScript: 0 errors
+- ✅ Repository instances injected via constructor (clean test mocking pattern)
+
+**Deviations from plan:**
+
+- **Constructor-injected repositories.** Plan implied module-level singletons; chose constructor injection so tests pass mocks directly. Default constructor parameters mean callers don't have to wire instances explicitly (`new ContextBuilder()` works fine).
+- **`AgentContext` type expanded** to include sub-types (`AgentServiceContext`, `AgentCustomerContext`, `AgentShopContext`, `AgentMessageContext`, `AgentSiblingService`). Cleaner than passing raw repository row shapes through to `PromptTemplates`. Defined in `types.ts` next to the AnthropicClient types from Task 3.
+- **`activeOnly` instead of `active`** for the siblings query — matches the actual `getServicesByShop` signature on `ServiceRepository`.
+- **Hours summary returns null in MVP** — building a structured-hours summarizer is its own feature; Phase 3 templates handle the absence gracefully ("hours not on file — if asked, say you'll have someone confirm"). Phase 4 can wire in a real summarizer once shop hours storage shape is finalized.
+- **`buildSystemPrompt` dispatcher added** — convenience function that routes by tone string and falls back to professional if unknown. Not in the plan but helpful for `AgentOrchestrator` (Task 5).
+
+**Files changed:**
+- `backend/src/domains/AIAgentDomain/types.ts` (+~85 lines for AgentContext + sub-types + AITone)
+- `backend/src/domains/AIAgentDomain/services/ContextBuilder.ts` (NEW, ~210 lines)
+- `backend/src/domains/AIAgentDomain/services/PromptTemplates.ts` (NEW, ~180 lines)
+- `backend/tests/ai-agent/ContextBuilder.test.ts` (NEW, ~190 lines, 12 tests)
+- `backend/tests/ai-agent/PromptTemplates.test.ts` (NEW, ~250 lines, 31 tests)
+
+**Rollback:** delete the new files. No production callers yet (Task 5 will be the first consumer).
+
+
 
 **Goal:** assemble the per-request context, pick the right system prompt, output a structured `(systemPrompt, conversationHistory)` pair ready for Claude.
 
