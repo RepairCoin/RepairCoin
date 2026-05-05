@@ -5,7 +5,7 @@
 - **Phase 1 ✅ implementation complete** — Tasks 1-7 shipped 2026-04-30. **Task 8 ✅ done 2026-05-01** — `CreateServiceModal.tsx` deleted; migrated a missed consumer (`ShopProfileClient.tsx` preview-mode "Create Service" button) to `router.push('/shop/services/new')` along the way.
 - **Phase 2 ✅ implementation complete (2026-04-30)** — Migration 108 + 5 backend/frontend layers shipped. Manually applied to staging DB. **Prod deploy still pending** (main → prod merge not yet done).
 - **Phase 2.5 ✅ implementation complete (2026-05-01)** — Exec copy iteration applied: label "Auto Sales & Booking", new description, micro-proof line (Option B), 12 mocked messages with emoji + urgency + time slots. See "Phase 2.5 implementation log (2026-05-01)" section.
-- **Phase 3 ⏳ blocked** on Anthropic API key. ~3-4 weeks of work once key arrives.
+- **Phase 3 🟢 unblocked (2026-05-05)** — Anthropic API key obtained; full task doc created at `ai-sales-agent-claude-integration-plan.md`. ~3 weeks engineering scoped across 13 tasks. Pre-rollout prerequisites: Phase 2 prod deploy + Anthropic Console workspace setup verification.
 **Strategy doc:** `ai-sales-agent-integration-strategy.md` (architecture, model selection, cost model, safety)
 **Implementation logs:** see Phase 1, 2, and 2.5 "Implementation log" sections inline below.
 
@@ -1247,12 +1247,13 @@ The doc's Connection-to-Phase-3 section was updated to flag that Phase 3 system 
 
 ---
 
-## Phase 3 preview (NOT for this task)
+## Phase 3 preview (NOT for this task) — UNBLOCKED 2026-05-05
 
-Build `AIAgentDomain` per the strategy doc. Get Anthropic API key, hook into `MessageService`, ship MVP. Track in a separate task doc:
-`docs/tasks/strategy/ai-sales-agent/ai-sales-agent-claude-integration-plan.md` (TODO when ready).
+Build `AIAgentDomain` per the strategy doc. Anthropic API key obtained 2026-05-05.
 
-Estimated 3-4 weeks engineering effort per the strategy doc's Phase 1 MVP scope.
+**Full Phase 3 task doc:** `docs/tasks/strategy/ai-sales-agent/ai-sales-agent-claude-integration-plan.md` ✅ created 2026-05-05.
+
+13 tasks across 3 weeks: foundation → live preview → customer-facing AI replies → booking suggestions → ops. Kill switch baked in (`ai_shop_settings.ai_global_enabled`) so a bad deploy never blocks customer messaging.
 
 ---
 

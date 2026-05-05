@@ -1,0 +1,628 @@
+# AI Sales Agent — Phase 3: Claude Integration Implementation Plan
+
+**Created:** 2026-05-05
+**Status:** Not started — Anthropic API key landed 2026-05-05, ready to begin
+**Effort:** ~3 weeks engineering (~12-15 working days)
+**Blocker:** None (was Anthropic API key — now resolved)
+**Strategy doc:** `ai-sales-agent-integration-strategy.md` (architecture, model selection, cost model, safety)
+**Parent doc:** `ai-sales-agent-implementation-plan.md` (Phases 1, 2, 2.5 — all complete)
+**Procurement doc:** `anthropic-api-procurement.md` (exec-facing setup steps)
+
+---
+
+## Goal
+
+Make the AI Sales Assistant section actually do something. Replace mocked previews with live Claude calls, hook into customer messaging so AI auto-replies on services where `ai_sales_enabled=true`, ship the foundation for audit logging, per-shop budget caps, and basic safety controls.
+
+**MVP scope: button-based booking (Flavor B).** AI surfaces inline booking suggestion cards in the chat; customer taps the card to confirm via the existing booking flow. **No direct tool-call booking** — that's Phase 4.
+
+---
+
+## Prerequisites
+
+| Item | Status | Notes |
+|---|---|---|
+| Phase 1 (page-based UI + visual AI section) | ✅ Done 2026-04-30 / 2026-05-01 | Shipped to prod |
+| Phase 2 (DB columns + persisted toggles) | ⚠️ Code on `main`, **applied to staging DB only** | **Prod deploy still pending** — must land before Phase 3 customer-facing rollout |
+| Phase 2.5 (exec copy iteration) | ✅ Done 2026-05-01 | "Auto Sales & Booking" label, narrative mocks |
+| Anthropic API key | ✅ Obtained 2026-05-05 | |
+| Anthropic Console org + workspace setup | ✅ **Verified 2026-05-05** | See "Anthropic Console verification — completed 2026-05-05" section below |
+| Account tier promotion (Tier 2+ for production rate limits) | 🟡 Tier 1 (auto-promotes naturally) | Tier 1 sufficient for engineering spike. Tier 2 unlocks once $5+ spent + 7-day age — will happen organically during Tasks 1-5. Tier 2-3 needed before customer rollout. |
+
+**Hard prerequisite for prod rollout** (NOT for engineering work to start): Phase 2 prod deploy + Production workspace API key + spend caps. Engineering work itself can start against the staging environment with the Development workspace key.
+
+### Anthropic Console verification — completed 2026-05-05
+
+Verified via screenshots from the operator:
+
+| Component | State | Notes |
+|---|---|---|
+| Organization | ✅ Exists | Auto-named "Dev RepairCoin-2's Individual Org" — functional. Optional cosmetic rename to "RepairCoin" / "FixFlow" deferred (not blocking). Org ID: `5fa5ad47-1f31-4749-bf8f-99be22250631`. Billing address on file. |
+| Workspaces | ✅ All 3 environment workspaces exist | Created 2026-05-03: `Production`, `Staging`, `Development`. Plus a default `Default` (0 keys, ignore) and `Claude Code` (legacy, IDE tool — unrelated to Phase 3). |
+| Payment method | ✅ Link by Stripe | Card on file. |
+| Initial credit | ✅ $20.00 balance | Credit grant May 2 2026, expires May 3 2027 ($21.32 invoice). Sufficient for Tasks 1-5 (foundation work — thousands of test calls). |
+| API keys per environment | ✅ All 3 environments have keys | `Engineer Dev - Deo` → Development. `FixFlow Backend - Staging` → Staging. `FixFlow Backend - Production` → Production. All created 2026-05-03. |
+| Spend cap | ✅ $100/month org-level | Set on the Limits page. Per-workspace caps not exposed at Tier 1; revisit when Tier 2+ unlocks. |
+
+**Engineer handoff:** the `Engineer Dev - Deo` key (`sk-ant-api03-3ja...agAA`) is the one to drop into `backend/.env` as `ANTHROPIC_API_KEY=` for Task 1. Staging and Production keys are held back for Tasks 6+ and Task 13 respectively.
+
+### Console follow-ups (non-blocking, do during Phase 3 soak)
+
+These are operator-side polish items that don't block engineering but should land before the prod rollout (Task 13):
+
+| Item | Where | When to do | Why |
+|---|---|---|---|
+| Add 70% spend-threshold email notification | Console → Limits → Email notification (right column) | Anytime in Week 1 of Phase 3 | Get warned at ~$70 spent before the $100 hard cap kicks in. Currently no notification configured. ~2 min to add. |
+| Enable Auto-Reload on credit balance | Console → Billing → next to "Auto reload is disabled" | After ~2 weeks of Phase 3 work, when spend pattern is predictable | Prevents API interruptions when credit runs out mid-deploy. Currently disabled. Set a refill threshold (e.g., $10 remaining → reload $50). |
+| (Optional) Rename org to "RepairCoin" or "FixFlow" | Console → Organization settings → Organization name | Anytime, purely cosmetic | Cleaner invoice / customer-facing reference. Current name is the sign-up auto-default. |
+| (Optional, later) Switch from Individual Org → Team plan | Anthropic sales | When team grows beyond 1 admin | Currently Individual Org with 1 member. Team plan would let multiple engineers share workspaces with proper RBAC. Not needed for the foreseeable future. |
+
+---
+
+## Architecture
+
+Follows the existing DDD pattern. Lifted directly from `ai-sales-agent-integration-strategy.md` — restated here for actionable reference:
+
+### New domain: `AIAgentDomain`
+
+```
+backend/src/domains/AIAgentDomain/
+├── index.ts              # DomainModule registration
+├── routes.ts             # Express routes (mounted at /api/ai)
+├── controllers/
+│   ├── AgentController.ts        # Customer-facing message endpoint
+│   ├── PreviewController.ts      # Shop-side "see how AI replies"
+│   └── AdminAgentController.ts   # Cost / audit dashboard (Phase 4)
+├── services/
+│   ├── AnthropicClient.ts        # SDK wrapper, retry/backoff, prompt caching
+│   ├── AgentOrchestrator.ts      # Main flow: build context → call Claude → handle response
+│   ├── ContextBuilder.ts         # Assembles service + customer + conversation context
+│   ├── PromptTemplates.ts        # System prompts per tone (Friendly / Professional / Urgent)
+│   ├── EscalationDetector.ts     # Light text-pattern matching for "talk to human"
+│   ├── SpendCapEnforcer.ts       # Per-shop monthly cap + Haiku auto-throttle at 70%
+│   └── AuditLogger.ts            # Writes every request/response to ai_agent_messages
+└── constants.ts          # Token/cost/limit constants
+```
+
+### Database additions (migration 109 — confirm next available number first)
+
+**`ai_agent_messages`** — audit log of every Claude call:
+
+```sql
+CREATE TABLE IF NOT EXISTS ai_agent_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  service_id VARCHAR(100) REFERENCES shop_services(service_id) ON DELETE SET NULL,
+  shop_id VARCHAR(100) NOT NULL REFERENCES shops(shop_id),
+  customer_address VARCHAR(42) NOT NULL,
+  request_payload JSONB NOT NULL,
+  response_payload JSONB,
+  model VARCHAR(50) NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd NUMERIC(10, 6) NOT NULL DEFAULT 0,
+  tool_calls JSONB DEFAULT '[]'::jsonb,  -- empty in MVP, populated when Phase 4 ships tool use
+  latency_ms INTEGER,
+  escalated_to_human BOOLEAN NOT NULL DEFAULT false,
+  error_message TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_agent_messages_shop_created ON ai_agent_messages(shop_id, created_at DESC);
+CREATE INDEX idx_ai_agent_messages_conversation ON ai_agent_messages(conversation_id, created_at DESC);
+CREATE INDEX idx_ai_agent_messages_customer ON ai_agent_messages(customer_address, created_at DESC);
+```
+
+**`ai_shop_settings`** — per-shop overrides:
+
+```sql
+CREATE TABLE IF NOT EXISTS ai_shop_settings (
+  shop_id VARCHAR(100) PRIMARY KEY REFERENCES shops(shop_id) ON DELETE CASCADE,
+  ai_global_enabled BOOLEAN NOT NULL DEFAULT true,  -- master kill-switch per shop
+  monthly_budget_usd NUMERIC(10, 2) NOT NULL DEFAULT 20.00,
+  current_month_spend_usd NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  current_month_started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  escalation_threshold INTEGER NOT NULL DEFAULT 5,  -- always handoff after N AI replies
+  business_hours_only_ai BOOLEAN NOT NULL DEFAULT false,
+  blacklist_keywords TEXT[] DEFAULT ARRAY[]::TEXT[],
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-service config. Per-shop config layers on top.
+
+### Conversation flow (text-only, no tool calls in MVP)
+
+1. Customer sends a message in an existing `conversations` thread tied to a `service_id`
+2. `MessageService` inserts the customer message
+3. **Hook fires:** if `service.ai_sales_enabled=true` AND `ai_shop_settings.ai_global_enabled=true` AND under monthly budget AND not escalated → enqueue AI reply job
+4. `AgentOrchestrator.handleCustomerMessage(messageId)`:
+   - `ContextBuilder.build(customerAddress, serviceId, conversationId)` returns:
+     - Service info (description, price, duration, category, custom instructions)
+     - Last 20 conversation messages
+     - Customer profile (tier, recent bookings, RCN balance)
+     - Sibling services (if `ai_suggest_upsells=true`)
+     - Shop hours
+   - `PromptTemplates.systemPrompt(tone, context)` builds the cached system prompt
+   - `EscalationDetector.shouldEscalate(message, history)` — if true, skip AI, notify shop
+   - `SpendCapEnforcer.modelChoice(shopId)` returns `'sonnet-4-6'` or `'haiku-4-5'` based on spend
+   - `AnthropicClient.complete(systemPrompt, conversationHistory, model)` → returns reply text
+   - Reply inserted into `messages` with `sender_type='shop'`, `metadata: { generated_by: 'ai_agent', model, tone }`
+   - `AuditLogger.log(...)` writes to `ai_agent_messages`
+5. Customer sees the reply with an AI badge in the existing messaging UI
+
+### What's deferred to Phase 4
+
+- Direct tool-call booking (`create_booking` tool — AI auto-creates booking without customer button-tap)
+- Full escalation tool with reason capture + SLA tracking
+- Quality scoring (thumbs up/down per AI message)
+- A/B testing (AI on vs AI off conversion lift)
+- Per-shop fine-tuning / few-shot prompting from `quick_replies`
+- Multi-modal input (voice/photo)
+- pgvector for cross-shop service search
+
+---
+
+## Task list
+
+### Task 1 — Foundation: Anthropic SDK + AIAgentDomain skeleton (~4 hours)
+
+**Goal:** add the dependency, create empty domain shell, register with `DomainRegistry`. No functional change yet.
+
+**Steps:**
+1. Add to `backend/package.json`: `"@anthropic-ai/sdk": "^0.x"` (latest stable — verify at install time)
+2. Add env vars to `backend/.env.example`:
+   ```
+   ANTHROPIC_API_KEY=
+   ANTHROPIC_DEFAULT_MODEL=claude-sonnet-4-6
+   ANTHROPIC_FALLBACK_MODEL=claude-haiku-4-5-20251001
+   ```
+3. Create `backend/src/domains/AIAgentDomain/index.ts` implementing `DomainModule`:
+   - `name = 'ai-agent'`
+   - `mountPath = '/api/ai'`
+   - Empty router for now
+4. Register in `backend/src/app.ts`: `domainRegistry.register(new AIAgentDomain())`
+5. Add `ANTHROPIC_API_KEY` validation to `StartupValidationService` — error on startup if missing in production env
+
+**Acceptance:** server starts cleanly with the new domain registered; `/api/system/info` lists `ai-agent`. No new endpoints respond yet (router is empty).
+
+**Rollback:** `git revert` the commit. No DB or runtime side effects.
+
+### Task 2 — Migration 109: `ai_agent_messages` + `ai_shop_settings` (~1 hour)
+
+**Goal:** add the two tables. Idempotent SQL with `IF NOT EXISTS`. Confirm migration number 109 is available first (`ls backend/migrations/ | tail -5`).
+
+**Steps:**
+1. Create `backend/migrations/109_create_ai_agent_tables.sql` with the SQL from the Architecture section above
+2. Add `INSERT INTO ai_shop_settings (shop_id) SELECT shop_id FROM shops ON CONFLICT DO NOTHING;` to backfill defaults for existing shops
+3. Run on staging via `npm run db:migrate` or manual `psql` if the runner has issues (per the precedent set by migration 108)
+
+**Acceptance:**
+- Both tables exist on staging
+- Every existing shop has a row in `ai_shop_settings` with default budget=$20/mo, ai_global_enabled=true
+- Indexes exist
+- `ai_agent_messages` is queryable (returns empty)
+
+**Rollback:** `DROP TABLE ai_agent_messages; DROP TABLE ai_shop_settings;` — destructive, but no data loss matters since both tables were just created. Better: leave the tables, just don't read/write from them in code.
+
+### Task 3 — `AnthropicClient` + retry/backoff + prompt caching (~1 day)
+
+**Goal:** A typed wrapper around the SDK that handles retry, error normalization, and prompt caching. Single source of truth for Claude calls.
+
+**Steps:**
+1. Create `backend/src/domains/AIAgentDomain/services/AnthropicClient.ts`
+2. Methods:
+   - `complete(systemPrompt: PromptCacheable, messages: ChatMessage[], model: ClaudeModel, maxTokens: number): Promise<ClaudeResponse>`
+   - Internal: 3 retries on 429/5xx with exponential backoff (1s, 2s, 4s), surface 4xx errors directly
+   - Internal: emit `cache_control: { type: 'ephemeral' }` on the system prompt + service-catalog blocks
+3. Define `ChatMessage`, `PromptCacheable`, `ClaudeResponse`, `ClaudeModel` types in `backend/src/domains/AIAgentDomain/types.ts`
+4. Cost calculation helper: `calculateCost(usage: ResponseUsage, model: ClaudeModel): number` — returns USD based on per-million-token pricing
+5. Add unit tests (mock the SDK) — verify retry behavior, error mapping, cost math
+
+**Acceptance:**
+- `tsc --noEmit` clean
+- Unit tests pass
+- A sample call from a test script returns a valid Claude response (use the staging API key)
+
+**Rollback:** delete the file. No production callers yet.
+
+### Task 4 — `ContextBuilder` + `PromptTemplates` (~1.5 days)
+
+**Goal:** assemble the per-request context, pick the right system prompt, output a structured `(systemPrompt, conversationHistory)` pair ready for Claude.
+
+**Steps:**
+
+**`ContextBuilder.ts`:**
+1. `build(params: { customerAddress, serviceId, conversationId, includeUpsells }): Promise<AgentContext>`
+2. Pulls in parallel:
+   - Service info from `shop_services` (description, price, duration, category, ai_custom_instructions)
+   - Customer profile from `customers` (tier, recent_bookings_summary, current_rcn_balance)
+   - Last 20 messages from `messages` for the conversation
+   - Shop info from `shops` (name, hours, category)
+   - If `includeUpsells`: up to 5 sibling services from same shop with `ai_sales_enabled=true`
+3. Returns a typed `AgentContext` object
+
+**`PromptTemplates.ts`:**
+1. Three template functions: `friendlyPrompt(ctx)`, `professionalPrompt(ctx)`, `urgentPrompt(ctx)` — each returns a structured system prompt string
+2. Templates per the strategy doc skeleton (style rules, factual constraints, escalation rules)
+3. Hard rule baked into every prompt: *"Always disclose you are an AI assistant on the first reply. Never invent prices, hours, or policies not in the context. If asked something not in your context, say you'll get a human to follow up."*
+
+**Acceptance:**
+- `ContextBuilder.build` returns a complete object for a known staging service + customer
+- All three template functions produce valid, non-empty system prompts
+- Prompt structure matches strategy doc skeleton
+
+**Rollback:** delete files. No production callers yet.
+
+### Task 5 — `AgentOrchestrator` + `AuditLogger` + safety guards (~1 day)
+
+**Goal:** the main flow — entry point that takes a customer message, builds context, calls Claude, logs the result.
+
+**Steps:**
+
+**`AgentOrchestrator.ts`:**
+1. `handleCustomerMessage(messageId: string): Promise<void>`
+2. Pipeline:
+   - Load message + conversation + service + customer
+   - Check `ai_sales_enabled` on the service
+   - Check `ai_shop_settings.ai_global_enabled` for the shop
+   - Check `SpendCapEnforcer.canSpend(shopId)` — if over cap, skip and notify shop owner via existing notification system
+   - Run `EscalationDetector.shouldEscalate(message, history)` — if true, skip AI and route to human
+   - `ContextBuilder.build(...)` → `PromptTemplates[tone](ctx)` → `AnthropicClient.complete(...)`
+   - On success: insert reply into `messages` with `metadata: { generated_by: 'ai_agent', model, tone }`, call `AuditLogger.log(...)`, increment `ai_shop_settings.current_month_spend_usd`
+   - On failure: log to `ai_agent_messages` with `error_message`, do NOT post a reply, optionally notify shop owner
+
+**`AuditLogger.ts`:**
+1. `log(entry: AIAgentMessageInsert): Promise<void>` — single insert into `ai_agent_messages`
+2. Cheap, fire-and-forget on success; awaited on error so the failure is recorded
+
+**`SpendCapEnforcer.ts`:**
+1. `canSpend(shopId): Promise<{ allowed: boolean; useCheaperModel: boolean }>`
+2. Read `ai_shop_settings`, compare `current_month_spend_usd` to `monthly_budget_usd`
+3. Auto-rollover: if `current_month_started_at` is in a previous calendar month, reset `current_month_spend_usd=0` and update timestamp before checking
+4. Return `useCheaperModel: true` when spend ≥ 70% of budget (model auto-throttles to Haiku to extend the budget runway)
+
+**`EscalationDetector.ts`:**
+1. `shouldEscalate(message: string, history: ChatMessage[]): boolean`
+2. Simple heuristics for MVP:
+   - Customer typed "human", "agent", "real person", "stop" → true
+   - Last 5 customer messages all flagged as confused (TODO heuristic) → true
+   - Customer has been chatting more than `ai_shop_settings.escalation_threshold` AI replies → true
+3. Phase 4 will replace this with a Claude-driven classifier
+
+**Acceptance:**
+- A test script invokes `handleCustomerMessage(testMessageId)` and produces a valid AI reply on staging
+- Reply lands in `messages` table with correct metadata
+- Audit row lands in `ai_agent_messages` with non-null cost
+- Spend cap blocks correctly when `current_month_spend_usd ≥ monthly_budget_usd`
+- Escalation triggers correctly on "I need a human"
+
+**Rollback:** delete files. The hook in MessageService (Task 7) hasn't shipped yet, so no live traffic flows here.
+
+### Task 6 — `POST /api/ai/preview` endpoint (shop dashboard live preview) (~0.5 day)
+
+**Goal:** replace the hardcoded `aiPreviewMocks.ts` strings with real Claude calls. This is the cheapest user-visible win — shop owners can see what the AI will actually say for their service before turning it on.
+
+**Steps:**
+1. Create `PreviewController.ts` with handler for `POST /api/ai/preview`
+2. Request body: `{ serviceId, sampleQuestion?, tone? }`
+3. Default `sampleQuestion` to `"Hi! How much does this cost and when can I book?"`
+4. Use `tone` from body if provided, else read from `shop_services.ai_tone`
+5. Build minimal context (no customer profile — synthesize a "sample customer" with tier=BRONZE, no history)
+6. Call `AnthropicClient.complete(...)` with **Haiku 4.5** (speed + low cost for previews)
+7. Return `{ reply: string, model, latencyMs, costUsd }`
+8. Cache previews per `(serviceId, tone)` for 1 hour (Redis or in-memory) — prevents shop owners from burning budget hitting refresh
+9. Auth: shop must own the service, OR be admin
+10. Mount route in `routes.ts`
+
+**Acceptance:**
+- Endpoint returns a real Claude reply for any staging service
+- Cached responses on second call within 1 hour
+- Auth blocks shop A from previewing shop B's services
+
+**Rollback:** unmount the route. Frontend still has the mock-based fallback (Task 7 hasn't swapped yet).
+
+### Task 7 — Frontend: swap `aiPreviewMocks.ts` to live API (~0.5 day)
+
+**Goal:** The "See How the AI Replies" preview in `AISalesAssistantSection.tsx` calls the new endpoint instead of reading from the static array.
+
+**Steps:**
+1. In `frontend/src/services/api/services.ts`, add `getAiPreview(serviceId, tone): Promise<AIPreviewResponse>`
+2. In `AISalesAssistantSection.tsx`, replace the `AI_PREVIEW_MOCKS[tone]` lookup with a `useQuery` (TanStack) call to `getAiPreview`
+3. Loading state: skeleton in the preview area
+4. Error state: fallback to the existing mock (graceful degradation if backend is down)
+5. Cache key: `[serviceId, tone]` — react-query handles client-side caching (1 hour stale time)
+6. Update the disclosure note from "AI replies activate in a future update" to "Live preview — actual reply when AI is enabled"
+
+**Acceptance:**
+- Toggling tone segmented control fires a fresh API call (or hits cache)
+- Loading state visible during the call
+- Real Claude replies appear in the preview area
+- Disabling AI section still works (preview hidden)
+
+**Rollback:** `git revert` — frontend goes back to mock-based preview, backend endpoint can stay live.
+
+### Task 8 — Hook into `MessageService.sendMessage` (customer-facing AI replies) (~1 day)
+
+**Goal:** the actual AI behavior — when a customer sends a message in a conversation tied to a service with `ai_sales_enabled=true`, the AI auto-replies.
+
+**Steps:**
+1. Identify the right hook in `MessageService.sendMessage` (probably after the customer message is persisted)
+2. Conditionally fire `AgentOrchestrator.handleCustomerMessage(messageId)`:
+   - Only if `sender_type='customer'`
+   - Only if conversation has a `service_id` AND `shop_services.ai_sales_enabled=true`
+   - Skip on encrypted messages (per migration 097 — encrypted threads are explicitly customer-to-human)
+3. Run async (don't block the customer's message-send response)
+4. AI reply persists as a regular message; customer sees it via existing real-time channel
+
+**Acceptance:**
+- Customer sends a message on a service with `ai_sales_enabled=true` → AI reply appears within 5-10s
+- Customer sends a message on a service with `ai_sales_enabled=false` → no AI reply
+- Encrypted threads skip AI entirely
+
+**Rollback:** comment out the hook call. Existing message flow works unchanged.
+
+### Task 9 — Customer-facing AI message UI: disclosure badge + service AI label (~1 day)
+
+**Goal:** customers see which messages are AI-generated and which services use AI.
+
+**Steps:**
+
+**Frontend changes:**
+1. Customer chat thread component — render a small "🤖 AI assistant" badge above messages where `metadata.generated_by === 'ai_agent'`
+2. Customer-facing service detail page — small "AI-assisted" badge near the service title if `ai_sales_enabled=true` (plus a tooltip explaining what that means)
+3. Service marketplace card — similar badge (consistent visual)
+
+**Acceptance:**
+- AI messages visually distinct from human shop messages
+- Service cards show the AI badge correctly
+- Disclosure tooltip readable on mobile + desktop
+
+**Rollback:** revert the UI changes. Backend AI replies still work, just not visually flagged. Acceptable degradation.
+
+### Task 10 — Booking suggestion buttons (Flavor B inline cards) (~1.5 days)
+
+**Goal:** when AI mentions a slot or pricing, surface an inline "Book this" card. Customer taps → existing booking UI opens pre-filled. AI does NOT call any tool — it includes structured suggestion data in the response that the frontend renders.
+
+**Steps:**
+
+**Backend:**
+1. Update `PromptTemplates` to instruct Claude to ALWAYS use a JSON-structured suggestion when discussing booking:
+   ```
+   When suggesting a booking, end your reply with a fenced JSON block:
+   ```booking_suggestion
+   { "slot_iso": "2026-05-08T14:30:00+08:00", "service_id": "srv_...", "deposit_usd": 0 }
+   ```
+   ```
+2. Parse the response in `AgentOrchestrator` — extract any `booking_suggestion` blocks
+3. Strip the JSON block from the reply text the customer sees
+4. Persist the suggestion in `messages.metadata.booking_suggestions: [...]`
+
+**Frontend:**
+1. In the customer chat thread, when a message has `metadata.booking_suggestions`, render below the message text: a card with the slot, service name, deposit, and a "Tap to book" button
+2. Tap → navigate to the existing booking flow with `?service=X&slot=Y&deposit=Z` query params (existing booking UI accepts pre-fill — verify, may need a small change)
+
+**Acceptance:**
+- AI message containing a booking suggestion renders the card correctly
+- Tapping the card navigates to the booking flow with fields pre-filled
+- Customer can complete booking via existing flow
+
+**Rollback:** the JSON-block parser tolerates AI replies without suggestions (already does). Reverting the prompt template change just stops AI from including booking suggestions; replies still flow.
+
+### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
+
+**Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
+
+**Steps:**
+1. Subscribe `AgentOrchestrator` to `service.order_completed` event (existing event from Phase 2 service marketplace work)
+2. Look up the conversation for that customer + service
+3. If conversation exists AND has prior AI messages → send a short confirmation message ("Thanks for booking! See you Thursday at 2:30 PM. Let us know if anything changes.")
+4. Use `AnthropicClient.complete(...)` with Haiku for cost
+5. Persist + audit log as usual
+
+**Acceptance:**
+- Booking completed via marketplace → AI confirmation message lands in the chat
+- Skipped if customer never chatted with AI for that service (no conversation, or no AI messages in history)
+
+**Rollback:** unsubscribe. Existing booking flow unchanged.
+
+### Task 12 — Spend cap monitoring + admin visibility (~0.5 day)
+
+**Goal:** shop owners can see their AI spend; admins can see platform-wide cost.
+
+**Steps:**
+
+**Shop side:**
+1. Add `GET /api/ai/spend` endpoint — returns `{ currentMonthSpendUsd, monthlyBudgetUsd, percentUsed, monthStartedAt }` for the requesting shop
+2. Frontend: small spend indicator on the shop dashboard's AI Sales Assistant tab/section
+
+**Admin side:**
+1. Add `GET /api/admin/ai/cost-summary` — aggregate spend across all shops, top spenders, error rate
+2. Frontend: admin panel section (Phase 4 build-out, MVP just exposes the endpoint)
+
+**Acceptance:**
+- Shop sees their own spend
+- Admin sees aggregate
+- Auth enforced (shop only sees own; admin sees all)
+
+**Rollback:** unmount endpoints. Spend tracking continues internally; just no dashboard.
+
+### Task 13 — Production rollout + verification (~0.5 day)
+
+**Goal:** ship to prod with explicit rollout controls.
+
+**Steps:**
+1. Verify Phase 2 prod deploy is complete (migration 108 + Phase 2 backend/frontend code) — must precede this
+2. Apply migration 109 to prod
+3. Set `ANTHROPIC_API_KEY` (Production workspace key) in DO prod env vars
+4. Set `ai_global_enabled=false` for ALL shops by default in prod (cautious rollout):
+   ```sql
+   UPDATE ai_shop_settings SET ai_global_enabled = false;
+   ```
+5. Deploy backend + frontend
+6. Pick **3-5 pilot shops** willing to test live AI; toggle `ai_global_enabled=true` for them only via admin endpoint or direct SQL
+7. Monitor for 24-48 hours: error rate, cost per shop, customer feedback
+8. Gradually expand rollout based on signals
+
+**Acceptance:**
+- Pilot shops have working AI
+- All other shops have AI silently disabled (regardless of per-service `ai_sales_enabled` setting)
+- No 500s in logs from AI calls
+- Spend tracking matches actual Anthropic Console usage
+
+**Rollback:** kill switch — `UPDATE ai_shop_settings SET ai_global_enabled = false;`. Stops all AI globally without code changes. Investigate, fix, re-enable selectively.
+
+---
+
+## Total effort
+
+| Task | Effort |
+|---|---|
+| 1. Foundation: SDK + skeleton | ~4 hr |
+| 2. Migration 109 | ~1 hr |
+| 3. AnthropicClient | ~1 day |
+| 4. ContextBuilder + PromptTemplates | ~1.5 days |
+| 5. AgentOrchestrator + AuditLogger + SpendCap + Escalation | ~1 day |
+| 6. POST /api/ai/preview endpoint | ~0.5 day |
+| 7. Frontend: swap aiPreviewMocks → live API | ~0.5 day |
+| 8. Hook into MessageService.sendMessage | ~1 day |
+| 9. Customer-facing AI UI badges | ~1 day |
+| 10. Booking suggestion buttons | ~1.5 days |
+| 11. Order completion confirmation hook | ~0.5 day |
+| 12. Spend monitoring | ~0.5 day |
+| 13. Prod rollout | ~0.5 day |
+| **Total** | **~12-13 working days (~3 weeks)** |
+| Soak before broad rollout | 1 week (overlapping) |
+
+---
+
+## Suggested execution order
+
+**Week 1 — Foundation:**
+- Day 1-2: Tasks 1, 2, 3 (deps + skeleton + migration + AnthropicClient)
+- Day 3-4: Task 4 (ContextBuilder + PromptTemplates)
+- Day 5: Task 5 (AgentOrchestrator + safety guards)
+
+**Week 2 — Live preview + customer-facing:**
+- Day 6: Task 6 + 7 (preview endpoint + frontend swap) — first user-visible win, ship to staging
+- Day 7-8: Task 8 (MessageService hook) — customer-facing AI replies on staging
+- Day 9-10: Task 9 (UI badges)
+
+**Week 3 — Booking + ops:**
+- Day 11-12: Task 10 (booking suggestions)
+- Day 13: Task 11 + 12 (order completion hook + spend monitoring)
+- Day 14: Task 13 (prod rollout — pilot shops only)
+- Day 15+: Soak, monitor, expand rollout
+
+---
+
+## Testing strategy
+
+### Unit tests
+- `AnthropicClient` retry/backoff, error mapping, cost math (mock the SDK)
+- `ContextBuilder` produces complete context for various service types
+- `PromptTemplates` produce valid, non-empty prompts for each tone
+- `SpendCapEnforcer` correctly auto-rolls month and throttles to Haiku
+- `EscalationDetector` heuristics
+
+### Integration tests
+- End-to-end: send a customer message via `MessageService` → AI reply appears in `messages` table
+- Spend cap: simulate usage to 100% of budget → next call skipped
+- Escalation: customer types "human" → no AI reply, shop notified
+- Encrypted thread: AI silently skipped
+
+### Manual QA on staging
+- Test customer registers, chats with AI on a service → realistic conversation
+- Shop owner sees live preview update when changing tone in dashboard
+- Booking suggestion card → tap → booking flow pre-filled
+- Order completion → AI confirmation appears
+
+### Cost validation
+- Run 10 sample conversations on staging
+- Compare actual cost (from Anthropic Console) to logged cost in `ai_agent_messages.cost_usd`
+- Tolerance: ±5% (rounding + caching variance)
+
+---
+
+## Rollback strategy
+
+### Levels of rollback (least to most invasive)
+
+| Level | Action | When |
+|---|---|---|
+| 1 — Per-shop kill | `UPDATE ai_shop_settings SET ai_global_enabled = false WHERE shop_id = '...';` | One shop has issues |
+| 2 — Platform kill | `UPDATE ai_shop_settings SET ai_global_enabled = false;` | Platform-wide AI issue, fix forward |
+| 3 — Disable hook | Comment out `AgentOrchestrator.handleCustomerMessage(...)` call in `MessageService` and redeploy | Domain code itself is broken |
+| 4 — Full revert | `git revert` the Phase 3 commits | Catastrophic; very unlikely after Level 1-3 |
+
+The kill switch (Level 2) means we can stop all customer-facing AI behavior with a single SQL statement, no code change needed. Phase 3 is built around this so a bad deploy never blocks customer messaging.
+
+---
+
+## Out of scope (Phase 4+)
+
+- Direct AI tool-call booking (Flavor A — AI auto-creates booking without customer button)
+- Full escalation tool with structured reason capture + SLA tracking
+- Quality scoring (thumbs up/down per AI message; aggregate per-shop and per-tone)
+- A/B testing infrastructure (route 10% of conversations to "AI off" baseline)
+- Per-shop fine-tuning / few-shot prompting from `quick_replies` history
+- Voice / photo / multimodal input
+- pgvector for cross-shop service search
+- Streaming responses (token-by-token typing in chat)
+- Customer-initiated "switch to human" button in chat (the escalation detector handles automatic detection; manual button is a Phase 4 enhancement)
+- Per-service A/B testing of tone variants
+- Scheduled message bursts (proactive outreach via existing `auto_messages` infra)
+
+---
+
+## Decisions to lock before starting
+
+- [ ] **Anthropic SDK version** — confirm `@anthropic-ai/sdk` version at install time. Latest stable as of API key procurement.
+- [ ] **Default models** — confirm Sonnet 4.6 + Haiku 4.5 as defaults. Strategy doc suggests these; verify they match what's actually exposed in your Anthropic Console workspace.
+- [ ] **Default monthly budget per shop** — strategy doc says $20. Confirm or change.
+- [ ] **Auto-throttle threshold** — strategy doc says 70% of budget triggers Haiku-only. Confirm.
+- [ ] **Pilot shops list** — pick 3-5 shops for initial rollout. Need their consent + monitoring during the soak window.
+- [ ] **Disclosure copy** — exact text for "🤖 AI assistant" badge + tooltip. Default: "This message was generated by FixFlow's AI assistant on behalf of [Shop Name]." Adjust to brand voice.
+- [ ] **Booking suggestion JSON contract** — confirm the structured format Claude should emit. Sample given in Task 10; review for missing fields (e.g., service variant ID, customer-facing slot label).
+
+---
+
+## Connection to Phase 4
+
+Once Phase 3 ships and stabilizes (~2 weeks of soak), Phase 4 builds on the foundation:
+
+- Direct tool-call booking (Flavor A) — `AnthropicClient` already supports `tools` parameter; just need to define `create_booking` schema + handler
+- Quality scoring — adds 2 columns to `ai_agent_messages`, frontend thumbs-up/down on AI messages
+- A/B testing — splits conversations into AI-on / AI-off cohorts, tracks conversion lift
+- Per-shop fine-tuning via `quick_replies` mining (no actual model fine-tuning; few-shot prompting)
+- Admin analytics dashboard — fully built-out version of Task 12's endpoint
+- Streaming responses — adds streaming support to `AnthropicClient`, frontend renders token-by-token
+
+None of Phase 4 requires schema changes beyond what Phase 3 ships. The architecture is built to grow.
+
+---
+
+## Cost orientation (from strategy doc + procurement doc)
+
+| Scenario | Estimated cost |
+|---|---|
+| Single conversation (5 turns, Sonnet, with caching) | ~$0.018 |
+| Single conversation (Haiku, with caching) | ~$0.0035 |
+| 100-shop pilot, 100 conversations/shop/month, Sonnet-default | ~$180/month |
+| Full rollout (1000 shops × 100 convos), Sonnet-default | ~$1,800/month |
+| Full rollout, Haiku-only (worst-case throttled) | ~$350/month |
+
+Per-shop default budget of $20/month covers ~1100 Sonnet conversations or ~5700 Haiku conversations. Auto-throttle to Haiku at 70% extends runway materially.
+
+---
+
+## Suggested next action
+
+Start with **Task 1 (Foundation)**. It's the smallest, surface-area-only change — adds the SDK dependency, creates the empty domain shell. Once that's merged + deployed to staging, every subsequent task has a clean substrate to build on.
+
+If you want to do any pre-work in parallel:
+- Verify Anthropic Console workspace setup (procurement doc Step 2)
+- Push Phase 2 to prod (~10 min, removes a Phase 3 prerequisite)
+- Pick the 3-5 pilot shops for rollout (Task 13 prerequisite)
