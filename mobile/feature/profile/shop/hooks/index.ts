@@ -8,11 +8,10 @@ export {
   useShopProfileQuery,
   useShopServicesQuery,
   useUpdatePromoCodeStatusMutation,
-  useCreatePromoCodeMutation,
   useUpdateShopProfileMutation,
 } from "./useShopQuery";
-export { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";
-export { useAnalyticsDataUI } from "./useAnalyticsDataUI";
+// Analytics (re-exported from transaction/analytics)
+export { useAnalyticsTimeRange, useAnalyticsDataUI } from "@/feature/transaction/analytics/hooks";
 export { useSubscription } from "./useSubscription";
 export { useSubscriptionForm } from "./useSubscriptionForm";
 export { usePromoCodeUI } from "./usePromoCodeUI";

@@ -12,7 +12,7 @@ import {
   RewardResponse,
 } from "@/shared/interfaces/shop.interface";
 import { promoCodeApi } from "../promo-code/services/promoCode.services";
-import { analyticsApi } from "../analytics/services/analytics.services";
+import { analyticsApi } from "../../../transaction/analytics/services/analytics.services";
 
 class ShopApi {
   async register(payload: ShopFormData) {
@@ -133,16 +133,12 @@ class ShopApi {
     }
   }
 
-  // Promo Code Methods - delegated to promoCodeApi
-  // @deprecated Use promoCodeApi from '@/feature/profile/shop/promo-code/services/promoCode.services' directly
   getPromoCodes = (shopId: string) => promoCodeApi.getPromoCodes(shopId);
   createPromoCode = (shopId: string, data: CreatePromoCodeRequest) => promoCodeApi.createPromoCode(shopId, data);
   validatePromoCode = (shopId: string, data: { code: string; customer_address: string }) => promoCodeApi.validatePromoCode(shopId, data);
   updatePromoCodeStatus = (shopId: string, promoCodeId: string, isActive: boolean) => promoCodeApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
   deletePromoCode = (shopId: string, promoCodeId: string) => promoCodeApi.deletePromoCode(shopId, promoCodeId);
 
-  // Analytics Methods - delegated to analyticsApi
-  // @deprecated Use analyticsApi from '@/feature/profile/shop/analytics/services/analytics.services' directly
   getShopTransactions = (shopId: string, startDate: string, endDate: string) => analyticsApi.getShopTransactions(shopId, startDate, endDate);
   getShopPurchases = (shopId: string, startDate: string, endDate: string) => analyticsApi.getShopPurchases(shopId, startDate, endDate);
 }
