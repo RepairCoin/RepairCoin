@@ -1,7 +1,6 @@
 import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface";
 
 export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
-export type BonusType = "fixed" | "percentage";
 export type TimeRange = "day" | "month" | "year";
 export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
 
@@ -94,31 +93,4 @@ export interface ShopEditFormData {
 export interface ProfileTab {
   key: string;
   label: string;
-}
-
-export interface PromoCodeFormData {
-  code: string;
-  name: string;
-  description: string;
-  bonusType: BonusType;
-  bonusValue: string;
-  startDate: Date;
-  endDate: Date;
-  totalUsageLimit: string;
-  perCustomerLimit: string;
-  maxBonus: string;
-}
-
-export interface CreatePromoCodeData {
-  code: string;
-  name: string;
-  description?: string;
-  bonus_type: BonusType;
-  bonus_value: number;
-  start_date: string;
-  end_date: string;
-  total_usage_limit?: number;
-  per_customer_limit?: number;
-  max_bonus?: number;
-  is_active: boolean;
 }

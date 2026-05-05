@@ -9,7 +9,4 @@ export type {
   SubscriptionFeature,
   ShopEditFormData,
   ProfileTab,
-  BonusType,
-  PromoCodeFormData,
-  CreatePromoCodeData,
 } from "./services/shop.interface";
