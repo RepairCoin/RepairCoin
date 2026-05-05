@@ -1,5 +1,5 @@
-// Analytics
-export { default as AnalyticsTab } from "./AnalyticsTab";
+// Analytics (re-exported from transaction/analytics)
+export { AnalyticsTab } from "@/feature/transaction/analytics/components";
 
 // Subscription
 export { default as SubscriptionHeader } from "./SubscriptionHeader";
