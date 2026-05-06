@@ -3,8 +3,6 @@ export type {
   ViewMode,
   TierFilter,
   SortBy,
-  TierConfig,
-  TierProgress,
   HowItWorksStep,
   ReferralStats,
   CopyableFieldProps,

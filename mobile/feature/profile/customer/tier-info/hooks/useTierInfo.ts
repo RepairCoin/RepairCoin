@@ -1,8 +1,8 @@
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useCustomer } from "../useCustomer";
 import { Tier } from "@/shared/utilities/GlobalTypes";
-import { TIER_CONFIG, TIER_ORDER } from "../../constants";
-import { TierProgress } from "../../types";
+import { TIER_CONFIG, TIER_ORDER } from "../constants";
+import { TierProgress } from "../types";
+import { useCustomer } from "../../hooks/useCustomer";
 
 export function useTierInfo() {
   const { account } = useAuthStore();
