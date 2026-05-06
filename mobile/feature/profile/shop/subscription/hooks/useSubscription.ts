@@ -3,9 +3,9 @@ import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useShop } from "./useShopQuery";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
+import { useShop } from "../../hooks/useShopQuery";
 
 interface CancelSubscriptionResponse {
   success: boolean;
