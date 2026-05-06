@@ -21,8 +21,8 @@
 | 4 | ContextBuilder + PromptTemplates | ✅ Merged + on staging | `deo/phase-3-task-4` (merged) | 43 unit tests passing |
 | 5 | AgentOrchestrator + AuditLogger + safety guards | ✅ Merged to main | `deo/phase-3-task-5` (merged) | 49 unit tests passing. Staging deploy auto-rolled-back due to DB connection exhaustion — needs manual redeploy |
 | 6 | POST /api/ai/preview endpoint | ✅ Merged to main + on staging | `deo/phase-3-task-6` (merged) | 19 unit tests passing. Real-API smoke validated all 3 acceptance criteria on staging (happy path + cache + 403 ownership) |
-| 7 | Frontend: swap aiPreviewMocks → live API | Not started | — | ~0.5 day |
-| 8 | Hook into MessageService.sendMessage | Not started | — | Customer-facing AI replies start here |
+| 7 | Frontend: swap aiPreviewMocks → live API | ✅ Merged + visually verified on staging | `deo/phase-3-task-7` (merged) | Live preview rendered correctly for peanut shop's "Newly Baker" service with $99 + 30 min context |
+| 8 | Hook into MessageService.sendMessage | ⏳ Pushed, awaiting PR | `deo/phase-3-task-8` | Migration 111 adds service_id to conversations. AI hook fires async on customer messages with serviceId. 11 unit tests passing. Smoke test deferred until staging deploy |
 | 9 | Customer-facing AI UI: badges + disclosure | Not started | — | ~1 day |
 | 10 | Booking suggestion buttons (Flavor B) | Not started | — | ~1.5 days |
 | 11 | Order completion confirmation hook | Not started | — | ~0.5 day |
@@ -537,7 +537,7 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 - Plan implies the live API returns the same 4-message arc shape as `AI_PREVIEW_MOCKS`. It actually returns one reply (Claude's response to a single sample question). Component shows the sample question + the AI's single reply, which more honestly reflects what the AI does in production. The 4-message mock arc is preserved as the fallback (no serviceId / API error).
 - No real-browser smoke test in this PR — needs the user to test on staging once frontend is deployed (CORS + cookie-domain rules prevent local frontend from authenticating against staging API).
 
-### Task 8 — Hook into `MessageService.sendMessage` (customer-facing AI replies) (~1 day)
+### Task 8 — Hook into `MessageService.sendMessage` (customer-facing AI replies) (~1 day) — **DONE 2026-05-06**
 
 **Goal:** the actual AI behavior — when a customer sends a message in a conversation tied to a service with `ai_sales_enabled=true`, the AI auto-replies.
 
@@ -556,6 +556,34 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 - Encrypted threads skip AI entirely
 
 **Rollback:** comment out the hook call. Existing message flow works unchanged.
+
+**Implementation log (2026-05-06, branch `deo/phase-3-task-8`):**
+
+- **Schema change** (Option A — chosen by user over per-message metadata, heuristic, or per-shop fallback):
+  - Migration `111_add_service_id_to_conversations.sql` — `ALTER TABLE conversations ADD COLUMN service_id VARCHAR(255)` + partial index `idx_conversations_service_id WHERE service_id IS NOT NULL`. NULL on legacy conversations. Soft reference (no FK) to mirror migration 110's stance on `shop_services.service_id` schema drift.
+- **Repository**:
+  - `MessageRepository.Conversation` type gains optional `serviceId`.
+  - `getOrCreateConversation(customerAddress, shopId, serviceId?)` — on creation, persists service_id. On existing conversation, updates service_id only when caller provides a different value (customer's most recent service intent wins; plain replies preserve prior context).
+- **MessageService**:
+  - `SendMessageRequest.serviceId?` threaded to repo on `getOrCreateConversation`.
+  - `fireAiAutoReply()` private method: fires after the customer-message-to-shop WS broadcast, in `setImmediate(async ...)` so the HTTP response doesn't wait. Calls `AgentOrchestrator.handleCustomerMessage(...)`. On `outcome === 'ai_replied'`, broadcasts `message:new` WS event to the customer so the AI reply lands in real-time through the existing WS channel (no frontend changes needed for delivery).
+  - **Lazy module-level orchestrator** with try/catch on first construction. If `ANTHROPIC_API_KEY` is missing (dev/test env), logs a warning once and disables AI auto-replies for the rest of the process — never throws into the customer's message-send path. `_resetOrchestratorForTests` exposed for unit tests.
+  - Hook gating: customer-only senders, non-encrypted messages, `conversation.serviceId` must be present, `created` flag must be true (skip on idempotent retries).
+- **MessageController**: extracts `serviceId` from request body and forwards to MessageService.
+- **Frontend** (minimal):
+  - `services/api/messaging.ts` — `SendMessageRequest.serviceId?` added.
+  - `ServiceDetailsModal.tsx` — passes `serviceId: service.serviceId` as a top-level field when customer initiates a conversation from a service detail page. Other call sites (ShopProfileClient, BookingDetailsPanel, messageOutbox retry queue) intentionally don't pass it — those are not service-context messages.
+
+**Tests**:
+- `backend/tests/ai-agent/MessageServiceAIHook.test.ts` — 11 unit tests covering: hook fires on customer messages with serviceId; skips for shop senders; skips for encrypted; skips when no serviceId; skips on duplicate retry; doesn't block sendMessage when orchestrator is slow; doesn't throw when orchestrator rejects; broadcasts WS only on `ai_replied` outcome (not skipped/escalated/failed).
+- Full ai-agent suite: 137 tests across 8 files, all passing. No regressions on existing messaging tests.
+
+**Deviations from plan:**
+- Plan implied conversations already had `service_id`. They didn't — schema only had `(customer_address, shop_id)` from migration 079. User chose Option A: add a nullable column and bind on first service-context message. That added a migration + small frontend change to the originally-scoped backend-only Task 8.
+- The existing `getOrCreateConversation` enforces one conversation per (customer, shop) pair. Bound `service_id` updates to most-recent on subsequent service-context messages — keeps the AI context fresh without proliferating threads.
+- AgentOrchestrator already persists the AI reply via its own `messageRepo.createMessage` step. Hook's responsibility is just the WS broadcast on success — kept the orchestrator decoupled from the messaging WS layer.
+
+**Smoke test pending**: needs staging deploy (migration 111 must run) + a peanut-shop service with `ai_sales_enabled=true` and `ai_shop_settings.ai_global_enabled=true`. Today both flags are off by design (opt-in safety) — flipping them on is a separate operator step before testing.
 
 ### Task 9 — Customer-facing AI message UI: disclosure badge + service AI label (~1 day)
 

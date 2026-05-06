@@ -4,6 +4,7 @@ import { NotificationService } from '../../notification/services/NotificationSer
 import { WebSocketManager } from '../../../services/WebSocketManager';
 import { conversationPresenceService } from '../../../services/ConversationPresenceService';
 import { emailCooldownService } from '../../../services/EmailCooldownService';
+import { AgentOrchestrator } from '../../AIAgentDomain/services/AgentOrchestrator';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,6 +12,11 @@ export interface SendMessageRequest {
   conversationId?: string;
   customerAddress?: string;
   shopId?: string;
+  /** Phase 3 Task 8 — when set, the AI auto-reply hook fires using this
+      service's per-service config. Captured on conversation creation and
+      updated on subsequent sends if the customer is asking about a different
+      service from what's currently bound to the thread. */
+  serviceId?: string;
   senderIdentifier: string; // For customers: wallet address, For shops: shopId
   senderType: 'customer' | 'shop';
   messageText: string;
@@ -19,6 +25,38 @@ export interface SendMessageRequest {
   attachments?: any[];
   isEncrypted?: boolean;
   clientMessageId?: string;
+}
+
+// Lazy module-level AgentOrchestrator. Construction requires ANTHROPIC_API_KEY
+// (via AnthropicClient), which dev/test environments may not have. We don't
+// want messaging tests to break when the AI domain isn't configured.
+//
+// Behavior: first call attempts construction; if it throws, AI auto-replies
+// are silently disabled for the rest of the process lifetime. Logs a warning
+// once so an operator can spot it.
+let _orchestrator: AgentOrchestrator | null = null;
+let _orchestratorAvailable: boolean | null = null;
+function getOrchestrator(): AgentOrchestrator | null {
+  if (_orchestratorAvailable === false) return null;
+  if (!_orchestrator) {
+    try {
+      _orchestrator = new AgentOrchestrator();
+      _orchestratorAvailable = true;
+    } catch (err) {
+      logger.warn('AgentOrchestrator unavailable; AI auto-replies disabled', {
+        error: (err as Error)?.message,
+      });
+      _orchestratorAvailable = false;
+      return null;
+    }
+  }
+  return _orchestrator;
+}
+
+/** Test-only: reset the lazy orchestrator. Production code does not call this. */
+export function _resetOrchestratorForTests(): void {
+  _orchestrator = null;
+  _orchestratorAvailable = null;
 }
 
 export class MessageService {
@@ -81,7 +119,8 @@ export class MessageService {
       } else if (request.customerAddress && request.shopId) {
         conversation = await this.messageRepo.getOrCreateConversation(
           request.customerAddress,
-          request.shopId
+          request.shopId,
+          request.serviceId
         );
       } else {
         throw new Error('Either conversationId or (customerAddress + shopId) is required');
@@ -285,6 +324,30 @@ export class MessageService {
         logger.error('Failed to send message:new WS event:', wsError);
       }
 
+      // Phase 3 Task 8 — AI auto-reply hook.
+      // Fires async (after the HTTP response returns to the customer) when:
+      //   - sender is customer (shop replies don't trigger)
+      //   - message is not encrypted (encrypted threads are explicitly customer-to-human, per migration 097)
+      //   - conversation has a service_id (no service context = no AI)
+      // The orchestrator handles its own kill-switches (per-service AI toggle,
+      // per-shop ai_global_enabled, spend cap, escalation phrases) and is
+      // entirely silent if any of those say "skip" — the customer message just
+      // goes through normally with no AI reply.
+      if (
+        request.senderType === 'customer' &&
+        !request.isEncrypted &&
+        conversation.serviceId
+      ) {
+        this.fireAiAutoReply({
+          messageId,
+          conversationId: conversation.conversationId,
+          customerAddress: conversation.customerAddress,
+          shopId: conversation.shopId,
+          serviceId: conversation.serviceId,
+          customerMessageText: request.messageText.trim(),
+        });
+      }
+
       logger.info('Message sent successfully', {
         messageId,
         conversationId: conversation.conversationId,
@@ -301,8 +364,69 @@ export class MessageService {
   /**
    * Get or create a conversation between a customer and shop
    */
-  async getOrCreateConversation(customerAddress: string, shopId: string): Promise<Conversation> {
-    return this.messageRepo.getOrCreateConversation(customerAddress, shopId);
+  async getOrCreateConversation(
+    customerAddress: string,
+    shopId: string,
+    serviceId?: string
+  ): Promise<Conversation> {
+    return this.messageRepo.getOrCreateConversation(customerAddress, shopId, serviceId);
+  }
+
+  /**
+   * Fire-and-forget AI auto-reply (Phase 3 Task 8).
+   *
+   * Runs the AgentOrchestrator pipeline in a separate microtask so the
+   * customer's HTTP response returns immediately. The AI's reply lands in the
+   * messages table via the orchestrator's own messageRepo.createMessage call,
+   * then we broadcast a `message:new` WS event so the customer's chat UI
+   * picks it up through the same channel as a human shop reply.
+   *
+   * Errors are swallowed: orchestrator failures must never affect the
+   * original message-send. Audit-log writes within the orchestrator capture
+   * the error for diagnostics.
+   */
+  private fireAiAutoReply(input: {
+    messageId: string;
+    conversationId: string;
+    customerAddress: string;
+    shopId: string;
+    serviceId: string;
+    customerMessageText: string;
+  }): void {
+    setImmediate(async () => {
+      try {
+        const orchestrator = getOrchestrator();
+        if (!orchestrator) return; // ANTHROPIC_API_KEY missing — silently skip
+
+        const result = await orchestrator.handleCustomerMessage(input);
+
+        // On successful AI reply, broadcast WS to the customer so they see
+        // the reply land in real-time (the orchestrator persisted the message
+        // but did not broadcast — that's MessageService's responsibility).
+        if (result.outcome === 'ai_replied' && this.wsManager) {
+          try {
+            this.wsManager.sendToAddresses(
+              [input.customerAddress.toLowerCase()],
+              {
+                type: 'message:new',
+                payload: { conversationId: input.conversationId },
+              }
+            );
+          } catch (wsErr) {
+            logger.error('AI reply WS broadcast failed', {
+              messageId: input.messageId,
+              error: (wsErr as Error)?.message,
+            });
+          }
+        }
+      } catch (err) {
+        logger.error('AI auto-reply hook failed', {
+          messageId: input.messageId,
+          conversationId: input.conversationId,
+          error: (err as Error)?.message,
+        });
+      }
+    });
   }
 
   /**

@@ -64,6 +64,10 @@ Could you provide more details?`;
       const sentMessage = await messagingApi.sendMessage({
         shopId: service.shopId,
         customerAddress: userProfile.address,
+        // Phase 3 Task 8 — bind the conversation to this service so the
+        // backend's AI auto-reply hook fires with this service's per-service
+        // context (kill-switch, tone, prompt data).
+        serviceId: service.serviceId,
         messageText: initialMessage,
         messageType: "service_link",
         metadata: {
