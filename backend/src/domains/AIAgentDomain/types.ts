@@ -170,3 +170,95 @@ export interface AgentContext {
   /** Empty array if includeUpsells=false or no eligible siblings exist */
   siblingServices: AgentSiblingService[];
 }
+
+// ============================================================================
+// Task 5 — AgentOrchestrator inputs/outputs + supporting types
+// ============================================================================
+
+/**
+ * Input to AgentOrchestrator.handleCustomerMessage(). The caller (Task 8's
+ * MessageService hook) is responsible for resolving these from the customer
+ * message and conversation metadata. Decoupling this from message-row loading
+ * keeps the orchestrator focused on AI logic and easy to test.
+ */
+export interface HandleCustomerMessageInput {
+  /** Message ID of the customer message Claude should respond to */
+  messageId: string;
+  conversationId: string;
+  customerAddress: string;
+  shopId: string;
+  /** Which service the conversation is about (e.g., the service the customer was viewing when they sent the message) */
+  serviceId: string;
+  /** The customer message text — passed explicitly so orchestrator doesn't have to re-query */
+  customerMessageText: string;
+}
+
+/**
+ * Discriminated union of outcomes for a handleCustomerMessage call. Lets
+ * the caller (Task 8 hook) decide what to do based on the result —
+ * silent skip vs error vs success vs escalate.
+ */
+export type HandleCustomerMessageResult =
+  | { outcome: "ai_replied"; aiMessageId: string; costUsd: number; latencyMs: number; model: string }
+  | { outcome: "skipped"; reason: SkipReason }
+  | { outcome: "escalated"; reason: string }
+  | { outcome: "failed"; error: string };
+
+export type SkipReason =
+  | "service_ai_disabled" // service.ai_sales_enabled = false
+  | "shop_ai_disabled" // ai_shop_settings.ai_global_enabled = false
+  | "spend_cap_exceeded" // hit monthly_budget_usd
+  | "no_shop_settings"; // no ai_shop_settings row for this shop (shouldn't happen post-migration 110 backfill, but guard anyway)
+
+// ============================================================================
+// AuditLogger — what gets persisted into ai_agent_messages
+// ============================================================================
+
+/**
+ * Insert payload for the audit log. One row per Claude API call (success
+ * or failure). Mirrors the columns of `ai_agent_messages` directly.
+ */
+export interface AIAgentMessageInsert {
+  conversationId: string;
+  serviceId?: string;
+  shopId: string;
+  customerAddress: string;
+  /** What we sent to Anthropic (system prompt + messages, model, params) */
+  requestPayload: object;
+  /** What Anthropic returned (or null if the call failed) */
+  responsePayload: object | null;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  costUsd: number;
+  toolCalls?: object[];
+  latencyMs: number | null;
+  escalatedToHuman?: boolean;
+  errorMessage?: string | null;
+}
+
+// ============================================================================
+// SpendCapEnforcer
+// ============================================================================
+
+export interface SpendCheckResult {
+  allowed: boolean;
+  /** True when current spend ≥ 70% of monthly budget — caller should pick Haiku to extend runway */
+  useCheaperModel: boolean;
+  currentSpendUsd: number;
+  monthlyBudgetUsd: number;
+  percentUsed: number;
+  /** Set when allowed=false — explains why (cap reached, no row found, etc.) */
+  blockReason?: string;
+}
+
+// ============================================================================
+// EscalationDetector
+// ============================================================================
+
+export interface EscalationDecision {
+  shouldEscalate: boolean;
+  /** Set when shouldEscalate=true — explains which signal triggered (keyword, threshold, etc.) */
+  reason?: string;
+}

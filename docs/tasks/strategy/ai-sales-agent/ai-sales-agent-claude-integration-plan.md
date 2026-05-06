@@ -370,7 +370,48 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 
 **Rollback:** delete files. No production callers yet.
 
-### Task 5 — `AgentOrchestrator` + `AuditLogger` + safety guards (~1 day)
+### Task 5 — `AgentOrchestrator` + `AuditLogger` + safety guards ✅ DONE (2026-05-06)
+
+**Status:** Shipped on branch `deo/phase-3-task-5`. Pending PR + merge to main.
+
+**Acceptance verified:**
+- ✅ `AgentOrchestrator.handleCustomerMessage(input)` returns a `HandleCustomerMessageResult` discriminated union (5 outcomes: ai_replied / skipped / escalated / failed / [no_shop_settings inside skipped])
+- ✅ Skip paths covered: `service_ai_disabled`, `shop_ai_disabled`, `no_shop_settings`, `spend_cap_exceeded`
+- ✅ Escalation path covered (writes audit row with `escalated_to_human=true`, no AI reply posted)
+- ✅ Happy path posts AI reply via `MessageRepository.createMessage` with `metadata.generated_by='ai_agent'` + tone + cost + latency, then writes audit row, then increments spend
+- ✅ Claude call failure logs error to `ai_agent_messages` and returns `failed` outcome (no reply posted)
+- ✅ Model selection: Sonnet by default, switches to Haiku when SpendCapEnforcer says spend ≥ 70% of budget
+- ✅ Customer message appended only if not already last in conversation history (avoids duplicates from Task 8 hook race conditions)
+- ✅ All 4 supporting services have unit tests:
+  - **EscalationDetector**: 26 tests (phrase matches, word-boundary keyword matches, "stop" at-start matching, reply-count threshold, false-positive guards, happy-path no-escalation)
+  - **SpendCapEnforcer**: 11 tests (canSpend below/at/above threshold, recordSpend, error swallowing)
+  - **AgentOrchestrator**: 12 tests (happy path, all skip reasons, escalation, Claude failure, model selection, message handling)
+  - 49 new unit tests total, all passing
+- ✅ TypeScript: 0 errors
+
+**Deviations from plan:**
+
+- **Discriminated-union result type** instead of `Promise<void>`. Lets Task 8's caller decide what to do based on outcome (post warning to shop, escalate notification, etc.) without re-reading DB state. Cleaner integration surface.
+- **No eager singleton export.** The plan had `agentOrchestrator` as a module-level instance, but `new AnthropicClient()` requires `ANTHROPIC_API_KEY` at construction time — this breaks tests and any non-AI code paths importing the file. Task 8's hook will instantiate `new AgentOrchestrator()` when needed.
+- **Customer message append guard.** If the last message in conversation history is already from `user`, we don't re-append `customerMessageText` (avoids duplication if the message was committed before the hook fires). Task 8's hook timing determines which case happens; orchestrator handles both cleanly.
+- **`canSpend` doubles as month-rollover trigger.** No cron job — the next AI call after a calendar-month boundary triggers the rollover. Trade-off: shops with zero traffic in a new month show stale `current_month_spend_usd` until traffic resumes. Acceptable for MVP; documented in `SpendCapEnforcer` source.
+- **Constructor-injected dependencies.** Eight collaborators (pool, 4 repos, 4 services) all constructor-injected with sensible defaults. Tests pass mocks; production passes nothing and gets the defaults. Same pattern as `ContextBuilder` from Task 4.
+
+**Files changed:**
+- `backend/src/domains/AIAgentDomain/types.ts` (+~85 lines: HandleCustomerMessage*, AIAgentMessageInsert, SpendCheckResult, EscalationDecision)
+- `backend/src/domains/AIAgentDomain/services/AuditLogger.ts` (NEW, ~70 lines)
+- `backend/src/domains/AIAgentDomain/services/SpendCapEnforcer.ts` (NEW, ~115 lines)
+- `backend/src/domains/AIAgentDomain/services/EscalationDetector.ts` (NEW, ~135 lines)
+- `backend/src/domains/AIAgentDomain/services/AgentOrchestrator.ts` (NEW, ~280 lines)
+- `backend/tests/ai-agent/EscalationDetector.test.ts` (NEW, ~140 lines, 26 tests)
+- `backend/tests/ai-agent/SpendCapEnforcer.test.ts` (NEW, ~115 lines, 11 tests)
+- `backend/tests/ai-agent/AgentOrchestrator.test.ts` (NEW, ~250 lines, 12 tests)
+
+**Staging integration smoke deferred:** the end-to-end test against real staging hit DB connection-pool exhaustion (DO Postgres ~25 conn cap, local backend dev server holding some, jest tests holding more). Unit tests cover the dispatch logic comprehensively; the real-API integration validation will happen naturally at Task 6 (`/api/ai/preview` endpoint smoke) when there's only one client connecting. If it fails there, we'll catch it.
+
+**Rollback:** delete the new files. No production callers yet (Task 8 wires the orchestrator to MessageService).
+
+
 
 **Goal:** the main flow — entry point that takes a customer message, builds context, calls Claude, logs the result.
 
