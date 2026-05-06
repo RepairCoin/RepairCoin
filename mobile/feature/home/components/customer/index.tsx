@@ -15,7 +15,7 @@ import { router } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/shared/interfaces/service.interface";
-import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
+import { useCustomer } from "@/feature/profile/customer/profile/hooks/useCustomer";
 import { useService } from "@/feature/services/hooks/useService";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { apiClient } from "@/shared/utilities/axios";

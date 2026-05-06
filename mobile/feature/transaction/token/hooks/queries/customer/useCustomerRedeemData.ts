@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useCustomer } from "@/feature/profile/customer/hooks/useCustomer";
+import { useCustomer } from "@/feature/profile/customer/profile/hooks/useCustomer";
 import { TransactionData } from "@/shared/interfaces/customer.interface";
 import { useTokenBalance } from "../../useTokenQueries";
 
