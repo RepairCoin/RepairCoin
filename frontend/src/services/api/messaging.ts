@@ -58,6 +58,14 @@ export interface SendMessageRequest {
   conversationId?: string;
   customerAddress?: string;
   shopId?: string;
+  /**
+   * Phase 3 Task 8 — service the customer is asking about. Used by the
+   * backend to bind the conversation to a service so the AI auto-reply
+   * agent can fire with the right per-service context (kill-switch, tone,
+   * prompt data). Pass when initiating a conversation from a service
+   * detail page or service-specific CTA. Optional for plain replies.
+   */
+  serviceId?: string;
   messageText: string;
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
   metadata?: Record<string, any>;

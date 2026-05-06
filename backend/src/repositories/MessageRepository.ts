@@ -6,6 +6,10 @@ export interface Conversation {
   conversationId: string;
   customerAddress: string;
   shopId: string;
+  // Phase 3 Task 8 — the service the customer is asking about. NULL on legacy
+  // conversations and on threads not initiated from a service detail page.
+  // The AI auto-reply hook only fires when this is set.
+  serviceId?: string;
   lastMessageAt?: Date;
   lastMessagePreview?: string;
   unreadCountCustomer: number;
@@ -83,11 +87,22 @@ export interface CreateMessageResult {
 
 export class MessageRepository extends BaseRepository {
   /**
-   * Get or create a conversation between customer and shop
+   * Get or create a conversation between customer and shop.
+   *
+   * @param serviceId Optional. When provided:
+   *   - On creation: stored on the new conversation row
+   *   - On existing conversation: updates service_id to this value if it
+   *     differs (so the most recent service the customer is asking about
+   *     wins — AgentOrchestrator's prompt context follows their intent)
+   *   - When omitted on existing conversation: existing service_id is preserved
+   *
+   * The AI auto-reply hook in MessageService keys off the conversation's
+   * resolved service_id (Phase 3 Task 8).
    */
   async getOrCreateConversation(
     customerAddress: string,
-    shopId: string
+    shopId: string,
+    serviceId?: string
   ): Promise<Conversation> {
     try {
       // Try to get existing conversation
@@ -107,25 +122,39 @@ export class MessageRepository extends BaseRepository {
       let result = await this.pool.query(query, [customerAddress.toLowerCase(), shopId]);
 
       if (result.rows.length > 0) {
-        return this.mapConversationRow(result.rows[0]);
+        const existing = this.mapConversationRow(result.rows[0]);
+
+        // Update service_id if the caller explicitly passed one and it differs.
+        // Customer's most recent service intent wins. Plain message-sends that
+        // don't pass serviceId leave the conversation unchanged.
+        if (serviceId && existing.serviceId !== serviceId) {
+          await this.pool.query(
+            `UPDATE conversations SET service_id = $1, updated_at = NOW() WHERE conversation_id = $2`,
+            [serviceId, existing.conversationId]
+          );
+          existing.serviceId = serviceId;
+        }
+
+        return existing;
       }
 
-      // Create new conversation
+      // Create new conversation (with service_id if provided)
       const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const insertQuery = `
         INSERT INTO conversations (
-          conversation_id, customer_address, shop_id
-        ) VALUES ($1, $2, $3)
+          conversation_id, customer_address, shop_id, service_id
+        ) VALUES ($1, $2, $3, $4)
         RETURNING *
       `;
 
       result = await this.pool.query(insertQuery, [
         conversationId,
         customerAddress.toLowerCase(),
-        shopId
+        shopId,
+        serviceId ?? null
       ]);
 
-      logger.info('Conversation created', { conversationId, customerAddress, shopId });
+      logger.info('Conversation created', { conversationId, customerAddress, shopId, serviceId });
 
       // Fetch again with joined data
       result = await this.pool.query(query, [customerAddress.toLowerCase(), shopId]);
@@ -761,6 +790,7 @@ export class MessageRepository extends BaseRepository {
       conversationId: row.conversation_id,
       customerAddress: row.customer_address,
       shopId: row.shop_id,
+      serviceId: row.service_id ?? undefined,
       lastMessageAt: row.last_message_at,
       lastMessagePreview: row.last_message_preview,
       unreadCountCustomer: parseInt(row.unread_count_customer) || 0,
