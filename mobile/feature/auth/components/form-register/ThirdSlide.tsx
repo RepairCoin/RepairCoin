@@ -35,8 +35,8 @@ export default function ThirdSlide({
           contentContainerStyle={{ paddingBottom: 120 }}
         >
           <SectionHeader
-            icon={<Ionicons name="location" size={16} color="#000" />}
             title="Shop Location"
+            customClassName="text-[#FFCC00]"
           />
 
           <Controller
@@ -45,7 +45,6 @@ export default function ThirdSlide({
             render={({ field: { onChange, value } }) => (
               <FormInput
                 label="Street Address"
-                icon={<Ionicons name="location-outline" size={20} color="#FFCC00" />}
                 value={value}
                 onChangeText={onChange}
                 placeholder="Enter your street address"
@@ -61,7 +60,6 @@ export default function ThirdSlide({
             render={({ field: { onChange, value } }) => (
               <FormInput
                 label="City"
-                icon={<Ionicons name="business-outline" size={20} color="#FFCC00" />}
                 value={value}
                 onChangeText={onChange}
                 placeholder="Enter your city"
@@ -77,7 +75,6 @@ export default function ThirdSlide({
             render={({ field: { onChange, value } }) => (
               <FormInput
                 label="Country"
-                icon={<Feather name="flag" size={20} color="#FFCC00" />}
                 value={value}
                 onChangeText={onChange}
                 placeholder="Enter your country"
@@ -92,20 +89,17 @@ export default function ThirdSlide({
             name="location"
             render={() => (
               <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+                <Text className="text-sm font-medium text-gray-200 mb-2 ml-1">
                   Pin Location on Map
                 </Text>
                 <TouchableOpacity
                   onPress={() => setShowLocationPicker(true)}
                   activeOpacity={0.7}
                 >
-                  <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
-                    <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
-                      <Ionicons name="map" size={20} color="#000" />
-                    </View>
+                  <View className="flex-row items-center rounded-xl px-4 py-3 bg-white">
                     <View className="flex-1">
                       {location?.lat && location?.lng ? (
-                        <Text className="text-white text-base">
+                        <Text className="text-black text-base">
                           {parseFloat(location.lat).toFixed(6)},{" "}
                           {parseFloat(location.lng).toFixed(6)}
                         </Text>
@@ -152,13 +146,12 @@ export default function ThirdSlide({
           />
 
           <SectionHeader
-            icon={<Ionicons name="wallet" size={16} color="#000" />}
             title="Wallet Information"
+            customClassName="text-[#FFCC00]"
           />
 
           <FormInput
             label="Connected Wallet"
-            icon={<Ionicons name="wallet-outline" size={20} color="#666" />}
             value={address || "Connect wallet to continue"}
             onChangeText={() => {}}
             placeholder="Wallet address"
@@ -173,7 +166,6 @@ export default function ThirdSlide({
             render={({ field: { onChange, value } }) => (
               <FormInput
                 label="Reimbursement Address (Optional)"
-                icon={<Ionicons name="card-outline" size={20} color="#FFCC00" />}
                 value={value}
                 onChangeText={onChange}
                 placeholder="Enter reimbursement address (0x...)"
@@ -184,7 +176,7 @@ export default function ThirdSlide({
             )}
           />
 
-          <View className="bg-[#2A2A2C] rounded-xl p-4 mt-2 flex-row">
+          <View className="bg-[#FFCC00]/10 rounded-xl p-4 mt-4 flex-row border border-[#FFCC00]/30">
             <Ionicons name="information-circle" size={20} color="#FFCC00" />
             <Text className="text-gray-400 text-sm ml-3 flex-1">
               Your wallet address will be used for all token operations. The

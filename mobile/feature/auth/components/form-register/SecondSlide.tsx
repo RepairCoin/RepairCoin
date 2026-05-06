@@ -22,8 +22,8 @@ export default function SecondSlide({
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <SectionHeader
-          icon={<Feather name="briefcase" size={16} color="#000" />}
           title="Business Information"
+          customClassName="text-[#FFCC00]"
         />
 
         <Controller
@@ -32,7 +32,6 @@ export default function SecondSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Company Name"
-              icon={<Feather name="briefcase" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="Enter your company name"
@@ -47,12 +46,11 @@ export default function SecondSlide({
           name="companySize"
           render={({ field: { onChange, value } }) => (
             <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              <Text className="text-sm font-medium text-gray-200 mb-2 ml-1">
                 Company Size
               </Text>
-              <View className="flex-row items-center rounded-xl px-4 bg-[#2A2A2C]">
-                <Feather name="users" size={20} color="#FFCC00" />
-                <View className="flex-1 ml-3">
+              <View className="flex-row items-center rounded-xl px-4 bg-white">
+                <View className="flex-1">
                   <RNPickerSelect
                     value={value}
                     onValueChange={onChange}
@@ -73,12 +71,11 @@ export default function SecondSlide({
           name="monthlyRevenue"
           render={({ field: { onChange, value } }) => (
             <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              <Text className="text-sm font-medium text-gray-200 mb-2 ml-1">
                 Monthly Revenue
               </Text>
-              <View className="flex-row items-center rounded-xl px-4 bg-[#2A2A2C]">
-                <Feather name="dollar-sign" size={20} color="#FFCC00" />
-                <View className="flex-1 ml-3">
+              <View className="flex-row items-center rounded-xl px-4 bg-white">
+                <View className="flex-1">
                   <RNPickerSelect
                     value={value}
                     onValueChange={onChange}
@@ -95,8 +92,8 @@ export default function SecondSlide({
         />
 
         <SectionHeader
-          icon={<Feather name="plus-circle" size={16} color="#000" />}
           title="Optional Details"
+          customClassName="text-[#FFCC00]"
         />
 
         <Controller
@@ -105,7 +102,6 @@ export default function SecondSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Website URL"
-              icon={<Feather name="globe" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="https://yourwebsite.com"
@@ -123,7 +119,6 @@ export default function SecondSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Referral"
-              icon={<Feather name="user-plus" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="Who referred you to FixFlow?"
@@ -152,16 +147,16 @@ const styles = StyleSheet.create({
   inputIOS: {
     height: 48,
     fontSize: 16,
-    color: "#fff",
+    color: "#000",
     paddingVertical: 12,
   },
   inputAndroid: {
     height: 48,
     fontSize: 16,
-    color: "#fff",
+    color: "#000",
     paddingVertical: 12,
   },
   placeholder: {
-    color: "#666",
+    color: "#999",
   },
 });

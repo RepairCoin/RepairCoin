@@ -31,7 +31,7 @@ function FormInput({
 
   return (
     <View className="mb-4">
-      <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+      <Text className="text-sm font-medium text-gray-200 mb-2 ml-1">
         {label}
       </Text>
       <View
@@ -41,8 +41,8 @@ function FormInput({
           hasError
             ? "bg-red-900/20 border border-red-500"
             : editable
-            ? "bg-[#2A2A2C]"
-            : "bg-[#1A1A1C]"
+            ? "bg-white"
+            : "bg-gray-100"
         }`}
       >
         {icon && (
@@ -61,7 +61,7 @@ function FormInput({
         ) : (
           <TextInput
             className={`flex-1 h-12 text-base ${
-              editable ? "text-white" : "text-gray-500"
+              editable ? "text-black" : "text-gray-500"
             }`}
             placeholder={placeholder}
             placeholderTextColor="#666"

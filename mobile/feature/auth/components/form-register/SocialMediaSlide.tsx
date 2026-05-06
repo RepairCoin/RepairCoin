@@ -19,10 +19,7 @@ export default function SocialMediaSlide({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        <View className="mt-4 mb-2">
-          <Text className="text-[#FFCC00] font-bold text-xl">
-            Connect with Customers
-          </Text>
+        <View className="mb-2">
           <Text className="text-gray-400 text-sm mt-2">
             Add your social media profiles to help customers find and connect
             with you. All fields are optional.
@@ -30,8 +27,8 @@ export default function SocialMediaSlide({
         </View>
 
         <SectionHeader
-          icon={<Feather name="share-2" size={16} color="#000" />}
           title="Social Profiles"
+          customClassName="text-[#FFCC00]"
         />
 
         <Controller
@@ -40,7 +37,6 @@ export default function SocialMediaSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Facebook"
-              icon={<Feather name="facebook" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="facebook.com/yourpage"
@@ -58,7 +54,6 @@ export default function SocialMediaSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Instagram"
-              icon={<Feather name="instagram" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="instagram.com/yourhandle"
@@ -76,7 +71,6 @@ export default function SocialMediaSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Twitter / X"
-              icon={<Feather name="twitter" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="twitter.com/yourhandle"
@@ -88,7 +82,7 @@ export default function SocialMediaSlide({
           )}
         />
 
-        <View className="bg-[#2A2A2C] rounded-xl p-4 mt-4 flex-row">
+        <View className="bg-[#FFCC00]/10 rounded-xl p-4 mt-4 flex-row border border-[#FFCC00]/30">
           <Ionicons name="information-circle" size={20} color="#FFCC00" />
           <Text className="text-gray-400 text-sm ml-3 flex-1">
             Social media links help customers verify your business and stay

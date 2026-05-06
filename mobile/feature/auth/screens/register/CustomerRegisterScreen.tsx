@@ -41,18 +41,15 @@ export default function CustomerRegisterScreen() {
             contentContainerStyle={{ paddingBottom: 120 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View className="mt-4 mb-2">
-              <Text className="text-[#FFCC00] font-bold text-xl">
-                Join FixFlow
-              </Text>
+            <View className="mb-2">
               <Text className="text-gray-400 text-sm mt-2">
                 Create your account and turn every repair into rewards.
               </Text>
             </View>
 
-            <SectionHeader
-              icon={<Ionicons name="person" size={16} color="#000" />}
-              title="Personal Information"
+            <SectionHeader 
+              title="Personal Information" 
+              customClassName="text-[#FFCC00]"
             />
 
             <Controller
@@ -61,7 +58,6 @@ export default function CustomerRegisterScreen() {
               render={({ field: { onChange, value } }) => (
                 <FormInput
                   label="Full Name"
-                  icon={<Ionicons name="person-outline" size={20} color="#FFCC00" />}
                   value={value}
                   onChangeText={onChange}
                   placeholder="Enter your full name"
@@ -77,7 +73,6 @@ export default function CustomerRegisterScreen() {
               render={({ field: { onChange, value } }) => (
                 <FormInput
                   label="Email Address"
-                  icon={<Ionicons name="mail-outline" size={20} color="#FFCC00" />}
                   value={value}
                   onChangeText={onChange}
                   placeholder="Enter your email address"
@@ -89,9 +84,10 @@ export default function CustomerRegisterScreen() {
               )}
             />
 
-            <SectionHeader
-              icon={<Ionicons name="gift" size={16} color="#000" />}
-              title="Referral (Optional)"
+            <SectionHeader 
+              title="Referral "
+              optional={true}
+              customClassName="text-[#FFCC00]"
             />
 
             <Controller
@@ -100,7 +96,6 @@ export default function CustomerRegisterScreen() {
               render={({ field: { onChange, value } }) => (
                 <FormInput
                   label="Referral Code"
-                  icon={<Feather name="gift" size={20} color="#FFCC00" />}
                   value={value ?? ""}
                   onChangeText={onChange}
                   placeholder="Enter referral code"
@@ -111,14 +106,13 @@ export default function CustomerRegisterScreen() {
               )}
             />
 
-            <SectionHeader
-              icon={<Ionicons name="wallet" size={16} color="#000" />}
+            <SectionHeader 
               title="Wallet Information"
+              customClassName="text-[#FFCC00]"
             />
 
             <FormInput
               label="Connected Wallet"
-              icon={<Ionicons name="wallet-outline" size={20} color="#666" />}
               value={account?.address || "Connect wallet to continue"}
               onChangeText={() => {}}
               placeholder="Wallet address"

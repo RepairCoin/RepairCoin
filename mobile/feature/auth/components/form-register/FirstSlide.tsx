@@ -21,10 +21,7 @@ export default function FirstSlide({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        <View className="mt-4 mb-2">
-          <Text className="text-[#FFCC00] font-bold text-2xl">
-            Welcome Partner!
-          </Text>
+        <View className="mb-2">
           <Text className="text-gray-400 text-sm mt-2">
             Join our partner network, attract new customers, and reward loyalty
             with every service you provide.
@@ -32,8 +29,8 @@ export default function FirstSlide({
         </View>
 
         <SectionHeader
-          icon={<Feather name="user" size={16} color="#000" />}
           title="Personal Information"
+          customClassName="text-[#FFCC00]"
         />
 
         <Controller
@@ -42,7 +39,6 @@ export default function FirstSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="First Name"
-              icon={<Feather name="user" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="Enter your first name"
@@ -59,7 +55,6 @@ export default function FirstSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Last Name"
-              icon={<Feather name="user" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="Enter your last name"
@@ -71,8 +66,8 @@ export default function FirstSlide({
         />
 
         <SectionHeader
-          icon={<Feather name="phone" size={16} color="#000" />}
           title="Contact Information"
+          customClassName="text-[#FFCC00]"
         />
 
         <Controller
@@ -81,7 +76,6 @@ export default function FirstSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="Email Address"
-              icon={<Feather name="mail" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="Enter your email address"
@@ -106,7 +100,7 @@ export default function FirstSlide({
           )}
         />
 
-        <View className="bg-[#2A2A2C] rounded-xl p-4 mt-2 flex-row">
+        <View className="bg-[#FFCC00]/10 rounded-xl p-4 mt-4 flex-row border border-[#FFCC00]/30">
           <Ionicons name="information-circle" size={20} color="#FFCC00" />
           <Text className="text-gray-400 text-sm ml-3 flex-1">
             Your personal information is secure and will only be used for
