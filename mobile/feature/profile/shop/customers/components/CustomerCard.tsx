@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { CustomerCardProps } from "../types";
-import { getTierConfig } from "../utils/getTier";
+import { getTierConfig } from "../../utils/getTier";
 
 const getInitials = (name: string) => {
   if (!name) return "?";

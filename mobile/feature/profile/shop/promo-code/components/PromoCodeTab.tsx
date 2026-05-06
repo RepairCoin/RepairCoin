@@ -7,11 +7,11 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { PromoCodeCard } from "./PromoCodeCard";
 import { LoadingOverlay } from "@/shared/components/ui/LoadingOverlay";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import ActionCard from "@/shared/components/shared/ActionCard";
 import { usePromoCodeUI } from "../hooks";
+import { PromoCodeCard } from "./PromoCodeCard";
 
 export default function PromoCodeTab() {
   const { promoCodes, isLoading, isUpdating, togglePromoCodeStatus, refetch } = usePromoCodeUI();

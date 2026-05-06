@@ -15,9 +15,9 @@ import {
   PromoCodesListResponse,
 } from "@/shared/interfaces/shop.interface";
 import { TimeRange } from "../types";
-import { promoCodeApi } from "../promo-code/services/promoCode.services";
+import { promoCodeApi } from "../../promo-code/services/promoCode.services";
 import { analyticsApi } from "@/feature/transaction/analytics/services/analytics.services";
-import { shopCustomerApi } from "../customers/services/shopCustomer.services";
+import { shopCustomerApi } from "../../customers/services/shopCustomer.services";
 
 export function useShop() {
   const { showError } = useAppToast();

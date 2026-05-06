@@ -5,7 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
-import { useShop } from "../../hooks/useShopQuery";
+import { useShop } from "../../account/hooks/useShopQuery";
 
 interface CancelSubscriptionResponse {
   success: boolean;

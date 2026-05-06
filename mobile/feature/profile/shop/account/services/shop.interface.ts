@@ -3,6 +3,7 @@ import { CustomerGrowthData, ShopData } from "@/shared/interfaces/shop.interface
 export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 export type TimeRange = "day" | "month" | "year";
 export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
+
 export interface ShopHomeData {
   shopData: ShopData | undefined;
   growthData: CustomerGrowthData | undefined;

@@ -7,17 +7,16 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
-import { PromoCodeCard } from "./PromoCodeCard";
 import { LoadingOverlay } from "@/shared/components/ui/LoadingOverlay";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import ActionCard from "@/shared/components/shared/ActionCard";
-import { usePromoCodeUI } from "@/feature/profile/shop/hooks";
+import { PromoCodeCard } from "@/feature/profile/shop/promo-code/components";
+import { usePromoCodeUI } from "@/feature/profile/shop/promo-code/hooks";
 
 export default function PromoCodeTab() {
   const { promoCodes, isLoading, isUpdating, togglePromoCodeStatus, refetch } = usePromoCodeUI();
-
-  // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useShopPromoCodesQuery, useUpdatePromoCodeStatusMutation } from "./useShopQuery";
+import { useShopPromoCodesQuery, useUpdatePromoCodeStatusMutation } from "../../account/hooks/useShopQuery";
 
 export function usePromoCodeUI() {
   const { data: promoCodes, isLoading, error, refetch } = useShopPromoCodesQuery();
