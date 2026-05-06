@@ -11,16 +11,16 @@
 
 ---
 
-## Progress snapshot (2026-05-05 EOD)
+## Progress snapshot (2026-05-06)
 
 | # | Task | Status | Branch | Notes |
 |---|---|---|---|---|
 | 1 | Foundation: SDK + AIAgentDomain skeleton | ✅ Merged to main (PR #295) | `deo/phase-3-task-1` (merged) | `/api/ai/health` reachable on staging + prod |
-| 2 | Migration 110: ai_agent_messages + ai_shop_settings | ✅ Merged to main (PR #296) | `deo/phase-3-task-2` (merged) | Applied to staging; 42 shops backfilled. **Prod deploy: pending DO autodeploy from main** |
-| 3 | AnthropicClient wrapper + types + tests | ⏳ Pushed, awaiting PR | `deo/phase-3-task-3` | 15 unit tests passing, real-API smoke validated |
-| 4 | ContextBuilder + PromptTemplates | ⏳ Pushed (stacked on Task 3), awaiting PR | `deo/phase-3-task-4` | 43 unit tests passing (12 ContextBuilder + 31 PromptTemplates) |
-| 5 | AgentOrchestrator + AuditLogger + safety guards | Not started | — | ~1 day |
-| 6 | POST /api/ai/preview endpoint | Not started | — | First user-visible win — replace mocks with live previews |
+| 2 | Migration 110: ai_agent_messages + ai_shop_settings | ✅ Merged to main (PR #296) | `deo/phase-3-task-2` (merged) | Applied to staging; 42 shops backfilled |
+| 3 | AnthropicClient wrapper + types + tests | ✅ Merged | `deo/phase-3-task-3` (merged) | 15 unit tests passing, real-API smoke validated |
+| 4 | ContextBuilder + PromptTemplates | ✅ Merged + on staging | `deo/phase-3-task-4` (merged) | 43 unit tests passing |
+| 5 | AgentOrchestrator + AuditLogger + safety guards | ✅ Merged to main | `deo/phase-3-task-5` (merged) | 49 unit tests passing. Staging deploy auto-rolled-back due to DB connection exhaustion — needs manual redeploy |
+| 6 | POST /api/ai/preview endpoint | ⏳ Pushed, awaiting PR | `deo/phase-3-task-6` | 19 unit tests passing. Real-API smoke deferred until staging caught up |
 | 7 | Frontend: swap aiPreviewMocks → live API | Not started | — | ~0.5 day |
 | 8 | Hook into MessageService.sendMessage | Not started | — | Customer-facing AI replies start here |
 | 9 | Customer-facing AI UI: badges + disclosure | Not started | — | ~1 day |
@@ -456,7 +456,7 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 
 **Rollback:** delete files. The hook in MessageService (Task 7) hasn't shipped yet, so no live traffic flows here.
 
-### Task 6 — `POST /api/ai/preview` endpoint (shop dashboard live preview) (~0.5 day)
+### Task 6 — `POST /api/ai/preview` endpoint (shop dashboard live preview) (~0.5 day) — **DONE 2026-05-06**
 
 **Goal:** replace the hardcoded `aiPreviewMocks.ts` strings with real Claude calls. This is the cheapest user-visible win — shop owners can see what the AI will actually say for their service before turning it on.
 
@@ -478,6 +478,23 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 - Auth blocks shop A from previewing shop B's services
 
 **Rollback:** unmount the route. Frontend still has the mock-based fallback (Task 7 hasn't swapped yet).
+
+**Implementation log (2026-05-06, branch `deo/phase-3-task-6`):**
+- `backend/src/domains/AIAgentDomain/controllers/PreviewController.ts` — `makePreviewAIReply(deps)` factory returning an Express handler. Tests inject mocked `serviceRepo` + `anthropicClient`; production path uses fresh defaults via the named `previewAIReply` wrapper.
+- `backend/src/domains/AIAgentDomain/routes.ts` — mounted `POST /api/ai/preview` behind `authMiddleware + requireRole(['shop', 'admin'])`. Per-service ownership check happens inside the controller.
+- Always uses Haiku 4.5 (`claude-haiku-4-5-20251001`), `maxTokens=250`, system prompt cached via prompt-cache control.
+- 1-hour in-memory `Map<string, CacheEntry>` keyed by `${serviceId}:${tone}`. Custom `sampleQuestion` bypasses cache to bound key explosion — only the default question hits cache.
+- Synthetic `AgentContext`: customer is `{ address: "0xPREVIEW", name: "Sample Customer", tier: "BRONZE", rcnBalance: 0 }`, no conversation history, no sibling services. No real customer data leaks into preview UI.
+- Tone resolution priority: `body.tone` (if valid) → `service.aiTone` → `'professional'`. Invalid tones fall through to the next level.
+- Shop name + category fetched via direct `pool.query` against `shops` table (one-off lookup, doesn't justify a repository method).
+- Errors: 429 from Anthropic surfaces as 429 to client with rate-limit message; everything else → 500 with generic error.
+- Test file `backend/tests/ai-agent/PreviewController.test.ts` — 19 tests covering validation, auth, cache hit/miss, tone resolution, model+token options, error handling. All passing.
+- `_clearPreviewCacheForTests()` exposed as a test-only escape hatch.
+
+**Deviation from plan:**
+- Step 6 says Haiku 4.5; plan was internally consistent. Implemented as written.
+- Used factory pattern (`makePreviewAIReply(deps)`) instead of bare async handler so unit tests can inject mocks without monkey-patching modules. Production gets a singleton-lazy `previewAIReply` wrapper exported by name.
+- No real-API smoke test against staging yet — staging is currently on Task 4 (Task 5 deploy auto-rolled back due to DB connection exhaustion). Smoke will run after merge to main + redeploy.
 
 ### Task 7 — Frontend: swap `aiPreviewMocks.ts` to live API (~0.5 day)
 
