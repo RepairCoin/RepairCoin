@@ -3,9 +3,9 @@ import { Share, Linking } from "react-native";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useCustomer } from "../useCustomer";
 import { useAppToast } from "@/shared/hooks";
-import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "../../constants";
+import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "../constants";
+import { useCustomer } from "../../hooks/useCustomer";
 
 export function useReferral() {
   const { account } = useAuthStore();

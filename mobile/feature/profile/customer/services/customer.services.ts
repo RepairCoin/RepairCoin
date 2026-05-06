@@ -1,32 +1,18 @@
-import { CustomerFormData, CustomerData, CustomerResponse } from "@/shared/interfaces/customer.interface";
 import apiClient from "@/shared/utilities/axios";
-
-// Cross-shop balance response type
-export interface CrossShopBalanceResponse {
-  success: boolean;
-  data: {
-    totalRedeemableBalance: number;
-    crossShopLimit: number;
-    availableForCrossShop: number;
-    homeShopBalance: number;
-  };
-}
-
-// Search all customers response type
-export interface SearchCustomersResponse {
-  success: boolean;
-  data: {
-    customers: CustomerData[];
-    pagination?: {
-      total: number;
-      page: number;
-      limit: number;
-    };
-  };
-}
+import {
+  CustomerFormData,
+  CustomerData,
+  CustomerResponse,
+} from "@/shared/interfaces/customer.interface";
+import {
+  CrossShopBalanceResponse,
+  SearchCustomersResponse,
+} from "./customer.interface";
 
 class CustomerApi {
-  async getCustomerByWalletAddress(walletAddress: string): Promise<CustomerResponse> {
+  async getCustomerByWalletAddress(
+    walletAddress: string,
+  ): Promise<CustomerResponse> {
     try {
       return await apiClient.get<any>(`/customers/${walletAddress}`);
     } catch (error) {
@@ -44,11 +30,11 @@ class CustomerApi {
   async searchAllCustomers(
     search: string,
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
   ): Promise<SearchCustomersResponse> {
     try {
       return await apiClient.get<SearchCustomersResponse>(
-        `/customers?search=${encodeURIComponent(search)}&page=${page}&limit=${limit}`
+        `/customers?search=${encodeURIComponent(search)}&page=${page}&limit=${limit}`,
       );
     } catch (error) {
       console.error("Failed to search customers:", error);
@@ -56,23 +42,31 @@ class CustomerApi {
     }
   }
 
-  async getTransactionByWalletAddress(walletAddress: string, limit: number, page: number = 1): Promise<any> {
+  async getTransactionByWalletAddress(
+    walletAddress: string,
+    limit: number,
+    page: number = 1,
+  ): Promise<any> {
     try {
-      return await apiClient.get<any>(`/customers/${walletAddress}/transactions?limit=${limit}&page=${page}`);
+      return await apiClient.get<any>(
+        `/customers/${walletAddress}/transactions?limit=${limit}&page=${page}`,
+      );
     } catch (error) {
       console.error("Failed to fetch earning history:", error);
       throw error;
     }
-  };
+  }
 
   /**
    * Get customer's cross-shop balance breakdown
    * Returns 20% limit for cross-shop redemptions
    */
-  async getCrossShopBalance(walletAddress: string): Promise<CrossShopBalanceResponse> {
+  async getCrossShopBalance(
+    walletAddress: string,
+  ): Promise<CrossShopBalanceResponse> {
     try {
       return await apiClient.get<CrossShopBalanceResponse>(
-        `/customers/cross-shop/balance/${walletAddress}`
+        `/customers/cross-shop/balance/${walletAddress}`,
       );
     } catch (error) {
       console.error("Failed to fetch cross-shop balance:", error);
@@ -84,19 +78,23 @@ class CustomerApi {
    * Check if customer has earned RCN at a specific shop
    * Used to determine home shop status (100% vs 20% redemption)
    */
-  async hasEarnedAtShop(walletAddress: string, shopId: string): Promise<boolean> {
+  async hasEarnedAtShop(
+    walletAddress: string,
+    shopId: string,
+  ): Promise<boolean> {
     try {
       // Fetch recent transactions and check if any earnings are from this shop
       const response = await apiClient.get<any>(
-        `/customers/${walletAddress}/transactions?limit=100`
+        `/customers/${walletAddress}/transactions?limit=100`,
       );
-      const transactions = response?.data?.transactions || response?.transactions || [];
+      const transactions =
+        response?.data?.transactions || response?.transactions || [];
 
       // Check if customer has any earning transactions from this shop
       return transactions.some(
         (tx: any) =>
           tx.shopId === shopId &&
-          (tx.type === 'earn' || tx.type === 'mint' || tx.type === 'reward')
+          (tx.type === "earn" || tx.type === "mint" || tx.type === "reward"),
       );
     } catch (error) {
       console.error("Failed to check home shop status:", error);

@@ -99,3 +99,25 @@ export interface ProfileErrorProps {
   message: string;
   onBack?: () => void;
 }
+
+export interface CrossShopBalanceResponse {
+  success: boolean;
+  data: {
+    totalRedeemableBalance: number;
+    crossShopLimit: number;
+    availableForCrossShop: number;
+    homeShopBalance: number;
+  };
+}
+
+export interface SearchCustomersResponse {
+  success: boolean;
+  data: {
+    customers: CustomerData[];
+    pagination?: {
+      total: number;
+      page: number;
+      limit: number;
+    };
+  };
+}
