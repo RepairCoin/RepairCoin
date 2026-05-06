@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useQuery } from "@tanstack/react-query";
 import { useService } from "../../useService";
-import { useCustomer } from "@/feature/profile/customer/profile/hooks/useCustomer";
+import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { serviceApi } from "../../../services/service.services";

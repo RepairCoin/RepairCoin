@@ -7,7 +7,7 @@ import { formatDate } from "@/shared/utilities/format";
 import { ProfileLoadingState } from "@/shared/components/ui/ProfileLoadingState";
 import { ProfileErrorState } from "@/shared/components/ui/ProfileErrorState";
 import { useShopProfileScreen } from "../hooks/useShopProfileScreen";
-import { SHOP_PROFILE_TABS } from "./../constants";
+import { SHOP_PROFILE_TABS } from "../constants";
 import {
   ShopProfileHeader,
   ShopDetailsTab,

@@ -6,7 +6,7 @@ import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
-import { useCustomer } from "@/feature/profile/customer/profile/hooks/useCustomer";
+import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
 import { CustomerRegisterDto, type CustomerRegisterData } from "../dto";
 import { INITIAL_CUSTOMER_FORM_DATA } from "../constants";
 

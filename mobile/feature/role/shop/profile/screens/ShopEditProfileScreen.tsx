@@ -8,7 +8,7 @@ import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import LocationPickerModal from "@/shared/components/shared/LocationPickerModal";
 import { useShopEditProfile } from "../hooks";
-import { PROFILE_COLORS } from "@/feature/profile/shop/account/constants";
+import { PROFILE_COLORS } from "@/feature/role/shop/account/constants";
 
 export default function ShopEditProfileScreen() {
   const {

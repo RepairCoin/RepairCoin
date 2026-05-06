@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useCustomer } from "@/feature/profile/customer/profile/hooks/useCustomer";
+import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
 import { useAppToast } from "@/shared/hooks";
 import { useToken } from "../../useToken";
 import { ValidationResult } from "../../../types";
