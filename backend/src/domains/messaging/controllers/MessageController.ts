@@ -53,11 +53,26 @@ export class MessageController {
       // For shops, senderIdentifier is shopId; for customers, it's wallet address
       const senderIdentifier = userRole === 'shop' ? userShopId! : userAddress;
 
+      // Resolve serviceId for the AI auto-reply hook (Phase 3 Task 8).
+      // Top-level body.serviceId wins. Fall back to metadata.serviceId so the
+      // hook works even when the frontend sends serviceId only inside the
+      // service-link message metadata (existing ServiceDetailsModal shape,
+      // pre-Task-8 frontend deploys, retry queue entries, etc.). The
+      // orchestrator validates ownership (service.shopId vs conversation.shopId)
+      // before firing AI, so falling back to metadata is safe — a spoofed
+      // serviceId pointing at another shop's service is rejected there.
+      const resolvedServiceId =
+        typeof serviceId === 'string' && serviceId.length > 0
+          ? serviceId
+          : (metadata && typeof metadata.serviceId === 'string' && metadata.serviceId.length > 0
+              ? metadata.serviceId
+              : undefined);
+
       const message = await this.messageService.sendMessage({
         conversationId,
         customerAddress,
         shopId,
-        serviceId: typeof serviceId === 'string' && serviceId.length > 0 ? serviceId : undefined,
+        serviceId: resolvedServiceId,
         senderIdentifier,
         senderType: senderType as 'customer' | 'shop',
         messageText: messageText || '',

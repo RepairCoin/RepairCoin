@@ -208,7 +208,8 @@ export type SkipReason =
   | "service_ai_disabled" // service.ai_sales_enabled = false
   | "shop_ai_disabled" // ai_shop_settings.ai_global_enabled = false
   | "spend_cap_exceeded" // hit monthly_budget_usd
-  | "no_shop_settings"; // no ai_shop_settings row for this shop (shouldn't happen post-migration 110 backfill, but guard anyway)
+  | "no_shop_settings" // no ai_shop_settings row for this shop (shouldn't happen post-migration 110 backfill, but guard anyway)
+  | "service_shop_mismatch"; // serviceId belongs to a different shop than conversation.shopId — defends against spoofed metadata.serviceId
 
 // ============================================================================
 // AuditLogger — what gets persisted into ai_agent_messages
