@@ -165,6 +165,7 @@ export default function EditServicePage() {
                 tone={aiTone}
                 suggestUpsells={aiSuggestUpsells}
                 enableBookingAssistance={aiBookingAssistance}
+                serviceId={serviceId}
                 onChange={(changes) => {
                   if (changes.enabled !== undefined) setAiEnabled(changes.enabled);
                   if (changes.tone !== undefined) setAiTone(changes.tone);

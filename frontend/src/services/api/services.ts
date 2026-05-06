@@ -331,6 +331,42 @@ export const deleteService = async (serviceId: string): Promise<boolean> => {
   }
 };
 
+// ==================== AI PREVIEW (Phase 3) ====================
+
+export interface AIPreviewResponse {
+  reply: string;
+  model: string;
+  latencyMs: number;
+  costUsd: number;
+  cached: boolean;
+}
+
+/**
+ * Live AI preview for the shop dashboard's "See How the AI Replies" section.
+ * Returns a real Claude reply for the given service + tone, using a default
+ * sample question unless one is provided. Backend caches per (serviceId, tone)
+ * for 1 hour, so refresh-spam doesn't burn budget.
+ *
+ * Auth: caller must be the shop that owns the service, or an admin.
+ */
+export const getAiPreview = async (
+  serviceId: string,
+  tone: AITone,
+  sampleQuestion?: string
+): Promise<AIPreviewResponse | null> => {
+  try {
+    const response = await apiClient.post<AIPreviewResponse>('/ai/preview', {
+      serviceId,
+      tone,
+      ...(sampleQuestion ? { sampleQuestion } : {}),
+    });
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting AI preview:', error);
+    throw error;
+  }
+};
+
 // ==================== ORDER MANAGEMENT APIs ====================
 
 /**

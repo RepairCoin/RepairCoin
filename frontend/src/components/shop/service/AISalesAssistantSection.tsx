@@ -1,29 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bot, ChevronDown, ChevronUp, Check, Sparkles } from "lucide-react";
 import { AI_PREVIEW_MOCKS, AITone } from "@/utils/aiPreviewMocks";
+import { getAiPreview, AIPreviewResponse } from "@/services/api/services";
 
 /**
  * AISalesAssistantSection
  *
- * Phase 1 visual-only AI Sales Assistant section for the service create/edit
- * page. Matches `sc1.jpeg` shape (master toggle, tone segmented control,
- * "See How the AI Replies" expandable preview, plus upsell + booking-
- * assistance checkboxes).
+ * AI Sales Assistant section for the service create/edit page. Master
+ * toggle, tone segmented control, "See How the AI Replies" expandable
+ * preview, plus upsell + booking-assistance checkboxes.
  *
  * Visual treatment: light/white card with a green-tinted shadow + "NEW"
- * badge so it stands out from the rest of the dark form sections. The
- * section is a deliberate "this is a new feature, look at me" surface
- * rather than blending into the form.
+ * badge so it stands out from the rest of the dark form sections.
  *
- * State is fully controlled by the parent — no internal persistence, no
- * backend calls. Sample replies come from `aiPreviewMocks.ts` (hardcoded
- * per tone) until Phase 3 wires up live Anthropic API previews.
- *
- * The bottom-of-section disclosure note ("AI features ship soon...") makes
- * it explicit to shop owners that toggle state is configured now but not
- * yet wired to live AI behavior. Remove that line once Phase 3 ships.
+ * Live preview (Phase 3): when `serviceId` is provided, the preview area
+ * fetches a real Claude reply via POST /api/ai/preview. The "new" page
+ * (where the service hasn't been created yet) omits `serviceId`, so the
+ * preview falls back to the static `AI_PREVIEW_MOCKS` arc. The same
+ * fallback also catches API failures, keeping the UI responsive even when
+ * the AI backend is degraded.
  */
 
 export interface AISalesAssistantSectionProps {
@@ -32,7 +29,17 @@ export interface AISalesAssistantSectionProps {
   suggestUpsells: boolean;
   enableBookingAssistance: boolean;
   onChange: (changes: Partial<Omit<AISalesAssistantSectionProps, "onChange">>) => void;
+  /** Optional — when present, the preview fetches a real Claude reply for this service. */
+  serviceId?: string;
 }
+
+interface LivePreviewState {
+  loading: boolean;
+  reply: AIPreviewResponse | null;
+  error: boolean;
+}
+
+const initialLiveState: LivePreviewState = { loading: false, reply: null, error: false };
 
 const TONE_OPTIONS: { value: AITone; label: string }[] = [
   { value: "friendly", label: "Friendly" },
@@ -46,8 +53,50 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
   suggestUpsells,
   enableBookingAssistance,
   onChange,
+  serviceId,
 }) => {
   const [previewOpen, setPreviewOpen] = useState(true);
+
+  // Live preview state. Keyed (serviceId, tone) cache lives in a ref so
+  // tone-toggle does not refire requests if we already have the reply.
+  const liveCacheRef = useRef<Map<string, AIPreviewResponse>>(new Map());
+  const [liveState, setLiveState] = useState<LivePreviewState>(initialLiveState);
+
+  useEffect(() => {
+    // Only fetch when the preview is open, AI is enabled, and we have a
+    // serviceId. The new-service page omits serviceId, which is fine —
+    // we fall back to mocks below.
+    if (!previewOpen || !enabled || !serviceId) {
+      setLiveState(initialLiveState);
+      return;
+    }
+
+    const cacheKey = `${serviceId}:${tone}`;
+    const cached = liveCacheRef.current.get(cacheKey);
+    if (cached) {
+      setLiveState({ loading: false, reply: cached, error: false });
+      return;
+    }
+
+    let cancelled = false;
+    setLiveState({ loading: true, reply: null, error: false });
+
+    getAiPreview(serviceId, tone)
+      .then((reply) => {
+        if (cancelled || !reply) return;
+        liveCacheRef.current.set(cacheKey, reply);
+        setLiveState({ loading: false, reply, error: false });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Graceful degradation: fall back to AI_PREVIEW_MOCKS rendered below.
+        setLiveState({ loading: false, reply: null, error: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewOpen, enabled, serviceId, tone]);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-lg shadow-green-500/10">
@@ -139,14 +188,40 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
 
         {previewOpen && (
           <div className="space-y-2 mb-4">
-            {AI_PREVIEW_MOCKS[tone].map((reply, idx) => (
-              <div
-                key={idx}
-                className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-700"
-              >
-                {reply}
+            {liveState.loading ? (
+              // Loading skeleton — mimics one bubble height
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 animate-pulse">
+                <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-2/3" />
               </div>
-            ))}
+            ) : liveState.reply ? (
+              // Live Claude reply — show the sample question + the AI reply
+              <>
+                <div className="text-xs text-gray-500 italic px-1">
+                  Sample customer asks: &ldquo;Hi! How much does this cost and when can I book?&rdquo;
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap">
+                  {liveState.reply.reply}
+                </div>
+                <div className="text-[11px] text-gray-400 px-1 flex items-center gap-2">
+                  <span>{liveState.reply.model.includes("haiku") ? "Haiku" : "Sonnet"}</span>
+                  <span>·</span>
+                  <span>{liveState.reply.cached ? "cached" : `${liveState.reply.latencyMs}ms`}</span>
+                </div>
+              </>
+            ) : (
+              // Fallback: no serviceId yet (new service flow) OR API failed.
+              // Render the static mock arc as a stand-in.
+              AI_PREVIEW_MOCKS[tone].map((reply, idx) => (
+                <div
+                  key={idx}
+                  className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-700"
+                >
+                  {reply}
+                </div>
+              ))
+            )}
           </div>
         )}
 
@@ -165,13 +240,14 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
         </div>
       </div>
 
-      {/* Disclosure — Phase 2: configuration is persisted, but AI replies
-          (the actual customer-facing behavior) still ship in Phase 3 once
-          Anthropic Claude integration lands. Remove this block when Phase 3
-          ships and AI is fully active. */}
+      {/* Disclosure — Phase 3: live preview wired. The customer-facing AI
+          auto-reply itself (Task 8) still ships in a follow-up — but the
+          preview shows the actual reply Claude will give once activated. */}
       <div className="mt-4 pt-3 border-t border-gray-200">
         <p className="text-xs text-gray-500 italic">
-          AI replies activate in a future update. Your configuration is saved.
+          {serviceId
+            ? "Live preview — this is the actual reply Claude generates for your service."
+            : "Save the service first to see a live AI reply preview."}
         </p>
       </div>
     </div>
