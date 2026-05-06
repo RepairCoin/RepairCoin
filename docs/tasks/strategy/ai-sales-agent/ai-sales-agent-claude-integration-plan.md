@@ -20,7 +20,7 @@
 | 3 | AnthropicClient wrapper + types + tests | ✅ Merged | `deo/phase-3-task-3` (merged) | 15 unit tests passing, real-API smoke validated |
 | 4 | ContextBuilder + PromptTemplates | ✅ Merged + on staging | `deo/phase-3-task-4` (merged) | 43 unit tests passing |
 | 5 | AgentOrchestrator + AuditLogger + safety guards | ✅ Merged to main | `deo/phase-3-task-5` (merged) | 49 unit tests passing. Staging deploy auto-rolled-back due to DB connection exhaustion — needs manual redeploy |
-| 6 | POST /api/ai/preview endpoint | ⏳ Pushed, awaiting PR | `deo/phase-3-task-6` | 19 unit tests passing. Real-API smoke deferred until staging caught up |
+| 6 | POST /api/ai/preview endpoint | ✅ Merged to main + on staging | `deo/phase-3-task-6` (merged) | 19 unit tests passing. Real-API smoke validated all 3 acceptance criteria on staging (happy path + cache + 403 ownership) |
 | 7 | Frontend: swap aiPreviewMocks → live API | Not started | — | ~0.5 day |
 | 8 | Hook into MessageService.sendMessage | Not started | — | Customer-facing AI replies start here |
 | 9 | Customer-facing AI UI: badges + disclosure | Not started | — | ~1 day |
@@ -494,7 +494,13 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 **Deviation from plan:**
 - Step 6 says Haiku 4.5; plan was internally consistent. Implemented as written.
 - Used factory pattern (`makePreviewAIReply(deps)`) instead of bare async handler so unit tests can inject mocks without monkey-patching modules. Production gets a singleton-lazy `previewAIReply` wrapper exported by name.
-- No real-API smoke test against staging yet — staging is currently on Task 4 (Task 5 deploy auto-rolled back due to DB connection exhaustion). Smoke will run after merge to main + redeploy.
+
+**Real-API smoke (2026-05-06) — all 3 acceptance criteria passed:**
+- ✅ Happy path: HTTP 200, 2062ms Claude latency, $0.0009 cost, Haiku 4.5, cached:false. Reply correctly disclosed as AI, included service name + $99 price, admitted unknown hours instead of fabricating.
+- ✅ Cache hit on second call: HTTP 200, cached:true, 1185ms (no Anthropic call).
+- ✅ 403 ownership rejection: peanut shop correctly blocked from previewing zwift-tech's service.
+
+**Staging deploy unblocking (2026-05-06):** Tasks 5 and 6 deploys both initially auto-rolled-back with PG error 53300 ("remaining connection slots are reserved for SUPERUSER"). Root cause: DO managed Postgres dev tier was at 22-connection limit (the config default) and accumulated orphan connections from prior failed deploys, leaving 0 slots free for new container startup validation. Resolution: bumped `max_connections` from 22 → 50 via DO Postgres Advanced configurations, which forced a managed restart, killed all orphans, and gave permanent headroom. After restart, Task 6 deploy succeeded on retry. Going forward, any deploy that fails with 53300 should be diagnosed with `backend/scripts/check-pg-connections.ts`. Long-term: consider upgrading staging DB off the dev tier when Phase 3 traffic ramps up.
 
 ### Task 7 — Frontend: swap `aiPreviewMocks.ts` to live API (~0.5 day)
 
