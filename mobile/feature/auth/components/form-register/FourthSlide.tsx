@@ -24,8 +24,9 @@ export default function FourthSlide({
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <SectionHeader
-          icon={<Feather name="plus-circle" size={16} color="#000" />}
-          title="Additional Details (Optional)"
+          title="Additional Details "
+          customClassName="text-[#FFCC00]"
+          optional={true}
         />
 
         <Controller
@@ -34,7 +35,6 @@ export default function FourthSlide({
           render={({ field: { onChange, value } }) => (
             <FormInput
               label="FixFlow Shop ID"
-              icon={<Feather name="link" size={20} color="#FFCC00" />}
               value={value}
               onChangeText={onChange}
               placeholder="Enter FixFlow Shop ID"
@@ -45,11 +45,11 @@ export default function FourthSlide({
         />
 
         <SectionHeader
-          icon={<Ionicons name="document-text" size={16} color="#000" />}
           title="Terms and Conditions"
+          customClassName="text-[#FFCC00]"
         />
 
-        <View className="bg-[#2A2A2C] rounded-xl p-4">
+        <View className="bg-[#FFCC00]/10 rounded-xl p-4">
           {TERMS_ITEMS.map((item, index) => (
             <View key={index} className="flex-row items-start mb-3">
               <View className="w-6 h-6 rounded-full bg-[#FFCC00]/20 items-center justify-center mr-3 mt-0.5">
@@ -68,12 +68,12 @@ export default function FourthSlide({
               <Checkbox
                 value={value}
                 onValueChange={onChange}
-                color={value ? "#FFCC00" : undefined}
+                color={value ? "#000000" : undefined}
                 style={{
                   width: 24,
                   height: 24,
                   borderRadius: 6,
-                  borderColor: value ? "#FFCC00" : "#666",
+                  borderColor: "#666"
                 }}
               />
               <Text className="ml-3 text-gray-300 text-sm flex-1">

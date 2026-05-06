@@ -93,20 +93,20 @@ export default function PhoneInput({
   return (
     <View className="mb-4">
       {label && (
-        <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+        <Text className="text-sm font-medium text-gray-200 mb-2 ml-1">
           {label}
         </Text>
       )}
 
-      <View className="flex-row items-center rounded-xl bg-[#2A2A2C]">
+      <View className="flex-row items-center rounded-xl bg-white">
         {/* Country Code Selector */}
         <TouchableOpacity
           onPress={() => setShowCountryPicker(true)}
-          className="flex-row items-center px-3 py-3 border-r border-gray-700"
+          className="flex-row items-center px-3 py-3 border-r border-gray-300"
           activeOpacity={0.7}
         >
           <Text className="text-xl mr-1">{selectedCountry.flag}</Text>
-          <Text className="text-white font-medium mr-1">
+          <Text className="text-black font-medium mr-1">
             {selectedCountry.dialCode}
           </Text>
           <Feather name="chevron-down" size={16} color="#666" />
@@ -114,9 +114,8 @@ export default function PhoneInput({
 
         {/* Phone Number Input */}
         <View className="flex-1 flex-row items-center px-3">
-          <Feather name="phone" size={20} color="#FFCC00" />
           <TextInput
-            className="flex-1 h-12 text-white text-base ml-2"
+            className="flex-1 h-12 text-black text-base ml-2"
             placeholder={placeholder}
             placeholderTextColor="#666"
             keyboardType="phone-pad"
