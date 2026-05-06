@@ -1,8 +1,8 @@
 # AI Sales Agent — Phase 3: Claude Integration Implementation Plan
 
 **Created:** 2026-05-05
-**Status:** 🟡 In progress — **3 of 13 tasks complete** (Tasks 1, 2, 3 — foundation done, no customer-facing behaviour yet)
-**Last updated:** 2026-05-05 (Task 3 wrapped, pausing here)
+**Status:** 🟢 In progress — **8 of 13 tasks complete** (Tasks 1-8 done; AI replies live for opt-in shops on staging)
+**Last updated:** 2026-05-06 (Task 8 verified end-to-end on staging, two follow-up fix branches merged)
 **Effort:** ~3 weeks engineering (~12-15 working days)
 **Blocker:** None (was Anthropic API key — now resolved)
 **Strategy doc:** `ai-sales-agent-integration-strategy.md` (architecture, model selection, cost model, safety)
@@ -22,28 +22,33 @@
 | 5 | AgentOrchestrator + AuditLogger + safety guards | ✅ Merged to main | `deo/phase-3-task-5` (merged) | 49 unit tests passing. Staging deploy auto-rolled-back due to DB connection exhaustion — needs manual redeploy |
 | 6 | POST /api/ai/preview endpoint | ✅ Merged to main + on staging | `deo/phase-3-task-6` (merged) | 19 unit tests passing. Real-API smoke validated all 3 acceptance criteria on staging (happy path + cache + 403 ownership) |
 | 7 | Frontend: swap aiPreviewMocks → live API | ✅ Merged + visually verified on staging | `deo/phase-3-task-7` (merged) | Live preview rendered correctly for peanut shop's "Newly Baker" service with $99 + 30 min context |
-| 8 | Hook into MessageService.sendMessage | ⏳ Pushed, awaiting PR | `deo/phase-3-task-8` | Migration 111 adds service_id to conversations. AI hook fires async on customer messages with serviceId. 11 unit tests passing. Smoke test deferred until staging deploy |
+| 8 | Hook into MessageService.sendMessage | ✅ Merged + verified end-to-end on staging | `deo/phase-3-task-8` (merged) + 2 fix branches: `deo/phase-3-task-8-fix` (metadata.serviceId fallback + shopId ownership check) and `deo/phase-3-task-8-fix-2` (ContextBuilder messageText field + orchestrator empty-content filter) | 141 unit tests passing. Smoke validated: 3 successful AI replies on conv_1773038873896 (~$0.004 each, ~3s latency). Personalization, multi-turn, escalation, AI disclosure, honest-on-uncertainty all working. See "Task 8 fix" + "Task 8 second fix" sections below |
 | 9 | Customer-facing AI UI: badges + disclosure | Not started | — | ~1 day |
 | 10 | Booking suggestion buttons (Flavor B) | Not started | — | ~1.5 days |
 | 11 | Order completion confirmation hook | Not started | — | ~0.5 day |
-| 12 | Spend cap monitoring + admin visibility | Not started | — | ~0.5 day |
+| 12 | Spend cap monitoring + admin visibility | Not started | — | ~0.5 day. **Bonus:** also fix the `current_month_spend_usd` rollover bug found during Task 8 smoke — audit log shows $0.012 spent across 3 calls but `ai_shop_settings.current_month_spend_usd` still reads $0.00. Likely interaction with NULL `current_month_started_at` from migration 110 backfill |
 | 13 | Production rollout to pilot shops | Not started | — | Final task |
 
-**What works today (post-merge of Tasks 1+2):**
-- `/api/ai/health` returns skeleton metadata on staging + prod (proves domain registers cleanly)
-- `ai_agent_messages` and `ai_shop_settings` tables exist on staging with 42 shops backfilled (default `ai_global_enabled=false` — opt-in)
-- Migration 110 record present in `schema_migrations`
+**What works today (post-merge of Tasks 1-8):**
+- `/api/ai/health` returns live metadata on staging + prod
+- `ai_agent_messages` and `ai_shop_settings` tables on staging (42 shops backfilled, `ai_global_enabled=false` default — opt-in)
+- `conversations.service_id` column added (migration 111) — binds threads to a service for the AI hook
+- `POST /api/ai/preview` — shop-side live preview, Haiku 4.5, 1-hour cache, full auth/ownership gating
+- Shop dashboard "See How the AI Replies" calls the live API (Task 7) — preview shows real Claude reply for the shop's own service
+- **Customer messages on AI-enabled services trigger live AI replies** (Task 8) — peanut's "Newly Baker" verified end-to-end with multi-turn conversation, personalization (uses customer name), service context ($99 + 30 min), graceful escalation when data is missing
+- Audit log writes one row per Claude call (`ai_agent_messages`) — 4 rows on staging, 3 successful + 1 captured the bug fixed in fix-2
+- Spend recording fires per call (one known issue: `current_month_spend_usd` rollover not incrementing — flagged for Task 12)
 
-**What does NOT work yet (Tasks 4+):**
-- No live Claude calls from any HTTP endpoint
-- Live preview in shop dashboard still uses static `aiPreviewMocks.ts`
-- Customer messages don't trigger AI replies
-- No audit log entries (table exists but no writers yet)
-- No spend tracking (table exists but no writers yet)
+**What does NOT work yet (Tasks 9+):**
+- No customer-facing visual disclosure that a message was AI-generated (Task 9 — UI badges)
+- No inline booking suggestion buttons in the chat thread (Task 10 — Flavor B)
+- No automatic confirmation message when an order completes (Task 11)
+- No admin spend dashboard / per-shop cost visibility (Task 12)
+- Not yet rolled out to non-test shops (Task 13)
 
-**Cost burned so far on Phase 3:** ~$0.001 (1 spike call + 2 wrapper smoke tests, all on Sonnet 4.6). Credit balance: ~$19.999 of $20.00. Plenty of runway for Tasks 4-13.
+**Cost burned so far on Phase 3:** ~$0.013 (1 spike + wrapper smoke + preview smoke + 3 Task 8 customer-facing replies). Credit balance: ~$19.99 of $20.00. Plenty of runway.
 
-**Resumption point next session:** start Task 4 (ContextBuilder + PromptTemplates). Branch off latest `main` after merging Task 3's PR. The types from Task 3 (`AnthropicCallOptions`, `PromptCacheable`, etc.) are already in place — Task 4 just needs to assemble inputs that match those types.
+**Resumption point next session:** start Task 9 (customer-facing AI badges + disclosure UI). Branch off latest `main`. Frontend-heavy task — adds a "🤖 AI assistant" badge above messages where `metadata.generated_by === 'ai_agent'` (already populated by AgentOrchestrator on every AI reply since Task 5), plus an "AI-assisted" badge near the service title in the marketplace + service detail pages.
 
 ---
 
