@@ -10,6 +10,7 @@ import { ShareButton } from "./ShareButton";
 import { ReviewList } from "./ReviewList";
 import { SimilarServices } from "./SimilarServices";
 import { calculateTotalRcn } from "@/utils/rcnCalculator";
+import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
 import { useCustomerStore } from "@/stores/customerStore";
 import { useAuthStore } from "@/stores/authStore";
 import { sanitizeDescription } from "@/utils/sanitize";
@@ -201,7 +202,15 @@ Could you provide more details?`;
 
               {/* Service Info */}
               <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5">
-                <h3 className="text-xl font-bold text-white mb-3">{service.serviceName}</h3>
+                <div className="flex items-start gap-3 mb-3 flex-wrap">
+                  <h3 className="text-xl font-bold text-white">{service.serviceName}</h3>
+                  {/* AI-assisted disclosure (Phase 3 Task 9) — shown when the
+                      shop has AI replies enabled on this service. Tooltip
+                      explains what AI participation means. */}
+                  {service.aiSalesEnabled && (
+                    <AIAssistantBadge variant="default" className="mt-1" />
+                  )}
+                </div>
 
                 {service.category && (
                   <div className="mb-4">

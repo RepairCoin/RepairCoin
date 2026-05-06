@@ -1,8 +1,8 @@
 # AI Sales Agent — Phase 3: Claude Integration Implementation Plan
 
 **Created:** 2026-05-05
-**Status:** 🟢 In progress — **8 of 13 tasks complete** (Tasks 1-8 done; AI replies live for opt-in shops on staging)
-**Last updated:** 2026-05-06 (Task 8 verified end-to-end on staging, two follow-up fix branches merged)
+**Status:** 🟢 In progress — **8 of 13 tasks complete** + Task 9 awaiting merge
+**Last updated:** 2026-05-07 (Task 9 — customer-facing AI badges — pushed)
 **Effort:** ~3 weeks engineering (~12-15 working days)
 **Blocker:** None (was Anthropic API key — now resolved)
 **Strategy doc:** `ai-sales-agent-integration-strategy.md` (architecture, model selection, cost model, safety)
@@ -23,7 +23,7 @@
 | 6 | POST /api/ai/preview endpoint | ✅ Merged to main + on staging | `deo/phase-3-task-6` (merged) | 19 unit tests passing. Real-API smoke validated all 3 acceptance criteria on staging (happy path + cache + 403 ownership) |
 | 7 | Frontend: swap aiPreviewMocks → live API | ✅ Merged + visually verified on staging | `deo/phase-3-task-7` (merged) | Live preview rendered correctly for peanut shop's "Newly Baker" service with $99 + 30 min context |
 | 8 | Hook into MessageService.sendMessage | ✅ Merged + verified end-to-end on staging | `deo/phase-3-task-8` (merged) + 2 fix branches: `deo/phase-3-task-8-fix` (metadata.serviceId fallback + shopId ownership check) and `deo/phase-3-task-8-fix-2` (ContextBuilder messageText field + orchestrator empty-content filter) | 141 unit tests passing. Smoke validated: 3 successful AI replies on conv_1773038873896 (~$0.004 each, ~3s latency). Personalization, multi-turn, escalation, AI disclosure, honest-on-uncertainty all working. See "Task 8 fix" + "Task 8 second fix" sections below |
-| 9 | Customer-facing AI UI: badges + disclosure | Not started | — | ~1 day |
+| 9 | Customer-facing AI UI: badges + disclosure | ⏳ Pushed, awaiting PR | `deo/phase-3-task-9` | New shared `AIAssistantBadge` + `AIMessageLabel` components. 3 edit sites: chat bubble, service detail modal, marketplace card. Smoke pending Vercel deploy |
 | 10 | Booking suggestion buttons (Flavor B) | Not started | — | ~1.5 days |
 | 11 | Order completion confirmation hook | Not started | — | ~0.5 day |
 | 12 | Spend cap monitoring + admin visibility | Not started | — | ~0.5 day. **Bonus:** also fix the `current_month_spend_usd` rollover bug found during Task 8 smoke — audit log shows $0.012 spent across 3 calls but `ai_shop_settings.current_month_spend_usd` still reads $0.00. Likely interaction with NULL `current_month_started_at` from migration 110 backfill |
@@ -625,7 +625,7 @@ After fix #1 deployed and kill-switches were flipped, the AI hook fired end-to-e
 - `AgentOrchestrator.test.ts` — "filters empty-content history turns before sending to Claude". Verifies the orchestrator's belt-and-suspenders filter.
 - Full ai-agent suite: 141 tests across 8 files, all passing (was 138 — +3).
 
-### Task 9 — Customer-facing AI message UI: disclosure badge + service AI label (~1 day)
+### Task 9 — Customer-facing AI message UI: disclosure badge + service AI label (~1 day) — **DONE 2026-05-07**
 
 **Goal:** customers see which messages are AI-generated and which services use AI.
 
@@ -642,6 +642,28 @@ After fix #1 deployed and kill-switches were flipped, the AI hook fired end-to-e
 - Disclosure tooltip readable on mobile + desktop
 
 **Rollback:** revert the UI changes. Backend AI replies still work, just not visually flagged. Acceptable degradation.
+
+**Implementation log (2026-05-07, branch `deo/phase-3-task-9`):**
+
+Two new shared components plus three edit sites:
+
+- **`frontend/src/components/shared/AIAssistantBadge.tsx`** — pill-shaped "AI" / "AI-assisted" badge with violet/lavender theme to differentiate from the yellow shop theme. Two variants: `compact` (10px text, fits inline on a marketplace card) and `default` (12px text, longer label, fits next to a service title in the detail modal). Tooltip via native `title` attribute (works on mobile via long-press, no Radix/shadcn dependency required since the project doesn't ship one).
+- **`frontend/src/components/messaging/AIMessageLabel.tsx`** — small "🤖 AI assistant" label rendered directly above an AI-generated message bubble. Same violet theme, more muted so it reads as informational. Tooltip explains the shop owner can still see and reply to the conversation.
+
+Three edit sites:
+- **`ConversationThread.tsx`** — renders `<AIMessageLabel />` above the bubble when `!isOwnMessage && message.metadata?.generated_by === 'ai_agent'`. Bubble border tint also flips to violet when AI-generated, so the visual distinction works even at-a-glance without reading the label.
+- **`ServiceDetailsModal.tsx`** — renders `<AIAssistantBadge variant="default" />` next to the service title when `service.aiSalesEnabled`. Wrapped the title + badge in a flex row so the badge wraps gracefully on narrow viewports.
+- **`ServiceCard.tsx`** — renders `<AIAssistantBadge variant="compact" />` inline with the existing category badge on each marketplace card. Same `aiSalesEnabled` gate.
+
+**Data flow note:** `metadata.generated_by === 'ai_agent'` is set by `AgentOrchestrator` on every AI reply (since Task 5). The frontend message transform at `useConversationMessages.ts:27` preserves `metadata` end-to-end, so no backend changes were needed for Task 9. Similarly, `ShopServiceWithShopInfo.aiSalesEnabled` was already in the API surface from Phase 2 (migration 108).
+
+**Tests:** ESLint clean on both new files; pre-existing typecheck/lint warnings in `ServiceCard`, `ServiceDetailsModal`, `ConversationThread` (e.g. `<img>` instead of `<Image>`, unused vars in pre-existing code) are unrelated to Task 9 changes.
+
+**Smoke test pending:** needs Vercel frontend redeploy. Once live, verify:
+- Customer's existing AI-replied messages on conv_1773038873896 show the violet "AI assistant" label + violet bubble border
+- "Newly Baker" detail modal shows the "AI-assisted" badge next to the service title (since `ai_sales_enabled = true`)
+- Other peanut services (with `ai_sales_enabled = false`) do NOT show the badge — confirms the gate works
+- Tooltip text shows on hover (desktop) and long-press (mobile)
 
 ### Task 10 — Booking suggestion buttons (Flavor B inline cards) (~1.5 days)
 

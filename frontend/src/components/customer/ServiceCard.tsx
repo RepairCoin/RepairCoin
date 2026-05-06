@@ -10,6 +10,7 @@ import { ChatButton } from "./ChatButton";
 import { calculateTotalRcn } from "@/utils/rcnCalculator";
 import { useCustomerStore } from "@/stores/customerStore";
 import { sanitizeDescription } from "@/utils/sanitize";
+import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
 
 interface ServiceCardProps {
   service: ShopServiceWithShopInfo;
@@ -207,11 +208,16 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <h3 className="text-lg font-bold text-white mb-1 line-clamp-1">
                 {service.serviceName}
               </h3>
-              {service.category && (
-                <span className="inline-block text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
-                  {getCategoryLabel(service.category)}
-                </span>
-              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {service.category && (
+                  <span className="inline-block text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
+                    {getCategoryLabel(service.category)}
+                  </span>
+                )}
+                {/* AI-assisted disclosure on the marketplace card (Phase 3
+                    Task 9). Compact variant fits inline with category. */}
+                {service.aiSalesEnabled && <AIAssistantBadge variant="compact" />}
+              </div>
             </div>
           </div>
 
