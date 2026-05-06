@@ -4,10 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tier } from "@/shared/utilities/GlobalTypes";
+import { TierProgressCardProps } from "@/feature/role/customer/profile/types";
 
-import { TierConfig, TierProgressCardProps } from "../../profile/types";
-
-const TIER_CONFIG: Record<Tier, TierConfig> = {
+const TIER_CONFIG: Record<Tier, { color: string[]; label: string; bonus: number; requirement: number }> = {
   BRONZE: {
     color: ["#95602B", "#D4A574"],
     label: "Bronze",
@@ -145,7 +144,7 @@ export default function TierProgressCard({
         <View className="mb-3">
           <View className="h-3 bg-zinc-800 rounded-full overflow-hidden">
             <LinearGradient
-              colors={nextTierConfig.color}
+              colors={nextTierConfig.color as [string, string, ...string[]]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{

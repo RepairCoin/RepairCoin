@@ -11,7 +11,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useShop } from "../hooks/useShopQuery";
+import { useShop } from "../../../account/hooks";
 
 const COLORS = {
   primary: "#FFCC00",
