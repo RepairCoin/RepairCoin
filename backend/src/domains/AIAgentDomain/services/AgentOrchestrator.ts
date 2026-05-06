@@ -93,6 +93,14 @@ export class AgentOrchestrator {
       if (!service) {
         return { outcome: "failed", error: `Service not found: ${serviceId}` };
       }
+      // Ownership check — the service must belong to the conversation's shop.
+      // Without this, a spoofed serviceId (e.g. arriving via metadata) could
+      // make the AI generate a reply based on a different shop's service
+      // context, billed to the conversation's shop. Skip silently — same
+      // shape as a kill-switch skip.
+      if (service.shopId !== shopId) {
+        return { outcome: "skipped", reason: "service_shop_mismatch" };
+      }
       if (service.aiSalesEnabled !== true) {
         return { outcome: "skipped", reason: "service_ai_disabled" };
       }

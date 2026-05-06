@@ -232,6 +232,25 @@ describe("AgentOrchestrator — skip paths", () => {
       expect(result.error).toMatch(/Service not found/);
     }
   });
+
+  it("skips with service_shop_mismatch when service belongs to a different shop", async () => {
+    const { orch, messageRepo, auditLogger } = makeMocks({
+      service: {
+        serviceId: "srv_test",
+        shopId: "shop_OTHER", // service belongs to a different shop
+        serviceName: "Test",
+        aiSalesEnabled: true,
+        aiTone: "professional",
+        priceUsd: 50,
+      },
+    });
+    // sampleInput.shopId === "shop_test" — mismatch
+    const result = await orch.handleCustomerMessage(sampleInput());
+
+    expect(result).toEqual({ outcome: "skipped", reason: "service_shop_mismatch" });
+    expect(messageRepo.createMessage).not.toHaveBeenCalled();
+    expect(auditLogger.log).not.toHaveBeenCalled();
+  });
 });
 
 describe("AgentOrchestrator — escalation", () => {

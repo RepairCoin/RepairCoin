@@ -585,6 +585,24 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 
 **Smoke test pending**: needs staging deploy (migration 111 must run) + a peanut-shop service with `ai_sales_enabled=true` and `ai_shop_settings.ai_global_enabled=true`. Today both flags are off by design (opt-in safety) — flipping them on is a separate operator step before testing.
 
+---
+
+#### Task 8 fix (2026-05-06, branch `deo/phase-3-task-8-fix`)
+
+First smoke attempt failed with no AI reply. Diagnosis via `backend/scripts/diagnose-task8-failure.ts`:
+
+1. **Conversation pre-dated Task 8** — `conv_1773038873896_65vkbcp5f` was created 2026-03-08, before Task 8 shipped. service_id was NULL.
+2. **Frontend deploy lag** — the customer's first message (a `service_link` from `ServiceDetailsModal.tsx`) had `serviceId` only inside `metadata`, not at the top-level body field that the new `MessageController` reads. Vercel hadn't yet redeployed the frontend with the Task 8 commit that added top-level `serviceId`.
+3. **Kill switches still off** — `ai_shop_settings.ai_global_enabled = false` and `shop_services.ai_sales_enabled = false` for the test service, by design.
+
+Even after frontend deploys, only NEW conversations would get bound — and any pre-existing conversation would silently fail to trigger AI on follow-up messages until a service-link send re-triggered the bind. Fix makes the hook deploy-order-independent:
+
+- **`MessageController.sendMessage`** — reads `serviceId` from `req.body.serviceId` if a non-empty string, otherwise falls back to `req.body.metadata?.serviceId`. The existing `ServiceDetailsModal` already populates `metadata.serviceId` for service-link messages, so the hook works without waiting on frontend deploys (or for retry-queue messages that may have been serialized before the Task 8 frontend change).
+- **`AgentOrchestrator.handleCustomerMessage`** — added a service-shop ownership check (step 1.5): if `service.shopId !== input.shopId`, return `outcome: skipped, reason: "service_shop_mismatch"`. Defends against a spoofed `metadata.serviceId` pointing at a different shop's service (which would otherwise cause the AI to generate a reply with the wrong service's context, billed to the conversation's shop). New `SkipReason` variant in types.
+- **Test added**: `AgentOrchestrator.test.ts` — "skips with service_shop_mismatch when service belongs to a different shop". Full ai-agent suite: 138 tests across 8 files, all passing.
+
+After this fix deploys, the kill-switch UPDATEs (`ai_global_enabled=true` for peanut, `ai_sales_enabled=true` for "Newly Baker") plus a fresh customer message via `ServiceDetailsModal` should trigger an AI reply. The pre-existing test conversation will get its `service_id` bound automatically on the next service-link send — no manual SQL backfill needed.
+
 ### Task 9 — Customer-facing AI message UI: disclosure badge + service AI label (~1 day)
 
 **Goal:** customers see which messages are AI-generated and which services use AI.
