@@ -69,7 +69,9 @@ export const useCustomerRegister = () => {
         };
 
         registerCustomer(submissionData, {
-          onSettled: reset,
+          onError: () => {
+            setTimeout(reset, 1000);
+          },
         });
       });
     },
