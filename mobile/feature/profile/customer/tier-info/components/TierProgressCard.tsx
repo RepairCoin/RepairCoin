@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 
-import { TierConfig, TierProgressCardProps } from "../../types";
+import { TierConfig, TierProgressCardProps } from "../../profile/types";
 
 const TIER_CONFIG: Record<Tier, TierConfig> = {
   BRONZE: {

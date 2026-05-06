@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { balanceApi } from "../../../services/balance.services";
-import { customerApi } from "@/feature/profile/customer/services/customer.services";
+import { customerApi } from "@/feature/profile/customer/profile/services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { CustomerRedemptionData, CustomerTier } from "../../../types";
 

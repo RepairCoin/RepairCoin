@@ -1,4 +1,4 @@
-import { HowItWorksStep } from "../../types";
+import { HowItWorksStep } from "../../profile/types";
 
 export const REFERRER_REWARD = 25;
 export const REFEREE_REWARD = 10;

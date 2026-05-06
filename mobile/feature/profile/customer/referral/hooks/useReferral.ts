@@ -5,7 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "../constants";
-import { useCustomer } from "../../hooks/useCustomer";
+import { useCustomer } from "../../profile/hooks/useCustomer";
 
 export function useReferral() {
   const { account } = useAuthStore();

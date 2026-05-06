@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { customerApi } from "@/feature/profile/customer/services/customer.services";
+import { customerApi } from "@/feature/profile/customer/profile/services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { TransactionResponse } from "@/shared/interfaces/customer.interface";
 
