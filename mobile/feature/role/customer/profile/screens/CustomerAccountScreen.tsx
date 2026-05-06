@@ -12,7 +12,7 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useCustomer } from "../hooks/useCustomer";
-import { TierProgressCard } from "../components";
+import TierProgressCard from "@/shared/components/shared/TierProgressCard";
 
 const COLORS = {
   primary: "#FFCC00",
@@ -20,6 +20,7 @@ const COLORS = {
   error: "#EF4444",
   background: "#09090b",
   card: "#18181b",
+  
   border: "#27272a",
 };
 
