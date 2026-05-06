@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { shopApi } from "@/feature/profile/shop/services/shop.services";
+import { shopApi } from "@/feature/profile/shop/account/services/shop.services";
 import { tokenApi } from "../../../services/token.services";
 import { RedemptionSession, SessionStatus, RedemptionCallbacks } from "../../../types";
 

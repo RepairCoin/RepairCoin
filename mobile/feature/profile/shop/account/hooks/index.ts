@@ -9,5 +9,4 @@ export {
   useUpdatePromoCodeStatusMutation,
   useUpdateShopProfileMutation,
 } from "./useShopQuery";
-export { usePromoCodeUI } from "./usePromoCodeUI";
 export { useHomeDataUI } from "./useHomeDataUI";

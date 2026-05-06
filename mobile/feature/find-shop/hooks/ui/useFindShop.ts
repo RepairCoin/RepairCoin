@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import { router } from "expo-router";
 import MapView, { Region, LatLng } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
-import { useShop } from "@/feature/profile/shop/hooks/useShopQuery";
+import { useShop } from "@/feature/profile/shop/account/hooks/useShopQuery";
 import { useAppToast } from "@/shared/hooks";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
 import { serviceApi } from "@/feature/services/services/service.services";

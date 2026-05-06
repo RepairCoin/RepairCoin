@@ -12,7 +12,7 @@ import {
   ShopProfileHeader,
   ShopDetailsTab,
   ShopServicesTab,
-} from "../../components";
+} from "../../account/components";
 
 interface ShopProfileScreenProps {
   shopId: string;

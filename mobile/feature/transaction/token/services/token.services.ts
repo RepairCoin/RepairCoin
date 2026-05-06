@@ -139,6 +139,18 @@ class TokenApi {
       throw error;
     }
   }
+
+  async processRedemption(
+    shopId: string,
+    request: { customerAddress: string; amount: number; sessionId: string },
+  ): Promise<any> {
+    try {
+      return await apiClient.post(`/shops/${shopId}/redeem`, request);
+    } catch (error: any) {
+      console.error("Failed to process redemption:", error.message);
+      throw error;
+    }
+  }
 }
 
 export const tokenApi = new TokenApi();

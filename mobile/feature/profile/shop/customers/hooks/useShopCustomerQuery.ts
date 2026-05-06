@@ -3,7 +3,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
 import { shopCustomerApi } from "../services/shopCustomer.services";
 import { customerApi } from "@/feature/profile/customer/services/customer.services";
-import { transformCustomer } from "../utils/transformCustomer";
+import { transformCustomer } from "../../utils/transformCustomer";
 
 export function useShopCustomerGrowthQuery() {
   const { userProfile } = useAuthStore();

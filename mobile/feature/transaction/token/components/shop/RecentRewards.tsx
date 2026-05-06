@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { shopApi } from "@/feature/profile/shop/services/shop.services";
+import { shopApi } from "@/feature/profile/shop/account/services/shop.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 interface RewardTransaction {

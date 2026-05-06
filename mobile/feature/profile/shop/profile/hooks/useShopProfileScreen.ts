@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { INITIAL_CHAT_MESSAGE } from "./../constants";
-import { useShop } from "../../hooks";
+import { useShop } from "../../account/hooks";
 
 export const useShopProfileScreen = (shopId: string) => {
   const shopApi = useShop();

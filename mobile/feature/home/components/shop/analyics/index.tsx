@@ -13,8 +13,8 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/shared/components/shared/FilterModal";
-import { ChartFilter, TimeRange } from "@/feature/profile/shop/types";
-import { useAnalyticsDataUI } from "@/feature/profile/shop/hooks";
+import { ChartFilter, TimeRange } from "@/feature/profile/shop/account/types";
+import { useAnalyticsDataUI } from "@/feature/profile/shop/account/hooks";
 
 // Filter options
 const CHART_FILTERS: FilterOption[] = [

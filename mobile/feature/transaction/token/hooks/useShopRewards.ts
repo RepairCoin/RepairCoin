@@ -4,7 +4,7 @@ import { CreatePromoCodeRequest, RewardRequest } from "@/shared/interfaces/shop.
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
 import { router } from "expo-router";
-import { shopApi } from "@/feature/profile/shop/services/shop.services";
+import { shopApi } from "@/feature/profile/shop/account/services/shop.services";
 import { customerApi } from "@/feature/profile/customer/services/customer.services";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
