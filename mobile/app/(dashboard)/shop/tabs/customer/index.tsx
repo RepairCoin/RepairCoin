@@ -1,1 +1,1 @@
-export { CustomerListScreen as default } from "@/feature/profile/shop/customers/screens";
+export { CustomerListScreen as default } from "@/feature/role/shop/customers/screens";

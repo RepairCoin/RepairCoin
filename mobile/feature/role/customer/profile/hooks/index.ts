@@ -6,7 +6,7 @@ export { useUpdateCustomerProfileMutation } from "./mutations";
 
 // UI
 export { useCustomerSearch } from "./ui";
-export { useCustomerListUI } from "@/feature/profile/shop/customers/hooks";
+export { useCustomerListUI } from "@/feature/role/shop/customers/hooks";
 
 // Tier Info
 export { useTierInfo } from "./ui";

@@ -1,1 +1,1 @@
-export { CreatePromoCodeScreen as default } from "@/feature/profile/shop/promo-code/screens";
+export { CreatePromoCodeScreen as default } from "@/feature/role/shop/promo-code/screens";
