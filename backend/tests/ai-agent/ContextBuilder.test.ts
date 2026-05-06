@@ -262,4 +262,76 @@ describe("ContextBuilder", () => {
       sort: "asc",
     });
   });
+
+  it("reads messageText (canonical Message shape) when content field absent", async () => {
+    // Real MessageRepository.Message rows expose `messageText`, not `content`.
+    // Earlier toMessageContext was reading row.content and silently dropping
+    // every body to "", which made Anthropic reject the conversation with
+    // "user messages must have non-empty content". Regression guard.
+    const messages = {
+      items: [
+        { messageText: "first user msg", senderType: "customer", createdAt: new Date() },
+        { messageText: "shop reply",     senderType: "shop",     createdAt: new Date() },
+      ],
+      pagination: { page: 1, limit: 20, totalItems: 2, totalPages: 1 },
+    };
+    const mockCustomerRepo = { getCustomer: jest.fn().mockResolvedValue(baseCustomer()) };
+    const mockShopRepo = { getShop: jest.fn().mockResolvedValue(baseShop()) };
+    const mockServiceRepo = {
+      getServiceById: jest.fn().mockResolvedValue(baseService()),
+      getServicesByShop: jest.fn().mockResolvedValue({ items: [], pagination: {} }),
+    };
+    const mockMessageRepo = {
+      getConversationMessages: jest.fn().mockResolvedValue(messages),
+    };
+    const builder = new ContextBuilder(
+      mockCustomerRepo as any,
+      mockShopRepo as any,
+      mockServiceRepo as any,
+      mockMessageRepo as any
+    );
+
+    const ctx = await builder.build({
+      customerAddress: "0xabc123",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+
+    expect(ctx.conversationHistory).toHaveLength(2);
+    expect(ctx.conversationHistory[0].content).toBe("first user msg");
+    expect(ctx.conversationHistory[1].content).toBe("shop reply");
+  });
+
+  it("reads message_text (raw pg row shape) as a second fallback", async () => {
+    const messages = {
+      items: [
+        { message_text: "raw row body", sender_type: "customer", created_at: new Date() },
+      ],
+      pagination: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
+    };
+    const mockCustomerRepo = { getCustomer: jest.fn().mockResolvedValue(baseCustomer()) };
+    const mockShopRepo = { getShop: jest.fn().mockResolvedValue(baseShop()) };
+    const mockServiceRepo = {
+      getServiceById: jest.fn().mockResolvedValue(baseService()),
+      getServicesByShop: jest.fn().mockResolvedValue({ items: [], pagination: {} }),
+    };
+    const mockMessageRepo = {
+      getConversationMessages: jest.fn().mockResolvedValue(messages),
+    };
+    const builder = new ContextBuilder(
+      mockCustomerRepo as any,
+      mockShopRepo as any,
+      mockServiceRepo as any,
+      mockMessageRepo as any
+    );
+
+    const ctx = await builder.build({
+      customerAddress: "0xabc123",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+
+    expect(ctx.conversationHistory[0].content).toBe("raw row body");
+    expect(ctx.conversationHistory[0].role).toBe("user");
+  });
 });
