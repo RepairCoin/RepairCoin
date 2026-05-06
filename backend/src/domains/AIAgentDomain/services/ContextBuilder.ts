@@ -166,9 +166,16 @@ export class ContextBuilder {
     // For the AI prompt, customer = "user" (asks questions), shop = "assistant"
     // (the agent that's replying — historical replies before this turn).
     const senderType = row.senderType ?? row.sender_type;
+    // The Message type uses `messageText` (camelCase) for the body text; raw
+    // pg rows expose it as `message_text`. Fall back to `content` for any
+    // hypothetical caller using a custom shape, then to "" so the type stays
+    // satisfied. Truly-empty messages (attachment-only, system, encrypted
+    // ciphertext) are filtered upstream by the orchestrator before being sent
+    // to Claude — Anthropic rejects user messages with empty content.
+    const content = row.messageText ?? row.message_text ?? row.content ?? "";
     return {
       role: senderType === "customer" ? "user" : "assistant",
-      content: row.content ?? "",
+      content,
       createdAt: row.createdAt ?? row.created_at,
     };
   }

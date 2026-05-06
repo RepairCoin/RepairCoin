@@ -603,6 +603,23 @@ Even after frontend deploys, only NEW conversations would get bound — and any 
 
 After this fix deploys, the kill-switch UPDATEs (`ai_global_enabled=true` for peanut, `ai_sales_enabled=true` for "Newly Baker") plus a fresh customer message via `ServiceDetailsModal` should trigger an AI reply. The pre-existing test conversation will get its `service_id` bound automatically on the next service-link send — no manual SQL backfill needed.
 
+---
+
+#### Task 8 second fix (2026-05-06, branch `deo/phase-3-task-8-fix-2`)
+
+After fix #1 deployed and kill-switches were flipped, the AI hook fired end-to-end but Anthropic returned `400 invalid_request_error: "messages.2: user messages must have non-empty content"`. The audit log captured the error and `current_month_spend_usd` stayed at $0 because no tokens were billed.
+
+**Root cause:** `ContextBuilder.toMessageContext` was reading `row.content` to populate the AgentMessageContext body, but the `Message` type from `MessageRepository` exposes the body as `messageText` (camelCase) — not `content`. So every conversation history message got mapped to `content: ""`. Anthropic rejects user messages with empty content, so a single empty user turn in history bricked the entire conversation. This bug had been latent since Task 4 — the live preview endpoint never hit it because the preview always builds with empty conversationHistory.
+
+**Fix:**
+- `ContextBuilder.toMessageContext` — read `row.messageText ?? row.message_text ?? row.content ?? ""`. Canonical Message shape first; raw pg row shape second; legacy `content` field third.
+- `AgentOrchestrator.handleCustomerMessage` — defensive filter on the messages array sent to Claude. Skip turns whose content is empty after trimming. Handles attachment-only messages, system messages, encrypted ciphertext, and the original ContextBuilder bug all in one place. If anything else ever produces an empty turn, Claude won't get bricked.
+
+**Tests:**
+- `ContextBuilder.test.ts` — "reads messageText (canonical Message shape) when content field absent" + "reads message_text (raw pg row shape) as a second fallback". Regression guards for the bug.
+- `AgentOrchestrator.test.ts` — "filters empty-content history turns before sending to Claude". Verifies the orchestrator's belt-and-suspenders filter.
+- Full ai-agent suite: 141 tests across 8 files, all passing (was 138 — +3).
+
 ### Task 9 — Customer-facing AI message UI: disclosure badge + service AI label (~1 day)
 
 **Goal:** customers see which messages are AI-generated and which services use AI.

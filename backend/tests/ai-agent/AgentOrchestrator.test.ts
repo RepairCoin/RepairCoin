@@ -327,4 +327,29 @@ describe("AgentOrchestrator — message handling", () => {
     const messages = anthropicClient.complete.mock.calls[0][0].messages;
     expect(messages).toHaveLength(1);
   });
+
+  it("filters empty-content history turns before sending to Claude", async () => {
+    // Anthropic rejects user messages with empty content. Attachment-only,
+    // system, encrypted, or otherwise-empty messages must not slip into the
+    // request payload. Regression guard for the bug that bricked Task 8's
+    // first staging smoke (every history message had content="").
+    const { orch, anthropicClient } = makeMocks({
+      contextHistory: [
+        { role: "user", content: "", createdAt: new Date() }, // attachment-only
+        { role: "assistant", content: "shop reply", createdAt: new Date() },
+        { role: "user", content: "   ", createdAt: new Date() }, // whitespace-only
+        { role: "user", content: "real question", createdAt: new Date() },
+      ],
+    });
+    await orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "real question" })
+    );
+
+    const messages = anthropicClient.complete.mock.calls[0][0].messages;
+    // Empty + whitespace-only turns dropped; the real ones survive.
+    expect(messages).toEqual([
+      { role: "assistant", content: "shop reply" },
+      { role: "user", content: "real question" },
+    ]);
+  });
 });

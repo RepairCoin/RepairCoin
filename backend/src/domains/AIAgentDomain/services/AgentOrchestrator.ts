@@ -178,15 +178,21 @@ export class AgentOrchestrator {
       const tone: AITone = (service.aiTone ?? DEFAULT_TONE) as AITone;
       const systemPrompt = buildSystemPrompt(tone, ctx);
 
-      // Map AgentMessageContext → ChatMessage shape for AnthropicClient
-      const messages = ctx.conversationHistory.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      // Map AgentMessageContext → ChatMessage shape for AnthropicClient.
+      // Filter out empty-content turns: attachment-only messages, system
+      // messages, encrypted ciphertext bodies, etc. Anthropic rejects the
+      // entire request if any user message has empty content, so a single
+      // empty turn in history would brick every AI reply on that thread.
+      const messages = ctx.conversationHistory
+        .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
 
       // Add the current customer message as the final turn (it may not yet
       // be in the conversation history if Task 8's hook fires before the
-      // message is committed — pass it explicitly to avoid a race)
+      // message is committed — pass it explicitly to avoid a race).
       const lastHistoryRole = messages.length > 0 ? messages[messages.length - 1].role : null;
       if (lastHistoryRole !== "user") {
         messages.push({ role: "user", content: customerMessageText });
