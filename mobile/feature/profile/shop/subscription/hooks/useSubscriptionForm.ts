@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useShop } from "./useShopQuery";
 import { apiClient } from "@/shared/utilities/axios";
 import { SubscriptionFormData, SubscriptionResponse } from "../types";
+import { useShop } from "../../hooks/useShopQuery";
 
 export function useSubscriptionForm() {
   const router = useRouter();
