@@ -496,7 +496,7 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 - Used factory pattern (`makePreviewAIReply(deps)`) instead of bare async handler so unit tests can inject mocks without monkey-patching modules. Production gets a singleton-lazy `previewAIReply` wrapper exported by name.
 - No real-API smoke test against staging yet — staging is currently on Task 4 (Task 5 deploy auto-rolled back due to DB connection exhaustion). Smoke will run after merge to main + redeploy.
 
-### Task 7 — Frontend: swap `aiPreviewMocks.ts` to live API (~0.5 day)
+### Task 7 — Frontend: swap `aiPreviewMocks.ts` to live API (~0.5 day) — **DONE 2026-05-06**
 
 **Goal:** The "See How the AI Replies" preview in `AISalesAssistantSection.tsx` calls the new endpoint instead of reading from the static array.
 
@@ -515,6 +515,21 @@ Existing `shop_services.ai_*` columns from migration 108 (Phase 2) provide per-s
 - Disabling AI section still works (preview hidden)
 
 **Rollback:** `git revert` — frontend goes back to mock-based preview, backend endpoint can stay live.
+
+**Implementation log (2026-05-06, branch `deo/phase-3-task-7`):**
+- `frontend/src/services/api/services.ts` — added `getAiPreview(serviceId, tone, sampleQuestion?)` returning `AIPreviewResponse` + the type itself. Follows the same axios + envelope-unwrap pattern as the rest of the file (auth flows via httpOnly cookie + `withCredentials: true`).
+- `frontend/src/components/shop/service/AISalesAssistantSection.tsx`:
+  - Added optional `serviceId?: string` prop
+  - Added `useEffect` that fetches when `(previewOpen && enabled && serviceId)` change. Skips fetch when section is closed, AI is off, or no serviceId
+  - Component-local `Map<string, AIPreviewResponse>` cache keyed by `${serviceId}:${tone}` so toggling tones doesn't refetch what we already have
+  - Three render states: `loading` (skeleton bubble) → `live reply` (green-tinted bubble + sample question label + model/latency footer) → `fallback` (renders the original 4-message mock arc, used when no serviceId yet OR API failed)
+  - Updated bottom disclosure: "Live preview — this is the actual reply Claude generates for your service" (when serviceId present) vs "Save the service first to see a live AI reply preview" (new-service flow)
+- `frontend/src/app/(authenticated)/shop/services/[serviceId]/edit/page.tsx` — passes `serviceId={serviceId}` to AISalesAssistantSection. The new-service page intentionally omits the prop (service not created yet) and the component falls back to mocks.
+
+**Deviations from plan:**
+- Plan step 2 says use TanStack Query (`useQuery`). The repo doesn't have react-query installed — only axios + Zustand. Implemented with a `useEffect` + a local `Map` ref instead. Same effect (cache + dedupe + cancellation), no new dependency.
+- Plan implies the live API returns the same 4-message arc shape as `AI_PREVIEW_MOCKS`. It actually returns one reply (Claude's response to a single sample question). Component shows the sample question + the AI's single reply, which more honestly reflects what the AI does in production. The 4-message mock arc is preserved as the fallback (no serviceId / API error).
+- No real-browser smoke test in this PR — needs the user to test on staging once frontend is deployed (CORS + cookie-domain rules prevent local frontend from authenticating against staging API).
 
 ### Task 8 — Hook into `MessageService.sendMessage` (customer-facing AI replies) (~1 day)
 
