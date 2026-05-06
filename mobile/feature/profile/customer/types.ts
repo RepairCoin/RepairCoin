@@ -18,4 +18,6 @@ export type {
   ProfileTab,
   ProfileLoadingProps,
   ProfileErrorProps,
+  CrossShopBalanceResponse,
+  SearchCustomersResponse,
 } from "./services/customer.interface";
