@@ -27,11 +27,11 @@ import {
   AlertTriangle,
   Wallet,
   FileBarChart,
+  Megaphone,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
-import Image from "next/image";
 
 interface ShopSidebarProps {
   isOpen?: boolean;
@@ -191,14 +191,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         {
           title: "Marketing",
           href: "/shop?tab=marketing",
-          icon: (
-            <Image
-              src={"/img/megaphone.png"}
-              width={32}
-              height={32}
-              alt={"megaphone icon"}
-            />
-          ),
+          icon: <Megaphone className="w-5 h-5" />,
           tabId: "marketing",
         },
         {

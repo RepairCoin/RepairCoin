@@ -549,19 +549,22 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
       {/* Campaign Type Picker Dialog */}
       <Dialog open={showCampaignPicker} onOpenChange={setShowCampaignPicker}>
-        <DialogContent className="bg-[#1a1a1a] border-gray-800 w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] sm:max-h-[80vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
+        <DialogContent className="bg-[#1a1a1a] border-gray-800 z-[1100] w-screen h-[100dvh] max-w-full max-h-[100dvh] rounded-none p-0 sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:h-auto sm:max-h-[80vh] sm:rounded-lg flex flex-col gap-0">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-gray-800 sm:border-b-0 shrink-0">
             <DialogTitle className="text-white text-lg sm:text-xl">Choose a campaign</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 mt-4">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pt-4 pb-4 sm:pb-6 space-y-5 sm:space-y-6"
+            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+          >
             {/* Target your best customers */}
             <div>
-              <h3 className="text-gray-400 text-sm font-medium mb-3 flex items-center gap-2">
+              <h3 className="text-gray-400 text-sm font-medium mb-2 sm:mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Target your best customers
               </h3>
-              <p className="text-gray-500 text-sm mb-3">
+              <p className="text-gray-500 text-xs sm:text-sm mb-3">
                 Smart groups are recommended customer segments. You can modify them in the Audience step.
               </p>
               <div className="space-y-2">
@@ -573,10 +576,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.audience}
                     onClick={() => handleSelectCampaignType("offer_coupon")}
-                    className="w-full flex items-center justify-between gap-2 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left"
+                    className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-3 bg-gray-800/50 active:bg-gray-700 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left min-h-[52px]"
                   >
                     <span className="text-white text-sm sm:text-base truncate">{item.label}</span>
-                    <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] text-xs border border-[#FFCC00]/30 flex-shrink-0">Smart group</Badge>
+                    <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] text-[10px] sm:text-xs border border-[#FFCC00]/30 flex-shrink-0 whitespace-nowrap">Smart group</Badge>
                   </button>
                 ))}
               </div>
@@ -584,7 +587,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
             {/* Promote sales and visits */}
             <div>
-              <h3 className="text-gray-400 text-sm font-medium mb-3 flex items-center gap-2">
+              <h3 className="text-gray-400 text-sm font-medium mb-2 sm:mb-3 flex items-center gap-2">
                 <Gift className="w-4 h-4" />
                 Promote sales and visits
               </h3>
@@ -597,7 +600,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.type + item.label}
                     onClick={() => handleSelectCampaignType(item.type)}
-                    className="w-full flex items-center justify-between gap-2 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left"
+                    className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-3 bg-gray-800/50 active:bg-gray-700 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left min-h-[52px]"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="text-[#FFCC00] flex-shrink-0">{item.icon}</div>
@@ -611,7 +614,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
             {/* Update and engage */}
             <div>
-              <h3 className="text-gray-400 text-sm font-medium mb-3 flex items-center gap-2">
+              <h3 className="text-gray-400 text-sm font-medium mb-2 sm:mb-3 flex items-center gap-2">
                 <Mail className="w-4 h-4" />
                 Update and engage
               </h3>
@@ -623,7 +626,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.type + item.label}
                     onClick={() => handleSelectCampaignType(item.type)}
-                    className="w-full flex items-center justify-between gap-2 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left"
+                    className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-3 bg-gray-800/50 active:bg-gray-700 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left min-h-[52px]"
                   >
                     <span className="text-white text-sm sm:text-base truncate">{item.label}</span>
                     <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
@@ -635,10 +638,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
             {/* Templates */}
             {templates.length > 0 && (
               <div>
-                <h3 className="text-gray-400 text-sm font-medium mb-3">
+                <h3 className="text-gray-400 text-sm font-medium mb-2 sm:mb-3">
                   Start from a template
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   {templates.slice(0, 4).map((template) => (
                     <button
                       key={template.id}
@@ -648,10 +651,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                         template.category === 'newsletter' ? 'newsletter' : 'custom',
                         template
                       )}
-                      className="p-4 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-left transition-colors border border-gray-700/50"
+                      className="p-3.5 sm:p-4 bg-gray-800/50 active:bg-gray-700 hover:bg-gray-700/50 rounded-lg text-left transition-colors border border-gray-700/50"
                     >
                       <div className="text-white font-medium text-sm sm:text-base">{template.name}</div>
-                      <div className="text-gray-500 text-xs sm:text-sm mt-1">{template.description}</div>
+                      <div className="text-gray-500 text-xs sm:text-sm mt-1 line-clamp-2">{template.description}</div>
                     </button>
                   ))}
                 </div>
