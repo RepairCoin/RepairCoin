@@ -831,6 +831,33 @@ Combined with fix-4's slot reordering, the AI now has TWO independent mechanisms
 
 If fix-4 alone misfires (e.g. unusual phrasing that escapes keyword detection), fix-5 still kills the history anchor. If fix-5 alone misfires (e.g. Claude picks a non-first slot for some reason), fix-4 still made afternoon slots the most-prominent option. Belt + suspenders.
 
+---
+
+#### Task 10 sixth fix (2026-05-07, branch `deo/phase-3-task-10-fix-6-tooluse`)
+
+After fix-5 deployed, smoke confirmed the **slot reasoning was working** (customer asks "morning" → AI suggests Friday 10:00 AM ✅, fix-4 reorder + fix-5 history scrub functioning together). But two style bugs persisted that 5 rounds of prompt engineering couldn't kill:
+
+1. AI keeps prefixing replies with "**The service runs 30 minutes** at **$99.00**" despite explicit prompt rules forbidding it.
+2. AI hedges with "We have availability as early as Thursday — would you like me to lock in a slot for you?" instead of the example pattern "Thursday at 9 AM works — tap below to lock it in."
+
+Both are **prompt-adherence failures**. The prompt has the rules; Claude ignores them. We've proven empirically (fix-1 through fix-5) that "DO NOT mention X" instructions don't override Claude's training defaults reliably. Time to take prompt rules out of the equation.
+
+**Fix:** replace the fenced-JSON-block parser with **Anthropic Tool Use** (constrained schema). The model is forced into a structured shape Anthropic validates server-side before we see the response.
+
+- **`AnthropicClient`** — extended `AnthropicCallOptions` with `tools` + `toolChoice`. Updated the SDK call to pass tools when present and parse `tool_use` content blocks alongside text. New `ClaudeToolUseBlock` type on the response. Plain text-only calls unchanged (no tools = no tools param sent).
+- **`AgentOrchestrator`** — when `availabilitySlots.length > 0`, builds and passes a `propose_booking_slot` tool with this schema:
+  - `slot_iso`: `enum: [...validSlotsIso]` — Anthropic rejects out-of-enum values at the API boundary
+  - `reply_text`: `maxLength: 200` — physically can't fit "$99 and 30 minutes" boilerplate, must be conversational
+  - The tool description has GOOD/BAD examples and the same conditional gating as the prompt (only emit when customer shows booking intent)
+- **Response handling** — prefer the tool's `reply_text` over Claude's free text when `propose_booking_slot` is called. Falls back to the legacy `parseBookingSuggestions` text parser when Claude doesn't use the tool (general questions where no slot proposal is appropriate). Defense-in-depth: if Anthropic somehow lets through an invalid `slot_iso`, we drop the suggestion + record `booking_suggestion_dropped: ['tool_returned_invalid_slot']`.
+- **`tool_choice: "auto"`** — Claude decides whether to use the tool. Customers asking "what's included?" → no tool call → no card. Customers asking "what times?" → tool call → card.
+
+**Why this works where prompts didn't:** prompt rules are advisory. JSON schema is enforced. Anthropic's server-side validator rejects invalid tool inputs before they reach our code, so the slot is guaranteed to be from our list and the reply is guaranteed to fit our length cap. Claude can't "ignore" a 200-char limit because the API won't accept the response.
+
+**Tests:** 5 new tests in `AgentOrchestrator.test.ts` covering: tools passed when slots exist; tool output drives the customer-facing message; falls back to text parser when tool not used; defense against out-of-enum slot_iso (drops + flags); no tools passed when slots empty. Full ai-agent suite: **236 tests across 13 files** (was 231 / 13 — +5).
+
+**What this does NOT solve:** if Claude doesn't call the tool at all and emits a free-text reply with the same "$99 and 30 minutes" prefix, the legacy text-parser path still hands that text to the customer verbatim. In practice with `tool_choice: auto` + slots-available + the booking-relevant prompt rules, Claude almost always uses the tool when booking is in scope. Smoke testing on staging will tell us how often the fallback fires.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day) — **DONE 2026-05-07**
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.

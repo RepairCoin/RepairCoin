@@ -18,6 +18,7 @@ import {
   ClaudeModel,
   AnthropicCallOptions,
   ClaudeResponse,
+  ClaudeToolUseBlock,
   ResponseUsage,
 } from "../types";
 
@@ -87,6 +88,8 @@ export class AnthropicClient {
       model,
       maxTokens = DEFAULT_MAX_TOKENS,
       temperature,
+      tools,
+      toolChoice,
     } = options;
 
     const start = Date.now();
@@ -109,6 +112,28 @@ export class AnthropicClient {
             role: m.role,
             content: m.content,
           })),
+          // Tool use (Phase 3 Task 10 fix-6). When tools are provided, Claude
+          // can emit tool_use blocks alongside / instead of plain text. The
+          // input is validated against the tool's input_schema by Anthropic
+          // before we ever see it — safer than parsing free-form JSON out of
+          // a text reply.
+          ...(tools && tools.length > 0
+            ? {
+                tools: tools.map((t) => ({
+                  name: t.name,
+                  description: t.description,
+                  input_schema: t.inputSchema as any,
+                })),
+                ...(toolChoice
+                  ? {
+                      tool_choice:
+                        toolChoice.type === "tool"
+                          ? { type: "tool" as const, name: toolChoice.name }
+                          : { type: toolChoice.type as "auto" | "any" },
+                    }
+                  : {}),
+              }
+            : {}),
         });
 
         const elapsed = Date.now() - start;
@@ -116,6 +141,14 @@ export class AnthropicClient {
           .filter((b): b is Anthropic.TextBlock => b.type === "text")
           .map((b) => b.text)
           .join("\n");
+
+        const toolUses: ClaudeToolUseBlock[] = response.content
+          .filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
+          .map((b) => ({
+            toolName: b.name,
+            toolUseId: b.id,
+            input: (b.input as Record<string, unknown>) ?? {},
+          }));
 
         const usage: ResponseUsage = {
           inputTokens: response.usage.input_tokens ?? 0,
@@ -133,6 +166,7 @@ export class AnthropicClient {
           usage,
           costUsd: AnthropicClient.calculateCost(usage, model),
           latencyMs: elapsed,
+          toolUses,
         };
       } catch (err: any) {
         lastError = err;

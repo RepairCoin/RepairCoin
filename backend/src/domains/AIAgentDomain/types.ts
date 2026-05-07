@@ -54,6 +54,20 @@ export interface ResponseUsage {
 }
 
 /**
+ * One tool call Claude made in its response. The model picked this tool by
+ * name and provided a JSON `input` matching the tool's schema. Phase 3 fix-6
+ * uses tool use to constrain booking-suggestion output (slot_iso must be
+ * from a fixed enum, reply_text capped at maxLength) — replaces the fragile
+ * fenced-JSON parser approach where Claude could ignore prompt rules.
+ */
+export interface ClaudeToolUseBlock {
+  toolName: string;
+  toolUseId: string;
+  /** Already-parsed JSON object matching the tool's input_schema */
+  input: Record<string, unknown>;
+}
+
+/**
  * What `AnthropicClient.complete()` returns. Stripped down from the raw SDK
  * response — callers shouldn't need to know about Anthropic's content-block
  * shape.
@@ -65,7 +79,33 @@ export interface ClaudeResponse {
   usage: ResponseUsage;
   costUsd: number;
   latencyMs: number;
+  /** Tool calls Claude made. Empty when no tools were provided / used. */
+  toolUses: ClaudeToolUseBlock[];
 }
+
+/**
+ * One tool definition passed to `AnthropicClient.complete()`. Mirrors the
+ * shape Anthropic's SDK expects (`{ name, description, input_schema }`)
+ * minus snake_case — caller writes camelCase, client adapts at the SDK call
+ * boundary.
+ */
+export interface ClaudeTool {
+  name: string;
+  description: string;
+  /** JSON Schema. Anthropic accepts the standard subset. */
+  inputSchema: Record<string, unknown>;
+}
+
+/**
+ * Tool-choice control. Default = "auto" (Claude picks if to call any tool).
+ * Use { type: "tool", name } to force Claude to call a specific tool — most
+ * useful when you want a structured response on every call (e.g., booking
+ * suggestion path always emits the tool).
+ */
+export type ClaudeToolChoice =
+  | { type: "auto" }
+  | { type: "any" }
+  | { type: "tool"; name: string };
 
 /**
  * Single options bag for `AnthropicClient.complete()`.
@@ -78,6 +118,10 @@ export interface AnthropicCallOptions {
   maxTokens?: number;
   /** Default unset (Anthropic decides). Range 0-1. */
   temperature?: number;
+  /** Tools Claude may use. Omit for plain text-only completion. */
+  tools?: ClaudeTool[];
+  /** How Claude should pick among tools. Default "auto" when tools are provided. */
+  toolChoice?: ClaudeToolChoice;
 }
 
 // ============================================================================
