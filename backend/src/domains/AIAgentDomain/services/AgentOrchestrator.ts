@@ -39,6 +39,7 @@ import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { EscalationDetector } from "./EscalationDetector";
 import { parseBookingSuggestions } from "./BookingSuggestionParser";
 import { reorderSlotsByPreference } from "./TimePreferenceMatcher";
+import { scrubAssistantHistory } from "./ConversationHistoryScrubber";
 import {
   HandleCustomerMessageInput,
   HandleCustomerMessageResult,
@@ -207,12 +208,20 @@ export class AgentOrchestrator {
       // messages, encrypted ciphertext bodies, etc. Anthropic rejects the
       // entire request if any user message has empty content, so a single
       // empty turn in history would brick every AI reply on that thread.
-      const messages = ctx.conversationHistory
-        .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
-        .map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
+      // Also scrub specific time mentions from past assistant messages
+      // (Phase 3 Task 10 fix-5) — without this, Claude reads its own past
+      // "How does Thursday at 9 AM sound?" output and copy-pastes the time
+      // even when the customer is asking for a different slot. Customer
+      // messages are left intact — only the AI's past suggestions get
+      // scrubbed.
+      const messages = scrubAssistantHistory(
+        ctx.conversationHistory
+          .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+          }))
+      );
 
       // Add the current customer message as the final turn (it may not yet
       // be in the conversation history if Task 8's hook fires before the
