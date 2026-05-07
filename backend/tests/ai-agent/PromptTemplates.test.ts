@@ -305,7 +305,22 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
     // recommending one. Sharpened to push proactive recommendation.
     const ctx = baseContext({ availabilitySlots: [slot1, slot2] });
     const prompt = professionalPrompt(ctx);
-    expect(prompt).toMatch(/proactive|propose ONE specific slot/i);
-    expect(prompt).toMatch(/what'?s available|when can I come in|do you have any openings/i);
+    expect(prompt).toMatch(/propose ONE specific slot|the customer expects YOU to recommend/i);
+    expect(prompt).toMatch(/what'?s available|when can I come in|do you have any openings|what times do you have/i);
+  });
+
+  it("includes a concrete few-shot GOOD/BAD example to override Claude's default deference", () => {
+    // Pure rule-based prompts weren't enough — Claude kept saying "would
+    // you like me to suggest a specific time slot to book?" instead of
+    // just suggesting. Few-shot examples forbid the deferential phrasing
+    // explicitly and show the right pattern.
+    const ctx = baseContext({ availabilitySlots: [slot1, slot2] });
+    const prompt = professionalPrompt(ctx);
+    // The GOOD example must reference a real slot from the prompt's slot list
+    expect(prompt).toContain(slot1.humanLabel);
+    expect(prompt).toContain(slot1.slotIso);
+    // The BAD anti-example must explicitly forbid the deferential phrasing
+    expect(prompt).toMatch(/would you like me to suggest|would you like me to suggest a specific time slot/i);
+    expect(prompt).toMatch(/never|do not|don't.*ask permission|passive/i);
   });
 });

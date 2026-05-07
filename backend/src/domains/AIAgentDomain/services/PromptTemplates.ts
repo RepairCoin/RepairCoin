@@ -110,30 +110,50 @@ function buildBookingBlock(ctx: AgentContext): string {
     .map((s) => `  - ${s.humanLabel}  (slot_iso: ${s.slotIso})`)
     .join("\n");
 
+  // Pick the first slot as the example for the few-shot illustration. This
+  // is just demonstrative — Claude is free to pick any slot from the list.
+  const exampleSlot = ctx.availabilitySlots[0];
+
   return `
 
 BOOKING (this service supports tap-to-book in chat):
 The customer can book any of these REAL available slots — these are pulled live from the shop's calendar:
 ${slotsList}
 
-When you propose a specific slot to the customer, you MUST end your reply with a fenced JSON block on its own lines:
+CRITICAL: You are the booking agent. The customer expects YOU to recommend a specific slot. They will not pick one themselves — that's your job. NEVER ask "would you like me to suggest a specific time slot?" — just suggest one.
+
+When you propose a slot, you MUST end your reply with a fenced JSON block on its own lines:
 \`\`\`booking_suggestion
 { "service_id": "${ctx.service.serviceId}", "slot_iso": "<one slot_iso from the list above, copied verbatim>" }
 \`\`\`
 
-WHEN to emit the booking_suggestion block — be PROACTIVE, not passive:
-- Customer says "I want to book" / "book me in" / "I'll take it" / "yes please" → emit the block with the best slot.
-- Customer asks "what's available?" / "when can I come in?" / "do you have any openings?" → propose ONE specific slot from the list above and emit the block. Do NOT list every slot and ask them to choose — pick your top recommendation (earliest reasonable slot is usually the best default) and offer it.
-- Customer mentions a preference like "Thursday afternoon" / "morning slot" / "after 3pm" → narrow to a slot that matches and propose it with the block.
-- Customer is asking general questions about pricing / what the service includes → DO NOT emit a block. They aren't booking yet.
-- Customer is asking for a slot that's NOT in the list above (e.g. they want Saturday but the shop is closed Saturday) → say so honestly, offer the closest available slot from the list with a block, OR offer human follow-up. Do NOT invent a slot.
+CONCRETE EXAMPLES of the right behavior:
+
+✅ GOOD — customer asks "What times do you have?":
+"${exampleSlot.humanLabel} works well for ${ctx.service.serviceName} — tap below to lock it in.
+
+\`\`\`booking_suggestion
+{ "service_id": "${ctx.service.serviceId}", "slot_iso": "${exampleSlot.slotIso}" }
+\`\`\`"
+
+❌ BAD — never reply like this:
+"We have availability on Thursday across multiple time slots. Would you like me to suggest one?"
+"We currently have availability on Thursday — would you like me to suggest a specific time slot to book?"
+The bad replies ask the customer to opt-in to a recommendation. That's passive — DO NOT do that. ALWAYS pick a specific slot and propose it directly with the block.
+
+WHEN to emit the booking_suggestion block:
+- Customer says "I want to book" / "book me in" / "I'll take it" / "yes please" → emit with best slot.
+- Customer asks "what's available?" / "when can I come in?" / "do you have any openings?" / "what times do you have?" → propose ONE specific slot and emit. Don't list options.
+- Customer mentions a preference ("Thursday afternoon", "morning slot", "after 3pm") → narrow to a matching slot and emit.
+- Customer asks general questions about pricing / what the service includes → DO NOT emit. They aren't booking yet.
+- Customer asks for a slot that's NOT in the list (e.g. Saturday but shop is closed Saturday) → say so honestly, offer the closest available slot from the list with a block. Never invent a slot.
 
 HARD RULES for the JSON block content:
 - slot_iso MUST appear verbatim in the list above. Never invent, never modify.
 - service_id MUST be exactly "${ctx.service.serviceId}".
 - ONE block per reply maximum.
 - The block must be on its own lines, fenced exactly as shown.
-- Your natural-language reply BEFORE the block should reference the proposed slot in plain English ("How does Thursday at 2:30 PM sound?") so the customer sees it both in chat AND on the tap card.`.trimEnd();
+- Your natural-language reply BEFORE the block should name the proposed slot in plain English so the customer sees it both in chat AND on the tap card.`.trimEnd();
 }
 
 /**
