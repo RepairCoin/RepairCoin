@@ -38,6 +38,7 @@ import { AuditLogger } from "./AuditLogger";
 import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { EscalationDetector } from "./EscalationDetector";
 import { parseBookingSuggestions } from "./BookingSuggestionParser";
+import { reorderSlotsByPreference } from "./TimePreferenceMatcher";
 import {
   HandleCustomerMessageInput,
   HandleCustomerMessageResult,
@@ -147,6 +148,28 @@ export class AgentOrchestrator {
         conversationId,
         // includeUpsells defaults to service.aiSuggestUpsells inside builder
       });
+
+      // 4.5 Reorder availability slots based on the customer's stated time
+      // preference (Phase 3 Task 10 fix-4). Pure prompt rules failed to
+      // override Claude's recency bias — Claude kept picking the first slot
+      // in the list even when the prompt said "match the customer's
+      // preference". By putting matching slots first, we use Claude's bias
+      // instead of fighting it. No-op when no preference is detected.
+      if (ctx.availabilitySlots && ctx.availabilitySlots.length > 0) {
+        const reordered = reorderSlotsByPreference(
+          ctx.availabilitySlots,
+          customerMessageText
+        );
+        if (reordered.band) {
+          logger.info("AgentOrchestrator: reordered slots by detected preference", {
+            band: reordered.band,
+            matchedPhrase: reordered.matchedPhrase,
+            slotCount: reordered.slots.length,
+            firstSlotTime: reordered.slots[0]?.time,
+          });
+        }
+        ctx.availabilitySlots = reordered.slots;
+      }
 
       // 5. Escalation check — does the customer want a human?
       const escalation = this.escalationDetector.shouldEscalate(

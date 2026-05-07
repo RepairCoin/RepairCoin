@@ -787,6 +787,30 @@ After fix-2 deployed, smoke retest revealed cards now render BUT three real bugs
 
 After this deploys, the same smoke flow ("Can I book Thursday afternoon?") should produce: AI picks an actual afternoon slot (12 PM or later) + reply is conversational without re-summarizing the service.
 
+---
+
+#### Task 10 fourth fix (2026-05-07, branch `deo/phase-3-task-10-fix-4`)
+
+After fix-3 deployed, smoke retest showed style/tone bugs were fixed (replies are now conversational, no more "Thank you for your interest..." boilerplate, cards render). BUT Claude **still** picked 9 AM after the customer asked for "Thursday afternoon" — three times in a row. Diagnostic:
+
+- Prompt grew to 8020 chars (up from 5401 in fix-3) — fix-3 IS deployed with the time-band rules
+- Audit row shows Anthropic prompt-cache hit (`cache_read_input_tokens=2424`) — full prompt reached Claude
+- 15 slots in the prompt (math from prompt_len delta) — afternoon slots ARE in the list
+- AI's `booking_suggestions[0].slotIso = 2026-05-07T13:00:00.000Z` = **9:00 AM EDT** — earliest slot, ignored the rule
+
+**Pure prompt engineering hit its ceiling.** Claude has a strong recency bias toward picking the FIRST item in a list, regardless of stated rules. Even explicit "NEVER suggest 9 AM, 10 AM, or 11 AM as afternoon" failed.
+
+**Fix: take prompting out of the equation.** New `TimePreferenceMatcher.ts` does keyword-based detection of the customer's time preference and reorders the slot list before it reaches Claude. By putting matching slots FIRST, we use Claude's recency bias instead of fighting it:
+
+- `bandForTime(hhmm)` — classifies a slot's HH:MM into morning (< 12:00), afternoon (12:00-16:59), or evening (≥ 17:00).
+- `detectTimePreference(message)` — keyword scan with word-bounded regex. Matches "morning(s)", "afternoon(s)", "evening(s)/tonight", "after lunch", "9 AM"/"2 PM"/"6 PM" hour mentions, "early"/"breakfast", "late today". Returns the band + matched phrase for diagnostics. Returns null when no preference is signaled (no-op).
+- `reorderSlotsByPreference(slots, message)` — stable partition: matching slots first (in original earliest-first order), non-matching after. When NO matching slots exist (e.g., customer wants afternoon but shop closes at noon), original order is preserved so Claude can offer "no afternoon, but here's morning" per existing fix-3 prompt rules.
+- **`AgentOrchestrator`** — invokes `reorderSlotsByPreference` between context build and Claude call. Logs the detected band + matched phrase for staging visibility.
+
+**Tests:** new `TimePreferenceMatcher.test.ts` — 26 tests covering band classification, all preference patterns, case insensitivity, plurals, no-preference, stable sort, no-matching-slots fallback, empty list. Full ai-agent suite: **196 tests across 10 files**.
+
+This is the architecturally correct fix. Pure prompt rules continue to discourage hallucination + repetition, but the slot ORDER is now controlled by deterministic code, not Claude's choice. The customer asks for afternoon → afternoon slots are at the top of the list → Claude picks the first one (which is afternoon). No fighting the model.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
