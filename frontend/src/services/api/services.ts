@@ -349,6 +349,28 @@ export interface AIPreviewResponse {
  *
  * Auth: caller must be the shop that owns the service, or an admin.
  */
+export interface AISpendSnapshot {
+  currentMonthSpendUsd: number;
+  monthlyBudgetUsd: number;
+  percentUsed: number;
+  monthStartedAt: string | null;
+  callsThisMonth: number;
+}
+
+/**
+ * Phase 3 Task 12 — current month's AI spend for the requesting shop.
+ * No params; backend reads shopId from the JWT.
+ */
+export const getAiSpend = async (): Promise<AISpendSnapshot | null> => {
+  try {
+    const response = await apiClient.get<AISpendSnapshot>('/ai/spend');
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting AI spend:', error);
+    return null;
+  }
+};
+
 export const getAiPreview = async (
   serviceId: string,
   tone: AITone,

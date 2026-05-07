@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import { previewAIReply } from './controllers/PreviewController';
+import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
 
 /**
  * AI Agent domain routes.
@@ -9,12 +10,10 @@ import { previewAIReply } from './controllers/PreviewController';
  * Mounted at /api/ai by DomainRegistry (registered in app.ts).
  *
  * Endpoints:
- *   GET  /api/ai/health   — public skeleton-status check
- *   POST /api/ai/preview  — shop/admin: live preview of AI reply for a service
- *
- * Future endpoints (not yet implemented):
- *   - Task 8: customer message handling fires via MessageService hook (no HTTP route)
- *   - Task 12: GET /api/ai/spend  — per-shop spend monitoring
+ *   GET  /api/ai/health        — public skeleton-status check
+ *   POST /api/ai/preview       — shop/admin: live preview of AI reply for a service
+ *   GET  /api/ai/spend         — shop: own monthly spend snapshot (Task 12)
+ *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
 export function initializeRoutes(): Router {
@@ -28,7 +27,12 @@ export function initializeRoutes(): Router {
       domain: 'ai',
       status: 'live',
       phase: '3',
-      endpoints: ['GET /api/ai/health', 'POST /api/ai/preview'],
+      endpoints: [
+        'GET /api/ai/health',
+        'POST /api/ai/preview',
+        'GET /api/ai/spend',
+        'GET /api/ai/admin/cost-summary',
+      ],
     });
   });
 
@@ -40,6 +44,21 @@ export function initializeRoutes(): Router {
     authMiddleware,
     requireRole(['shop', 'admin']),
     previewAIReply
+  );
+
+  // Task 12 — Spend monitoring.
+  // Shop endpoint: returns the requesting shop's own monthly spend. Auth
+  // gates on `shop` role; controller reads shopId from the JWT (no path
+  // param, so a shop can never request another shop's spend).
+  router.get('/spend', authMiddleware, requireRole(['shop']), getOwnShopSpend);
+
+  // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
+  // the auth boundary explicit. Pure read — safe for admin dashboards.
+  router.get(
+    '/admin/cost-summary',
+    authMiddleware,
+    requireRole(['admin']),
+    getAdminCostSummary
   );
 
   return router;
