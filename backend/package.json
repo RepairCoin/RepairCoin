@@ -52,7 +52,11 @@
     "_comment_test_reminders": "# Test Reminder Commands - Usage: npm run test:subscription-reminder:shop -- shop-3 1",
     "test:subscription-reminder": "ts-node scripts/test-subscription-reminder.ts",
     "test:subscription-reminder:reset": "ts-node scripts/reset-subscription-reminder.ts",
-    "test:appointment-reminder": "ts-node -r dotenv/config -e \"import { appointmentReminderService } from './src/services/AppointmentReminderService'; appointmentReminderService.checkAndSendReminders().then(r => { console.log('Result:', JSON.stringify(r, null, 2)); process.exit(0); }).catch(e => { console.error(e); process.exit(1); });\""
+    "test:appointment-reminder": "ts-node -r dotenv/config -e \"import { appointmentReminderService } from './src/services/AppointmentReminderService'; appointmentReminderService.checkAndSendReminders().then(r => { console.log('Result:', JSON.stringify(r, null, 2)); process.exit(0); }).catch(e => { console.error(e); process.exit(1); });\"",
+    "_comment_demo": "# Demo Mode - Toggle the Explore Demo button for Play Store / App Store reviews",
+    "demo:enable": "ts-node -r dotenv/config src/cli/demo-mode.ts enable",
+    "demo:disable": "ts-node -r dotenv/config src/cli/demo-mode.ts disable",
+    "demo:status": "ts-node -r dotenv/config src/cli/demo-mode.ts status"
   },
   "keywords": [
     "blockchain",

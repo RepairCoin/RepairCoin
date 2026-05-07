@@ -1633,4 +1633,90 @@ router.get('/test-cookie', (req, res) => {
   });
 });
 
+/**
+ * Demo mode – used for Play Store / App Store review.
+ * The demo customer must exist in the database (created via `npm run demo:enable`).
+ * Toggling is_active on/off controls whether the button is visible.
+ */
+const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
+
+/**
+ * Check if demo mode is enabled
+ * GET /api/auth/demo/status
+ */
+router.get('/demo/status', async (_req, res) => {
+  try {
+    const customer = await customerRepository.getCustomer(DEMO_ADDRESS);
+    return res.json({ enabled: !!customer?.isActive });
+  } catch {
+    return res.json({ enabled: false });
+  }
+});
+
+/**
+ * Demo mode login
+ * POST /api/auth/demo
+ */
+router.post('/demo', async (req, res) => {
+  try {
+    const customer = await customerRepository.getCustomer(DEMO_ADDRESS);
+
+    if (!customer || !customer.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo mode is not available',
+      });
+    }
+
+    const payload = { address: DEMO_ADDRESS, role: 'customer' as const };
+    const accessToken = generateAccessToken(payload);
+
+    const profile = {
+      id: customer.address,
+      address: customer.address,
+      walletAddress: customer.address,
+      name: customer.name || 'Demo User',
+      firstName: customer.first_name,
+      lastName: customer.last_name,
+      email: customer.email,
+      phone: customer.phone,
+      tier: customer.tier,
+      active: true,
+      isActive: true,
+      createdAt: customer.joinDate,
+      joinDate: customer.joinDate,
+      lifetimeEarnings: customer.lifetimeEarnings || 0,
+      currentBalance: customer.currentBalance || 0,
+      currentRcnBalance: customer.currentRcnBalance || 0,
+      pendingMintBalance: customer.pendingMintBalance || 0,
+      totalRedemptions: customer.totalRedemptions || 0,
+      lastEarnedDate: customer.lastEarnedDate,
+      referralCode: customer.referralCode,
+      referralCount: customer.referralCount || 0,
+      isDemo: true,
+    };
+
+    logger.info('Demo mode login', { ip: req.ip });
+
+    return res.json({
+      success: true,
+      data: {
+        accessToken,
+        refreshToken: '',
+        expiresIn: 15 * 60,
+        address: DEMO_ADDRESS,
+        role: 'customer',
+      },
+      token: accessToken,
+      userType: 'customer',
+      address: DEMO_ADDRESS,
+      profile,
+    });
+  } catch (error) {
+    logger.error('Error in demo login:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export { DEMO_ADDRESS };
 export default router;
