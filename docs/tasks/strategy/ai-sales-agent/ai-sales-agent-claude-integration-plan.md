@@ -745,6 +745,26 @@ First Task 10 smoke landed AI replies but **no booking-card rendered**. Diagnosi
 - `PromptTemplates.test.ts` — 1 new test verifying the prompt now contains "proactive" / "propose ONE specific slot" guidance + "what's available" example trigger.
 - Full suite now: **164 ai-agent tests across 9 files**.
 
+---
+
+#### Task 10 second fix (2026-05-07, branch `deo/phase-3-task-10-fix-2`)
+
+After fix #1 deployed, smoke retest STILL produced no booking card. Diagnostic showed:
+- ✅ Sharpened prompt was deployed (4096 → 4803 chars per `request_payload->>'systemPromptLength'`)
+- ✅ Hook fired, no errors, healthy token counts (2102 in / 83 out)
+- ❌ `metadata.booking_suggestions` empty AND `metadata.booking_suggestion_dropped` empty — meaning **AI never even emitted a JSON block**
+- Claude's reply: *"We currently have availability on Thursday, May 7 — would you like me to suggest a specific time slot to book?"* — still asking permission to suggest, not just suggesting.
+
+**Root cause:** rule-based prompts alone weren't enough to override Claude's default deference. Claude kept "asking permission" before recommending. Pure rules + conditions were ambiguous enough that Claude played it safe.
+
+**Fix:** few-shot examples in the prompt. Concrete GOOD vs. BAD reply patterns are typically the most effective way to override Claude's defaults:
+
+- **GOOD example:** "{First slot label} works well for {service} — tap below to lock it in.\n\n```booking_suggestion\n{...}\n```" — shows the exact desired format with a real slot from the customer's prompt context.
+- **BAD anti-examples** (explicitly forbidden in-prompt): "Would you like me to suggest one?" / "Would you like me to suggest a specific time slot to book?" — names the failure mode by quoting Claude's previous output back to it.
+- **Imperative framing:** "You ARE the booking agent. The customer expects YOU to recommend a specific slot. They will not pick one themselves — that's your job. NEVER ask 'would you like me to suggest a specific time slot?'"
+
+**Tests:** 1 new test in `PromptTemplates.test.ts` verifying the few-shot example references a real slot AND the bad-example anti-pattern is named explicitly. Full suite: **165 tests across 9 files**.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
