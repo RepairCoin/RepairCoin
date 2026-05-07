@@ -701,6 +701,17 @@ class RepairCoinApp {
       logger.info('✅ WebSocket manager attached to MessagingDomain');
     }
 
+    // Attach WebSocket manager to AIAgentDomain (Phase 3 Task 11) so the
+    // order-completion confirmation reply lands in real-time for the customer
+    const aiAgentDomain = domainRegistry.getAllDomains().find(
+      d => d.name === 'ai'
+    ) as any;
+
+    if (aiAgentDomain && aiAgentDomain.setWebSocketManager) {
+      aiAgentDomain.setWebSocketManager(this.wsManager);
+      logger.info('✅ WebSocket manager attached to AIAgentDomain');
+    }
+
     this.server.listen(port, () => {
       console.log('\n==============================================');
       console.log('🚀 RepairCoin Backend API Started Successfully');
