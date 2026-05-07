@@ -297,4 +297,15 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
       expect(p).toContain(slot1.slotIso);
     }
   });
+
+  it("instructs Claude to be PROACTIVE — propose a slot when customer asks 'what's available'", () => {
+    // Regression guard for the Task 10 fix: the original prompt told the AI
+    // "DO NOT include a block unless the customer expressed booking intent",
+    // which made it list slots and wait for the customer to pick instead of
+    // recommending one. Sharpened to push proactive recommendation.
+    const ctx = baseContext({ availabilitySlots: [slot1, slot2] });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/proactive|propose ONE specific slot/i);
+    expect(prompt).toMatch(/what'?s available|when can I come in|do you have any openings/i);
+  });
 });

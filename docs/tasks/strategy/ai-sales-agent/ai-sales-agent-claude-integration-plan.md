@@ -722,6 +722,29 @@ User picked **Option B** (real availability injected into the prompt) over the l
 3. Tap card → `/service/srv_b294a818.../?suggestedSlotIso=...` → checkout modal auto-opens with date + time pre-filled
 4. Verify: AI does NOT suggest fabricated slots if shop has no openings (block omitted, reply still flows naturally)
 
+---
+
+#### Task 10 fix (2026-05-07, branch `deo/phase-3-task-10-fix`)
+
+First Task 10 smoke landed AI replies but **no booking-card rendered**. Diagnosis via `backend/scripts/diagnose-task10-failure.ts`:
+
+- ✅ Hook fired correctly (audit row, healthy token counts, no errors)
+- ✅ Slot list reaching the prompt (input tokens jumped from ~1000 → ~1900, +887 for the booking block)
+- ❌ `messages.metadata.booking_suggestions` empty on every AI reply
+- ❌ AI reply text said "We currently have availability on Thursday, May 7 across multiple time slots. Would you like to book one?" — generic, no specific slot picked, no JSON block emitted
+
+**Root cause:** the original prompt was too conservative: *"ONLY emit the block when you are recommending a specific slot. If you're still answering questions or the customer hasn't expressed booking intent, DO NOT include a block."* Claude was interpreting "Can I book Thursday afternoon? what time is available?" as a **question**, not booking intent — so it listed slots and waited for the customer to choose.
+
+**Fix:**
+- **`PromptTemplates.buildBookingBlock`** — rewrote the WHEN-to-emit guidance to push **proactive** behavior. Customer asks "what's available?" / "when can I come in?" / mentions a day → AI proposes ONE specific slot from the list and emits the block. Don't list every slot and ask the customer to pick — pick the top recommendation and offer it. Pricing/general questions still skip the block.
+- **`BookingSuggestionParser`** — added a `droppedReasons: DropReason[]` field to the parser result + a `DropReason` discriminated union (`malformed_json | missing_service_id | wrong_service_id | missing_slot_iso | hallucinated_slot_iso | invalid_deposit`). Surfaces *why* a block was rejected so we can debug from DB.
+- **`AgentOrchestrator`** — persists the dropped reasons on `messages.metadata.booking_suggestion_dropped[]` when non-empty. Diagnostic visibility without log access — easy to tell "AI tried but parser rejected" vs "AI never tried" by looking at the message row.
+
+**Tests:**
+- `BookingSuggestionParser.test.ts` — 6 new tests for each `DropReason` variant + happy-path `droppedReasons` empty.
+- `PromptTemplates.test.ts` — 1 new test verifying the prompt now contains "proactive" / "propose ONE specific slot" guidance + "what's available" example trigger.
+- Full suite now: **164 ai-agent tests across 9 files**.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.

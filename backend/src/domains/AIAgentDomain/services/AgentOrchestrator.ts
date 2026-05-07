@@ -249,12 +249,15 @@ export class AgentOrchestrator {
       for (const slot of availabilitySlots) {
         slotLabelsByIso[slot.slotIso] = slot.humanLabel;
       }
-      const { cleanText: customerFacingText, suggestions: bookingSuggestions } =
-        parseBookingSuggestions(claudeResponse.text, {
-          expectedServiceId: serviceId,
-          validSlotsIso: availabilitySlots.map((s) => s.slotIso),
-          slotLabelsByIso,
-        });
+      const {
+        cleanText: customerFacingText,
+        suggestions: bookingSuggestions,
+        droppedReasons: bookingSuggestionDropReasons,
+      } = parseBookingSuggestions(claudeResponse.text, {
+        expectedServiceId: serviceId,
+        validSlotsIso: availabilitySlots.map((s) => s.slotIso),
+        slotLabelsByIso,
+      });
 
       // 7. Insert AI reply into messages table
       const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
@@ -279,6 +282,12 @@ export class AgentOrchestrator {
           // validation (e.g., hallucinated slot not in availability set).
           ...(bookingSuggestions.length > 0
             ? { booking_suggestions: bookingSuggestions }
+            : {}),
+          // Diagnostic counters when the AI emitted blocks that failed
+          // validation. Surfaces "AI tried but parser rejected" vs "AI
+          // never tried" without needing log access — see the DB to debug.
+          ...(bookingSuggestionDropReasons.length > 0
+            ? { booking_suggestion_dropped: bookingSuggestionDropReasons }
             : {}),
         },
       });

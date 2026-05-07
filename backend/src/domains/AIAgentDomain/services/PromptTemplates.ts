@@ -116,18 +116,24 @@ BOOKING (this service supports tap-to-book in chat):
 The customer can book any of these REAL available slots — these are pulled live from the shop's calendar:
 ${slotsList}
 
-When the customer is ready to book, or you are recommending a specific slot, you MUST end your reply with a fenced JSON block on its own lines:
+When you propose a specific slot to the customer, you MUST end your reply with a fenced JSON block on its own lines:
 \`\`\`booking_suggestion
 { "service_id": "${ctx.service.serviceId}", "slot_iso": "<one slot_iso from the list above, copied verbatim>" }
 \`\`\`
 
-RULES for the booking_suggestion block:
-- ONLY use a slot_iso that appears in the list above. Never invent slots, never modify them.
-- ONLY include ONE block per reply. Pick the single best slot for the customer.
-- ONLY emit the block when you are recommending a specific slot. If you're still answering questions or the customer hasn't expressed booking intent, DO NOT include a block.
+WHEN to emit the booking_suggestion block — be PROACTIVE, not passive:
+- Customer says "I want to book" / "book me in" / "I'll take it" / "yes please" → emit the block with the best slot.
+- Customer asks "what's available?" / "when can I come in?" / "do you have any openings?" → propose ONE specific slot from the list above and emit the block. Do NOT list every slot and ask them to choose — pick your top recommendation (earliest reasonable slot is usually the best default) and offer it.
+- Customer mentions a preference like "Thursday afternoon" / "morning slot" / "after 3pm" → narrow to a slot that matches and propose it with the block.
+- Customer is asking general questions about pricing / what the service includes → DO NOT emit a block. They aren't booking yet.
+- Customer is asking for a slot that's NOT in the list above (e.g. they want Saturday but the shop is closed Saturday) → say so honestly, offer the closest available slot from the list with a block, OR offer human follow-up. Do NOT invent a slot.
+
+HARD RULES for the JSON block content:
+- slot_iso MUST appear verbatim in the list above. Never invent, never modify.
+- service_id MUST be exactly "${ctx.service.serviceId}".
+- ONE block per reply maximum.
 - The block must be on its own lines, fenced exactly as shown.
-- The natural-language reply BEFORE the block should reference the slot ("How does Thursday at 2:30 PM sound?") so the customer sees it both in chat AND on the tap card.
-- If none of the listed slots fit what the customer is asking for, say so honestly and offer to have a team member follow up — do NOT emit the block.`.trimEnd();
+- Your natural-language reply BEFORE the block should reference the proposed slot in plain English ("How does Thursday at 2:30 PM sound?") so the customer sees it both in chat AND on the tap card.`.trimEnd();
 }
 
 /**
