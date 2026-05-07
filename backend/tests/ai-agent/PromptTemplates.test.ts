@@ -323,4 +323,49 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
     expect(prompt).toMatch(/would you like me to suggest|would you like me to suggest a specific time slot/i);
     expect(prompt).toMatch(/never|do not|don't.*ask permission|passive/i);
   });
+
+  it("instructs Claude to match the customer's time-of-day preference", () => {
+    // Regression guard for fix-3: smoke showed the AI suggesting 9 AM and
+    // 10 AM after the customer asked for "Thursday afternoon" THREE TIMES.
+    // Strengthened prompt with explicit time-band definitions so morning ≠
+    // afternoon. AI must pick a slot at 12 PM or later when "afternoon" is
+    // requested.
+    const ctx = baseContext({ availabilitySlots: [slot1, slot2] });
+    const prompt = professionalPrompt(ctx);
+    // Time bands explicitly defined
+    expect(prompt).toMatch(/morning.*before 12/i);
+    expect(prompt).toMatch(/afternoon.*12.*PM or later|afternoon.*at 12/i);
+    expect(prompt).toMatch(/evening.*5/i);
+    // Anti-pattern explicitly forbidden — 9/10/11 AM are NOT afternoon
+    expect(prompt).toMatch(/9 AM, 10 AM.*afternoon|NEVER suggest 9 AM/i);
+  });
+});
+
+describe("PromptTemplates — universal style rules (Phase 3 Task 10 fix-3)", () => {
+  it("forbids restating the service summary on every reply", () => {
+    // Smoke showed every AI reply opening with "Thank you for your interest,
+    // Lee Ann! Here is a quick summary of the Newly Baker service: Price
+    // $99.00, Duration 30 minutes, Category Food & Beverage..." — even on
+    // follow-ups where the customer obviously already knows. Robotic.
+    const ctx = baseContext();
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/restate the service summary|don't.*restate.*price.*duration|robotic/i);
+  });
+
+  it("includes good vs bad opener examples", () => {
+    const ctx = baseContext();
+    const prompt = professionalPrompt(ctx);
+    // The bad opener pattern that has appeared repeatedly in production
+    expect(prompt).toMatch(/Thank you for your interest!.*summary|here is a summary/i);
+    // At least one good conversational opener example
+    expect(prompt).toMatch(/sure|short answer|conversational|Match the customer'?s energy/i);
+  });
+
+  it("applies the style rules to all three tones", () => {
+    const ctx = baseContext();
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toMatch(/restate the service summary|robotic|conversational/i);
+    }
+  });
 });

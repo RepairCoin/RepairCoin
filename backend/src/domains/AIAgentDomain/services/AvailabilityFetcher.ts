@@ -25,10 +25,15 @@ import { AgentAvailabilitySlot } from "../types";
 const LOOKAHEAD_DAYS = 3;
 
 /**
- * Hard cap on slots returned. Even if more are bookable, we trim to this many
- * to keep the system prompt cheap. Earliest-first.
+ * Hard cap on slots returned. Earliest-first ordering, but the cap matters:
+ * with typical 50-minute slots and a 9-hour shop day (~10 slots/day), 8 slots
+ * only covered the morning of day 1 — so customers asking for "afternoon"
+ * had no afternoon options visible to the AI. 15 covers a full day plus
+ * roughly half of the next, giving morning + afternoon + early evening
+ * diversity. Token cost: ~+350 tokens per call (~$0.001/call extra), worth
+ * it for actually honoring time-of-day preferences.
  */
-const MAX_SLOTS = 8;
+const MAX_SLOTS = 15;
 
 export interface AvailabilityFetcherDeps {
   appointmentService?: AppointmentService;
