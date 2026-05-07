@@ -353,3 +353,160 @@ describe("AgentOrchestrator — message handling", () => {
     ]);
   });
 });
+
+describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
+  // Helper to build mocks with availability slots + a tool-use response.
+  const slotIso = "2026-05-08T18:00:00.000Z";
+  const buildMocksWithSlots = (toolResponse: any) => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: toolResponse,
+      },
+    });
+    // Inject availability slots into the context the orchestrator reads
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      service: {
+        serviceId: "srv_test",
+        serviceName: "Test Service",
+        priceUsd: 50,
+        category: "test",
+        description: "test",
+        customInstructions: null,
+        bookingAssistance: true,
+        suggestUpsells: false,
+      },
+      customer: { address: "0xabc", name: "Test", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
+      conversationHistory: [],
+      siblingServices: [],
+      availabilitySlots: [
+        { date: "2026-05-08", time: "14:00", slotIso, humanLabel: "Friday at 2:00 PM" },
+        {
+          date: "2026-05-08",
+          time: "15:00",
+          slotIso: "2026-05-08T19:00:00.000Z",
+          humanLabel: "Friday at 3:00 PM",
+        },
+      ],
+    });
+    return mocks;
+  };
+
+  it("passes tools to AnthropicClient when availability slots exist", async () => {
+    const { orch, anthropicClient } = buildMocksWithSlots([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_xxx",
+        input: { slot_iso: slotIso, reply_text: "Friday at 2 PM works." },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const callArgs = anthropicClient.complete.mock.calls[0][0];
+    expect(callArgs.tools).toBeDefined();
+    expect(callArgs.tools[0].name).toBe("propose_booking_slot");
+    expect(callArgs.tools[0].inputSchema.properties.slot_iso.enum).toContain(slotIso);
+    expect(callArgs.toolChoice).toEqual({ type: "auto" });
+  });
+
+  it("uses tool output for the customer-facing reply when Claude calls the tool", async () => {
+    const { orch, messageRepo } = buildMocksWithSlots([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_xxx",
+        input: { slot_iso: slotIso, reply_text: "Friday at 2 PM works — tap below." },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    expect(created.messageText).toBe("Friday at 2 PM works — tap below.");
+    expect(created.metadata.booking_suggestions).toEqual([
+      {
+        serviceId: "srv_test",
+        slotIso,
+        humanLabel: "Friday at 2:00 PM",
+      },
+    ]);
+  });
+
+  it("falls back to text parser when Claude does NOT call the tool", async () => {
+    // Customer asked a non-booking question; Claude returns plain text
+    const { orch, messageRepo } = buildMocksWithSlots([]);
+    // Override the response text since plain-text path uses claudeResponse.text
+    const { orch: o2, messageRepo: m2 } = makeMocks({
+      claudeResponse: {
+        text: "It includes a full diagnostic plus a courtesy wash.",
+        model: "claude-sonnet-4-6",
+        stopReason: "end_turn",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    await o2.handleCustomerMessage(sampleInput());
+    const created = m2.createMessage.mock.calls[0][0];
+    expect(created.messageText).toBe("It includes a full diagnostic plus a courtesy wash.");
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+  });
+
+  it("rejects + flags tool calls with out-of-enum slot_iso", async () => {
+    // Anthropic SHOULD reject this at the API boundary, but defense-in-depth:
+    // if a hallucinated slot slips through, we drop it.
+    const { orch, messageRepo } = buildMocksWithSlots([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_xxx",
+        input: {
+          slot_iso: "2026-12-31T20:00:00.000Z", // not in availability set
+          reply_text: "How about New Year's Eve?",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "tool_returned_invalid_slot",
+    ]);
+  });
+
+  it("does NOT pass tools when availability slots are empty", async () => {
+    const { orch, anthropicClient } = makeMocks({
+      claudeResponse: {
+        text: "Sorry, no openings this week.",
+        model: "claude-sonnet-4-6",
+        stopReason: "end_turn",
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.001,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    await orch.handleCustomerMessage(sampleInput());
+    const callArgs = anthropicClient.complete.mock.calls[0][0];
+    expect(callArgs.tools).toBeUndefined();
+  });
+});

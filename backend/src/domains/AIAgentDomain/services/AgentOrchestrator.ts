@@ -40,6 +40,19 @@ import { EscalationDetector } from "./EscalationDetector";
 import { parseBookingSuggestions } from "./BookingSuggestionParser";
 import { reorderSlotsByPreference } from "./TimePreferenceMatcher";
 import { scrubAssistantHistory } from "./ConversationHistoryScrubber";
+import { ClaudeTool, BookingSuggestion } from "../types";
+
+/**
+ * Tool name for the booking-suggestion path. Phase 3 Task 10 fix-6 — replaces
+ * the fenced-JSON-block parser with a tool-use schema Claude can't ignore.
+ *
+ * Anthropic validates `input` against `input_schema` BEFORE we see the
+ * response. So slot_iso is guaranteed to be one of the listed values
+ * (no hallucinated slots), and reply_text is guaranteed to fit the maxLength
+ * (no rambling "$99 and 30 minutes" prefix).
+ */
+const BOOKING_TOOL_NAME = "propose_booking_slot";
+const BOOKING_REPLY_MAX_CHARS = 200;
 import {
   HandleCustomerMessageInput,
   HandleCustomerMessageResult,
@@ -231,11 +244,28 @@ export class AgentOrchestrator {
         messages.push({ role: "user", content: customerMessageText });
       }
 
+      // Build the booking-suggestion tool when we have real slots to offer
+      // (Phase 3 Task 10 fix-6). Claude is required to use this tool (and
+      // only this tool) when proposing a booking. The schema constrains
+      // slot_iso to the validated set + caps reply_text length, so Claude
+      // physically can't hallucinate a slot or pad the message with the
+      // service summary boilerplate the prompt rules couldn't suppress.
+      const availabilitySlotsForCall = ctx.availabilitySlots ?? [];
+      const slotLabelsByIsoForCall: Record<string, string> = {};
+      for (const slot of availabilitySlotsForCall) {
+        slotLabelsByIsoForCall[slot.slotIso] = slot.humanLabel;
+      }
+      const tools: ClaudeTool[] | undefined =
+        availabilitySlotsForCall.length > 0
+          ? [buildBookingSuggestionTool(serviceId, availabilitySlotsForCall)]
+          : undefined;
+
       const requestPayload = {
         model,
         systemPromptLength: systemPrompt.length,
         messageCount: messages.length,
         tone,
+        toolsAvailable: tools?.length ?? 0,
       };
 
       let claudeResponse;
@@ -248,6 +278,7 @@ export class AgentOrchestrator {
           messages,
           model,
           maxTokens: MAX_OUTPUT_TOKENS,
+          ...(tools ? { tools, toolChoice: { type: "auto" as const } } : {}),
         });
       } catch (err: any) {
         await this.auditLogger.log({
@@ -269,26 +300,76 @@ export class AgentOrchestrator {
         return { outcome: "failed", error: err?.message ?? String(err) };
       }
 
-      // 6.5 Extract any booking_suggestion blocks from the reply (Phase 3
-      // Task 10). The customer-facing text is the cleaned version with the
-      // raw JSON stripped; the parsed suggestions go on metadata for the
-      // frontend's BookingSuggestionCard. Validation guarantees the slot is
-      // one we sent in the prompt and the service matches the conversation.
-      // Defensive `?? []` against pre-Task-10 mocks/callers that may not
-      // populate availabilitySlots — same effect as no-suggestions.
+      // 6.5 Extract booking suggestion (Phase 3 Task 10 fix-6 — tool use).
+      // Prefer Claude's tool_use output (schema-enforced) over the legacy
+      // fenced-JSON parser. Fall back to the parser if Claude emitted plain
+      // text without using the tool — rare, but covers the case where Claude
+      // decides not to suggest a slot at all (then the parser returns no
+      // suggestions and the text passes through cleanly).
       const availabilitySlots = ctx.availabilitySlots ?? [];
-      const slotLabelsByIso: Record<string, string> = {};
-      for (const slot of availabilitySlots) {
-        slotLabelsByIso[slot.slotIso] = slot.humanLabel;
+      const slotLabelsByIso = slotLabelsByIsoForCall;
+
+      // Defensive `?? []` for older AnthropicClient mocks that don't populate
+      // toolUses. Real responses always do (empty array when no tools called).
+      const toolBlock = (claudeResponse.toolUses ?? []).find(
+        (t) => t.toolName === BOOKING_TOOL_NAME
+      );
+
+      let customerFacingText: string;
+      let bookingSuggestions: BookingSuggestion[];
+      let bookingSuggestionDropReasons: string[];
+      let bookingPath: "tool" | "text_parser" | "none";
+
+      if (toolBlock) {
+        const slotIso = String(toolBlock.input.slot_iso ?? "");
+        const replyText = String(toolBlock.input.reply_text ?? "").trim();
+        const inSet = availabilitySlots.some((s) => s.slotIso === slotIso);
+        if (inSet && replyText.length > 0) {
+          // Tool call validated by Anthropic + double-checked by us.
+          customerFacingText = replyText;
+          bookingSuggestions = [
+            {
+              serviceId,
+              slotIso,
+              ...(slotLabelsByIso[slotIso]
+                ? { humanLabel: slotLabelsByIso[slotIso] }
+                : {}),
+            },
+          ];
+          bookingSuggestionDropReasons = [];
+          bookingPath = "tool";
+        } else {
+          // Anthropic should have rejected an out-of-enum slot_iso, but
+          // defense-in-depth: if it slips through, drop the suggestion and
+          // fall back to whatever text Claude emitted.
+          logger.warn(
+            "AgentOrchestrator: tool returned invalid slot_iso, falling back to text",
+            { slotIso, replyTextLen: replyText.length }
+          );
+          customerFacingText = claudeResponse.text || replyText;
+          bookingSuggestions = [];
+          bookingSuggestionDropReasons = ["tool_returned_invalid_slot"];
+          bookingPath = "tool";
+        }
+      } else {
+        // No tool call — Claude chose not to propose a slot (or the request
+        // didn't include the tool because no slots were available). Use the
+        // legacy parser on the text reply. With tools deployed and slots
+        // available, this branch should rarely fire — when it does, it just
+        // means Claude judged this turn as not booking-relevant.
+        const parsed = parseBookingSuggestions(claudeResponse.text, {
+          expectedServiceId: serviceId,
+          validSlotsIso: availabilitySlots.map((s) => s.slotIso),
+          slotLabelsByIso,
+        });
+        customerFacingText = parsed.cleanText;
+        bookingSuggestions = parsed.suggestions;
+        bookingSuggestionDropReasons = parsed.droppedReasons;
+        bookingPath = parsed.suggestions.length > 0 ? "text_parser" : "none";
       }
-      const {
-        cleanText: customerFacingText,
-        suggestions: bookingSuggestions,
-        droppedReasons: bookingSuggestionDropReasons,
-      } = parseBookingSuggestions(claudeResponse.text, {
-        expectedServiceId: serviceId,
-        validSlotsIso: availabilitySlots.map((s) => s.slotIso),
-        slotLabelsByIso,
+      logger.debug("AgentOrchestrator: booking-suggestion path resolved", {
+        bookingPath,
+        suggestionCount: bookingSuggestions.length,
       });
 
       // 7. Insert AI reply into messages table
@@ -386,3 +467,69 @@ export class AgentOrchestrator {
 // ANTHROPIC_API_KEY at construction time, which breaks tests / non-AI code paths
 // that import this file. Callers (Task 8's MessageService hook) instantiate
 // `new AgentOrchestrator()` when needed.
+
+/**
+ * Build the propose_booking_slot tool definition for the current set of
+ * available slots. Phase 3 Task 10 fix-6.
+ *
+ * The schema enforces:
+ *   - slot_iso MUST be one of the available slots (enum)
+ *   - reply_text capped at BOOKING_REPLY_MAX_CHARS (no $99-and-30-min boilerplate)
+ *
+ * Anthropic validates the tool's input against this schema before returning
+ * the response, so an out-of-enum slot or over-length reply is rejected at
+ * the API boundary — Claude can't ignore a schema the way it ignores prompt
+ * rules. The orchestrator still double-checks defensively (model could in
+ * principle skip the tool call entirely if Anthropic's validator changes
+ * behavior).
+ */
+function buildBookingSuggestionTool(
+  serviceId: string,
+  availabilitySlots: { slotIso: string; humanLabel: string }[]
+): ClaudeTool {
+  const slotEnum = availabilitySlots.map((s) => s.slotIso);
+  const slotChoicesForDescription = availabilitySlots
+    .slice(0, 5)
+    .map((s) => `${s.humanLabel} (${s.slotIso})`)
+    .join("; ");
+
+  return {
+    name: BOOKING_TOOL_NAME,
+    description: [
+      `Propose a specific bookable appointment slot to the customer for service ${serviceId}.`,
+      `Use ONLY when the customer is showing booking intent (asking about times, picking a slot, saying yes to a previous suggestion).`,
+      `Do NOT use for general pricing/policy questions where the customer hasn't expressed booking intent.`,
+      `Examples of when to use: "what times do you have?", "Can I book Thursday?", "yes please", "Thursday at 2pm works".`,
+      `Examples of when NOT to use: "how much does this cost?", "what's included?", "what should I bring?".`,
+      `Available slots include: ${slotChoicesForDescription}.`,
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        slot_iso: {
+          type: "string",
+          enum: slotEnum,
+          description:
+            "The ISO 8601 timestamp of the specific slot you are proposing. MUST be exactly one of the values listed in the enum — no invented or modified slots.",
+        },
+        reply_text: {
+          type: "string",
+          maxLength: BOOKING_REPLY_MAX_CHARS,
+          description: [
+            "The natural-language message the customer will see in chat alongside the tap-to-book card.",
+            "RULES:",
+            "(1) MUST reference the proposed slot in plain English (e.g. 'How does Thursday at 2:30 PM sound?').",
+            "(2) MUST be conversational — like a real shop owner texting back, not a service brochure.",
+            "(3) MUST NOT restate price, duration, or category. The customer already knows.",
+            "(4) MUST NOT include a follow-up question chain. One sentence is best.",
+            "(5) Keep under 150 characters in practice.",
+            "GOOD: 'Thursday at 2:30 PM works — tap below to lock it in.'",
+            "BAD: 'The service is $99 and runs 30 minutes. We have availability as early as Thursday — would you like me to lock in a slot?'",
+          ].join(" "),
+        },
+      },
+      required: ["slot_iso", "reply_text"],
+      additionalProperties: false,
+    },
+  };
+}
