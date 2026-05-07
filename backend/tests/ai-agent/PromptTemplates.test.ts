@@ -46,6 +46,7 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
   },
   conversationHistory: [],
   siblingServices: [],
+  availabilitySlots: [],
   ...overrides,
 });
 
@@ -240,6 +241,60 @@ describe("PromptTemplates — output sanity", () => {
       const allowed = ["{SHOP_NAME}", "{SERVICE_NAME}"];
       const unexpected = (placeholders ?? []).filter((m) => !allowed.includes(m));
       expect(unexpected).toEqual([]);
+    }
+  });
+});
+
+describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () => {
+  const slot1 = {
+    date: "2026-05-08",
+    time: "14:30",
+    slotIso: "2026-05-08T06:30:00.000Z",
+    humanLabel: "Thursday, May 8 at 2:30 PM",
+  };
+  const slot2 = {
+    date: "2026-05-08",
+    time: "15:30",
+    slotIso: "2026-05-08T07:30:00.000Z",
+    humanLabel: "Thursday, May 8 at 3:30 PM",
+  };
+
+  it("omits the booking block entirely when no availability slots are present", () => {
+    const ctx = baseContext({ availabilitySlots: [] });
+    const prompts = [friendlyPrompt(ctx), professionalPrompt(ctx), urgentPrompt(ctx)];
+    for (const p of prompts) {
+      expect(p).not.toContain("BOOKING");
+      expect(p).not.toContain("booking_suggestion");
+      expect(p).not.toContain("slot_iso");
+    }
+  });
+
+  it("emits the slot list verbatim when availability is provided", () => {
+    const ctx = baseContext({ availabilitySlots: [slot1, slot2] });
+    const prompt = friendlyPrompt(ctx);
+    expect(prompt).toContain("Thursday, May 8 at 2:30 PM");
+    expect(prompt).toContain("2026-05-08T06:30:00.000Z");
+    expect(prompt).toContain("Thursday, May 8 at 3:30 PM");
+    expect(prompt).toContain("2026-05-08T07:30:00.000Z");
+  });
+
+  it("instructs Claude to emit the fenced booking_suggestion JSON block + ONLY-listed slots", () => {
+    const ctx = baseContext({ availabilitySlots: [slot1] });
+    const prompt = professionalPrompt(ctx);
+    // Fence + variable name visible
+    expect(prompt).toContain("```booking_suggestion");
+    // Service id substituted into the JSON template
+    expect(prompt).toContain('"service_id": "srv_test"');
+    // Anti-hallucination guardrail
+    expect(prompt).toMatch(/never invent|verbatim|copied/i);
+  });
+
+  it("applies to all three tones consistently", () => {
+    const ctx = baseContext({ availabilitySlots: [slot1] });
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toContain("```booking_suggestion");
+      expect(p).toContain(slot1.slotIso);
     }
   });
 });
