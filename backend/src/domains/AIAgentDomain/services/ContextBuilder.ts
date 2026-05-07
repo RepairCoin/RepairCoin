@@ -16,6 +16,7 @@ import { CustomerRepository } from "../../../repositories/CustomerRepository";
 import { ShopRepository } from "../../../repositories/ShopRepository";
 import { ServiceRepository } from "../../../repositories/ServiceRepository";
 import { MessageRepository } from "../../../repositories/MessageRepository";
+import { AvailabilityFetcher } from "./AvailabilityFetcher";
 import {
   AgentContext,
   AgentServiceContext,
@@ -23,6 +24,7 @@ import {
   AgentShopContext,
   AgentMessageContext,
   AgentSiblingService,
+  AgentAvailabilitySlot,
 } from "../types";
 
 /**
@@ -58,7 +60,8 @@ export class ContextBuilder {
     private readonly customerRepo: CustomerRepository = new CustomerRepository(),
     private readonly shopRepo: ShopRepository = new ShopRepository(),
     private readonly serviceRepo: ServiceRepository = new ServiceRepository(),
-    private readonly messageRepo: MessageRepository = new MessageRepository()
+    private readonly messageRepo: MessageRepository = new MessageRepository(),
+    private readonly availabilityFetcher: AvailabilityFetcher = new AvailabilityFetcher()
   ) {}
 
   /**
@@ -81,9 +84,10 @@ export class ContextBuilder {
 
     const includeUpsells =
       params.includeUpsells ?? serviceRow.aiSuggestUpsells ?? false;
+    const includeBookingSlots = serviceRow.aiBookingAssistance === true;
 
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       this.messageRepo.getConversationMessages(conversationId, {
@@ -93,6 +97,12 @@ export class ContextBuilder {
       includeUpsells
         ? this.fetchSiblingServices(serviceRow.shopId, serviceId)
         : Promise.resolve([] as AgentSiblingService[]),
+      // Only fetch real bookable slots when the shop has booking assistance
+      // turned on for this service. Saves a per-day DB roundtrip on services
+      // that won't surface a booking card anyway. (Phase 3 Task 10)
+      includeBookingSlots
+        ? this.availabilityFetcher.fetchUpcomingSlots(serviceRow.shopId, serviceId)
+        : Promise.resolve([] as AgentAvailabilitySlot[]),
     ]);
 
     if (!customerRow) {
@@ -110,6 +120,7 @@ export class ContextBuilder {
         this.toMessageContext(m)
       ),
       siblingServices: siblingsResult,
+      availabilitySlots,
     };
   }
 

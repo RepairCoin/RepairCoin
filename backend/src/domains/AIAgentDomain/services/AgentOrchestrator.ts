@@ -37,6 +37,7 @@ import { buildSystemPrompt } from "./PromptTemplates";
 import { AuditLogger } from "./AuditLogger";
 import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { EscalationDetector } from "./EscalationDetector";
+import { parseBookingSuggestions } from "./BookingSuggestionParser";
 import {
   HandleCustomerMessageInput,
   HandleCustomerMessageResult,
@@ -236,6 +237,25 @@ export class AgentOrchestrator {
         return { outcome: "failed", error: err?.message ?? String(err) };
       }
 
+      // 6.5 Extract any booking_suggestion blocks from the reply (Phase 3
+      // Task 10). The customer-facing text is the cleaned version with the
+      // raw JSON stripped; the parsed suggestions go on metadata for the
+      // frontend's BookingSuggestionCard. Validation guarantees the slot is
+      // one we sent in the prompt and the service matches the conversation.
+      // Defensive `?? []` against pre-Task-10 mocks/callers that may not
+      // populate availabilitySlots — same effect as no-suggestions.
+      const availabilitySlots = ctx.availabilitySlots ?? [];
+      const slotLabelsByIso: Record<string, string> = {};
+      for (const slot of availabilitySlots) {
+        slotLabelsByIso[slot.slotIso] = slot.humanLabel;
+      }
+      const { cleanText: customerFacingText, suggestions: bookingSuggestions } =
+        parseBookingSuggestions(claudeResponse.text, {
+          expectedServiceId: serviceId,
+          validSlotsIso: availabilitySlots.map((s) => s.slotIso),
+          slotLabelsByIso,
+        });
+
       // 7. Insert AI reply into messages table
       const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
       const inserted = await this.messageRepo.createMessage({
@@ -243,7 +263,7 @@ export class AgentOrchestrator {
         conversationId,
         senderAddress: shopId, // The shop is the sender (AI is replying on behalf of the shop)
         senderType: "shop",
-        messageText: claudeResponse.text,
+        messageText: customerFacingText,
         messageType: "text",
         metadata: {
           generated_by: "ai_agent",
@@ -254,6 +274,12 @@ export class AgentOrchestrator {
           // without joining to ai_agent_messages
           cost_usd: claudeResponse.costUsd,
           latency_ms: claudeResponse.latencyMs,
+          // Booking suggestion cards (Phase 3 Task 10). Empty array when
+          // either the AI didn't propose a slot, or the proposal failed
+          // validation (e.g., hallucinated slot not in availability set).
+          ...(bookingSuggestions.length > 0
+            ? { booking_suggestions: bookingSuggestions }
+            : {}),
         },
       });
 

@@ -1,8 +1,8 @@
 # AI Sales Agent — Phase 3: Claude Integration Implementation Plan
 
 **Created:** 2026-05-05
-**Status:** 🟢 In progress — **8 of 13 tasks complete** + Task 9 awaiting merge
-**Last updated:** 2026-05-07 (Task 9 — customer-facing AI badges — pushed)
+**Status:** 🟢 In progress — **9 of 13 tasks complete** + Task 10 awaiting merge
+**Last updated:** 2026-05-07 (Task 10 — booking suggestion buttons with real availability — pushed)
 **Effort:** ~3 weeks engineering (~12-15 working days)
 **Blocker:** None (was Anthropic API key — now resolved)
 **Strategy doc:** `ai-sales-agent-integration-strategy.md` (architecture, model selection, cost model, safety)
@@ -23,8 +23,8 @@
 | 6 | POST /api/ai/preview endpoint | ✅ Merged to main + on staging | `deo/phase-3-task-6` (merged) | 19 unit tests passing. Real-API smoke validated all 3 acceptance criteria on staging (happy path + cache + 403 ownership) |
 | 7 | Frontend: swap aiPreviewMocks → live API | ✅ Merged + visually verified on staging | `deo/phase-3-task-7` (merged) | Live preview rendered correctly for peanut shop's "Newly Baker" service with $99 + 30 min context |
 | 8 | Hook into MessageService.sendMessage | ✅ Merged + verified end-to-end on staging | `deo/phase-3-task-8` (merged) + 2 fix branches: `deo/phase-3-task-8-fix` (metadata.serviceId fallback + shopId ownership check) and `deo/phase-3-task-8-fix-2` (ContextBuilder messageText field + orchestrator empty-content filter) | 141 unit tests passing. Smoke validated: 3 successful AI replies on conv_1773038873896 (~$0.004 each, ~3s latency). Personalization, multi-turn, escalation, AI disclosure, honest-on-uncertainty all working. See "Task 8 fix" + "Task 8 second fix" sections below |
-| 9 | Customer-facing AI UI: badges + disclosure | ⏳ Pushed, awaiting PR | `deo/phase-3-task-9` | New shared `AIAssistantBadge` + `AIMessageLabel` components. 3 edit sites: chat bubble, service detail modal, marketplace card. Smoke pending Vercel deploy |
-| 10 | Booking suggestion buttons (Flavor B) | Not started | — | ~1.5 days |
+| 9 | Customer-facing AI UI: badges + disclosure | ✅ Merged + deployed | `deo/phase-3-task-9` (merged) | Violet AI badges live on staging — chat bubble label, service detail modal, marketplace card |
+| 10 | Booking suggestion buttons (Flavor B) | ⏳ Pushed, awaiting PR | `deo/phase-3-task-10` | Picked Option B (real availability injection). New `AvailabilityFetcher` + `BookingSuggestionParser` backend; `BookingSuggestionCard` frontend; checkout pre-fill via `?suggestedSlotIso=`. 158 tests passing |
 | 11 | Order completion confirmation hook | Not started | — | ~0.5 day |
 | 12 | Spend cap monitoring + admin visibility | Not started | — | ~0.5 day. **Bonus:** also fix the `current_month_spend_usd` rollover bug found during Task 8 smoke — audit log shows $0.012 spent across 3 calls but `ai_shop_settings.current_month_spend_usd` still reads $0.00. Likely interaction with NULL `current_month_started_at` from migration 110 backfill |
 | 13 | Production rollout to pilot shops | Not started | — | Final task |
@@ -665,7 +665,7 @@ Three edit sites:
 - Other peanut services (with `ai_sales_enabled = false`) do NOT show the badge — confirms the gate works
 - Tooltip text shows on hover (desktop) and long-press (mobile)
 
-### Task 10 — Booking suggestion buttons (Flavor B inline cards) (~1.5 days)
+### Task 10 — Booking suggestion buttons (Flavor B inline cards) (~1.5 days) — **DONE 2026-05-07**
 
 **Goal:** when AI mentions a slot or pricing, surface an inline "Book this" card. Customer taps → existing booking UI opens pre-filled. AI does NOT call any tool — it includes structured suggestion data in the response that the frontend renders.
 
@@ -693,6 +693,34 @@ Three edit sites:
 - Customer can complete booking via existing flow
 
 **Rollback:** the JSON-block parser tolerates AI replies without suggestions (already does). Reverting the prompt template change just stops AI from including booking suggestions; replies still flow.
+
+**Implementation log (2026-05-07, branch `deo/phase-3-task-10`):**
+
+User picked **Option B** (real availability injected into the prompt) over the lighter "service-only card" alternative — better UX, more work. Roughly 1 day actual delivery.
+
+**Backend (5 files):**
+- **`AvailabilityFetcher.ts`** (new) — wraps `AppointmentService.getAvailableTimeSlots` (existing, used by the customer booking page). Fetches up to 8 bookable slots across the next 3 days in parallel, formats with timezone-aware ISO + human-readable label. Errors swallowed → returns `[]` so a transient DB hiccup never breaks the AI reply.
+- **`ContextBuilder`** — gates the availability fetch on `service.aiBookingAssistance === true`. New required `availabilitySlots` field on `AgentContext`. Saves the per-day DB roundtrips on services that won't surface a card anyway.
+- **`PromptTemplates.buildBookingBlock`** — emits the slot list + the `booking_suggestion` JSON-block instruction when slots exist. Anti-hallucination guardrail: AI must copy `slot_iso` verbatim from the listed set; never invent slots. Gracefully omits the entire block when no slots are bookable in the lookahead window.
+- **`BookingSuggestionParser.ts`** (new) — extracts every fenced `\`\`\`booking_suggestion ... \`\`\`` block from a Claude reply. Validates: JSON parse + `service_id` matches expected + `slot_iso` is in the validated set + optional `deposit_usd` is a non-negative number. Strips ALL matched blocks (valid + invalid) so customers never see raw JSON. Logs warnings on validation failures.
+- **`AgentOrchestrator`** — runs the parser between Claude's reply and the message-row insert. The customer-facing `messageText` is the cleaned text; valid suggestions land on `messages.metadata.booking_suggestions[]`. Defensive `?? []` on `availabilitySlots` so older callers (or pre-Task-10 mocks) don't trip a runtime error. New `SkipReason` left untouched (existing `service_shop_mismatch` from fix-1 already covers the spoof case).
+
+**Frontend (4 files):**
+- **`BookingSuggestionCard.tsx`** (new) — violet-themed tappable card (matches Task 9's AI badge palette). Calendar icon + "Tap to book" label + slot human label + service name + price/deposit footer. Tapping navigates to `/service/{serviceId}?suggestedSlotIso=ISO`.
+- **`ConversationThread.tsx`** — renders one `BookingSuggestionCard` per item in `message.metadata.booking_suggestions[]`, beneath the AI bubble.
+- **`ServiceCheckoutClient.tsx`** — reads `?suggestedSlotIso=` query param, parses it into a Date + `HH:MM` string, auto-opens `ServiceCheckoutModal` with both pre-filled when an authenticated customer arrives at the route. Skips auto-open for non-customers.
+- **`ServiceCheckoutModal.tsx`** — accepts new optional props `initialBookingDate` + `initialBookingTimeSlot`. The existing date/time picker validates against real availability — if the pre-filled slot has just become unavailable, the customer just picks another with no harm done.
+
+**Tests (4 new in 2 files):**
+- `BookingSuggestionParser.test.ts` — 13 tests: happy path (extract + strip + label), malformed JSON dropped, wrong service_id dropped, hallucinated slot_iso dropped, invalid deposit dropped, multiple blocks (valid + invalid mix), missing slotLabelsByIso fallback.
+- `PromptTemplates.test.ts` — 4 new tests: no booking block when no availability, slot list rendered verbatim, fenced block + anti-hallucination text present, applies to all 3 tones consistently.
+- Full ai-agent suite: **158 tests across 9 files, all passing** (was 141, +17 for Task 10).
+
+**Smoke test pending Vercel deploy + a peanut-shop service with `aiBookingAssistance=true` set:**
+1. Operator: enable `shop_services.ai_booking_assistance = true` for "Newly Baker" (currently false even though `ai_sales_enabled = true`)
+2. Customer messages "Newly Baker" → AI reply mentions a real slot ("How does Thursday at 2:30 PM sound?") + a violet "Tap to book" card appears beneath
+3. Tap card → `/service/srv_b294a818.../?suggestedSlotIso=...` → checkout modal auto-opens with date + time pre-filled
+4. Verify: AI does NOT suggest fabricated slots if shop has no openings (block omitted, reply still flows naturally)
 
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
 

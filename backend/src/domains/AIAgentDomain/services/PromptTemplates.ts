@@ -71,6 +71,8 @@ ${ctx.siblingServices
       ? `\n  RCN balance: ${ctx.customer.rcnBalance.toFixed(0)} (can be redeemed for discount at this shop)`
       : "";
 
+  const bookingBlock = buildBookingBlock(ctx);
+
   return `
 About this shop:
   Name: ${ctx.shop.shopName}
@@ -85,8 +87,47 @@ About this service:
 About the customer:
   Name: ${customerName}
   Loyalty tier: ${tier}${balanceLine}
-${upsellsBlock}
+${upsellsBlock}${bookingBlock}
 `.trim();
+}
+
+/**
+ * Build the booking-suggestion block (Phase 3 Task 10). Empty string if there
+ * are no real bookable slots for this service in the lookahead window — in
+ * that case the AI must NOT emit a booking_suggestion block (we can't honor
+ * it). When slots ARE present, the block:
+ *   1. Lists the real slots with both human-readable label and exact slot_iso
+ *   2. Instructs the AI to ALWAYS append a fenced JSON block when concluding
+ *      a booking-relevant turn, picking from the listed slots verbatim
+ *   3. Specifies the exact JSON shape so the orchestrator's parser can pluck it
+ */
+function buildBookingBlock(ctx: AgentContext): string {
+  if (!ctx.availabilitySlots || ctx.availabilitySlots.length === 0) {
+    return "";
+  }
+
+  const slotsList = ctx.availabilitySlots
+    .map((s) => `  - ${s.humanLabel}  (slot_iso: ${s.slotIso})`)
+    .join("\n");
+
+  return `
+
+BOOKING (this service supports tap-to-book in chat):
+The customer can book any of these REAL available slots — these are pulled live from the shop's calendar:
+${slotsList}
+
+When the customer is ready to book, or you are recommending a specific slot, you MUST end your reply with a fenced JSON block on its own lines:
+\`\`\`booking_suggestion
+{ "service_id": "${ctx.service.serviceId}", "slot_iso": "<one slot_iso from the list above, copied verbatim>" }
+\`\`\`
+
+RULES for the booking_suggestion block:
+- ONLY use a slot_iso that appears in the list above. Never invent slots, never modify them.
+- ONLY include ONE block per reply. Pick the single best slot for the customer.
+- ONLY emit the block when you are recommending a specific slot. If you're still answering questions or the customer hasn't expressed booking intent, DO NOT include a block.
+- The block must be on its own lines, fenced exactly as shown.
+- The natural-language reply BEFORE the block should reference the slot ("How does Thursday at 2:30 PM sound?") so the customer sees it both in chat AND on the tap card.
+- If none of the listed slots fit what the customer is asking for, say so honestly and offer to have a team member follow up — do NOT emit the block.`.trimEnd();
 }
 
 /**

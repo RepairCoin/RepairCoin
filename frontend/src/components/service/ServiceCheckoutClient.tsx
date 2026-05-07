@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DollarSign, Clock, MapPin, Star, Calendar, Loader2, AlertCircle, ShoppingCart } from 'lucide-react';
 import { ShopServiceWithShopInfo } from '@/services/api/services';
 import { useAuthStore } from '@/stores/authStore';
@@ -15,15 +15,33 @@ interface ServiceCheckoutClientProps {
 
 export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ serviceId }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, userType } = useAuthStore();
   const [service, setService] = useState<ShopServiceWithShopInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
 
+  // Pre-fill from a Phase 3 Task 10 booking-suggestion card tap. The chat
+  // thread navigates here with ?suggestedSlotIso=<ISO 8601> when the
+  // customer taps an AI-proposed slot. We open the modal automatically and
+  // pass the parsed Date + HH:MM time so the date and time pickers are
+  // already selected when the customer arrives.
+  const suggestedSlotIso = searchParams.get('suggestedSlotIso') ?? undefined;
+  const { initialBookingDate, initialBookingTimeSlot } = parseSuggestedSlot(suggestedSlotIso);
+
   useEffect(() => {
     fetchServiceDetails();
   }, [serviceId]);
+
+  // When a suggested slot is in the URL and the customer is logged in, auto-
+  // open the checkout modal once the service has loaded. Skips for non-
+  // customers (shops/admins shouldn't accidentally trigger checkout).
+  useEffect(() => {
+    if (suggestedSlotIso && service && isAuthenticated && userType === 'customer') {
+      setShowCheckout(true);
+    }
+  }, [suggestedSlotIso, service, isAuthenticated, userType]);
 
   const fetchServiceDetails = async () => {
     setLoading(true);
@@ -278,8 +296,30 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
           service={service}
           onClose={() => setShowCheckout(false)}
           onSuccess={handleCheckoutSuccess}
+          initialBookingDate={initialBookingDate}
+          initialBookingTimeSlot={initialBookingTimeSlot}
         />
       )}
     </>
   );
 };
+
+/**
+ * Parse the suggestedSlotIso query param into the Date + HH:MM shape the
+ * checkout modal expects. Returns undefined fields when the param is missing
+ * or malformed — modal then falls back to its normal "pick a date" flow.
+ */
+function parseSuggestedSlot(slotIso?: string): {
+  initialBookingDate?: Date;
+  initialBookingTimeSlot?: string;
+} {
+  if (!slotIso) return {};
+  const d = new Date(slotIso);
+  if (Number.isNaN(d.getTime())) return {};
+  // The modal's TimeSlotPicker keys on HH:MM strings (24-hour). Render in
+  // the user's local timezone — same convention the picker uses when
+  // showing slot lists.
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return { initialBookingDate: d, initialBookingTimeSlot: `${hh}:${mm}` };
+}

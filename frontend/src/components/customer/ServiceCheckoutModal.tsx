@@ -22,6 +22,21 @@ interface ServiceCheckoutModalProps {
   service: ShopServiceWithShopInfo;
   onClose: () => void;
   onSuccess: () => void;
+  /**
+   * Pre-fill the booking date when the modal opens. Used by Phase 3 Task 10's
+   * AI-suggested booking flow: the customer taps a suggestion card in chat,
+   * the route reads ?suggestedSlotIso=..., and passes the parsed Date here so
+   * the date picker is already selected. Falls back to null (customer picks)
+   * when omitted.
+   */
+  initialBookingDate?: Date | null;
+  /**
+   * Pre-fill the booking time slot (HH:MM, 24-hour). Same source as
+   * initialBookingDate. The TimeSlotPicker still validates against real
+   * availability — if the pre-filled slot is unavailable, the customer just
+   * picks another with no harm done.
+   */
+  initialBookingTimeSlot?: string | null;
 }
 
 // Inner form component that uses Stripe hooks
@@ -159,6 +174,8 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   service,
   onClose,
   onSuccess,
+  initialBookingDate = null,
+  initialBookingTimeSlot = null,
 }) => {
   const { balanceData, fetchCustomerData } = useCustomerStore();
   const address = useAuthStore((state) => state.account?.address);
@@ -170,9 +187,11 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentInitialized, setPaymentInitialized] = useState(false);
 
-  // Booking Date & Time State
-  const [bookingDate, setBookingDate] = useState<Date | null>(null);
-  const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
+  // Booking Date & Time State — initialized from props for Phase 3 Task 10's
+  // AI-suggested-slot flow. When the customer tapped an AI suggestion, both
+  // values arrive populated; otherwise they're null and the customer picks.
+  const [bookingDate, setBookingDate] = useState<Date | null>(initialBookingDate);
+  const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(initialBookingTimeSlot);
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
 
   // No-Show Status State

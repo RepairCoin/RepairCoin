@@ -19,6 +19,10 @@ import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import { SERVICE_CATEGORIES } from "@/services/api/services";
 import { AIMessageLabel } from "@/components/messaging/AIMessageLabel";
+import {
+  BookingSuggestionCard,
+  type BookingSuggestion,
+} from "@/components/messaging/BookingSuggestionCard";
 
 const CATEGORY_LABEL_MAP = new Map(SERVICE_CATEGORIES.map((c) => [c.value, c.label]));
 
@@ -639,6 +643,30 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                             </p>
                           )}
                         </div>
+
+                        {/* Booking Suggestion Cards (Phase 3 Task 10) — AI
+                            recommended one or more bookable slots and the
+                            backend validated them against real availability.
+                            Tap → existing service-checkout flow with the
+                            slot pre-filled. */}
+                        {!isOwnMessage &&
+                          Array.isArray(message.metadata?.booking_suggestions) &&
+                          message.metadata.booking_suggestions.length > 0 && (
+                            <div className="space-y-1">
+                              {(message.metadata.booking_suggestions as BookingSuggestion[]).map(
+                                (s, i) => (
+                                  <BookingSuggestionCard
+                                    key={`${s.serviceId}-${s.slotIso}-${i}`}
+                                    suggestion={s}
+                                    serviceName={message.metadata?.serviceName as string | undefined}
+                                    servicePriceUsd={
+                                      message.metadata?.servicePrice as number | undefined
+                                    }
+                                  />
+                                )
+                              )}
+                            </div>
+                          )}
 
                         {/* Timestamp and Status */}
                         <div

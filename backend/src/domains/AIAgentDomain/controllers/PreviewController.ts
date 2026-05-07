@@ -90,6 +90,9 @@ function buildPreviewContext(
     },
     conversationHistory: [], // Fresh conversation for preview
     siblingServices: [],
+    // Preview never surfaces booking-suggestion cards — keeps the preview
+    // call cheap (no per-day availability lookup) and the demo UX simple.
+    availabilitySlots: [],
   };
 }
 

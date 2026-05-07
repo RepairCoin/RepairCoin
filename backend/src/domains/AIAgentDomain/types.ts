@@ -157,6 +157,23 @@ export interface AgentSiblingService {
 }
 
 /**
+ * One available booking slot the AI may surface as a tappable suggestion card
+ * (Phase 3 Task 10). The orchestrator queries the existing AppointmentService
+ * for real availability before each Claude call, so the AI can only suggest
+ * slots that are actually bookable.
+ */
+export interface AgentAvailabilitySlot {
+  /** YYYY-MM-DD in the shop's timezone */
+  date: string;
+  /** HH:MM 24-hour, in shop's timezone */
+  time: string;
+  /** Combined ISO 8601 string the AI must echo back verbatim in its booking_suggestion JSON block */
+  slotIso: string;
+  /** Human-readable label for prompt readability — e.g. "Thursday, May 8 at 2:30 PM" */
+  humanLabel: string;
+}
+
+/**
  * Complete per-request context passed to PromptTemplates. Returned by
  * ContextBuilder.build(). All fields populated; missing data shows up as null
  * or empty array, never undefined.
@@ -169,6 +186,26 @@ export interface AgentContext {
   conversationHistory: AgentMessageContext[];
   /** Empty array if includeUpsells=false or no eligible siblings exist */
   siblingServices: AgentSiblingService[];
+  /**
+   * Empty array when service.aiBookingAssistance=false, or when no slots are
+   * bookable in the lookahead window. AI only surfaces booking-suggestion
+   * cards when this is non-empty.
+   */
+  availabilitySlots: AgentAvailabilitySlot[];
+}
+
+/**
+ * Validated booking suggestion extracted from a Claude reply
+ * (Phase 3 Task 10). Persisted to messages.metadata.booking_suggestions for
+ * the frontend to render as a tappable card.
+ */
+export interface BookingSuggestion {
+  serviceId: string;
+  /** ISO 8601 — must match a slot present in the availability set sent to Claude */
+  slotIso: string;
+  /** Echoed for display so the frontend doesn't need to recompute */
+  humanLabel?: string;
+  depositUsd?: number;
 }
 
 // ============================================================================
