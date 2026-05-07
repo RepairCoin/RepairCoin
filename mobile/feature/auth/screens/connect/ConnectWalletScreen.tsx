@@ -1,10 +1,14 @@
-import React, { useState, useRef, useCallback } from "react";
-import { Text, View, ActivityIndicator } from "react-native";
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { Text, View, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useConnect } from "thirdweb/react";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 import { getUserEmail } from "thirdweb/wallets/in-app";
 import { useAuthStore, AuthMethod } from "@/feature/auth/store/auth.store";
-import { useConnectWallet } from "@/feature/auth/hooks/useAuthQuery";
+import {
+  useConnectWallet,
+  useDemoLogin,
+} from "@/feature/auth/hooks/useAuthQuery";
+import { authApi } from "@/feature/auth/services/auth.services";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 import VideoBackground from "@/shared/components/ui/VideoBackground";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
@@ -19,11 +23,17 @@ export default function ConnectWalletScreen() {
   const { isLoading } = useAuthStore();
   const { connect } = useConnect();
   const connectWalletMutation = useConnectWallet();
+  const demoLoginMutation = useDemoLogin();
   const setAuthMethod = useAuthStore((state) => state.setAuthMethod);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string>();
   const [isLocalConnecting, setIsLocalConnecting] = useState(false);
+  const [demoEnabled, setDemoEnabled] = useState(false);
   const isCancelledRef = useRef(false);
+
+  useEffect(() => {
+    authApi.getDemoStatus().then((res) => setDemoEnabled(res.enabled));
+  }, []);
 
   const handleCancel = useCallback(() => {
     isCancelledRef.current = true;
@@ -106,7 +116,10 @@ export default function ConnectWalletScreen() {
     }
   };
 
-  const showLoading = isLocalConnecting || connectWalletMutation.isPending;
+  const showLoading =
+    isLocalConnecting ||
+    connectWalletMutation.isPending ||
+    demoLoginMutation.isPending;
 
   if (isLoading) {
     return (
@@ -125,19 +138,29 @@ export default function ConnectWalletScreen() {
               Ready to Earn?{"\n"}Connect and Explore
             </Text>
             <Text className="text-gray-400 mt-4">
-              Tap to connect, earn, and use your rewards across all your favorite
-              services.
+              Tap to connect, earn, and use your rewards across all your
+              favorite services.
             </Text>
           </View>
 
-          <View className="flex-row justify-end items-center">
-            <ThemedButton
-              title="Connect"
-              variant="primary"
-              loading={showLoading}
-              loadingTitle="Connecting..."
-              onPress={() => setShowWalletModal(true)}
-            />
+          <View className="flex-row items-center justify-end">
+            {demoEnabled ? (
+              <ThemedButton
+                title="Explore Demo"
+                variant="primary"
+                loading={showLoading}
+                loadingTitle="Connecting..."
+                onPress={() => demoLoginMutation.mutate()}
+              />
+            ) : (
+              <ThemedButton
+                title="Connect"
+                variant="primary"
+                loading={showLoading}
+                loadingTitle="Connecting..."
+                onPress={() => setShowWalletModal(true)}
+              />
+            )}
           </View>
         </View>
       </View>

@@ -115,7 +115,7 @@ router.get('/',
 );
 
 // Get customer by wallet address (dynamic route last)
-router.get('/:address', 
+router.get('/:address',
   validateEthereumAddress('address'),
   asyncHandler(customerController.getCustomer.bind(customerController))
 );

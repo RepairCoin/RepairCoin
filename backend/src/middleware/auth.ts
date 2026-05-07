@@ -462,9 +462,15 @@ export const sensitiveOperationLimit = (req: Request, res: Response, next: NextF
   next();
 };
 
+// Demo mode address – tokens issued to this address skip DB validation
+const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
+
 // Validate user exists in database
 async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean> {
   try {
+    // Demo user has no DB record – allow through
+    if (tokenPayload.address === DEMO_ADDRESS) return true;
+
     switch (tokenPayload.role) {
       case 'admin':
         // Use AdminService to check admin access (database + env fallback)

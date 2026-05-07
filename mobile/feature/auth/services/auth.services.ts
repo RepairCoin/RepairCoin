@@ -19,6 +19,23 @@ class AuthApi {
     }
   }
 
+  async getDemoStatus(): Promise<{ enabled: boolean }> {
+    try {
+      return await apiClient.get("/auth/demo/status");
+    } catch {
+      return { enabled: false };
+    }
+  }
+
+  async loginDemo() {
+    try {
+      return await apiClient.post("/auth/demo");
+    } catch (error) {
+      console.error("Failed to login demo:", error);
+      throw error;
+    }
+  }
+
   async getRefreshToken(refreshToken: string) {
     try {
       return await apiClient.post("/auth/refresh", { refreshToken });
