@@ -48,6 +48,7 @@ import {
   cancelCampaign,
 } from "@/services/api/marketing";
 import { CampaignBuilderModal } from "../marketing/CampaignBuilderModal";
+import { CardCarousel } from "@/components/ui/CardCarousel";
 
 interface MarketingTabProps {
   shopId: string;
@@ -244,9 +245,9 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
     <div className="space-y-6">
       {/* Stats Summary - Modern card design */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-4">
           {/* Total Campaigns */}
-          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4 h-full">
             <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
               <FileText className="w-5 h-5 text-black" />
             </div>
@@ -257,7 +258,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
 
           {/* Draft Campaigns */}
-          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4 h-full">
             <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
               <Edit className="w-5 h-5 text-black" />
             </div>
@@ -268,7 +269,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
 
           {/* In-App Delivered */}
-          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4 h-full">
             <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
               <Bell className="w-5 h-5 text-black" />
             </div>
@@ -279,7 +280,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
 
           {/* Email Sent */}
-          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
+          <div className="bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4 h-full">
             <div className="flex items-center justify-center w-11 h-11 bg-[#FFCC00] rounded-xl">
               <Mail className="w-5 h-5 text-black" />
             </div>
@@ -288,27 +289,29 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
               <p className="text-2xl font-bold text-white">{stats.totalEmailsSent}</p>
             </div>
           </div>
-        </div>
+        </CardCarousel>
       )}
 
       {/* Campaigns Section - New Design */}
       <div className="bg-[#1a1a1a] rounded-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2">
             <Megaphone className="w-5 h-5 text-yellow-400" />
             <h2 className="text-lg font-semibold text-yellow-400">Campaigns</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {/* Status Filter Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="bg-transparent border-gray-600 text-white hover:bg-gray-800 hover:text-white"
+                  className="w-full sm:w-auto justify-between bg-transparent border-gray-600 text-white hover:bg-gray-800 hover:text-white"
                 >
-                  {statusFilterOptions.find((opt) => opt.value === statusFilter)?.label || "All Status"}
-                  <ChevronDown className="w-4 h-4 ml-2" />
+                  <span className="truncate">
+                    {statusFilterOptions.find((opt) => opt.value === statusFilter)?.label || "All Status"}
+                  </span>
+                  <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
@@ -329,10 +332,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
             {/* Create Campaign Button */}
             <Button
               onClick={handleCreateCampaign}
-              className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium border border-yellow-400"
+              className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-black font-medium border border-yellow-400"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Campaign
+              <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Create Campaign</span>
             </Button>
           </div>
         </div>
@@ -340,12 +343,12 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
         {/* Campaign List */}
         <div className="divide-y divide-gray-800">
           {filteredCampaigns.length === 0 ? (
-            <div className="text-center py-12 px-6">
+            <div className="text-center py-12 px-4 sm:px-6">
               <div className="flex items-center justify-center w-16 h-16 bg-yellow-500/20 rounded-full mx-auto mb-4">
                 <Megaphone className="w-8 h-8 text-yellow-400" />
               </div>
               <h3 className="text-lg font-medium text-white mb-2">No campaigns yet</h3>
-              <p className="text-gray-400 mb-4">
+              <p className="text-gray-400 mb-4 text-sm sm:text-base">
                 Create your first campaign to start engaging with your customers
               </p>
               <Button
@@ -360,7 +363,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
             filteredCampaigns.map((campaign) => (
               <div
                 key={campaign.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                className="flex items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-gray-800/50 transition-colors cursor-pointer"
                 onClick={() => {
                   if (campaign.status === "draft") {
                     handleEditCampaign(campaign);
@@ -370,26 +373,26 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                 }}
               >
                 {/* Left side - Icon, Name, Status, Description */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                   {/* Yellow circular icon */}
-                  <div className="flex items-center justify-center w-10 h-10 bg-yellow-500 rounded-full">
+                  <div className="flex items-center justify-center w-10 h-10 bg-yellow-500 rounded-full flex-shrink-0">
                     <Megaphone className="w-5 h-5 text-black" />
                   </div>
 
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
                     {/* Campaign name and status badges */}
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-white font-medium">{campaign.name}</h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-white font-medium truncate max-w-full">{campaign.name}</h4>
                       {/* Status badge */}
                       <Badge
-                        className={`${getStatusBadgeStyle(campaign.status)} text-xs px-2 py-0.5 rounded-md`}
+                        className={`${getStatusBadgeStyle(campaign.status)} text-xs px-2 py-0.5 rounded-md flex-shrink-0`}
                       >
                         {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                       </Badge>
                     </div>
 
                     {/* Description row with Sent badge, type, and delivery method icons */}
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
                       {/* Show "Sent" badge with checkmark for sent campaigns */}
                       {campaign.status === "sent" && (
                         <span className="flex items-center gap-1 text-green-400 text-xs">
@@ -397,20 +400,39 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                           Sent
                         </span>
                       )}
-                      <span className="text-gray-400">
+                      <span className="text-gray-400 truncate">
                         {campaignTypeLabels[campaign.campaignType]}
                       </span>
                       <span className="text-gray-500 flex items-center gap-1">
                         {getDeliveryMethodIcon(campaign.deliveryMethod)}
                       </span>
                     </div>
+
+                    {/* Mobile-only stats row (shown only on mobile, hidden on sm+) */}
+                    {((campaign.status as string) === "sent" ||
+                      (campaign.status as string) === "active" ||
+                      (campaign.status as string) === "expired" ||
+                      (((campaign.status as string) === "scheduled" || (campaign.status as string) === "paused") && campaign.scheduledAt)) && (
+                      <div className="sm:hidden text-xs mt-1">
+                        <p className="text-gray-300">
+                          {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
+                        </p>
+                        <p className="text-gray-500">
+                          {((campaign.status as string) === "scheduled" || (campaign.status as string) === "paused") && campaign.scheduledAt
+                            ? `Scheduled for ${formatDate(campaign.scheduledAt)}`
+                            : campaign.sentAt
+                              ? formatDate(campaign.sentAt)
+                              : ""}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Right side - Stats and date */}
-                <div className="flex items-center gap-4">
+                {/* Right side - Stats and date (hidden on mobile, shown sm+) */}
+                <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                   {((campaign.status as string) === "sent" || (campaign.status as string) === "active") && (
-                    <div className="text-right text-sm">
+                    <div className="hidden sm:block text-right text-sm">
                       <p className="text-gray-300">
                         {campaign.inAppSent} in app • {campaign.emailsSent} email
                       </p>
@@ -420,7 +442,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                     </div>
                   )}
                   {(campaign.status as string) === "scheduled" && campaign.scheduledAt && (
-                    <div className="text-right text-sm">
+                    <div className="hidden sm:block text-right text-sm">
                       <p className="text-gray-300">
                         {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
                       </p>
@@ -430,7 +452,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                     </div>
                   )}
                   {(campaign.status as string) === "paused" && campaign.scheduledAt && (
-                    <div className="text-right text-sm">
+                    <div className="hidden sm:block text-right text-sm">
                       <p className="text-gray-300">
                         {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
                       </p>
@@ -440,7 +462,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                     </div>
                   )}
                   {(campaign.status as string) === "expired" && (
-                    <div className="text-right text-sm">
+                    <div className="hidden sm:block text-right text-sm">
                       <p className="text-gray-300">
                         {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
                       </p>
@@ -453,7 +475,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   {/* Actions dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white flex-shrink-0">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -527,9 +549,9 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
       {/* Campaign Type Picker Dialog */}
       <Dialog open={showCampaignPicker} onOpenChange={setShowCampaignPicker}>
-        <DialogContent className="bg-[#1a1a1a] border-gray-800 max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="bg-[#1a1a1a] border-gray-800 w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] sm:max-h-[80vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-white text-xl">Choose a campaign</DialogTitle>
+            <DialogTitle className="text-white text-lg sm:text-xl">Choose a campaign</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 mt-4">
@@ -551,10 +573,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.audience}
                     onClick={() => handleSelectCampaignType("offer_coupon")}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50"
+                    className="w-full flex items-center justify-between gap-2 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left"
                   >
-                    <span className="text-white">{item.label}</span>
-                    <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] text-xs border border-[#FFCC00]/30">Smart group</Badge>
+                    <span className="text-white text-sm sm:text-base truncate">{item.label}</span>
+                    <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] text-xs border border-[#FFCC00]/30 flex-shrink-0">Smart group</Badge>
                   </button>
                 ))}
               </div>
@@ -575,13 +597,13 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.type + item.label}
                     onClick={() => handleSelectCampaignType(item.type)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50"
+                    className="w-full flex items-center justify-between gap-2 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="text-[#FFCC00]">{item.icon}</div>
-                      <span className="text-white">{item.label}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="text-[#FFCC00] flex-shrink-0">{item.icon}</div>
+                      <span className="text-white text-sm sm:text-base truncate">{item.label}</span>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                    <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -601,10 +623,10 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   <button
                     key={item.type + item.label}
                     onClick={() => handleSelectCampaignType(item.type)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50"
+                    className="w-full flex items-center justify-between gap-2 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left"
                   >
-                    <span className="text-white">{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                    <span className="text-white text-sm sm:text-base truncate">{item.label}</span>
+                    <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -616,7 +638,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                 <h3 className="text-gray-400 text-sm font-medium mb-3">
                   Start from a template
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {templates.slice(0, 4).map((template) => (
                     <button
                       key={template.id}
@@ -628,8 +650,8 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                       )}
                       className="p-4 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-left transition-colors border border-gray-700/50"
                     >
-                      <div className="text-white font-medium">{template.name}</div>
-                      <div className="text-gray-500 text-sm mt-1">{template.description}</div>
+                      <div className="text-white font-medium text-sm sm:text-base">{template.name}</div>
+                      <div className="text-gray-500 text-xs sm:text-sm mt-1">{template.description}</div>
                     </button>
                   ))}
                 </div>
