@@ -31,7 +31,7 @@ describe("BookingSuggestionParser — happy path", () => {
 \`\`\`booking_suggestion
 { "service_id": "srv_test_123", "slot_iso": "2026-05-08T14:30:00.000Z" }
 \`\`\``;
-    const { cleanText, suggestions } = parseBookingSuggestions(text, baseInputs());
+    const { cleanText, suggestions, droppedReasons } = parseBookingSuggestions(text, baseInputs());
 
     expect(cleanText).toBe("How does Thursday at 2:30 PM sound?");
     expect(suggestions).toEqual([
@@ -41,6 +41,7 @@ describe("BookingSuggestionParser — happy path", () => {
         humanLabel: "Thursday, May 8 at 2:30 PM",
       },
     ]);
+    expect(droppedReasons).toEqual([]);
   });
 
   it("preserves the surrounding text when the block is in the middle", () => {
@@ -173,5 +174,61 @@ describe("BookingSuggestionParser — slot label fallback", () => {
     });
     expect(suggestions[0].serviceId).toBe("srv_test_123");
     expect(suggestions[0].humanLabel).toBeUndefined();
+  });
+});
+
+describe("BookingSuggestionParser — droppedReasons (diagnostics)", () => {
+  it("reports malformed_json when JSON parse fails", () => {
+    const text = `\`\`\`booking_suggestion
+{ not_valid: json }
+\`\`\``;
+    const { droppedReasons } = parseBookingSuggestions(text, baseInputs());
+    expect(droppedReasons).toEqual(["malformed_json"]);
+  });
+
+  it("reports wrong_service_id when service mismatches", () => {
+    const text = `\`\`\`booking_suggestion
+{ "service_id": "srv_OTHER", "slot_iso": "2026-05-08T14:30:00.000Z" }
+\`\`\``;
+    const { droppedReasons } = parseBookingSuggestions(text, baseInputs());
+    expect(droppedReasons).toEqual(["wrong_service_id"]);
+  });
+
+  it("reports hallucinated_slot_iso when slot is not in the validated set", () => {
+    const text = `\`\`\`booking_suggestion
+{ "service_id": "srv_test_123", "slot_iso": "2026-05-12T20:00:00.000Z" }
+\`\`\``;
+    const { droppedReasons } = parseBookingSuggestions(text, baseInputs());
+    expect(droppedReasons).toEqual(["hallucinated_slot_iso"]);
+  });
+
+  it("reports invalid_deposit when deposit_usd is malformed", () => {
+    const text = `\`\`\`booking_suggestion
+{ "service_id": "srv_test_123", "slot_iso": "2026-05-08T14:30:00.000Z", "deposit_usd": -10 }
+\`\`\``;
+    const { droppedReasons } = parseBookingSuggestions(text, baseInputs());
+    expect(droppedReasons).toEqual(["invalid_deposit"]);
+  });
+
+  it("aggregates multiple reasons across multiple bad blocks", () => {
+    const text = `Reply text here.
+\`\`\`booking_suggestion
+{ "service_id": "srv_OTHER", "slot_iso": "2026-05-08T14:30:00.000Z" }
+\`\`\`
+\`\`\`booking_suggestion
+{ "service_id": "srv_test_123", "slot_iso": "2026-05-31T20:00:00.000Z" }
+\`\`\``;
+    const { droppedReasons, suggestions } = parseBookingSuggestions(text, baseInputs());
+    expect(droppedReasons).toEqual(["wrong_service_id", "hallucinated_slot_iso"]);
+    expect(suggestions).toEqual([]);
+  });
+
+  it("returns empty droppedReasons when all blocks are valid", () => {
+    const text = `\`\`\`booking_suggestion
+{ "service_id": "srv_test_123", "slot_iso": "2026-05-08T14:30:00.000Z" }
+\`\`\``;
+    const { droppedReasons, suggestions } = parseBookingSuggestions(text, baseInputs());
+    expect(droppedReasons).toEqual([]);
+    expect(suggestions).toHaveLength(1);
   });
 });

@@ -45,7 +45,22 @@ export interface ParseResult {
   cleanText: string;
   /** Validated suggestions ready to persist to messages.metadata.booking_suggestions */
   suggestions: BookingSuggestion[];
+  /**
+   * Diagnostic counters — non-empty when the AI emitted blocks that failed
+   * validation. Surfaced on `messages.metadata.booking_suggestion_dropped`
+   * so we can see in the DB whether AI is emitting-but-rejected vs not
+   * emitting at all (without needing log access). Phase 3 Task 10 fix.
+   */
+  droppedReasons: DropReason[];
 }
+
+export type DropReason =
+  | "malformed_json"
+  | "missing_service_id"
+  | "wrong_service_id"
+  | "missing_slot_iso"
+  | "hallucinated_slot_iso"
+  | "invalid_deposit";
 
 /**
  * Parse a Claude reply for booking_suggestion blocks. Returns the cleaned
@@ -63,6 +78,7 @@ export function parseBookingSuggestions(
 ): ParseResult {
   const validSlotsSet = new Set(inputs.validSlotsIso);
   const suggestions: BookingSuggestion[] = [];
+  const droppedReasons: DropReason[] = [];
 
   // First pass: find all blocks + collect valid suggestions
   const matches = Array.from(text.matchAll(BLOCK_REGEX));
@@ -73,15 +89,19 @@ export function parseBookingSuggestions(
       logger.warn("BookingSuggestionParser: malformed JSON in block, dropping", {
         excerpt: body.slice(0, 80),
       });
+      droppedReasons.push("malformed_json");
       continue;
     }
-    const validated = validate(parsed, inputs.expectedServiceId, validSlotsSet);
-    if (!validated) {
+    const validation = validate(parsed, inputs.expectedServiceId, validSlotsSet);
+    if (validation.ok === false) {
       logger.warn("BookingSuggestionParser: block failed validation, dropping", {
         parsed,
+        reason: validation.reason,
       });
+      droppedReasons.push(validation.reason);
       continue;
     }
+    const validated = validation.suggestion;
     if (inputs.slotLabelsByIso?.[validated.slotIso]) {
       validated.humanLabel = inputs.slotLabelsByIso[validated.slotIso];
     }
@@ -98,7 +118,7 @@ export function parseBookingSuggestions(
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { cleanText, suggestions };
+  return { cleanText, suggestions, droppedReasons };
 }
 
 function tryParseJson(body: string): unknown {
@@ -109,32 +129,44 @@ function tryParseJson(body: string): unknown {
   }
 }
 
+type ValidationResult =
+  | { ok: true; suggestion: BookingSuggestion }
+  | { ok: false; reason: DropReason };
+
 function validate(
   parsed: unknown,
   expectedServiceId: string,
   validSlotsSet: Set<string>
-): BookingSuggestion | null {
-  if (typeof parsed !== "object" || parsed === null) return null;
+): ValidationResult {
+  if (typeof parsed !== "object" || parsed === null) {
+    return { ok: false, reason: "malformed_json" };
+  }
   const obj = parsed as Record<string, unknown>;
 
   const serviceId = obj.service_id;
   const slotIso = obj.slot_iso;
   const depositRaw = obj.deposit_usd;
 
-  if (typeof serviceId !== "string" || serviceId !== expectedServiceId) return null;
-  if (typeof slotIso !== "string" || !validSlotsSet.has(slotIso.trim())) return null;
+  if (typeof serviceId !== "string") return { ok: false, reason: "missing_service_id" };
+  if (serviceId !== expectedServiceId) return { ok: false, reason: "wrong_service_id" };
+
+  if (typeof slotIso !== "string") return { ok: false, reason: "missing_slot_iso" };
+  if (!validSlotsSet.has(slotIso.trim())) return { ok: false, reason: "hallucinated_slot_iso" };
 
   let depositUsd: number | undefined;
   if (depositRaw !== undefined && depositRaw !== null) {
     if (typeof depositRaw !== "number" || !Number.isFinite(depositRaw) || depositRaw < 0) {
-      return null;
+      return { ok: false, reason: "invalid_deposit" };
     }
     depositUsd = depositRaw;
   }
 
   return {
-    serviceId,
-    slotIso: slotIso.trim(),
-    ...(depositUsd !== undefined ? { depositUsd } : {}),
+    ok: true,
+    suggestion: {
+      serviceId,
+      slotIso: slotIso.trim(),
+      ...(depositUsd !== undefined ? { depositUsd } : {}),
+    },
   };
 }
