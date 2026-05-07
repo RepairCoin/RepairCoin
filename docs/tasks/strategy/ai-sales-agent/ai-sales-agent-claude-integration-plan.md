@@ -25,7 +25,7 @@
 | 8 | Hook into MessageService.sendMessage | ✅ Merged + verified end-to-end on staging | `deo/phase-3-task-8` (merged) + 2 fix branches: `deo/phase-3-task-8-fix` (metadata.serviceId fallback + shopId ownership check) and `deo/phase-3-task-8-fix-2` (ContextBuilder messageText field + orchestrator empty-content filter) | 141 unit tests passing. Smoke validated: 3 successful AI replies on conv_1773038873896 (~$0.004 each, ~3s latency). Personalization, multi-turn, escalation, AI disclosure, honest-on-uncertainty all working. See "Task 8 fix" + "Task 8 second fix" sections below |
 | 9 | Customer-facing AI UI: badges + disclosure | ✅ Merged + deployed | `deo/phase-3-task-9` (merged) | Violet AI badges live on staging — chat bubble label, service detail modal, marketplace card |
 | 10 | Booking suggestion buttons (Flavor B) | ⏳ Pushed, awaiting PR | `deo/phase-3-task-10` | Picked Option B (real availability injection). New `AvailabilityFetcher` + `BookingSuggestionParser` backend; `BookingSuggestionCard` frontend; checkout pre-fill via `?suggestedSlotIso=`. 158 tests passing |
-| 11 | Order completion confirmation hook | Not started | — | ~0.5 day |
+| 11 | Order completion confirmation hook | ⏳ Pushed, awaiting PR | `deo/phase-3-task-11` | New `OrderConfirmationHandler` subscribed to `service.order_completed`. Haiku-only, ~$0.0005/confirmation. 13 new tests (224 total) |
 | 12 | Spend cap monitoring + admin visibility | Not started | — | ~0.5 day. **Bonus:** also fix the `current_month_spend_usd` rollover bug found during Task 8 smoke — audit log shows $0.012 spent across 3 calls but `ai_shop_settings.current_month_spend_usd` still reads $0.00. Likely interaction with NULL `current_month_started_at` from migration 110 backfill |
 | 13 | Production rollout to pilot shops | Not started | — | Final task |
 
@@ -831,7 +831,7 @@ Combined with fix-4's slot reordering, the AI now has TWO independent mechanisms
 
 If fix-4 alone misfires (e.g. unusual phrasing that escapes keyword detection), fix-5 still kills the history anchor. If fix-5 alone misfires (e.g. Claude picks a non-first slot for some reason), fix-4 still made afternoon slots the most-prominent option. Belt + suspenders.
 
-### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
+### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day) — **DONE 2026-05-07**
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
 
@@ -847,6 +847,30 @@ If fix-4 alone misfires (e.g. unusual phrasing that escapes keyword detection), 
 - Skipped if customer never chatted with AI for that service (no conversation, or no AI messages in history)
 
 **Rollback:** unsubscribe. Existing booking flow unchanged.
+
+**Implementation log (2026-05-07, branch `deo/phase-3-task-11`):**
+
+- **`OrderConfirmationHandler.ts`** (new) — separate from `AgentOrchestrator` because the responsibility is different (reactive event handler, not request/response). Owns its own copy of the dependency-injected services (messageRepo, orderRepo, shopRepo, customerRepo, anthropicClient, auditLogger, spendCapEnforcer) so unit tests can mock cleanly.
+- **Event subscription** — `eventBus.subscribe('service.order_completed', handler.handleOrderCompleted, 'AIAgentDomain')` in `AIAgentDomain.initialize()`. Lazy handler construction guards against missing `ANTHROPIC_API_KEY` in dev — same pattern as Task 8's MessageService hook.
+- **`AIAgentDomain.setWebSocketManager`** (new) — wired in `app.ts` alongside `messagingDomain` and `notificationDomain` so the confirmation reply broadcasts in real-time to the customer's chat.
+- **Skip rules (all silent — booking flow never blocked):**
+  - No conversation exists for (customer, shop) — customer never chatted at all
+  - Conversation exists but has no prior `metadata.generated_by = 'ai_agent'` messages — they only ever talked to a human
+  - Shop's `ai_global_enabled` is false — human owner sends their own thank-you, no double-up
+  - Spend cap exceeded
+  - Order row missing booking date/time — sends a generic "thanks" without specific slot mention
+- **Prompt** — tight Haiku prompt with three GOOD examples ("Thanks Lee Ann — see you next time!"). Hard rules forbid restating price/duration/service name + JSON formatting + multi-sentence replies + follow-up questions. Token budget capped at 80 to discourage rambling.
+- **Cost** — Haiku 4.5 only, ~$0.0005 per confirmation. At 100 customer bookings/month = $0.05.
+
+**Tests** (`OrderConfirmationHandler.test.ts`, 13 new):
+- Fires when conditions met; uses Haiku model + tight token budget; injects customer name + slot label into prompt
+- Skips when no conversation / no prior AI messages / shop AI off / spend cap exceeded / order missing / malformed event
+- Audit-logs + swallows on Claude failure
+- Swallows repo errors so booking flow is never affected
+- Broadcasts WS to customer on success; doesn't crash when WS manager unset
+- **Full ai-agent suite: 224 tests across 12 files** (was 211 / 11 — +1 file, +13).
+
+**Smoke test prereqs:** A peanut-shop booking that's been completed by the shop (status: `paid` → `completed` via `PUT /api/services/orders/:id/status`). Customer must have prior AI messages in the conversation. After deploy, completing such a booking should land a "thanks ..." reply in the chat thread within ~1-2 seconds.
 
 ### Task 12 — Spend cap monitoring + admin visibility (~0.5 day)
 
