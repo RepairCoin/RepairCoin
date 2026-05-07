@@ -190,8 +190,9 @@ function SortableBlockItem({
       <button
         {...attributes}
         {...listeners}
-        className="p-1 hover:bg-gray-600 rounded cursor-grab active:cursor-grabbing"
+        className="p-2 -m-1 hover:bg-gray-600 rounded cursor-grab active:cursor-grabbing touch-none"
         onClick={(e) => e.stopPropagation()}
+        aria-label="Drag to reorder"
       >
         <GripVertical className="w-4 h-4 text-gray-500" />
       </button>
@@ -224,6 +225,8 @@ export function CampaignBuilderModal({
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('blocks');
+  // Mobile-only view toggle for the design step. Ignored on lg+ where both panels show side-by-side.
+  const [mobileView, setMobileView] = useState<'preview' | 'editor'>('preview');
 
   // Services for service_card block
   const [services, setServices] = useState<ShopService[]>([]);
@@ -499,6 +502,7 @@ export function CampaignBuilderModal({
     setBlocks([...blocks, newBlock]);
     setSelectedBlockId(newBlock.id);
     setActiveTab('style');
+    setMobileView('editor');
   };
 
   const handleUpdateBlock = useCallback((id: string, updates: Partial<DesignBlock>) => {
@@ -518,6 +522,13 @@ export function CampaignBuilderModal({
     setBlocks(blocks.filter(b => b.id !== id));
     setSelectedBlockId(null);
     setActiveTab('blocks'); // Go back to blocks tab after deletion
+  };
+
+  const handleSelectBlock = (id: string) => {
+    if (viewOnly) return;
+    setSelectedBlockId(id);
+    setActiveTab('style');
+    setMobileView('editor');
   };
 
   const handleSelectService = (blockId: string, serviceId: string) => {
@@ -663,7 +674,7 @@ export function CampaignBuilderModal({
                       textAlign: (block.style?.textAlign as any) || 'center',
                       color: block.style?.color || '#111827',
                     }}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                   >
                     {block.content}
                   </h2>
@@ -678,7 +689,7 @@ export function CampaignBuilderModal({
                       fontSize: block.style?.fontSize || '14px',
                       lineHeight: '1.6',
                     }}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                     dangerouslySetInnerHTML={{ __html: block.content || '' }}
                   />
                 );
@@ -688,7 +699,7 @@ export function CampaignBuilderModal({
                   <div
                     key={block.id}
                     className={`text-center ${cursorClass} rounded ${outlineClass}`}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                   >
                     <button
                       className="px-6 py-3 rounded-md font-semibold"
@@ -711,7 +722,7 @@ export function CampaignBuilderModal({
                     key={block.id}
                     className={`rounded-lg p-6 text-center ${cursorClass} ${outlineClass}`}
                     style={{ backgroundColor: block.style?.backgroundColor || '#10B981' }}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                   >
                     {selectedPromoCode ? (
                       <>
@@ -745,7 +756,7 @@ export function CampaignBuilderModal({
                     key={block.id}
                     className={`rounded-xl overflow-hidden ${cursorClass} ${outlineClass}`}
                     style={{ backgroundColor: block.style?.backgroundColor || '#1a1a2e' }}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                   >
                     {/* Service Image */}
                     <div className="h-32 bg-gray-800 flex items-center justify-center">
@@ -779,7 +790,7 @@ export function CampaignBuilderModal({
                   <hr
                     key={block.id}
                     className={`border-gray-200 ${cursorClass} ${outlineClass}`}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                   />
                 );
 
@@ -789,7 +800,7 @@ export function CampaignBuilderModal({
                     key={block.id}
                     className={`${cursorClass} bg-gray-50 ${outlineClass}`}
                     style={{ height: block.style?.height || '20px' }}
-                    onClick={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                    onClick={() => handleSelectBlock(block.id)}
                   />
                 );
 
@@ -1233,7 +1244,7 @@ export function CampaignBuilderModal({
                 Close
               </Button>
             ) : (
-              <>
+              <div className="hidden sm:flex items-center gap-2 sm:gap-3">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1249,10 +1260,9 @@ export function CampaignBuilderModal({
                   onClick={() => setStep('audience')}
                   className="bg-yellow-500 hover:bg-yellow-600 text-black"
                 >
-                  <span className="sm:hidden">Next</span>
-                  <span className="hidden sm:inline">Select Audience</span>
+                  Select Audience
                 </Button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -1280,9 +1290,37 @@ export function CampaignBuilderModal({
         {/* Content based on step */}
         <div className="flex-1 overflow-hidden min-h-0">
           {step === 'design' && (
-            <div className="flex flex-col lg:flex-row h-full lg:h-[calc(95vh-140px)] overflow-hidden">
+            <div className="flex flex-col h-full lg:h-[calc(95vh-140px)] overflow-hidden">
+              {/* Mobile-only view switcher (Preview / Edit or Preview / Stats in viewOnly) */}
+              <div className="lg:hidden flex border-b border-gray-800 bg-[#141414] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileView('preview')}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    mobileView === 'preview'
+                      ? 'text-yellow-500 border-b-2 border-yellow-500'
+                      : 'text-gray-400 border-b-2 border-transparent'
+                  }`}
+                >
+                  Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileView('editor')}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    mobileView === 'editor'
+                      ? 'text-yellow-500 border-b-2 border-yellow-500'
+                      : 'text-gray-400 border-b-2 border-transparent'
+                  }`}
+                >
+                  {viewOnly ? 'Stats' : selectedBlockId ? 'Edit Block' : 'Blocks'}
+                </button>
+              </div>
+              <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
               {/* Preview */}
-              <div className="flex-1 min-h-0 bg-gray-800 p-4 sm:p-6 overflow-auto">
+              <div className={`flex-1 min-h-0 bg-gray-800 p-4 sm:p-6 overflow-auto ${
+                mobileView === 'editor' ? 'hidden lg:block' : ''
+              }`}>
                 <div className="mb-4">
                   <Label className="text-gray-300">Campaign Name</Label>
                   <Input
@@ -1308,7 +1346,9 @@ export function CampaignBuilderModal({
 
               {/* Editor Panel */}
               {viewOnly ? (
-                <div className="w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto p-4">
+                <div className={`w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto p-4 flex-1 min-h-0 lg:flex-initial ${
+                  mobileView === 'preview' ? 'hidden lg:block' : ''
+                }`}>
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Send className="w-8 h-8 text-green-400" />
@@ -1341,7 +1381,9 @@ export function CampaignBuilderModal({
                   </div>
                 </div>
               ) : (
-              <div className="w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto max-h-[50vh] lg:max-h-none">
+              <div className={`w-full lg:w-80 lg:shrink-0 bg-[#1a1a1a] border-t lg:border-t-0 lg:border-l border-gray-800 overflow-auto flex-1 min-h-0 lg:flex-initial lg:max-h-none ${
+                mobileView === 'preview' ? 'hidden lg:block' : ''
+              }`}>
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="w-full bg-gray-800 rounded-none">
                     <TabsTrigger value="blocks" className="flex-1">Blocks</TabsTrigger>
@@ -1408,7 +1450,7 @@ export function CampaignBuilderModal({
                                 key={block.id}
                                 block={block}
                                 isSelected={selectedBlockId === block.id}
-                                onSelect={() => { if (!viewOnly) { setSelectedBlockId(block.id); setActiveTab('style'); } }}
+                                onSelect={() => handleSelectBlock(block.id)}
                                 onDelete={() => handleDeleteBlock(block.id)}
                               />
                             ))}
@@ -1439,6 +1481,7 @@ export function CampaignBuilderModal({
                 </Tabs>
               </div>
               )}
+              </div>
             </div>
           )}
 
@@ -1512,7 +1555,7 @@ export function CampaignBuilderModal({
 
               {/* Customer List */}
               <div className="bg-gray-800 rounded-lg p-3 sm:p-4">
-                <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                <div className="space-y-2 max-h-[60vh] sm:max-h-[350px] overflow-y-auto">
                   {loadingCustomers ? (
                     <div className="text-center py-8 text-gray-400">Loading customers...</div>
                   ) : customers.length === 0 ? (
@@ -1613,7 +1656,7 @@ export function CampaignBuilderModal({
               </div>
 
               {!viewOnly && (
-                <div className="flex flex-col-reverse sm:flex-row justify-between gap-2 sm:gap-0 mt-6">
+                <div className="hidden sm:flex flex-col-reverse sm:flex-row justify-between gap-2 sm:gap-0 mt-6">
                   <Button
                     variant="outline"
                     onClick={() => setStep('design')}
@@ -1694,7 +1737,7 @@ export function CampaignBuilderModal({
               </div>
 
               {!viewOnly && (
-                <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 sm:gap-0 mt-8">
+                <div className="hidden sm:flex flex-col-reverse sm:flex-row justify-between gap-3 sm:gap-0 mt-8">
                   <Button
                     variant="outline"
                     onClick={() => setStep('audience')}
@@ -1727,6 +1770,80 @@ export function CampaignBuilderModal({
             </div>
           )}
         </div>
+
+        {/* Mobile sticky action bar — replaces inline step nav buttons on mobile */}
+        {!viewOnly && (
+          <div
+            className="sm:hidden shrink-0 border-t border-gray-800 bg-[#1a1a1a] px-3 py-2 flex gap-2"
+            style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}
+          >
+            {step === 'design' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSave(false)}
+                  disabled={saving}
+                  className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? 'Saving…' : 'Save Draft'}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setStep('audience')}
+                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
+                >
+                  Next
+                </Button>
+              </>
+            )}
+            {step === 'audience' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStep('design')}
+                  className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setStep('delivery')}
+                  disabled={selectedCustomers.size === 0}
+                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50"
+                >
+                  Next
+                </Button>
+              </>
+            )}
+            {step === 'delivery' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSave(false)}
+                  disabled={saving}
+                  className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Draft
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleSave(true)}
+                  disabled={saving || sending}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {sending ? 'Sending…' : 'Send'}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
