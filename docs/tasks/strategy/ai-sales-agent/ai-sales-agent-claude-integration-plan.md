@@ -811,6 +811,26 @@ After fix-3 deployed, smoke retest showed style/tone bugs were fixed (replies ar
 
 This is the architecturally correct fix. Pure prompt rules continue to discourage hallucination + repetition, but the slot ORDER is now controlled by deterministic code, not Claude's choice. The customer asks for afternoon → afternoon slots are at the top of the list → Claude picks the first one (which is afternoon). No fighting the model.
 
+---
+
+#### Task 10 fifth fix (2026-05-07, branch `deo/phase-3-task-10-fix-5`)
+
+Self-rated fix-4 as 4/5 because conversation-history anchoring was unaddressed: when a previous AI reply said "How does Thursday at 9:00 AM sound?", Claude reads its own past output on the next turn and pattern-matches "9 AM" — re-suggesting it even when the customer's NEW message asks for a different time. Fix-4's slot reordering helps Claude pick correctly from the slot LIST, but doesn't break the anchor on the AI's own past TEXT.
+
+Fix-5 closes that gap. New `ConversationHistoryScrubber.ts` strips specific time mentions from past assistant messages before they're sent to Claude. Customer messages stay verbatim — only the AI's past suggestions get scrubbed. Invisible to the customer (DB rows untouched; only the in-memory copy passed to Claude is modified).
+
+- **`scrubSpecificTimes(text)`** — replaces `"9 AM"`, `"9:00 AM"`, `"9am"`, `"9 a.m."`, `"3:00 P.M."` etc. with `[earlier suggested time]`. Distinct regex alternatives for dotted forms (`a.m.`) vs. bare forms (`AM`), so dotted forms consume both periods while bare forms leave sentence-ending periods alone (so "9 AM." doesn't eat the trailing punctuation). Word-boundary at start; negative-letter lookahead at end so "9PMA" doesn't match.
+- **`scrubAssistantHistory(messages)`** — pure function over the message array. Only touches `role: 'assistant'` entries. Preserves identity for messages that didn't change (no allocation when scrub is a no-op).
+- **`AgentOrchestrator`** — wraps the existing empty-content filter with `scrubAssistantHistory` before the messages array is sent to Claude. One-line wiring.
+
+**Tests:** new `ConversationHistoryScrubber.test.ts` — 15 tests covering all time formats (dotted/bare/with-or-without space/case-insensitive), multi-mention strings, no-time-pattern no-op, only-assistant-touched, immutability, identity preservation, long histories. Full ai-agent suite: **211 tests across 11 files**.
+
+Combined with fix-4's slot reordering, the AI now has TWO independent mechanisms guarding against picking the wrong time:
+1. **Slot list reorder** (fix-4) — preferred slots come first in the data Claude sees
+2. **History scrub** (fix-5) — Claude can't anchor on its own previous specific-time output
+
+If fix-4 alone misfires (e.g. unusual phrasing that escapes keyword detection), fix-5 still kills the history anchor. If fix-5 alone misfires (e.g. Claude picks a non-first slot for some reason), fix-4 still made afternoon slots the most-prominent option. Belt + suspenders.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
