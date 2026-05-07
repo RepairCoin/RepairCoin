@@ -765,6 +765,28 @@ After fix #1 deployed, smoke retest STILL produced no booking card. Diagnostic s
 
 **Tests:** 1 new test in `PromptTemplates.test.ts` verifying the few-shot example references a real slot AND the bad-example anti-pattern is named explicitly. Full suite: **165 tests across 9 files**.
 
+---
+
+#### Task 10 third fix (2026-05-07, branch `deo/phase-3-task-10-fix-3`)
+
+After fix-2 deployed, smoke retest revealed cards now render BUT three real bugs (operator caught them via DB inspection of the chat history):
+
+1. **AI ignores customer's stated time preference** — customer asked "Thursday afternoon" three times, AI suggested 9 AM and 10 AM (both morning). The few-shot example only showed how to propose a slot, not how to honor stated preferences.
+2. **Architectural: only morning slots reach Claude** — `MAX_SLOTS = 8` + earliest-first sorting. With typical 50-min slots × ~9-hour shop day = ~10 slots/day. The first 8 slots covered the entire morning of day 1; afternoon slots literally weren't in the prompt for Claude to pick.
+3. **AI repeats service summary on every reply** — every reply opened with "Thank you for your interest, Lee Ann! Here is a quick summary of the Newly Baker service: Price $99.00, Duration 30 minutes, Category Food & Beverage..." even on follow-ups. Robotic, not human-like.
+
+**Fix:**
+
+- **`AvailabilityFetcher.MAX_SLOTS` 8 → 15** — covers a full day's worth of slots, so morning + afternoon + early evening are all visible to Claude. Token cost ~+350 per call (~$0.001 extra), worth it.
+
+- **`PromptTemplates.buildBookingBlock`** — added a hard rule for time-of-day preference matching. Defines morning/afternoon/evening explicitly: morning = before 12 PM, afternoon = 12 PM–5 PM, evening = 5 PM+. NEVER suggest 9 AM, 10 AM, or 11 AM as "afternoon". When the customer mentions a preference, the AI MUST pick a slot that matches. If no matching slot exists, say so honestly + offer the closest match.
+
+- **`PromptTemplates.UNIVERSAL_RULES`** — added rule #8: don't restate price/duration/category on every reply. Plus a STYLE section with bad-opener and good-opener pattern examples. The bad opener — "Thank you for your interest! Here is a summary of [service]: Price $X, Duration Y..." — is the exact pattern that's been showing up in every AI reply, now explicitly forbidden.
+
+**Tests:** 4 new in `PromptTemplates.test.ts` — preference-matching guidance present, time bands defined, no-restate rule present, good/bad opener examples present, applies to all 3 tones. Full suite: **169 tests across 9 files**.
+
+After this deploys, the same smoke flow ("Can I book Thursday afternoon?") should produce: AI picks an actual afternoon slot (12 PM or later) + reply is conversational without re-summarizing the service.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day)
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
