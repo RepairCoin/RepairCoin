@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Bot, ChevronDown, ChevronUp, Check, Sparkles } from "lucide-react";
 import { AI_PREVIEW_MOCKS, AITone } from "@/utils/aiPreviewMocks";
 import { getAiPreview, AIPreviewResponse } from "@/services/api/services";
+import { AISpendIndicator } from "@/components/shop/service/AISpendIndicator";
 
 /**
  * AISalesAssistantSection
@@ -240,15 +241,14 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
         </div>
       </div>
 
-      {/* Disclosure — Phase 3: live preview wired. The customer-facing AI
-          auto-reply itself (Task 8) still ships in a follow-up — but the
-          preview shows the actual reply Claude will give once activated. */}
-      <div className="mt-4 pt-3 border-t border-gray-200">
+      {/* Disclosure + spend indicator — Phase 3 Tasks 7 & 12. */}
+      <div className="mt-4 pt-3 border-t border-gray-200 space-y-2">
         <p className="text-xs text-gray-500 italic">
           {serviceId
             ? "Live preview — this is the actual reply Claude generates for your service."
             : "Save the service first to see a live AI reply preview."}
         </p>
+        <AISpendIndicator />
       </div>
     </div>
   );

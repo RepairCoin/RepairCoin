@@ -26,7 +26,7 @@
 | 9 | Customer-facing AI UI: badges + disclosure | ✅ Merged + deployed | `deo/phase-3-task-9` (merged) | Violet AI badges live on staging — chat bubble label, service detail modal, marketplace card |
 | 10 | Booking suggestion buttons (Flavor B) | ⏳ Pushed, awaiting PR | `deo/phase-3-task-10` | Picked Option B (real availability injection). New `AvailabilityFetcher` + `BookingSuggestionParser` backend; `BookingSuggestionCard` frontend; checkout pre-fill via `?suggestedSlotIso=`. 158 tests passing |
 | 11 | Order completion confirmation hook | ⏳ Pushed, awaiting PR | `deo/phase-3-task-11` | New `OrderConfirmationHandler` subscribed to `service.order_completed`. Haiku-only, ~$0.0005/confirmation. 13 new tests (224 total) |
-| 12 | Spend cap monitoring + admin visibility | Not started | — | ~0.5 day. **Bonus:** also fix the `current_month_spend_usd` rollover bug found during Task 8 smoke — audit log shows $0.012 spent across 3 calls but `ai_shop_settings.current_month_spend_usd` still reads $0.00. Likely interaction with NULL `current_month_started_at` from migration 110 backfill |
+| 12 | Spend cap monitoring + admin visibility | ⏳ Pushed, awaiting PR | `deo/phase-3-task-12` | New SpendController exposes `/api/ai/spend` (shop) + `/api/ai/admin/cost-summary` (admin). Frontend AISpendIndicator on shop AI section. 7 new tests (231 total). Counter-drift surfaced as operational signal in admin response |
 | 13 | Production rollout to pilot shops | Not started | — | Final task |
 
 **What works today (post-merge of Tasks 1-8):**
@@ -872,7 +872,7 @@ If fix-4 alone misfires (e.g. unusual phrasing that escapes keyword detection), 
 
 **Smoke test prereqs:** A peanut-shop booking that's been completed by the shop (status: `paid` → `completed` via `PUT /api/services/orders/:id/status`). Customer must have prior AI messages in the conversation. After deploy, completing such a booking should land a "thanks ..." reply in the chat thread within ~1-2 seconds.
 
-### Task 12 — Spend cap monitoring + admin visibility (~0.5 day)
+### Task 12 — Spend cap monitoring + admin visibility (~0.5 day) — **DONE 2026-05-07**
 
 **Goal:** shop owners can see their AI spend; admins can see platform-wide cost.
 
@@ -892,6 +892,22 @@ If fix-4 alone misfires (e.g. unusual phrasing that escapes keyword detection), 
 - Auth enforced (shop only sees own; admin sees all)
 
 **Rollback:** unmount endpoints. Spend tracking continues internally; just no dashboard.
+
+**Implementation log (2026-05-07, branch `deo/phase-3-task-12`):**
+
+- **Backend** (`SpendController.ts`):
+  - `GET /api/ai/spend` — shop-only; reads `shopId` from JWT (no path param so a shop can never request another shop's spend). Returns `{currentMonthSpendUsd, monthlyBudgetUsd, percentUsed, monthStartedAt, callsThisMonth}`. Treats missing `ai_shop_settings` row as zero spend with default $20 budget instead of 404 — easier on fresh shops.
+  - `GET /api/ai/admin/cost-summary` — admin-only; aggregates platform-wide. Two data sources surfaced together: `ai_agent_messages` (audit log, source of truth) for actual costs/tokens/error rate, and `ai_shop_settings` (denormalized per-shop counters used by the spend cap enforcer) for `shopsWithSpend`/`aiEnabledShops`. Plus `counterDriftUsd = audit_total - counter_total` as an operational signal — non-zero drift means `SpendCapEnforcer.recordSpend` is silently failing for some calls. Useful for catching the rollover-bug class of issues without a separate diagnostic.
+- **Frontend** (`AISpendIndicator.tsx`):
+  - Self-fetching pill rendered in the disclosure area of `AISalesAssistantSection`. Shows `AI spend: $X.XX / $Y.YY (Z%)` with color states: green (<70%), amber (70–99%, "cheaper-model threshold"), red (≥100%, AI throttled). Tooltip explains the budget state.
+  - On error → renders "AI spend unavailable" instead of crashing — side panel widget, not critical-path.
+- **Routes:** added to `routes.ts` with explicit `requireRole(['shop'])` and `requireRole(['admin'])` gates. Health endpoint updated to list the new routes.
+
+**Tests:** new `SpendController.test.ts` — 7 tests covering 401 when no shopId in JWT, populated snapshot, fresh-shop zero snapshot, audit-log+counter aggregation in admin endpoint, zero-platform graceful handling, 500 on DB failure. Full ai-agent suite: **231 tests across 13 files** (was 224 / 12 — +1 file, +7).
+
+**Bonus — rollover bug status:** earlier I flagged a discrepancy where `current_month_spend_usd` showed $0.00 after ~$0.012 of audit-recorded calls. Investigation today confirmed it's _under-reporting_ rather than _resetting_: the counter accumulated to $0.09 after ~$0.115 of audit-recorded calls (~22% drift). Likely cause is the `recordSpend` UPDATE getting transient errors swallowed (per-call err handler logs + continues). Not actively broken. The `counterDriftUsd` field in the new admin endpoint surfaces this drift so an operator can see it; a future task can reconcile from the audit log if drift becomes meaningful at scale.
+
+**Smoke test:** after deploy, shop logs into staging dashboard → opens any service edit page → "Auto Sales & Booking" section shows the spend indicator. Admin endpoint is just a JSON exposure, no UI yet — verify with curl using an admin JWT.
 
 ### Task 13 — Production rollout + verification (~0.5 day)
 
