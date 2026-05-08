@@ -400,18 +400,39 @@ export class MessageService {
 
         const result = await orchestrator.handleCustomerMessage(input);
 
-        // On successful AI reply, broadcast WS to the customer so they see
-        // the reply land in real-time (the orchestrator persisted the message
-        // but did not broadcast — that's MessageService's responsibility).
+        // On successful AI reply, broadcast WS to BOTH the customer AND the
+        // shop so they each see the reply land in real-time (the orchestrator
+        // persisted the message but did not broadcast — that's
+        // MessageService's responsibility).
+        //
+        // Bug found 2026-05-08: previously this broadcast only to the
+        // customer's wallet. Shop's chat tab — even with a healthy WS —
+        // never received message:new for AI replies on conversations they
+        // own, so AI replies appeared "missing" until the shop refreshed.
+        // Fix: resolve shop.walletAddress (same source MessageService.sendMessage
+        // uses at line 240 for human customer→shop broadcasts) and include
+        // it in the target list.
         if (result.outcome === 'ai_replied' && this.wsManager) {
+          const targets: string[] = [input.customerAddress.toLowerCase()];
           try {
-            this.wsManager.sendToAddresses(
-              [input.customerAddress.toLowerCase()],
-              {
-                type: 'message:new',
-                payload: { conversationId: input.conversationId },
-              }
-            );
+            const { shopRepository } = await import('../../../repositories');
+            const shop = await shopRepository.getShop(input.shopId);
+            if (shop?.walletAddress) {
+              targets.push(shop.walletAddress.toLowerCase());
+            }
+          } catch (lookupErr) {
+            // Don't let a shop-lookup failure suppress the customer
+            // broadcast — degrade to customer-only rather than silent.
+            logger.error('AI reply WS broadcast: shop wallet lookup failed', {
+              shopId: input.shopId,
+              error: (lookupErr as Error)?.message,
+            });
+          }
+          try {
+            this.wsManager.sendToAddresses(targets, {
+              type: 'message:new',
+              payload: { conversationId: input.conversationId },
+            });
           } catch (wsErr) {
             logger.error('AI reply WS broadcast failed', {
               messageId: input.messageId,

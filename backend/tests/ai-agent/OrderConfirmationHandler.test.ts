@@ -312,6 +312,38 @@ describe("OrderConfirmationHandler — WebSocket broadcast on success", () => {
     );
   });
 
+  it("also broadcasts to the shop's walletAddress when present (so shop chat tab refreshes)", async () => {
+    // Bug found 2026-05-08: previously only the customer was in the broadcast
+    // targets, so shop chat tabs never got message:new for AI confirmations
+    // and appeared "missing" until refresh. Targets must include the shop's
+    // wallet too when it's set on the shop row.
+    const { handler } = makeMocks({
+      shop: { name: "Peanut", walletAddress: "0xSHOP123" } as any,
+    });
+    const ws = { sendToAddresses: jest.fn() };
+    handler.setWebSocketManager(ws as any);
+    await handler.handleOrderCompleted(sampleEvent());
+    expect(ws.sendToAddresses).toHaveBeenCalledTimes(1);
+    const targets = (ws.sendToAddresses as jest.Mock).mock.calls[0][0];
+    // Order is implementation-defined; assert both are present (lowercased).
+    expect(new Set(targets)).toEqual(new Set(["0xabc", "0xshop123"]));
+  });
+
+  it("falls back to customer-only when shop has no walletAddress", async () => {
+    // Some shops may not have a walletAddress on file (legacy rows, etc.).
+    // The broadcast must still reach the customer rather than silently fail.
+    const { handler } = makeMocks({
+      shop: { name: "Peanut" } as any, // no walletAddress
+    });
+    const ws = { sendToAddresses: jest.fn() };
+    handler.setWebSocketManager(ws as any);
+    await handler.handleOrderCompleted(sampleEvent());
+    expect(ws.sendToAddresses).toHaveBeenCalledWith(
+      ["0xabc"],
+      expect.objectContaining({ type: "message:new" })
+    );
+  });
+
   it("does not crash when WS manager is not set", async () => {
     const { handler } = makeMocks();
     // No setWebSocketManager call

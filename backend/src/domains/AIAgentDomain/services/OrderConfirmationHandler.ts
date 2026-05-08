@@ -269,10 +269,19 @@ export class OrderConfirmationHandler {
     // 9. Spend cap recording.
     await this.spendCapEnforcer.recordSpend(shopId, claudeResponse.costUsd);
 
-    // 10. WS broadcast to the customer so the message lands in real-time.
+    // 10. WS broadcast to BOTH customer and shop so the confirmation lands
+    // in real-time on both sides. Bug found 2026-05-08: previously only
+    // broadcast to customer, so the shop's chat tab never refreshed for
+    // AI-generated thank-you messages — they'd appear "missing" until the
+    // shop refreshed. The shop row was already loaded above (line ~165) so
+    // there's no extra DB cost to fix this.
     if (this.wsManager) {
+      const targets: string[] = [customerAddress.toLowerCase()];
+      if (shop?.walletAddress) {
+        targets.push(shop.walletAddress.toLowerCase());
+      }
       try {
-        this.wsManager.sendToAddresses([customerAddress.toLowerCase()], {
+        this.wsManager.sendToAddresses(targets, {
           type: "message:new",
           payload: { conversationId: conversation.conversationId },
         });
