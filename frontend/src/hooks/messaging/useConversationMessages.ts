@@ -114,14 +114,36 @@ export function useConversationMessages(
 
     fetchMessages(true);
 
+    // Catchup fetch for fresh-conversation WS race. When a conversation is
+    // newly created mid-session (e.g., customer clicks the service modal,
+    // backend creates the conversation, the AI sends an opener reply), the
+    // `message:new` broadcast for that AI reply can fire BEFORE this hook's
+    // listener is attached — the page is still mid-mount and selectedConversationId
+    // is still null. The listener would then never see that broadcast, so the
+    // AI reply sits in the DB unrendered until the user hard-refreshes.
+    //
+    // A delayed second fetch (~2.5s, comfortably longer than typical AI reply
+    // latency of 2-3s) backfills any messages that landed during the race.
+    // Cancelled if the effect re-runs first (selection changes).
+    const catchupTimer = window.setTimeout(() => {
+      if (activeIdRef.current === selectedConversationId) {
+        fetchMessages(false);
+      }
+    }, 2500);
+
     const onNewMessage = (e: Event) => {
       const ce = e as CustomEvent<{ conversationId?: string }>;
-      if (ce.detail?.conversationId !== selectedConversationId) return;
+      // Read the ref, not the closure: matches the race-safety pattern used
+      // by fetchMessages above, and avoids any chance of acting on a
+      // stale closure if React batches updates oddly.
+      if (ce.detail?.conversationId !== activeIdRef.current) return;
       fetchMessages(false);
     };
     window.addEventListener("new-message-received", onNewMessage);
-    return () =>
+    return () => {
+      window.clearTimeout(catchupTimer);
       window.removeEventListener("new-message-received", onNewMessage);
+    };
   }, [selectedConversationId, currentUserId]);
 
   const loadMore = useCallback(async () => {

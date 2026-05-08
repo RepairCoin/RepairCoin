@@ -885,6 +885,29 @@ Claude — given conflicting guidance — went with the path of least friction (
 
 **Why I'm not claiming X/5 confidence:** previous fixes I rated optimistically ("5/5") all shipped with bugs. Per the saved memory, no confidence ratings without empirical end-to-end testing. fix-7 is a structural correction (removed conflicting instructions) — it should perform better, but smoke testing is the only validator that matters.
 
+**Smoke results (2026-05-08, staging, customer `0x6cd036...` "Qua Ting" + Newly Baker service):**
+
+A polluted prior conversation (`conv_1773038873896_65vkbcp5f` — 20 messages of cross-service March bookings) was deleted to give Claude clean history. Customer then re-sent the auto-paste opener and the test sequence below.
+
+| Turn | Customer message | Expected | Actual | stop_reason | Verdict |
+|---|---|---|---|---|---|
+| 1 | (auto-paste opener) | First-turn AI disclosure with $99 / 30 min | "Hi Qua Ting! I'm Peanut's AI assistant... priced at $99.00... typically takes about 30 minutes..." | `end_turn` | ✅ — disclosure on first turn is allowed by universal rule #8 |
+| 2 | `what times do you have?` | Tool call, any slot, no boilerplate | "We have slots available Friday, May 8 — earliest is 9:00 AM. Tap below to book it!" (82 chars) | `tool_use` | ✅ |
+| 3 | `do you have afternoon slot?` | Tool call, slot ≥ 12 PM | "Friday, May 8 at 12:00 PM is our earliest afternoon slot — tap below to lock it in." (80 chars) | `tool_use` | ✅ — fix-4 reorder put afternoon slots first |
+| 4 | `do you have morning slot?` | Tool call, slot < 12 PM | "How about Friday, May 8 at 9:00 AM?" (35 chars) | `tool_use` | ✅ |
+| 5 | `how much it cost?` | NO tool call, plain price answer | "The service is priced at **$99.00**. Let me know if you'd like to go ahead and book a slot!" | `end_turn` | ✅ — Claude correctly distinguished pricing-intent from booking-intent |
+| 6 | `book me Friday morning` | Tool call, Friday + < 12 PM | "Friday, May 8 at 9:00 AM — tap below to lock it in!" (51 chars) | `tool_use` | ✅ |
+
+**6/6 expected outcomes hit.** Both positive (booking-intent → tool call → clean card with no `$99 / 30 minutes / would you like me to lock one in?` boilerplate) and negative (informational → `end_turn` → plain answer) paths verified. Time-band reorder (fix-4) firing together with tool use (fix-7) — customer asks "morning" → morning slot, "afternoon" → afternoon slot.
+
+**fix-7 confirmed working end-to-end on staging.** Tool-use migration was the right architectural call — prompt rules alone (fix-1 through fix-5) couldn't override Claude's training defaults; the schema enforcement does. **Ready for Task 13 (production rollout).**
+
+**Two follow-up fixes folded into this branch alongside fix-7:**
+
+1. **WebSocket race on fresh conversations** (`frontend/src/hooks/messaging/useConversationMessages.ts`) — for the first 4 turns of the new conversation, AI replies landed in the DB but did not render on the customer's chat tab without a hard refresh. Root cause: when the customer clicks the service modal mid-session, the backend creates the conversation server-side and AgentOrchestrator generates an AI reply ~3s later. During that window the customer's frontend is mid-navigation and the messages page may not have its `new-message-received` listener attached yet, so the WS broadcast goes into a void. Fix: added a delayed catchup `setTimeout(2500ms)` in the message-fetching effect that backfills any messages persisted during the listener-attach race. Also relaxed the listener filter to read `activeIdRef.current` (matches the existing race-safety pattern at line 88, defends against stale-closure batching).
+
+2. **`ai_agent_messages.tool_calls` column was logging as `[]`** even when `stop_reason: tool_use` was correctly logged. Cosmetic for customers (booking suggestions still land in `messages.metadata.booking_suggestions`), but a misleading diagnostic — an engineer reading the audit log would see `tool_calls: []` next to `stop_reason: tool_use` and falsely conclude Claude didn't call a tool. Fix: AgentOrchestrator's success-path audit call now passes `claudeResponse.toolUses` mapped to the `toolCalls` field, so the column reflects what actually happened. Also future-proofs for Phase 4 multi-tool work — every new tool will write to a single queryable column instead of fragmenting per-tool into `metadata.X` shapes.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day) — **DONE 2026-05-07**
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
