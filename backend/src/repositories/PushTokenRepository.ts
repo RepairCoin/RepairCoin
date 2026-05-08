@@ -64,7 +64,7 @@ export class PushTokenRepository extends BaseRepository {
         INSERT INTO device_push_tokens (
           wallet_address, expo_push_token, device_id, device_type, device_name, app_version, is_active, last_used_at
         ) VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
-        ON CONFLICT (expo_push_token)
+        ON CONFLICT (expo_push_token) WHERE expo_push_token IS NOT NULL
         DO UPDATE SET
           wallet_address = EXCLUDED.wallet_address,
           device_id = EXCLUDED.device_id,
