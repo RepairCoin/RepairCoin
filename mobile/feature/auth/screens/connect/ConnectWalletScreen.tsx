@@ -17,7 +17,7 @@ import { client } from "@/shared/constants/thirdweb";
 const video = require("@/assets/clips/onboarding1.mp4");
 
 const isStaging =
-  process.env.EXPO_PUBLIC_API_URL?.includes("staging") || __DEV__;
+  process.env.EXPO_PUBLIC_API_URL?.includes("staging");
 
 export default function ConnectWalletScreen() {
   const { isLoading } = useAuthStore();
