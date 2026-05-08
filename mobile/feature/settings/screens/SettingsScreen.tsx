@@ -152,7 +152,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
 
         {/* Support Section */}
         <SettingsSection title="Support">
-          <SettingsItem
+          {/* <SettingsItem
             icon={
               <Ionicons
                 name="help-circle-outline"
@@ -164,7 +164,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
             subtitle="Get help with your account"
             onPress={handleHelp}
           />
-          <Divider />
+          <Divider /> */}
           <SettingsItem
             icon={
               <Ionicons
@@ -177,7 +177,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
             subtitle="Help us improve the app"
             onPress={handleOpenBugReport}
           />
-          <Divider />
+          {/* <Divider />
           <SettingsItem
             icon={
               <Ionicons
@@ -189,7 +189,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
             title="Terms & Privacy"
             subtitle="Read our policies"
             onPress={handleTerms}
-          />
+          /> */}
         </SettingsSection>
 
         {/* Logout Section */}

@@ -312,6 +312,22 @@ export default function CustomerWalletTab() {
             favoritedIds={favoritedIds}
           />
         )}
+        {!servicesLoading &&
+          !trendingLoading &&
+          !recentlyViewedLoading &&
+          (!recentlyViewedData || recentlyViewedData.length === 0) &&
+          (!trendingData || trendingData.length === 0) &&
+          (!displayedServices || displayedServices.length === 0) && (
+            <View className="flex-1 justify-center items-center pt-20">
+              <Ionicons name="briefcase-outline" size={64} color="#666" />
+              <Text className="text-gray-400 text-center mt-4">
+                No services available
+              </Text>
+              <Text className="text-gray-500 text-sm text-center mt-2">
+                Check back later for new services
+              </Text>
+            </View>
+          )}
       </ScrollView>
     </View>
   );
