@@ -375,3 +375,27 @@ describe("PromptTemplates — universal style rules (Phase 3 Task 10 fix-3)", ()
     }
   });
 });
+
+describe("PromptTemplates — AI disclosure rule (Option B follow-up)", () => {
+  // Added 2026-05-08: when customers ask "are you AI?" / "is this a bot?",
+  // EscalationDetector previously silently bowed out, leaving customers with
+  // no acknowledgement. Now the AI answers via prompt rule #9.
+  it("instructs the AI to confirm AI nature + offer human handoff option", () => {
+    const ctx = baseContext();
+    const prompt = professionalPrompt(ctx);
+    // The rule mentions the disclosure-question scenario explicitly
+    expect(prompt).toMatch(/asks whether you'?re an AI|are you AI|is this a bot/i);
+    // Instructs honesty (confirm you're an AI assistant)
+    expect(prompt).toMatch(/confirm honestly|AI assistant/i);
+    // Instructs offering human handoff as a choice
+    expect(prompt).toMatch(/flag a real human|real teammate|human if they/i);
+  });
+
+  it("applies disclosure rule to all three tones", () => {
+    const ctx = baseContext();
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toMatch(/asks whether you'?re an AI|is this a bot/i);
+    }
+  });
+});

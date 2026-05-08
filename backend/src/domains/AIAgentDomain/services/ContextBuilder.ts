@@ -11,6 +11,8 @@
 //
 // Used by AgentOrchestrator (Task 5). Not yet wired to any HTTP route.
 
+import { Pool } from "pg";
+import { getSharedPool } from "../../../utils/database-pool";
 import { logger } from "../../../utils/logger";
 import { CustomerRepository } from "../../../repositories/CustomerRepository";
 import { ShopRepository } from "../../../repositories/ShopRepository";
@@ -36,6 +38,21 @@ import {
 const MAX_CONVERSATION_MESSAGES = 20;
 
 /**
+ * Shape of one row from the shop_availability table — the seven-day weekly
+ * schedule the AI uses to answer "what are your hours?" questions. PG TIME
+ * columns serialize as "HH:MM:SS" strings; null when day is closed or break
+ * isn't configured.
+ */
+interface WeeklyHoursRow {
+  day_of_week: number; // 0=Sun, 6=Sat
+  is_open: boolean;
+  open_time: string | null;
+  close_time: string | null;
+  break_start_time: string | null;
+  break_end_time: string | null;
+}
+
+/**
  * Hard cap on sibling services for upsell suggestions. More than 5 dilutes
  * the recommendation and bloats the prompt.
  */
@@ -56,12 +73,17 @@ export interface BuildContextParams {
 export class ContextBuilder {
   // Repositories instantiated in constructor — makes the class easy to mock
   // in tests by passing custom repo instances.
+  // Pool is for the shop_availability lookup (hours per day-of-week).
+  // No repository owns this table cleanly — the AppointmentRepository handles
+  // slot-config + per-day overrides but not the weekly schedule. Direct query
+  // is the simplest path; injectable for tests via the constructor param.
   constructor(
     private readonly customerRepo: CustomerRepository = new CustomerRepository(),
     private readonly shopRepo: ShopRepository = new ShopRepository(),
     private readonly serviceRepo: ServiceRepository = new ServiceRepository(),
     private readonly messageRepo: MessageRepository = new MessageRepository(),
-    private readonly availabilityFetcher: AvailabilityFetcher = new AvailabilityFetcher()
+    private readonly availabilityFetcher: AvailabilityFetcher = new AvailabilityFetcher(),
+    private readonly pool: Pool = getSharedPool()
   ) {}
 
   /**
@@ -87,7 +109,7 @@ export class ContextBuilder {
     const includeBookingSlots = serviceRow.aiBookingAssistance === true;
 
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       this.messageRepo.getConversationMessages(conversationId, {
@@ -103,6 +125,9 @@ export class ContextBuilder {
       includeBookingSlots
         ? this.availabilityFetcher.fetchUpcomingSlots(serviceRow.shopId, serviceId)
         : Promise.resolve([] as AgentAvailabilitySlot[]),
+      // Weekly operating hours so the AI can answer "what are your hours?"
+      // accurately instead of saying "not on file" (Phase 3 follow-up).
+      this.fetchWeeklyHours(serviceRow.shopId),
     ]);
 
     if (!customerRow) {
@@ -115,13 +140,40 @@ export class ContextBuilder {
     return {
       service: this.toServiceContext(serviceRow),
       customer: this.toCustomerContext(customerRow),
-      shop: this.toShopContext(shopRow),
+      shop: this.toShopContext(shopRow, weeklyHours),
       conversationHistory: messagesResult.items.map((m: any) =>
         this.toMessageContext(m)
       ),
       siblingServices: siblingsResult,
       availabilitySlots,
     };
+  }
+
+  /**
+   * Read shop_availability rows for one shop. Returns the seven-day weekly
+   * schedule (some days may be `is_open=false`). Errors are swallowed —
+   * a transient DB hiccup shouldn't block the AI reply, and the prompt has
+   * a graceful fallback for missing hours.
+   */
+  private async fetchWeeklyHours(shopId: string): Promise<WeeklyHoursRow[]> {
+    try {
+      const result = await this.pool.query<WeeklyHoursRow>(
+        `SELECT day_of_week, is_open, open_time, close_time,
+                break_start_time, break_end_time
+         FROM shop_availability
+         WHERE shop_id = $1
+           AND day_of_week BETWEEN 0 AND 6
+         ORDER BY day_of_week`,
+        [shopId]
+      );
+      return result.rows;
+    } catch (err) {
+      logger.warn("ContextBuilder: shop_availability query failed; hours will be 'not on file' in prompt", {
+        shopId,
+        error: (err as Error)?.message,
+      });
+      return [];
+    }
   }
 
   // ============================================================================
@@ -161,13 +213,13 @@ export class ContextBuilder {
     };
   }
 
-  private toShopContext(row: any): AgentShopContext {
+  private toShopContext(row: any, weeklyHours: WeeklyHoursRow[]): AgentShopContext {
     // Same defensive both-shapes read as customer
     return {
       shopId: row.shopId ?? row.shop_id,
       shopName: row.name ?? row.shopName ?? "the shop",
       category: row.category ?? null,
-      hoursSummary: this.summarizeHours(row),
+      hoursSummary: this.summarizeHours(weeklyHours),
       timezone: row.timezone ?? null,
     };
   }
@@ -192,19 +244,84 @@ export class ContextBuilder {
   }
 
   /**
-   * Heuristic: build a "Mon-Fri 9am-6pm" style summary if the shop has
-   * structured hours. If not available on the shop row, returns null and the
-   * prompt template will handle the absence gracefully ("hours unknown — ask
-   * the shop directly").
+   * Build a friendly "Mon-Fri 9am-6pm, Sat closed" style summary from the
+   * shop_availability rows. The AI uses this to answer "what are your hours?"
+   * questions accurately instead of saying "not on file."
    *
-   * Phase 3 MVP: returns null. Phase 4 can wire in a proper hours summarizer
-   * once we know the actual hours-storage shape on shops table.
+   * Returns null when no rows exist or all days are closed — the prompt
+   * falls back to "hours not on file, will have someone confirm" in that
+   * case (intentional: better to disclose ignorance than fabricate hours).
+   *
+   * Implementation notes:
+   * - day_of_week: 0=Sunday, 1=Monday, ..., 6=Saturday (per the existing
+   *   shop_availability rows on staging — Postgres TIME columns serialize
+   *   as "HH:MM:SS" strings so we parse and reformat).
+   * - Adjacent days with identical hours are compressed (e.g. "Mon-Fri 9am-6pm").
+   * - Days marked is_open=false render as "Sat closed".
+   * - Break times are NOT included — too noisy for a one-line summary; the
+   *   AI's booking flow already accounts for breaks via AvailabilityFetcher
+   *   when proposing actual slots.
    */
-  private summarizeHours(_row: any): string | null {
-    // Intentionally minimal in MVP — building a robust hours-summary helper
-    // is its own feature. AI prompt instructs: "If you don't know the shop's
-    // hours, say so — never invent them."
-    return null;
+  private summarizeHours(rows: WeeklyHoursRow[]): string | null {
+    if (!rows || rows.length === 0) return null;
+
+    // Index rows by day-of-week. Missing days = closed.
+    const byDay = new Map<number, WeeklyHoursRow>();
+    for (const row of rows) {
+      if (typeof row.day_of_week === "number" && row.day_of_week >= 0 && row.day_of_week <= 6) {
+        byDay.set(row.day_of_week, row);
+      }
+    }
+
+    if (byDay.size === 0) return null;
+
+    // Build per-day strings for Sun-Sat (day 0 to 6).
+    // Day labels match common shop-hours-page wording.
+    const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const perDay: { day: number; label: string; hours: string }[] = [];
+    for (let d = 0; d < 7; d++) {
+      const row = byDay.get(d);
+      if (!row || row.is_open === false) {
+        perDay.push({ day: d, label: DAY_NAMES[d], hours: "closed" });
+      } else {
+        const open = formatTime(row.open_time);
+        const close = formatTime(row.close_time);
+        if (!open || !close) {
+          perDay.push({ day: d, label: DAY_NAMES[d], hours: "closed" });
+        } else {
+          perDay.push({ day: d, label: DAY_NAMES[d], hours: `${open}-${close}` });
+        }
+      }
+    }
+
+    // If literally every day is "closed", give up — looks like the shop
+    // hasn't configured anything meaningful. Same outcome as no rows.
+    if (perDay.every((d) => d.hours === "closed")) return null;
+
+    // Compress adjacent days with identical hours strings into ranges.
+    // "Mon 9am-6pm, Tue 9am-6pm, Wed 9am-6pm" → "Mon-Wed 9am-6pm"
+    const groups: { startDay: number; endDay: number; hours: string }[] = [];
+    let current: { startDay: number; endDay: number; hours: string } | null = null;
+    for (const d of perDay) {
+      if (!current || current.hours !== d.hours) {
+        if (current) groups.push(current);
+        current = { startDay: d.day, endDay: d.day, hours: d.hours };
+      } else {
+        current.endDay = d.day;
+      }
+    }
+    if (current) groups.push(current);
+
+    // Format each group: single day = "Mon 9am-6pm", range = "Mon-Fri 9am-6pm".
+    const parts = groups.map((g) => {
+      const range =
+        g.startDay === g.endDay
+          ? DAY_NAMES[g.startDay]
+          : `${DAY_NAMES[g.startDay]}-${DAY_NAMES[g.endDay]}`;
+      return `${range} ${g.hours}`;
+    });
+
+    return parts.join(", ");
   }
 
   /**
@@ -258,3 +375,29 @@ export class ContextBuilder {
  * Tests instantiate their own ContextBuilder with mocked repositories.
  */
 export const contextBuilder = new ContextBuilder();
+
+/**
+ * Format a Postgres TIME string ("HH:MM:SS") as a friendly "9am" / "5pm"
+ * style label. Used by summarizeHours to build the weekly summary the AI
+ * sees in the prompt. Returns null on malformed input so the caller can
+ * fall back to "closed" rather than emit a broken string.
+ *
+ * Examples:
+ *   "09:00:00" → "9am"
+ *   "17:30:00" → "5:30pm"
+ *   "00:00:00" → "12am"
+ *   "12:00:00" → "12pm"
+ */
+function formatTime(t: string | null): string | null {
+  if (!t || typeof t !== "string") return null;
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(t.trim());
+  if (!match) return null;
+  const hour24 = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  if (Number.isNaN(hour24) || Number.isNaN(minutes)) return null;
+  if (hour24 < 0 || hour24 > 23 || minutes < 0 || minutes > 59) return null;
+
+  const period = hour24 >= 12 ? "pm" : "am";
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  return minutes === 0 ? `${hour12}${period}` : `${hour12}:${minutes.toString().padStart(2, "0")}${period}`;
+}
