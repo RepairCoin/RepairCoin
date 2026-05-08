@@ -16,7 +16,19 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const manuallyClosedRef = useRef(false); // Track if we manually closed due to auth errors
-  const maxReconnectAttempts = 5;
+  // Heartbeat refs (added 2026-05-08, fix-7 follow-up). Without these, the
+  // socket can silently die — e.g., after a deploy restarts the WS server,
+  // or after a backend idle-timeout — and the customer keeps a zombie
+  // connection until they hard-refresh. Heartbeat detects zombies; the
+  // forced close triggers our normal onclose → reconnect path.
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pongTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const HEARTBEAT_INTERVAL_MS = 25_000; // Send ping every 25s — beats most idle timeouts (typically 60-300s).
+  const PONG_TIMEOUT_MS = 10_000; // Pong must arrive within 10s of ping or we treat the socket as dead.
+  // Was 5 — too low. With exponential backoff capped at 30s, 5 attempts
+  // is only ~1 minute of retry. A typical deploy can take 60-90s. Bumping
+  // to 20 gives ~10 minutes of retry, which survives any realistic outage.
+  const maxReconnectAttempts = 20;
   const { subscribeToPush, unsubscribeFromPush } = usePushSubscription();
 
   const {
@@ -164,6 +176,27 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         reconnectAttemptsRef.current = 0;
         manuallyClosedRef.current = false;
         setActiveSocket(ws);
+
+        // Start the heartbeat. Each tick: send ping, arm pong timeout.
+        // If pong arrives → cleared in the 'pong' case. If not → socket
+        // is treated as zombie and force-closed, which triggers reconnect.
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+        }
+        heartbeatIntervalRef.current = setInterval(() => {
+          if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+          try {
+            wsRef.current.send(JSON.stringify({ type: "ping" }));
+          } catch {
+            // Send threw → socket is broken; let onclose handle reconnect.
+            return;
+          }
+          if (pongTimeoutRef.current) clearTimeout(pongTimeoutRef.current);
+          pongTimeoutRef.current = setTimeout(() => {
+            console.log("⚠️ WebSocket heartbeat timeout — closing zombie connection");
+            wsRef.current?.close();
+          }, PONG_TIMEOUT_MS);
+        }, HEARTBEAT_INTERVAL_MS);
       };
 
       ws.onmessage = (event) => {
@@ -233,7 +266,12 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               break;
 
             case 'pong':
-              // Heartbeat response
+              // Heartbeat response — clear the pong timeout so the watchdog
+              // doesn't fire and force-close a healthy connection.
+              if (pongTimeoutRef.current) {
+                clearTimeout(pongTimeoutRef.current);
+                pongTimeoutRef.current = null;
+              }
               break;
 
             case 'subscription_status_changed':
@@ -292,9 +330,21 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       };
 
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket disconnected');
+        console.log('🔌 WebSocket disconnected', { code: event.code, reason: event.reason });
         setConnected(false);
         setActiveSocket(null);
+
+        // Stop the heartbeat — a closed socket can't send pings, and a
+        // pending pong timeout would force-close the (already-closed)
+        // socket again on its next tick.
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
+        if (pongTimeoutRef.current) {
+          clearTimeout(pongTimeoutRef.current);
+          pongTimeoutRef.current = null;
+        }
 
         // Don't show error or try to reconnect if we manually closed due to auth issues
         if (manuallyClosedRef.current) {
@@ -302,25 +352,21 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
           return;
         }
 
-        // If connection was refused (code 1006), don't keep retrying
-        // This happens when the WebSocket server isn't running
-        if (event.code === 1006) {
-          console.log('ℹ️ WebSocket server not available - notifications will not work until server is started');
-          reconnectAttemptsRef.current = maxReconnectAttempts; // Prevent further attempts
-          return;
-        }
-
-        // Attempt to reconnect for other errors
+        // Reconnect on ANY non-manual close, including code 1006. The old
+        // code bailed on 1006 thinking it meant "WS server not running",
+        // but 1006 also fires for: backend deploy restarting the WS
+        // server, network blip, tab throttling, idle timeout. In every
+        // one of those, we want to reconnect — not give up forever.
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          console.log(`🔄 Reconnecting in ${delay}ms...`);
+          console.log(`🔄 Reconnecting in ${delay}ms... (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current += 1;
             connectWebSocket();
           }, delay);
         } else {
-          console.log('ℹ️ Notification server unavailable - app will work without real-time notifications');
+          console.log('ℹ️ Notification server unavailable after max retries — refresh to retry');
         }
       };
     } catch (error) {
@@ -334,6 +380,16 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    // Clear heartbeat timers too, otherwise an orphan interval keeps
+    // calling .send() on a null/closed socket (silent error spam).
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (pongTimeoutRef.current) {
+      clearTimeout(pongTimeoutRef.current);
+      pongTimeoutRef.current = null;
     }
 
     if (wsRef.current) {
@@ -392,6 +448,27 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, isAuthenticated, userProfile?.address, switchingAccount]);
+
+  // Reconnect when the tab regains visibility. Browsers throttle (or
+  // sometimes outright suspend) WebSockets in backgrounded tabs — when
+  // the user comes back, the socket may be dead even though readyState
+  // still reads OPEN. If we're not currently connected, kick a reconnect.
+  // Also resets the reconnect attempt counter so a stale "we gave up"
+  // state doesn't permanently block recovery.
+  useEffect(() => {
+    if (!enabled) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!isAuthenticated || !userProfile?.address) return;
+      const state = wsRef.current?.readyState;
+      if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
+      console.log("👁️ Tab visible — reconnecting WebSocket");
+      reconnectAttemptsRef.current = 0;
+      connectWebSocket();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [enabled, isAuthenticated, userProfile?.address, connectWebSocket]);
 
   return {
     fetchNotifications,
