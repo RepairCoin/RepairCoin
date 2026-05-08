@@ -52,7 +52,12 @@ import { ClaudeTool, BookingSuggestion } from "../types";
  * (no rambling "$99 and 30 minutes" prefix).
  */
 const BOOKING_TOOL_NAME = "propose_booking_slot";
-const BOOKING_REPLY_MAX_CHARS = 200;
+// Lowered from 200 to 130 in fix-7. Empirical observation: Claude with a
+// 200-char ceiling still fit the "Hi Lee Ann! The Newly Baker service is
+// $99.00 and runs about 30 minutes..." boilerplate (175+ chars) before the
+// slot mention. 130 chars forces the slot mention to come first or the
+// reply gets truncated — which Claude avoids by writing tighter.
+const BOOKING_REPLY_MAX_CHARS = 130;
 import {
   HandleCustomerMessageInput,
   HandleCustomerMessageResult,
@@ -496,12 +501,12 @@ function buildBookingSuggestionTool(
   return {
     name: BOOKING_TOOL_NAME,
     description: [
-      `Propose a specific bookable appointment slot to the customer for service ${serviceId}.`,
-      `Use ONLY when the customer is showing booking intent (asking about times, picking a slot, saying yes to a previous suggestion).`,
-      `Do NOT use for general pricing/policy questions where the customer hasn't expressed booking intent.`,
-      `Examples of when to use: "what times do you have?", "Can I book Thursday?", "yes please", "Thursday at 2pm works".`,
-      `Examples of when NOT to use: "how much does this cost?", "what's included?", "what should I bring?".`,
-      `Available slots include: ${slotChoicesForDescription}.`,
+      `Propose a specific bookable appointment slot to the customer for service ${serviceId}. This is the ONLY way to render a tap-to-book card in chat — plain text with slot info will not produce a card.`,
+      `CALL THE TOOL when the customer asks about times, picks a slot, or says yes to a previous suggestion. Specifically:`,
+      `Trigger questions: "what times do you have?", "what time do you have?", "do you have morning slot?", "do you have afternoon slot?", "do you have evening slot?", "any openings?", "when can I come in?", "can I book Thursday?", "Thursday afternoon", "Thursday at 2pm", "yes please", "I'll take it", "book me in".`,
+      `Do NOT call the tool for genuinely informational questions: "how much does this cost?", "what's included?", "what should I bring?", "how long does it take?", "what's your cancellation policy?".`,
+      `When in doubt between booking-intent and informational, lean toward calling the tool. A miss-call is better than no card.`,
+      `Available slots: ${slotChoicesForDescription}.`,
     ].join(" "),
     inputSchema: {
       type: "object",
@@ -510,21 +515,28 @@ function buildBookingSuggestionTool(
           type: "string",
           enum: slotEnum,
           description:
-            "The ISO 8601 timestamp of the specific slot you are proposing. MUST be exactly one of the values listed in the enum — no invented or modified slots.",
+            "The ISO 8601 timestamp of the specific slot you are proposing. MUST be exactly one of the values listed in the enum — no invented or modified slots. If the customer asked for morning/afternoon/evening, pick a slot whose hour matches that band.",
         },
         reply_text: {
           type: "string",
           maxLength: BOOKING_REPLY_MAX_CHARS,
           description: [
-            "The natural-language message the customer will see in chat alongside the tap-to-book card.",
-            "RULES:",
-            "(1) MUST reference the proposed slot in plain English (e.g. 'How does Thursday at 2:30 PM sound?').",
-            "(2) MUST be conversational — like a real shop owner texting back, not a service brochure.",
-            "(3) MUST NOT restate price, duration, or category. The customer already knows.",
-            "(4) MUST NOT include a follow-up question chain. One sentence is best.",
-            "(5) Keep under 150 characters in practice.",
-            "GOOD: 'Thursday at 2:30 PM works — tap below to lock it in.'",
-            "BAD: 'The service is $99 and runs 30 minutes. We have availability as early as Thursday — would you like me to lock in a slot?'",
+            "The short natural-language message the customer sees in chat above the tap-to-book card.",
+            "HARD RULES:",
+            "(1) MUST mention the slot day + time (e.g. 'Thursday at 2:30 PM').",
+            "(2) MUST be conversational and brief — under 130 characters.",
+            "(3) MUST NOT mention price (no '$99'), duration (no '30 minutes'), service name (no 'Newly Baker' / 'the service'), or category. The customer already sees these on the card and elsewhere in the UI.",
+            "(4) MUST NOT prefix with 'Hi {name}!' on follow-up turns — only on the very first AI reply in a conversation.",
+            "(5) MUST NOT ask 'would you like me to lock this in?' / 'want me to book it?'. Just propose the slot directly. The tap card is the booking UI; the customer doesn't need permission language.",
+            "GOOD examples (all valid):",
+            "'Thursday at 2:30 PM works — tap below.'",
+            "'How about Friday at 10 AM?'",
+            "'Got 9 AM Thursday open.'",
+            "'Closest afternoon slot is Friday 2 PM.'",
+            "BAD examples (NEVER produce these):",
+            "'Hi Lee Ann! The Newly Baker service is $99 and runs 30 minutes. We have availability as early as Thursday — would you like me to lock one in?' (mentions price/duration/service name + asks permission)",
+            "'The service is $99.00 and takes about 30 minutes.' (just a service summary, no slot)",
+            "'We have slots available — pick one.' (no specific slot, asks customer to choose)",
           ].join(" "),
         },
       },
