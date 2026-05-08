@@ -428,6 +428,21 @@ export class AgentOrchestrator {
         cachedInputTokens: claudeResponse.usage.cacheReadInputTokens,
         costUsd: claudeResponse.costUsd,
         latencyMs: claudeResponse.latencyMs,
+        // Persist tool calls so audit consumers see Claude's structured
+        // output, not just the free text. Without this, `tool_calls` was
+        // logged as [] even when stop_reason was "tool_use" — misleading
+        // diagnostic. Booking suggestions still land in
+        // messages.metadata.booking_suggestions for the frontend; this is
+        // for forensic queries against ai_agent_messages.
+        ...((claudeResponse.toolUses ?? []).length > 0
+          ? {
+              toolCalls: (claudeResponse.toolUses ?? []).map((t) => ({
+                toolName: t.toolName,
+                toolUseId: t.toolUseId,
+                input: t.input,
+              })),
+            }
+          : {}),
       });
 
       // 9. Update spend cap
