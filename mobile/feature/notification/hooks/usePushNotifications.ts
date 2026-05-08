@@ -31,7 +31,7 @@ export function usePushNotifications() {
     error: null,
   });
 
-  const { isAuthenticated, accessToken, userType } = useAuthStore();
+  const { isAuthenticated, accessToken, userType, isDemo } = useAuthStore();
 
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
@@ -314,6 +314,10 @@ export function usePushNotifications() {
   }, [state.permissionStatus]);
 
   useEffect(() => {
+    if (isDemo) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      return;
+    }
     if (isAuthenticated && accessToken) {
       registerForPushNotifications();
     } else {
@@ -323,7 +327,7 @@ export function usePushNotifications() {
         isLoading: false,
       }));
     }
-  }, [isAuthenticated, accessToken, registerForPushNotifications]);
+  }, [isAuthenticated, accessToken, isDemo, registerForPushNotifications]);
 
   useEffect(() => {
     notificationListener.current =
