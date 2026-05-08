@@ -278,22 +278,28 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
     expect(prompt).toContain("2026-05-08T07:30:00.000Z");
   });
 
-  it("instructs Claude to emit the fenced booking_suggestion JSON block + ONLY-listed slots", () => {
+  it("instructs Claude to use the propose_booking_slot tool (NOT fenced JSON) + ONLY-listed slots", () => {
+    // fix-7: switched from fenced JSON instructions to tool-use guidance.
+    // The fenced ```booking_suggestion``` block was removed because it
+    // conflicted with the tool added in fix-6, causing Claude to do neither
+    // reliably. Now the prompt tells Claude to call the tool (validated by
+    // Anthropic against the schema) and to NEVER emit fenced JSON.
     const ctx = baseContext({ availabilitySlots: [slot1] });
     const prompt = professionalPrompt(ctx);
-    // Fence + variable name visible
-    expect(prompt).toContain("```booking_suggestion");
-    // Service id substituted into the JSON template
-    expect(prompt).toContain('"service_id": "srv_test"');
-    // Anti-hallucination guardrail
-    expect(prompt).toMatch(/never invent|verbatim|copied/i);
+    // Tool name must be referenced explicitly so Claude knows what to call
+    expect(prompt).toContain("propose_booking_slot");
+    // Real slot_iso must be present (tool's enum values are sourced from this list)
+    expect(prompt).toContain(slot1.slotIso);
+    // Forbid fenced JSON in plain text (the old failure mode)
+    expect(prompt).toMatch(/never include booking-suggestion json|never write fenced code blocks/i);
   });
 
   it("applies to all three tones consistently", () => {
     const ctx = baseContext({ availabilitySlots: [slot1] });
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
       const p = buildPrompt(ctx);
-      expect(p).toContain("```booking_suggestion");
+      // Each tone must include the tool-use guidance and the real slot_iso
+      expect(p).toContain("propose_booking_slot");
       expect(p).toContain(slot1.slotIso);
     }
   });

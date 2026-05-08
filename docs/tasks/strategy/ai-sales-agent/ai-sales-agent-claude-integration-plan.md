@@ -858,6 +858,33 @@ Both are **prompt-adherence failures**. The prompt has the rules; Claude ignores
 
 **What this does NOT solve:** if Claude doesn't call the tool at all and emits a free-text reply with the same "$99 and 30 minutes" prefix, the legacy text-parser path still hands that text to the customer verbatim. In practice with `tool_choice: auto` + slots-available + the booking-relevant prompt rules, Claude almost always uses the tool when booking is in scope. Smoke testing on staging will tell us how often the fallback fires.
 
+---
+
+#### Task 10 seventh fix (2026-05-08, branch `deo/phase-3-task-10-fix-7`)
+
+After fix-6 deployed, smoke testing showed the style bugs **were not fixed**. Audit log confirmed why: Claude was still emitting plain text with `stopReason: "end_turn"` (NOT `tool_use`). The tool was wired correctly, but Claude wasn't using it.
+
+**Root cause:** fix-6 added the tool but **left the old fenced-JSON instructions** in `PromptTemplates.buildBookingBlock()`. The prompt told Claude two contradictory things at once:
+
+1. NEW (fix-6 tool description): "call propose_booking_slot to render a card"
+2. OLD (still in prompt from earlier fixes): "append a fenced JSON block with shape `{...service_id...}`"
+
+Claude — given conflicting guidance — went with the path of least friction (the prompt-side instruction it had already been trained on) and emitted neither the tool call nor the fenced JSON cleanly. Net effect: free-text reply with the bad style + no booking card.
+
+**Fix:** complete the migration. Remove the old prompt path entirely so the tool is the only sanctioned path.
+
+- **`PromptTemplates.buildBookingBlock`** — completely rewrote. Removed all fenced-JSON instructions and JSON-shape examples. Replaced with explicit tool-use guidance: "use the tool, never plain text", "NEVER include booking-suggestion JSON in your plain-text reply. NEVER write fenced code blocks containing slot info." Kept the time-band matching rules and slot list (still useful as context for the model). Added a list of explicit trigger phrases ("what times do you have?", "do you have morning slot?", "do you have afternoon slot?", "do you have evening slot?", etc.) that map to tool-call intent — earlier prompts under-specified these, so Claude was treating "do you have afternoon slot?" as informational.
+- **`AgentOrchestrator.buildBookingSuggestionTool`** — strengthened the tool's description and `reply_text` schema:
+  - Description now lists trigger phrases AND counter-examples (informational questions where the tool should NOT be called) — Claude reads tool descriptions much more attentively than free-form prompts.
+  - `reply_text.description` got concrete BAD examples that match what Claude was actually producing in fix-6 smoke (`"Hi Lee Ann! The Newly Baker service is $99 and runs 30 minutes — would you like me to lock one in?"`). Forbids: price/duration/service-name mentions, name-prefix on follow-ups, permission-asking phrasing.
+- **`BOOKING_REPLY_MAX_CHARS: 200 → 130`** — empirically Claude was fitting the boilerplate prefix inside the 200-char ceiling. 130 chars forces the slot mention to come first or the reply gets truncated; Claude avoids truncation by writing tighter. Verified by hand: "Thursday at 2:30 PM works — tap below." = 39 chars; "How about Friday at 10 AM?" = 26 chars; the boilerplate "Hi Lee Ann! The Newly Baker service is $99 and runs 30 minutes" alone is 62 chars before any slot info, which crowds out the slot mention under a 130-char cap.
+
+**Tests:** updated 2 PromptTemplates tests that asserted on the now-removed `\`\`\`booking_suggestion` fenced-JSON instructions. They now assert on the tool-use guidance: prompt contains `"propose_booking_slot"` + the real `slot_iso` + the explicit "NEVER include booking-suggestion JSON / NEVER write fenced code blocks" anti-pattern. Full ai-agent suite: **236 tests across 13 files passing** (no count change — same set of tests, just updated to match the new prompt shape).
+
+**Smoke verification needed (staging, after merge + deploy):** check the audit log for `stopReason: "tool_use"` (not `end_turn`) on booking-relevant turns. If Claude is still going `end_turn` with bad-style free text, the prompt + tool description aren't winning over Claude's training defaults — and the next fix would have to be `tool_choice: "any"` (force Claude to pick *some* tool) or `tool_choice: { type: "tool", name: "propose_booking_slot" }` (force this specific tool) on detected booking-intent turns. Saved as fix-8 contingency.
+
+**Why I'm not claiming X/5 confidence:** previous fixes I rated optimistically ("5/5") all shipped with bugs. Per the saved memory, no confidence ratings without empirical end-to-end testing. fix-7 is a structural correction (removed conflicting instructions) — it should perform better, but smoke testing is the only validator that matters.
+
 ### Task 11 — Order completion event hook (AI confirmation reply) (~0.5 day) — **DONE 2026-05-07**
 
 **Goal:** when a booking completes (existing `service.order_completed` event), if the customer originally chatted with the AI for that service, the AI sends a confirmation message in the same thread.
