@@ -17,12 +17,14 @@
 import { AgentMessageContext, EscalationDecision } from "../types";
 
 /**
- * Phrases that explicitly signal "I want a human." Stored lowercase; matching
- * is case-insensitive against the customer's message.
+ * Phrases that explicitly signal "I want a human now." Stored lowercase;
+ * matching is case-insensitive against the customer's message.
  *
- * Some are full phrases ("real person") because matching just "real" would
- * over-trigger ("really?", "real quick"). Others are single words ("human")
- * where the false-positive risk is low.
+ * Phrases like "are you a bot" / "are you human" are deliberately NOT in
+ * this list — those are AI-disclosure questions (the customer asking for
+ * confirmation), not handoff requests. The AI should answer them honestly
+ * via the prompt's universal rules, then offer a human if the customer
+ * still wants one. See `isAIDisclosureQuestion` below.
  */
 const HUMAN_HANDOFF_PHRASES = [
   "talk to a human",
@@ -40,17 +42,54 @@ const HUMAN_HANDOFF_PHRASES = [
   "get me a human",
   "get a human",
   "human please",
-  "is this a bot",
-  "are you a bot",
-  "are you human",
-  "are you a real person",
 ];
 
 /**
  * Single-word triggers — used with word-boundary matching to avoid
  * over-triggering on common substrings.
+ *
+ * Disclosure-question safety: "human" alone would trigger on
+ * "am I talking to human or AI?" — which is a disclosure question, not a
+ * handoff request. The disclosure check (`isAIDisclosureQuestion`) runs
+ * BEFORE keyword matching to catch those cases. Customers who want a
+ * handoff still get caught by clearer phrases (HUMAN_HANDOFF_PHRASES) or
+ * by the bare "human?" / "human please" / "with a human" patterns.
  */
 const HUMAN_HANDOFF_KEYWORDS = ["human", "agent", "manager", "owner"];
+
+/**
+ * AI-disclosure questions — the customer is checking if they're chatting
+ * with an AI or a human. Detected separately from escalation so the AI can
+ * acknowledge honestly via the prompt rather than going silent. The
+ * orchestrator uses this signal to augment the prompt with a "confirm
+ * you're an AI + offer human handoff" instruction.
+ *
+ * Order matters: substrings matching shorter list entries also match longer
+ * ones. The list is checked before HUMAN_HANDOFF_PHRASES so "are you a real
+ * person" is treated as disclosure rather than handoff.
+ */
+const AI_DISCLOSURE_PHRASES = [
+  "is this a bot",
+  "is this an ai",
+  "is this ai",
+  "are you a bot",
+  "are you an ai",
+  "are you ai",
+  "are you human",
+  "are you a real person",
+  "are you a person",
+  "talking to a bot",
+  "talking to an ai",
+  "talking to ai",
+  "talking to a human",
+  "talking to a person",
+  "talking to a real person",
+  "human or ai",
+  "human or bot",
+  "ai or human",
+  "bot or human",
+  "real person or",
+];
 
 const STOP_KEYWORDS = ["stop", "cancel"];
 
@@ -71,6 +110,16 @@ export class EscalationDetector {
     escalationThreshold: number = 5
   ): EscalationDecision {
     const normalized = customerMessage.toLowerCase().trim();
+
+    // 0. AI-disclosure questions short-circuit BEFORE escalation phrases.
+    //    "are you a real person" contains "real person" which used to be a
+    //    handoff phrase — but it's actually a disclosure question. Detect
+    //    here first so the AI answers ("yes, I'm an AI assistant") instead
+    //    of bowing out silently. The orchestrator adds a special prompt
+    //    instruction when this returns true.
+    if (this.isAIDisclosureQuestion(normalized)) {
+      return { shouldEscalate: false };
+    }
 
     // 1. Phrase match — most reliable signal
     for (const phrase of HUMAN_HANDOFF_PHRASES) {
@@ -116,6 +165,23 @@ export class EscalationDetector {
     }
 
     return { shouldEscalate: false };
+  }
+
+  /**
+   * Check if the customer's message is asking whether they're talking to an
+   * AI vs a human (e.g. "are you a bot?", "am I talking to a real person?").
+   *
+   * Distinct from escalation: the AI should ANSWER these honestly via the
+   * prompt's "I'm an AI assistant for {SHOP_NAME}; want me to flag a real
+   * human?" pattern, rather than going silent. The orchestrator uses this
+   * signal to flag the system prompt with that instruction.
+   */
+  isAIDisclosureQuestion(customerMessage: string): boolean {
+    const normalized = customerMessage.toLowerCase().trim();
+    for (const phrase of AI_DISCLOSURE_PHRASES) {
+      if (normalized.includes(phrase)) return true;
+    }
+    return false;
   }
 }
 

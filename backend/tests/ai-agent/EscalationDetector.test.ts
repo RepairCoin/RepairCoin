@@ -22,13 +22,58 @@ describe("EscalationDetector — phrase matches", () => {
     "Can I talk to a human?",
     "talk to a real person please",
     "stop the bot",
-    "are you a bot?",
-    "is this a bot",
     "GET ME A HUMAN", // case insensitive
   ])("escalates on phrase: %s", (text) => {
     const result = detector.shouldEscalate(text, []);
     expect(result.shouldEscalate).toBe(true);
     expect(result.reason).toMatch(/customer_requested_human/);
+  });
+});
+
+describe("EscalationDetector — AI-disclosure questions are NOT escalations", () => {
+  // Per Option B (added 2026-05-08): when the customer asks whether they're
+  // talking to an AI / bot / real person, the AI should ANSWER honestly via
+  // the prompt's universal rule #9 instead of going silent. These were
+  // previously in HUMAN_HANDOFF_PHRASES and silently escalated, leaving the
+  // customer with no acknowledgement.
+  it.each([
+    "are you a bot?",
+    "is this a bot",
+    "Are you human?",
+    "are you a real person?",
+    "am I talking to human or AI?",
+    "is this an AI?",
+    "talking to a bot or a human?",
+    "ai or human?",
+    "Are you AI?",
+  ])("does NOT escalate on disclosure question: %s", (text) => {
+    const result = detector.shouldEscalate(text, []);
+    expect(result.shouldEscalate).toBe(false);
+  });
+
+  it("isAIDisclosureQuestion returns true for known disclosure phrasings", () => {
+    expect(detector.isAIDisclosureQuestion("are you a bot?")).toBe(true);
+    expect(detector.isAIDisclosureQuestion("ARE YOU HUMAN")).toBe(true);
+    expect(detector.isAIDisclosureQuestion("am I talking to a real person?")).toBe(true);
+    expect(detector.isAIDisclosureQuestion("ai or human?")).toBe(true);
+  });
+
+  it("isAIDisclosureQuestion returns false for normal questions", () => {
+    expect(detector.isAIDisclosureQuestion("what are your hours?")).toBe(false);
+    expect(detector.isAIDisclosureQuestion("how much does this cost?")).toBe(false);
+    expect(detector.isAIDisclosureQuestion("can I book an appointment?")).toBe(false);
+  });
+
+  it("disclosure check beats handoff phrase containment", () => {
+    // "are you a real person" CONTAINS "real person" (a handoff phrase).
+    // The disclosure check must run first so this is treated as a question
+    // and answered, not silently escalated.
+    expect(detector.shouldEscalate("are you a real person?", []).shouldEscalate).toBe(false);
+    // But a clear handoff request that contains the same substring should
+    // still escalate — disclosure phrases are anchored ("ARE YOU a real
+    // person"), so "talk to a real person please" doesn't match disclosure
+    // and falls through to phrase-match → escalate.
+    expect(detector.shouldEscalate("talk to a real person please", []).shouldEscalate).toBe(true);
   });
 });
 

@@ -65,6 +65,15 @@ describe("ContextBuilder", () => {
     shop?: any;
     messageCount?: number;
     siblingServices?: any[];
+    /** Rows returned by the pool.query stub for shop_availability (Phase 3 follow-up). */
+    weeklyHoursRows?: Array<{
+      day_of_week: number;
+      is_open: boolean;
+      open_time: string | null;
+      close_time: string | null;
+      break_start_time?: string | null;
+      break_end_time?: string | null;
+    }>;
   } = {}) {
     const serviceRow = opts.service !== undefined ? opts.service : baseService();
     const customerRow = opts.customer !== undefined ? opts.customer : baseCustomer();
@@ -81,15 +90,28 @@ describe("ContextBuilder", () => {
     const mockMessageRepo = {
       getConversationMessages: jest.fn().mockResolvedValue(messages),
     };
+    // AvailabilityFetcher mock — no slots needed for these unit tests; the
+    // booking-card flow has its own dedicated AvailabilityFetcher tests.
+    const mockAvailabilityFetcher = {
+      fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
+    };
+    // Pool mock — fetchWeeklyHours queries shop_availability via a raw
+    // pool.query. Default to empty rows; tests targeting the hours
+    // summarizer pass a custom mock via opts.weeklyHoursRows.
+    const mockPool = {
+      query: jest.fn().mockResolvedValue({ rows: opts.weeklyHoursRows ?? [] }),
+    };
 
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
       mockShopRepo as any,
       mockServiceRepo as any,
-      mockMessageRepo as any
+      mockMessageRepo as any,
+      mockAvailabilityFetcher as any,
+      mockPool as any
     );
 
-    return { builder, mockCustomerRepo, mockShopRepo, mockServiceRepo, mockMessageRepo };
+    return { builder, mockCustomerRepo, mockShopRepo, mockServiceRepo, mockMessageRepo, mockPool };
   }
 
   it("returns a complete AgentContext with all 5 fields populated", async () => {
@@ -333,5 +355,138 @@ describe("ContextBuilder", () => {
 
     expect(ctx.conversationHistory[0].content).toBe("raw row body");
     expect(ctx.conversationHistory[0].role).toBe("user");
+  });
+});
+
+describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
+  // makeMocks is declared in the outer describe block above; redefine the
+  // helper signature here for type clarity within this block.
+  function makeMocks(opts: any = {}) {
+    const baseService = () => ({
+      serviceId: "srv_main",
+      shopId: "peanut",
+      serviceName: "Newly Baker",
+      description: "test",
+      priceUsd: 99,
+      durationMinutes: 30,
+      category: "food",
+      aiSalesEnabled: true,
+      aiTone: "friendly",
+      aiSuggestUpsells: false,
+      aiBookingAssistance: false,
+      aiCustomInstructions: null,
+      active: true,
+    });
+    const baseShop = () => ({ shopId: "peanut", name: "Peanut", category: "food", timezone: "America/New_York" });
+    const baseCustomer = () => ({ address: "0xabc", name: "Qua", tier: "BRONZE", currentBalance: 0, joinDate: null });
+
+    const mockCustomerRepo = { getCustomer: jest.fn().mockResolvedValue(baseCustomer()) };
+    const mockShopRepo = { getShop: jest.fn().mockResolvedValue(baseShop()) };
+    const mockServiceRepo = {
+      getServiceById: jest.fn().mockResolvedValue(baseService()),
+      getServicesByShop: jest.fn().mockResolvedValue({ items: [], pagination: {} }),
+    };
+    const mockMessageRepo = {
+      getConversationMessages: jest.fn().mockResolvedValue({ items: [], pagination: { totalItems: 0 } }),
+    };
+    const mockAvailabilityFetcher = { fetchUpcomingSlots: jest.fn().mockResolvedValue([]) };
+    const mockPool = { query: jest.fn().mockResolvedValue({ rows: opts.weeklyHoursRows ?? [] }) };
+
+    const builder = new ContextBuilder(
+      mockCustomerRepo as any,
+      mockShopRepo as any,
+      mockServiceRepo as any,
+      mockMessageRepo as any,
+      mockAvailabilityFetcher as any,
+      mockPool as any
+    );
+    return { builder, mockPool };
+  }
+
+  const buildCtx = (builder: any) =>
+    builder.build({
+      customerAddress: "0xabc",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+
+  it("returns null when shop_availability has no rows", async () => {
+    const { builder } = makeMocks({ weeklyHoursRows: [] });
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toBeNull();
+  });
+
+  it("formats a typical weekday-uniform schedule", async () => {
+    // Mon-Fri 9am-5pm, Sat-Sun closed
+    const rows = [
+      { day_of_week: 0, is_open: false, open_time: null, close_time: null },
+      { day_of_week: 1, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 2, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 3, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 4, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 5, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 6, is_open: false, open_time: null, close_time: null },
+    ];
+    const { builder } = makeMocks({ weeklyHoursRows: rows });
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toBe("Sun closed, Mon-Fri 9am-5pm, Sat closed");
+  });
+
+  it("compresses adjacent same-hours days into ranges", async () => {
+    // Sun-Thu 9am-6pm, Fri 9am-5pm, Sat closed (matches the actual peanut shop on staging)
+    const rows = [
+      { day_of_week: 0, is_open: true, open_time: "09:00:00", close_time: "18:00:00" },
+      { day_of_week: 1, is_open: true, open_time: "09:00:00", close_time: "18:00:00" },
+      { day_of_week: 2, is_open: true, open_time: "09:00:00", close_time: "18:00:00" },
+      { day_of_week: 3, is_open: true, open_time: "09:00:00", close_time: "18:00:00" },
+      { day_of_week: 4, is_open: true, open_time: "09:00:00", close_time: "18:00:00" },
+      { day_of_week: 5, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 6, is_open: false, open_time: null, close_time: null },
+    ];
+    const { builder } = makeMocks({ weeklyHoursRows: rows });
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toBe("Sun-Thu 9am-6pm, Fri 9am-5pm, Sat closed");
+  });
+
+  it("handles half-hour close times (5:30pm)", async () => {
+    const rows = [
+      { day_of_week: 1, is_open: true, open_time: "10:00:00", close_time: "17:30:00" },
+    ];
+    const { builder } = makeMocks({ weeklyHoursRows: rows });
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toContain("10am-5:30pm");
+  });
+
+  it("returns null when literally every day is closed", async () => {
+    const rows = [
+      { day_of_week: 0, is_open: false, open_time: null, close_time: null },
+      { day_of_week: 1, is_open: false, open_time: null, close_time: null },
+    ];
+    const { builder } = makeMocks({ weeklyHoursRows: rows });
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toBeNull();
+  });
+
+  it("ignores rows with day_of_week outside 0-6 (defensive for legacy bad data)", async () => {
+    // Staging had rows with day_of_week=-1 and day_of_week=7 — filter them.
+    const rows = [
+      { day_of_week: -1, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 7, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+      { day_of_week: 1, is_open: true, open_time: "09:00:00", close_time: "17:00:00" },
+    ];
+    const { builder } = makeMocks({ weeklyHoursRows: rows });
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toContain("Mon 9am-5pm");
+    expect(ctx.shop.hoursSummary).not.toContain("-1");
+    expect(ctx.shop.hoursSummary).not.toContain("day 7");
+  });
+
+  it("returns null gracefully when DB query throws (graceful degradation)", async () => {
+    // makeMocks sets pool.query to a stub that resolves; override here to
+    // simulate the real DB failing. fetchWeeklyHours catches and returns [].
+    const { builder, mockPool } = makeMocks();
+    mockPool.query.mockRejectedValueOnce(new Error("connection refused"));
+    const ctx = await buildCtx(builder);
+    expect(ctx.shop.hoursSummary).toBeNull();
   });
 });
