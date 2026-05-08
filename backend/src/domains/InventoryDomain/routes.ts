@@ -7,6 +7,7 @@ import * as inventoryController from './controllers/inventoryController';
 import * as categoryController from './controllers/categoryController';
 import * as vendorController from './controllers/vendorController';
 import * as adjustmentController from './controllers/adjustmentController';
+import * as uploadController from './controllers/uploadController';
 
 export function initializeRoutes(): Router {
   const router = Router();
@@ -17,6 +18,9 @@ export function initializeRoutes(): Router {
   // ============================================================================
   // INVENTORY ITEMS ROUTES
   // ============================================================================
+
+  // Upload inventory item image
+  router.post('/upload-image', shopAuth, uploadController.uploadSingleImage, uploadController.uploadInventoryImage);
 
   // Get inventory statistics
   router.get('/stats', shopAuth, inventoryController.getInventoryStats);
