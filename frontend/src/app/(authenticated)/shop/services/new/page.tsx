@@ -46,10 +46,20 @@ export default function NewServicePage() {
   const [previewData, setPreviewData] = useState<CreateServiceData>(EMPTY_FORM_DATA);
 
   // AI Sales Assistant state — Phase 2 persists this on save.
-  const [aiEnabled, setAiEnabled] = useState(false);
+  // All three toggles default to ON for new services (per executive direction
+  // 2026-05-08). Shop owners can flip any of them off per service if they
+  // don't want a particular behavior:
+  //   - aiEnabled: master switch for AI auto-replies
+  //   - aiSuggestUpsells: AI mentions sibling services when relevant
+  //   - aiBookingAssistance: AI proposes tap-to-book slots when customer
+  //     asks about availability (the full booking-card UX from Phase 3)
+  // This change applies to NEW services only — existing services preserve
+  // whatever was saved (the edit page reads the persisted value, not this
+  // default).
+  const [aiEnabled, setAiEnabled] = useState(true);
   const [aiTone, setAiTone] = useState<AITone>("professional");
-  const [aiSuggestUpsells, setAiSuggestUpsells] = useState(false);
-  const [aiBookingAssistance, setAiBookingAssistance] = useState(false);
+  const [aiSuggestUpsells, setAiSuggestUpsells] = useState(true);
+  const [aiBookingAssistance, setAiBookingAssistance] = useState(true);
 
   const handleSubmit = async (data: CreateServiceData | UpdateServiceData) => {
     // Merge AI Sales Assistant state into the create payload. ServiceForm owns
