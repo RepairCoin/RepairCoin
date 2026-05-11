@@ -184,14 +184,21 @@ describe("ContextBuilder", () => {
   });
 
   it("skips siblings query when aiSuggestUpsells=false (default)", async () => {
+    // Phase 1 multi-service change: getServicesByShop is now ALWAYS called
+    // to populate the shop service menu (the AI's catalog of "what else does
+    // this shop offer"). Sibling-specific behavior is now controlled by what
+    // we DO with the result — siblings array is only populated when
+    // aiSuggestUpsells=true. The DB call itself fires unconditionally.
     const { builder, mockServiceRepo } = makeMocks();
-    await builder.build({
+    const ctx = await builder.build({
       customerAddress: "0xabc123",
       serviceId: "srv_main",
       conversationId: "conv_xxx",
     });
     expect(mockServiceRepo.getServiceById).toHaveBeenCalledTimes(1);
-    expect(mockServiceRepo.getServicesByShop).not.toHaveBeenCalled();
+    // Siblings array stays empty when upsells off (the gate moved from
+    // "do we query" to "do we populate the siblings array").
+    expect(ctx.siblingServices).toEqual([]);
   });
 
   it("fetches siblings when aiSuggestUpsells=true", async () => {
@@ -246,16 +253,149 @@ describe("ContextBuilder", () => {
   });
 
   it("respects explicit includeUpsells=false even when service has aiSuggestUpsells=true", async () => {
-    const { builder, mockServiceRepo } = makeMocks({
+    // Phase 1 multi-service change: getServicesByShop fires unconditionally
+    // for the shop service menu. Explicit includeUpsells=false now only
+    // suppresses the siblings array, not the underlying DB query.
+    const { builder } = makeMocks({
       service: baseService({ aiSuggestUpsells: true }),
     });
-    await builder.build({
+    const ctx = await builder.build({
       customerAddress: "0xabc123",
       serviceId: "srv_main",
       conversationId: "conv_xxx",
       includeUpsells: false,
     });
-    expect(mockServiceRepo.getServicesByShop).not.toHaveBeenCalled();
+    // Siblings array empty (the gate that explicit includeUpsells=false controls).
+    expect(ctx.siblingServices).toEqual([]);
+  });
+
+  describe("Phase 1 multi-service shop service menu", () => {
+    it("populates shopServiceMenu with AI-enabled services regardless of aiSuggestUpsells", async () => {
+      // Even though Newly Baker (the focused service) has aiSuggestUpsells=false,
+      // the AI should still know about the shop's other AI-enabled services
+      // so it can answer "what else do you offer?" honestly.
+      const { builder } = makeMocks({
+        service: baseService({ aiSuggestUpsells: false }), // upsells OFF
+        siblingServices: [
+          {
+            serviceId: "srv_aqua",
+            serviceName: "AQua Tech",
+            priceUsd: 455,
+            aiSalesEnabled: true,
+            description: "Laptop diagnostic and repair service.",
+            durationMinutes: 60,
+            category: "Tech",
+          },
+          {
+            serviceId: "srv_mongo",
+            serviceName: "Mongo Tea",
+            priceUsd: 25,
+            aiSalesEnabled: false, // NOT AI-enabled → filtered out
+            description: "Tea tasting",
+          },
+        ],
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      // Menu contains AQua Tech (AI-enabled) but NOT Mongo Tea (not AI-enabled).
+      expect(ctx.shopServiceMenu).toHaveLength(1);
+      expect(ctx.shopServiceMenu[0].serviceName).toBe("AQua Tech");
+      expect(ctx.shopServiceMenu[0].priceUsd).toBe(455);
+      expect(ctx.shopServiceMenu[0].durationMinutes).toBe(60);
+      expect(ctx.shopServiceMenu[0].shortBlurb).toBe("Laptop diagnostic and repair service.");
+      // Siblings array stays empty since aiSuggestUpsells=false.
+      expect(ctx.siblingServices).toEqual([]);
+    });
+
+    it("excludes the current focused service from the menu (never lists itself)", async () => {
+      const { builder } = makeMocks({
+        service: baseService({ aiSuggestUpsells: false }),
+        siblingServices: [
+          {
+            serviceId: "srv_main", // SAME as focused service
+            serviceName: "Newly Baker",
+            priceUsd: 99,
+            aiSalesEnabled: true,
+          },
+          {
+            serviceId: "srv_other",
+            serviceName: "AQua Tech",
+            priceUsd: 455,
+            aiSalesEnabled: true,
+          },
+        ],
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(ctx.shopServiceMenu).toHaveLength(1);
+      expect(ctx.shopServiceMenu[0].serviceId).toBe("srv_other");
+    });
+
+    it("renders shortBlurb as null when description is empty", async () => {
+      const { builder } = makeMocks({
+        service: baseService({ aiSuggestUpsells: false }),
+        siblingServices: [
+          {
+            serviceId: "srv_other",
+            serviceName: "AQua Tech",
+            priceUsd: 455,
+            aiSalesEnabled: true,
+            description: "", // empty
+          },
+        ],
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(ctx.shopServiceMenu[0].shortBlurb).toBeNull();
+    });
+
+    it("truncates long descriptions in the menu blurb", async () => {
+      const longDesc = "First sentence. " + "x".repeat(200);
+      const { builder } = makeMocks({
+        service: baseService({ aiSuggestUpsells: false }),
+        siblingServices: [
+          {
+            serviceId: "srv_other",
+            serviceName: "AQua Tech",
+            priceUsd: 455,
+            aiSalesEnabled: true,
+            description: longDesc,
+          },
+        ],
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      // First sentence wins (under 120 chars)
+      expect(ctx.shopServiceMenu[0].shortBlurb).toBe("First sentence.");
+    });
+
+    it("returns empty menu when shop has no AI-enabled services", async () => {
+      const { builder } = makeMocks({
+        service: baseService({ aiSuggestUpsells: false }),
+        siblingServices: [
+          { serviceId: "srv_a", serviceName: "A", priceUsd: 10, aiSalesEnabled: false },
+          { serviceId: "srv_b", serviceName: "B", priceUsd: 20, aiSalesEnabled: false },
+        ],
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(ctx.shopServiceMenu).toEqual([]);
+    });
   });
 
   it("maps customer messages → 'user' role and shop messages → 'assistant' role", async () => {

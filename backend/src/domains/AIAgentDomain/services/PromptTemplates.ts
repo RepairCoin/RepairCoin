@@ -123,6 +123,26 @@ ${ctx.siblingServices
   .join("\n")}`
       : "";
 
+  // Multi-service shop menu (Phase 1 of multi-service architecture). Lists
+  // every AI-enabled service from the shop's catalog so the AI can answer
+  // "what else do you offer?" without depending on the focused service's
+  // aiSuggestUpsells toggle. The AI is allowed to DESCRIBE these and direct
+  // customers to them, but the current tool (propose_booking_slot) can
+  // still only book the FOCUSED service — Phase 2 of the architecture
+  // will expand tool support to all AI-enabled services.
+  const shopServiceMenuBlock =
+    ctx.shopServiceMenu && ctx.shopServiceMenu.length > 0
+      ? `
+This shop's other AI-bookable services (you may describe these if the customer asks; you cannot directly book them from this chat — direct them to that service's page):
+${ctx.shopServiceMenu
+  .map((s) => {
+    const durationPart = s.durationMinutes ? `, ~${s.durationMinutes} min` : "";
+    const blurbPart = s.shortBlurb ? `: ${s.shortBlurb}` : "";
+    return `  - ${s.serviceName} ($${s.priceUsd.toFixed(2)}${durationPart})${blurbPart}`;
+  })
+  .join("\n")}`
+      : "";
+
   const customInstructionsBlock = ctx.service.customInstructions
     ? `\nShop owner's per-service instructions (HONOR THESE):\n  ${ctx.service.customInstructions}`
     : "";
@@ -199,7 +219,7 @@ About this service:
 About the customer:
   Name: ${customerName}
   Loyalty tier: ${tier}${balanceLine}
-${upsellsBlock}${bookingBlock}
+${shopServiceMenuBlock}${upsellsBlock}${bookingBlock}
 `.trim();
 }
 

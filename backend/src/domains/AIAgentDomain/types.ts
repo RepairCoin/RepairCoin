@@ -235,6 +235,31 @@ export interface AgentSiblingService {
 }
 
 /**
+ * One AI-enabled service from the shop's catalog — surfaced to the AI in a
+ * "menu" block so it knows the full set of services it can talk about
+ * (Phase 1 of multi-service architecture). Distinct from AgentSiblingService:
+ *
+ * - AgentSiblingService is gated by the focused service's `aiSuggestUpsells`
+ *   toggle (a per-service "actively recommend" signal).
+ * - AgentShopServiceMenuItem is always populated for every AI-enabled
+ *   service at the shop, regardless of any per-service upsell preference.
+ *   The AI can answer "what other services do you offer?" honestly without
+ *   the focused service explicitly opting in.
+ *
+ * Capped at MAX_SHOP_SERVICES_IN_PROMPT in ContextBuilder to bound prompt
+ * size on shops with very large catalogs.
+ */
+export interface AgentShopServiceMenuItem {
+  serviceId: string;
+  serviceName: string;
+  priceUsd: number;
+  durationMinutes?: number;
+  category: string;
+  /** First sentence-ish of the description, truncated to ~120 chars. Null when description is empty. */
+  shortBlurb: string | null;
+}
+
+/**
  * One available booking slot the AI may surface as a tappable suggestion card
  * (Phase 3 Task 10). The orchestrator queries the existing AppointmentService
  * for real availability before each Claude call, so the AI can only suggest
@@ -264,6 +289,15 @@ export interface AgentContext {
   conversationHistory: AgentMessageContext[];
   /** Empty array if includeUpsells=false or no eligible siblings exist */
   siblingServices: AgentSiblingService[];
+  /**
+   * Multi-service menu (Phase 1 of multi-service architecture): all
+   * AI-enabled services for the shop, regardless of any per-service upsell
+   * preference. Lets the AI answer "what other services do you offer?"
+   * accurately even when the focused service has aiSuggestUpsells=false.
+   * Always excludes the current focused service (already in `service`).
+   * Capped in ContextBuilder.
+   */
+  shopServiceMenu: AgentShopServiceMenuItem[];
   /**
    * Empty array when service.aiBookingAssistance=false, or when no slots are
    * bookable in the lookahead window. AI only surfaces booking-suggestion
