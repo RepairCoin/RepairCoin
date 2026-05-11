@@ -1,7 +1,7 @@
 import { useActiveAccount, useConnect } from "thirdweb/react";
 import { createWallet } from "thirdweb/wallets";
 import { client } from "@/shared/constants/thirdweb";
-import { useAuthStore, AuthMethod } from "@/feature/auth/store/auth.store";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 export interface SignatureParams {
   sessionId: string;
