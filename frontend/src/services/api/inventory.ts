@@ -26,7 +26,7 @@ export const inventoryApi = {
   // Get inventory statistics
   async getStats(): Promise<InventoryStats> {
     const response = await apiClient.get('/inventory/stats');
-    return response.data.stats;
+    return response.stats;
   },
 
   // Get inventory items with filters and pagination
@@ -49,25 +49,25 @@ export const inventoryApi = {
     if (filters.sortBy) params.append('sortBy', filters.sortBy);
 
     const response = await apiClient.get(`/inventory/items?${params.toString()}`);
-    return response.data;
+    return response;
   },
 
   // Get single inventory item
   async getItem(itemId: string): Promise<InventoryItem> {
     const response = await apiClient.get(`/inventory/items/${itemId}`);
-    return response.data.item;
+    return response.item;
   },
 
   // Create new inventory item
   async createItem(data: CreateInventoryItemData): Promise<InventoryItem> {
     const response = await apiClient.post('/inventory/items', data);
-    return response.data.item;
+    return response.item;
   },
 
   // Update inventory item
   async updateItem(itemId: string, data: UpdateInventoryItemData): Promise<InventoryItem> {
     const response = await apiClient.put(`/inventory/items/${itemId}`, data);
-    return response.data.item;
+    return response.item;
   },
 
   // Delete inventory item
@@ -78,13 +78,13 @@ export const inventoryApi = {
   // Bulk delete items
   async bulkDeleteItems(itemIds: string[]): Promise<number> {
     const response = await apiClient.post('/inventory/items/bulk/delete', { itemIds });
-    return response.data.deletedCount;
+    return response.deletedCount;
   },
 
   // Bulk update items
   async bulkUpdateItems(itemIds: string[], updates: UpdateInventoryItemData): Promise<number> {
     const response = await apiClient.post('/inventory/items/bulk/update', { itemIds, updates });
-    return response.data.updatedCount;
+    return response.updatedCount;
   },
 
   // ============================================================================
@@ -94,7 +94,7 @@ export const inventoryApi = {
   // Adjust stock quantity
   async adjustStock(itemId: string, data: AdjustStockData): Promise<InventoryAdjustment> {
     const response = await apiClient.post(`/inventory/items/${itemId}/adjust`, data);
-    return response.data.adjustment;
+    return response.adjustment;
   },
 
   // Get adjustment history
@@ -109,7 +109,7 @@ export const inventoryApi = {
     });
 
     const response = await apiClient.get(`/inventory/items/${itemId}/adjustments?${params.toString()}`);
-    return response.data;
+    return response;
   },
 
   // ============================================================================
@@ -119,19 +119,19 @@ export const inventoryApi = {
   // Get all categories
   async getCategories(): Promise<InventoryCategory[]> {
     const response = await apiClient.get('/inventory/categories');
-    return response.data.categories;
+    return response.categories;
   },
 
   // Create category
   async createCategory(data: CreateCategoryData): Promise<InventoryCategory> {
     const response = await apiClient.post('/inventory/categories', data);
-    return response.data.category;
+    return response.category;
   },
 
   // Update category
   async updateCategory(categoryId: string, data: UpdateCategoryData): Promise<InventoryCategory> {
     const response = await apiClient.put(`/inventory/categories/${categoryId}`, data);
-    return response.data.category;
+    return response.category;
   },
 
   // Delete category
@@ -146,19 +146,19 @@ export const inventoryApi = {
   // Get all vendors
   async getVendors(): Promise<InventoryVendor[]> {
     const response = await apiClient.get('/inventory/vendors');
-    return response.data.vendors;
+    return response.vendors;
   },
 
   // Create vendor
   async createVendor(data: CreateVendorData): Promise<InventoryVendor> {
     const response = await apiClient.post('/inventory/vendors', data);
-    return response.data.vendor;
+    return response.vendor;
   },
 
   // Update vendor
   async updateVendor(vendorId: string, data: UpdateVendorData): Promise<InventoryVendor> {
     const response = await apiClient.put(`/inventory/vendors/${vendorId}`, data);
-    return response.data.vendor;
+    return response.vendor;
   },
 
   // Delete vendor
@@ -180,6 +180,6 @@ export const inventoryApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
+    return response;
   },
 };
