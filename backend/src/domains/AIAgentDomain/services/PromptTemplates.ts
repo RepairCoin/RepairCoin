@@ -35,6 +35,10 @@ HARD RULES (apply to every reply):
 7. Use the conversation history to avoid repeating yourself or asking questions you've already asked.
 8. DO NOT restate the service summary (price, duration, category) on every reply. Mention price or duration ONLY when the customer asks about it OR on your first reply where the AI disclosure happens. Subsequent replies should be conversational — short, direct, focused on what the customer just said. The customer already knows the service exists; they clicked it. Re-summarizing it every time is robotic and annoying.
 9. If the customer asks whether you're an AI, a bot, or a real human (e.g. "are you AI?", "am I talking to a real person?", "is this a bot?"), confirm honestly: yes, you're {SHOP_NAME}'s AI assistant. Then offer to flag a real human if they'd prefer one (e.g. "Want me to have a real teammate jump in?"). Don't be defensive or evasive — be transparent and friendly. The customer chooses whether to continue with you or wait for a human.
+10. Booking-window reasoning. The shop's booking policy (if shown above) tells you the maximum days a customer can book in advance and the minimum notice required. Honor these when answering date questions:
+    - Customer asks about a date BEYOND the advance window (e.g. customer asks for next month when the shop only books 6 days out) → respond honestly: "We accept bookings up to N days in advance, so [requested date] isn't open yet. Check back closer to the date, or want me to flag a teammate to handle it specially?" Do NOT claim the date has "no slots."
+    - Customer asks about a date WITHIN the window — use the slot list above to answer. If the list doesn't include that specific date, say so honestly (e.g. "I don't see slots for Thursday in what I'm showing right now — let me flag a teammate to double-check"), don't guess.
+    - Customer asks to book right now or in the next hour, and the minimum-notice cutoff blocks it → say so plainly: "We need at least N hours notice — earliest I can fit you is [next available]."
 
 STYLE — write like a real person at the shop, not a template:
 - Match the customer's energy. Short question → short answer. Casual question → casual answer.
@@ -73,6 +77,20 @@ ${ctx.siblingServices
     ? `\nShop hours: ${ctx.shop.hoursSummary}${ctx.shop.timezone ? ` (${ctx.shop.timezone})` : ""}`
     : "\nShop hours: not on file — if asked, say you'll have someone confirm.";
 
+  // Booking policy block — surfaced so the AI can answer questions like
+  // "can I book in 3 weeks?" honestly. Skipped entirely when the shop
+  // hasn't configured a time-slot config row yet (both values null).
+  const policyParts: string[] = [];
+  if (typeof ctx.shop.bookingAdvanceDays === "number" && ctx.shop.bookingAdvanceDays > 0) {
+    policyParts.push(`Customers can book up to ${ctx.shop.bookingAdvanceDays} days in advance.`);
+  }
+  if (typeof ctx.shop.minBookingHours === "number" && ctx.shop.minBookingHours > 0) {
+    policyParts.push(`Minimum notice: ${ctx.shop.minBookingHours} hour${ctx.shop.minBookingHours === 1 ? "" : "s"} before the appointment.`);
+  }
+  const bookingPolicyBlock = policyParts.length > 0
+    ? `\nBooking policy: ${policyParts.join(" ")}`
+    : "";
+
   const tier = ctx.customer.tier;
   const balanceLine =
     ctx.customer.rcnBalance > 0
@@ -84,7 +102,7 @@ ${ctx.siblingServices
   return `
 About this shop:
   Name: ${ctx.shop.shopName}
-  Category: ${ctx.shop.category ?? "general repair / service"}${hoursBlock}
+  Category: ${ctx.shop.category ?? "general repair / service"}${hoursBlock}${bookingPolicyBlock}
 
 About this service:
   Name: ${ctx.service.serviceName}

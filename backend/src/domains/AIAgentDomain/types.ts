@@ -177,6 +177,18 @@ export interface AgentShopContext {
   hoursSummary: string | null;
   /** Local timezone used for the hours summary */
   timezone: string | null;
+  /**
+   * How far ahead a customer can book (from shop_time_slot_config). Surfaced
+   * in the prompt so the AI can answer "can I book in 3 weeks?" honestly
+   * instead of saying "no slots." Null when the shop hasn't configured a
+   * time-slot config yet — in that case the prompt falls back to silence.
+   */
+  bookingAdvanceDays: number | null;
+  /**
+   * Minimum hours of notice required before a booking (from time-slot
+   * config). Surfaced for the same reason as bookingAdvanceDays.
+   */
+  minBookingHours: number | null;
 }
 
 /**

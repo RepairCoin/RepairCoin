@@ -17,12 +17,23 @@ import { logger } from "../../../utils/logger";
 import { AgentAvailabilitySlot } from "../types";
 
 /**
- * Days to look ahead from "today in shop's timezone". Small window keeps the
- * prompt size bounded and slots feel "near term" to the customer (the AI
- * shouldn't suggest a slot 2 weeks out — it loses the urgency that makes
- * tap-to-book valuable).
+ * Lookahead bounds (in days). The actual window per request uses the shop's
+ * configured `booking_advance_days` from shop_time_slot_config, clamped to
+ * this range:
+ *   - MIN_LOOKAHEAD_DAYS: even if a shop disables advance booking entirely
+ *     (configures 0 or negative), we still want today's slots in the prompt.
+ *   - MAX_LOOKAHEAD_DAYS: protects against a shop misconfiguring 365 days,
+ *     which would trigger 365 parallel DB queries per AI reply (cost +
+ *     latency disaster). 30 days is plenty for any realistic shop and keeps
+ *     the per-reply DB burst well-bounded.
+ *
+ * Default when config row is missing (shop hasn't run the appointment setup
+ * wizard yet): 7 days. Was 3 originally — too tight, missed Thursday for a
+ * Monday-asking customer with a 6-day shop policy.
  */
-const LOOKAHEAD_DAYS = 3;
+const MIN_LOOKAHEAD_DAYS = 1;
+const MAX_LOOKAHEAD_DAYS = 30;
+const DEFAULT_LOOKAHEAD_DAYS = 7;
 
 /**
  * Hard cap on slots returned. Earliest-first ordering, but the cap matters:
@@ -71,11 +82,19 @@ export class AvailabilityFetcher {
       const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
       const timezone = config?.timezone ?? "America/New_York";
 
-      // Build the list of dates to query — today + next (LOOKAHEAD_DAYS - 1) days
-      // in the shop's timezone. We use simple Date arithmetic on UTC, then
-      // format in the shop's timezone — sufficient because getAvailableTimeSlots
-      // re-anchors against shop timezone internally.
-      const dates = this.buildLookaheadDates(timezone, LOOKAHEAD_DAYS);
+      // Use the shop's configured booking_advance_days as the lookahead
+      // window. Clamped to [MIN, MAX] so a misconfigured 0 or 365 doesn't
+      // produce empty or runaway-cost prompts. Falls back to DEFAULT
+      // when the config row doesn't exist yet for a new shop.
+      const lookaheadDays = clampLookahead(
+        config?.bookingAdvanceDays ?? DEFAULT_LOOKAHEAD_DAYS
+      );
+
+      // Build the list of dates to query — today + next (lookaheadDays - 1)
+      // days in the shop's timezone. We use simple Date arithmetic on UTC,
+      // then format in the shop's timezone — sufficient because
+      // getAvailableTimeSlots re-anchors against shop timezone internally.
+      const dates = this.buildLookaheadDates(timezone, lookaheadDays);
 
       // Parallel query each day — tolerable network burst, big latency win
       const perDayResults = await Promise.all(
@@ -218,4 +237,15 @@ export class AvailabilityFetcher {
     // Replace the comma between date and time with " at " for readability.
     return fmt.format(new Date(slotIso)).replace(/, (\d)/, " at $1");
   }
+}
+
+/**
+ * Clamp the lookahead window to a safe range. Exported only for tests —
+ * production code should not bypass `fetchUpcomingSlots`.
+ */
+export function clampLookahead(days: number): number {
+  if (!Number.isFinite(days)) return DEFAULT_LOOKAHEAD_DAYS;
+  if (days < MIN_LOOKAHEAD_DAYS) return MIN_LOOKAHEAD_DAYS;
+  if (days > MAX_LOOKAHEAD_DAYS) return MAX_LOOKAHEAD_DAYS;
+  return Math.floor(days);
 }
