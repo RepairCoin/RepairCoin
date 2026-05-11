@@ -82,6 +82,8 @@ describe("reorderSlotsByPreference", () => {
     time,
     slotIso: `2026-05-08T${time}:00.000Z-${time}`,
     humanLabel: label ?? `Friday at ${time}`,
+    serviceId: "srv_test",
+    serviceName: "Test Service",
   });
 
   const morningSlots = [slot("09:00"), slot("10:00"), slot("11:00")];

@@ -92,8 +92,13 @@ describe("ContextBuilder", () => {
     };
     // AvailabilityFetcher mock — no slots needed for these unit tests; the
     // booking-card flow has its own dedicated AvailabilityFetcher tests.
+    // Phase 2 of multi-service architecture: ContextBuilder now calls
+    // fetchUpcomingSlotsForServices (the multi-service variant) instead of
+    // fetchUpcomingSlots. Mock both so the spy works regardless of which
+    // method the implementation chooses today.
     const mockAvailabilityFetcher = {
       fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
+      fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
     };
     // Pool mock — fetchWeeklyHours queries shop_availability via a raw
     // pool.query. Default to empty rows; tests targeting the hours
@@ -529,7 +534,10 @@ describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
     const mockMessageRepo = {
       getConversationMessages: jest.fn().mockResolvedValue({ items: [], pagination: { totalItems: 0 } }),
     };
-    const mockAvailabilityFetcher = { fetchUpcomingSlots: jest.fn().mockResolvedValue([]) };
+    const mockAvailabilityFetcher = {
+      fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
+      fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
+    };
     const mockPool = { query: jest.fn().mockResolvedValue({ rows: opts.weeklyHoursRows ?? [] }) };
 
     const builder = new ContextBuilder(

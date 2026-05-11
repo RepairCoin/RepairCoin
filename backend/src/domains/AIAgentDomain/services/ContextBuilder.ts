@@ -141,8 +141,36 @@ export class ContextBuilder {
       params.includeUpsells ?? serviceRow.aiSuggestUpsells ?? false;
     const includeBookingSlots = serviceRow.aiBookingAssistance === true;
 
+    // Phase 2 of multi-service architecture: fetch the shop service menu
+    // first (sequential dependency) because the multi-service slot fetcher
+    // below needs the full list of AI-enabled services to query.
+    const shopServiceMenu = await this.fetchShopServiceMenu(
+      serviceRow.shopId,
+      serviceId
+    );
+
+    // Phase 2: assemble the full set of services the AI can book in this
+    // conversation: the focused service + every AI-enabled service surfaced
+    // in the menu. Each entry carries serviceName so PromptTemplates can
+    // render the slot list with human-readable service labels and the
+    // tool's serviceId enum can include all of them.
+    //
+    // The focused service is included even when its own aiBookingAssistance
+    // is false — the call below is still gated by `includeBookingSlots`,
+    // which checks the focused service's flag. When that flag is true we
+    // include other services unconditionally; when false we skip
+    // availability entirely (no booking card path). Phase 4 will refine
+    // this with per-service booking-assistance gating across the menu.
+    const bookableServices = [
+      { serviceId, serviceName: serviceRow.serviceName },
+      ...shopServiceMenu.map((m) => ({
+        serviceId: m.serviceId,
+        serviceName: m.serviceName,
+      })),
+    ];
+
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy, shopServiceMenu] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       this.messageRepo.getConversationMessages(conversationId, {
@@ -152,11 +180,18 @@ export class ContextBuilder {
       includeUpsells
         ? this.fetchSiblingServices(serviceRow.shopId, serviceId)
         : Promise.resolve([] as AgentSiblingService[]),
-      // Only fetch real bookable slots when the shop has booking assistance
-      // turned on for this service. Saves a per-day DB roundtrip on services
-      // that won't surface a booking card anyway. (Phase 3 Task 10)
+      // Phase 2 of multi-service architecture: fetch real bookable slots
+      // for ALL AI-enabled services at the shop (not just the focused
+      // service). Each slot is tagged with its serviceId + serviceName so
+      // the tool's enum + the prompt's slot list both name the right
+      // service. Still gated by the focused service's
+      // aiBookingAssistance flag — turning it off for the focused service
+      // disables the booking-card path entirely.
       includeBookingSlots
-        ? this.availabilityFetcher.fetchUpcomingSlots(serviceRow.shopId, serviceId)
+        ? this.availabilityFetcher.fetchUpcomingSlotsForServices(
+            serviceRow.shopId,
+            bookableServices
+          )
         : Promise.resolve([] as AgentAvailabilitySlot[]),
       // Weekly operating hours so the AI can answer "what are your hours?"
       // accurately instead of saying "not on file" (Phase 3 follow-up).
@@ -168,14 +203,6 @@ export class ContextBuilder {
       // with AvailabilityFetcher is ~10ms and parallel; not worth
       // plumbing a shared cache through both.
       this.fetchBookingPolicy(serviceRow.shopId),
-      // Multi-service shop menu (Phase 1 of multi-service architecture):
-      // ALL AI-enabled services for the shop. Distinct from the sibling
-      // list — siblings are gated by per-service aiSuggestUpsells (active
-      // recommend), menu is the full set the AI can reference when
-      // answering "what else do you offer?". Always populated when the
-      // shop has any AI-enabled services; capped at
-      // MAX_SHOP_SERVICES_IN_PROMPT.
-      this.fetchShopServiceMenu(serviceRow.shopId, serviceId),
     ]);
 
     if (!customerRow) {

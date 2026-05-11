@@ -264,6 +264,13 @@ export interface AgentShopServiceMenuItem {
  * (Phase 3 Task 10). The orchestrator queries the existing AppointmentService
  * for real availability before each Claude call, so the AI can only suggest
  * slots that are actually bookable.
+ *
+ * Phase 2 of multi-service architecture: each slot now carries its
+ * serviceId + serviceName. Slots from different services can coexist in
+ * a single AgentContext.availabilitySlots array. The tool's serviceId
+ * enum + slot_iso enum are both built from this tagged list; the
+ * orchestrator validates that the AI's chosen (serviceId, slot_iso)
+ * pair matches the same source slot before rendering the booking card.
  */
 export interface AgentAvailabilitySlot {
   /** YYYY-MM-DD in the shop's timezone */
@@ -274,6 +281,18 @@ export interface AgentAvailabilitySlot {
   slotIso: string;
   /** Human-readable label for prompt readability — e.g. "Thursday, May 8 at 2:30 PM" */
   humanLabel: string;
+  /**
+   * Which service this slot is for. Phase 2 — added so the AI can book
+   * any AI-enabled service at the shop, not just the focused one.
+   * Required.
+   */
+  serviceId: string;
+  /**
+   * Display name of the service. Used by PromptTemplates to render the
+   * slot list as "AQua Tech, Thursday May 14 at 9:00 AM (slot_iso: ...)".
+   * Falls back to serviceId if missing.
+   */
+  serviceName: string;
 }
 
 /**

@@ -254,17 +254,25 @@ describe("PromptTemplates — output sanity", () => {
 });
 
 describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () => {
+  // Phase 2 of multi-service architecture: slots are now tagged with the
+  // service they belong to (serviceId + serviceName). These fixtures use
+  // the same serviceId as the focused service in baseContext so the
+  // pre-Phase-2 single-service test expectations stay valid.
   const slot1 = {
     date: "2026-05-08",
     time: "14:30",
     slotIso: "2026-05-08T06:30:00.000Z",
     humanLabel: "Thursday, May 8 at 2:30 PM",
+    serviceId: "srv_test",
+    serviceName: "Oil Change - Full Synthetic",
   };
   const slot2 = {
     date: "2026-05-08",
     time: "15:30",
     slotIso: "2026-05-08T07:30:00.000Z",
     humanLabel: "Thursday, May 8 at 3:30 PM",
+    serviceId: "srv_test",
+    serviceName: "Oil Change - Full Synthetic",
   };
 
   it("omits the booking block entirely when no availability slots are present", () => {
