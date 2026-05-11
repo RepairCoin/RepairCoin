@@ -29,6 +29,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   // is only ~1 minute of retry. A typical deploy can take 60-90s. Bumping
   // to 20 gives ~10 minutes of retry, which survives any realistic outage.
   const maxReconnectAttempts = 20;
+  // Track whether we've successfully connected at least once. Used to
+  // distinguish the FIRST open (no catchup needed — useConversationMessages
+  // does its own initial fetch when the conversation is selected) from a
+  // RECONNECT after a previous disconnect (catchup IS needed — any
+  // broadcasts during the gap were silently dropped by the backend's
+  // readyState===OPEN guard, no other way for the client to learn of them).
+  const hasOpenedOnceRef = useRef(false);
   const { subscribeToPush, unsubscribeFromPush } = usePushSubscription();
 
   const {
@@ -176,6 +183,16 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
         reconnectAttemptsRef.current = 0;
         manuallyClosedRef.current = false;
         setActiveSocket(ws);
+
+        // If this is a reconnect (not the first-ever open), fire a
+        // window event so message-display hooks know to refetch — any
+        // broadcasts that landed during the disconnect window were
+        // dropped server-side and we have no other recovery path.
+        if (hasOpenedOnceRef.current) {
+          window.dispatchEvent(new CustomEvent("ws-reconnected"));
+        } else {
+          hasOpenedOnceRef.current = true;
+        }
 
         // Start the heartbeat. Each tick: send ping, arm pong timeout.
         // If pong arrives → cleared in the 'pong' case. If not → socket

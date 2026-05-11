@@ -140,9 +140,22 @@ export function useConversationMessages(
       fetchMessages(false);
     };
     window.addEventListener("new-message-received", onNewMessage);
+
+    // Refetch whenever the WS reconnects. If we were briefly disconnected
+    // (network blip, backend deploy, heartbeat-triggered reconnect), any
+    // broadcasts sent during the gap were silently dropped by the backend's
+    // `if (client.readyState === WebSocket.OPEN)` guard. After reconnect we
+    // have no other way to learn about them — pull fresh from the DB.
+    const onReconnected = () => {
+      if (!activeIdRef.current) return;
+      fetchMessages(false);
+    };
+    window.addEventListener("ws-reconnected", onReconnected);
+
     return () => {
       window.clearTimeout(catchupTimer);
       window.removeEventListener("new-message-received", onNewMessage);
+      window.removeEventListener("ws-reconnected", onReconnected);
     };
   }, [selectedConversationId, currentUserId]);
 

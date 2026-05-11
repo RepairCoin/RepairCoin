@@ -248,6 +248,32 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         ...(content && { lastMessage: content }),
         lastMessageTime: optimistic.timestamp,
       });
+
+      // Post-send catchup: 5s after a customer sends, dispatch a fake
+      // `new-message-received` for this conversation so useConversationMessages
+      // refetches. If the AI reply's WS broadcast was received normally,
+      // this is a redundant no-op fetch (~10ms, cheap). If the broadcast was
+      // dropped (intermittent issue we've been chasing — see plan doc), the
+      // delayed refetch picks up the AI reply within 5 seconds, so the
+      // customer never sees "where's my reply?" silence.
+      //
+      // 5s is chosen because typical AI reply latency is 2-3s; 5s leaves a
+      // 2s safety margin. Lower than the catchup-on-conversation-select
+      // timer (2.5s) because by the time we get here, the conversation is
+      // already settled — we're catching up to the imminent AI reply, not
+      // to a stale-listener race.
+      //
+      // Only fires for customer sends; shop sends don't trigger AI replies.
+      if (userType === "customer") {
+        const convoIdAtSend = selectedConversationId;
+        window.setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("new-message-received", {
+              detail: { conversationId: convoIdAtSend },
+            }),
+          );
+        }, 5000);
+      }
     },
     [
       selectedConversationId,
