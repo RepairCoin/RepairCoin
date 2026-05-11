@@ -331,7 +331,27 @@ export class AgentOrchestrator {
         const inSet = availabilitySlots.some((s) => s.slotIso === slotIso);
         if (inSet && replyText.length > 0) {
           // Tool call validated by Anthropic + double-checked by us.
-          customerFacingText = replyText;
+          // Multi-service handling: Claude's response can include BOTH a
+          // text block AND a tool_use block. For single-service bookings,
+          // Claude typically emits only tool_use (text empty). For
+          // multi-service requests (rule #11), Claude emits a text block
+          // addressing the OTHER service alongside the tool call for the
+          // current service. Concatenating ensures both reach the
+          // customer.
+          //
+          // Order: extraText first, then reply_text. Tap-to-book card
+          // renders below the message, so the customer reads:
+          //   1. "For laptop repair, book separately..." (text block)
+          //   2. "For pastry tutorial, Thursday 12 PM..." (reply_text)
+          //   3. [Tap to book card]
+          //
+          // The exact-match dedupe guard handles the rare case Claude
+          // emits the same text in both blocks.
+          const extraText = (claudeResponse.text ?? "").trim();
+          customerFacingText =
+            extraText && extraText !== replyText
+              ? `${extraText}\n\n${replyText}`
+              : replyText;
           bookingSuggestions = [
             {
               serviceId,

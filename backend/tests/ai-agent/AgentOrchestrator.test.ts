@@ -441,6 +441,132 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
     ]);
   });
 
+  it("concatenates Claude's text block with tool reply_text for multi-service requests", async () => {
+    // Multi-service scenario: customer asks for laptop repair + pastry tutorial.
+    // Claude correctly emits BOTH a text block (addressing the laptop repair
+    // we can't book) AND a tool_use (booking the pastry tutorial). Prior to
+    // this fix, the orchestrator dropped the text block entirely and only
+    // sent the tool's reply_text to the customer — UX bug, the customer was
+    // never told about the laptop repair handoff. Fix: concatenate both.
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "For the laptop repair (AQua Tech), you'll need to book that through their service page separately. Want me to flag a teammate to coordinate both?",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 80,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_yyy",
+            input: {
+              slot_iso: slotIso,
+              reply_text: "For the pastry tutorial — Friday at 2 PM works! Tap below.",
+            },
+          },
+        ],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      service: {
+        serviceId: "srv_test",
+        serviceName: "Test Service",
+        priceUsd: 50,
+        category: "test",
+        description: "test",
+        customInstructions: null,
+        bookingAssistance: true,
+        suggestUpsells: false,
+      },
+      customer: { address: "0xabc", name: "Test", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
+      conversationHistory: [],
+      siblingServices: [],
+      availabilitySlots: [
+        { date: "2026-05-08", time: "14:00", slotIso, humanLabel: "Friday at 2:00 PM" },
+      ],
+    });
+    await mocks.orch.handleCustomerMessage(sampleInput());
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    // Both parts must be present in the final message text:
+    expect(created.messageText).toContain("laptop repair");
+    expect(created.messageText).toContain("For the pastry tutorial");
+    expect(created.messageText).toContain("Tap below");
+    // Ordering: extra text first, then reply_text (so the tap-to-book card
+    // visually follows the slot announcement at the bottom of the bubble).
+    const text = created.messageText;
+    expect(text.indexOf("laptop repair")).toBeLessThan(text.indexOf("For the pastry tutorial"));
+    // Booking suggestion still captured (the pastry slot is the bookable one).
+    expect(created.metadata.booking_suggestions).toEqual([
+      {
+        serviceId: "srv_test",
+        slotIso,
+        humanLabel: "Friday at 2:00 PM",
+      },
+    ]);
+  });
+
+  it("falls back to reply_text alone when Claude's text block is identical (dedupe)", async () => {
+    // Edge case: Claude sometimes emits the same content in both blocks.
+    // Concatenating would duplicate. Exact-match guard prevents that.
+    const identical = "Friday at 2 PM works — tap below.";
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: identical,
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_zzz",
+            input: { slot_iso: slotIso, reply_text: identical },
+          },
+        ],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      service: {
+        serviceId: "srv_test",
+        serviceName: "Test Service",
+        priceUsd: 50,
+        category: "test",
+        description: "test",
+        customInstructions: null,
+        bookingAssistance: true,
+        suggestUpsells: false,
+      },
+      customer: { address: "0xabc", name: "Test", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
+      conversationHistory: [],
+      siblingServices: [],
+      availabilitySlots: [
+        { date: "2026-05-08", time: "14:00", slotIso, humanLabel: "Friday at 2:00 PM" },
+      ],
+    });
+    await mocks.orch.handleCustomerMessage(sampleInput());
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    // Should NOT appear twice — exact-match guard kicks in.
+    expect(created.messageText).toBe(identical);
+    expect(created.messageText.indexOf(identical)).toBe(0);
+    expect(created.messageText.lastIndexOf(identical)).toBe(0);
+  });
+
   it("falls back to text parser when Claude does NOT call the tool", async () => {
     // Customer asked a non-booking question; Claude returns plain text
     const { orch, messageRepo } = buildMocksWithSlots([]);
