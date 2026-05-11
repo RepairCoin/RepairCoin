@@ -588,23 +588,29 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
 
   it("renders the multi-service menu block when shopServiceMenu has entries", () => {
     const prompt = professionalPrompt(ctxWithMenu());
-    expect(prompt).toMatch(/This shop'?s other AI-bookable services/i);
+    expect(prompt).toMatch(/Other AI-bookable services at this shop/i);
     expect(prompt).toContain("AQua Tech ($455.00, ~60 min)");
     expect(prompt).toContain("Laptop diagnostic and repair service");
     expect(prompt).toContain("Mongo Tea ($25.00)");
     expect(prompt).toContain("Premium tea consultation");
   });
 
-  it("warns the AI that menu services can't be booked directly here", () => {
+  it("tells the AI it CAN book menu services via the tool (Phase 2 behavior)", () => {
+    // Phase 1 wording said "you cannot directly book them from this chat —
+    // direct them to that service's page." Phase 2 inverted that: the tool's
+    // service_id enum spans all AI-enabled services, so the prompt now says
+    // these ARE bookable here. Regression guard: don't slip back into the
+    // Phase 1 "redirect to other page" framing.
     const prompt = professionalPrompt(ctxWithMenu());
-    // Phase 2 will expand the tool to handle multi-service booking. Until then,
-    // the prompt makes clear the AI can DESCRIBE but not BOOK these.
-    expect(prompt).toMatch(/cannot directly book them from this chat|direct them to that service'?s page/i);
+    expect(prompt).toMatch(/book them here via propose_booking_slot|booking section below/i);
+    // Phase-1 wording must NOT appear — that's what caused Test 1 to fail in prod.
+    expect(prompt).not.toMatch(/cannot directly book them from this chat/i);
+    expect(prompt).not.toMatch(/direct them to that service'?s page/i);
   });
 
   it("omits the menu block entirely when shopServiceMenu is empty", () => {
     const prompt = professionalPrompt(baseContext()); // default empty array
-    expect(prompt).not.toMatch(/This shop'?s other AI-bookable services/i);
+    expect(prompt).not.toMatch(/Other AI-bookable services at this shop/i);
   });
 
   it("renders menu service without duration when durationMinutes is missing", () => {
@@ -644,7 +650,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
   it("menu block applies to all three tones", () => {
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
       const p = buildPrompt(ctxWithMenu());
-      expect(p).toMatch(/AI-bookable services/i);
+      expect(p).toMatch(/Other AI-bookable services/i);
       expect(p).toContain("AQua Tech");
     }
   });
@@ -750,80 +756,73 @@ describe("PromptTemplates — refined rule #10 (within-window vs beyond-window)"
 });
 
 describe("PromptTemplates — multi-service booking rule (#11)", () => {
-  // Background: customer asked "book me a laptop repair and a pastry
-  // tutorial" — AI silently proposed a single slot for the current
-  // service without acknowledging the other one. Customer thought
-  // both were booked → UX failure. Rule #11 forces explicit handling.
+  // Phase 2 rewrite: the tool now CAN book any AI-enabled service at the
+  // shop via the service_id parameter. The conversation's anchor service is
+  // the default, NOT a restriction. Earlier wording (Phase 1) told the AI
+  // to redirect cross-service bookings to "that service's page" — which
+  // contradicted the Phase 2 tool and caused the AI to refuse legitimate
+  // cross-service bookings in prod. These tests guard against regression
+  // back to that Phase 1 framing.
   const ctx = baseContext;
 
-  it("rule #11 acknowledges the tool only books ONE service per call", () => {
+  it("rule #11 says the tool CAN book any AI-enabled service (not just the anchor)", () => {
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/propose_booking_slot tool can only book ONE service/i);
+    expect(prompt).toMatch(/can book ANY AI-enabled service/i);
+    expect(prompt).toMatch(/anchor is the DEFAULT, not a hard restriction/i);
   });
 
-  it("rule #11 forbids silent half-fulfillment", () => {
+  it("rule #11 explicitly forbids the Phase-1 'redirect to other page' anti-pattern", () => {
+    // The bug that broke Test 1 in prod: AI said "this chat was anchored to
+    // Newly Baker, you'll need to book AQua Tech separately." NEVER again.
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/DO NOT silently propose|silently fulfills only half|silently propose a slot for one and ignore the other/i);
+    expect(prompt).toMatch(/Refuse to book a non-anchored service|book that through its service page/i);
+    expect(prompt).toMatch(/most important anti-pattern/i);
   });
 
-  it("rule #11 instructs the AI to name which service the tap-to-book is for", () => {
+  it("rule #11 includes single-call cross-service examples", () => {
     const prompt = professionalPrompt(ctx());
-    // After the two-channel sharpen, the wording is "name the service it's
-    // booking" inside the reply_text guidance.
-    expect(prompt).toMatch(/name the service it'?s booking|explicitly name which service|name which service the tap-to-book/i);
+    expect(prompt).toMatch(/can you book me AQua Tech/i);
+    expect(prompt).toMatch(/call the tool with AQua Tech'?s id/i);
   });
 
-  it("rule #11 directs the AI to send customer elsewhere for additional services", () => {
+  it("rule #11 still acknowledges the tool emits one card per call (Phase 3 territory)", () => {
+    // Phase 2 lifted the "anchor-only" restriction but NOT the "one tap card
+    // per call" restriction. Phase 3 will allow multiple tool_use blocks; for
+    // now the AI must pick ONE service per call.
     const prompt = professionalPrompt(ctx());
-    // Either "book those separately from each service's page" OR "flag a teammate"
-    expect(prompt).toMatch(/book those separately|each service'?s page|flag a teammate to coordinate/i);
+    expect(prompt).toMatch(/can still only emit ONE tap-to-book card/i);
   });
 
-  it("rule #11 includes a concrete good example with the two-channel structure", () => {
+  it("rule #11 retains two-channel structure for multi-service asks (one tool call + text block)", () => {
     const prompt = professionalPrompt(ctx());
-    // GOOD example demonstrates the required two-channel split
-    expect(prompt).toMatch(/For the pastry tutorial.*Thursday May 14 at 9 AM/i);
-    // The "what to do about the laptop repair" line in the text-block half
-    expect(prompt).toMatch(/laptop repair.*book that through.*service page separately/i);
-  });
-
-  it("rule #11 includes anti-patterns to avoid (silent half-fulfillment)", () => {
-    const prompt = professionalPrompt(ctx());
-    // Anti-pattern section explicitly forbids silent half-fulfillment
-    expect(prompt).toMatch(/NEVER do this|silent half-fulfillment/i);
-    // Specifically calls out the "ambiguous slot announcement" failure mode
-    expect(prompt).toMatch(/which service|silently drops the other service/i);
-  });
-
-  it("rule #11 explicitly instructs the AI to use BOTH output channels", () => {
-    // Channel-guidance sharpen: previously Claude was inconsistent about
-    // whether to emit a separate text block alongside the tool. Rule now
-    // demands both channels be used for multi-service requests.
-    const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/TWO output channels|use both channels|MUST use both/i);
+    expect(prompt).toMatch(/TWO output channels/i);
     expect(prompt).toMatch(/text block.*OTHER service|OTHER service.*text block/i);
-    expect(prompt).toMatch(/tool.*reply_text.*current service|reply_text.*book(ing|able)/i);
+    expect(prompt).toMatch(/REQUIRED structure/i);
   });
 
-  it("rule #11 clarifies the structure of a multi-service response", () => {
+  it("rule #11 says the text block should offer to book the second service next, NOT redirect", () => {
+    // Phase 2 nuance: the OTHER service in a multi-service ask is still
+    // bookable in THIS chat — just on the next turn. So the text block
+    // should offer continuation, not redirection.
     const prompt = professionalPrompt(ctx());
-    // Must reference "First content block" and "Second content block" (or
-    // similar structure language) so Claude understands order matters.
-    expect(prompt).toMatch(/First content block|REQUIRED structure/i);
+    expect(prompt).toMatch(/offer to book it on the next turn|What day works for that one/i);
+    expect(prompt).toMatch(/DO NOT redirect to another page/i);
   });
 
-  it("rule #11 carves out single-service requests from the two-channel rule", () => {
+  it("rule #11 forbids emitting two tool calls in one response (Phase 3 not done yet)", () => {
     const prompt = professionalPrompt(ctx());
-    // The two-channel structure should NOT apply to single-service questions —
-    // that would lead to redundant text blocks ("for the pastry tutorial..."
-    // emitted alongside a single-service booking).
-    expect(prompt).toMatch(/Single-service requests|ONLY applies when.*multiple services|no text block needed/i);
+    expect(prompt).toMatch(/Two tool calls in one response/i);
+  });
+
+  it("rule #11 carves out single-service requests as the common case", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/Single-service requests.*common case|just call the tool with the right service_id/i);
   });
 
   it("rule #11 applies to all three tones", () => {
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
       const p = buildPrompt(ctx());
-      expect(p).toMatch(/Multi-service booking|only book ONE service per call/i);
+      expect(p).toMatch(/Multi-service booking|book ANY AI-enabled service/i);
     }
   });
 });
