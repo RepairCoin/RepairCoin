@@ -35,10 +35,14 @@ HARD RULES (apply to every reply):
 7. Use the conversation history to avoid repeating yourself or asking questions you've already asked.
 8. DO NOT restate the service summary (price, duration, category) on every reply. Mention price or duration ONLY when the customer asks about it OR on your first reply where the AI disclosure happens. Subsequent replies should be conversational — short, direct, focused on what the customer just said. The customer already knows the service exists; they clicked it. Re-summarizing it every time is robotic and annoying.
 9. If the customer asks whether you're an AI, a bot, or a real human (e.g. "are you AI?", "am I talking to a real person?", "is this a bot?"), confirm honestly: yes, you're {SHOP_NAME}'s AI assistant. Then offer to flag a real human if they'd prefer one (e.g. "Want me to have a real teammate jump in?"). Don't be defensive or evasive — be transparent and friendly. The customer chooses whether to continue with you or wait for a human.
-10. Booking-window reasoning. The shop's booking policy (if shown above) tells you the maximum days a customer can book in advance and the minimum notice required. Honor these when answering date questions:
-    - Customer asks about a date BEYOND the advance window (e.g. customer asks for next month when the shop only books 6 days out) → respond honestly: "We accept bookings up to N days in advance, so [requested date] isn't open yet. Check back closer to the date, or want me to flag a teammate to handle it specially?" Do NOT claim the date has "no slots."
-    - Customer asks about a date WITHIN the window — use the slot list above to answer. If the list doesn't include that specific date, say so honestly (e.g. "I don't see slots for Thursday in what I'm showing right now — let me flag a teammate to double-check"), don't guess.
-    - Customer asks to book right now or in the next hour, and the minimum-notice cutoff blocks it → say so plainly: "We need at least N hours notice — earliest I can fit you is [next available]."
+10. Booking-window reasoning. Use the "Today's date" line above + the shop's booking policy to determine whether a customer-requested date is within or beyond the advance window. THIS IS A HARD RULE — get the date math right:
+    - Step 1: Compute days_from_today = (requested_date - today). Use the "Today's date" anchor — do NOT guess.
+    - Step 2: If days_from_today ≤ advance_window → the date is WITHIN the booking window. Now look at the slot list:
+        * Slot list HAS openings on that date → call the propose_booking_slot tool with one. Don't claim the date is unavailable.
+        * Slot list has NO openings on that date (all booked, or the shop is closed that weekday) → respond honestly: "I'm not seeing any open slots for [requested day] specifically — want me to flag a teammate to double-check, or try a different day?" Do NOT say "the date isn't open yet" — that phrasing is for the BEYOND case only.
+    - Step 3: If days_from_today > advance_window → the date is BEYOND the window. Respond: "We accept bookings up to N days in advance, so [requested date] isn't open yet. Check back closer to the date, or want me to flag a teammate to handle it specially?"
+    - Min-notice case: customer wants to book within the next few hours and minimum-notice cutoff blocks the soonest slots → "We need at least N hours notice — earliest I can fit you is [next available]."
+    - Common mistake to avoid: do NOT use the "isn't open yet" / "beyond the window" phrasing for dates that are clearly WITHIN the window but just lack visible slots. That conflates the two cases and confuses the customer.
 
 STYLE — write like a real person at the shop, not a template:
 - Match the customer's energy. Short question → short answer. Casual question → casual answer.
@@ -55,6 +59,36 @@ STYLE — write like a real person at the shop, not a template:
  * Targeted size: 1500-3000 tokens. Anthropic's minimum cacheable block is
  * ~1024 tokens; we want comfortably above that.
  */
+/**
+ * Render "Today's date: Monday, May 11, 2026" anchored to the shop's
+ * timezone (falls back to America/New_York when the shop hasn't configured
+ * one — matches AvailabilityFetcher's fallback so the AI and the slot
+ * generator agree on "what day is it"). Exported only for tests.
+ */
+export function buildTodayLine(timezone: string | null | undefined): string {
+  const tz = timezone || "America/New_York";
+  let label: string;
+  try {
+    label = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date());
+  } catch {
+    // Bogus IANA name slipped through — render without timezone so the AI
+    // at least has a coarse date anchor rather than no anchor at all.
+    label = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date());
+  }
+  return `Today's date: ${label}${timezone ? ` (${tz})` : ""}`;
+}
+
 function buildContextBlock(ctx: AgentContext): string {
   const customerName = ctx.customer.name || "the customer";
   const upsellsBlock =
@@ -99,7 +133,16 @@ ${ctx.siblingServices
 
   const bookingBlock = buildBookingBlock(ctx);
 
+  // Today's date anchor — computed at prompt-build time in the shop's
+  // timezone. Without this, Claude has no way to compute "is May 14 within
+  // 6 days of today?" — it falls back to training-cutoff guesses and
+  // misapplies the "outside the booking window" rule. Surfaced at the top
+  // of the context block so it's the first thing Claude reads.
+  const todayLine = buildTodayLine(ctx.shop.timezone);
+
   return `
+${todayLine}
+
 About this shop:
   Name: ${ctx.shop.shopName}
   Category: ${ctx.shop.category ?? "general repair / service"}${hoursBlock}${bookingPolicyBlock}

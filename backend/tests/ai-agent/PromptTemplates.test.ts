@@ -15,6 +15,7 @@ import {
   professionalPrompt,
   urgentPrompt,
   buildSystemPrompt,
+  buildTodayLine,
 } from "../../src/domains/AIAgentDomain/services/PromptTemplates";
 import { AgentContext } from "../../src/domains/AIAgentDomain/types";
 
@@ -460,8 +461,10 @@ describe("PromptTemplates — booking policy block (dynamic window follow-up)", 
     const prompt = professionalPrompt(ctxWithPolicy());
     // Rule #10 explicitly mentions advance window + dates beyond it
     expect(prompt).toMatch(/booking[-\s]window reasoning|beyond the advance window|isn'?t open yet/i);
-    // Rule must instruct AI NOT to claim "no slots" for out-of-window dates
-    expect(prompt).toMatch(/(do\s*)?not? (claim|say).*no slots/i);
+    // Rule must instruct AI NOT to claim out-of-window phrasing for available
+    // dates. Refined wording: "Don't claim the date is unavailable" / "Do NOT
+    // say 'the date isn't open yet'" appears in the within-window branch.
+    expect(prompt).toMatch(/Don'?t claim the date is unavailable|Do NOT say.*isn'?t open yet/i);
   });
 
   it("applies booking policy to all three tones", () => {
@@ -469,5 +472,100 @@ describe("PromptTemplates — booking policy block (dynamic window follow-up)", 
       const p = buildPrompt(ctxWithPolicy());
       expect(p).toMatch(/6 days in advance/i);
     }
+  });
+});
+
+describe("PromptTemplates — today's date anchor (date-reasoning fix)", () => {
+  // Without an explicit "today" anchor, Claude was misapplying the "out of
+  // window" rule to dates that were actually within the booking window —
+  // e.g. saying "May 14 isn't open yet" when today was May 11 and the shop
+  // allowed 6 days advance (May 14 is 3 days out, clearly inside).
+  it("buildTodayLine renders a weekday + month + day + year string", () => {
+    const line = buildTodayLine("America/New_York");
+    expect(line).toMatch(/^Today's date: /);
+    // Weekday name
+    expect(line).toMatch(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/);
+    // Month name
+    expect(line).toMatch(/(January|February|March|April|May|June|July|August|September|October|November|December)/);
+    // Year (4-digit)
+    expect(line).toMatch(/\b20\d{2}\b/);
+    // Timezone parenthetical when provided
+    expect(line).toContain("(America/New_York)");
+  });
+
+  it("buildTodayLine falls back gracefully when timezone is null", () => {
+    const line = buildTodayLine(null);
+    expect(line).toMatch(/^Today's date: /);
+    // No trailing timezone parenthetical when none was provided
+    expect(line).not.toMatch(/\(.*\)/);
+  });
+
+  it("buildTodayLine survives a bogus IANA timezone string", () => {
+    // Intentionally invalid timezone — should not throw, should still
+    // render a date (without timezone info).
+    const line = buildTodayLine("Mars/Olympus_Mons");
+    expect(line).toMatch(/^Today's date: /);
+    expect(line).toMatch(/\b20\d{2}\b/);
+  });
+
+  it("today's date appears in the system prompt for all three tones", () => {
+    const ctx = baseContext({
+      shop: {
+        shopId: "peanut",
+        shopName: "Peanut Auto",
+        category: "automotive",
+        hoursSummary: null,
+        timezone: "America/Chicago",
+        bookingAdvanceDays: 6,
+        minBookingHours: 3,
+      },
+    });
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toMatch(/Today's date: \w+, \w+ \d{1,2}, 20\d{2}/);
+    }
+  });
+});
+
+describe("PromptTemplates — refined rule #10 (within-window vs beyond-window)", () => {
+  // The misapplied "out of window" reply was the bug — date WITHIN the
+  // window with no visible slots was getting the same message as date
+  // BEYOND the window. Rule #10 now distinguishes these.
+  const ctx = (overrides: any = {}): any =>
+    baseContext({
+      shop: {
+        shopId: "peanut",
+        shopName: "Peanut",
+        category: "automotive",
+        hoursSummary: "Mon-Fri 9am-6pm",
+        timezone: "America/Chicago",
+        bookingAdvanceDays: 6,
+        minBookingHours: 3,
+        ...overrides,
+      },
+    });
+
+  it("rule #10 instructs Claude to compute days_from_today using the Today anchor", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/days_from_today|Today'?s date/i);
+    expect(prompt).toMatch(/do NOT guess|do not guess/i);
+  });
+
+  it("rule #10 covers the WITHIN-window-but-no-slots case explicitly", () => {
+    const prompt = professionalPrompt(ctx());
+    // Should explicitly mention the "all booked" / "shop closed that weekday" scenarios
+    expect(prompt).toMatch(/all booked|shop is closed that weekday|no openings on that date/i);
+    // Should suggest the right phrasing: flag a teammate / try a different day
+    expect(prompt).toMatch(/flag a teammate.*double-check|try a different day/i);
+  });
+
+  it("rule #10 covers the BEYOND-window case with the correct phrasing", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/N days in advance.*isn'?t open yet/i);
+  });
+
+  it("rule #10 explicitly warns against conflating the two cases", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/conflate|common mistake|do NOT use.*beyond the window.*for dates.*WITHIN/i);
   });
 });
