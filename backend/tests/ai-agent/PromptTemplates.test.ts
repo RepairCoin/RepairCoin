@@ -574,6 +574,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           durationMinutes: 60,
           category: "Tech",
           shortBlurb: "Laptop diagnostic and repair service.",
+          bookingAssistance: true,
         },
         {
           serviceId: "srv_mongo",
@@ -581,6 +582,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           priceUsd: 25,
           category: "Food",
           shortBlurb: "Premium tea consultation.",
+          bookingAssistance: true,
         },
       ],
       ...overrides,
@@ -622,6 +624,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           priceUsd: 50,
           category: "general",
           shortBlurb: null,
+          bookingAssistance: true,
         },
       ],
     });
@@ -639,12 +642,90 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           priceUsd: 50,
           category: "general",
           shortBlurb: null,
+          bookingAssistance: true,
         },
       ],
     });
     const prompt = professionalPrompt(ctx);
     // Format: "- Service ($50.00)" with no trailing ": blurb"
     expect(prompt).toMatch(/- Generic Service \(\$50\.00\)$/m);
+  });
+
+  describe("Phase 2 follow-up: bookable vs describe-only menu split", () => {
+    // A shop owner may toggle ai_sales_enabled=true (lets the AI mention
+    // the service) but ai_booking_assistance=false (no AI auto-booking).
+    // The prompt must distinguish so the AI doesn't propose slots for
+    // describe-only services.
+    it("renders bookable items in the 'Other AI-bookable' block", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_bookable",
+              serviceName: "Pastry Tutorial",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: null,
+              bookingAssistance: true,
+            },
+          ],
+        })
+      );
+      expect(prompt).toMatch(/Other AI-bookable services at this shop/i);
+      expect(prompt).toContain("Pastry Tutorial ($99.00)");
+      expect(prompt).not.toMatch(/Describe-only services at this shop/i);
+    });
+
+    it("renders describe-only items in a separate block with MUST NOT propose a slot wording", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_describe",
+              serviceName: "Laptop Repair",
+              priceUsd: 455,
+              category: "Tech",
+              shortBlurb: "Diagnostic and repair service.",
+              bookingAssistance: false,
+            },
+          ],
+        })
+      );
+      expect(prompt).toMatch(/Describe-only services at this shop/i);
+      expect(prompt).toMatch(/MUST NOT propose a slot/i);
+      // Bookable block omitted entirely when no bookable items.
+      expect(prompt).not.toMatch(/Other AI-bookable services at this shop/i);
+      expect(prompt).toContain("Laptop Repair ($455.00)");
+    });
+
+    it("renders BOTH blocks when the menu has a mix", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_bookable",
+              serviceName: "Pastry Tutorial",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: null,
+              bookingAssistance: true,
+            },
+            {
+              serviceId: "srv_describe",
+              serviceName: "Laptop Repair",
+              priceUsd: 455,
+              category: "Tech",
+              shortBlurb: null,
+              bookingAssistance: false,
+            },
+          ],
+        })
+      );
+      expect(prompt).toMatch(/Other AI-bookable services at this shop/i);
+      expect(prompt).toMatch(/Describe-only services at this shop/i);
+      expect(prompt).toContain("Pastry Tutorial");
+      expect(prompt).toContain("Laptop Repair");
+    });
   });
 
   it("menu block applies to all three tones", () => {
