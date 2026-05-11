@@ -272,7 +272,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
               <div>
                 <p className="text-gray-400 text-sm">Total Value</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  ${stats.totalValue.toFixed(2)}
+                  ${Number(stats.totalValue || 0).toFixed(2)}
                 </p>
               </div>
               <DollarSign className="w-10 h-10 text-green-500" />

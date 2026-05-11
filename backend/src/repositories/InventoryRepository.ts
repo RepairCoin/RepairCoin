@@ -982,7 +982,17 @@ export class InventoryRepository extends BaseRepository {
       `;
 
       const result = await this.pool.query(query, [shopId]);
-      return this.mapSnakeToCamel(result.rows[0]);
+      const raw = this.mapSnakeToCamel(result.rows[0]);
+
+      // Ensure numeric values are properly typed (PostgreSQL returns strings for aggregates)
+      return {
+        totalItems: parseInt(raw.totalItems) || 0,
+        totalValue: parseFloat(raw.totalValue) || 0,
+        lowStockItems: parseInt(raw.lowStockItems) || 0,
+        outOfStockItems: parseInt(raw.outOfStockItems) || 0,
+        totalCategories: parseInt(raw.totalCategories) || 0,
+        totalVendors: parseInt(raw.totalVendors) || 0,
+      };
     } catch (error: any) {
       logger.error('Error fetching inventory stats:', error);
       throw error;
