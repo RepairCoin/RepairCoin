@@ -53,15 +53,25 @@ interface WeeklyHoursRow {
 }
 
 /**
- * Shape of one row from shop_time_slot_config — the per-shop appointment
- * policy. Surfaced in the AI prompt so Claude can reason about advance-
- * booking limits and minimum notice rather than just silently respecting
- * them via slot generation.
+ * Booking policy combining shop_time_slot_config and shop_no_show_policy.
+ * Surfaced in the AI prompt so Claude can answer customer questions about
+ * advance window, minimum notice, reschedules, and cancellations directly
+ * instead of escalating each one to a human.
+ *
+ * Some fields are nullable from the LEFT JOIN: when a shop has a
+ * time_slot_config row but no no_show_policy row, the cancellation
+ * fields come back null and the prompt renders without that line.
  */
 interface BookingPolicyRow {
   booking_advance_days: number;
   min_booking_hours: number;
   timezone: string | null;
+  allow_reschedule: boolean | null;
+  max_reschedules_per_order: number | null;
+  reschedule_min_hours: number | null;
+  /** From shop_no_show_policy.enabled — null when no policy row exists */
+  no_show_policy_enabled: boolean | null;
+  minimum_cancellation_hours: number | null;
 }
 
 /**
@@ -169,24 +179,40 @@ export class ContextBuilder {
   }
 
   /**
-   * Read the shop's booking policy (advance days + min notice hours) from
-   * shop_time_slot_config. Returns null when no config row exists yet
-   * (new shop that hasn't run the appointment setup wizard) — the prompt
-   * handles null gracefully by omitting the policy block. Errors are
-   * swallowed to keep the AI reply unaffected by transient DB hiccups.
+   * Read the shop's booking policy (advance days + min notice hours +
+   * reschedule rules + cancellation hours) via a single JOIN across
+   * shop_time_slot_config and shop_no_show_policy. Returns null when no
+   * config row exists yet (new shop that hasn't run the appointment
+   * setup wizard) — the prompt handles null gracefully by omitting the
+   * policy block. Errors are swallowed to keep the AI reply unaffected
+   * by transient DB hiccups.
+   *
+   * The LEFT JOIN ensures shops with time_slot_config but no
+   * no_show_policy row still get the booking-window/reschedule fields
+   * surfaced. Cancellation hours stays null in that case; the prompt
+   * renders it conditionally.
    */
   private async fetchBookingPolicy(shopId: string): Promise<BookingPolicyRow | null> {
     try {
       const result = await this.pool.query<BookingPolicyRow>(
-        `SELECT booking_advance_days, min_booking_hours, timezone
-         FROM shop_time_slot_config
-         WHERE shop_id = $1
+        `SELECT
+           c.booking_advance_days,
+           c.min_booking_hours,
+           c.timezone,
+           c.allow_reschedule,
+           c.max_reschedules_per_order,
+           c.reschedule_min_hours,
+           p.enabled AS no_show_policy_enabled,
+           p.minimum_cancellation_hours
+         FROM shop_time_slot_config c
+         LEFT JOIN shop_no_show_policy p ON p.shop_id = c.shop_id
+         WHERE c.shop_id = $1
          LIMIT 1`,
         [shopId]
       );
       return result.rows[0] ?? null;
     } catch (err) {
-      logger.warn("ContextBuilder: shop_time_slot_config query failed; booking policy will be omitted from prompt", {
+      logger.warn("ContextBuilder: booking policy query failed; policy block will be omitted from prompt", {
         shopId,
         error: (err as Error)?.message,
       });
@@ -264,6 +290,25 @@ export class ContextBuilder {
     bookingPolicy: BookingPolicyRow | null
   ): AgentShopContext {
     // Same defensive both-shapes read as customer
+    // Cancellation hours: only surface when the no-show policy is
+    // explicitly enabled. If policy row exists but enabled=false, treat
+    // as "no policy" — the shop is signaling they don't enforce a
+    // window, so the AI shouldn't claim one.
+    const cancellationMinHours = bookingPolicy?.no_show_policy_enabled === true
+      ? bookingPolicy?.minimum_cancellation_hours ?? null
+      : null;
+    // Reschedule-related fields: null them out when allow_reschedule is
+    // false, so the prompt renders "Reschedules: not allowed" cleanly
+    // rather than "not allowed but max 2 per booking with 24 hour notice"
+    // (contradictory).
+    const reschedulesAllowed = bookingPolicy?.allow_reschedule ?? null;
+    const maxReschedulesPerBooking = reschedulesAllowed === true
+      ? bookingPolicy?.max_reschedules_per_order ?? null
+      : null;
+    const rescheduleMinHours = reschedulesAllowed === true
+      ? bookingPolicy?.reschedule_min_hours ?? null
+      : null;
+
     return {
       shopId: row.shopId ?? row.shop_id,
       shopName: row.name ?? row.shopName ?? "the shop",
@@ -272,6 +317,10 @@ export class ContextBuilder {
       timezone: row.timezone ?? bookingPolicy?.timezone ?? null,
       bookingAdvanceDays: bookingPolicy?.booking_advance_days ?? null,
       minBookingHours: bookingPolicy?.min_booking_hours ?? null,
+      reschedulesAllowed,
+      maxReschedulesPerBooking,
+      rescheduleMinHours,
+      cancellationMinHours,
     };
   }
 

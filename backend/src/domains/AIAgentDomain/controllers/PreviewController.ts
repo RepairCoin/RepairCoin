@@ -92,6 +92,13 @@ function buildPreviewContext(
       // numbers. Keeps preview cheap and deterministic for the dashboard demo.
       bookingAdvanceDays: null,
       minBookingHours: null,
+      // Preview path skips reschedule/cancel policy lookups too —
+      // Claude reasons generically rather than from a specific shop's
+      // configured rules. Keeps the preview cheap and deterministic.
+      reschedulesAllowed: null,
+      maxReschedulesPerBooking: null,
+      rescheduleMinHours: null,
+      cancellationMinHours: null,
     },
     conversationHistory: [], // Fresh conversation for preview
     siblingServices: [],

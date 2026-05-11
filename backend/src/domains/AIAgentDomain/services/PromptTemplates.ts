@@ -112,14 +112,37 @@ ${ctx.siblingServices
     : "\nShop hours: not on file — if asked, say you'll have someone confirm.";
 
   // Booking policy block — surfaced so the AI can answer questions like
-  // "can I book in 3 weeks?" honestly. Skipped entirely when the shop
-  // hasn't configured a time-slot config row yet (both values null).
+  // "can I book in 3 weeks?", "can I reschedule?", "how do I cancel?"
+  // honestly. Skipped entirely when the shop hasn't configured any of
+  // these fields yet.
   const policyParts: string[] = [];
   if (typeof ctx.shop.bookingAdvanceDays === "number" && ctx.shop.bookingAdvanceDays > 0) {
     policyParts.push(`Customers can book up to ${ctx.shop.bookingAdvanceDays} days in advance.`);
   }
   if (typeof ctx.shop.minBookingHours === "number" && ctx.shop.minBookingHours > 0) {
     policyParts.push(`Minimum notice: ${ctx.shop.minBookingHours} hour${ctx.shop.minBookingHours === 1 ? "" : "s"} before the appointment.`);
+  }
+  // Reschedule rules: explicit "allowed" or "not allowed" wording so
+  // the AI doesn't infer from absence. Constraints surfaced only when
+  // reschedules ARE allowed.
+  if (ctx.shop.reschedulesAllowed === true) {
+    const reParts: string[] = [];
+    if (typeof ctx.shop.maxReschedulesPerBooking === "number" && ctx.shop.maxReschedulesPerBooking > 0) {
+      reParts.push(`up to ${ctx.shop.maxReschedulesPerBooking} per booking`);
+    }
+    if (typeof ctx.shop.rescheduleMinHours === "number" && ctx.shop.rescheduleMinHours > 0) {
+      reParts.push(`must be ${ctx.shop.rescheduleMinHours}+ hours before the appointment`);
+    }
+    reParts.push("shop must approve");
+    policyParts.push(`Reschedules: allowed (${reParts.join(", ")}).`);
+  } else if (ctx.shop.reschedulesAllowed === false) {
+    policyParts.push(`Reschedules: not allowed.`);
+  }
+  // Cancellation hours: only surface when the no-show policy is
+  // enabled. When disabled/null, the AI escalates cancel questions
+  // instead of guessing a window.
+  if (typeof ctx.shop.cancellationMinHours === "number" && ctx.shop.cancellationMinHours > 0) {
+    policyParts.push(`Cancellations: at least ${ctx.shop.cancellationMinHours} hour${ctx.shop.cancellationMinHours === 1 ? "" : "s"} notice required.`);
   }
   const bookingPolicyBlock = policyParts.length > 0
     ? `\nBooking policy: ${policyParts.join(" ")}`

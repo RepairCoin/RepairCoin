@@ -189,6 +189,28 @@ export interface AgentShopContext {
    * config). Surfaced for the same reason as bookingAdvanceDays.
    */
   minBookingHours: number | null;
+  /**
+   * Whether the shop allows reschedules at all (shop_time_slot_config.
+   * allow_reschedule). null when the config row is missing.
+   */
+  reschedulesAllowed: boolean | null;
+  /**
+   * Max number of reschedules per booking. null when reschedules are
+   * disallowed or not configured.
+   */
+  maxReschedulesPerBooking: number | null;
+  /**
+   * Minimum hours of notice for a reschedule request. null when
+   * reschedules are disallowed or not configured.
+   */
+  rescheduleMinHours: number | null;
+  /**
+   * Minimum hours of notice for a cancellation, from shop_no_show_policy.
+   * null when the no-show policy is disabled or not configured for this
+   * shop — in that case the AI should escalate cancel questions rather
+   * than guessing.
+   */
+  cancellationMinHours: number | null;
 }
 
 /**
