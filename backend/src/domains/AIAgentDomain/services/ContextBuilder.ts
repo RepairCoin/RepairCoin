@@ -53,6 +53,18 @@ interface WeeklyHoursRow {
 }
 
 /**
+ * Shape of one row from shop_time_slot_config — the per-shop appointment
+ * policy. Surfaced in the AI prompt so Claude can reason about advance-
+ * booking limits and minimum notice rather than just silently respecting
+ * them via slot generation.
+ */
+interface BookingPolicyRow {
+  booking_advance_days: number;
+  min_booking_hours: number;
+  timezone: string | null;
+}
+
+/**
  * Hard cap on sibling services for upsell suggestions. More than 5 dilutes
  * the recommendation and bloats the prompt.
  */
@@ -109,7 +121,7 @@ export class ContextBuilder {
     const includeBookingSlots = serviceRow.aiBookingAssistance === true;
 
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       this.messageRepo.getConversationMessages(conversationId, {
@@ -128,6 +140,13 @@ export class ContextBuilder {
       // Weekly operating hours so the AI can answer "what are your hours?"
       // accurately instead of saying "not on file" (Phase 3 follow-up).
       this.fetchWeeklyHours(serviceRow.shopId),
+      // Booking policy (advance days + min notice) — same source the
+      // AvailabilityFetcher already reads internally, but we surface it
+      // in the prompt so the AI can REASON about it ("we book up to 6
+      // days in advance — that date isn't open yet"). Duplicate query
+      // with AvailabilityFetcher is ~10ms and parallel; not worth
+      // plumbing a shared cache through both.
+      this.fetchBookingPolicy(serviceRow.shopId),
     ]);
 
     if (!customerRow) {
@@ -140,13 +159,39 @@ export class ContextBuilder {
     return {
       service: this.toServiceContext(serviceRow),
       customer: this.toCustomerContext(customerRow),
-      shop: this.toShopContext(shopRow, weeklyHours),
+      shop: this.toShopContext(shopRow, weeklyHours, bookingPolicy),
       conversationHistory: messagesResult.items.map((m: any) =>
         this.toMessageContext(m)
       ),
       siblingServices: siblingsResult,
       availabilitySlots,
     };
+  }
+
+  /**
+   * Read the shop's booking policy (advance days + min notice hours) from
+   * shop_time_slot_config. Returns null when no config row exists yet
+   * (new shop that hasn't run the appointment setup wizard) — the prompt
+   * handles null gracefully by omitting the policy block. Errors are
+   * swallowed to keep the AI reply unaffected by transient DB hiccups.
+   */
+  private async fetchBookingPolicy(shopId: string): Promise<BookingPolicyRow | null> {
+    try {
+      const result = await this.pool.query<BookingPolicyRow>(
+        `SELECT booking_advance_days, min_booking_hours, timezone
+         FROM shop_time_slot_config
+         WHERE shop_id = $1
+         LIMIT 1`,
+        [shopId]
+      );
+      return result.rows[0] ?? null;
+    } catch (err) {
+      logger.warn("ContextBuilder: shop_time_slot_config query failed; booking policy will be omitted from prompt", {
+        shopId,
+        error: (err as Error)?.message,
+      });
+      return null;
+    }
   }
 
   /**
@@ -213,14 +258,20 @@ export class ContextBuilder {
     };
   }
 
-  private toShopContext(row: any, weeklyHours: WeeklyHoursRow[]): AgentShopContext {
+  private toShopContext(
+    row: any,
+    weeklyHours: WeeklyHoursRow[],
+    bookingPolicy: BookingPolicyRow | null
+  ): AgentShopContext {
     // Same defensive both-shapes read as customer
     return {
       shopId: row.shopId ?? row.shop_id,
       shopName: row.name ?? row.shopName ?? "the shop",
       category: row.category ?? null,
       hoursSummary: this.summarizeHours(weeklyHours),
-      timezone: row.timezone ?? null,
+      timezone: row.timezone ?? bookingPolicy?.timezone ?? null,
+      bookingAdvanceDays: bookingPolicy?.booking_advance_days ?? null,
+      minBookingHours: bookingPolicy?.min_booking_hours ?? null,
     };
   }
 

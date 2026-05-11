@@ -87,6 +87,11 @@ function buildPreviewContext(
       category: shop.category,
       hoursSummary: null,
       timezone: null,
+      // Preview path skips DB lookups for booking policy — Claude reasons
+      // generically about advance/notice rules rather than shop-specific
+      // numbers. Keeps preview cheap and deterministic for the dashboard demo.
+      bookingAdvanceDays: null,
+      minBookingHours: null,
     },
     conversationHistory: [], // Fresh conversation for preview
     siblingServices: [],

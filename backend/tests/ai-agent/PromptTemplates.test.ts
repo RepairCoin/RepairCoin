@@ -43,6 +43,8 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
     category: "automotive",
     hoursSummary: null,
     timezone: null,
+    bookingAdvanceDays: null,
+    minBookingHours: null,
   },
   conversationHistory: [],
   siblingServices: [],
@@ -396,6 +398,76 @@ describe("PromptTemplates — AI disclosure rule (Option B follow-up)", () => {
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
       const p = buildPrompt(ctx);
       expect(p).toMatch(/asks whether you'?re an AI|is this a bot/i);
+    }
+  });
+});
+
+describe("PromptTemplates — booking policy block (dynamic window follow-up)", () => {
+  // Added when the AvailabilityFetcher lookahead became dynamic (sourced
+  // from shop_time_slot_config.booking_advance_days). The booking policy
+  // must surface in the prompt context so Claude can answer "can I book
+  // in 3 weeks?" honestly instead of saying "no slots" when the requested
+  // date is outside the shop's advance-booking window.
+  const ctxWithPolicy = (overrides: any = {}): any =>
+    baseContext({
+      shop: {
+        shopId: "peanut",
+        shopName: "Peanut Auto Shop",
+        category: "automotive",
+        hoursSummary: "Mon-Fri 9am-6pm, Sat closed",
+        timezone: "America/Chicago",
+        bookingAdvanceDays: 6,
+        minBookingHours: 3,
+        ...overrides,
+      },
+    });
+
+  it("renders 'Booking policy' line with advance days when configured", () => {
+    const prompt = professionalPrompt(ctxWithPolicy());
+    expect(prompt).toMatch(/Booking policy:.*6 days in advance/i);
+  });
+
+  it("renders minimum-notice text when minBookingHours is set", () => {
+    const prompt = professionalPrompt(ctxWithPolicy({ minBookingHours: 3 }));
+    expect(prompt).toMatch(/3 hours? before the appointment/i);
+  });
+
+  it("uses singular 'hour' grammar for minBookingHours=1", () => {
+    const prompt = professionalPrompt(ctxWithPolicy({ minBookingHours: 1 }));
+    expect(prompt).toMatch(/1 hour before/i);
+    expect(prompt).not.toMatch(/1 hours before/i);
+  });
+
+  it("omits the booking policy block entirely when both values are null", () => {
+    const prompt = professionalPrompt(baseContext()); // shop fields default null
+    expect(prompt).not.toMatch(/Booking policy:/);
+  });
+
+  it("omits a single null field without breaking the rest", () => {
+    // bookingAdvanceDays set, minBookingHours null — the per-shop policy
+    // block should show advance days but NOT include a "Minimum notice: N hours"
+    // line. Universal rule #10 still mentions minimum-notice generically;
+    // we assert specifically on the policy-block phrasing to distinguish.
+    const prompt = professionalPrompt(
+      ctxWithPolicy({ bookingAdvanceDays: 14, minBookingHours: null })
+    );
+    expect(prompt).toMatch(/14 days in advance/i);
+    // The shop-specific format is "Minimum notice: N hour(s) before the appointment."
+    expect(prompt).not.toMatch(/Minimum notice:\s*\d+\s*hours?\s*before/i);
+  });
+
+  it("includes a universal rule on booking-window reasoning", () => {
+    const prompt = professionalPrompt(ctxWithPolicy());
+    // Rule #10 explicitly mentions advance window + dates beyond it
+    expect(prompt).toMatch(/booking[-\s]window reasoning|beyond the advance window|isn'?t open yet/i);
+    // Rule must instruct AI NOT to claim "no slots" for out-of-window dates
+    expect(prompt).toMatch(/(do\s*)?not? (claim|say).*no slots/i);
+  });
+
+  it("applies booking policy to all three tones", () => {
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctxWithPolicy());
+      expect(p).toMatch(/6 days in advance/i);
     }
   });
 });
