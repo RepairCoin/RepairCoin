@@ -28,7 +28,6 @@ export function useServiceReviews() {
   });
 
   // Check if user is shop owner of this service
-  const serviceShopId = data?.data?.[0]?.serviceId ? null : null; // We need service data to check
   const isShopOwner = !!userProfile?.shopId;
 
   const allReviews = data?.data || [];

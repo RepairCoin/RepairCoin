@@ -18,7 +18,6 @@ export function usePayment() {
 
   const {
     clientSecret,
-    subscriptionId,
     purchaseId,
     amount,
     totalCost,
