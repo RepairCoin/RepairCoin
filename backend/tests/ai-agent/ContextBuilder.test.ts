@@ -386,6 +386,101 @@ describe("ContextBuilder", () => {
       expect(ctx.shopServiceMenu[0].shortBlurb).toBe("First sentence.");
     });
 
+    it("propagates aiBookingAssistance onto each menu item (Phase 2 follow-up)", async () => {
+      const { builder } = makeMocks({
+        service: baseService({ aiSuggestUpsells: false }),
+        siblingServices: [
+          {
+            serviceId: "srv_book_yes",
+            serviceName: "Pastry Tutorial",
+            priceUsd: 99,
+            aiSalesEnabled: true,
+            aiBookingAssistance: true,
+          },
+          {
+            serviceId: "srv_book_no",
+            serviceName: "Laptop Repair",
+            priceUsd: 455,
+            aiSalesEnabled: true,
+            aiBookingAssistance: false,
+          },
+        ],
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      const byId = Object.fromEntries(ctx.shopServiceMenu.map((m) => [m.serviceId, m]));
+      expect(byId["srv_book_yes"].bookingAssistance).toBe(true);
+      expect(byId["srv_book_no"].bookingAssistance).toBe(false);
+    });
+
+    it("passes only bookable services to the multi-service slot fetcher (Phase 2 follow-up)", async () => {
+      // Bug guard: a shop owner who toggles ai_booking_assistance OFF for a
+      // service shouldn't have it booked from a sibling chat. The focused
+      // service has aiBookingAssistance=true (so the booking path fires);
+      // one menu item has aiBookingAssistance=true and one has it false.
+      // Only the bookable ones (focused + the one menu item) should land in
+      // fetchUpcomingSlotsForServices.
+      const mockCustomerRepo = { getCustomer: jest.fn().mockResolvedValue(baseCustomer()) };
+      const mockShopRepo = { getShop: jest.fn().mockResolvedValue(baseShop()) };
+      const mockServiceRepo = {
+        getServiceById: jest.fn().mockResolvedValue(baseService({ aiBookingAssistance: true })),
+        getServicesByShop: jest.fn().mockResolvedValue({
+          items: [
+            {
+              serviceId: "srv_book_yes",
+              serviceName: "Pastry Tutorial",
+              priceUsd: 99,
+              aiSalesEnabled: true,
+              aiBookingAssistance: true,
+              description: "",
+            },
+            {
+              serviceId: "srv_book_no",
+              serviceName: "Laptop Repair",
+              priceUsd: 455,
+              aiSalesEnabled: true,
+              aiBookingAssistance: false,
+              description: "",
+            },
+          ],
+          pagination: {},
+        }),
+      };
+      const mockMessageRepo = {
+        getConversationMessages: jest.fn().mockResolvedValue(baseMessages()),
+      };
+      const mockAvailabilityFetcher = {
+        fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
+        fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
+      };
+      const mockPool = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+
+      const { ContextBuilder } = require("../../src/domains/AIAgentDomain/services/ContextBuilder");
+      const builder = new ContextBuilder(
+        mockCustomerRepo as any,
+        mockShopRepo as any,
+        mockServiceRepo as any,
+        mockMessageRepo as any,
+        mockAvailabilityFetcher as any,
+        mockPool as any
+      );
+      await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+
+      expect(mockAvailabilityFetcher.fetchUpcomingSlotsForServices).toHaveBeenCalledTimes(1);
+      const [, services] = mockAvailabilityFetcher.fetchUpcomingSlotsForServices.mock.calls[0];
+      const ids = services.map((s: any) => s.serviceId).sort();
+      // Focused service (srv_main) + bookable menu item, NOT the describe-only one.
+      expect(ids).toEqual(["srv_book_yes", "srv_main"]);
+      expect(ids).not.toContain("srv_book_no");
+    });
+
     it("returns empty menu when shop has no AI-enabled services", async () => {
       const { builder } = makeMocks({
         service: baseService({ aiSuggestUpsells: false }),

@@ -149,24 +149,30 @@ export class ContextBuilder {
       serviceId
     );
 
-    // Phase 2: assemble the full set of services the AI can book in this
-    // conversation: the focused service + every AI-enabled service surfaced
-    // in the menu. Each entry carries serviceName so PromptTemplates can
-    // render the slot list with human-readable service labels and the
-    // tool's serviceId enum can include all of them.
+    // Phase 2 + follow-up: assemble the set of services the AI can book in
+    // this conversation. Inclusion rule per service:
+    //   - Focused service: included when its own aiBookingAssistance is true
+    //     (gated upstream by `includeBookingSlots` — if that's false we
+    //     never reach this code path).
+    //   - Menu items: included ONLY when the menu item's own
+    //     bookingAssistance is true. Without this filter, a shop owner who
+    //     toggled aiBookingAssistance off for a service (intent: "discuss
+    //     but don't auto-book") would still have it booked from a sibling
+    //     chat — a Phase 2 design bug. Menu items the AI may DESCRIBE but
+    //     not BOOK stay in shopServiceMenu (read by PromptTemplates) but
+    //     never reach this list.
     //
-    // The focused service is included even when its own aiBookingAssistance
-    // is false — the call below is still gated by `includeBookingSlots`,
-    // which checks the focused service's flag. When that flag is true we
-    // include other services unconditionally; when false we skip
-    // availability entirely (no booking card path). Phase 4 will refine
-    // this with per-service booking-assistance gating across the menu.
+    // Each entry carries serviceName so PromptTemplates can render the slot
+    // list with human-readable service labels and the tool's serviceId enum
+    // can include all of them.
     const bookableServices = [
       { serviceId, serviceName: serviceRow.serviceName },
-      ...shopServiceMenu.map((m) => ({
-        serviceId: m.serviceId,
-        serviceName: m.serviceName,
-      })),
+      ...shopServiceMenu
+        .filter((m) => m.bookingAssistance === true)
+        .map((m) => ({
+          serviceId: m.serviceId,
+          serviceName: m.serviceName,
+        })),
     ];
 
     // Phase 2: pull everything else in parallel
@@ -277,6 +283,7 @@ export class ContextBuilder {
             ...(s.durationMinutes ? { durationMinutes: s.durationMinutes } : {}),
             category: s.category ?? "general",
             shortBlurb,
+            bookingAssistance: s.aiBookingAssistance === true,
           };
         });
     } catch (err) {

@@ -257,6 +257,15 @@ export interface AgentShopServiceMenuItem {
   category: string;
   /** First sentence-ish of the description, truncated to ~120 chars. Null when description is empty. */
   shortBlurb: string | null;
+  /**
+   * Per-service `ai_booking_assistance` flag. Used by ContextBuilder to
+   * decide whether to fetch slots for this menu item (Phase 2 follow-up).
+   * When false, the AI may DESCRIBE this service but cannot book it here —
+   * the prompt menu block flags it as describe-only and slot fetching skips
+   * it. Independent of the menu item's mere presence, which is gated by
+   * `ai_sales_enabled`.
+   */
+  bookingAssistance: boolean;
 }
 
 /**

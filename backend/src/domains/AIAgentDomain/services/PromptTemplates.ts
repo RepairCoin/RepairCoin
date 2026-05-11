@@ -127,26 +127,39 @@ ${ctx.siblingServices
 
   // Multi-service shop menu (Phase 1 + Phase 2 of multi-service architecture).
   // Lists every AI-enabled service from the shop's catalog so the AI can
-  // answer "what else do you offer?" without depending on the focused
-  // service's aiSuggestUpsells toggle.
+  // answer "what else do you offer?" honestly.
   //
-  // Phase 2: these services ARE bookable from this chat — the
-  // propose_booking_slot tool's service_id enum includes them, and the
-  // BOOKING block below lists their slots. Earlier Phase-1 wording said
-  // "redirect to that service's page" — REMOVED because it contradicted
-  // the Phase 2 tool and caused Claude to refuse cross-service bookings.
-  const shopServiceMenuBlock =
-    ctx.shopServiceMenu && ctx.shopServiceMenu.length > 0
-      ? `
-Other AI-bookable services at this shop (you may DESCRIBE these AND book them here via propose_booking_slot — their slots appear in the booking section below, grouped by service):
-${ctx.shopServiceMenu
-  .map((s) => {
+  // Phase 2 follow-up: split into BOOKABLE vs DESCRIBE-ONLY based on each
+  // service's own ai_booking_assistance flag:
+  //   - Bookable (flag=true): the propose_booking_slot tool's service_id
+  //     enum includes them, and their slots appear in the booking section.
+  //   - Describe-only (flag=false): AI may discuss but MUST NOT propose
+  //     slots — the shop owner intentionally disabled AI booking for these.
+  //     AI should suggest the customer contact the shop directly to book.
+  const bookableMenuItems = (ctx.shopServiceMenu ?? []).filter(
+    (s) => s.bookingAssistance === true
+  );
+  const describeOnlyMenuItems = (ctx.shopServiceMenu ?? []).filter(
+    (s) => s.bookingAssistance !== true
+  );
+  const renderMenuLine = (s: (typeof ctx.shopServiceMenu)[number]) => {
     const durationPart = s.durationMinutes ? `, ~${s.durationMinutes} min` : "";
     const blurbPart = s.shortBlurb ? `: ${s.shortBlurb}` : "";
     return `  - ${s.serviceName} ($${s.priceUsd.toFixed(2)}${durationPart})${blurbPart}`;
-  })
-  .join("\n")}`
+  };
+  const bookableMenuBlock =
+    bookableMenuItems.length > 0
+      ? `
+Other AI-bookable services at this shop (you may DESCRIBE these AND book them here via propose_booking_slot — their slots appear in the booking section below, grouped by service):
+${bookableMenuItems.map(renderMenuLine).join("\n")}`
       : "";
+  const describeOnlyMenuBlock =
+    describeOnlyMenuItems.length > 0
+      ? `
+Describe-only services at this shop (you may MENTION these if relevant, but MUST NOT propose a slot for them — the shop owner has them set to manual booking only. If the customer wants to book one, offer to have the shop reach out, or suggest they contact the shop directly):
+${describeOnlyMenuItems.map(renderMenuLine).join("\n")}`
+      : "";
+  const shopServiceMenuBlock = `${bookableMenuBlock}${describeOnlyMenuBlock}`;
 
   const customInstructionsBlock = ctx.service.customInstructions
     ? `\nShop owner's per-service instructions (HONOR THESE):\n  ${ctx.service.customInstructions}`
