@@ -255,14 +255,23 @@ export class AgentOrchestrator {
       // slot_iso to the validated set + caps reply_text length, so Claude
       // physically can't hallucinate a slot or pad the message with the
       // service summary boilerplate the prompt rules couldn't suppress.
+      //
+      // Phase 2 of multi-service architecture: slots now span multiple
+      // services. The tool builder builds the service_id enum from the
+      // unique set of service IDs in the slot list, the slot_iso enum
+      // from the union of all slots, and the orchestrator validates the
+      // (service_id, slot_iso) PAIR consistency below (a valid service_id
+      // matched with a slot_iso from a different service is rejected).
       const availabilitySlotsForCall = ctx.availabilitySlots ?? [];
       const slotLabelsByIsoForCall: Record<string, string> = {};
+      const serviceIdBySlotIso: Record<string, string> = {};
       for (const slot of availabilitySlotsForCall) {
         slotLabelsByIsoForCall[slot.slotIso] = slot.humanLabel;
+        serviceIdBySlotIso[slot.slotIso] = slot.serviceId;
       }
       const tools: ClaudeTool[] | undefined =
         availabilitySlotsForCall.length > 0
-          ? [buildBookingSuggestionTool(serviceId, availabilitySlotsForCall)]
+          ? [buildBookingSuggestionTool(availabilitySlotsForCall)]
           : undefined;
 
       const requestPayload = {
@@ -328,7 +337,23 @@ export class AgentOrchestrator {
       if (toolBlock) {
         const slotIso = String(toolBlock.input.slot_iso ?? "");
         const replyText = String(toolBlock.input.reply_text ?? "").trim();
-        const inSet = availabilitySlots.some((s) => s.slotIso === slotIso);
+        // Phase 2 of multi-service architecture: tool input now carries
+        // service_id alongside slot_iso. The slot list spans multiple
+        // services, so a valid service_id paired with a valid slot_iso
+        // from a different service is still wrong — the booking card
+        // would render for the wrong service. We accept the call only
+        // when (service_id, slot_iso) come from the SAME source slot.
+        //
+        // Fallback for older clients/mocks that didn't pass service_id:
+        // default to the focused conversation service. That preserves
+        // pre-Phase-2 single-service behavior.
+        const proposedServiceId = String(
+          toolBlock.input.service_id ?? serviceId
+        );
+        const matchingSlot = availabilitySlots.find(
+          (s) => s.slotIso === slotIso && s.serviceId === proposedServiceId
+        );
+        const inSet = matchingSlot !== undefined;
         if (inSet && replyText.length > 0) {
           // Tool call validated by Anthropic + double-checked by us.
           // Multi-service handling: Claude's response can include BOTH a
@@ -352,9 +377,11 @@ export class AgentOrchestrator {
             extraText && extraText !== replyText
               ? `${extraText}\n\n${replyText}`
               : replyText;
+          // Use the service_id from the matched slot rather than the
+          // input (defense-in-depth: matchingSlot is the source of truth).
           bookingSuggestions = [
             {
-              serviceId,
+              serviceId: matchingSlot!.serviceId,
               slotIso,
               ...(slotLabelsByIso[slotIso]
                 ? { humanLabel: slotLabelsByIso[slotIso] }
@@ -364,16 +391,30 @@ export class AgentOrchestrator {
           bookingSuggestionDropReasons = [];
           bookingPath = "tool";
         } else {
-          // Anthropic should have rejected an out-of-enum slot_iso, but
-          // defense-in-depth: if it slips through, drop the suggestion and
-          // fall back to whatever text Claude emitted.
+          // Anthropic should have rejected an out-of-enum slot_iso (and an
+          // out-of-enum service_id), but defense-in-depth: if a mismatched
+          // (service_id, slot_iso) pair slips through — both individually
+          // valid but from different services — reject it. Same outcome
+          // as a hallucinated slot.
+          const slotInSetButWrongService =
+            slotIso.length > 0 &&
+            availabilitySlots.some((s) => s.slotIso === slotIso) &&
+            !matchingSlot;
+          const dropReason = slotInSetButWrongService
+            ? "tool_returned_service_slot_mismatch"
+            : "tool_returned_invalid_slot";
           logger.warn(
-            "AgentOrchestrator: tool returned invalid slot_iso, falling back to text",
-            { slotIso, replyTextLen: replyText.length }
+            "AgentOrchestrator: tool returned invalid slot or service mismatch, falling back to text",
+            {
+              slotIso,
+              proposedServiceId,
+              replyTextLen: replyText.length,
+              dropReason,
+            }
           );
           customerFacingText = claudeResponse.text || replyText;
           bookingSuggestions = [];
-          bookingSuggestionDropReasons = ["tool_returned_invalid_slot"];
+          bookingSuggestionDropReasons = [dropReason];
           bookingPath = "tool";
         }
       } else {
@@ -512,45 +553,73 @@ export class AgentOrchestrator {
  * Build the propose_booking_slot tool definition for the current set of
  * available slots. Phase 3 Task 10 fix-6.
  *
+ * Phase 2 of multi-service architecture: the slot list spans multiple
+ * AI-enabled services at the shop. The tool now takes BOTH a service_id
+ * and a slot_iso, each constrained to its respective enum. Anthropic
+ * validates each field individually — pair consistency (slot_iso belongs
+ * to the named service_id) is enforced by AgentOrchestrator after the
+ * response lands.
+ *
  * The schema enforces:
- *   - slot_iso MUST be one of the available slots (enum)
+ *   - service_id MUST be one of the AI-enabled services at the shop (enum)
+ *   - slot_iso MUST be one of the available slots (enum, union across services)
  *   - reply_text capped at BOOKING_REPLY_MAX_CHARS (no $99-and-30-min boilerplate)
  *
  * Anthropic validates the tool's input against this schema before returning
  * the response, so an out-of-enum slot or over-length reply is rejected at
  * the API boundary — Claude can't ignore a schema the way it ignores prompt
- * rules. The orchestrator still double-checks defensively (model could in
- * principle skip the tool call entirely if Anthropic's validator changes
- * behavior).
+ * rules. The orchestrator still double-checks defensively, including the
+ * (service_id, slot_iso) pair consistency that the schema alone can't enforce.
  */
 function buildBookingSuggestionTool(
-  serviceId: string,
-  availabilitySlots: { slotIso: string; humanLabel: string }[]
+  availabilitySlots: { slotIso: string; humanLabel: string; serviceId: string; serviceName: string }[]
 ): ClaudeTool {
+  // Deduplicate service IDs while preserving first-seen order (matches the
+  // grouping order in the prompt's slot list).
+  const seenServiceIds = new Set<string>();
+  const serviceIdEnum: string[] = [];
+  const serviceLabelsByIdForDescription: string[] = [];
+  for (const slot of availabilitySlots) {
+    if (!seenServiceIds.has(slot.serviceId)) {
+      seenServiceIds.add(slot.serviceId);
+      serviceIdEnum.push(slot.serviceId);
+      serviceLabelsByIdForDescription.push(
+        `${slot.serviceName} (${slot.serviceId})`
+      );
+    }
+  }
   const slotEnum = availabilitySlots.map((s) => s.slotIso);
   const slotChoicesForDescription = availabilitySlots
     .slice(0, 5)
-    .map((s) => `${s.humanLabel} (${s.slotIso})`)
+    .map((s) => `${s.serviceName} — ${s.humanLabel} (${s.slotIso})`)
     .join("; ");
 
   return {
     name: BOOKING_TOOL_NAME,
     description: [
-      `Propose a specific bookable appointment slot to the customer for service ${serviceId}. This is the ONLY way to render a tap-to-book card in chat — plain text with slot info will not produce a card.`,
+      `Propose a specific bookable appointment slot to the customer. This is the ONLY way to render a tap-to-book card in chat — plain text with slot info will not produce a card.`,
+      `Multi-service: the slot list in the system prompt is grouped by service. Always call the tool with BOTH a service_id and a slot_iso from the SAME service group — never mix service_id from one group with a slot_iso from another.`,
+      `Available services: ${serviceLabelsByIdForDescription.join("; ")}.`,
       `CALL THE TOOL when the customer asks about times, picks a slot, or says yes to a previous suggestion. Specifically:`,
       `Trigger questions: "what times do you have?", "what time do you have?", "do you have morning slot?", "do you have afternoon slot?", "do you have evening slot?", "any openings?", "when can I come in?", "can I book Thursday?", "Thursday afternoon", "Thursday at 2pm", "yes please", "I'll take it", "book me in".`,
       `Do NOT call the tool for genuinely informational questions: "how much does this cost?", "what's included?", "what should I bring?", "how long does it take?", "what's your cancellation policy?".`,
       `When in doubt between booking-intent and informational, lean toward calling the tool. A miss-call is better than no card.`,
-      `Available slots: ${slotChoicesForDescription}.`,
+      `Sample slots: ${slotChoicesForDescription}.`,
     ].join(" "),
     inputSchema: {
       type: "object",
       properties: {
+        service_id: {
+          type: "string",
+          enum: serviceIdEnum,
+          description:
+            "The ID of the service being booked. MUST be one of the IDs listed in the enum (these are the AI-enabled services at this shop). The chosen slot_iso MUST appear under this service_id's group in the prompt's slot list — mixing groups is rejected by the server.",
+        },
         slot_iso: {
           type: "string",
           enum: slotEnum,
           description:
-            "The ISO 8601 timestamp of the specific slot you are proposing. MUST be exactly one of the values listed in the enum — no invented or modified slots. If the customer asked for morning/afternoon/evening, pick a slot whose hour matches that band.",
+            "The ISO 8601 timestamp of the specific slot you are proposing. MUST be exactly one of the values listed in the enum — no invented or modified slots. The slot MUST come from the same service group as service_id above. If the customer asked for morning/afternoon/evening, pick a slot whose hour matches that band.",
         },
         reply_text: {
           type: "string",
@@ -560,22 +629,23 @@ function buildBookingSuggestionTool(
             "HARD RULES:",
             "(1) MUST mention the slot day + time (e.g. 'Thursday at 2:30 PM').",
             "(2) MUST be conversational and brief — under 130 characters.",
-            "(3) MUST NOT mention price (no '$99'), duration (no '30 minutes'), service name (no 'Newly Baker' / 'the service'), or category. The customer already sees these on the card and elsewhere in the UI.",
-            "(4) MUST NOT prefix with 'Hi {name}!' on follow-up turns — only on the very first AI reply in a conversation.",
-            "(5) MUST NOT ask 'would you like me to lock this in?' / 'want me to book it?'. Just propose the slot directly. The tap card is the booking UI; the customer doesn't need permission language.",
+            "(3) MUST NOT mention price (no '$99'), duration (no '30 minutes'), or category. The customer already sees these on the card and elsewhere in the UI.",
+            "(4) MAY mention the service name briefly when more than one service is in play (e.g. 'For the pastry tutorial — Thursday 9 AM works'). For single-service bookings, leave the service name out.",
+            "(5) MUST NOT prefix with 'Hi {name}!' on follow-up turns — only on the very first AI reply in a conversation.",
+            "(6) MUST NOT ask 'would you like me to lock this in?' / 'want me to book it?'. Just propose the slot directly. The tap card is the booking UI; the customer doesn't need permission language.",
             "GOOD examples (all valid):",
             "'Thursday at 2:30 PM works — tap below.'",
             "'How about Friday at 10 AM?'",
             "'Got 9 AM Thursday open.'",
-            "'Closest afternoon slot is Friday 2 PM.'",
+            "'For the pastry tutorial — Thursday at 12 PM works.'",
             "BAD examples (NEVER produce these):",
-            "'Hi Lee Ann! The Newly Baker service is $99 and runs 30 minutes. We have availability as early as Thursday — would you like me to lock one in?' (mentions price/duration/service name + asks permission)",
+            "'Hi Lee Ann! The Newly Baker service is $99 and runs 30 minutes. We have availability as early as Thursday — would you like me to lock one in?' (mentions price/duration + asks permission)",
             "'The service is $99.00 and takes about 30 minutes.' (just a service summary, no slot)",
             "'We have slots available — pick one.' (no specific slot, asks customer to choose)",
           ].join(" "),
         },
       },
-      required: ["slot_iso", "reply_text"],
+      required: ["service_id", "slot_iso", "reply_text"],
       additionalProperties: false,
     },
   };

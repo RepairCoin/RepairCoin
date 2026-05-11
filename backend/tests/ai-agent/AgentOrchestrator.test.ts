@@ -391,12 +391,21 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
       conversationHistory: [],
       siblingServices: [],
       availabilitySlots: [
-        { date: "2026-05-08", time: "14:00", slotIso, humanLabel: "Friday at 2:00 PM" },
+        {
+          date: "2026-05-08",
+          time: "14:00",
+          slotIso,
+          humanLabel: "Friday at 2:00 PM",
+          serviceId: "srv_test",
+          serviceName: "Test Service",
+        },
         {
           date: "2026-05-08",
           time: "15:00",
           slotIso: "2026-05-08T19:00:00.000Z",
           humanLabel: "Friday at 3:00 PM",
+          serviceId: "srv_test",
+          serviceName: "Test Service",
         },
       ],
     });
@@ -489,7 +498,14 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
       conversationHistory: [],
       siblingServices: [],
       availabilitySlots: [
-        { date: "2026-05-08", time: "14:00", slotIso, humanLabel: "Friday at 2:00 PM" },
+        {
+          date: "2026-05-08",
+          time: "14:00",
+          slotIso,
+          humanLabel: "Friday at 2:00 PM",
+          serviceId: "srv_test",
+          serviceName: "Test Service",
+        },
       ],
     });
     await mocks.orch.handleCustomerMessage(sampleInput());
@@ -555,7 +571,14 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
       conversationHistory: [],
       siblingServices: [],
       availabilitySlots: [
-        { date: "2026-05-08", time: "14:00", slotIso, humanLabel: "Friday at 2:00 PM" },
+        {
+          date: "2026-05-08",
+          time: "14:00",
+          slotIso,
+          humanLabel: "Friday at 2:00 PM",
+          serviceId: "srv_test",
+          serviceName: "Test Service",
+        },
       ],
     });
     await mocks.orch.handleCustomerMessage(sampleInput());

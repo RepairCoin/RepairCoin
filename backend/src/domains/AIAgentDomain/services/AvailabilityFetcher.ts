@@ -84,7 +84,8 @@ export class AvailabilityFetcher {
    */
   async fetchUpcomingSlots(
     shopId: string,
-    serviceId: string
+    serviceId: string,
+    serviceName: string = serviceId
   ): Promise<AgentAvailabilitySlot[]> {
     try {
       const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
@@ -115,7 +116,7 @@ export class AvailabilityFetcher {
             );
             return slots
               .filter((s) => s.available)
-              .map((s) => this.toAgentSlot(date, s.time, timezone));
+              .map((s) => this.toAgentSlot(date, s.time, timezone, serviceId, serviceName));
           } catch (err) {
             logger.warn("AvailabilityFetcher: getAvailableTimeSlots failed for date", {
               shopId,
@@ -175,6 +176,89 @@ export class AvailabilityFetcher {
   }
 
   /**
+   * Phase 2 of multi-service architecture: fetch slots for MULTIPLE
+   * services in parallel and concatenate them into a single tagged list.
+   * Used by ContextBuilder to populate AgentContext.availabilitySlots when
+   * the AI needs to be able to book any AI-enabled service from the shop
+   * (not just the focused one).
+   *
+   * Each service is fetched independently using the existing
+   * single-service `fetchUpcomingSlots`. After concatenating, the
+   * MAX_SLOTS_CEILING applies to the combined list. Phase 4 of the
+   * architecture will replace the simple slice-at-ceiling with a fairer
+   * per-service distribution; for Phase 2 the ceiling is high enough
+   * (100) that typical shops with 2-4 AI-enabled services × 6-day
+   * window fit cleanly within budget.
+   *
+   * Empty `services` array → returns empty list immediately (no work).
+   * Per-service failures are swallowed inside fetchUpcomingSlots; the
+   * combined list just omits that service's slots.
+   */
+  async fetchUpcomingSlotsForServices(
+    shopId: string,
+    services: { serviceId: string; serviceName: string }[]
+  ): Promise<AgentAvailabilitySlot[]> {
+    if (!services || services.length === 0) {
+      return [];
+    }
+    try {
+      // Parallel per-service fetches. Each one already parallelizes per-day
+      // internally, so the total burst is num_services × num_days promises.
+      // For Peanut with 2 AI-enabled services + 6-day window = 12 parallel
+      // queries — well within pool capacity (20).
+      const perServiceResults = await Promise.all(
+        services.map((s) =>
+          this.fetchUpcomingSlots(shopId, s.serviceId, s.serviceName)
+        )
+      );
+      const flat = perServiceResults.flat();
+      if (flat.length <= MAX_SLOTS_CEILING) {
+        return flat;
+      }
+      // Combined list exceeded the ceiling. Round-robin across services
+      // so each service keeps representation rather than the first one
+      // saturating the budget. Each per-service array is already
+      // earliest-first; interleaving preserves that property roughly.
+      const trimmed: AgentAvailabilitySlot[] = [];
+      const cursors = perServiceResults.map(() => 0);
+      let exhausted = false;
+      while (trimmed.length < MAX_SLOTS_CEILING && !exhausted) {
+        exhausted = true;
+        for (let i = 0; i < perServiceResults.length; i++) {
+          const arr = perServiceResults[i];
+          const idx = cursors[i];
+          if (idx < arr.length) {
+            trimmed.push(arr[idx]);
+            cursors[i] = idx + 1;
+            exhausted = false;
+            if (trimmed.length >= MAX_SLOTS_CEILING) break;
+          }
+        }
+      }
+      logger.info(
+        "AvailabilityFetcher: multi-service ceiling hit, round-robin trim applied",
+        {
+          shopId,
+          serviceCount: services.length,
+          totalBeforeCap: flat.length,
+          finalCount: trimmed.length,
+        }
+      );
+      return trimmed;
+    } catch (err) {
+      logger.error(
+        "AvailabilityFetcher: fetchUpcomingSlotsForServices top-level failure",
+        {
+          shopId,
+          serviceCount: services.length,
+          error: (err as Error)?.message,
+        }
+      );
+      return [];
+    }
+  }
+
+  /**
    * Build the list of YYYY-MM-DD strings representing today + the next
    * (count - 1) days in the given IANA timezone. Each entry is the local
    * date in the shop's timezone — the format AppointmentService expects.
@@ -206,15 +290,23 @@ export class AvailabilityFetcher {
    *   - slotIso — ISO 8601 string with the shop's timezone offset, computed
    *     correctly via Intl (handles DST + offset variations)
    *   - humanLabel — readable form for the prompt ("Thursday, May 8 at 2:30 PM")
+   *
+   * Phase 2 of multi-service architecture: now tags each slot with
+   * (serviceId, serviceName) so the AI knows which service the slot
+   * belongs to. Critical for the multi-service tool — the AI can only
+   * call propose_booking_slot if it can name the right serviceId
+   * alongside the slot_iso.
    */
   private toAgentSlot(
     date: string,
     time: string,
-    timezone: string
+    timezone: string,
+    serviceId: string,
+    serviceName: string
   ): AgentAvailabilitySlot {
     const slotIso = this.buildSlotIso(date, time, timezone);
     const humanLabel = this.buildHumanLabel(slotIso, timezone);
-    return { date, time, slotIso, humanLabel };
+    return { date, time, slotIso, humanLabel, serviceId, serviceName };
   }
 
   private buildSlotIso(date: string, time: string, timezone: string): string {

@@ -238,18 +238,45 @@ function buildBookingBlock(ctx: AgentContext): string {
     return "";
   }
 
-  const slotsList = ctx.availabilitySlots
-    .map((s) => `  - ${s.humanLabel}  (slot_iso: ${s.slotIso})`)
-    .join("\n");
+  // Phase 2 of multi-service architecture: render slots grouped by service
+  // name so Claude can see which slot belongs to which service at a glance
+  // and pick the right (serviceId, slot_iso) pair when calling the tool.
+  // Within each service group, slots stay in their original order (already
+  // earliest-first via AvailabilityFetcher).
+  const slotsByService = new Map<string, typeof ctx.availabilitySlots>();
+  for (const slot of ctx.availabilitySlots) {
+    const key = slot.serviceId;
+    const existing = slotsByService.get(key);
+    if (existing) {
+      existing.push(slot);
+    } else {
+      slotsByService.set(key, [slot]);
+    }
+  }
+
+  const slotsList = Array.from(slotsByService.entries())
+    .map(([sid, slots]) => {
+      const serviceName = slots[0]?.serviceName ?? sid;
+      const lines = slots
+        .map(
+          (s) =>
+            `  - ${s.humanLabel}  (service_id: ${s.serviceId}, slot_iso: ${s.slotIso})`
+        )
+        .join("\n");
+      return `Service: ${serviceName} (id: ${sid})\n${lines}`;
+    })
+    .join("\n\n");
 
   return `
 
-BOOKING (this service supports tap-to-book in chat):
-The customer can book any of these REAL available slots — these are pulled live from the shop's calendar:
+BOOKING (this shop supports tap-to-book in chat):
+The customer can book any of these REAL available slots — these are pulled live from the shop's calendar. Slots are grouped by service; the tool requires you to specify BOTH a service_id and a matching slot_iso from the same group:
 ${slotsList}
 
 HOW TO PROPOSE A SLOT — use the tool, never plain text:
-You have access to a tool named \`propose_booking_slot\`. When you want to recommend a slot to the customer, CALL THE TOOL. The tool's output renders a tappable booking card in the customer's chat. The customer never sees the tool's raw JSON — they see (a) your reply_text + (b) a clean "Tap to book" card.
+You have access to a tool named \`propose_booking_slot\`. When you want to recommend a slot to the customer, CALL THE TOOL with BOTH a service_id (which service is being booked) and a slot_iso (which specific time). The tool's output renders a tappable booking card in the customer's chat. The customer never sees the tool's raw JSON — they see (a) your reply_text + (b) a clean "Tap to book" card.
+
+MULTI-SERVICE BOOKING (Phase 2): the tool can book ANY AI-enabled service at this shop, not just the focused one. If the customer asks to book a DIFFERENT service ("can you book me the pastry tutorial too?"), look up that service's slots in the BOOKING block above and call the tool with that service_id + a matching slot_iso. The (service_id, slot_iso) pair MUST come from the SAME service group in the slot list — don't mix a service_id from one group with a slot_iso from another. If the customer asks for multiple services in one message, see Universal Rule #11 — you may emit one tool call (for the most-relevant service) plus a text block describing the others.
 
 NEVER include booking-suggestion JSON in your plain-text reply. NEVER write fenced code blocks containing slot info. The tool is the ONLY way to propose a slot. Plain text without the tool = no card = customer can't book.
 
