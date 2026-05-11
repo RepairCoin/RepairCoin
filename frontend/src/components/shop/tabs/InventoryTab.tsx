@@ -525,7 +525,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
                         {item.categoryName || '-'}
                       </td>
                       <td className="px-4 py-4 text-sm text-white font-medium">
-                        ${item.price.toFixed(2)}
+                        ${Number(item.price || 0).toFixed(2)}
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm">
