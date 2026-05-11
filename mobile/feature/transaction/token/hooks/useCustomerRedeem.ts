@@ -2,23 +2,23 @@ import { useState, useCallback, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
-import { useRedemptionSignature } from "../../useSignature";
-import { useCustomerRedeemData, useRedemptionSessions } from "../../queries";
-import { useApproveRedemptionSession, useRejectRedemptionSession } from "../../mutations";
-import { RedemptionSession } from "../../../types";
+import { useRedemptionSignature } from "./useRedemptionSignature";
+import { useRedemptionSessions } from "./useTokensQuery";
+import {
+  useApproveRedemptionSession,
+  useRejectRedemptionSession,
+} from "./useTokensMutation";
+import { useCustomerRedeemData } from "./useCustomerRedeemData";
+import { RedemptionSession } from "../types";
 
-const POLLING_INTERVAL = 5000; // 5 seconds
+const POLLING_INTERVAL = 5000;
 
-/**
- * Hook for customer redeem screen business logic
- */
 export const useCustomerRedeem = () => {
   const toast = useToast();
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [showHowToRedeem, setShowHowToRedeem] = useState(false);
 
-  // Customer data
   const {
     customerData,
     isLoadingCustomer,
@@ -30,7 +30,6 @@ export const useCustomerRedeem = () => {
     recentRedemptions,
   } = useCustomerRedeemData();
 
-  // Redemption sessions
   const {
     sessions,
     pendingSessions,
@@ -38,27 +37,22 @@ export const useCustomerRedeem = () => {
     refetchSessions,
   } = useRedemptionSessions();
 
-  // Polling for new redemption sessions every 5 seconds (only when screen is focused)
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-  // Use focus effect to start/stop polling based on screen focus
   useFocusEffect(
     useCallback(() => {
-      // Start polling when screen is focused
       const startPolling = () => {
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
         }
         pollingIntervalRef.current = setInterval(() => {
-          // Only poll if app is in foreground
           if (appStateRef.current === "active") {
             refetchSessions();
           }
         }, POLLING_INTERVAL);
       };
 
-      // Stop polling
       const stopPolling = () => {
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
@@ -66,25 +60,21 @@ export const useCustomerRedeem = () => {
         }
       };
 
-      // Handle app state changes (pause polling when app is in background)
       const handleAppStateChange = (nextAppState: AppStateStatus) => {
         appStateRef.current = nextAppState;
         if (nextAppState === "active") {
-          refetchSessions(); // Immediate refetch when app comes to foreground
+          refetchSessions();
           startPolling();
         } else {
           stopPolling();
         }
       };
 
-      // Start polling immediately when screen is focused
-      refetchSessions(); // Immediate refetch when screen gains focus
+      refetchSessions();
       startPolling();
 
-      // Listen for app state changes
       const subscription = AppState.addEventListener("change", handleAppStateChange);
 
-      // Cleanup when screen loses focus
       return () => {
         stopPolling();
         subscription.remove();
@@ -96,7 +86,6 @@ export const useCustomerRedeem = () => {
   const approveSession = useApproveRedemptionSession();
   const rejectSession = useRejectRedemptionSession();
 
-  // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([refetchCustomer(), refetchTransactions(), refetchSessions()]);
@@ -209,25 +198,18 @@ export const useCustomerRedeem = () => {
   }, [rejectSession, refetchSessions, toast]);
 
   return {
-    // State
     refreshing,
     actionLoading,
     showHowToRedeem,
     setShowHowToRedeem,
-
-    // Customer data
     customerData,
     isLoadingCustomer,
     customerError,
     totalBalance,
     totalRedeemed,
     recentRedemptions,
-
-    // Sessions
     pendingSessions,
     isLoadingSessions,
-
-    // Handlers
     onRefresh,
     handleAccept,
     handleReject,

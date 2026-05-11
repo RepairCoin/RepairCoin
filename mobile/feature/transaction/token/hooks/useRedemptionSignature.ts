@@ -11,7 +11,6 @@ export interface SignatureParams {
   expiresAt: string;
 }
 
-// Maps auth method to the wallet strategy needed for reconnection
 const AUTH_METHOD_STRATEGIES: Record<string, string> = {
   google: "google",
 };
@@ -26,7 +25,6 @@ export const useRedemptionSignature = () => {
 
     const strategy = AUTH_METHOD_STRATEGIES[authMethod];
     if (!strategy) {
-      // External wallets (metamask, walletconnect, etc.) — can't silently reconnect
       console.log("[useRedemptionSignature] External wallet, cannot auto-reconnect");
       return null;
     }
@@ -54,7 +52,6 @@ export const useRedemptionSignature = () => {
     const { sessionId, customerAddress, shopId, amount, expiresAt } = params;
 
     try {
-      // Use active account, or try to reconnect if null
       let account = activeAccount;
       if (!account) {
         console.log("[useRedemptionSignature] No active account, attempting reconnection...");
@@ -66,7 +63,6 @@ export const useRedemptionSignature = () => {
         return null;
       }
 
-      // Create the message to sign - MUST match backend format exactly
       const message = `FixFlow Redemption Request
 
 Session ID: ${sessionId}
@@ -79,7 +75,6 @@ By signing this message, I approve the redemption of ${amount} RCN tokens at the
 
       console.log("[useRedemptionSignature] Message to sign:", message);
 
-      // Try to sign the message using Thirdweb's account
       if (account.signMessage) {
         const signature = await account.signMessage({ message });
         console.log("[useRedemptionSignature] Signature generated:", signature);

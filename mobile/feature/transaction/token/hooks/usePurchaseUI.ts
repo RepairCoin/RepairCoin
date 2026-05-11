@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useAppToast } from "@/shared/hooks";
-import { useCreateStripeCheckoutMutation } from "../../mutations";
+import { useCreateStripeCheckoutMutation } from "./useTokensMutation";
 
 export function usePurchaseUI() {
   const { mutateAsync: createStripeCheckout, isPending: isCreatingCheckout } =
@@ -14,7 +14,6 @@ export function usePurchaseUI() {
       isValidAmount: boolean,
       onShowSubscriptionModal: () => void
     ) => {
-      // Show subscription modal if not qualified
       if (!isQualified) {
         onShowSubscriptionModal();
         return;
@@ -28,7 +27,6 @@ export function usePurchaseUI() {
       try {
         await createStripeCheckout(purchaseAmount);
       } catch (err) {
-        // Error handling is done in the mutation hook
         console.error("Purchase initiation failed:", err);
       }
     },

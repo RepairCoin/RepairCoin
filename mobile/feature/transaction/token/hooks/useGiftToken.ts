@@ -4,17 +4,16 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
 import { useAppToast } from "@/shared/hooks";
-import { useToken } from "../../useToken";
-import { ValidationResult } from "../../../types";
+import { useTransferToken, useValidateTransfer } from "./useTokensMutation";
+import { ValidationResult } from "../types";
 import {
   WALLET_ADDRESS_LENGTH,
   WALLET_ADDRESS_PREFIX,
-} from "../../../constants";
+} from "../constants";
 
 export function useGiftToken() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const { useTransferToken, useValidateTransfer } = useToken();
   const { showSuccess } = useAppToast();
 
   const { data: customerData, refetch: refetchCustomer } =
@@ -171,24 +170,17 @@ export function useGiftToken() {
   };
 
   return {
-    // Form data
     recipientAddress,
     amount,
     message,
     setMessage,
-
-    // Handlers
     handleAddressChange,
     handleAmountChange,
     handleSetMaxAmount,
     handleGiftToken,
     handleQRScan,
-
-    // QR Scanner
     showQRScanner,
     setShowQRScanner,
-
-    // State
     totalBalance,
     isLoading,
     error,

@@ -1,16 +1,14 @@
 import { useState, useCallback, useMemo } from "react";
 import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
-import { useShopTransactionsQuery } from "../../queries/shop/useHistoryQueries";
-import { useHistorySearch } from "../shared/useHistorySearch";
+import { useShopTransactionsQuery } from "./useTokensQuery";
+import { useHistorySearch } from "./useHistorySearch";
 import { useHistoryFilters } from "./useHistoryFilters";
 
 export function useHistoryListUI() {
   const [refreshing, setRefreshing] = useState(false);
 
-  // Search
   const { searchQuery, setSearchQuery, hasSearchQuery, clearSearch } = useHistorySearch();
 
-  // Filters
   const {
     statusFilter,
     setStatusFilter,
@@ -20,19 +18,15 @@ export function useHistoryListUI() {
     clearFilters: clearFilterState,
   } = useHistoryFilters();
 
-  // Query
   const { data: transactionData, isLoading, error, refetch } = useShopTransactionsQuery();
 
-  // Raw transactions
   const rawTransactions = useMemo((): PurchaseHistoryData[] => {
     return transactionData?.purchases || [];
   }, [transactionData]);
 
-  // Filtered transactions
   const transactions = useMemo((): PurchaseHistoryData[] => {
     let filtered = rawTransactions;
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((tx) => {
@@ -46,7 +40,6 @@ export function useHistoryListUI() {
       });
     }
 
-    // Filter by status
     if (statusFilter !== "all") {
       filtered = filtered.filter((tx) => {
         const status = tx.status?.toLowerCase();
@@ -63,7 +56,6 @@ export function useHistoryListUI() {
       });
     }
 
-    // Filter by date
     if (dateFilter !== "all") {
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -89,7 +81,6 @@ export function useHistoryListUI() {
     return filtered;
   }, [rawTransactions, searchQuery, statusFilter, dateFilter]);
 
-  // Calculate summary stats
   const stats = useMemo(() => {
     const completedTx = rawTransactions.filter(
       (tx) =>
@@ -110,7 +101,6 @@ export function useHistoryListUI() {
     };
   }, [rawTransactions]);
 
-  // Handle refresh
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
@@ -120,28 +110,22 @@ export function useHistoryListUI() {
     }
   }, [refetch]);
 
-  // Clear all filters and search
   const clearFilters = useCallback(() => {
     clearSearch();
     clearFilterState();
   }, [clearSearch, clearFilterState]);
 
   return {
-    // Data
     transactions,
     stats,
     transactionCount: transactions.length,
-    // Query state
     isLoading,
     error,
-    // Refresh
     refreshing,
     handleRefresh,
-    // Search
     searchQuery,
     setSearchQuery,
     hasSearchQuery,
-    // Filters
     statusFilter,
     setStatusFilter,
     dateFilter,

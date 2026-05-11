@@ -1,11 +1,8 @@
 import { useCallback } from "react";
-import { RedemptionCallbacks } from "../../../types";
-import { useCustomerLookup } from "../../queries";
+import { RedemptionCallbacks } from "../types";
+import { useCustomerLookup } from "./useTokensQuery";
 import { useRedemptionSession } from "./useRedemptionSession";
 
-/**
- * Main hook that combines customer lookup and redemption session management
- */
 export const useRedemption = (callbacks?: RedemptionCallbacks) => {
   const customerLookup = useCustomerLookup();
   const redemptionSession = useRedemptionSession(callbacks);

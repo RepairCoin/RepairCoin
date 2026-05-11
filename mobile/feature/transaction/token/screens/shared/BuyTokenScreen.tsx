@@ -20,8 +20,8 @@ import {
   usePurchaseUI,
   useBuyTokenUI,
   useBuyTokenNavigation,
-  QUICK_AMOUNTS,
 } from "../../hooks";
+import { QUICK_AMOUNTS } from "../../constants";
 
 // How It Works content
 const HOW_IT_WORKS_ITEMS: HowItWorksItem[] = [
