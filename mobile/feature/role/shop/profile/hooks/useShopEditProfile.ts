@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/feature/auth/store/auth.store";

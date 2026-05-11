@@ -14,7 +14,6 @@ import { queryKeys } from "@/shared/config/queryClient";
 import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION, FULL_DAYS } from "../../../constants";
 import { TierInfo, RewardCalculation } from "../../../types";
 import {
-  useServiceDetailQuery,
   useShopAvailabilityWithConfigQuery,
   useServiceNavigation,
 } from "../..";
