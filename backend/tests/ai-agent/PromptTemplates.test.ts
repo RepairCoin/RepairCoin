@@ -46,6 +46,10 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
     timezone: null,
     bookingAdvanceDays: null,
     minBookingHours: null,
+    reschedulesAllowed: null,
+    maxReschedulesPerBooking: null,
+    rescheduleMinHours: null,
+    cancellationMinHours: null,
   },
   conversationHistory: [],
   siblingServices: [],
@@ -419,6 +423,10 @@ describe("PromptTemplates — booking policy block (dynamic window follow-up)", 
         timezone: "America/Chicago",
         bookingAdvanceDays: 6,
         minBookingHours: 3,
+        reschedulesAllowed: null,
+        maxReschedulesPerBooking: null,
+        rescheduleMinHours: null,
+        cancellationMinHours: null,
         ...overrides,
       },
     });
@@ -473,6 +481,73 @@ describe("PromptTemplates — booking policy block (dynamic window follow-up)", 
       expect(p).toMatch(/6 days in advance/i);
     }
   });
+
+  // Reschedule + cancellation rendering — added when those policies got
+  // surfaced so the AI can answer "can I reschedule?" / "how do I cancel?"
+  // without escalating every time.
+
+  it("renders 'Reschedules: allowed (...)' line when reschedulesAllowed=true with full details", () => {
+    const prompt = professionalPrompt(
+      ctxWithPolicy({
+        reschedulesAllowed: true,
+        maxReschedulesPerBooking: 2,
+        rescheduleMinHours: 24,
+      })
+    );
+    expect(prompt).toMatch(/Reschedules: allowed/i);
+    expect(prompt).toMatch(/up to 2 per booking/i);
+    expect(prompt).toMatch(/24\+ hours before/i);
+    expect(prompt).toMatch(/shop must approve/i);
+  });
+
+  it("renders 'Reschedules: not allowed.' when reschedulesAllowed=false", () => {
+    const prompt = professionalPrompt(
+      ctxWithPolicy({ reschedulesAllowed: false })
+    );
+    expect(prompt).toMatch(/Reschedules: not allowed/i);
+    // Make sure we don't also emit the "allowed (...)" template
+    expect(prompt).not.toMatch(/Reschedules: allowed/i);
+  });
+
+  it("omits reschedule line entirely when reschedulesAllowed is null (no config)", () => {
+    const prompt = professionalPrompt(ctxWithPolicy({ reschedulesAllowed: null }));
+    expect(prompt).not.toMatch(/Reschedules:/);
+  });
+
+  it("renders 'Cancellations: at least N hours notice required' when cancellationMinHours is set", () => {
+    const prompt = professionalPrompt(
+      ctxWithPolicy({ cancellationMinHours: 4 })
+    );
+    expect(prompt).toMatch(/Cancellations: at least 4 hours notice required/i);
+  });
+
+  it("uses singular 'hour' for cancellationMinHours=1", () => {
+    const prompt = professionalPrompt(ctxWithPolicy({ cancellationMinHours: 1 }));
+    expect(prompt).toMatch(/at least 1 hour notice/i);
+    expect(prompt).not.toMatch(/at least 1 hours/i);
+  });
+
+  it("omits cancellation line when cancellationMinHours is null (policy disabled or absent)", () => {
+    const prompt = professionalPrompt(ctxWithPolicy({ cancellationMinHours: null }));
+    expect(prompt).not.toMatch(/Cancellations:/);
+  });
+
+  it("combines all four policy facts cleanly when fully configured", () => {
+    const prompt = professionalPrompt(
+      ctxWithPolicy({
+        bookingAdvanceDays: 6,
+        minBookingHours: 3,
+        reschedulesAllowed: true,
+        maxReschedulesPerBooking: 2,
+        rescheduleMinHours: 24,
+        cancellationMinHours: 4,
+      })
+    );
+    expect(prompt).toMatch(/6 days in advance/i);
+    expect(prompt).toMatch(/3 hours? before the appointment/i);
+    expect(prompt).toMatch(/Reschedules: allowed.*2 per booking.*24\+ hours/i);
+    expect(prompt).toMatch(/Cancellations: at least 4 hours notice/i);
+  });
 });
 
 describe("PromptTemplates — today's date anchor (date-reasoning fix)", () => {
@@ -518,6 +593,10 @@ describe("PromptTemplates — today's date anchor (date-reasoning fix)", () => {
         timezone: "America/Chicago",
         bookingAdvanceDays: 6,
         minBookingHours: 3,
+        reschedulesAllowed: null,
+        maxReschedulesPerBooking: null,
+        rescheduleMinHours: null,
+        cancellationMinHours: null,
       },
     });
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
