@@ -105,6 +105,10 @@ function buildPreviewContext(
     // Preview never surfaces booking-suggestion cards — keeps the preview
     // call cheap (no per-day availability lookup) and the demo UX simple.
     availabilitySlots: [],
+    // Preview skips the shop's full service menu — keeps the demo
+    // focused on the single service the shop owner is configuring. The
+    // multi-service prompt block only renders when this is non-empty.
+    shopServiceMenu: [],
   };
 }
 

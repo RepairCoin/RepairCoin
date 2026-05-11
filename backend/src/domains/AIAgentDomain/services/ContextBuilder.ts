@@ -27,6 +27,7 @@ import {
   AgentMessageContext,
   AgentSiblingService,
   AgentAvailabilitySlot,
+  AgentShopServiceMenuItem,
 } from "../types";
 
 /**
@@ -80,6 +81,16 @@ interface BookingPolicyRow {
  */
 const MAX_SIBLING_SERVICES = 5;
 
+/**
+ * Hard cap on the shop's AI-enabled service menu surfaced in the prompt
+ * (Phase 1 of multi-service architecture). Distinct from MAX_SIBLING_SERVICES:
+ * the menu is the FULL set the AI knows about (used to answer "what else
+ * do you offer?"), while siblings are the promoted subset for active
+ * cross-selling. 15 is generous for typical shops (most have 1-8
+ * AI-enabled services) and bounds prompt growth on outlier configurations.
+ */
+const MAX_SHOP_SERVICES_IN_PROMPT = 15;
+
 export interface BuildContextParams {
   customerAddress: string;
   serviceId: string;
@@ -131,7 +142,7 @@ export class ContextBuilder {
     const includeBookingSlots = serviceRow.aiBookingAssistance === true;
 
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy, shopServiceMenu] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       this.messageRepo.getConversationMessages(conversationId, {
@@ -157,6 +168,14 @@ export class ContextBuilder {
       // with AvailabilityFetcher is ~10ms and parallel; not worth
       // plumbing a shared cache through both.
       this.fetchBookingPolicy(serviceRow.shopId),
+      // Multi-service shop menu (Phase 1 of multi-service architecture):
+      // ALL AI-enabled services for the shop. Distinct from the sibling
+      // list — siblings are gated by per-service aiSuggestUpsells (active
+      // recommend), menu is the full set the AI can reference when
+      // answering "what else do you offer?". Always populated when the
+      // shop has any AI-enabled services; capped at
+      // MAX_SHOP_SERVICES_IN_PROMPT.
+      this.fetchShopServiceMenu(serviceRow.shopId, serviceId),
     ]);
 
     if (!customerRow) {
@@ -175,7 +194,71 @@ export class ContextBuilder {
       ),
       siblingServices: siblingsResult,
       availabilitySlots,
+      shopServiceMenu,
     };
+  }
+
+  /**
+   * Pull all AI-enabled services for the shop (Phase 1 of multi-service
+   * architecture). Distinct from `fetchSiblingServices`:
+   *
+   *   fetchSiblingServices: gated by current service's aiSuggestUpsells.
+   *     Returns the "promote these alongside" set. May be empty even
+   *     when the shop has many AI-enabled services.
+   *   fetchShopServiceMenu: unconditional. Returns ALL AI-enabled services
+   *     for the shop so the AI can answer "what other services do you offer?"
+   *     accurately regardless of which service was clicked into.
+   *
+   * Always excludes the current focused service (already in
+   * AgentContext.service). Capped at MAX_SHOP_SERVICES_IN_PROMPT.
+   * Errors are swallowed — empty menu is harmless (AI just doesn't
+   * surface other services if the query fails).
+   */
+  private async fetchShopServiceMenu(
+    shopId: string,
+    excludeServiceId: string
+  ): Promise<AgentShopServiceMenuItem[]> {
+    try {
+      const result = await this.serviceRepo.getServicesByShop(shopId, {
+        activeOnly: true,
+        page: 1,
+        // Pull more than the cap so we can filter by aiSalesEnabled in-memory
+        // and still hit the cap when most are non-AI-enabled.
+        limit: MAX_SHOP_SERVICES_IN_PROMPT + 10,
+      });
+      return (result.items ?? [])
+        .filter(
+          (s: any) =>
+            s.serviceId !== excludeServiceId && (s.aiSalesEnabled ?? false)
+        )
+        .slice(0, MAX_SHOP_SERVICES_IN_PROMPT)
+        .map((s: any) => {
+          // Distinct from sibling blurb: menu shortBlurb is null when no
+          // real description exists (caller renders without the dash).
+          const desc = (s.description ?? "").trim();
+          let shortBlurb: string | null = null;
+          if (desc) {
+            const firstSentence = desc.split(/(?<=\.)\s/)[0] ?? desc;
+            shortBlurb = firstSentence.length > 120
+              ? firstSentence.slice(0, 117) + "..."
+              : firstSentence;
+          }
+          return {
+            serviceId: s.serviceId,
+            serviceName: s.serviceName,
+            priceUsd: Number(s.priceUsd ?? 0),
+            ...(s.durationMinutes ? { durationMinutes: s.durationMinutes } : {}),
+            category: s.category ?? "general",
+            shortBlurb,
+          };
+        });
+    } catch (err) {
+      logger.warn("ContextBuilder: shop service menu query failed; AI menu will be empty", {
+        shopId,
+        error: (err as Error)?.message,
+      });
+      return [];
+    }
   }
 
   /**

@@ -54,6 +54,7 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
   conversationHistory: [],
   siblingServices: [],
   availabilitySlots: [],
+  shopServiceMenu: [],
   ...overrides,
 });
 
@@ -547,6 +548,97 @@ describe("PromptTemplates — booking policy block (dynamic window follow-up)", 
     expect(prompt).toMatch(/3 hours? before the appointment/i);
     expect(prompt).toMatch(/Reschedules: allowed.*2 per booking.*24\+ hours/i);
     expect(prompt).toMatch(/Cancellations: at least 4 hours notice/i);
+  });
+});
+
+describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
+  // Added with Phase 1 of multi-service architecture: AI now sees ALL
+  // AI-enabled services for the shop in a "menu" block, regardless of the
+  // focused service's aiSuggestUpsells toggle. Lets the AI answer
+  // "what else do you offer?" honestly.
+  const ctxWithMenu = (overrides: any = {}): AgentContext =>
+    baseContext({
+      shopServiceMenu: [
+        {
+          serviceId: "srv_aqua",
+          serviceName: "AQua Tech",
+          priceUsd: 455,
+          durationMinutes: 60,
+          category: "Tech",
+          shortBlurb: "Laptop diagnostic and repair service.",
+        },
+        {
+          serviceId: "srv_mongo",
+          serviceName: "Mongo Tea",
+          priceUsd: 25,
+          category: "Food",
+          shortBlurb: "Premium tea consultation.",
+        },
+      ],
+      ...overrides,
+    });
+
+  it("renders the multi-service menu block when shopServiceMenu has entries", () => {
+    const prompt = professionalPrompt(ctxWithMenu());
+    expect(prompt).toMatch(/This shop'?s other AI-bookable services/i);
+    expect(prompt).toContain("AQua Tech ($455.00, ~60 min)");
+    expect(prompt).toContain("Laptop diagnostic and repair service");
+    expect(prompt).toContain("Mongo Tea ($25.00)");
+    expect(prompt).toContain("Premium tea consultation");
+  });
+
+  it("warns the AI that menu services can't be booked directly here", () => {
+    const prompt = professionalPrompt(ctxWithMenu());
+    // Phase 2 will expand the tool to handle multi-service booking. Until then,
+    // the prompt makes clear the AI can DESCRIBE but not BOOK these.
+    expect(prompt).toMatch(/cannot directly book them from this chat|direct them to that service'?s page/i);
+  });
+
+  it("omits the menu block entirely when shopServiceMenu is empty", () => {
+    const prompt = professionalPrompt(baseContext()); // default empty array
+    expect(prompt).not.toMatch(/This shop'?s other AI-bookable services/i);
+  });
+
+  it("renders menu service without duration when durationMinutes is missing", () => {
+    const ctx = baseContext({
+      shopServiceMenu: [
+        {
+          serviceId: "srv_x",
+          serviceName: "Generic Service",
+          priceUsd: 50,
+          category: "general",
+          shortBlurb: null,
+        },
+      ],
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toContain("Generic Service ($50.00)");
+    expect(prompt).not.toContain("Generic Service ($50.00, ~");
+  });
+
+  it("renders menu service without blurb when shortBlurb is null", () => {
+    const ctx = baseContext({
+      shopServiceMenu: [
+        {
+          serviceId: "srv_x",
+          serviceName: "Generic Service",
+          priceUsd: 50,
+          category: "general",
+          shortBlurb: null,
+        },
+      ],
+    });
+    const prompt = professionalPrompt(ctx);
+    // Format: "- Service ($50.00)" with no trailing ": blurb"
+    expect(prompt).toMatch(/- Generic Service \(\$50\.00\)$/m);
+  });
+
+  it("menu block applies to all three tones", () => {
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctxWithMenu());
+      expect(p).toMatch(/AI-bookable services/i);
+      expect(p).toContain("AQua Tech");
+    }
   });
 });
 
