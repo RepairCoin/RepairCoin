@@ -648,3 +648,47 @@ describe("PromptTemplates — refined rule #10 (within-window vs beyond-window)"
     expect(prompt).toMatch(/conflate|common mistake|do NOT use.*beyond the window.*for dates.*WITHIN/i);
   });
 });
+
+describe("PromptTemplates — multi-service booking rule (#11)", () => {
+  // Background: customer asked "book me a laptop repair and a pastry
+  // tutorial" — AI silently proposed a single slot for the current
+  // service without acknowledging the other one. Customer thought
+  // both were booked → UX failure. Rule #11 forces explicit handling.
+  const ctx = baseContext;
+
+  it("rule #11 acknowledges the tool only books ONE service per call", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/propose_booking_slot tool can only book ONE service/i);
+  });
+
+  it("rule #11 forbids silent half-fulfillment", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/DO NOT silently propose|silently fulfills only half|silently propose a slot for one and ignore the other/i);
+  });
+
+  it("rule #11 instructs the AI to name which service the tap-to-book is for", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/explicitly name which service|name which service the tap-to-book/i);
+  });
+
+  it("rule #11 directs the AI to send customer elsewhere for additional services", () => {
+    const prompt = professionalPrompt(ctx());
+    // Either "book those separately from each service's page" OR "flag a teammate"
+    expect(prompt).toMatch(/book those separately|each service'?s page|flag a teammate to coordinate/i);
+  });
+
+  it("rule #11 includes a concrete good-vs-bad example", () => {
+    const prompt = professionalPrompt(ctx());
+    // GOOD example mentioning naming the service
+    expect(prompt).toMatch(/Got Thursday May 14 at 12:00 PM for the pastry tutorial/i);
+    // BAD example showing the counter-pattern
+    expect(prompt).toMatch(/Counter-example|NEVER do this/i);
+  });
+
+  it("rule #11 applies to all three tones", () => {
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx());
+      expect(p).toMatch(/Multi-service booking|only book ONE service per call/i);
+    }
+  });
+});
