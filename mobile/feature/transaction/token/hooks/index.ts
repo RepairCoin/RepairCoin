@@ -1,43 +1,56 @@
-// Re-export constants (for backwards compat with buy-token hooks barrel)
-export { QUICK_AMOUNTS } from "../constants/shared/QUICK_AMOUNTS";
-
-// Query hooks
-export * from "./queries";
-
-// Mutation hooks
-export * from "./mutations";
-
-// UI hooks
-export * from "./ui";
-
-// Loose hooks (not categorized into queries/mutations/ui)
-export { useRedemptionSignature } from "./useSignature";
+// React Query hooks - queries
 export {
   useTokenBalance,
-  useRedemptionSessions as useRedemptionSessionsLegacy,
-  useApproveRedemptionSession as useApproveRedemptionSessionLegacy,
-  useRejectRedemptionSession as useRejectRedemptionSessionLegacy,
-} from "./useTokenQueries";
-export type {
-  BalanceData,
-  TransactionHistory,
-  TokenStats,
-  RedemptionRequest,
-  TransferRequest,
-  EligibilityResponse,
-  ApprovalRequest,
-} from "./useTokenQueries";
-export { useToken } from "./useToken";
-export {
-  useShopRewards,
   useShopBalance,
   useCustomerInfo,
-  useIssueReward,
-  useRepairCalculations,
-  usePromoCodeManager,
   useShopPromoCodes,
+  useShopTransactionsQuery,
+  useCustomerTransactionsQuery,
+  useRedemptionSessions,
+  useTransferHistory,
+  useBuyTokenQueries,
+  useCustomerLookup,
+} from "./useTokensQuery";
+export type { BalanceData } from "./useTokensQuery";
+
+// React Query hooks - mutations
+export {
+  useApproveRedemptionSession,
+  useRejectRedemptionSession,
+  useCancelRedemptionSession,
+  useCreateRedemptionSession,
+  useIssueReward,
   useValidatePromoCode,
   useUpdatePromoCodeStatus,
   useCreatePromoCode,
-} from "./useShopRewards";
-export type { RepairType } from "./useShopRewards";
+  useTransferToken,
+  useValidateTransfer,
+  useCreateStripeCheckoutMutation,
+} from "./useTokensMutation";
+export type { ApprovalRequest } from "./useTokensMutation";
+
+// UI hooks
+export { useRepairCalculations } from "./useRepairCalculations";
+export type { RepairType } from "./useRepairCalculations";
+export { usePromoCodeManager } from "./usePromoCodeManager";
+export { useShopRewards } from "./useShopRewards";
+export { useRedemptionSignature } from "./useRedemptionSignature";
+export type { SignatureParams } from "./useRedemptionSignature";
+export { useSessionTimer } from "./useSessionTimer";
+export { useSessionPolling } from "./useSessionPolling";
+export { useRedemptionSession } from "./useRedemptionSession";
+export { useRedemption } from "./useRedemption";
+export { useRedeemToken } from "./useRedeemToken";
+export { useCustomerRedeem } from "./useCustomerRedeem";
+export { useCustomerRedeemData } from "./useCustomerRedeemData";
+export { useRewardToken } from "./useRewardToken";
+export { useGiftToken } from "./useGiftToken";
+export { useBuyTokenUI } from "./useBuyTokenUI";
+export { useBuyTokenNavigation } from "./useBuyTokenNavigation";
+export { usePurchaseUI } from "./usePurchaseUI";
+export { usePurchase } from "./usePurchase";
+export { useHistorySearch } from "./useHistorySearch";
+export { useHistoryFilters } from "./useHistoryFilters";
+export { useHistoryListUI } from "./useHistoryListUI";
+export { useCustomerHistoryFilters } from "./useCustomerHistoryFilters";
+export { useCustomerHistoryListUI } from "./useCustomerHistoryListUI";

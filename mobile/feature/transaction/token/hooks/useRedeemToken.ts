@@ -5,9 +5,6 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useRedemption } from "./useRedemption";
 
-/**
- * Hook for redeem token screen business logic
- */
 export const useRedeemToken = () => {
   const shopData = useAuthStore((state) => state.userProfile);
   const { showError } = useAppToast();
@@ -53,7 +50,6 @@ export const useRedeemToken = () => {
     parseFloat(redemptionAmount) > customerData.balance
   );
 
-  // Check if amount exceeds cross-shop limit (20% for non-home shops)
   const exceedsCrossShopLimit = Boolean(
     customerData &&
     redemptionAmount &&
@@ -102,7 +98,6 @@ export const useRedeemToken = () => {
       return;
     }
 
-    // Check cross-shop redemption limit (20% for non-home shops)
     if (!customerData.isHomeShop && amount > customerData.maxRedeemable) {
       showError(`This customer can only redeem up to ${customerData.maxRedeemable.toFixed(2)} RCN at your shop (20% cross-shop limit). Customer can redeem 100% at shops where they earned their RCN.`);
       return;
@@ -152,7 +147,6 @@ export const useRedeemToken = () => {
   }, [setCustomerAddress]);
 
   return {
-    // State
     shopData,
     showHowItWorks,
     setShowHowItWorks,
@@ -161,28 +155,20 @@ export const useRedeemToken = () => {
     setShowQRScanner,
     redemptionAmount,
     setRedemptionAmount,
-    
-    // Customer data
     customerAddress,
     setCustomerAddress,
     customerData,
     isLoadingCustomer,
     customerError,
-    
-    // Session data
     currentSession,
     sessionStatus,
     timeRemaining,
     isCreatingSession,
     isCancellingSession,
-    
-    // Computed values
     isCustomerSelf,
     hasInsufficientBalance,
     exceedsCrossShopLimit,
     canProcessRedemption,
-    
-    // Handlers
     handleProcessRedemption,
     handleCancelSession,
     handleRefresh,

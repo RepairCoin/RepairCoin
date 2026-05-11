@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopRewards, useShopBalance, RepairType } from "../../useShopRewards";
+import { useShopRewards } from "./useShopRewards";
+import { useShopBalance } from "./useTokensQuery";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
+import type { RepairType } from "./useRepairCalculations";
 
 export function useRewardToken() {
   const shopData = useAuthStore((state) => state.userProfile);
@@ -40,7 +42,6 @@ export function useRewardToken() {
     isIssuingReward,
   } = useShopRewards();
 
-  // Get shop's available RCN balance with real-time query
   const { data: realTimeBalance, refetch: refetchBalance } = useShopBalance();
   const availableBalance = realTimeBalance ?? shopData?.purchasedRcnBalance ?? 0;
 
@@ -50,7 +51,6 @@ export function useRewardToken() {
     customerAddress.toLowerCase() === shopData.address.toLowerCase()
   );
 
-  // Check if reward amount exceeds available balance
   const hasInsufficientBalance = totalReward > 0 && totalReward > availableBalance;
 
   const isCustomerNotFound = Boolean(
@@ -100,7 +100,6 @@ export function useRewardToken() {
       }
     }
 
-    // Show confirmation modal instead of directly issuing
     setShowConfirmation(true);
   };
 
@@ -170,20 +169,13 @@ export function useRewardToken() {
   };
 
   return {
-    // Shop data
     shopData,
-
-    // Modal states
     showHowItWorks,
     setShowHowItWorks,
     showQRScanner,
     setShowQRScanner,
-
-    // Refresh
     isRefreshing,
     handleRefresh,
-
-    // Customer
     customerAddress,
     setCustomerAddress,
     customerInfo,
@@ -191,16 +183,12 @@ export function useRewardToken() {
     customerError,
     isSelfReward,
     isCustomerNotFound,
-
-    // Repair
     repairType,
     customAmount,
     setCustomAmount,
     customRcn,
     setCustomRcn,
     handleRepairTypeSelect,
-
-    // Promo
     availablePromoCodes,
     promoCode,
     promoBonus,
@@ -211,17 +199,11 @@ export function useRewardToken() {
     handlePromoCodeChange,
     handlePromoCodeSelect,
     handlePromoCodeClear,
-
-    // Reward calculations
     baseReward,
     tierBonus,
     totalReward,
-
-    // Balance
     availableBalance,
     hasInsufficientBalance,
-
-    // Actions
     isIssuingReward,
     isIssueDisabled,
     handleIssueReward,
@@ -229,8 +211,6 @@ export function useRewardToken() {
     handleQRScan,
     handleGoBack,
     getButtonText,
-
-    // Confirmation modal
     showConfirmation,
     setShowConfirmation,
   };

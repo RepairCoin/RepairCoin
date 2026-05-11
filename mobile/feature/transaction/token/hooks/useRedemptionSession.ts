@@ -5,14 +5,14 @@ import {
   SessionStatus,
   CreateRedemptionSessionRequest,
   RedemptionCallbacks,
-} from "../../../types";
-import { useCreateRedemptionSession, useCancelRedemptionSession } from "../../mutations";
-import { useSessionTimer } from "../customer/useSessionTimer";
-import { useSessionPolling } from "../customer/useSessionPolling";
+} from "../types";
+import {
+  useCreateRedemptionSession,
+  useCancelRedemptionSession,
+} from "./useTokensMutation";
+import { useSessionTimer } from "./useSessionTimer";
+import { useSessionPolling } from "./useSessionPolling";
 
-/**
- * Hook for managing redemption session lifecycle
- */
 export const useRedemptionSession = (callbacks?: RedemptionCallbacks) => {
   const shopData = useAuthStore((state) => state.userProfile);
 

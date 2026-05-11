@@ -1,14 +1,11 @@
-import { purchaseApi } from "../../../services/purchase.services";
+import { purchaseApi } from "../services/purchase.services";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { Linking } from "react-native";
-import { usePaymentStore } from "@/feature/transaction/booking/store/payment.store";
 import { useAppToast } from "@/shared/hooks";
 
 export function usePurchase() {
   const { showError } = useAppToast();
 
-  // Hook for creating PaymentIntent (mobile - native card payment)
   const useCreatePaymentIntent = (shopId: string) => {
     return useMutation({
       mutationFn: async (amount: number) => {
@@ -20,13 +17,10 @@ export function usePurchase() {
         }
         return purchaseApi.createTokenPurchasePaymentIntent(amount);
       },
-      onSuccess: () => {
-        // Payment intent created successfully
-      },
+      onSuccess: () => {},
       onError: (error: any) => {
         console.error("Failed to create payment intent:", error);
 
-        // Handle specific error cases
         if (error.response?.status === 401) {
           showError("Please log in again to continue with your purchase.");
         } else if (error.response?.status === 400) {
@@ -41,7 +35,6 @@ export function usePurchase() {
   const usePurchaseAmount = (initialAmount = 5) => {
     const [amount, setAmount] = useState(initialAmount);
 
-    // Calculate bonus based on amount
     const bonusAmount =
       amount >= 10000
         ? Math.floor(amount * 0.05)

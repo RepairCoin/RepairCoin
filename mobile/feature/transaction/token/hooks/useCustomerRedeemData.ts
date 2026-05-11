@@ -2,16 +2,13 @@ import { useMemo } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
 import { TransactionData } from "@/shared/interfaces/customer.interface";
-import { useTokenBalance } from "../../useTokenQueries";
+import { useTokenBalance } from "./useTokensQuery";
 
 /**
  * Hook for fetching customer data for redeem screen
  *
  * Balance values (totalBalance, totalRedeemed) are sourced from the
  * transaction-based /tokens/balance/:address endpoint, matching web.
- * The customers.total_redemptions profile column is stale (not decremented
- * on service_redemption_refund, doesn't include redeem transactions), so we
- * avoid it here. See completed/bug-redeem-token-metrics-diverge-from-web.md.
  */
 export const useCustomerRedeemData = () => {
   const { account } = useAuthStore();

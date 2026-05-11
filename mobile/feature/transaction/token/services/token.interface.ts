@@ -4,7 +4,7 @@
  */
 
 import type { CustomerTier, CustomerData } from "@/shared/interfaces/customer.interface";
-import { RepairType } from "../hooks/useShopRewards";
+import type { RepairType } from "../hooks/useRepairCalculations";
 
 export type { CustomerTier, CustomerData, RepairType };
 

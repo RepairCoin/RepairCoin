@@ -2,12 +2,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/feature/role/shop/account/services/shop.services";
-import { tokenApi } from "../../../services/token.services";
-import { RedemptionSession, SessionStatus, RedemptionCallbacks } from "../../../types";
+import { tokenApi } from "../services/token.services";
+import { RedemptionSession, SessionStatus, RedemptionCallbacks } from "../types";
 
-/**
- * Hook for polling session status
- */
 export const useSessionPolling = (
   shopId: string | undefined,
   callbacks?: RedemptionCallbacks

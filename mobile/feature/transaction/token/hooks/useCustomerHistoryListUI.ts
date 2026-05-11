@@ -1,16 +1,14 @@
 import { useState, useCallback, useMemo } from "react";
 import { TransactionData } from "@/shared/interfaces/customer.interface";
-import { useCustomerTransactionsQuery } from "../../queries/customer/useCustomerTransactionsQuery";
-import { useHistorySearch } from "../shared/useHistorySearch";
+import { useCustomerTransactionsQuery } from "./useTokensQuery";
+import { useHistorySearch } from "./useHistorySearch";
 import { useCustomerHistoryFilters } from "./useCustomerHistoryFilters";
 
 export function useCustomerHistoryListUI() {
   const [refreshing, setRefreshing] = useState(false);
 
-  // Search
   const { searchQuery, setSearchQuery, hasSearchQuery, clearSearch } = useHistorySearch();
 
-  // Filters
   const {
     transactionFilter,
     setTransactionFilter,
@@ -20,7 +18,6 @@ export function useCustomerHistoryListUI() {
     clearFilters: clearFilterState,
   } = useCustomerHistoryFilters();
 
-  // Query
   const {
     data,
     isLoading,
@@ -31,16 +28,13 @@ export function useCustomerHistoryListUI() {
     isFetchingNextPage,
   } = useCustomerTransactionsQuery();
 
-  // Raw transactions (all types including rejected/cancelled) — flattened from paged data
   const rawTransactions = useMemo((): TransactionData[] => {
     return data?.pages.flatMap((page: any) => page?.transactions || []) || [];
   }, [data]);
 
-  // Filtered transactions
   const transactions = useMemo((): TransactionData[] => {
     let filtered = rawTransactions;
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((tx) =>
@@ -50,7 +44,6 @@ export function useCustomerHistoryListUI() {
       );
     }
 
-    // Filter by transaction type
     if (transactionFilter !== "all") {
       filtered = filtered.filter((tx) => {
         const type = tx.type?.toLowerCase();
@@ -67,7 +60,6 @@ export function useCustomerHistoryListUI() {
       });
     }
 
-    // Filter by date
     if (dateFilter !== "all") {
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -93,7 +85,6 @@ export function useCustomerHistoryListUI() {
     return filtered;
   }, [rawTransactions, searchQuery, transactionFilter, dateFilter]);
 
-  // Calculate summary stats
   const stats = useMemo(() => {
     const earned = rawTransactions
       .filter((tx) =>
@@ -114,7 +105,6 @@ export function useCustomerHistoryListUI() {
     };
   }, [rawTransactions]);
 
-  // Handle refresh
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
@@ -124,33 +114,26 @@ export function useCustomerHistoryListUI() {
     }
   }, [refetch]);
 
-  // Clear all filters and search
   const clearFilters = useCallback(() => {
     clearSearch();
     clearFilterState();
   }, [clearSearch, clearFilterState]);
 
   return {
-    // Data
     transactions,
     stats,
     transactionCount: transactions.length,
-    // Query state
     isLoading,
     error,
     refetch,
-    // Pagination
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    // Refresh
     refreshing,
     handleRefresh,
-    // Search
     searchQuery,
     setSearchQuery,
     hasSearchQuery,
-    // Filters
     transactionFilter,
     setTransactionFilter,
     dateFilter,
