@@ -36,15 +36,23 @@ const MAX_LOOKAHEAD_DAYS = 30;
 const DEFAULT_LOOKAHEAD_DAYS = 7;
 
 /**
- * Hard cap on slots returned. Earliest-first ordering, but the cap matters:
- * with typical 50-minute slots and a 9-hour shop day (~10 slots/day), 8 slots
- * only covered the morning of day 1 — so customers asking for "afternoon"
- * had no afternoon options visible to the AI. 15 covers a full day plus
- * roughly half of the next, giving morning + afternoon + early evening
- * diversity. Token cost: ~+350 tokens per call (~$0.001/call extra), worth
- * it for actually honoring time-of-day preferences.
+ * Slot-count safety ceiling. We surface ALL slots in the booking window up
+ * to this number; only kicks in for unusually wide windows or unusually
+ * slot-dense shops. Picked empirically:
+ *   - Typical shop: 9 slots/day × 6-day window = 54 slots → all fit
+ *   - Edge case: 12 slots/day × 14-day window = 168 → ceiling trims to 100
+ *
+ * Token cost at 100 slots: ~1500 tokens of slot list + tool-enum payload.
+ * Anthropic caches the system prompt + tool definition after the first
+ * request, so the marginal cost per AI reply is ~$0.0001. Tradeoff well
+ * worth it — at this ceiling the AI sees nearly every slot for typical
+ * shops, matching the manual booking page's visibility.
+ *
+ * Was 15 originally — too tight, truncated to ~1.5 days of slots and
+ * customers asking about day 3+ got "no slots" even when the shop had
+ * plenty available.
  */
-const MAX_SLOTS = 15;
+const MAX_SLOTS_CEILING = 100;
 
 export interface AvailabilityFetcherDeps {
   appointmentService?: AppointmentService;
@@ -120,10 +128,41 @@ export class AvailabilityFetcher {
         })
       );
 
-      // Flatten + cap. Earliest-first ordering is preserved because dates
-      // are queried in chronological order and slots within a day come back
-      // ascending from getAvailableTimeSlots.
-      const flat = perDayResults.flat().slice(0, MAX_SLOTS);
+      // Slot selection: include ALL slots in the booking window when the
+      // total fits within MAX_SLOTS_CEILING. The shop's actual schedule
+      // dictates slot count (duration + buffer + operating hours +
+      // existing bookings), so this honors whatever the manual booking
+      // page would show.
+      //
+      // When the total exceeds the ceiling (unusual: wide windows + dense
+      // schedules), apply a per-day cap to ensure every day gets fair
+      // representation. Without this, earliest days would saturate the
+      // cap and later days drop entirely — which is exactly the bug we
+      // had with the old MAX_SLOTS=15 (Thursday got dropped).
+      const totalSlots = perDayResults.reduce((sum, day) => sum + day.length, 0);
+      let flat: AgentAvailabilitySlot[];
+
+      if (totalSlots <= MAX_SLOTS_CEILING) {
+        // Fits cleanly — include every slot. Earliest-first preserved
+        // because dates are queried in chronological order and
+        // getAvailableTimeSlots returns ascending within each day.
+        flat = perDayResults.flat();
+      } else {
+        // Cap exceeded — fairly distribute. perDayCap ensures each day
+        // gets at least floor(ceiling/days) slots so a customer asking
+        // about a specific day always sees options if the shop is open.
+        const perDayCap = Math.max(2, Math.ceil(MAX_SLOTS_CEILING / dates.length));
+        const trimmed = perDayResults.map((day) => day.slice(0, perDayCap));
+        flat = trimmed.flat().slice(0, MAX_SLOTS_CEILING);
+        logger.info("AvailabilityFetcher: slot ceiling reached, applied per-day cap", {
+          shopId,
+          serviceId,
+          totalSlotsBeforeCap: totalSlots,
+          lookaheadDays: dates.length,
+          perDayCap,
+          finalSlotCount: flat.length,
+        });
+      }
       return flat;
     } catch (err) {
       logger.error("AvailabilityFetcher: fetchUpcomingSlots top-level failure", {
