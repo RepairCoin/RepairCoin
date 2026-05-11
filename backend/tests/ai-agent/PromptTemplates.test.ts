@@ -727,3 +727,60 @@ describe("PromptTemplates — multi-service booking rule (#11)", () => {
     }
   });
 });
+
+describe("PromptTemplates — service priority rule (#12)", () => {
+  // Background: customer switched from one service modal to another mid-thread.
+  // Conversation history retained references to the earlier service. AI
+  // hallucinated those references as the customer's current intent —
+  // e.g. asked "did you mean Newly Baker?" when the customer's latest
+  // message said "3pm is it available?" with no service named. Rule #12
+  // pins the AI to the current service unless the customer explicitly
+  // names another.
+  const ctx = baseContext;
+
+  it("rule #12 establishes the current service as ABSOLUTE PRIORITY", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/SERVICE PRIORITY|absolute priority|ABSOLUTE PRIORITY/);
+  });
+
+  it("rule #12 explicitly states the three-tier priority order", () => {
+    const prompt = professionalPrompt(ctx());
+    // The rule enumerates: (1) current service, (2) explicit names in latest message, (3) history
+    expect(prompt).toMatch(/strict priority order|priority order when interpreting/i);
+    expect(prompt).toMatch(/current service in "About this service"|ALWAYS the default/i);
+    expect(prompt).toMatch(/EXPLICITLY NAMED.*CURRENT.*message/i);
+    expect(prompt).toMatch(/history.*background context|background context only|NEVER treat history/i);
+  });
+
+  it("rule #12 forbids asking 'did you mean X' for follow-up questions without service names", () => {
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/do not ask.*did you mean|Do not ask "did you mean Service X"/i);
+  });
+
+  it("rule #12 includes the actual anti-example from staging", () => {
+    const prompt = professionalPrompt(ctx());
+    // The bad-example block mentions the exact failure mode observed: AI
+    // says "this conversation is anchored to X, not Y" when Y wasn't mentioned.
+    expect(prompt).toMatch(/anchored to AQua Tech, not Newly Baker/i);
+    expect(prompt).toMatch(/Why wrong:|customer never mentioned/i);
+  });
+
+  it("rule #12 includes a good counter-example", () => {
+    const prompt = professionalPrompt(ctx());
+    // Good example shows the right behavior: trust current service, just book.
+    expect(prompt).toMatch(/Good example|3 PM.*open for the AQua Tech/i);
+  });
+
+  it("rule #12 stops the AI from emitting 'this conversation is anchored to X, not Y'", () => {
+    const prompt = professionalPrompt(ctx());
+    // Explicit STOP guidance for the exact phrase that triggered the bug.
+    expect(prompt).toMatch(/tempted to write.*conversation is anchored.*STOP|projecting confusion onto the customer/i);
+  });
+
+  it("rule #12 applies to all three tones", () => {
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx());
+      expect(p).toMatch(/SERVICE PRIORITY|absolute priority/i);
+    }
+  });
+});
