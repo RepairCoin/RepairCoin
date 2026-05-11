@@ -668,7 +668,9 @@ describe("PromptTemplates — multi-service booking rule (#11)", () => {
 
   it("rule #11 instructs the AI to name which service the tap-to-book is for", () => {
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/explicitly name which service|name which service the tap-to-book/i);
+    // After the two-channel sharpen, the wording is "name the service it's
+    // booking" inside the reply_text guidance.
+    expect(prompt).toMatch(/name the service it'?s booking|explicitly name which service|name which service the tap-to-book/i);
   });
 
   it("rule #11 directs the AI to send customer elsewhere for additional services", () => {
@@ -677,12 +679,45 @@ describe("PromptTemplates — multi-service booking rule (#11)", () => {
     expect(prompt).toMatch(/book those separately|each service'?s page|flag a teammate to coordinate/i);
   });
 
-  it("rule #11 includes a concrete good-vs-bad example", () => {
+  it("rule #11 includes a concrete good example with the two-channel structure", () => {
     const prompt = professionalPrompt(ctx());
-    // GOOD example mentioning naming the service
-    expect(prompt).toMatch(/Got Thursday May 14 at 12:00 PM for the pastry tutorial/i);
-    // BAD example showing the counter-pattern
-    expect(prompt).toMatch(/Counter-example|NEVER do this/i);
+    // GOOD example demonstrates the required two-channel split
+    expect(prompt).toMatch(/For the pastry tutorial.*Thursday May 14 at 9 AM/i);
+    // The "what to do about the laptop repair" line in the text-block half
+    expect(prompt).toMatch(/laptop repair.*book that through.*service page separately/i);
+  });
+
+  it("rule #11 includes anti-patterns to avoid (silent half-fulfillment)", () => {
+    const prompt = professionalPrompt(ctx());
+    // Anti-pattern section explicitly forbids silent half-fulfillment
+    expect(prompt).toMatch(/NEVER do this|silent half-fulfillment/i);
+    // Specifically calls out the "ambiguous slot announcement" failure mode
+    expect(prompt).toMatch(/which service|silently drops the other service/i);
+  });
+
+  it("rule #11 explicitly instructs the AI to use BOTH output channels", () => {
+    // Channel-guidance sharpen: previously Claude was inconsistent about
+    // whether to emit a separate text block alongside the tool. Rule now
+    // demands both channels be used for multi-service requests.
+    const prompt = professionalPrompt(ctx());
+    expect(prompt).toMatch(/TWO output channels|use both channels|MUST use both/i);
+    expect(prompt).toMatch(/text block.*OTHER service|OTHER service.*text block/i);
+    expect(prompt).toMatch(/tool.*reply_text.*current service|reply_text.*book(ing|able)/i);
+  });
+
+  it("rule #11 clarifies the structure of a multi-service response", () => {
+    const prompt = professionalPrompt(ctx());
+    // Must reference "First content block" and "Second content block" (or
+    // similar structure language) so Claude understands order matters.
+    expect(prompt).toMatch(/First content block|REQUIRED structure/i);
+  });
+
+  it("rule #11 carves out single-service requests from the two-channel rule", () => {
+    const prompt = professionalPrompt(ctx());
+    // The two-channel structure should NOT apply to single-service questions —
+    // that would lead to redundant text blocks ("for the pastry tutorial..."
+    // emitted alongside a single-service booking).
+    expect(prompt).toMatch(/Single-service requests|ONLY applies when.*multiple services|no text block needed/i);
   });
 
   it("rule #11 applies to all three tones", () => {
