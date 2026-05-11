@@ -249,30 +249,35 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         lastMessageTime: optimistic.timestamp,
       });
 
-      // Post-send catchup: 5s after a customer sends, dispatch a fake
-      // `new-message-received` for this conversation so useConversationMessages
-      // refetches. If the AI reply's WS broadcast was received normally,
-      // this is a redundant no-op fetch (~10ms, cheap). If the broadcast was
-      // dropped (intermittent issue we've been chasing — see plan doc), the
-      // delayed refetch picks up the AI reply within 5 seconds, so the
-      // customer never sees "where's my reply?" silence.
+      // Post-send catchup: after a customer sends, fire TWO delayed
+      // `new-message-received` dispatches so useConversationMessages
+      // refetches and renders any AI reply whose WS broadcast got
+      // dropped. If the broadcast was received normally, these are
+      // redundant no-op fetches (~10ms each, cheap).
       //
-      // 5s is chosen because typical AI reply latency is 2-3s; 5s leaves a
-      // 2s safety margin. Lower than the catchup-on-conversation-select
-      // timer (2.5s) because by the time we get here, the conversation is
-      // already settled — we're catching up to the imminent AI reply, not
-      // to a stale-listener race.
+      // Why two timings: AI reply latency varies. The original 5s
+      // single-catchup missed a reply that landed at 5.6s after send
+      // (DB confirmed; customer waited indefinitely). Two staggered
+      // catchups cover both fast (≤5s) and slow (5-12s) AI responses:
+      //   - 5s: catches fast Claude responses; user sees reply within
+      //     ~5s if WS broadcast dropped
+      //   - 12s: safety net for slow responses (Claude under load,
+      //     longer prompts, etc.)
       //
-      // Only fires for customer sends; shop sends don't trigger AI replies.
+      // Customer-only because shop sends don't trigger AI replies.
+      // For shop's own incoming-customer-message visibility, the WS
+      // broadcast + ws-reconnected catchup handle it.
       if (userType === "customer") {
         const convoIdAtSend = selectedConversationId;
-        window.setTimeout(() => {
+        const fireCatchup = () => {
           window.dispatchEvent(
             new CustomEvent("new-message-received", {
               detail: { conversationId: convoIdAtSend },
             }),
           );
-        }, 5000);
+        };
+        window.setTimeout(fireCatchup, 5000);
+        window.setTimeout(fireCatchup, 12000);
       }
     },
     [
