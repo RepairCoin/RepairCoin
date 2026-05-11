@@ -498,11 +498,21 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           {item.images && item.images.length > 0 ? (
-                            <img
-                              src={item.images[0]}
-                              alt={item.name}
-                              className="w-10 h-10 rounded object-cover"
-                            />
+                            <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center overflow-hidden">
+                              <img
+                                src={item.images[0]}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>';
+                                  }
+                                }}
+                              />
+                            </div>
                           ) : (
                             <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center">
                               <Package className="w-5 h-5 text-gray-500" />

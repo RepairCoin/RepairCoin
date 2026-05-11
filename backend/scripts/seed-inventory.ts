@@ -87,6 +87,7 @@ const items: InventoryItem[] = [
     stockQuantity: 25,
     lowStockThreshold: 10,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1592286927505-34bce1c0ca74?w=400&h=400&fit=crop'],
     notes: 'Premium quality, includes installation kit',
   },
   {
@@ -101,6 +102,7 @@ const items: InventoryItem[] = [
     stockQuantity: 50,
     lowStockThreshold: 20,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=400&fit=crop'],
     notes: 'High capacity 4000mAh',
   },
   // Tools
@@ -116,6 +118,7 @@ const items: InventoryItem[] = [
     stockQuantity: 15,
     lowStockThreshold: 5,
     unit: 'set',
+    images: ['https://images.unsplash.com/photo-1530124566582-a618bc2615dc?w=400&h=400&fit=crop'],
     notes: 'Includes magnetic bits and case',
   },
   {
@@ -130,6 +133,7 @@ const items: InventoryItem[] = [
     stockQuantity: 8,
     lowStockThreshold: 3,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1572981779307-38b8cabb2407?w=400&h=400&fit=crop'],
     notes: 'Variable temperature control',
   },
   // Consumables
@@ -145,6 +149,7 @@ const items: InventoryItem[] = [
     stockQuantity: 100,
     lowStockThreshold: 30,
     unit: 'tube',
+    images: ['https://images.unsplash.com/photo-1563298723-dcfebaa392e3?w=400&h=400&fit=crop'],
     notes: '110ml tube, clear drying',
   },
   {
@@ -159,6 +164,7 @@ const items: InventoryItem[] = [
     stockQuantity: 3,
     lowStockThreshold: 10,
     unit: 'bottle',
+    images: ['https://images.unsplash.com/photo-1585559700398-1385b3a8aeb6?w=400&h=400&fit=crop'],
     notes: '500ml bottle - LOW STOCK!',
   },
   // Accessories
@@ -174,6 +180,7 @@ const items: InventoryItem[] = [
     stockQuantity: 45,
     lowStockThreshold: 15,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop'],
     notes: 'Braided nylon, 100W PD support',
   },
   {
@@ -188,6 +195,7 @@ const items: InventoryItem[] = [
     stockQuantity: 20,
     lowStockThreshold: 8,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1591290619762-d118f7bb50b2?w=400&h=400&fit=crop'],
     notes: 'Compatible with all Qi devices',
   },
   // More Parts
@@ -203,6 +211,7 @@ const items: InventoryItem[] = [
     stockQuantity: 0,
     lowStockThreshold: 5,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1616348436168-de43ad0db179?w=400&h=400&fit=crop'],
     notes: 'OUT OF STOCK - Reorder needed!',
   },
   {
@@ -217,6 +226,7 @@ const items: InventoryItem[] = [
     stockQuantity: 12,
     lowStockThreshold: 5,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=400&h=400&fit=crop'],
     notes: 'Original Apple part',
   },
   // Additional tools
@@ -232,6 +242,7 @@ const items: InventoryItem[] = [
     stockQuantity: 6,
     lowStockThreshold: 2,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=400&fit=crop'],
     notes: '24x18 inch, with grounding cord',
   },
   {
@@ -246,6 +257,7 @@ const items: InventoryItem[] = [
     stockQuantity: 10,
     lowStockThreshold: 4,
     unit: 'piece',
+    images: ['https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=400&h=400&fit=crop'],
     notes: 'Auto-ranging, with continuity tester',
   },
 ];
