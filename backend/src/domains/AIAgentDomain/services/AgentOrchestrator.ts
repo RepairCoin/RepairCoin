@@ -314,18 +314,24 @@ export class AgentOrchestrator {
         return { outcome: "failed", error: err?.message ?? String(err) };
       }
 
-      // 6.5 Extract booking suggestion (Phase 3 Task 10 fix-6 — tool use).
-      // Prefer Claude's tool_use output (schema-enforced) over the legacy
-      // fenced-JSON parser. Fall back to the parser if Claude emitted plain
-      // text without using the tool — rare, but covers the case where Claude
-      // decides not to suggest a slot at all (then the parser returns no
-      // suggestions and the text passes through cleanly).
+      // 6.5 Extract booking suggestions (Phase 3 — multi tool_use blocks).
+      // Anthropic responses can contain N tool_use blocks. Phase 3 lifts the
+      // earlier "one card per call" restriction so customers can say
+      // "book me X AND Y" and get TWO tap-to-book cards in a single reply.
+      // Each tool block is validated independently:
+      //   - service_id must come from the enum
+      //   - slot_iso must come from the enum
+      //   - (service_id, slot_iso) pair must come from the same source slot
+      //   - reply_text must be non-empty
+      //   - duplicate (serviceId, slotIso) pairs across blocks are deduped
+      // Invalid blocks are dropped with a reason; valid blocks accumulate
+      // into bookingSuggestions[] in the order Claude emitted them.
       const availabilitySlots = ctx.availabilitySlots ?? [];
       const slotLabelsByIso = slotLabelsByIsoForCall;
 
       // Defensive `?? []` for older AnthropicClient mocks that don't populate
       // toolUses. Real responses always do (empty array when no tools called).
-      const toolBlock = (claudeResponse.toolUses ?? []).find(
+      const toolBlocks = (claudeResponse.toolUses ?? []).filter(
         (t) => t.toolName === BOOKING_TOOL_NAME
       );
 
@@ -334,87 +340,102 @@ export class AgentOrchestrator {
       let bookingSuggestionDropReasons: string[];
       let bookingPath: "tool" | "text_parser" | "none";
 
-      if (toolBlock) {
-        const slotIso = String(toolBlock.input.slot_iso ?? "");
-        const replyText = String(toolBlock.input.reply_text ?? "").trim();
-        // Phase 2 of multi-service architecture: tool input now carries
-        // service_id alongside slot_iso. The slot list spans multiple
-        // services, so a valid service_id paired with a valid slot_iso
-        // from a different service is still wrong — the booking card
-        // would render for the wrong service. We accept the call only
-        // when (service_id, slot_iso) come from the SAME source slot.
-        //
-        // Fallback for older clients/mocks that didn't pass service_id:
-        // default to the focused conversation service. That preserves
-        // pre-Phase-2 single-service behavior.
-        const proposedServiceId = String(
-          toolBlock.input.service_id ?? serviceId
-        );
-        const matchingSlot = availabilitySlots.find(
-          (s) => s.slotIso === slotIso && s.serviceId === proposedServiceId
-        );
-        const inSet = matchingSlot !== undefined;
-        if (inSet && replyText.length > 0) {
-          // Tool call validated by Anthropic + double-checked by us.
-          // Multi-service handling: Claude's response can include BOTH a
-          // text block AND a tool_use block. For single-service bookings,
-          // Claude typically emits only tool_use (text empty). For
-          // multi-service requests (rule #11), Claude emits a text block
-          // addressing the OTHER service alongside the tool call for the
-          // current service. Concatenating ensures both reach the
-          // customer.
+      if (toolBlocks.length > 0) {
+        const validSuggestions: BookingSuggestion[] = [];
+        const validReplyTexts: string[] = [];
+        const dropReasons: string[] = [];
+        // Dedupe key: serviceId|slotIso. If Claude proposes the same slot
+        // for the same service in two tool_use blocks, the second one is
+        // dropped — one tap card per (serviceId, slotIso) is the contract
+        // the frontend's BookingSuggestionCard render assumes.
+        const seenPairs = new Set<string>();
+
+        for (const toolBlock of toolBlocks) {
+          const slotIso = String(toolBlock.input.slot_iso ?? "");
+          const replyText = String(toolBlock.input.reply_text ?? "").trim();
+          // Fallback to the focused service when service_id is missing —
+          // preserves pre-Phase-2 single-service behavior for any client
+          // emitting the old tool schema. Real Phase 2+ responses always
+          // populate service_id (Anthropic schema enforces it).
+          const proposedServiceId = String(
+            toolBlock.input.service_id ?? serviceId
+          );
+          const matchingSlot = availabilitySlots.find(
+            (s) =>
+              s.slotIso === slotIso && s.serviceId === proposedServiceId
+          );
+          if (!matchingSlot) {
+            const slotInSetButWrongService =
+              slotIso.length > 0 &&
+              availabilitySlots.some((s) => s.slotIso === slotIso);
+            const dropReason = slotInSetButWrongService
+              ? "tool_returned_service_slot_mismatch"
+              : "tool_returned_invalid_slot";
+            dropReasons.push(dropReason);
+            logger.warn(
+              "AgentOrchestrator: tool block rejected — invalid slot or service mismatch",
+              { slotIso, proposedServiceId, dropReason }
+            );
+            continue;
+          }
+          if (replyText.length === 0) {
+            dropReasons.push("tool_returned_empty_reply_text");
+            continue;
+          }
+          const pairKey = `${matchingSlot.serviceId}|${slotIso}`;
+          if (seenPairs.has(pairKey)) {
+            dropReasons.push("tool_returned_duplicate_pair");
+            continue;
+          }
+          seenPairs.add(pairKey);
+          // Source-of-truth serviceId comes from the matched slot, not the
+          // input — defense-in-depth.
+          validSuggestions.push({
+            serviceId: matchingSlot.serviceId,
+            slotIso,
+            ...(slotLabelsByIso[slotIso]
+              ? { humanLabel: slotLabelsByIso[slotIso] }
+              : {}),
+          });
+          validReplyTexts.push(replyText);
+        }
+
+        if (validSuggestions.length > 0) {
+          // Multi-service handling: Claude's response can include a text
+          // block (free-form) alongside the tool_use blocks. We preserve
+          // that text block when it adds non-duplicate content, then
+          // append each tool's reply_text in order. Each reply_text
+          // appears as its own line in the customer's bubble; the
+          // frontend renders one tap-to-book card per booking suggestion
+          // below the text.
           //
-          // Order: extraText first, then reply_text. Tap-to-book card
-          // renders below the message, so the customer reads:
-          //   1. "For laptop repair, book separately..." (text block)
-          //   2. "For pastry tutorial, Thursday 12 PM..." (reply_text)
-          //   3. [Tap to book card]
+          // Reading order in the customer's chat:
+          //   1. extraText (if any — e.g. "I've lined up both:")
+          //   2. validReplyTexts[0] ("For the pastry tutorial — Thursday at 9 AM works.")
+          //   3. validReplyTexts[1] ("For the laptop repair — Friday at 2 PM works.")
+          //   4. [tap-to-book card 1]
+          //   5. [tap-to-book card 2]
           //
-          // The exact-match dedupe guard handles the rare case Claude
-          // emits the same text in both blocks.
+          // The exact-match guard handles the rare case Claude emits the
+          // same text in extraText and the first reply_text.
           const extraText = (claudeResponse.text ?? "").trim();
+          const joinedReplies = validReplyTexts.join("\n\n");
           customerFacingText =
-            extraText && extraText !== replyText
-              ? `${extraText}\n\n${replyText}`
-              : replyText;
-          // Use the service_id from the matched slot rather than the
-          // input (defense-in-depth: matchingSlot is the source of truth).
-          bookingSuggestions = [
-            {
-              serviceId: matchingSlot!.serviceId,
-              slotIso,
-              ...(slotLabelsByIso[slotIso]
-                ? { humanLabel: slotLabelsByIso[slotIso] }
-                : {}),
-            },
-          ];
-          bookingSuggestionDropReasons = [];
+            extraText && extraText !== joinedReplies && !joinedReplies.includes(extraText)
+              ? `${extraText}\n\n${joinedReplies}`
+              : joinedReplies;
+          bookingSuggestions = validSuggestions;
+          bookingSuggestionDropReasons = dropReasons;
           bookingPath = "tool";
         } else {
-          // Anthropic should have rejected an out-of-enum slot_iso (and an
-          // out-of-enum service_id), but defense-in-depth: if a mismatched
-          // (service_id, slot_iso) pair slips through — both individually
-          // valid but from different services — reject it. Same outcome
-          // as a hallucinated slot.
-          const slotInSetButWrongService =
-            slotIso.length > 0 &&
-            availabilitySlots.some((s) => s.slotIso === slotIso) &&
-            !matchingSlot;
-          const dropReason = slotInSetButWrongService
-            ? "tool_returned_service_slot_mismatch"
-            : "tool_returned_invalid_slot";
-          logger.warn(
-            "AgentOrchestrator: tool returned invalid slot or service mismatch, falling back to text",
-            {
-              slotIso,
-              proposedServiceId,
-              replyTextLen: replyText.length,
-              dropReason,
-            }
-          );
-          customerFacingText = claudeResponse.text || replyText;
+          // Every tool block was invalid. Fall back to whatever text
+          // Claude emitted — the customer at least sees an attempted
+          // reply rather than nothing. The drop reasons land in the
+          // audit row for forensics.
+          customerFacingText =
+            claudeResponse.text || validReplyTexts.join("\n\n");
           bookingSuggestions = [];
-          bookingSuggestionDropReasons = [dropReason];
+          bookingSuggestionDropReasons = dropReasons;
           bookingPath = "tool";
         }
       } else {
@@ -599,6 +620,7 @@ function buildBookingSuggestionTool(
     description: [
       `Propose a specific bookable appointment slot to the customer. This is the ONLY way to render a tap-to-book card in chat — plain text with slot info will not produce a card.`,
       `Multi-service: the slot list in the system prompt is grouped by service. Always call the tool with BOTH a service_id and a slot_iso from the SAME service group — never mix service_id from one group with a slot_iso from another.`,
+      `Multi-call: you MAY call this tool MULTIPLE TIMES in a single response — once per service the customer wants to book. Each call renders its own tap-to-book card. Example: customer says "book me a laptop repair AND a pastry tutorial" → emit TWO tool_use blocks, one per service. Each call must still pair a service_id with a slot_iso from that service's group. Do not emit two calls for the same (service_id, slot_iso) — duplicates are dropped server-side.`,
       `Available services: ${serviceLabelsByIdForDescription.join("; ")}.`,
       `CALL THE TOOL when the customer asks about times, picks a slot, or says yes to a previous suggestion. Specifically:`,
       `Trigger questions: "what times do you have?", "what time do you have?", "do you have morning slot?", "do you have afternoon slot?", "do you have evening slot?", "any openings?", "when can I come in?", "can I book Thursday?", "Thursday afternoon", "Thursday at 2pm", "yes please", "I'll take it", "book me in".`,
