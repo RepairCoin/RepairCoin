@@ -826,6 +826,111 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
   });
 });
 
+describe("PromptTemplates — focused-service-default fix (anchor wins over history bias)", () => {
+  // Background: a long-running conversation accumulated heavy history about
+  // Service B (Newly Baker). Customer then re-entered via Service A (AQua
+  // Tech) modal — conversation.service_id was updated correctly, AI saw
+  // "About this service: AQua Tech". But when the customer's next message
+  // was an UNNAMED booking ("book me thursday at 2pm"), Claude picked a
+  // Newly Baker slot because the conversation history was Newly-Baker-
+  // heavy. The fix below strengthens the prompt so the focused service
+  // wins for any unnamed booking request.
+  const aquaSlot = {
+    date: "2026-05-14",
+    time: "14:00",
+    slotIso: "2026-05-14T18:00:00.000Z",
+    humanLabel: "Thursday, May 14 at 2:00 PM",
+    serviceId: "srv_test", // matches baseContext().service.serviceId
+    serviceName: "Oil Change - Full Synthetic",
+  };
+  const newlySlot = {
+    date: "2026-05-14",
+    time: "09:00",
+    slotIso: "2026-05-14T13:00:00.000Z",
+    humanLabel: "Thursday, May 14 at 9:00 AM",
+    serviceId: "srv_newly",
+    serviceName: "Newly Baker",
+  };
+
+  it("annotates 'About this service' as the active topic with default-for-unnamed-booking guidance", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/About this service \(THE ACTIVE TOPIC/i);
+    expect(prompt).toMatch(/default for any booking request that doesn'?t name a different service/i);
+    expect(prompt).toContain("ID: srv_test");
+  });
+
+  it("renders multi-service slot list with explicit PRIMARY (focused) and OTHER (named-only) groups", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        availabilitySlots: [aquaSlot, newlySlot],
+        shopServiceMenu: [
+          {
+            serviceId: "srv_newly",
+            serviceName: "Newly Baker",
+            priceUsd: 99,
+            category: "Food",
+            shortBlurb: null,
+            bookingAssistance: true,
+          },
+        ],
+      })
+    );
+    expect(prompt).toMatch(/PRIMARY SERVICE — DEFAULT for any booking request that doesn'?t name a different service/i);
+    expect(prompt).toMatch(/OTHER AI-BOOKABLE SERVICES — only book these when the customer NAMES the service in their CURRENT message/i);
+    // PRIMARY group must appear BEFORE the OTHER group
+    expect(prompt.indexOf("PRIMARY SERVICE")).toBeLessThan(prompt.indexOf("OTHER AI-BOOKABLE SERVICES"));
+    // Focused service's slot is under PRIMARY; menu service's slot is under OTHER
+    const primaryStart = prompt.indexOf("PRIMARY SERVICE");
+    const otherStart = prompt.indexOf("OTHER AI-BOOKABLE SERVICES");
+    const primaryBlock = prompt.slice(primaryStart, otherStart);
+    const otherBlock = prompt.slice(otherStart);
+    expect(primaryBlock).toContain(aquaSlot.slotIso);
+    expect(primaryBlock).not.toContain(newlySlot.slotIso);
+    expect(otherBlock).toContain(newlySlot.slotIso);
+    expect(otherBlock).not.toContain(aquaSlot.slotIso);
+  });
+
+  it("uses the simplified single-service rendering when only the focused service has slots", () => {
+    // Common shop config: only one AI-bookable service. No need for the
+    // PRIMARY/OTHER split — both would be empty/redundant.
+    const prompt = professionalPrompt(
+      baseContext({
+        availabilitySlots: [aquaSlot],
+      })
+    );
+    expect(prompt).not.toMatch(/PRIMARY SERVICE/i);
+    expect(prompt).not.toMatch(/OTHER AI-BOOKABLE SERVICES/i);
+    expect(prompt).toContain(aquaSlot.slotIso);
+  });
+
+  it("rule #13 forbids history-driven service drift for unnamed booking requests", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/AMBIGUOUS-BOOKING DEFAULT/i);
+    expect(prompt).toMatch(/conversation history does NOT override this|anchor wins/i);
+    expect(prompt).toMatch(/"book me thursday at 2pm"/i);
+  });
+
+  it("rule #13 requires explicit service mention in the CURRENT message to override the default", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/EXPLICITLY names it in their current message/i);
+    expect(prompt).toMatch(/Service names must appear literally in the message/i);
+    expect(prompt).toMatch(/do NOT infer from history/i);
+  });
+
+  it("rule #13 includes a quick-test heuristic Claude can apply before each tool call", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/Quick test before calling propose_booking_slot/i);
+    expect(prompt).toMatch(/Did the customer say a service name in their LAST message/i);
+  });
+
+  it("rule #13 applies to all three tones", () => {
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(baseContext());
+      expect(p).toMatch(/AMBIGUOUS-BOOKING DEFAULT/i);
+    }
+  });
+});
+
 describe("PromptTemplates — today's date anchor (date-reasoning fix)", () => {
   // Without an explicit "today" anchor, Claude was misapplying the "out of
   // window" rule to dates that were actually within the booking window —
