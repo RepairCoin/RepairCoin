@@ -12,8 +12,12 @@ function transformConversation(
   const isCustomer = userType === "customer";
   return {
     id: conv.conversationId,
-    serviceId: "",
-    serviceName: "",
+    // Phase 6: pull the conversation's anchored service from the API
+    // (server-joined on shop_services). Fallback to empty string keeps
+    // the chip + downstream rendering quiet on legacy threads with no
+    // anchored service.
+    serviceId: conv.serviceId ?? "",
+    serviceName: conv.serviceName ?? "",
     shopId: isCustomer ? conv.shopId : undefined,
     shopName: isCustomer ? conv.shopName : undefined,
     customerId: !isCustomer ? conv.customerAddress : undefined,

@@ -5,6 +5,13 @@ export interface Conversation {
   conversationId: string;
   customerAddress: string;
   shopId: string;
+  /**
+   * The service the conversation is anchored to. Set when the customer
+   * enters from a service modal; updates when they re-enter from a
+   * different service's modal. Undefined for legacy threads or
+   * non-service-modal entry points.
+   */
+  serviceId?: string;
   lastMessageAt?: string;
   lastMessagePreview?: string;
   unreadCountCustomer: number;
@@ -20,6 +27,13 @@ export interface Conversation {
   customerName?: string;
   shopName?: string;
   shopImageUrl?: string;
+  /**
+   * Joined service name (server-side, from shop_services.service_name on
+   * conversation.service_id). Phase 6 of multi-service architecture —
+   * drives the "Currently discussing: X" chip in the chat header.
+   * Undefined when no service is anchored.
+   */
+  serviceName?: string;
 }
 
 export interface Message {

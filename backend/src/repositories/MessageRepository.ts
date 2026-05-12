@@ -27,6 +27,14 @@ export interface Conversation {
   customerImageUrl?: string;
   shopName?: string;
   shopImageUrl?: string;
+  /**
+   * Joined from shop_services.service_name on conversation.service_id.
+   * Phase 6 of multi-service architecture: surfaced so the frontend chat
+   * header can render a "Currently discussing: X" chip without a separate
+   * service lookup. Undefined when conversation has no service_id or the
+   * referenced service has been deleted.
+   */
+  serviceName?: string;
 }
 
 export interface Message {
@@ -112,10 +120,12 @@ export class MessageRepository extends BaseRepository {
           cust.name as customer_name,
           cust.profile_image_url as customer_image_url,
           s.name as shop_name,
-          s.logo_url as shop_image_url
+          s.logo_url as shop_image_url,
+          srv.service_name as service_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
         LEFT JOIN shops s ON c.shop_id = s.shop_id
+        LEFT JOIN shop_services srv ON c.service_id = srv.service_id
         WHERE c.customer_address = $1 AND c.shop_id = $2
       `;
 
@@ -176,10 +186,12 @@ export class MessageRepository extends BaseRepository {
           cust.name as customer_name,
           cust.profile_image_url as customer_image_url,
           s.name as shop_name,
-          s.logo_url as shop_image_url
+          s.logo_url as shop_image_url,
+          srv.service_name as service_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
         LEFT JOIN shops s ON c.shop_id = s.shop_id
+        LEFT JOIN shop_services srv ON c.service_id = srv.service_id
         WHERE c.conversation_id = $1
       `;
 
@@ -235,9 +247,11 @@ export class MessageRepository extends BaseRepository {
         SELECT
           c.*,
           s.name as shop_name,
-          s.logo_url as shop_image_url
+          s.logo_url as shop_image_url,
+          srv.service_name as service_name
         FROM conversations c
         LEFT JOIN shops s ON c.shop_id = s.shop_id
+        LEFT JOIN shop_services srv ON c.service_id = srv.service_id
         ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -305,9 +319,11 @@ export class MessageRepository extends BaseRepository {
         SELECT
           c.*,
           cust.name as customer_name,
-          cust.profile_image_url as customer_image_url
+          cust.profile_image_url as customer_image_url,
+          srv.service_name as service_name
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
+        LEFT JOIN shop_services srv ON c.service_id = srv.service_id
         ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -806,7 +822,8 @@ export class MessageRepository extends BaseRepository {
       customerName: row.customer_name,
       customerImageUrl: row.customer_image_url,
       shopName: row.shop_name,
-      shopImageUrl: row.shop_image_url
+      shopImageUrl: row.shop_image_url,
+      serviceName: row.service_name ?? undefined,
     };
   }
 
