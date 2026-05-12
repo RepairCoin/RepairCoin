@@ -50,6 +50,10 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
     maxReschedulesPerBooking: null,
     rescheduleMinHours: null,
     cancellationMinHours: null,
+    address: null,
+    phone: null,
+    email: null,
+    website: null,
   },
   conversationHistory: [],
   siblingServices: [],
@@ -510,6 +514,10 @@ describe("PromptTemplates — booking policy block (dynamic window follow-up)", 
         maxReschedulesPerBooking: null,
         rescheduleMinHours: null,
         cancellationMinHours: null,
+        address: null,
+        phone: null,
+        email: null,
+        website: null,
         ...overrides,
       },
     });
@@ -826,6 +834,118 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
   });
 });
 
+describe("PromptTemplates — shop contact details (address/phone/email/website)", () => {
+  // Staging bug: AI said "I don't have the shop's address on hand" because
+  // the prompt context block didn't expose those fields. Surfacing them
+  // lets the AI answer contact questions directly.
+  it("renders the address line when address is set", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        shop: {
+          ...baseContext().shop,
+          address: "Obong-Patacbo Barangay Road, Patacbo, Basista, Pangasinan, Philippines",
+        },
+      })
+    );
+    expect(prompt).toMatch(/Address: Obong-Patacbo Barangay Road/);
+  });
+
+  it("renders the phone line when phone is set", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        shop: {
+          ...baseContext().shop,
+          phone: "09162512445",
+        },
+      })
+    );
+    expect(prompt).toContain("Phone: 09162512445");
+  });
+
+  it("renders the email line when email is set", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        shop: {
+          ...baseContext().shop,
+          email: "shop@example.com",
+        },
+      })
+    );
+    expect(prompt).toContain("Email: shop@example.com");
+  });
+
+  it("renders the website line when website is set", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        shop: {
+          ...baseContext().shop,
+          website: "https://example.com",
+        },
+      })
+    );
+    expect(prompt).toContain("Website: https://example.com");
+  });
+
+  it("renders all contact lines together when every field is populated", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        shop: {
+          ...baseContext().shop,
+          address: "123 Main St",
+          phone: "555-1234",
+          email: "hello@example.com",
+          website: "https://example.com",
+        },
+      })
+    );
+    expect(prompt).toContain("Address: 123 Main St");
+    expect(prompt).toContain("Phone: 555-1234");
+    expect(prompt).toContain("Email: hello@example.com");
+    expect(prompt).toContain("Website: https://example.com");
+  });
+
+  it("omits contact lines entirely when every field is null (no empty 'Address:' rendering)", () => {
+    const prompt = professionalPrompt(baseContext()); // default: all contact fields null
+    expect(prompt).not.toMatch(/^\s*Address:/m);
+    expect(prompt).not.toMatch(/^\s*Phone:/m);
+    expect(prompt).not.toMatch(/^\s*Email:/m);
+    expect(prompt).not.toMatch(/^\s*Website:/m);
+  });
+
+  it("omits individual fields that are null while still rendering populated ones", () => {
+    // Phone only — address/email/website null.
+    const prompt = professionalPrompt(
+      baseContext({
+        shop: {
+          ...baseContext().shop,
+          phone: "555-9999",
+        },
+      })
+    );
+    expect(prompt).toContain("Phone: 555-9999");
+    expect(prompt).not.toMatch(/^\s*Address:/m);
+    expect(prompt).not.toMatch(/^\s*Email:/m);
+    expect(prompt).not.toMatch(/^\s*Website:/m);
+  });
+
+  it("renders contact lines for all three tones", () => {
+    const ctx = baseContext({
+      shop: {
+        ...baseContext().shop,
+        address: "Test Address",
+        phone: "555-1234",
+        email: "test@example.com",
+      },
+    });
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toContain("Address: Test Address");
+      expect(p).toContain("Phone: 555-1234");
+      expect(p).toContain("Email: test@example.com");
+    }
+  });
+});
+
 describe("PromptTemplates — focused-service-default fix (anchor wins over history bias)", () => {
   // Background: a long-running conversation accumulated heavy history about
   // Service B (Newly Baker). Customer then re-entered via Service A (AQua
@@ -978,6 +1098,10 @@ describe("PromptTemplates — today's date anchor (date-reasoning fix)", () => {
         maxReschedulesPerBooking: null,
         rescheduleMinHours: null,
         cancellationMinHours: null,
+        address: null,
+        phone: null,
+        email: null,
+        website: null,
       },
     });
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {

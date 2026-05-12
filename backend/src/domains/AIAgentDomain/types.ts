@@ -211,6 +211,17 @@ export interface AgentShopContext {
    * than guessing.
    */
   cancellationMinHours: number | null;
+  /**
+   * Public-facing contact details surfaced so the AI can answer "what's
+   * your address / phone / email?" honestly instead of saying "I don't
+   * have that on hand." Null when the shop hasn't filled in the field;
+   * the prompt renders only the populated lines.
+   */
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  /** Marketing website URL, e.g. https://peanutshop.com */
+  website: string | null;
 }
 
 /**
