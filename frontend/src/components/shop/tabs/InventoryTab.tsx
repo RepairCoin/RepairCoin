@@ -17,6 +17,7 @@ import {
   RefreshCw,
   TrendingUp,
   History,
+  Download,
 } from 'lucide-react';
 import { inventoryApi } from '@/services/api/inventory';
 import type {
@@ -196,6 +197,50 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
     setPage(1);
   };
 
+  const exportToCSV = () => {
+    try {
+      // CSV headers
+      const headers = ['Name', 'SKU', 'Barcode', 'Category', 'Vendor', 'Price', 'Cost', 'Stock Quantity', 'Low Stock Threshold', 'Status', 'Description'];
+
+      // Convert items to CSV rows
+      const rows = items.map(item => [
+        item.name,
+        item.sku || '',
+        item.barcode || '',
+        item.categoryName || '',
+        item.vendorName || '',
+        item.price,
+        item.cost || 0,
+        item.stockQuantity,
+        item.lowStockThreshold,
+        item.status,
+        (item.description || '').replace(/"/g, '""'), // Escape quotes
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `inventory_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Exported ${items.length} items to CSV`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export inventory');
+    }
+  };
+
   // Bulk selection handlers
   const handleSelectAll = () => {
     if (selectedItems.size === items.length) {
@@ -245,6 +290,15 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
             Vendors
           </button>
           <button
+            onClick={exportToCSV}
+            disabled={items.length === 0}
+            className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-green-500 hover:text-green-400 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Export inventory to CSV"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 font-medium"
           >
@@ -279,23 +333,39 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
             </div>
           </div>
 
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">
+          <div className={`bg-[#1A1A1A] rounded-lg p-4 transition-all ${stats.lowStockItems > 0 ? 'border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/20' : 'border border-gray-800'}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Low Stock</p>
+                <p className="text-gray-400 text-sm flex items-center gap-2">
+                  Low Stock
+                  {stats.lowStockItems > 0 && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                    </span>
+                  )}
+                </p>
                 <p className="text-2xl font-bold text-yellow-400 mt-1">{stats.lowStockItems}</p>
               </div>
-              <AlertTriangle className="w-10 h-10 text-yellow-400" />
+              <AlertTriangle className={`w-10 h-10 text-yellow-400 ${stats.lowStockItems > 0 ? 'animate-pulse' : ''}`} />
             </div>
           </div>
 
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">
+          <div className={`bg-[#1A1A1A] rounded-lg p-4 transition-all ${stats.outOfStockItems > 0 ? 'border-2 border-red-500/50 shadow-lg shadow-red-500/20' : 'border border-gray-800'}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Out of Stock</p>
+                <p className="text-gray-400 text-sm flex items-center gap-2">
+                  Out of Stock
+                  {stats.outOfStockItems > 0 && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  )}
+                </p>
                 <p className="text-2xl font-bold text-red-400 mt-1">{stats.outOfStockItems}</p>
               </div>
-              <TrendingDown className="w-10 h-10 text-red-400" />
+              <TrendingDown className={`w-10 h-10 text-red-400 ${stats.outOfStockItems > 0 ? 'animate-pulse' : ''}`} />
             </div>
           </div>
         </div>
