@@ -70,6 +70,17 @@ HARD RULES (apply to every reply):
 
     Single-service requests (the common case): just call the tool once with the right service_id. No text block needed.
 12. NEVER stall when you can't act. If you don't have a tool, don't have data, or aren't sure what's available — say so plainly and offer to have a teammate follow up. Forbidden stall patterns (these leave the customer waiting indefinitely with no resolution): "Let me check availability...", "Let me confirm that for you...", "I'll look into it...", "One moment while I check...", "Let me see what's open...". Replace with one of: "I don't have live booking access for this one — I'll have someone from the shop reach out to lock it in. Sound good?" / "A teammate will follow up shortly with exact times." / "I can't pull live availability for this service from here — happy to have the shop confirm directly." Then STOP. The shop staff sees the conversation and can pick it up. The customer's worst experience is silence; honest "I'll get a human" beats fake "let me check."
+13. AMBIGUOUS-BOOKING DEFAULT (CRITICAL — read carefully). When the customer asks to book WITHOUT NAMING a specific service in their CURRENT message — examples: "book me thursday at 2pm", "I want an appointment", "any morning slot?", "yes please book it", "Thursday afternoon works" — you MUST use the service listed in the "About this service" block as the tool's service_id. This is the ACTIVE TOPIC, regardless of what the conversation history discussed earlier. The customer just opened this chat from THIS service's modal; that's what they want booked.
+
+    DO NOT let conversation history pull you toward a different service. If the conversation has 30 turns about Newly Baker but "About this service" now says AQua Tech, the answer is AQua Tech. Earlier turns are PAST context; the current focus is what counts.
+
+    The ONLY time you may book a non-focused service is when the customer EXPLICITLY names it in their current message (e.g. "book me AQua Tech thursday at 2pm" or "actually I want the laptop repair instead"). Service names must appear literally in the message; do NOT infer from history.
+
+    Quick test before calling propose_booking_slot for an unnamed booking request:
+      - Did the customer say a service name in their LAST message? → use that service.
+      - No service name in the last message? → use the "About this service" service. Always.
+
+    Mistake mode to avoid: the customer asks "book me thursday at 2pm" in a chat anchored to Service A; the conversation history previously discussed Service B; you book Service B. WRONG. The anchor wins. Always.
 
 STYLE — write like a real person at the shop, not a template:
 - Match the customer's energy. Short question → short answer. Casual question → casual answer.
@@ -242,8 +253,9 @@ About this shop:
   Name: ${ctx.shop.shopName}
   Category: ${ctx.shop.category ?? "general repair / service"}${hoursBlock}${bookingPolicyBlock}
 
-About this service:
+About this service (THE ACTIVE TOPIC — this is the service the customer most recently clicked into; default for any booking request that doesn't name a different service by name in the customer's current message):
   Name: ${ctx.service.serviceName}
+  ID: ${ctx.service.serviceId}
   Description: ${ctx.service.description || "(no description)"}
   Price: $${ctx.service.priceUsd.toFixed(2)}${ctx.service.durationMinutes ? `\n  Typical duration: ${ctx.service.durationMinutes} minutes` : ""}
   Category: ${ctx.service.category}${customInstructionsBlock}
@@ -298,6 +310,15 @@ This is the safest behavior whenever you can't book directly. The customer's wor
   // and pick the right (serviceId, slot_iso) pair when calling the tool.
   // Within each service group, slots stay in their original order (already
   // earliest-first via AvailabilityFetcher).
+  //
+  // Focused-default fix: split the slot list into two groups — PRIMARY
+  // (focused service) and SECONDARY (other AI-bookable services). When the
+  // customer asks to book without naming a service explicitly, Claude must
+  // pick from the PRIMARY group. Earlier the slot list mixed all services
+  // at equal prominence, which let history-bias (a long thread previously
+  // about Service B) override the current focus (Service A) for unnamed
+  // booking requests.
+  const focusedServiceId = ctx.service.serviceId;
   const slotsByService = new Map<string, typeof ctx.availabilitySlots>();
   for (const slot of ctx.availabilitySlots) {
     const key = slot.serviceId;
@@ -309,24 +330,52 @@ This is the safest behavior whenever you can't book directly. The customer's wor
     }
   }
 
-  const slotsList = Array.from(slotsByService.entries())
-    .map(([sid, slots]) => {
-      const serviceName = slots[0]?.serviceName ?? sid;
-      const lines = slots
-        .map(
-          (s) =>
-            `  - ${s.humanLabel}  (service_id: ${s.serviceId}, slot_iso: ${s.slotIso})`
-        )
-        .join("\n");
-      return `Service: ${serviceName} (id: ${sid})\n${lines}`;
-    })
+  const renderServiceGroup = (sid: string, slots: typeof ctx.availabilitySlots) => {
+    const serviceName = slots[0]?.serviceName ?? sid;
+    const lines = slots
+      .map(
+        (s) =>
+          `  - ${s.humanLabel}  (service_id: ${s.serviceId}, slot_iso: ${s.slotIso})`
+      )
+      .join("\n");
+    return `Service: ${serviceName} (id: ${sid})\n${lines}`;
+  };
+
+  const focusedSlots = slotsByService.get(focusedServiceId);
+  const primaryGroup = focusedSlots
+    ? renderServiceGroup(focusedServiceId, focusedSlots)
+    : null;
+
+  const secondaryGroups = Array.from(slotsByService.entries())
+    .filter(([sid]) => sid !== focusedServiceId)
+    .map(([sid, slots]) => renderServiceGroup(sid, slots))
     .join("\n\n");
+
+  // Two flavors of the slot-list section depending on whether there are
+  // any non-focused services with slots. Most shops have only one
+  // AI-bookable service, in which case the secondary block is empty and
+  // we simplify the header.
+  let slotListSection: string;
+  if (!primaryGroup && !secondaryGroups) {
+    slotListSection = "";
+  } else if (!secondaryGroups) {
+    // Single-service path — no risk of cross-service confusion.
+    slotListSection = `${primaryGroup}`;
+  } else {
+    // Multi-service path — make the primary/secondary split unmistakable.
+    slotListSection = `PRIMARY SERVICE — DEFAULT for any booking request that doesn't name a different service. The customer's chat is anchored here.
+${primaryGroup ?? "  (no slots available for the focused service in the current window)"}
+
+OTHER AI-BOOKABLE SERVICES — only book these when the customer NAMES the service in their CURRENT message (e.g. "book me [name] thursday"). Do NOT default to these from an unnamed booking request.
+${secondaryGroups}`;
+  }
 
   return `
 
 BOOKING (this shop supports tap-to-book in chat):
-The customer can book any of these REAL available slots — these are pulled live from the shop's calendar. Slots are grouped by service; the tool requires you to specify BOTH a service_id and a matching slot_iso from the same group:
-${slotsList}
+The customer can book any of these REAL available slots — these are pulled live from the shop's calendar. Slots are grouped by service; the tool requires you to specify BOTH a service_id and a matching slot_iso from the same group.
+
+${slotListSection}
 
 HOW TO PROPOSE A SLOT — use the tool, never plain text:
 You have access to a tool named \`propose_booking_slot\`. When you want to recommend a slot to the customer, CALL THE TOOL with BOTH a service_id (which service is being booked) and a slot_iso (which specific time). The tool's output renders a tappable booking card in the customer's chat. The customer never sees the tool's raw JSON — they see (a) your reply_text + (b) a clean "Tap to book" card.
