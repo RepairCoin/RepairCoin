@@ -14,6 +14,7 @@ import {
   CheckCircle,
   RotateCcw,
   Loader2,
+  Tag,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
@@ -312,17 +313,36 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
           </div>
 
           {/* Info */}
-          <div>
-            <h3 className="text-sm font-semibold text-white">{participantName}</h3>
-            <p className="text-xs text-gray-400">
-              {isTyping ? (
-                <span className="text-[#FFCC00]">typing...</span>
-              ) : isOnline ? (
-                "Online"
-              ) : (
-                serviceName
+          <div className="flex flex-col gap-1">
+            <div>
+              <h3 className="text-sm font-semibold text-white">{participantName}</h3>
+              {/* Subtitle is reserved for transient indicators (typing/online).
+                  The service-anchor chip below shows the persistent
+                  "what service this chat is about" context. */}
+              {(isTyping || isOnline) && (
+                <p className="text-xs text-gray-400">
+                  {isTyping ? (
+                    <span className="text-[#FFCC00]">typing...</span>
+                  ) : (
+                    "Online"
+                  )}
+                </p>
               )}
-            </p>
+            </div>
+            {/* Phase 6: "Currently discussing: X" chip. Always visible so
+                customers and shop staff know which service the chat is
+                anchored to — updates automatically when conversation.service_id
+                changes (e.g., customer re-enters from a different service's
+                modal). */}
+            {serviceName && (
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-violet-500/10 border border-violet-400/30 rounded-full self-start max-w-full">
+                <Tag className="w-3 h-3 text-violet-300 flex-shrink-0" aria-hidden="true" />
+                <span className="text-[11px] font-medium text-violet-200 truncate">
+                  <span className="text-violet-300/70">Currently discussing: </span>
+                  {serviceName}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
