@@ -65,6 +65,8 @@ describe("ContextBuilder", () => {
     shop?: any;
     messageCount?: number;
     siblingServices?: any[];
+    /** FAQ entries returned by ServiceAIFaqRepository.getEntriesForService. */
+    faqEntries?: Array<{ question: string; answer: string }>;
     /** Rows returned by the pool.query stub for shop_availability (Phase 3 follow-up). */
     weeklyHoursRows?: Array<{
       day_of_week: number;
@@ -106,6 +108,11 @@ describe("ContextBuilder", () => {
     const mockPool = {
       query: jest.fn().mockResolvedValue({ rows: opts.weeklyHoursRows ?? [] }),
     };
+    // FAQ repo mock — empty by default. Tests for the FAQ rendering path
+    // override the mock value via opts.faqEntries.
+    const mockFaqRepo = {
+      getEntriesForService: jest.fn().mockResolvedValue(opts.faqEntries ?? []),
+    };
 
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
@@ -113,10 +120,11 @@ describe("ContextBuilder", () => {
       mockServiceRepo as any,
       mockMessageRepo as any,
       mockAvailabilityFetcher as any,
-      mockPool as any
+      mockPool as any,
+      mockFaqRepo as any
     );
 
-    return { builder, mockCustomerRepo, mockShopRepo, mockServiceRepo, mockMessageRepo, mockPool };
+    return { builder, mockCustomerRepo, mockShopRepo, mockServiceRepo, mockMessageRepo, mockPool, mockFaqRepo };
   }
 
   it("returns a complete AgentContext with all 5 fields populated", async () => {
@@ -132,6 +140,31 @@ describe("ContextBuilder", () => {
     expect(ctx.shop.shopName).toBe("Peanut Auto");
     expect(ctx.conversationHistory).toEqual([]);
     expect(ctx.siblingServices).toEqual([]);
+  });
+
+  it("propagates FAQ entries from the repo onto AgentServiceContext.faqEntries", async () => {
+    const faq = [
+      { question: "What's included?", answer: "Hardware, setup, follow-up." },
+      { question: "Cancel policy?", answer: "At least 4 hours notice." },
+    ];
+    const { builder, mockFaqRepo } = makeMocks({ faqEntries: faq });
+    const ctx = await builder.build({
+      customerAddress: "0xabc123",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+    expect(mockFaqRepo.getEntriesForService).toHaveBeenCalledWith("srv_main");
+    expect(ctx.service.faqEntries).toEqual(faq);
+  });
+
+  it("returns an empty faqEntries array when the service has no entries", async () => {
+    const { builder } = makeMocks({ faqEntries: [] });
+    const ctx = await builder.build({
+      customerAddress: "0xabc123",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+    expect(ctx.service.faqEntries).toEqual([]);
   });
 
   it("propagates shop contact details (address/phone/email/website) when set on the row", async () => {
@@ -188,7 +221,6 @@ describe("ContextBuilder", () => {
   it("passes through service-level AI fields to AgentServiceContext", async () => {
     const { builder } = makeMocks({
       service: baseService({
-        aiCustomInstructions: "Always mention 30-day warranty",
         aiBookingAssistance: false,
         aiSuggestUpsells: true,
       }),
@@ -201,7 +233,6 @@ describe("ContextBuilder", () => {
       conversationId: "conv_xxx",
     });
 
-    expect(ctx.service.customInstructions).toBe("Always mention 30-day warranty");
     expect(ctx.service.bookingAssistance).toBe(false);
     expect(ctx.service.suggestUpsells).toBe(true);
   });
@@ -508,6 +539,9 @@ describe("ContextBuilder", () => {
         fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
       };
       const mockPool = { query: jest.fn().mockResolvedValue({ rows: [] }) };
+      const mockFaqRepo = {
+        getEntriesForService: jest.fn().mockResolvedValue([]),
+      };
 
       const { ContextBuilder } = require("../../src/domains/AIAgentDomain/services/ContextBuilder");
       const builder = new ContextBuilder(
@@ -516,7 +550,8 @@ describe("ContextBuilder", () => {
         mockServiceRepo as any,
         mockMessageRepo as any,
         mockAvailabilityFetcher as any,
-        mockPool as any
+        mockPool as any,
+        mockFaqRepo as any
       );
       await builder.build({
         customerAddress: "0xabc123",
@@ -597,11 +632,24 @@ describe("ContextBuilder", () => {
     const mockMessageRepo = {
       getConversationMessages: jest.fn().mockResolvedValue(messages),
     };
+    const mockFaqRepo = {
+      getEntriesForService: jest.fn().mockResolvedValue([]),
+    };
+    const mockAvailabilityFetcher = {
+      fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
+      fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
+    };
+    const mockPool = {
+      query: jest.fn().mockResolvedValue({ rows: [] }),
+    };
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
       mockShopRepo as any,
       mockServiceRepo as any,
-      mockMessageRepo as any
+      mockMessageRepo as any,
+      mockAvailabilityFetcher as any,
+      mockPool as any,
+      mockFaqRepo as any
     );
 
     const ctx = await builder.build({
@@ -631,11 +679,24 @@ describe("ContextBuilder", () => {
     const mockMessageRepo = {
       getConversationMessages: jest.fn().mockResolvedValue(messages),
     };
+    const mockFaqRepo = {
+      getEntriesForService: jest.fn().mockResolvedValue([]),
+    };
+    const mockAvailabilityFetcher = {
+      fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
+      fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
+    };
+    const mockPool = {
+      query: jest.fn().mockResolvedValue({ rows: [] }),
+    };
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
       mockShopRepo as any,
       mockServiceRepo as any,
-      mockMessageRepo as any
+      mockMessageRepo as any,
+      mockAvailabilityFetcher as any,
+      mockPool as any,
+      mockFaqRepo as any
     );
 
     const ctx = await builder.build({
@@ -685,6 +746,9 @@ describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
       fetchUpcomingSlotsForServices: jest.fn().mockResolvedValue([]),
     };
     const mockPool = { query: jest.fn().mockResolvedValue({ rows: opts.weeklyHoursRows ?? [] }) };
+    const mockFaqRepo = {
+      getEntriesForService: jest.fn().mockResolvedValue([]),
+    };
 
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
@@ -692,7 +756,8 @@ describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
       mockServiceRepo as any,
       mockMessageRepo as any,
       mockAvailabilityFetcher as any,
-      mockPool as any
+      mockPool as any,
+      mockFaqRepo as any
     );
     return { builder, mockPool };
   }

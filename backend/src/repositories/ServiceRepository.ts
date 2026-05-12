@@ -27,7 +27,6 @@ export interface ShopService {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {
@@ -64,7 +63,6 @@ export interface CreateServiceParams {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
 }
 
 export interface UpdateServiceParams {
@@ -81,7 +79,6 @@ export interface UpdateServiceParams {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
 }
 
 export interface ServiceFilters {
@@ -124,8 +121,8 @@ export class ServiceRepository extends BaseRepository {
         INSERT INTO shop_services (
           service_id, shop_id, service_name, description, price_usd,
           duration_minutes, category, image_url, tags, active,
-          ai_sales_enabled, ai_tone, ai_suggest_upsells, ai_booking_assistance, ai_custom_instructions
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ai_sales_enabled, ai_tone, ai_suggest_upsells, ai_booking_assistance
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
 
@@ -144,8 +141,7 @@ export class ServiceRepository extends BaseRepository {
         params.aiSalesEnabled ?? false,
         params.aiTone ?? 'professional',
         params.aiSuggestUpsells ?? false,
-        params.aiBookingAssistance ?? false,
-        params.aiCustomInstructions ?? null
+        params.aiBookingAssistance ?? false
       ];
 
       const result = await this.pool.query(query, values);
@@ -510,7 +506,7 @@ export class ServiceRepository extends BaseRepository {
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
         ${favoritesJoin}
         ${whereClause}
-        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, s.created_at, s.updated_at, s.group_id, s.group_exclusive, s.group_token_reward_percentage, s.group_bonus_multiplier, s.ai_sales_enabled, s.ai_tone, s.ai_suggest_upsells, s.ai_booking_assistance, s.ai_custom_instructions, sh.shop_id, sh.name, sh.address, sh.phone, sh.email, sh.location_lat, sh.location_lng, sh.location_city, sh.location_state, sh.location_zip_code${customerAddress ? ', sf.customer_address' : ''}
+        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, s.created_at, s.updated_at, s.group_id, s.group_exclusive, s.group_token_reward_percentage, s.group_bonus_multiplier, s.ai_sales_enabled, s.ai_tone, s.ai_suggest_upsells, s.ai_booking_assistance, sh.shop_id, sh.name, sh.address, sh.phone, sh.email, sh.location_lat, sh.location_lng, sh.location_city, sh.location_state, sh.location_zip_code${customerAddress ? ', sf.customer_address' : ''}
         ${orderByClause}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
@@ -563,8 +559,7 @@ export class ServiceRepository extends BaseRepository {
         aiSalesEnabled: 'ai_sales_enabled',
         aiTone: 'ai_tone',
         aiSuggestUpsells: 'ai_suggest_upsells',
-        aiBookingAssistance: 'ai_booking_assistance',
-        aiCustomInstructions: 'ai_custom_instructions'
+        aiBookingAssistance: 'ai_booking_assistance'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -655,8 +650,7 @@ export class ServiceRepository extends BaseRepository {
       aiSalesEnabled: row.ai_sales_enabled ?? false,
       aiTone: row.ai_tone ?? 'professional',
       aiSuggestUpsells: row.ai_suggest_upsells ?? false,
-      aiBookingAssistance: row.ai_booking_assistance ?? false,
-      aiCustomInstructions: row.ai_custom_instructions ?? null
+      aiBookingAssistance: row.ai_booking_assistance ?? false
     };
   }
 

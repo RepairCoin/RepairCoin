@@ -1,12 +1,17 @@
 // backend/src/domains/ServiceDomain/services/ServiceManagementService.ts
 import { ServiceRepository, ShopService, CreateServiceParams, UpdateServiceParams, ServiceFilters, ShopServiceWithShopInfo, AITone } from '../../../repositories/ServiceRepository';
+import { ServiceAIFaqRepository } from '../../../repositories/ServiceAIFaqRepository';
 import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { PaginatedResult } from '../../../repositories/BaseRepository';
 
 const VALID_AI_TONES: ReadonlyArray<AITone> = ['friendly', 'professional', 'urgent'] as const;
-const MAX_AI_CUSTOM_INSTRUCTIONS_LENGTH = 2000;
+
+export interface FaqEntryInput {
+  question: string;
+  answer: string;
+}
 
 export interface CreateServiceRequest {
   shopId: string;
@@ -22,7 +27,13 @@ export interface CreateServiceRequest {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
+  /**
+   * Q&A FAQ entries for the AI to reference. Optional; empty array means
+   * the AI relies on description only. Persisted to
+   * service_ai_faq_entries via ServiceAIFaqRepository.replaceEntriesForService.
+   * Entries with empty answers are dropped during validation.
+   */
+  faqEntries?: FaqEntryInput[];
 }
 
 export interface UpdateServiceRequest {
@@ -39,14 +50,21 @@ export interface UpdateServiceRequest {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
+  /**
+   * When provided, replaces the entire FAQ entry list for the service.
+   * Undefined leaves existing entries untouched (partial updates of the
+   * service form don't wipe FAQs).
+   */
+  faqEntries?: FaqEntryInput[];
 }
 
 export class ServiceManagementService {
   private repository: ServiceRepository;
+  private faqRepository: ServiceAIFaqRepository;
 
   constructor() {
     this.repository = new ServiceRepository();
+    this.faqRepository = new ServiceAIFaqRepository();
   }
 
   /**
@@ -62,34 +80,45 @@ export class ServiceManagementService {
    * Validate AI Sales Assistant fields. Throws on invalid input.
    * Called from create + update paths so the rules stay in one place.
    */
-  private validateAIFields(input: {
-    aiTone?: AITone;
-    aiCustomInstructions?: string | null;
-  }): void {
+  private validateAIFields(input: { aiTone?: AITone }): void {
     if (input.aiTone !== undefined && !VALID_AI_TONES.includes(input.aiTone)) {
       throw new Error(`aiTone must be one of: ${VALID_AI_TONES.join(', ')}`);
-    }
-    if (
-      input.aiCustomInstructions !== undefined &&
-      input.aiCustomInstructions !== null &&
-      input.aiCustomInstructions.length > MAX_AI_CUSTOM_INSTRUCTIONS_LENGTH
-    ) {
-      throw new Error(
-        `aiCustomInstructions must be ${MAX_AI_CUSTOM_INSTRUCTIONS_LENGTH} characters or less`
-      );
     }
   }
 
   /**
-   * Sanitize ai_custom_instructions — strip HTML to prevent XSS in any
-   * future surface that renders this field. Same approach as description.
+   * Normalize FAQ entries from a create/update request: trim, drop empty
+   * answers (so starter-question placeholders don't persist), enforce
+   * per-field length caps, and strip HTML to prevent XSS in any future
+   * surface that renders these fields (the AI prompt is plain-text, but
+   * a customer-facing FAQ render could come later).
+   *
+   * Returns the cleaned list. Empty input returns empty list.
    */
-  private sanitizeAICustomInstructions(
-    input: string | null | undefined
-  ): string | null | undefined {
-    if (input === undefined) return undefined;
-    if (input === null) return null;
-    return input.replace(/<[^>]*>/g, '');
+  private sanitizeFaqEntries(
+    entries: FaqEntryInput[] | undefined
+  ): FaqEntryInput[] {
+    if (!entries) return [];
+    const MAX_QUESTION = 300;
+    const MAX_ANSWER = 2000;
+    const MAX_ENTRIES = 20;
+    const cleaned: FaqEntryInput[] = [];
+    for (const e of entries) {
+      const q = (e?.question ?? '').replace(/<[^>]*>/g, '').trim();
+      const a = (e?.answer ?? '').replace(/<[^>]*>/g, '').trim();
+      // Drop entries with empty answer — starter Qs the shop owner left
+      // blank shouldn't pollute the DB. Empty question is also dropped.
+      if (!q || !a) continue;
+      if (q.length > MAX_QUESTION) {
+        throw new Error(`FAQ question must be ${MAX_QUESTION} characters or less`);
+      }
+      if (a.length > MAX_ANSWER) {
+        throw new Error(`FAQ answer must be ${MAX_ANSWER} characters or less`);
+      }
+      cleaned.push({ question: q, answer: a });
+      if (cleaned.length >= MAX_ENTRIES) break;
+    }
+    return cleaned;
   }
 
   /**
@@ -182,11 +211,18 @@ export class ServiceManagementService {
         aiSalesEnabled: request.aiSalesEnabled,
         aiTone: request.aiTone,
         aiSuggestUpsells: request.aiSuggestUpsells,
-        aiBookingAssistance: request.aiBookingAssistance,
-        aiCustomInstructions: this.sanitizeAICustomInstructions(request.aiCustomInstructions)
+        aiBookingAssistance: request.aiBookingAssistance
       };
 
       const service = await this.repository.createService(params);
+
+      // Persist FAQ entries separately — they live in their own child
+      // table. Empty array or undefined skips the write entirely (new
+      // service has no entries by default).
+      const sanitizedFaq = this.sanitizeFaqEntries(request.faqEntries);
+      if (sanitizedFaq.length > 0) {
+        await this.faqRepository.replaceEntriesForService(serviceId, sanitizedFaq);
+      }
 
       logger.info('Service created successfully', { serviceId, shopId: request.shopId });
       return service;
@@ -330,11 +366,19 @@ export class ServiceManagementService {
         aiSalesEnabled: updates.aiSalesEnabled,
         aiTone: updates.aiTone,
         aiSuggestUpsells: updates.aiSuggestUpsells,
-        aiBookingAssistance: updates.aiBookingAssistance,
-        aiCustomInstructions: this.sanitizeAICustomInstructions(updates.aiCustomInstructions)
+        aiBookingAssistance: updates.aiBookingAssistance
       };
 
       const service = await this.repository.updateService(serviceId, params);
+
+      // Replace FAQ entries when the caller explicitly sent `faqEntries`.
+      // Undefined means "don't touch the FAQ" (partial update). Empty
+      // array means "wipe all entries" (intentional clearing). Sanitize
+      // to drop placeholder/empty rows before persisting.
+      if (updates.faqEntries !== undefined) {
+        const sanitizedFaq = this.sanitizeFaqEntries(updates.faqEntries);
+        await this.faqRepository.replaceEntriesForService(serviceId, sanitizedFaq);
+      }
 
       logger.info('Service updated successfully', { serviceId, shopId });
       return service;

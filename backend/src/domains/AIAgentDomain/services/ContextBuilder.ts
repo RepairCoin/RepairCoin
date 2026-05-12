@@ -18,6 +18,7 @@ import { CustomerRepository } from "../../../repositories/CustomerRepository";
 import { ShopRepository } from "../../../repositories/ShopRepository";
 import { ServiceRepository } from "../../../repositories/ServiceRepository";
 import { MessageRepository } from "../../../repositories/MessageRepository";
+import { ServiceAIFaqRepository } from "../../../repositories/ServiceAIFaqRepository";
 import { AvailabilityFetcher } from "./AvailabilityFetcher";
 import {
   AgentContext,
@@ -28,6 +29,7 @@ import {
   AgentSiblingService,
   AgentAvailabilitySlot,
   AgentShopServiceMenuItem,
+  AgentServiceFaqEntry,
 } from "../types";
 
 /**
@@ -116,7 +118,8 @@ export class ContextBuilder {
     private readonly serviceRepo: ServiceRepository = new ServiceRepository(),
     private readonly messageRepo: MessageRepository = new MessageRepository(),
     private readonly availabilityFetcher: AvailabilityFetcher = new AvailabilityFetcher(),
-    private readonly pool: Pool = getSharedPool()
+    private readonly pool: Pool = getSharedPool(),
+    private readonly faqRepo: ServiceAIFaqRepository = new ServiceAIFaqRepository()
   ) {}
 
   /**
@@ -176,7 +179,7 @@ export class ContextBuilder {
     ];
 
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy, faqEntriesResult] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       this.messageRepo.getConversationMessages(conversationId, {
@@ -209,6 +212,11 @@ export class ContextBuilder {
       // with AvailabilityFetcher is ~10ms and parallel; not worth
       // plumbing a shared cache through both.
       this.fetchBookingPolicy(serviceRow.shopId),
+      // FAQ entries (Q&A pairs) for the focused service. Additive to
+      // description — when populated, rendered as a structured FAQ block;
+      // when empty, the prompt is unchanged from pre-FAQ behavior.
+      // Strategy doc: ai-knowledge-base-strategy.md
+      this.faqRepo.getEntriesForService(serviceId),
     ]);
 
     if (!customerRow) {
@@ -219,7 +227,7 @@ export class ContextBuilder {
     }
 
     return {
-      service: this.toServiceContext(serviceRow),
+      service: this.toServiceContext(serviceRow, faqEntriesResult),
       customer: this.toCustomerContext(customerRow),
       shop: this.toShopContext(shopRow, weeklyHours, bookingPolicy),
       conversationHistory: messagesResult.items.map((m: any) =>
@@ -368,7 +376,10 @@ export class ContextBuilder {
   // Private mappers — db row → AgentContext shape
   // ============================================================================
 
-  private toServiceContext(row: any): AgentServiceContext {
+  private toServiceContext(
+    row: any,
+    faqEntries: { question: string; answer: string }[]
+  ): AgentServiceContext {
     return {
       serviceId: row.serviceId,
       serviceName: row.serviceName,
@@ -376,9 +387,12 @@ export class ContextBuilder {
       priceUsd: Number(row.priceUsd ?? 0),
       durationMinutes: row.durationMinutes,
       category: row.category ?? "general",
-      customInstructions: row.aiCustomInstructions ?? null,
       bookingAssistance: row.aiBookingAssistance ?? false,
       suggestUpsells: row.aiSuggestUpsells ?? false,
+      faqEntries: faqEntries.map((e) => ({
+        question: e.question,
+        answer: e.answer,
+      })),
     };
   }
 
