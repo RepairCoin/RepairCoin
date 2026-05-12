@@ -233,11 +233,28 @@ export class ServiceManagementService {
   }
 
   /**
-   * Get service by ID
+   * Get service by ID.
+   *
+   * Returns the service row plus its FAQ entries (Phase 2 of FAQ rollout).
+   * The shop dashboard's service-edit form reads FAQ entries from the same
+   * response so it can populate the Q&A editor without a separate fetch.
+   * Marketplace consumers that don't care about FAQ entries just ignore
+   * the extra field. Empty `faqEntries` array when the service has none.
    */
-  async getServiceById(serviceId: string): Promise<ShopService | null> {
+  async getServiceById(
+    serviceId: string
+  ): Promise<(ShopService & { faqEntries: FaqEntryInput[] }) | null> {
     try {
-      return await this.repository.getServiceById(serviceId);
+      const service = await this.repository.getServiceById(serviceId);
+      if (!service) return null;
+      const faqEntries = await this.faqRepository.getEntriesForService(serviceId);
+      return {
+        ...service,
+        faqEntries: faqEntries.map((e) => ({
+          question: e.question,
+          answer: e.answer,
+        })),
+      };
     } catch (error) {
       logger.error('Error in getServiceById:', error);
       throw error;
