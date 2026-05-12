@@ -186,9 +186,21 @@ ${describeOnlyMenuItems.map(renderMenuLine).join("\n")}`
       : "";
   const shopServiceMenuBlock = `${bookableMenuBlock}${describeOnlyMenuBlock}`;
 
-  const customInstructionsBlock = ctx.service.customInstructions
-    ? `\nShop owner's per-service instructions (HONOR THESE):\n  ${ctx.service.customInstructions}`
-    : "";
+  // FAQ block (replaces the old customInstructions block, which was dropped
+  // when the unused ai_custom_instructions column was removed). Q&A pairs
+  // the shop owner authors for THIS service. Rendered ONLY when entries
+  // exist — empty FAQ produces the exact prompt as pre-FAQ behavior.
+  //
+  // Header wording intentionally tells Claude to REASON ACROSS the
+  // description AND the FAQ entries. The FAQ doesn't replace the
+  // description; both inform the answer when both exist, and description
+  // carries the load when FAQ is empty.
+  //
+  // 4000-char safety cap on the rendered FAQ section. If a shop owner
+  // packs in 20+ verbose entries, trim from the end with a truncation
+  // note so prompt size stays bounded. Anthropic cache savings depend on
+  // a stable prompt prefix per shop, so we don't slice mid-entry.
+  const faqBlock = buildFaqBlock(ctx.service.faqEntries);
 
   const hoursBlock = ctx.shop.hoursSummary
     ? `\nShop hours: ${ctx.shop.hoursSummary}${ctx.shop.timezone ? ` (${ctx.shop.timezone})` : ""}`
@@ -269,7 +281,7 @@ About this service (THE ACTIVE TOPIC — this is the service the customer most r
   ID: ${ctx.service.serviceId}
   Description: ${ctx.service.description || "(no description)"}
   Price: $${ctx.service.priceUsd.toFixed(2)}${ctx.service.durationMinutes ? `\n  Typical duration: ${ctx.service.durationMinutes} minutes` : ""}
-  Category: ${ctx.service.category}${customInstructionsBlock}
+  Category: ${ctx.service.category}${faqBlock}
 
 About the customer:
   Name: ${customerName}
@@ -498,6 +510,49 @@ CRITICAL — never fabricate scarcity. If you don't actually know slot availabil
 
 ${buildContextBlock(ctx)}
 `.trim();
+}
+
+/**
+ * 4000-char ceiling on the rendered FAQ section to bound prompt growth on
+ * shops with very chatty FAQs. Trim from the end (oldest entries lose first
+ * — they're typically lower-priority generic Qs the shop owner answered
+ * earliest). Exported for tests.
+ */
+export const MAX_FAQ_BLOCK_CHARS = 4000;
+
+/**
+ * Build the "Frequently asked questions for this service" prompt section.
+ * Returns empty string when entries is empty — empty FAQ produces the
+ * exact prompt as pre-FAQ behavior (zero regression risk).
+ *
+ * Header wording explicitly tells Claude to reason across the description
+ * AND the FAQ entries. The two surfaces are complementary, not
+ * substitutes — description always renders, FAQ is additive.
+ */
+function buildFaqBlock(
+  entries: { question: string; answer: string }[]
+): string {
+  if (!entries || entries.length === 0) return "";
+  const lines: string[] = [];
+  let totalChars = 0;
+  let truncated = false;
+  for (const e of entries) {
+    const q = (e.question ?? "").trim();
+    const a = (e.answer ?? "").trim();
+    if (!q || !a) continue; // skip half-filled entries defensively
+    const block = `Q: ${q}\nA: ${a}`;
+    if (totalChars + block.length + 2 > MAX_FAQ_BLOCK_CHARS) {
+      truncated = true;
+      break;
+    }
+    lines.push(block);
+    totalChars += block.length + 2; // +2 for the blank line between entries
+  }
+  if (lines.length === 0) return "";
+  const truncNote = truncated
+    ? "\n\n[...additional FAQ entries truncated to keep the prompt bounded — ask the shop for specifics on anything not covered here.]"
+    : "";
+  return `\n\nFrequently asked questions for this service (use these to answer specific customer questions — quote facts directly when relevant; reason across the description above AND these FAQ entries to handle the question):\n${lines.join("\n\n")}${truncNote}`;
 }
 
 /**

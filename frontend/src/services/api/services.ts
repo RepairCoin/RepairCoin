@@ -57,7 +57,12 @@ export interface ShopService {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
+  /**
+   * Q&A FAQ entries for the AI assistant to reference. Optional;
+   * empty/undefined means the AI relies on `description` only.
+   * Order in the array preserves display_order on the server.
+   */
+  faqEntries?: Array<{ question: string; answer: string }>;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {
@@ -154,7 +159,12 @@ export interface CreateServiceData {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
+  /**
+   * Q&A FAQ entries for the AI assistant to reference. Optional;
+   * empty/undefined means the AI relies on `description` only.
+   * Order in the array preserves display_order on the server.
+   */
+  faqEntries?: Array<{ question: string; answer: string }>;
 }
 
 export interface UpdateServiceData {
@@ -171,7 +181,12 @@ export interface UpdateServiceData {
   aiTone?: AITone;
   aiSuggestUpsells?: boolean;
   aiBookingAssistance?: boolean;
-  aiCustomInstructions?: string | null;
+  /**
+   * Q&A FAQ entries for the AI assistant to reference. Optional;
+   * empty/undefined means the AI relies on `description` only.
+   * Order in the array preserves display_order on the server.
+   */
+  faqEntries?: Array<{ question: string; answer: string }>;
 }
 
 export interface CreatePaymentIntentData {

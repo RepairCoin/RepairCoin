@@ -27,9 +27,9 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
     priceUsd: 89.99,
     durationMinutes: 30,
     category: "automotive",
-    customInstructions: null,
     bookingAssistance: true,
     suggestUpsells: false,
+    faqEntries: [],
   },
   customer: {
     address: "0xabc123",
@@ -144,19 +144,14 @@ describe("PromptTemplates — context content", () => {
     expect(prompt).not.toMatch(/RCN balance: 0/);
   });
 
-  it("includes custom shop instructions when set", () => {
-    const prompt = professionalPrompt(baseContext({
-      service: {
-        ...baseContext().service,
-        customInstructions: "Always offer the 30-day warranty.",
-      },
-    }));
-    expect(prompt).toContain("Always offer the 30-day warranty.");
-    expect(prompt).toMatch(/HONOR THESE/);
-  });
-
-  it("omits custom instructions block when null", () => {
+  // Note: the older ai_custom_instructions field was dropped — replaced by
+  // service_ai_faq_entries (a 1:many Q&A table). The "HONOR THESE"
+  // imperative-rules block is gone; the FAQ block uses descriptive framing
+  // ("use these to answer specific customer questions") instead. Tests
+  // for the FAQ block live under "FAQ block (Q&A pairs)" further below.
+  it("omits the FAQ block entirely when faqEntries is empty", () => {
     const prompt = professionalPrompt(baseContext());
+    expect(prompt).not.toMatch(/Frequently asked questions for this service/);
     expect(prompt).not.toMatch(/HONOR THESE/);
   });
 
@@ -1267,5 +1262,111 @@ describe("PromptTemplates — no-stall rule (#12)", () => {
       const p = buildPrompt(baseContext());
       expect(p).toMatch(/NEVER stall when you can't act/i);
     }
+  });
+});
+
+describe("PromptTemplates — Q&A FAQ block (replaces dropped ai_custom_instructions)", () => {
+  // Background: ai_custom_instructions was framed as "HONOR THESE" — imperative
+  // rules. We dropped that column (migration 113) and replaced it with a 1:many
+  // FAQ table. The new block uses descriptive framing ("facts you can quote")
+  // so Claude treats entries as knowledge to reference, not commands to obey.
+  // Local B' test on 2026-05-12 validated this with real Claude calls.
+
+  const sampleFaqEntries = [
+    {
+      question: "What's included in this service?",
+      answer:
+        "Chassis, IR + ultrasonic sensors, motor controller, 4-mic array, 5W speaker, ESP32 main board, 3000 mAh battery.",
+    },
+    {
+      question: "Is it safe around children and pets?",
+      answer:
+        "Yes — plastic and light metal parts only, low-voltage throughout. Motor controller has overcurrent protection.",
+    },
+  ];
+
+  it("omits the FAQ block entirely when faqEntries is empty", () => {
+    const ctx = baseContext({
+      service: { ...baseContext().service, faqEntries: [] },
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).not.toMatch(/Frequently asked questions for this service/i);
+  });
+
+  it("renders Q&A pairs under the new descriptive header when entries exist", () => {
+    const ctx = baseContext({
+      service: { ...baseContext().service, faqEntries: sampleFaqEntries },
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/Frequently asked questions for this service/i);
+    // Header explicitly tells Claude to REASON ACROSS the description + the FAQ.
+    expect(prompt).toMatch(/reason across the description above AND these FAQ entries/i);
+    // No "HONOR THESE" framing — that wording belonged to the old field.
+    expect(prompt).not.toMatch(/HONOR THESE/);
+    // Q/A lines render with the Q:/A: prefix pattern.
+    expect(prompt).toContain("Q: What's included in this service?");
+    expect(prompt).toContain("A: Chassis, IR + ultrasonic sensors");
+    expect(prompt).toContain("Q: Is it safe around children and pets?");
+    expect(prompt).toContain("A: Yes — plastic and light metal parts");
+  });
+
+  it("preserves entry order (display_order = array index)", () => {
+    const ctx = baseContext({
+      service: { ...baseContext().service, faqEntries: sampleFaqEntries },
+    });
+    const prompt = professionalPrompt(ctx);
+    const idxIncluded = prompt.indexOf("Q: What's included in this service?");
+    const idxSafe = prompt.indexOf("Q: Is it safe around children and pets?");
+    expect(idxIncluded).toBeGreaterThan(-1);
+    expect(idxSafe).toBeGreaterThan(idxIncluded);
+  });
+
+  it("skips entries with empty question or empty answer (defensive)", () => {
+    const ctx = baseContext({
+      service: {
+        ...baseContext().service,
+        faqEntries: [
+          { question: "Real Q", answer: "Real A" },
+          { question: "", answer: "Orphan answer" },
+          { question: "Orphan question", answer: "" },
+          { question: "Second real Q", answer: "Second real A" },
+        ],
+      },
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toContain("Q: Real Q");
+    expect(prompt).toContain("Q: Second real Q");
+    expect(prompt).not.toContain("Orphan answer");
+    expect(prompt).not.toContain("Orphan question");
+  });
+
+  it("renders the FAQ block on all three tones", () => {
+    const ctx = baseContext({
+      service: { ...baseContext().service, faqEntries: sampleFaqEntries },
+    });
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toMatch(/Frequently asked questions for this service/i);
+      expect(p).toContain("Q: What's included in this service?");
+    }
+  });
+
+  it("truncates the FAQ block when total size exceeds MAX_FAQ_BLOCK_CHARS", () => {
+    // Build 20 entries × ~250 chars each = ~5000 chars total → exceeds 4000 cap.
+    const longEntries = Array.from({ length: 20 }, (_, i) => ({
+      question: `Q${i + 1}: how about this aspect of the service?`,
+      answer:
+        `A${i + 1}: ` +
+        "lorem ipsum dolor sit amet consectetur adipiscing elit ".repeat(5),
+    }));
+    const ctx = baseContext({
+      service: { ...baseContext().service, faqEntries: longEntries },
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/Frequently asked questions for this service/i);
+    expect(prompt).toMatch(/\[\.\.\.additional FAQ entries truncated/i);
+    // First few entries survived; trailing ones did not.
+    expect(prompt).toContain("Q1: how about");
+    expect(prompt).not.toContain("Q20:");
   });
 });

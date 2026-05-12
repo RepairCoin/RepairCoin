@@ -70,9 +70,12 @@ function buildPreviewContext(
       priceUsd: Number(service.priceUsd ?? 0),
       durationMinutes: service.durationMinutes,
       category: service.category ?? "general",
-      customInstructions: service.aiCustomInstructions ?? null,
       bookingAssistance: service.aiBookingAssistance ?? false,
       suggestUpsells: false, // No siblings in preview to keep prompt size + cost bounded
+      // Preview skips FAQ entries — the dashboard demo focuses on tone and
+      // behavior, not on per-service knowledge. Empty array keeps the FAQ
+      // block out of the rendered prompt.
+      faqEntries: [],
     },
     customer: {
       address: "0xPREVIEW",

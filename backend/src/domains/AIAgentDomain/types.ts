@@ -142,12 +142,28 @@ export interface AgentServiceContext {
   priceUsd: number;
   durationMinutes?: number;
   category: string;
-  /** Honored when present — shop owner's free-form per-service guidance */
-  customInstructions: string | null;
   /** Whether the service has booking-assistance toggle enabled (Task 8/10 wiring) */
   bookingAssistance: boolean;
   /** Whether the service has upsell toggle enabled (drives includeUpsells decision in Task 5) */
   suggestUpsells: boolean;
+  /**
+   * Shop-authored Q&A FAQ entries for this service. Rendered to Claude as
+   * a "Frequently asked questions for this service" block when non-empty.
+   * The AI is told to reason across the description AND these entries
+   * (description always rendered; FAQ entries are additive). Empty array
+   * means the AI falls back to description-only context.
+   */
+  faqEntries: AgentServiceFaqEntry[];
+}
+
+/**
+ * One Q&A pair the shop owner wrote for this service. The order in the
+ * array preserves shop_services_ai_faq_entries.display_order so the prompt
+ * renders the entries in the shop owner's chosen sequence.
+ */
+export interface AgentServiceFaqEntry {
+  question: string;
+  answer: string;
 }
 
 /**
