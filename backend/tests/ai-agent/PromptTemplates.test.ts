@@ -307,7 +307,13 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
     const prompt = professionalPrompt(ctx);
     expect(prompt).toMatch(/BOOKING IS NOT AUTO-HANDLED FOR THIS TURN/);
     expect(prompt).toMatch(/No bookable slots are visible/i);
-    expect(prompt).not.toMatch(/describe-only mode/i);
+    // The safety-net block itself shouldn't claim "describe-only" — that
+    // wording belongs to the focused-service-has-flag-off branch. Scope
+    // the assertion to the block specifically (other rules may legitimately
+    // mention "describe-only" elsewhere in the prompt).
+    const block = prompt.split(/BOOKING IS NOT AUTO-HANDLED FOR THIS TURN:/)[1];
+    expect(block).toBeDefined();
+    expect(block.slice(0, 500)).not.toMatch(/describe-only mode/i);
   });
 
   it("downgrades bookable menu items to describe-only treatment when no slots exist (no tool will be built)", () => {
@@ -350,8 +356,6 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
       // The slot-list section ("The customer can book any of these REAL
       // available slots") must NOT appear — that's the with-tool branch.
       expect(p).not.toMatch(/The customer can book any of these REAL available slots/);
-      // slot_iso terminology shouldn't leak into the prompt without a real slot list.
-      expect(p).not.toContain("slot_iso");
     }
   });
 
@@ -951,33 +955,42 @@ describe("PromptTemplates — multi-service booking rule (#11)", () => {
     expect(prompt).toMatch(/call the tool with AQua Tech'?s id/i);
   });
 
-  it("rule #11 still acknowledges the tool emits one card per call (Phase 3 territory)", () => {
-    // Phase 2 lifted the "anchor-only" restriction but NOT the "one tap card
-    // per call" restriction. Phase 3 will allow multiple tool_use blocks; for
-    // now the AI must pick ONE service per call.
+  it("rule #11 allows MULTIPLE tool calls in one response (Phase 3)", () => {
+    // Phase 3 lifted the "one card per call" restriction. The orchestrator
+    // iterates over all tool_use blocks and renders one card each. Rule #11
+    // now explicitly tells Claude to emit one tool call per service when
+    // the customer asks for multiple in a single message.
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/can still only emit ONE tap-to-book card/i);
+    expect(prompt).toMatch(/the tool supports multiple calls per response/i);
+    expect(prompt).toMatch(/emit ONE tool_use block PER SERVICE/i);
   });
 
-  it("rule #11 retains two-channel structure for multi-service asks (one tool call + text block)", () => {
+  it("rule #11 provides a concrete multi-tool example for two-service requests", () => {
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/TWO output channels/i);
-    expect(prompt).toMatch(/text block.*OTHER service|OTHER service.*text block/i);
-    expect(prompt).toMatch(/REQUIRED structure/i);
+    expect(prompt).toMatch(/Example response for "book me a laptop repair and a pastry tutorial"/i);
+    // Both services appear as tool calls in the example, each with their own reply_text
+    expect(prompt).toMatch(/First content block \(tool_use\): propose_booking_slot/i);
+    expect(prompt).toMatch(/Second content block \(tool_use\): propose_booking_slot/i);
   });
 
-  it("rule #11 says the text block should offer to book the second service next, NOT redirect", () => {
-    // Phase 2 nuance: the OTHER service in a multi-service ask is still
-    // bookable in THIS chat — just on the next turn. So the text block
-    // should offer continuation, not redirection.
+  it("rule #11 keeps the text block path only for describe-only mixes", () => {
+    // When ALL requested services are bookable, no text block is needed —
+    // the tap cards speak for themselves. The text block is reserved for
+    // the case where one of the asked-for services is describe-only.
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/offer to book it on the next turn|What day works for that one/i);
-    expect(prompt).toMatch(/DO NOT redirect to another page/i);
+    expect(prompt).toMatch(/Optional plain TEXT BLOCK/i);
+    expect(prompt).toMatch(/Use it ONLY if you need to acknowledge a service that's in describe-only mode/i);
+    // Concrete describe-only-mix example must be present
+    expect(prompt).toMatch(/Example response when one of the asked-for services is describe-only/i);
   });
 
-  it("rule #11 forbids emitting two tool calls in one response (Phase 3 not done yet)", () => {
+  it("rule #11 forbids duplicate pair emission and cross-group slot mixing", () => {
+    // Phase 3-specific anti-patterns: the orchestrator deduplicates
+    // (service_id, slot_iso) pairs across tool calls and rejects mismatched
+    // pairs. Claude should know not to produce them in the first place.
     const prompt = professionalPrompt(ctx());
-    expect(prompt).toMatch(/Two tool calls in one response/i);
+    expect(prompt).toMatch(/duplicate \(service_id, slot_iso\) pairs|the second one is dropped/i);
+    expect(prompt).toMatch(/Mix a service_id from one service'?s group with a slot_iso from another/i);
   });
 
   it("rule #11 carves out single-service requests as the common case", () => {

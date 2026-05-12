@@ -659,3 +659,317 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
     expect(callArgs.tools).toBeUndefined();
   });
 });
+
+describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
+  // Phase 3 lifted the "one tap card per call" restriction. Claude can now
+  // emit N tool_use blocks in a single response; the orchestrator iterates,
+  // validates each, dedupes (serviceId, slotIso) pairs, and renders one
+  // booking_suggestion per valid block.
+
+  const slotA = "2026-05-08T18:00:00.000Z";
+  const slotB = "2026-05-09T14:00:00.000Z";
+
+  const buildMultiServiceMocks = (toolUses: any[]) => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 80,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses,
+      },
+    });
+    // Two AI-enabled services, each with its own slot.
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      service: {
+        serviceId: "srv_test",
+        serviceName: "Test Service A",
+        priceUsd: 50,
+        category: "test",
+        description: "test",
+        customInstructions: null,
+        bookingAssistance: true,
+        suggestUpsells: false,
+      },
+      customer: { address: "0xabc", name: "Test", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
+      conversationHistory: [],
+      siblingServices: [],
+      shopServiceMenu: [],
+      availabilitySlots: [
+        {
+          date: "2026-05-08",
+          time: "14:00",
+          slotIso: slotA,
+          humanLabel: "Friday at 2:00 PM",
+          serviceId: "srv_test",
+          serviceName: "Test Service A",
+        },
+        {
+          date: "2026-05-09",
+          time: "10:00",
+          slotIso: slotB,
+          humanLabel: "Saturday at 10:00 AM",
+          serviceId: "srv_other",
+          serviceName: "Test Service B",
+        },
+      ],
+    });
+    return mocks;
+  };
+
+  it("renders one booking suggestion per valid tool_use block when Claude emits two", async () => {
+    const { orch, messageRepo } = buildMultiServiceMocks([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_1",
+        input: {
+          service_id: "srv_test",
+          slot_iso: slotA,
+          reply_text: "For Service A — Friday at 2 PM works.",
+        },
+      },
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_2",
+        input: {
+          service_id: "srv_other",
+          slot_iso: slotB,
+          reply_text: "And for Service B — Saturday at 10 AM works.",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toEqual([
+      { serviceId: "srv_test", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
+      { serviceId: "srv_other", slotIso: slotB, humanLabel: "Saturday at 10:00 AM" },
+    ]);
+    // Both reply_texts present in order, separated by a blank line
+    expect(created.messageText).toContain("For Service A — Friday at 2 PM works.");
+    expect(created.messageText).toContain("And for Service B — Saturday at 10 AM works.");
+    expect(
+      created.messageText.indexOf("For Service A")
+    ).toBeLessThan(
+      created.messageText.indexOf("And for Service B")
+    );
+  });
+
+  it("preserves valid tool_use blocks even when other blocks in the same response are invalid", async () => {
+    const { orch, messageRepo } = buildMultiServiceMocks([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_good",
+        input: {
+          service_id: "srv_test",
+          slot_iso: slotA,
+          reply_text: "For Service A — Friday at 2 PM works.",
+        },
+      },
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_bad",
+        input: {
+          service_id: "srv_test",
+          slot_iso: "2026-12-31T00:00:00.000Z", // hallucinated slot
+          reply_text: "And on New Year's Eve?",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toEqual([
+      { serviceId: "srv_test", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
+    ]);
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "tool_returned_invalid_slot",
+    ]);
+    // The valid reply_text reaches the customer
+    expect(created.messageText).toContain("For Service A — Friday at 2 PM works.");
+    // The invalid block's reply_text is dropped (not shown to customer)
+    expect(created.messageText).not.toContain("New Year's Eve");
+  });
+
+  it("dedupes duplicate (service_id, slot_iso) pairs across tool calls", async () => {
+    const { orch, messageRepo } = buildMultiServiceMocks([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_dup_1",
+        input: {
+          service_id: "srv_test",
+          slot_iso: slotA,
+          reply_text: "First mention of Friday 2 PM.",
+        },
+      },
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_dup_2",
+        input: {
+          service_id: "srv_test",
+          slot_iso: slotA, // same pair as above
+          reply_text: "Same slot mentioned twice.",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    // Only the first occurrence wins.
+    expect(created.metadata.booking_suggestions).toEqual([
+      { serviceId: "srv_test", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
+    ]);
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "tool_returned_duplicate_pair",
+    ]);
+  });
+
+  it("rejects all blocks when every one is invalid, surfacing all drop reasons", async () => {
+    const { orch, messageRepo } = buildMultiServiceMocks([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_bad_1",
+        input: {
+          service_id: "srv_test",
+          slot_iso: "2026-12-31T00:00:00.000Z", // hallucinated
+          reply_text: "Bad slot one",
+        },
+      },
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_bad_2",
+        input: {
+          service_id: "srv_test", // valid service
+          slot_iso: slotB,         // belongs to srv_other — mismatch
+          reply_text: "Cross-group mismatch",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "tool_returned_invalid_slot",
+      "tool_returned_service_slot_mismatch",
+    ]);
+  });
+
+  it("flags empty reply_text but accepts the rest of a multi-tool response", async () => {
+    const { orch, messageRepo } = buildMultiServiceMocks([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_empty_reply",
+        input: {
+          service_id: "srv_test",
+          slot_iso: slotA,
+          reply_text: "   ", // whitespace only → rejected
+        },
+      },
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_ok",
+        input: {
+          service_id: "srv_other",
+          slot_iso: slotB,
+          reply_text: "For Service B — Saturday at 10 AM works.",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const created = messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toEqual([
+      { serviceId: "srv_other", slotIso: slotB, humanLabel: "Saturday at 10:00 AM" },
+    ]);
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "tool_returned_empty_reply_text",
+    ]);
+  });
+
+  it("prepends Claude's text block before the concatenated reply_texts when both are present", async () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "Lining both up now:",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 80,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_1",
+            input: {
+              service_id: "srv_test",
+              slot_iso: slotA,
+              reply_text: "For Service A — Friday at 2 PM.",
+            },
+          },
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_2",
+            input: {
+              service_id: "srv_other",
+              slot_iso: slotB,
+              reply_text: "And for Service B — Saturday at 10 AM.",
+            },
+          },
+        ],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      service: {
+        serviceId: "srv_test",
+        serviceName: "Test Service A",
+        priceUsd: 50,
+        category: "test",
+        description: "test",
+        customInstructions: null,
+        bookingAssistance: true,
+        suggestUpsells: false,
+      },
+      customer: { address: "0xabc", name: "Test", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
+      conversationHistory: [],
+      siblingServices: [],
+      shopServiceMenu: [],
+      availabilitySlots: [
+        {
+          date: "2026-05-08",
+          time: "14:00",
+          slotIso: slotA,
+          humanLabel: "Friday at 2:00 PM",
+          serviceId: "srv_test",
+          serviceName: "Test Service A",
+        },
+        {
+          date: "2026-05-09",
+          time: "10:00",
+          slotIso: slotB,
+          humanLabel: "Saturday at 10:00 AM",
+          serviceId: "srv_other",
+          serviceName: "Test Service B",
+        },
+      ],
+    });
+    await mocks.orch.handleCustomerMessage(sampleInput());
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.messageText.startsWith("Lining both up now:")).toBe(true);
+    expect(created.messageText).toContain("For Service A — Friday at 2 PM.");
+    expect(created.messageText).toContain("And for Service B — Saturday at 10 AM.");
+  });
+});
