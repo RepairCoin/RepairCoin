@@ -426,6 +426,15 @@ export class ContextBuilder {
       ? bookingPolicy?.reschedule_min_hours ?? null
       : null;
 
+    // Contact details — empty strings get normalized to null so the
+    // prompt renderer can skip them cleanly. snake_case from raw pg rows,
+    // camelCase via ShopRepository mappings — defensive read of both.
+    const normalizeContact = (v: unknown): string | null => {
+      if (typeof v !== "string") return null;
+      const trimmed = v.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
+
     return {
       shopId: row.shopId ?? row.shop_id,
       shopName: row.name ?? row.shopName ?? "the shop",
@@ -438,6 +447,10 @@ export class ContextBuilder {
       maxReschedulesPerBooking,
       rescheduleMinHours,
       cancellationMinHours,
+      address: normalizeContact(row.address),
+      phone: normalizeContact(row.phone),
+      email: normalizeContact(row.email),
+      website: normalizeContact(row.website),
     };
   }
 

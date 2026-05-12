@@ -134,6 +134,57 @@ describe("ContextBuilder", () => {
     expect(ctx.siblingServices).toEqual([]);
   });
 
+  it("propagates shop contact details (address/phone/email/website) when set on the row", async () => {
+    const { builder } = makeMocks({
+      shop: {
+        shopId: "peanut",
+        name: "Peanut Auto",
+        category: "automotive",
+        timezone: "America/Chicago",
+        address: "Obong-Patacbo Barangay Road, Pangasinan, Philippines",
+        phone: "09162512445",
+        email: "kyle@example.com",
+        website: "https://peanut.example",
+      },
+    });
+    const ctx = await builder.build({
+      customerAddress: "0xabc123",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+    expect(ctx.shop.address).toBe("Obong-Patacbo Barangay Road, Pangasinan, Philippines");
+    expect(ctx.shop.phone).toBe("09162512445");
+    expect(ctx.shop.email).toBe("kyle@example.com");
+    expect(ctx.shop.website).toBe("https://peanut.example");
+  });
+
+  it("normalizes empty / whitespace-only contact strings to null", async () => {
+    // Some legacy shop rows have empty strings instead of true nulls.
+    // The prompt block should treat those as "not set" so it doesn't
+    // render "Address: " with no value.
+    const { builder } = makeMocks({
+      shop: {
+        shopId: "peanut",
+        name: "Peanut Auto",
+        category: "automotive",
+        timezone: "America/Chicago",
+        address: "",
+        phone: "   ",
+        email: undefined,
+        website: null,
+      },
+    });
+    const ctx = await builder.build({
+      customerAddress: "0xabc123",
+      serviceId: "srv_main",
+      conversationId: "conv_xxx",
+    });
+    expect(ctx.shop.address).toBeNull();
+    expect(ctx.shop.phone).toBeNull();
+    expect(ctx.shop.email).toBeNull();
+    expect(ctx.shop.website).toBeNull();
+  });
+
   it("passes through service-level AI fields to AgentServiceContext", async () => {
     const { builder } = makeMocks({
       service: baseService({

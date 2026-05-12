@@ -99,6 +99,13 @@ function buildPreviewContext(
       maxReschedulesPerBooking: null,
       rescheduleMinHours: null,
       cancellationMinHours: null,
+      // Preview skips contact details too — the dashboard demo is about
+      // the AI's tone and behavior, not about surfacing shop contact
+      // info. Null keeps the contact block out of the rendered prompt.
+      address: null,
+      phone: null,
+      email: null,
+      website: null,
     },
     conversationHistory: [], // Fresh conversation for preview
     siblingServices: [],

@@ -246,12 +246,23 @@ ${describeOnlyMenuItems.map(renderMenuLine).join("\n")}`
   // of the context block so it's the first thing Claude reads.
   const todayLine = buildTodayLine(ctx.shop.timezone);
 
+  // Contact lines — one per populated field, omitted when null. Surfaced
+  // so the AI can answer "what's your address / phone / email?" honestly
+  // instead of "I don't have that on hand" — observed staging failure
+  // mode before this fix.
+  const contactLines: string[] = [];
+  if (ctx.shop.address) contactLines.push(`  Address: ${ctx.shop.address}`);
+  if (ctx.shop.phone) contactLines.push(`  Phone: ${ctx.shop.phone}`);
+  if (ctx.shop.email) contactLines.push(`  Email: ${ctx.shop.email}`);
+  if (ctx.shop.website) contactLines.push(`  Website: ${ctx.shop.website}`);
+  const contactBlock = contactLines.length > 0 ? `\n${contactLines.join("\n")}` : "";
+
   return `
 ${todayLine}
 
 About this shop:
   Name: ${ctx.shop.shopName}
-  Category: ${ctx.shop.category ?? "general repair / service"}${hoursBlock}${bookingPolicyBlock}
+  Category: ${ctx.shop.category ?? "general repair / service"}${contactBlock}${hoursBlock}${bookingPolicyBlock}
 
 About this service (THE ACTIVE TOPIC — this is the service the customer most recently clicked into; default for any booking request that doesn't name a different service by name in the customer's current message):
   Name: ${ctx.service.serviceName}
