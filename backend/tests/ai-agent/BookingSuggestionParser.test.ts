@@ -18,8 +18,11 @@ const SLOT_LABELS = {
   "2026-05-09T11:00:00.000Z": "Friday, May 9 at 11:00 AM",
 };
 
+const SERVICE_NAME = "Pastry Tutorial";
+
 const baseInputs = () => ({
   expectedServiceId: SERVICE_ID,
+  expectedServiceName: SERVICE_NAME,
   validSlotsIso: [...VALID_SLOTS],
   slotLabelsByIso: { ...SLOT_LABELS },
 });
@@ -37,6 +40,7 @@ describe("BookingSuggestionParser — happy path", () => {
     expect(suggestions).toEqual([
       {
         serviceId: "srv_test_123",
+        serviceName: "Pastry Tutorial",
         slotIso: "2026-05-08T14:30:00.000Z",
         humanLabel: "Thursday, May 8 at 2:30 PM",
       },
@@ -169,6 +173,7 @@ describe("BookingSuggestionParser — slot label fallback", () => {
 \`\`\``;
     const { suggestions } = parseBookingSuggestions(text, {
       expectedServiceId: SERVICE_ID,
+      expectedServiceName: SERVICE_NAME,
       validSlotsIso: VALID_SLOTS,
       // No slotLabelsByIso
     });

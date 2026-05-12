@@ -19,6 +19,14 @@ import { useRouter } from "next/navigation";
 
 export interface BookingSuggestion {
   serviceId: string;
+  /**
+   * Phase 5 of multi-service architecture: backend now stamps the service
+   * name onto each suggestion so multi-card responses (Phase 3) can label
+   * each card with its own service. Optional for backwards compatibility
+   * with older payloads — caller falls back to the prop `serviceName`
+   * (message-level) when this is missing.
+   */
+  serviceName?: string;
   slotIso: string;
   humanLabel?: string;
   depositUsd?: number;
@@ -26,14 +34,19 @@ export interface BookingSuggestion {
 
 export interface BookingSuggestionCardProps {
   suggestion: BookingSuggestion;
-  /** Service display data — falls back to "this service" when unknown */
+  /**
+   * Fallback service name used only when the suggestion itself doesn't
+   * carry one (older backend payloads). Phase 5 callers should prefer
+   * letting the suggestion's serviceName drive the label so each card in
+   * a multi-card response renders correctly.
+   */
   serviceName?: string;
   servicePriceUsd?: number;
 }
 
 export function BookingSuggestionCard({
   suggestion,
-  serviceName,
+  serviceName: serviceNameProp,
   servicePriceUsd,
 }: BookingSuggestionCardProps) {
   const router = useRouter();
@@ -50,9 +63,10 @@ export function BookingSuggestionCard({
     router.push(`/service/${suggestion.serviceId}?${params.toString()}`);
   };
 
-  // Best-effort label: prefer the backend-supplied human label (already in
-  // the shop's timezone). Fall back to a locale-rendered version of the ISO.
-  const label =
+  // Best-effort time label: prefer the backend-supplied human label
+  // (already in the shop's timezone). Fall back to a locale-rendered
+  // version of the ISO.
+  const timeLabel =
     suggestion.humanLabel ||
     new Date(suggestion.slotIso).toLocaleString(undefined, {
       weekday: "long",
@@ -62,12 +76,17 @@ export function BookingSuggestionCard({
       minute: "2-digit",
     });
 
+  // Phase 5: each suggestion now carries its own serviceName. Prefer that
+  // over the message-level prop fallback — critical for multi-card
+  // responses where each card belongs to a different service.
+  const displayServiceName = suggestion.serviceName ?? serviceNameProp;
+
   return (
     <button
       type="button"
       onClick={handleTap}
       className="mt-2 w-full text-left bg-violet-500/10 border border-violet-400/40 hover:border-violet-300 hover:bg-violet-500/20 rounded-xl px-4 py-3 transition-colors flex items-center gap-3 group"
-      aria-label={`Tap to book ${serviceName ?? "this service"} on ${label}`}
+      aria-label={`Tap to book ${displayServiceName ?? "this service"} on ${timeLabel}`}
     >
       <div className="flex-shrink-0 w-9 h-9 rounded-full bg-violet-400/20 flex items-center justify-center">
         <Calendar className="w-4 h-4 text-violet-300" aria-hidden="true" />
@@ -76,20 +95,37 @@ export function BookingSuggestionCard({
         <div className="text-[11px] font-medium text-violet-300/80 uppercase tracking-wide">
           Tap to book
         </div>
-        <div className="text-sm font-semibold text-white truncate">{label}</div>
-        {(serviceName || servicePriceUsd !== undefined) && (
+        {/* Phase 5: service name now the primary label, with time below it.
+            Previously the time was primary and the service name was buried
+            in the secondary line — which read ambiguously when Phase 3
+            stacked two cards with different services and identical time
+            formatting. */}
+        {displayServiceName && (
+          <div className="text-sm font-semibold text-white truncate">
+            {displayServiceName}
+          </div>
+        )}
+        <div
+          className={
+            displayServiceName
+              ? "text-xs text-gray-300 truncate"
+              : "text-sm font-semibold text-white truncate"
+          }
+        >
+          {timeLabel}
+        </div>
+        {(servicePriceUsd !== undefined ||
+          (suggestion.depositUsd !== undefined && suggestion.depositUsd > 0)) && (
           <div className="text-xs text-gray-400 truncate">
-            {serviceName ?? "Service"}
             {servicePriceUsd !== undefined && (
-              <>
-                {" · "}
-                <span className="text-[#FFCC00]">${servicePriceUsd.toFixed(2)}</span>
-              </>
+              <span className="text-[#FFCC00]">${servicePriceUsd.toFixed(2)}</span>
             )}
+            {servicePriceUsd !== undefined &&
+              suggestion.depositUsd !== undefined &&
+              suggestion.depositUsd > 0 &&
+              " · "}
             {suggestion.depositUsd !== undefined && suggestion.depositUsd > 0 && (
-              <span className="text-gray-400">
-                {" · "}${suggestion.depositUsd.toFixed(2)} deposit
-              </span>
+              <span>${suggestion.depositUsd.toFixed(2)} deposit</span>
             )}
           </div>
         )}

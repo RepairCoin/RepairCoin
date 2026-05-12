@@ -444,6 +444,7 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
     expect(created.metadata.booking_suggestions).toEqual([
       {
         serviceId: "srv_test",
+        serviceName: "Test Service",
         slotIso,
         humanLabel: "Friday at 2:00 PM",
       },
@@ -523,6 +524,7 @@ describe("AgentOrchestrator — booking tool use (Phase 3 fix-6)", () => {
     expect(created.metadata.booking_suggestions).toEqual([
       {
         serviceId: "srv_test",
+        serviceName: "Test Service",
         slotIso,
         humanLabel: "Friday at 2:00 PM",
       },
@@ -750,8 +752,8 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
 
     const created = messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toEqual([
-      { serviceId: "srv_test", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
-      { serviceId: "srv_other", slotIso: slotB, humanLabel: "Saturday at 10:00 AM" },
+      { serviceId: "srv_test", serviceName: "Test Service A", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
+      { serviceId: "srv_other", serviceName: "Test Service B", slotIso: slotB, humanLabel: "Saturday at 10:00 AM" },
     ]);
     // Both reply_texts present in order, separated by a blank line
     expect(created.messageText).toContain("For Service A — Friday at 2 PM works.");
@@ -788,7 +790,7 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
 
     const created = messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toEqual([
-      { serviceId: "srv_test", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
+      { serviceId: "srv_test", serviceName: "Test Service A", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
     ]);
     expect(created.metadata.booking_suggestion_dropped).toEqual([
       "tool_returned_invalid_slot",
@@ -825,7 +827,7 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
     const created = messageRepo.createMessage.mock.calls[0][0];
     // Only the first occurrence wins.
     expect(created.metadata.booking_suggestions).toEqual([
-      { serviceId: "srv_test", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
+      { serviceId: "srv_test", serviceName: "Test Service A", slotIso: slotA, humanLabel: "Friday at 2:00 PM" },
     ]);
     expect(created.metadata.booking_suggestion_dropped).toEqual([
       "tool_returned_duplicate_pair",
@@ -888,7 +890,7 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
 
     const created = messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toEqual([
-      { serviceId: "srv_other", slotIso: slotB, humanLabel: "Saturday at 10:00 AM" },
+      { serviceId: "srv_other", serviceName: "Test Service B", slotIso: slotB, humanLabel: "Saturday at 10:00 AM" },
     ]);
     expect(created.metadata.booking_suggestion_dropped).toEqual([
       "tool_returned_empty_reply_text",
