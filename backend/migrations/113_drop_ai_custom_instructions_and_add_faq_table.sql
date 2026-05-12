@@ -25,13 +25,21 @@
 ALTER TABLE shop_services
   DROP COLUMN IF EXISTS ai_custom_instructions;
 
--- Step 2: Create the FAQ entries table. One service has many entries; entries
--- cascade-delete when the parent service is removed. Order is preserved via
--- display_order so the AI prompt + dashboard list render in the shop owner's
--- intended sequence (most-asked first, etc.).
+-- Step 2: Create the FAQ entries table. One service has many entries; order
+-- is preserved via display_order so the AI prompt + dashboard list render in
+-- the shop owner's intended sequence (most-asked first, etc.).
+--
+-- Soft reference on service_id (no FOREIGN KEY): shop_services.service_id is
+-- a VARCHAR without a UNIQUE/PRIMARY KEY constraint on staging+prod despite
+-- migration 036 declaring it as UUID PRIMARY KEY (schema drift). Migration
+-- 110 hit the same wall for ai_agent_messages.service_id and used the same
+-- soft-reference pattern. Adding a real FK here would fail with "no unique
+-- constraint matching given keys for referenced table". Cleanup on service
+-- delete is handled application-side in ServiceManagementService — see
+-- ServiceAIFaqRepository.deleteEntriesForService.
 CREATE TABLE IF NOT EXISTS service_ai_faq_entries (
   faq_entry_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  service_id    VARCHAR NOT NULL REFERENCES shop_services(service_id) ON DELETE CASCADE,
+  service_id    VARCHAR NOT NULL,
   question      VARCHAR(300) NOT NULL,
   answer        TEXT NOT NULL,
   display_order INTEGER NOT NULL DEFAULT 0,

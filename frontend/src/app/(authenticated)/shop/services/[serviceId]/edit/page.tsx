@@ -10,6 +10,10 @@ import { ServiceFormPreview } from "@/components/shop/service/ServiceFormPreview
 import { ServiceFormLayout } from "@/components/shop/service/ServiceFormLayout";
 import { AISalesAssistantSection } from "@/components/shop/service/AISalesAssistantSection";
 import {
+  buildStarterEntries,
+  type FaqEntry,
+} from "@/components/shop/service/AIFaqEditor";
+import {
   getServiceById,
   updateService,
   ShopService,
@@ -54,6 +58,10 @@ export default function EditServicePage() {
   const [aiTone, setAiTone] = useState<AITone>("professional");
   const [aiSuggestUpsells, setAiSuggestUpsells] = useState(false);
   const [aiBookingAssistance, setAiBookingAssistance] = useState(false);
+  // Phase 2 of FAQ rollout: starts empty (the load effect below seeds it
+  // from the persisted entries; falls back to starter Qs when the service
+  // has none yet).
+  const [faqEntries, setFaqEntries] = useState<FaqEntry[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +91,15 @@ export default function EditServicePage() {
           setAiTone(data.aiTone ?? "professional");
           setAiSuggestUpsells(data.aiSuggestUpsells ?? false);
           setAiBookingAssistance(data.aiBookingAssistance ?? false);
+          // Phase 2 of FAQ rollout: seed editor from persisted entries.
+          // Empty array → show starter questions so the shop owner sees
+          // useful suggestions instead of an empty editor.
+          const persistedFaq = (data as any).faqEntries as FaqEntry[] | undefined;
+          if (persistedFaq && persistedFaq.length > 0) {
+            setFaqEntries(persistedFaq);
+          } else {
+            setFaqEntries(buildStarterEntries());
+          }
         } else {
           toast.error("Service not found");
           router.push("/shop?tab=services");
@@ -113,6 +130,11 @@ export default function EditServicePage() {
       aiTone,
       aiSuggestUpsells,
       aiBookingAssistance,
+      // Strip empty entries before submit so unanswered starter Qs don't
+      // persist as half-filled rows.
+      faqEntries: faqEntries
+        .map((e) => ({ question: e.question.trim(), answer: e.answer.trim() }))
+        .filter((e) => e.question.length > 0 && e.answer.length > 0),
     };
     const updated = await updateService(serviceId, payload);
     if (!updated) {
@@ -165,12 +187,14 @@ export default function EditServicePage() {
                 tone={aiTone}
                 suggestUpsells={aiSuggestUpsells}
                 enableBookingAssistance={aiBookingAssistance}
+                faqEntries={faqEntries}
                 serviceId={serviceId}
                 onChange={(changes) => {
                   if (changes.enabled !== undefined) setAiEnabled(changes.enabled);
                   if (changes.tone !== undefined) setAiTone(changes.tone);
                   if (changes.suggestUpsells !== undefined) setAiSuggestUpsells(changes.suggestUpsells);
                   if (changes.enableBookingAssistance !== undefined) setAiBookingAssistance(changes.enableBookingAssistance);
+                  if (changes.faqEntries !== undefined) setFaqEntries(changes.faqEntries);
                 }}
               />
             </ServiceForm>

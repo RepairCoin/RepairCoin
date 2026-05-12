@@ -5,6 +5,7 @@ import { Bot, ChevronDown, ChevronUp, Check, Sparkles } from "lucide-react";
 import { AI_PREVIEW_MOCKS, AITone } from "@/utils/aiPreviewMocks";
 import { getAiPreview, AIPreviewResponse } from "@/services/api/services";
 import { AISpendIndicator } from "@/components/shop/service/AISpendIndicator";
+import { AIFaqEditor, type FaqEntry } from "@/components/shop/service/AIFaqEditor";
 
 /**
  * AISalesAssistantSection
@@ -29,6 +30,13 @@ export interface AISalesAssistantSectionProps {
   tone: AITone;
   suggestUpsells: boolean;
   enableBookingAssistance: boolean;
+  /**
+   * FAQ entries the AI will quote from when answering customer questions.
+   * Order matches display_order on save. Empty entries are stripped on
+   * submit (in ServiceForm) so starter-Q placeholders the shop owner
+   * left blank don't persist.
+   */
+  faqEntries: FaqEntry[];
   onChange: (changes: Partial<Omit<AISalesAssistantSectionProps, "onChange">>) => void;
   /** Optional — when present, the preview fetches a real Claude reply for this service. */
   serviceId?: string;
@@ -53,6 +61,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
   tone,
   suggestUpsells,
   enableBookingAssistance,
+  faqEntries,
   onChange,
   serviceId,
 }) => {
@@ -239,6 +248,17 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
             onChange={(v) => onChange({ enableBookingAssistance: v })}
           />
         </div>
+      </div>
+
+      {/* Q&A FAQ editor (Phase 2 of FAQ rollout). Lives inside the AI
+          section card so shop owners see it in context with the rest of
+          the AI settings. Disabled when the master toggle is off. */}
+      <div className="mt-5 pt-4 border-t border-gray-200">
+        <AIFaqEditor
+          value={faqEntries}
+          disabled={!enabled}
+          onChange={(next) => onChange({ faqEntries: next })}
+        />
       </div>
 
       {/* Disclosure + spend indicator — Phase 3 Tasks 7 & 12. */}

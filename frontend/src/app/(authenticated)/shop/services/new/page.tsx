@@ -10,6 +10,10 @@ import { ServiceFormPreview } from "@/components/shop/service/ServiceFormPreview
 import { ServiceFormLayout } from "@/components/shop/service/ServiceFormLayout";
 import { AISalesAssistantSection } from "@/components/shop/service/AISalesAssistantSection";
 import {
+  buildStarterEntries,
+  type FaqEntry,
+} from "@/components/shop/service/AIFaqEditor";
+import {
   createService,
   CreateServiceData,
   UpdateServiceData,
@@ -60,6 +64,10 @@ export default function NewServicePage() {
   const [aiTone, setAiTone] = useState<AITone>("professional");
   const [aiSuggestUpsells, setAiSuggestUpsells] = useState(true);
   const [aiBookingAssistance, setAiBookingAssistance] = useState(true);
+  // Phase 2 of FAQ rollout: seed the editor with starter questions so the
+  // shop owner doesn't face a blank slate. Empty answers are stripped on
+  // submit so unanswered starter Qs don't persist.
+  const [faqEntries, setFaqEntries] = useState<FaqEntry[]>(() => buildStarterEntries());
 
   const handleSubmit = async (data: CreateServiceData | UpdateServiceData) => {
     // Merge AI Sales Assistant state into the create payload. ServiceForm owns
@@ -71,6 +79,10 @@ export default function NewServicePage() {
       aiTone,
       aiSuggestUpsells,
       aiBookingAssistance,
+      // Strip empty/blank entries so starter-Q placeholders don't persist.
+      faqEntries: faqEntries
+        .map((e) => ({ question: e.question.trim(), answer: e.answer.trim() }))
+        .filter((e) => e.question.length > 0 && e.answer.length > 0),
     };
     const created = await createService(payload);
     if (!created) {
@@ -114,11 +126,13 @@ export default function NewServicePage() {
               tone={aiTone}
               suggestUpsells={aiSuggestUpsells}
               enableBookingAssistance={aiBookingAssistance}
+              faqEntries={faqEntries}
               onChange={(changes) => {
                 if (changes.enabled !== undefined) setAiEnabled(changes.enabled);
                 if (changes.tone !== undefined) setAiTone(changes.tone);
                 if (changes.suggestUpsells !== undefined) setAiSuggestUpsells(changes.suggestUpsells);
                 if (changes.enableBookingAssistance !== undefined) setAiBookingAssistance(changes.enableBookingAssistance);
+                if (changes.faqEntries !== undefined) setFaqEntries(changes.faqEntries);
               }}
             />
           </ServiceForm>
