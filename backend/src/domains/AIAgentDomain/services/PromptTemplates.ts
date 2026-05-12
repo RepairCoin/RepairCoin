@@ -65,6 +65,7 @@ HARD RULES (apply to every reply):
       - Two tool calls in one response — the tool can only emit one card per call. If the customer wants both booked in one turn, ask them to confirm the second one next.
 
     Single-service requests (the common case): just call the tool with the right service_id. No text block needed.
+12. NEVER stall when you can't act. If you don't have a tool, don't have data, or aren't sure what's available — say so plainly and offer to have a teammate follow up. Forbidden stall patterns (these leave the customer waiting indefinitely with no resolution): "Let me check availability...", "Let me confirm that for you...", "I'll look into it...", "One moment while I check...", "Let me see what's open...". Replace with one of: "I don't have live booking access for this one — I'll have someone from the shop reach out to lock it in. Sound good?" / "A teammate will follow up shortly with exact times." / "I can't pull live availability for this service from here — happy to have the shop confirm directly." Then STOP. The shop staff sees the conversation and can pick it up. The customer's worst experience is silence; honest "I'll get a human" beats fake "let me check."
 
 STYLE — write like a real person at the shop, not a template:
 - Match the customer's energy. Short question → short answer. Casual question → casual answer.
@@ -136,12 +137,21 @@ ${ctx.siblingServices
   //   - Describe-only (flag=false): AI may discuss but MUST NOT propose
   //     slots — the shop owner intentionally disabled AI booking for these.
   //     AI should suggest the customer contact the shop directly to book.
-  const bookableMenuItems = (ctx.shopServiceMenu ?? []).filter(
-    (s) => s.bookingAssistance === true
-  );
-  const describeOnlyMenuItems = (ctx.shopServiceMenu ?? []).filter(
-    (s) => s.bookingAssistance !== true
-  );
+  //
+  // Safety-net follow-up: when NO slots are present (no tool will be
+  // built this turn — typically because the focused service has booking
+  // assistance off), downgrade ALL menu items to describe-only treatment.
+  // Listing a service as "AI-bookable" while no tool exists misleads
+  // Claude into stalling with "let me check". When this branch fires,
+  // the dedicated BOOKING-UNAVAILABLE block below also explains the
+  // teammate-handoff path.
+  const noToolThisTurn = !ctx.availabilitySlots || ctx.availabilitySlots.length === 0;
+  const bookableMenuItems = noToolThisTurn
+    ? []
+    : (ctx.shopServiceMenu ?? []).filter((s) => s.bookingAssistance === true);
+  const describeOnlyMenuItems = noToolThisTurn
+    ? ctx.shopServiceMenu ?? []
+    : (ctx.shopServiceMenu ?? []).filter((s) => s.bookingAssistance !== true);
   const renderMenuLine = (s: (typeof ctx.shopServiceMenu)[number]) => {
     const durationPart = s.durationMinutes ? `, ~${s.durationMinutes} min` : "";
     const blurbPart = s.shortBlurb ? `: ${s.shortBlurb}` : "";
@@ -253,7 +263,30 @@ ${shopServiceMenuBlock}${upsellsBlock}${bookingBlock}
  */
 function buildBookingBlock(ctx: AgentContext): string {
   if (!ctx.availabilitySlots || ctx.availabilitySlots.length === 0) {
-    return "";
+    // Safety net: no slots → no propose_booking_slot tool will be provided
+    // to Claude this turn. Without explicit guidance Claude defaults to
+    // "Let me check availability…" — a stall that leaves the customer
+    // waiting on a check that will never come back. Tell Claude plainly
+    // that booking is not auto-handled here and direct it to the teammate
+    // handoff. This block fires when:
+    //   - The focused service has ai_booking_assistance=false, OR
+    //   - The focused service has it on but no slots exist in the lookahead
+    //     window (rare — typically means the shop has no upcoming openings).
+    const focusedIsDescribeOnly = ctx.service.bookingAssistance === false;
+    const reasonLine = focusedIsDescribeOnly
+      ? `The focused service (${ctx.service.serviceName}) is in describe-only mode — the shop owner has disabled AI auto-booking for it.`
+      : `No bookable slots are visible to you in the current window.`;
+    return `
+
+BOOKING IS NOT AUTO-HANDLED FOR THIS TURN:
+${reasonLine} The propose_booking_slot tool is NOT available in this response — you literally cannot produce a tap-to-book card.
+
+If the customer asks to book ANY service (focused or otherwise), do NOT stall. Specifically:
+- DO NOT say "Let me check availability...", "Let me confirm...", "I'll look into that...", "One moment while I check..." — these promise a follow-up you cannot deliver and leave the customer waiting.
+- DO acknowledge their intent and hand off to a teammate explicitly: "I don't have live booking access for this one — I'll have someone from the shop reach out shortly to lock that in. Sound good?" Then STOP. The shop staff sees the conversation and can pick it up.
+- DO NOT invent slot times or claim a specific time will work. You have no source of truth on what's open.
+
+This is the safest behavior whenever you can't book directly. The customer's worst experience is silence after a "let me check" — an honest teammate-handoff is always better.`;
   }
 
   // Phase 2 of multi-service architecture: render slots grouped by service

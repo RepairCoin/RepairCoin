@@ -275,12 +275,82 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
     serviceName: "Oil Change - Full Synthetic",
   };
 
-  it("omits the booking block entirely when no availability slots are present", () => {
+  it("names the focused service as describe-only in the safety net block when bookingAssistance=false", () => {
+    // When the conversation is anchored to a service with booking disabled,
+    // the safety-net block should explicitly mention WHICH service is in
+    // describe-only mode — so Claude can phrase the teammate handoff with
+    // the specific service name.
+    const ctx = baseContext({
+      service: {
+        ...baseContext().service,
+        bookingAssistance: false,
+      },
+      availabilitySlots: [],
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/describe-only mode/i);
+    expect(prompt).toContain("Oil Change - Full Synthetic"); // focused service name
+    expect(prompt).toMatch(/disabled AI auto-booking/i);
+  });
+
+  it("uses the generic no-slots reason in the safety net block when focused service is bookable but no slots exist", () => {
+    // Edge case: focused service has flag on, but the lookahead window
+    // returns zero slots (shop fully booked or shop closed all days in the
+    // window). Safety net still applies, but the reason wording differs.
+    const ctx = baseContext({
+      service: {
+        ...baseContext().service,
+        bookingAssistance: true,
+      },
+      availabilitySlots: [],
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/BOOKING IS NOT AUTO-HANDLED FOR THIS TURN/);
+    expect(prompt).toMatch(/No bookable slots are visible/i);
+    expect(prompt).not.toMatch(/describe-only mode/i);
+  });
+
+  it("downgrades bookable menu items to describe-only treatment when no slots exist (no tool will be built)", () => {
+    // Without this, Newly Baker (a bookable menu item) would be listed as
+    // "AI-bookable here via the tool" — but no tool is being built this
+    // turn, so the claim is false and confuses Claude into stalling.
+    const ctx = baseContext({
+      availabilitySlots: [],
+      shopServiceMenu: [
+        {
+          serviceId: "srv_newly",
+          serviceName: "Newly Baker",
+          priceUsd: 99,
+          category: "Food",
+          shortBlurb: null,
+          bookingAssistance: true, // would normally be bookable
+        },
+      ],
+    });
+    const prompt = professionalPrompt(ctx);
+    // The "AI-bookable" header must NOT appear — the bookable group is empty.
+    expect(prompt).not.toMatch(/Other AI-bookable services at this shop/i);
+    // Newly Baker still appears, but under the "Describe-only" treatment.
+    expect(prompt).toMatch(/Describe-only services at this shop/i);
+    expect(prompt).toContain("Newly Baker ($99.00)");
+  });
+
+  it("emits the BOOKING-UNAVAILABLE safety net block when no availability slots are present", () => {
+    // Was previously "omits booking block entirely". The empty-slots branch
+    // now emits an explicit safety-net block telling Claude to flag a
+    // teammate instead of stalling with "let me check" — the latter was the
+    // observed staging failure mode when the focused service had
+    // ai_booking_assistance off.
     const ctx = baseContext({ availabilitySlots: [] });
     const prompts = [friendlyPrompt(ctx), professionalPrompt(ctx), urgentPrompt(ctx)];
     for (const p of prompts) {
-      expect(p).not.toContain("BOOKING");
-      expect(p).not.toContain("booking_suggestion");
+      expect(p).toMatch(/BOOKING IS NOT AUTO-HANDLED FOR THIS TURN/);
+      expect(p).toMatch(/have someone from the shop reach out/i);
+      expect(p).toMatch(/DO NOT stall/i);
+      // The slot-list section ("The customer can book any of these REAL
+      // available slots") must NOT appear — that's the with-tool branch.
+      expect(p).not.toMatch(/The customer can book any of these REAL available slots/);
+      // slot_iso terminology shouldn't leak into the prompt without a real slot list.
       expect(p).not.toContain("slot_iso");
     }
   });
@@ -564,6 +634,17 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
   // AI-enabled services for the shop in a "menu" block, regardless of the
   // focused service's aiSuggestUpsells toggle. Lets the AI answer
   // "what else do you offer?" honestly.
+  // Stub slot used to force the "tool will be built" path so the bookable
+  // menu block actually renders. Without slots, the safety-net path
+  // downgrades all menu items to describe-only.
+  const stubSlot = {
+    date: "2026-05-08",
+    time: "14:30",
+    slotIso: "2026-05-08T18:30:00.000Z",
+    humanLabel: "Thursday, May 8 at 2:30 PM",
+    serviceId: "srv_test",
+    serviceName: "Oil Change - Full Synthetic",
+  };
   const ctxWithMenu = (overrides: any = {}): AgentContext =>
     baseContext({
       shopServiceMenu: [
@@ -585,6 +666,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           bookingAssistance: true,
         },
       ],
+      availabilitySlots: [stubSlot],
       ...overrides,
     });
 
@@ -669,6 +751,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
               bookingAssistance: true,
             },
           ],
+          // Stub slot so a tool is "built" and bookable rendering fires.
+          availabilitySlots: [stubSlot],
         })
       );
       expect(prompt).toMatch(/Other AI-bookable services at this shop/i);
@@ -719,6 +803,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
               bookingAssistance: false,
             },
           ],
+          availabilitySlots: [stubSlot],
         })
       );
       expect(prompt).toMatch(/Other AI-bookable services at this shop/i);
@@ -904,6 +989,41 @@ describe("PromptTemplates — multi-service booking rule (#11)", () => {
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
       const p = buildPrompt(ctx());
       expect(p).toMatch(/Multi-service booking|book ANY AI-enabled service/i);
+    }
+  });
+});
+
+describe("PromptTemplates — no-stall rule (#12)", () => {
+  // Background: when the focused service has ai_booking_assistance=false,
+  // the orchestrator builds no tool and Claude defaults to "Let me check
+  // availability..." — a stall that leaves the customer hanging with no
+  // follow-up. Rule #12 explicitly bans those stall patterns and forces a
+  // teammate-handoff phrasing instead. Complements the BOOKING-UNAVAILABLE
+  // block in the booking section.
+  it("rule #12 bans 'Let me check' / 'Let me confirm' / 'I'll look into it' stalls", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/NEVER stall when you can't act/i);
+    expect(prompt).toMatch(/"Let me check availability/i);
+    expect(prompt).toMatch(/"Let me confirm/i);
+    expect(prompt).toMatch(/"I'll look into it/i);
+  });
+
+  it("rule #12 prescribes the teammate-handoff alternative", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/I don't have live booking access/i);
+    expect(prompt).toMatch(/A teammate will follow up/i);
+    expect(prompt).toMatch(/Then STOP/i);
+  });
+
+  it("rule #12 explains the WHY (silence is the worst outcome)", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/customer'?s worst experience is silence/i);
+  });
+
+  it("rule #12 applies to all three tones", () => {
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(baseContext());
+      expect(p).toMatch(/NEVER stall when you can't act/i);
     }
   });
 });
