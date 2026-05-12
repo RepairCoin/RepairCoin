@@ -341,6 +341,15 @@ export interface AgentContext {
  */
 export interface BookingSuggestion {
   serviceId: string;
+  /**
+   * Human-readable service name (Phase 5 of multi-service architecture).
+   * Sourced from the matching availability slot's serviceName so each tap
+   * card can render its own service label without the frontend needing a
+   * separate service lookup. Critical for multi-service responses (Phase 3)
+   * where two cards may belong to different services — without this each
+   * card would otherwise fall back to a shared message-level fallback name.
+   */
+  serviceName: string;
   /** ISO 8601 — must match a slot present in the availability set sent to Claude */
   slotIso: string;
   /** Echoed for display so the frontend doesn't need to recompute */

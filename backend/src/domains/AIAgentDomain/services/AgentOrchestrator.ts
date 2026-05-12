@@ -388,10 +388,14 @@ export class AgentOrchestrator {
             continue;
           }
           seenPairs.add(pairKey);
-          // Source-of-truth serviceId comes from the matched slot, not the
-          // input — defense-in-depth.
+          // Source-of-truth serviceId + serviceName come from the matched
+          // slot, not the input — defense-in-depth. Phase 5: serviceName is
+          // now persisted on each suggestion so the frontend can render the
+          // service label directly on the tap card without falling back to
+          // a shared message-level field.
           validSuggestions.push({
             serviceId: matchingSlot.serviceId,
+            serviceName: matchingSlot.serviceName,
             slotIso,
             ...(slotLabelsByIso[slotIso]
               ? { humanLabel: slotLabelsByIso[slotIso] }
@@ -446,6 +450,11 @@ export class AgentOrchestrator {
         // means Claude judged this turn as not booking-relevant.
         const parsed = parseBookingSuggestions(claudeResponse.text, {
           expectedServiceId: serviceId,
+          // Phase 5: parser stamps serviceName onto every suggestion it
+          // returns. Single-service by construction (validate() rejects any
+          // block where service_id != expectedServiceId), so one name is
+          // correct for the whole batch.
+          expectedServiceName: ctx.service.serviceName,
           validSlotsIso: availabilitySlots.map((s) => s.slotIso),
           slotLabelsByIso,
         });

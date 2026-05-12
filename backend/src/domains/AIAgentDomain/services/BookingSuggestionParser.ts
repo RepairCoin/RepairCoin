@@ -34,6 +34,15 @@ const BLOCK_REGEX = /```booking_suggestion\s*([\s\S]*?)```/g;
 export interface ParseInputs {
   /** The exact serviceId we sent to Claude — block must echo this verbatim */
   expectedServiceId: string;
+  /**
+   * Display name of the expected service. Stamped onto every suggestion
+   * the parser returns (Phase 5 of multi-service architecture — gives the
+   * frontend a per-card service name without a secondary lookup). The
+   * fenced-JSON path is single-service by construction (validation rejects
+   * any block whose service_id != expectedServiceId), so a single name
+   * field is correct here.
+   */
+  expectedServiceName: string;
   /** The slot_iso strings we listed in the prompt — block must echo one */
   validSlotsIso: string[];
   /** Optional human labels keyed by slot_iso, copied onto the suggestion for the frontend */
@@ -92,7 +101,12 @@ export function parseBookingSuggestions(
       droppedReasons.push("malformed_json");
       continue;
     }
-    const validation = validate(parsed, inputs.expectedServiceId, validSlotsSet);
+    const validation = validate(
+      parsed,
+      inputs.expectedServiceId,
+      inputs.expectedServiceName,
+      validSlotsSet
+    );
     if (validation.ok === false) {
       logger.warn("BookingSuggestionParser: block failed validation, dropping", {
         parsed,
@@ -136,6 +150,7 @@ type ValidationResult =
 function validate(
   parsed: unknown,
   expectedServiceId: string,
+  expectedServiceName: string,
   validSlotsSet: Set<string>
 ): ValidationResult {
   if (typeof parsed !== "object" || parsed === null) {
@@ -165,6 +180,7 @@ function validate(
     ok: true,
     suggestion: {
       serviceId,
+      serviceName: expectedServiceName,
       slotIso: slotIso.trim(),
       ...(depositUsd !== undefined ? { depositUsd } : {}),
     },
