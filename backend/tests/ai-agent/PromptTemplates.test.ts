@@ -1018,30 +1018,49 @@ describe("PromptTemplates — focused-service-default fix (anchor wins over hist
     expect(prompt).toContain(aquaSlot.slotIso);
   });
 
-  it("rule #13 forbids history-driven service drift for unnamed booking requests", () => {
+  it("rule #13 forbids history-driven service drift for unnamed questions", () => {
     const prompt = professionalPrompt(baseContext());
-    expect(prompt).toMatch(/AMBIGUOUS-BOOKING DEFAULT/i);
-    expect(prompt).toMatch(/conversation history does NOT override this|anchor wins/i);
-    expect(prompt).toMatch(/"book me thursday at 2pm"/i);
+    expect(prompt).toMatch(/ACTIVE-TOPIC DEFAULT/i);
+    expect(prompt).toMatch(/anchor wins|IGNORE that turn when answering/i);
+    expect(prompt).toMatch(/"what's the price\?"/i);
   });
 
-  it("rule #13 requires explicit service mention in the CURRENT message to override the default", () => {
+  it("rule #13 covers BOTH booking and informational questions", () => {
+    // Earlier the rule only mentioned booking. After the staging
+    // regression where Claude said "Newly Baker is $99" when chat was
+    // anchored to I Robot, the rule was widened to cover every kind of
+    // ambiguous question — booking, price, duration, safety, etc.
     const prompt = professionalPrompt(baseContext());
-    expect(prompt).toMatch(/EXPLICITLY names it in their current message/i);
-    expect(prompt).toMatch(/Service names must appear literally in the message/i);
-    expect(prompt).toMatch(/do NOT infer from history/i);
+    expect(prompt).toMatch(/booking OR informational/i);
+    expect(prompt).toMatch(/"what's the price\?"|"how much\?"/i);
+    expect(prompt).toMatch(/"how long does it take\?"/i);
+    expect(prompt).toMatch(/"is it safe \/ kid-friendly \/ for beginners\?"/i);
   });
 
-  it("rule #13 includes a quick-test heuristic Claude can apply before each tool call", () => {
+  it("rule #13 carves out explicit-mention exceptions", () => {
     const prompt = professionalPrompt(baseContext());
-    expect(prompt).toMatch(/Quick test before calling propose_booking_slot/i);
-    expect(prompt).toMatch(/Did the customer say a service name in their LAST message/i);
+    expect(prompt).toMatch(/explicitly named another service in their CURRENT message/i);
+    expect(prompt).toMatch(/comparing services and naming multiple/i);
+    expect(prompt).toMatch(/what other services do you offer/i);
+  });
+
+  it("rule #13 includes a quick-test heuristic Claude can apply on every turn", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/Quick test before answering ANY question/i);
+    expect(prompt).toMatch(/Did the customer name a service in their LAST message/i);
+  });
+
+  it("rule #13 names the common mistake modes from the staging regression", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/History bias.*"what's the cost\?"/i);
+    expect(prompt).toMatch(/Menu drift/i);
+    expect(prompt).toMatch(/Topic pivot/i);
   });
 
   it("rule #13 applies to all three tones", () => {
     for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
       const p = buildPrompt(baseContext());
-      expect(p).toMatch(/AMBIGUOUS-BOOKING DEFAULT/i);
+      expect(p).toMatch(/ACTIVE-TOPIC DEFAULT/i);
     }
   });
 });

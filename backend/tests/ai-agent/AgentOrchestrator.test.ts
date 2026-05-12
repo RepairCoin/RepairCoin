@@ -328,7 +328,12 @@ describe("AgentOrchestrator — message handling", () => {
     await orch.handleCustomerMessage(sampleInput({ customerMessageText: "I have a question" }));
 
     const messages = anthropicClient.complete.mock.calls[0][0].messages;
-    expect(messages).toHaveLength(1);
+    // After the active-topic reminder injection: when the customer's
+    // message names no service, an internal assistant note is spliced
+    // in BEFORE the user turn. The user turn itself is not duplicated.
+    const userTurns = messages.filter((m: any) => m.role === "user");
+    expect(userTurns).toHaveLength(1);
+    expect(userTurns[0].content).toBe("I have a question");
   });
 
   it("filters empty-content history turns before sending to Claude", async () => {
@@ -349,11 +354,57 @@ describe("AgentOrchestrator — message handling", () => {
     );
 
     const messages = anthropicClient.complete.mock.calls[0][0].messages;
-    // Empty + whitespace-only turns dropped; the real ones survive.
-    expect(messages).toEqual([
-      { role: "assistant", content: "shop reply" },
-      { role: "user", content: "real question" },
-    ]);
+    // Empty + whitespace-only history turns dropped; the real ones survive.
+    // The active-topic reminder may also be present (synthetic assistant
+    // turn before the user message). Filter to the customer's own content
+    // for the assertion that doesn't depend on the reminder.
+    const userTurns = messages.filter((m: any) => m.role === "user");
+    expect(userTurns).toEqual([{ role: "user", content: "real question" }]);
+    // The "shop reply" history turn survives as an assistant turn.
+    const assistantContent = messages
+      .filter((m: any) => m.role === "assistant")
+      .map((m: any) => m.content);
+    expect(assistantContent).toContain("shop reply");
+  });
+
+  it("injects an active-topic reminder when customer names no service", async () => {
+    // Active-topic reminder injection (paired with Rule #13). When the
+    // customer's message contains no service-name reference, splice a
+    // synthetic assistant turn IN FRONT of their user message containing
+    // the focused service name. Anthropic's recency bias then favors
+    // the anchor over historical service mentions.
+    const { orch, anthropicClient } = makeMocks();
+    await orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "what is the price?" })
+    );
+
+    const messages = anthropicClient.complete.mock.calls[0][0].messages;
+    // Expect: [assistant reminder, user question]
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+    const lastTwo = messages.slice(-2);
+    expect(lastTwo[0].role).toBe("assistant");
+    expect(lastTwo[0].content).toMatch(/anchored to "Test Service"/);
+    expect(lastTwo[0].content).toMatch(/answer using the "About this service" block/i);
+    expect(lastTwo[1]).toEqual({ role: "user", content: "what is the price?" });
+  });
+
+  it("does NOT inject the active-topic reminder when customer names a service", async () => {
+    // If the customer explicitly names a service (e.g., "what about
+    // AQua Tech?"), the reminder would force the anchor and suppress
+    // the customer's stated intent. Skip injection in that case.
+    const { orch, anthropicClient } = makeMocks();
+    await orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "what about Test Service?" })
+    );
+
+    const messages = anthropicClient.complete.mock.calls[0][0].messages;
+    // Last message should be the user question, no reminder before it.
+    const last = messages[messages.length - 1];
+    expect(last).toEqual({ role: "user", content: "what about Test Service?" });
+    // The previous message (if any) should not be the reminder note.
+    if (messages.length >= 2) {
+      expect(messages[messages.length - 2].content).not.toMatch(/anchored to/i);
+    }
   });
 });
 
