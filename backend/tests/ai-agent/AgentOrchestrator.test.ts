@@ -7,7 +7,10 @@
 //   - Happy path posts message + audit + spend record
 //   - Claude call failure logs error to audit and returns failed result
 
-import { AgentOrchestrator } from "../../src/domains/AIAgentDomain/services/AgentOrchestrator";
+import {
+  AgentOrchestrator,
+  detectMentionedServices,
+} from "../../src/domains/AIAgentDomain/services/AgentOrchestrator";
 
 function makeMocks(opts: {
   service?: any;
@@ -748,7 +751,14 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
         },
       },
     ]);
-    await orch.handleCustomerMessage(sampleInput());
+    // Multi-service test: customer message must name both services so the
+    // focused-default filter (which restricts the tool to focused-only when
+    // no service is named) doesn't strip the srv_other slot.
+    await orch.handleCustomerMessage(
+      sampleInput({
+        customerMessageText: "book me both Test Service A AND Test Service B this week",
+      })
+    );
 
     const created = messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toEqual([
@@ -855,7 +865,14 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
         },
       },
     ]);
-    await orch.handleCustomerMessage(sampleInput());
+    // Customer names both services so the cross-group mismatch path
+    // remains exercisable (else the focused-default filter strips slotB
+    // and the mismatch becomes a plain invalid_slot instead).
+    await orch.handleCustomerMessage(
+      sampleInput({
+        customerMessageText: "book me Test Service A AND Test Service B this week",
+      })
+    );
 
     const created = messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toBeUndefined();
@@ -886,7 +903,13 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
         },
       },
     ]);
-    await orch.handleCustomerMessage(sampleInput());
+    // Need srv_other slots to survive the focused-default filter so the
+    // partner-survives-empty-reply scenario stays exercised.
+    await orch.handleCustomerMessage(
+      sampleInput({
+        customerMessageText: "book me Test Service A AND Test Service B this week",
+      })
+    );
 
     const created = messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toEqual([
@@ -968,10 +991,311 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
         },
       ],
     });
-    await mocks.orch.handleCustomerMessage(sampleInput());
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({
+        customerMessageText: "book me Test Service A AND Test Service B this week",
+      })
+    );
     const created = mocks.messageRepo.createMessage.mock.calls[0][0];
     expect(created.messageText.startsWith("Lining both up now:")).toBe(true);
     expect(created.messageText).toContain("For Service A — Friday at 2 PM.");
     expect(created.messageText).toContain("And for Service B — Saturday at 10 AM.");
+  });
+});
+
+describe("detectMentionedServices — service-name presence in customer message", () => {
+  const services = [
+    { serviceId: "srv_aqua", serviceName: "AQua Tech" },
+    { serviceId: "srv_newly", serviceName: "Newly Baker" },
+    { serviceId: "srv_mongo", serviceName: "Mongo Tea" },
+  ];
+
+  it("returns empty set when message names no service", () => {
+    expect(detectMentionedServices("book me thursday at 2pm", services).size).toBe(0);
+    expect(detectMentionedServices("I want an appointment", services).size).toBe(0);
+    expect(detectMentionedServices("any morning slot?", services).size).toBe(0);
+    expect(detectMentionedServices("yes please book it", services).size).toBe(0);
+  });
+
+  it("detects an exact-case service name", () => {
+    const result = detectMentionedServices("book me AQua Tech thursday at 2pm", services);
+    expect(result.has("srv_aqua")).toBe(true);
+    expect(result.size).toBe(1);
+  });
+
+  it("detects names case-insensitively", () => {
+    expect(detectMentionedServices("book aqua tech thursday", services).has("srv_aqua")).toBe(true);
+    expect(detectMentionedServices("book AQUA TECH thursday", services).has("srv_aqua")).toBe(true);
+    expect(detectMentionedServices("book newly baker thursday", services).has("srv_newly")).toBe(true);
+  });
+
+  it("respects word boundaries (avoids substring false positives)", () => {
+    // "test" inside "testing" must NOT match a service literally named "Test"
+    const svcWithTest = [
+      ...services,
+      { serviceId: "srv_test", serviceName: "Test" },
+    ];
+    expect(detectMentionedServices("just testing the system", svcWithTest).has("srv_test")).toBe(false);
+    // But "test" on its own word should match
+    expect(detectMentionedServices("book me Test thursday", svcWithTest).has("srv_test")).toBe(true);
+  });
+
+  it("detects multiple services when both named in one message", () => {
+    const result = detectMentionedServices(
+      "book me both — AQua Tech AND Newly Baker, anything this week",
+      services
+    );
+    expect(result.has("srv_aqua")).toBe(true);
+    expect(result.has("srv_newly")).toBe(true);
+    expect(result.size).toBe(2);
+  });
+
+  it("skips service names shorter than 3 chars (too noisy)", () => {
+    const shortNames = [
+      { serviceId: "srv_2c", serviceName: "AT" },
+      { serviceId: "srv_normal", serviceName: "Newly Baker" },
+    ];
+    // "at" appears constantly in English — would false-match. Should be skipped.
+    expect(detectMentionedServices("book me at 2pm", shortNames).has("srv_2c")).toBe(false);
+    // Longer names still work
+    expect(
+      detectMentionedServices("book me Newly Baker thursday", shortNames).has("srv_normal")
+    ).toBe(true);
+  });
+
+  it("handles empty / non-string inputs without crashing", () => {
+    expect(detectMentionedServices("", services).size).toBe(0);
+    expect(detectMentionedServices(null as any, services).size).toBe(0);
+    expect(detectMentionedServices(undefined as any, services).size).toBe(0);
+    expect(detectMentionedServices("anything", []).size).toBe(0);
+  });
+
+  it("escapes regex metacharacters in service names", () => {
+    // Service names containing regex special chars must be escaped to
+    // search literally (no accidental regex interpretation).
+    const weirdNames = [
+      { serviceId: "srv_special", serviceName: "C++ Tutoring (Beginner)" },
+    ];
+    expect(
+      detectMentionedServices("book me C++ Tutoring (Beginner) thursday", weirdNames).has(
+        "srv_special"
+      )
+    ).toBe(true);
+    // The unescaped variant of these chars would be a regex error; check
+    // that the function doesn't throw on innocent prose either.
+    expect(() => detectMentionedServices("just hello", weirdNames)).not.toThrow();
+  });
+});
+
+describe("AgentOrchestrator — focused-default server enforcement", () => {
+  // Integration tests: when the customer's CURRENT message names no
+  // service, the orchestrator filters ctx.availabilitySlots down to the
+  // focused service only — so the tool's service_id enum (and thus
+  // Claude's choices) cannot include non-focused services. Closes the
+  // history-bias drift loophole that prompt rules alone couldn't.
+
+  // serviceId must match sampleInput().serviceId (which is "srv_test") so
+  // the orchestrator's focused-service filter resolves to the right
+  // entries in ctx.availabilitySlots.
+  const focusedServiceId = "srv_test";
+  const otherServiceId = "srv_other";
+  const focusedSlotIso = "2026-05-14T18:00:00.000Z";
+  const otherSlotIso = "2026-05-14T13:00:00.000Z";
+
+  const buildCtx = () => ({
+    service: {
+      serviceId: focusedServiceId,
+      serviceName: "Focus Service",
+      priceUsd: 50,
+      category: "test",
+      description: "test",
+      customInstructions: null,
+      bookingAssistance: true,
+      suggestUpsells: false,
+    },
+    customer: {
+      address: "0xabc",
+      name: "Test",
+      tier: "BRONZE",
+      rcnBalance: 0,
+      joinedAt: null,
+    },
+    shop: {
+      shopId: "shop_test",
+      shopName: "Test Shop",
+      category: "test",
+      hoursSummary: null,
+      timezone: null,
+    },
+    conversationHistory: [],
+    siblingServices: [],
+    shopServiceMenu: [
+      {
+        serviceId: otherServiceId,
+        serviceName: "Other Service",
+        priceUsd: 99,
+        category: "other",
+        shortBlurb: null,
+        bookingAssistance: true,
+      },
+    ],
+    availabilitySlots: [
+      {
+        date: "2026-05-14",
+        time: "14:00",
+        slotIso: focusedSlotIso,
+        humanLabel: "Thursday at 2:00 PM",
+        serviceId: focusedServiceId,
+        serviceName: "Focus Service",
+      },
+      {
+        date: "2026-05-14",
+        time: "09:00",
+        slotIso: otherSlotIso,
+        humanLabel: "Thursday at 9:00 AM",
+        serviceId: otherServiceId,
+        serviceName: "Other Service",
+      },
+    ],
+  });
+
+  it("restricts tool's slot_iso enum to focused service when customer names NO service", async () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(buildCtx());
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "book me thursday at 2pm" })
+    );
+
+    const callArgs = mocks.anthropicClient.complete.mock.calls[0][0];
+    expect(callArgs.tools).toBeDefined();
+    const slotEnum = callArgs.tools[0].inputSchema.properties.slot_iso.enum;
+    const svcEnum = callArgs.tools[0].inputSchema.properties.service_id.enum;
+    // Only the focused service's slot remains
+    expect(slotEnum).toEqual([focusedSlotIso]);
+    // service_id enum is also collapsed to focused only
+    expect(svcEnum).toEqual([focusedServiceId]);
+  });
+
+  it("keeps the full multi-service slot list when customer NAMES the focused service", async () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(buildCtx());
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "book me Focus Service thursday at 2pm" })
+    );
+
+    const callArgs = mocks.anthropicClient.complete.mock.calls[0][0];
+    const slotEnum = callArgs.tools[0].inputSchema.properties.slot_iso.enum;
+    // Both services' slots present (customer's mention preserved the multi-service path)
+    expect(slotEnum).toContain(focusedSlotIso);
+    expect(slotEnum).toContain(otherSlotIso);
+  });
+
+  it("keeps the full multi-service slot list when customer NAMES a non-focused service", async () => {
+    // Customer asks specifically for "Other Service" — anchored to Focus
+    // Service. The filter should NOT kick in (the customer named a
+    // service); the full slot list passes through and Claude can book the
+    // named service.
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(buildCtx());
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "book me Other Service thursday at 9am" })
+    );
+
+    const callArgs = mocks.anthropicClient.complete.mock.calls[0][0];
+    const slotEnum = callArgs.tools[0].inputSchema.properties.slot_iso.enum;
+    expect(slotEnum).toContain(focusedSlotIso);
+    expect(slotEnum).toContain(otherSlotIso);
+  });
+
+  it("end-to-end: Claude books focused service even with non-focused slots originally available", async () => {
+    // Closes the loop on the staging bug: customer in a Newly-Baker-heavy
+    // conversation switches to AQua Tech, asks "book me thursday at 2pm".
+    // Pre-fix: Claude picked Newly Baker. Post-fix: the tool's enum only
+    // has the focused (AQua Tech) slot, so Claude has nothing else to
+    // pick. The booking_suggestion lands on the focused service.
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_1",
+            input: {
+              service_id: focusedServiceId,
+              slot_iso: focusedSlotIso,
+              reply_text: "Thursday at 2:00 PM works!",
+            },
+          },
+        ],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(buildCtx());
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "book me thursday at 2pm" })
+    );
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toEqual([
+      expect.objectContaining({ serviceId: focusedServiceId, slotIso: focusedSlotIso }),
+    ]);
   });
 });
