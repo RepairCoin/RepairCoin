@@ -190,6 +190,69 @@ export class AgentOrchestrator {
         ctx.availabilitySlots = reordered.slots;
       }
 
+      // 4.6 Focused-service-default enforcement at the schema layer.
+      //
+      // Background: prompt-only guidance (Rule #13 + the PRIMARY/OTHER
+      // labelled slot groups) wasn't enough on long history-heavy threads.
+      // Claude kept picking a historically-prominent service over the
+      // current focus for unnamed booking requests like "book me thursday
+      // at 2pm". Staging audit confirmed it even after the prompt rules
+      // shipped — Claude was reading and ignoring them.
+      //
+      // Fix: if the customer's CURRENT message doesn't literally name any
+      // AI-enabled service at the shop, filter the slot list (and thus the
+      // tool's service_id enum) down to the focused service ONLY. Claude
+      // physically cannot pick another service — Anthropic's schema
+      // validator rejects out-of-enum values at the API boundary.
+      //
+      // When the customer DOES name a service explicitly ("book me
+      // AQua Tech thursday"), the full multi-service slot list stays
+      // available and the Phase 2/3 multi-service paths work as designed.
+      // Build the universe of service names the customer might literally
+      // name in their message: focused service + menu items + any service
+      // present in the slot list (defensive — covers test fixtures or
+      // unusual states where a service has slots but isn't in the menu).
+      const namesByServiceId = new Map<string, string>();
+      namesByServiceId.set(ctx.service.serviceId, ctx.service.serviceName);
+      for (const m of ctx.shopServiceMenu ?? []) {
+        namesByServiceId.set(m.serviceId, m.serviceName);
+      }
+      for (const s of ctx.availabilitySlots ?? []) {
+        if (!namesByServiceId.has(s.serviceId)) {
+          namesByServiceId.set(s.serviceId, s.serviceName);
+        }
+      }
+      const allShopServicesForDetection = Array.from(
+        namesByServiceId.entries()
+      ).map(([serviceId, serviceName]) => ({ serviceId, serviceName }));
+      const mentionedServiceIds = detectMentionedServices(
+        customerMessageText,
+        allShopServicesForDetection
+      );
+      const customerNamedNoService = mentionedServiceIds.size === 0;
+      if (
+        customerNamedNoService &&
+        ctx.availabilitySlots &&
+        ctx.availabilitySlots.length > 0
+      ) {
+        const originalSlotCount = ctx.availabilitySlots.length;
+        const filtered = ctx.availabilitySlots.filter(
+          (s) => s.serviceId === serviceId
+        );
+        if (filtered.length < originalSlotCount) {
+          ctx.availabilitySlots = filtered;
+          logger.info(
+            "AgentOrchestrator: customer named no service → restricted tool to focused service slots only",
+            {
+              conversationId,
+              focusedServiceId: serviceId,
+              originalSlotCount,
+              filteredSlotCount: filtered.length,
+            }
+          );
+        }
+      }
+
       // 5. Escalation check — does the customer want a human?
       const escalation = this.escalationDetector.shouldEscalate(
         customerMessageText,
@@ -682,3 +745,60 @@ function buildBookingSuggestionTool(
     },
   };
 }
+
+/**
+ * Detect which (if any) services the customer has named by literal mention
+ * in their current message. Used by the focused-default enforcement above:
+ * when nothing is mentioned, the orchestrator filters the tool's service_id
+ * enum down to the focused service so Claude physically cannot drift toward
+ * a historically-discussed service.
+ *
+ * Rules:
+ *   - Case-insensitive
+ *   - Word-boundary anchored on both sides (avoids "Test" inside "testing")
+ *   - Service names shorter than MIN_SERVICE_NAME_LEN_FOR_DETECTION chars
+ *     are SKIPPED — they'd produce too many false positives on common
+ *     English words. A 2-char service name like "AT" matched anywhere in
+ *     "I want to book at 2pm" would mis-fire badly.
+ *
+ * Exported for unit testing — not used outside this module.
+ */
+export function detectMentionedServices(
+  customerMessageText: string,
+  services: { serviceId: string; serviceName: string }[]
+): Set<string> {
+  const mentioned = new Set<string>();
+  if (!customerMessageText || typeof customerMessageText !== "string") {
+    return mentioned;
+  }
+  for (const svc of services) {
+    const needle = svc.serviceName?.trim();
+    if (!needle || needle.length < MIN_SERVICE_NAME_LEN_FOR_DETECTION) {
+      continue;
+    }
+    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Boundary handling: \b only matches between word/non-word transitions,
+    // which fails when the service name starts/ends in non-word chars (e.g.
+    // "C++ Tutoring (Beginner)" ends in ')'). Use explicit non-alphanumeric
+    // lookalikes — match the needle when bordered by string start/end or
+    // any non-alphanumeric character. Robust against names containing
+    // regex special chars or trailing punctuation.
+    const re = new RegExp(
+      `(?:^|[^A-Za-z0-9])${escaped}(?:[^A-Za-z0-9]|$)`,
+      "i"
+    );
+    if (re.test(customerMessageText)) {
+      mentioned.add(svc.serviceId);
+    }
+  }
+  return mentioned;
+}
+
+/**
+ * Minimum service-name length we'll search for in the customer's message.
+ * Short generic names (e.g. "Test", "Bar") would false-match common English
+ * words. 3 chars is the empirical sweet spot — matches "Spa", "AQua Tech",
+ * "Newly Baker" reliably; skips "AT", "Bar"-style generic names that look
+ * indistinguishable from regular prose.
+ */
+const MIN_SERVICE_NAME_LEN_FOR_DETECTION = 3;
