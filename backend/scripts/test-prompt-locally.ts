@@ -119,9 +119,9 @@ const AQUA_TECH = {
   priceUsd: 455,
   durationMinutes: 60,
   category: "Tech",
-  customInstructions: null,
   bookingAssistance: true,
   suggestUpsells: false,
+  faqEntries: [] as { question: string; answer: string }[],
 };
 
 const NEWLY_BAKER = {
@@ -131,9 +131,65 @@ const NEWLY_BAKER = {
   priceUsd: 99,
   durationMinutes: 45,
   category: "Food & Beverage",
-  customInstructions: null,
   bookingAssistance: true,
   suggestUpsells: false,
+  faqEntries: [] as { question: string; answer: string }[],
+};
+
+// Mirror the 7 entries seeded into staging for the I Robot service.
+// Lets the local script exercise the production FAQ rendering path
+// (PromptTemplates.buildFaqBlock) without hitting the DB at runtime.
+const I_ROBOT_FAQ: { question: string; answer: string }[] = [
+  {
+    question: "What's included in this service?",
+    answer:
+      "The full modular hardware kit (chassis, IR + ultrasonic sensors, brushed-motor controller, 4-mic array, 5W speaker, ESP32-based main board, 3000 mAh battery), hands-on assembly with a certified technician, firmware flashing, Wi-Fi pairing, one starter routine of your choice, and a 14-day software-tweak follow-up.",
+  },
+  {
+    question: "What's NOT included?",
+    answer:
+      "Ongoing maintenance after the 14-day follow-up window (billed at $89/visit), third-party accessories outside our kit catalog, structural modifications beyond the supplied chassis, and replacement parts for damage from misuse.",
+  },
+  {
+    question: "How long does a typical appointment take?",
+    answer:
+      "Sessions typically run about 90 minutes from start to finish. You leave with a working bot the same day.",
+  },
+  {
+    question: "Is it safe around children and pets?",
+    answer:
+      "Yes — plastic and light metal parts only, low-voltage throughout (5V main board, 12V motor controller; no line voltage). The motor controller has overcurrent protection and the sensors include a stop-on-touch reflex. Sound output is capped at 70 dB and can be muted entirely. Indoor use only; not waterproof.",
+  },
+  {
+    question: "What should I bring?",
+    answer:
+      "Just yourself. Bring a laptop only if you'd like to learn the configuration tools alongside the technician — otherwise we handle the full setup. No prior robotics experience needed.",
+  },
+  {
+    question: "What smart-home hubs do you integrate with?",
+    answer:
+      "Home Assistant, Google Home, and Apple HomeKit are supported out of the box. Voice command languages: English, Filipino, and Spanish. Note: the Wi-Fi network needs to be 2.4 GHz (the ESP32 module doesn't speak 5 GHz) — most home routers serve both.",
+  },
+  {
+    question: "What's your cancellation or warranty policy?",
+    answer:
+      "Cancellations before the session start are refundable minus a 10% restocking fee. Once assembled, the kit isn't returnable. Hardware warranty: 90 days on supplied components, manufacturing defects only. Software tweaks free within the first 14 days; after that, repairs are quoted before any work.",
+  },
+];
+
+// I Robot fixture: short marketplace blurb (matches the shortened DB row)
+// plus the 7 seeded FAQ entries. Setup that mirrors live staging.
+const I_ROBOT = {
+  serviceId: "srv_irobot_local",
+  serviceName: "I Robot",
+  description:
+    "Build your own personal helper robot in a hands-on session with one of our certified technicians. We supply the hardware kit and walk you through assembly, firmware, and one starter routine of your choice — you leave with a working bot the same day.",
+  priceUsd: 699.99,
+  durationMinutes: 90,
+  category: "tech_it_services",
+  bookingAssistance: true,
+  suggestUpsells: true,
+  faqEntries: I_ROBOT_FAQ,
 };
 
 function makeSlots(serviceId: string, serviceName: string) {
@@ -278,6 +334,87 @@ const SCENARIOS: Record<string, ScenarioBuilder> = {
     ],
     availabilitySlots: [], // No slots — describe-only mode
   }),
+
+  // Staging-bug reproduction: I Robot anchored, BUT conversation history
+  // is heavy with Newly Baker turns (where the customer earlier asked
+  // "what's the price?" and got "Newly Baker is $99"). When the customer
+  // now asks "what is the price?" without naming a service, Claude
+  // historically pulled the Newly Baker answer instead of I Robot. Rule
+  // #13's widening + the orchestrator's active-topic reminder injection
+  // are designed to fix this.
+  "i-robot-after-newly-baker-history": () => ({
+    service: I_ROBOT,
+    customer: SAMPLE_CUSTOMER,
+    shop: PEANUT_SHOP,
+    conversationHistory: [
+      { role: "user", content: "what is your service cost?", createdAt: new Date() },
+      { role: "assistant", content: "The Newly Baker session is $99.00. Want to go ahead and book a slot on Thursday, May 14?", createdAt: new Date() },
+      { role: "user", content: "what's included in newly baker?", createdAt: new Date() },
+      { role: "assistant", content: "Newly Baker is a hands-on pastry tutorial — all ingredients, tools, and aprons are included for a one-on-one session with our chef. Sessions run about 45 minutes.", createdAt: new Date() },
+      { role: "user", content: "are pets okay nearby?", createdAt: new Date() },
+      { role: "assistant", content: "Sessions are one-on-one with the chef. We don't host pets in the kitchen area for safety.", createdAt: new Date() },
+      { role: "user", content: "what's this week's recipe?", createdAt: new Date() },
+      { role: "assistant", content: "Croissants this week — buttery, flaky, the works!", createdAt: new Date() },
+      { role: "user", content: "Hi! I'm interested in your service \"I Robot\". 📍 Service: I Robot 💰 Price: $699.99 📂 Category: Tech & IT Services. Could you provide more details?", createdAt: new Date() },
+      { role: "assistant", content: "I Robot is a hands-on robot-building session — you leave with a working bot the same day. Let me know what you'd like to know!", createdAt: new Date() },
+    ],
+    siblingServices: [],
+    shopServiceMenu: [
+      {
+        serviceId: AQUA_TECH.serviceId,
+        serviceName: AQUA_TECH.serviceName,
+        priceUsd: AQUA_TECH.priceUsd,
+        durationMinutes: AQUA_TECH.durationMinutes,
+        category: AQUA_TECH.category,
+        shortBlurb: "Laptop diagnostic and repair.",
+        bookingAssistance: AQUA_TECH.bookingAssistance,
+      },
+      {
+        serviceId: NEWLY_BAKER.serviceId,
+        serviceName: NEWLY_BAKER.serviceName,
+        priceUsd: NEWLY_BAKER.priceUsd,
+        durationMinutes: NEWLY_BAKER.durationMinutes,
+        category: NEWLY_BAKER.category,
+        shortBlurb: "Hands-on pastry tutorial.",
+        bookingAssistance: NEWLY_BAKER.bookingAssistance,
+      },
+    ],
+    availabilitySlots: makeSlots(I_ROBOT.serviceId, I_ROBOT.serviceName),
+  }),
+
+  // I Robot with the 7 seeded FAQ entries (mirrors live staging). Lets
+  // the local script exercise the production FAQ rendering path
+  // (PromptTemplates.buildFaqBlock) end-to-end without hitting the DB.
+  // Pair with --message="what comes in the kit?" etc. to see Claude
+  // quote from the FAQ.
+  "i-robot-faq-live": () => ({
+    service: I_ROBOT,
+    customer: SAMPLE_CUSTOMER,
+    shop: PEANUT_SHOP,
+    conversationHistory: [],
+    siblingServices: [],
+    shopServiceMenu: [
+      {
+        serviceId: AQUA_TECH.serviceId,
+        serviceName: AQUA_TECH.serviceName,
+        priceUsd: AQUA_TECH.priceUsd,
+        durationMinutes: AQUA_TECH.durationMinutes,
+        category: AQUA_TECH.category,
+        shortBlurb: "Laptop diagnostic and repair.",
+        bookingAssistance: AQUA_TECH.bookingAssistance,
+      },
+      {
+        serviceId: NEWLY_BAKER.serviceId,
+        serviceName: NEWLY_BAKER.serviceName,
+        priceUsd: NEWLY_BAKER.priceUsd,
+        durationMinutes: NEWLY_BAKER.durationMinutes,
+        category: NEWLY_BAKER.category,
+        shortBlurb: "Hands-on pastry tutorial.",
+        bookingAssistance: NEWLY_BAKER.bookingAssistance,
+      },
+    ],
+    availabilitySlots: makeSlots(I_ROBOT.serviceId, I_ROBOT.serviceName),
+  }),
 };
 
 // ============================================================================
@@ -317,7 +454,6 @@ function makeMockRepos(ctx: AgentContext): MockRepos {
         aiTone: "professional",
         aiSuggestUpsells: ctx.service.suggestUpsells,
         aiBookingAssistance: ctx.service.bookingAssistance,
-        aiCustomInstructions: ctx.service.customInstructions,
         active: true,
       };
     },

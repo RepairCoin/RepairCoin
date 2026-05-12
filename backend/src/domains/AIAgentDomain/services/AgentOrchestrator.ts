@@ -312,6 +312,44 @@ export class AgentOrchestrator {
         messages.push({ role: "user", content: customerMessageText });
       }
 
+      // Active-topic reminder injection.
+      //
+      // Background: customers ask short ambiguous questions ("what's the
+      // price?", "how long does it take?") in long conversations where
+      // earlier turns discussed a different service. Pure prompt rules
+      // (Rule #13) weren't enough on history-heavy threads — Claude
+      // pattern-matched the historical answer instead of the current
+      // anchor. Staging audit showed Claude saying "Newly Baker is $99"
+      // when the customer's anchored chat had just switched to I Robot
+      // ($699.99).
+      //
+      // Fix: when the customer's current message NAMES NO SERVICE, inject
+      // a synthetic assistant turn right BEFORE their question that
+      // reaffirms the active topic. Anthropic's recency bias then works
+      // FOR us — the last thing Claude sees before the user message is
+      // "next answer is about ${focusedServiceName}", overriding any
+      // historical service references.
+      //
+      // We do NOT inject the reminder when the customer named a service
+      // — that signals an intentional topic-switch or comparison, and
+      // forcing the anchor there would suppress correct behavior.
+      if (customerNamedNoService && messages.length > 0) {
+        const lastIdx = messages.length - 1;
+        const last = messages[lastIdx];
+        if (last.role === "user") {
+          const reminder = `[Internal note for the assistant — not visible to the customer: This chat is anchored to "${ctx.service.serviceName}" (id: ${ctx.service.serviceId}). The customer's next question is about THIS service unless they explicitly name a different one. Answer using the "About this service" block, its FAQ entries, and its slots from above — not from earlier turns in the conversation that discussed other services. If the question is informational (price, duration, what's included, safety, etc.), use ${ctx.service.serviceName}'s data.]`;
+          // Splice in a brief synthetic assistant turn just before the
+          // user message. Anthropic accepts an assistant turn followed
+          // by a user turn — natural conversation shape. The text reads
+          // as a self-directed note so Claude treats it as guidance,
+          // not as something to quote to the customer.
+          messages.splice(lastIdx, 0, {
+            role: "assistant",
+            content: reminder,
+          });
+        }
+      }
+
       // Build the booking-suggestion tool when we have real slots to offer
       // (Phase 3 Task 10 fix-6). Claude is required to use this tool (and
       // only this tool) when proposing a booking. The schema constrains
