@@ -262,11 +262,31 @@ export class ServiceManagementService {
   }
 
   /**
-   * Get service with shop information
+   * Get service with shop information.
+   *
+   * Also returns the service's FAQ entries inline (Phase 2 of FAQ rollout).
+   * This is the route the dashboard's edit page reads, so without the
+   * entries on this response the edit form falls back to starter
+   * questions even when the DB has persisted FAQs.
+   *
+   * The marketplace consumers that read this same endpoint just ignore
+   * the extra field — it's optional in the response shape.
    */
-  async getServiceWithShopInfo(serviceId: string, customerAddress?: string): Promise<ShopServiceWithShopInfo | null> {
+  async getServiceWithShopInfo(
+    serviceId: string,
+    customerAddress?: string
+  ): Promise<(ShopServiceWithShopInfo & { faqEntries: FaqEntryInput[] }) | null> {
     try {
-      return await this.repository.getServiceWithShopInfo(serviceId, customerAddress);
+      const service = await this.repository.getServiceWithShopInfo(serviceId, customerAddress);
+      if (!service) return null;
+      const faqEntries = await this.faqRepository.getEntriesForService(serviceId);
+      return {
+        ...service,
+        faqEntries: faqEntries.map((e) => ({
+          question: e.question,
+          answer: e.answer,
+        })),
+      };
     } catch (error) {
       logger.error('Error in getServiceWithShopInfo:', error);
       throw error;
