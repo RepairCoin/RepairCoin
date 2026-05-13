@@ -71,6 +71,14 @@ const DEFAULT_TONE: AITone = "professional";
 const DEFAULT_ESCALATION_THRESHOLD = 5;
 const MAX_OUTPUT_TOKENS = 800;
 
+/**
+ * Fallback text used when the same-slot loop guard drops every tool block
+ * Claude emitted AND Claude provided no companion text. Brief, neutral —
+ * the previous tap card from the prior turn is still visible so we don't
+ * need to repeat the booking pitch.
+ */
+const LOOP_GUARD_FALLBACK_TEXT = "Anything else I can help with?";
+
 export interface AgentOrchestratorDeps {
   pool?: Pool;
   serviceRepo?: ServiceRepository;
@@ -230,8 +238,46 @@ export class AgentOrchestrator {
         allShopServicesForDetection
       );
       const customerNamedNoService = mentionedServiceIds.size === 0;
+
+      // Cross-service offer follow-up detection.
+      //
+      // Background: the focused-default filter + active-topic reminder
+      // were designed to fight HISTORY bias — keep Claude on the anchor
+      // when older history discussed a different service. But on a fresh
+      // anchor where the AI's IMMEDIATELY PREVIOUS turn opened a thread
+      // about a non-focused service ("Newly Baker is one of our services
+      // — want to grab a slot?"), the customer's follow-up "yes please"
+      // is accepting THAT offer, not the anchor. Without this check the
+      // filter strips Newly Baker's slots and the reminder tells Claude
+      // "stay on I Robot" — Claude either books I Robot (wrong) or
+      // bails to teammate-handoff (the observed bug).
+      //
+      // Distinguish from anchor-switch: in anchor-switch, the prior
+      // turn's anchor != current anchor (the customer just clicked into
+      // a different service modal). In cross-service offer follow-up,
+      // the anchor is unchanged AND the AI's prior text introduced
+      // another service. Compare `metadata.anchor_service_id` from the
+      // prior AI turn to the current serviceId.
+      const crossServiceOffer = detectCrossServiceOfferFollowUp(
+        ctx.conversationHistory,
+        ctx.service.serviceId,
+        allShopServicesForDetection
+      );
+      if (crossServiceOffer) {
+        logger.info(
+          "AgentOrchestrator: prior AI turn opened a cross-service offer on the same anchor — promoting offered service for this turn",
+          {
+            conversationId,
+            focusedServiceId: serviceId,
+            offeredServiceId: crossServiceOffer.offeredServiceId,
+            offeredServiceName: crossServiceOffer.offeredServiceName,
+          }
+        );
+      }
+
       if (
         customerNamedNoService &&
+        !crossServiceOffer &&
         ctx.availabilitySlots &&
         ctx.availabilitySlots.length > 0
       ) {
@@ -312,32 +358,43 @@ export class AgentOrchestrator {
         messages.push({ role: "user", content: customerMessageText });
       }
 
-      // Active-topic reminder injection.
+      // Synthetic-assistant-note injection (one of two flavors, mutually
+      // exclusive).
       //
-      // Background: customers ask short ambiguous questions ("what's the
-      // price?", "how long does it take?") in long conversations where
-      // earlier turns discussed a different service. Pure prompt rules
-      // (Rule #13) weren't enough on history-heavy threads — Claude
-      // pattern-matched the historical answer instead of the current
-      // anchor. Staging audit showed Claude saying "Newly Baker is $99"
-      // when the customer's anchored chat had just switched to I Robot
-      // ($699.99).
+      // Flavor A — ACTIVE-TOPIC ANCHOR reminder:
+      //   Fires when the customer's current message NAMES NO SERVICE
+      //   AND the AI's prior turn was on the same anchor with no
+      //   cross-service offer. Pulls Claude back to the focused service
+      //   on ambiguous follow-ups, defeating history-bias drift.
       //
-      // Fix: when the customer's current message NAMES NO SERVICE, inject
-      // a synthetic assistant turn right BEFORE their question that
-      // reaffirms the active topic. Anthropic's recency bias then works
-      // FOR us — the last thing Claude sees before the user message is
-      // "next answer is about ${focusedServiceName}", overriding any
-      // historical service references.
+      // Flavor B — CROSS-SERVICE OFFER reminder:
+      //   Fires when the AI's prior turn (same anchor) introduced a
+      //   non-focused service ("the Newly Baker tutorial is one of our
+      //   services — want to grab a slot?") and the customer's current
+      //   message is a follow-up. Pushes Claude TOWARD the offered
+      //   service so a "yes please" produces a propose_booking_slot for
+      //   it instead of waiting for the customer to name it explicitly.
       //
-      // We do NOT inject the reminder when the customer named a service
-      // — that signals an intentional topic-switch or comparison, and
-      // forcing the anchor there would suppress correct behavior.
-      if (customerNamedNoService && messages.length > 0) {
+      // Without flavor B, the booking section's "OTHER AI-BOOKABLE
+      // SERVICES — only book when the customer NAMES the service" rule
+      // wins, and Claude refuses to propose a slot for the offered
+      // service on a vague "yes please". Observed staging behavior.
+      //
+      // Neither flavor fires when the customer's CURRENT message names
+      // a service — that signals intentional topic switch / explicit
+      // selection, both flavors would interfere.
+      if (messages.length > 0) {
         const lastIdx = messages.length - 1;
         const last = messages[lastIdx];
-        if (last.role === "user") {
-          const reminder = `[Internal note for the assistant — not visible to the customer: This chat is anchored to "${ctx.service.serviceName}" (id: ${ctx.service.serviceId}). The customer's next question is about THIS service unless they explicitly name a different one. Answer using the "About this service" block, its FAQ entries, and its slots from above — not from earlier turns in the conversation that discussed other services. If the question is informational (price, duration, what's included, safety, etc.), use ${ctx.service.serviceName}'s data.]`;
+        if (last.role === "user" && customerNamedNoService) {
+          let reminder: string | null = null;
+          if (crossServiceOffer) {
+            // Flavor B
+            reminder = `[Internal note for the assistant — not visible to the customer: Your IMMEDIATELY PREVIOUS reply offered "${crossServiceOffer.offeredServiceName}" (id: ${crossServiceOffer.offeredServiceId}) to the customer. Their current message ("${customerMessageText.slice(0, 120).replace(/[\r\n]+/g, " ")}") is a follow-up to THAT offer — they are accepting / asking about "${crossServiceOffer.offeredServiceName}", NOT "${ctx.service.serviceName}". If "${crossServiceOffer.offeredServiceName}" has slots listed in the booking section below, CALL propose_booking_slot with service_id="${crossServiceOffer.offeredServiceId}" and one of its available slots — do not wait for them to name the service again; your prior offer is the context. Override the "only book OTHER AI-BOOKABLE SERVICES when the customer NAMES the service" rule for THIS turn only.]`;
+          } else {
+            // Flavor A
+            reminder = `[Internal note for the assistant — not visible to the customer: This chat is anchored to "${ctx.service.serviceName}" (id: ${ctx.service.serviceId}). The customer's next question is about THIS service unless they explicitly name a different one. Answer using the "About this service" block, its FAQ entries, and its slots from above — not from earlier turns in the conversation that discussed other services. If the question is informational (price, duration, what's included, safety, etc.), use ${ctx.service.serviceName}'s data.]`;
+          }
           // Splice in a brief synthetic assistant turn just before the
           // user message. Anthropic accepts an assistant turn followed
           // by a user turn — natural conversation shape. The text reads
@@ -505,6 +562,59 @@ export class AgentOrchestrator {
           validReplyTexts.push(replyText);
         }
 
+        // Same-slot loop guard (unconditional).
+        //
+        // Background: in long conversations Claude pattern-matches its own
+        // prior turns and re-emits the same (serviceId, slotIso) booking
+        // card across multiple replies. Audit on a real shop showed three
+        // identical "Earliest available is today at 3:00 PM" cards in
+        // consecutive turns because Claude kept firing the tool on
+        // closing/off-topic signals.
+        //
+        // Rule: if Claude proposes a (serviceId, slotIso) pair that was
+        // ALREADY proposed in the IMMEDIATELY PREVIOUS assistant turn,
+        // drop it. No exceptions for customer wording — the rule is
+        // purely structural. The prior tap card is still visible and
+        // still tappable; a second identical card adds nothing.
+        //
+        // Why no acceptance check: a brittle regex for "is the customer
+        // accepting?" would false-negative on phrasings we didn't list
+        // ("send it", "lets goooo", "yeppp"), dropping a card the
+        // customer wanted to tap on the FIRST proposal. The structural
+        // rule sidesteps that entirely — on acceptance, Claude's prompt
+        // tells it to reply in text ("Great — see you Tuesday at 3 PM!")
+        // instead of re-firing the tool. The prior card handles booking.
+        // If Claude misbehaves and re-fires anyway, the guard catches it.
+        if (validSuggestions.length > 0) {
+          const priorPairs = collectPriorBookingPairs(ctx.conversationHistory);
+          if (priorPairs.size > 0) {
+            const keptSuggestions: BookingSuggestion[] = [];
+            const keptReplyTexts: string[] = [];
+            for (let i = 0; i < validSuggestions.length; i++) {
+              const s = validSuggestions[i];
+              const pairKey = `${s.serviceId}|${s.slotIso}`;
+              if (priorPairs.has(pairKey)) {
+                dropReasons.push("loop_guard_same_slot");
+                logger.warn(
+                  "AgentOrchestrator: loop guard dropped duplicate booking proposal",
+                  {
+                    conversationId,
+                    serviceId: s.serviceId,
+                    slotIso: s.slotIso,
+                  }
+                );
+                continue;
+              }
+              keptSuggestions.push(s);
+              keptReplyTexts.push(validReplyTexts[i]);
+            }
+            validSuggestions.length = 0;
+            validSuggestions.push(...keptSuggestions);
+            validReplyTexts.length = 0;
+            validReplyTexts.push(...keptReplyTexts);
+          }
+        }
+
         if (validSuggestions.length > 0) {
           // Multi-service handling: Claude's response can include a text
           // block (free-form) alongside the tool_use blocks. We preserve
@@ -525,20 +635,36 @@ export class AgentOrchestrator {
           // same text in extraText and the first reply_text.
           const extraText = (claudeResponse.text ?? "").trim();
           const joinedReplies = validReplyTexts.join("\n\n");
-          customerFacingText =
-            extraText && extraText !== joinedReplies && !joinedReplies.includes(extraText)
-              ? `${extraText}\n\n${joinedReplies}`
-              : joinedReplies;
+          // Drop extraText when it's a near-duplicate of any reply_text.
+          // Claude routinely emits a text block restating the slot info
+          // it already passed via reply_text — "Friday at 3:30 PM is the
+          // closest match — tap below" vs "Friday at 3:30 PM is the
+          // closest we've got — tap below". Exact-string equality
+          // doesn't catch this; word-overlap does. The legitimate
+          // multi-service case ("For the laptop repair, book separately
+          // — for the pastry tutorial, Friday at 2 PM works") has low
+          // overlap and is preserved.
+          const extraIsRedundant =
+            !extraText ||
+            extraText === joinedReplies ||
+            joinedReplies.includes(extraText) ||
+            validReplyTexts.some((rt) => isLikelyDuplicateText(extraText, rt));
+          customerFacingText = extraIsRedundant
+            ? joinedReplies
+            : `${extraText}\n\n${joinedReplies}`;
           bookingSuggestions = validSuggestions;
           bookingSuggestionDropReasons = dropReasons;
           bookingPath = "tool";
         } else {
-          // Every tool block was invalid. Fall back to whatever text
-          // Claude emitted — the customer at least sees an attempted
-          // reply rather than nothing. The drop reasons land in the
-          // audit row for forensics.
-          customerFacingText =
-            claudeResponse.text || validReplyTexts.join("\n\n");
+          // Every tool block was invalid OR all were dropped by the loop
+          // guard. Fall back to whatever text Claude emitted alongside the
+          // tool call. The loop-guard branch routinely lands here — Claude
+          // emits ONLY a tool call when proposing a slot, so when the
+          // guard removes the only block, both fields are empty. Use the
+          // explicit fallback so the customer sees a brief acknowledgement
+          // rather than nothing.
+          const fallback = claudeResponse.text || validReplyTexts.join("\n\n");
+          customerFacingText = fallback || LOOP_GUARD_FALLBACK_TEXT;
           bookingSuggestions = [];
           bookingSuggestionDropReasons = dropReasons;
           bookingPath = "tool";
@@ -582,6 +708,13 @@ export class AgentOrchestrator {
           generated_by: "ai_agent",
           model: claudeResponse.model,
           tone,
+          // Anchor the AI turn was operating under. Read by the NEXT turn's
+          // orchestrator to distinguish "current-thread cross-service offer
+          // follow-up" from "anchor just switched" — when the prior turn's
+          // anchor matches the current, a customer follow-up like "yes
+          // please" may be accepting a non-focused service the AI just
+          // offered (don't strip those slots / fire the anchor reminder).
+          anchor_service_id: serviceId,
           // Store cost + latency on the message metadata too — easier for
           // shop dashboard to show "AI sent this in 2.6s, cost $0.018"
           // without joining to ai_agent_messages
@@ -735,8 +868,14 @@ function buildBookingSuggestionTool(
       `Available services: ${serviceLabelsByIdForDescription.join("; ")}.`,
       `CALL THE TOOL when the customer asks about times, picks a slot, or says yes to a previous suggestion. Specifically:`,
       `Trigger questions: "what times do you have?", "what time do you have?", "do you have morning slot?", "do you have afternoon slot?", "do you have evening slot?", "any openings?", "when can I come in?", "can I book Thursday?", "Thursday afternoon", "Thursday at 2pm", "yes please", "I'll take it", "book me in".`,
-      `Do NOT call the tool for genuinely informational questions: "how much does this cost?", "what's included?", "what should I bring?", "how long does it take?", "what's your cancellation policy?".`,
-      `When in doubt between booking-intent and informational, lean toward calling the tool. A miss-call is better than no card.`,
+      `DO NOT call the tool — answer in plain text instead — for any of these patterns:`,
+      `(a) Informational questions about the service: "how much does this cost?", "what's included?", "what should I bring?", "how long does it take?", "what's your cancellation policy?".`,
+      `(b) Shop-scope or catalog questions: "what do you sell?", "what u sell?", "what services do you have?", "what do you offer?", "do you do X?" where X isn't named in the slot list. These are about the menu, not a booking.`,
+      `(c) Closing or gratitude signals: "thanks", "thank you", "thank u", "ok", "okay", "got it", "great", "cool", "👍", "bye". The customer is wrapping up — do not re-propose a slot. Send a brief warm acknowledgement in plain text (e.g. "You're welcome — let me know whenever you'd like to book!").`,
+      `(d) Off-topic, joking, or nonsense ("so u sell bread", "lol", random one-word replies that aren't time/day words). Answer briefly in plain text — redirect to the service if relevant, or just acknowledge.`,
+      `(e) Negations or deferrals: "not now", "maybe later", "I'll think about it", "no thanks". Acknowledge and offer to be available later — no tap card needed.`,
+      `Critical: if you already proposed a slot in your immediately previous turn and the customer's reply is one of (b)-(e) above, NEVER call the tool again with the same slot. Repeating the same booking card across turns reads as broken automation. Answer their question; the existing card is still visible.`,
+      `When in doubt, DO NOT call the tool. A text reply is correct whenever the customer hasn't asked to book. A repeated identical card is worse than no card at all — it makes the assistant look stuck.`,
       `Sample slots: ${slotChoicesForDescription}.`,
     ].join(" "),
     inputSchema: {
@@ -840,3 +979,200 @@ export function detectMentionedServices(
  * indistinguishable from regular prose.
  */
 const MIN_SERVICE_NAME_LEN_FOR_DETECTION = 3;
+
+/**
+ * Determine whether two short reply strings are near-duplicates of each
+ * other. Used by the orchestrator to drop the free-text block Claude
+ * sometimes emits ALONGSIDE a tool_use whose reply_text already conveys
+ * the same information.
+ *
+ * Heuristic:
+ *   1. Lowercase + strip non-alphanumerics → split into tokens
+ *   2. Filter to tokens of length ≥ 3 (drops "of", "at", "is", "to" —
+ *      noise that inflates overlap on every English sentence)
+ *   3. Compute |A ∩ B| / min(|A|, |B|). If ≥ 0.70, declare duplicate.
+ *
+ * Why MIN, not UNION (Jaccard): we want to catch the case where one
+ * string is a near-superset of the other (e.g., extra adds an emoji or
+ * one filler word). Pure Jaccard would penalize size differences and
+ * miss those.
+ *
+ * Tuning: 0.70 threshold accepts the observed staging duplicate
+ * (86% overlap on "closest match" vs "closest we've got") and rejects
+ * legitimate multi-service combinations (25% overlap). Tighten if false
+ * positives appear; loosen if real duplicates slip through.
+ *
+ * Empty / very short strings → never duplicate (returning true on a
+ * short "Sure!" would suppress legitimate confirmations).
+ *
+ * Exported for unit testing — not used outside this module.
+ */
+export function isLikelyDuplicateText(a: string, b: string): boolean {
+  if (!a || !b || typeof a !== "string" || typeof b !== "string") return false;
+  const tokenize = (s: string): string[] =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, " ")
+      .split(/\s+/)
+      .filter((t) => t.length >= 3);
+  const aTokens = tokenize(a);
+  const bTokens = tokenize(b);
+  if (aTokens.length < 3 || bTokens.length < 3) return false;
+  const aSet = new Set(aTokens);
+  const bSet = new Set(bTokens);
+  let intersection = 0;
+  for (const t of aSet) if (bSet.has(t)) intersection++;
+  const minSize = Math.min(aSet.size, bSet.size);
+  if (minSize === 0) return false;
+  return intersection / minSize >= 0.7;
+}
+
+/**
+ * Detect whether the AI's IMMEDIATELY previous assistant turn opened a
+ * cross-service offer on the SAME anchor that's active now — e.g., the
+ * AI is anchored to I Robot, the previous turn mentioned "the Newly
+ * Baker tutorial is one of our services — want to grab a slot?", and
+ * the customer's current message is a follow-up.
+ *
+ * Returns the offered service's id + name when detected, otherwise null.
+ *
+ * When this returns non-null, the caller should:
+ *   - Skip the focused-default slot filter (keep the offered service's
+ *     slots available so Claude can book what it just offered).
+ *   - Replace the active-topic anchor reminder with a cross-service-offer
+ *     reminder pointing at the offered service.
+ *
+ * The check requires BOTH:
+ *   (a) The prior assistant turn's metadata.anchor_service_id matches
+ *       the current focused serviceId. Distinguishes "in-thread upsell"
+ *       from "anchor just switched". Falls back to inferring the prior
+ *       anchor from booking_suggestions[0].serviceId when metadata is
+ *       missing (legacy data); when nothing tells us the prior anchor,
+ *       we conservatively return null (existing behavior wins).
+ *   (b) The prior assistant text content names at least one NON-focused
+ *       service from the shop menu. When multiple non-focused services
+ *       are named, the FIRST one detected is returned (stable order
+ *       from the services array — typically reflects menu order).
+ *
+ * Exported for unit testing — not used outside this module.
+ */
+export function detectCrossServiceOfferFollowUp(
+  conversationHistory: {
+    role: string;
+    content?: string;
+    metadata?: Record<string, any>;
+  }[],
+  currentFocusedServiceId: string,
+  allShopServicesForDetection: { serviceId: string; serviceName: string }[]
+): { offeredServiceId: string; offeredServiceName: string } | null {
+  if (!Array.isArray(conversationHistory) || conversationHistory.length === 0) {
+    return null;
+  }
+  // Find the most-recent assistant turn.
+  let priorAssistant: {
+    role: string;
+    content?: string;
+    metadata?: Record<string, any>;
+  } | null = null;
+  for (let i = conversationHistory.length - 1; i >= 0; i--) {
+    const turn = conversationHistory[i];
+    if (turn?.role === "assistant") {
+      priorAssistant = turn;
+      break;
+    }
+  }
+  if (!priorAssistant) return null;
+
+  // (a) Was the prior turn's anchor the same as the current?
+  const meta = priorAssistant.metadata;
+  let priorAnchorServiceId: string | null = null;
+  if (meta && typeof meta.anchor_service_id === "string") {
+    priorAnchorServiceId = meta.anchor_service_id;
+  } else if (
+    meta &&
+    Array.isArray(meta.booking_suggestions) &&
+    meta.booking_suggestions.length > 0
+  ) {
+    // Legacy data without anchor_service_id: infer from a sole proposed
+    // serviceId. Multi-service tool blocks may propose more than one;
+    // only infer when all agree (otherwise we can't tell what the
+    // anchor was).
+    const ids = new Set(
+      meta.booking_suggestions
+        .map((s: any) => (typeof s?.serviceId === "string" ? s.serviceId : null))
+        .filter((id: string | null): id is string => id !== null)
+    );
+    if (ids.size === 1) {
+      priorAnchorServiceId = ids.values().next().value as string;
+    }
+  }
+  if (priorAnchorServiceId !== currentFocusedServiceId) {
+    // Anchor changed or unknown — fall back to existing focused-default
+    // behavior so history bias keeps getting suppressed.
+    return null;
+  }
+
+  // (b) Did the prior text content mention a non-focused service?
+  const priorContent =
+    typeof priorAssistant.content === "string" ? priorAssistant.content : "";
+  if (priorContent.length === 0) return null;
+  const mentioned = detectMentionedServices(
+    priorContent,
+    allShopServicesForDetection
+  );
+  // Iterate in the canonical service-detection input order so the
+  // returned service is deterministic when the prior text mentions
+  // more than one non-focused service. Typically reflects shop-menu
+  // order, which puts the most-likely-offered service first.
+  for (const svc of allShopServicesForDetection) {
+    if (svc.serviceId === currentFocusedServiceId) continue;
+    if (mentioned.has(svc.serviceId)) {
+      return {
+        offeredServiceId: svc.serviceId,
+        offeredServiceName: svc.serviceName,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Walk the conversation history in reverse and return the set of
+ * (serviceId|slotIso) pair keys from the MOST RECENT assistant message's
+ * `metadata.booking_suggestions`. Returns an empty set when no prior
+ * assistant message exists, when it has no metadata, or when its metadata
+ * carries no booking_suggestions array.
+ *
+ * Why most-recent only: the loop guard is anti-duplication for the
+ * IMMEDIATE preceding turn. Older proposals are not the bug — Claude
+ * proposing Tuesday 3 PM five turns ago is fine if the customer recently
+ * asked again. Only the back-to-back duplicate is the failure mode.
+ *
+ * Exported for unit testing — not used outside this module.
+ */
+export function collectPriorBookingPairs(
+  conversationHistory: { role: string; metadata?: Record<string, any> }[]
+): Set<string> {
+  const pairs = new Set<string>();
+  if (!Array.isArray(conversationHistory) || conversationHistory.length === 0) {
+    return pairs;
+  }
+  for (let i = conversationHistory.length - 1; i >= 0; i--) {
+    const turn = conversationHistory[i];
+    if (turn?.role !== "assistant") continue;
+    const suggestions = turn.metadata?.booking_suggestions;
+    if (!Array.isArray(suggestions)) {
+      // Found the latest assistant turn but it has no suggestions — stop
+      // (don't reach further back; we only care about the immediate
+      // predecessor).
+      return pairs;
+    }
+    for (const s of suggestions) {
+      if (s && typeof s.serviceId === "string" && typeof s.slotIso === "string") {
+        pairs.add(`${s.serviceId}|${s.slotIso}`);
+      }
+    }
+    return pairs;
+  }
+  return pairs;
+}
