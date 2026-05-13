@@ -2,6 +2,7 @@ import { useMutation, useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "../services/service.services";
 import { useAppToast } from "@/shared/hooks/useAppToast";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 import {
   CreateServiceRequest,
   ServiceFilters,
@@ -12,6 +13,7 @@ import {
 
 export function useService() {
   const { showSuccess, showError } = useAppToast();
+  const { accessToken } = useAuthStore();
   const useGetAllServicesQuery = (filters?: ServiceFilters) => {
     return useQuery({
       queryKey: queryKeys.serviceList(filters),
@@ -144,6 +146,7 @@ export function useService() {
         return response.data;
       },
       staleTime: 2 * 60 * 1000, // 2 minutes
+      enabled: !!accessToken,
     });
   };
 
