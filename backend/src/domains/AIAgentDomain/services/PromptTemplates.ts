@@ -199,7 +199,14 @@ ${ctx.siblingServices
   const renderMenuLine = (s: (typeof ctx.shopServiceMenu)[number]) => {
     const durationPart = s.durationMinutes ? `, ~${s.durationMinutes} min` : "";
     const blurbPart = s.shortBlurb ? `: ${s.shortBlurb}` : "";
-    return `  - ${s.serviceName} ($${s.priceUsd.toFixed(2)}${durationPart})${blurbPart}`;
+    const headline = `  - ${s.serviceName} ($${s.priceUsd.toFixed(2)}${durationPart})${blurbPart}`;
+    // Inline FAQ block for this menu item. Without this, the AI knew the
+    // service existed but had no detailed Q&As to draw from when the
+    // customer asked about it — answered with a generic "I only have
+    // FAQ for the focused service here". The FAQ is indented and prefixed
+    // so it's clearly part of THIS menu item's context, not loose text.
+    const faqBlock = renderMenuItemFaqBlock(s.faqEntries, s.serviceName);
+    return faqBlock ? `${headline}\n${faqBlock}` : headline;
   };
   const bookableMenuBlock =
     bookableMenuItems.length > 0
@@ -599,6 +606,58 @@ function buildFaqBlock(
     ? "\n\n[...additional FAQ entries truncated to keep the prompt bounded — ask the shop for specifics on anything not covered here.]"
     : "";
   return `\n\nFrequently asked questions for this service (use these to answer specific customer questions — quote facts directly when relevant; reason across the description above AND these FAQ entries to handle the question):\n${lines.join("\n\n")}${truncNote}`;
+}
+
+/**
+ * Per-service FAQ ceiling for NON-focused menu items. Tighter than the
+ * focused-service cap (MAX_FAQ_BLOCK_CHARS) because we render one of
+ * these per menu item — without a per-item cap, a shop with many
+ * services + verbose FAQ each would blow up the prompt.
+ *
+ * Picked empirically: 1500 chars fits ~5 short Q&A pairs, enough for
+ * common customer questions (what's included, duration, what to bring,
+ * cancellation). The focused service's FAQ stays at 4000 chars so the
+ * primary topic keeps room for nuance.
+ */
+const MAX_MENU_ITEM_FAQ_BLOCK_CHARS = 1500;
+
+/**
+ * Render a NESTED FAQ block for a menu-item service (not the focused
+ * service — that one uses buildFaqBlock above). The block is indented
+ * 4 spaces and prefixed with "FAQ for {serviceName}:" so Claude knows
+ * which service the Q&As apply to. Empty entries → empty string,
+ * caller renders the menu item without an FAQ section.
+ *
+ * Indentation matters: the menu item line is "  - ServiceName (...)",
+ * and rendering FAQ under it as 4-space indented "    FAQ for X:" + Q/A
+ * lines visually groups it with the menu entry. Without indent the FAQ
+ * would float ambiguously next to the next menu item.
+ */
+function renderMenuItemFaqBlock(
+  entries: { question: string; answer: string }[] | undefined,
+  serviceName: string
+): string {
+  if (!entries || entries.length === 0) return "";
+  const lines: string[] = [];
+  let totalChars = 0;
+  let truncated = false;
+  for (const e of entries) {
+    const q = (e.question ?? "").trim();
+    const a = (e.answer ?? "").trim();
+    if (!q || !a) continue;
+    const block = `    Q: ${q}\n    A: ${a}`;
+    if (totalChars + block.length + 2 > MAX_MENU_ITEM_FAQ_BLOCK_CHARS) {
+      truncated = true;
+      break;
+    }
+    lines.push(block);
+    totalChars += block.length + 2;
+  }
+  if (lines.length === 0) return "";
+  const truncNote = truncated
+    ? `\n    [...more ${serviceName} FAQ entries truncated.]`
+    : "";
+  return `    FAQ for ${serviceName} (use these when the customer asks about ${serviceName} specifically; do not pivot to "I don't have full details" when these entries are present):\n${lines.join("\n\n")}${truncNote}`;
 }
 
 /**

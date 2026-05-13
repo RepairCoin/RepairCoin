@@ -267,7 +267,7 @@ export class ContextBuilder {
         // and still hit the cap when most are non-AI-enabled.
         limit: MAX_SHOP_SERVICES_IN_PROMPT + 10,
       });
-      return (result.items ?? [])
+      const baseItems = (result.items ?? [])
         .filter(
           (s: any) =>
             s.serviceId !== excludeServiceId && (s.aiSalesEnabled ?? false)
@@ -294,6 +294,37 @@ export class ContextBuilder {
             bookingAssistance: s.aiBookingAssistance === true,
           };
         });
+
+      // Hydrate FAQ entries per menu item in parallel. Without this, the
+      // AI only had detailed Q&As for the focused service — when asked
+      // about a non-focused service ("what's included in Newly Baker?"
+      // on an I Robot anchor) it would admit "I only have FAQ for the
+      // focused service here" even though FAQ rows exist in DB. Per-
+      // service failures are swallowed (empty FAQ for that item),
+      // matching the same failure-tolerance the rest of this method has.
+      const faqResults = await Promise.all(
+        baseItems.map((item) =>
+          this.faqRepo
+            .getEntriesForService(item.serviceId)
+            .catch((err) => {
+              logger.warn(
+                "ContextBuilder: menu-item FAQ fetch failed; rendering item without FAQ",
+                {
+                  serviceId: item.serviceId,
+                  error: (err as Error)?.message,
+                }
+              );
+              return [];
+            })
+        )
+      );
+      return baseItems.map((item, idx) => ({
+        ...item,
+        faqEntries: (faqResults[idx] ?? []).map((e) => ({
+          question: e.question,
+          answer: e.answer,
+        })),
+      }));
     } catch (err) {
       logger.warn("ContextBuilder: shop service menu query failed; AI menu will be empty", {
         shopId,
