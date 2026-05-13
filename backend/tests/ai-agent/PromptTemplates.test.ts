@@ -329,6 +329,7 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
           category: "Food",
           shortBlurb: null,
           bookingAssistance: true, // would normally be bookable
+          faqEntries: [],
         },
       ],
     });
@@ -663,6 +664,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           category: "Tech",
           shortBlurb: "Laptop diagnostic and repair service.",
           bookingAssistance: true,
+          faqEntries: [],
         },
         {
           serviceId: "srv_mongo",
@@ -671,6 +673,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           category: "Food",
           shortBlurb: "Premium tea consultation.",
           bookingAssistance: true,
+          faqEntries: [],
         },
       ],
       availabilitySlots: [stubSlot],
@@ -714,6 +717,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           category: "general",
           shortBlurb: null,
           bookingAssistance: true,
+          faqEntries: [],
         },
       ],
     });
@@ -732,6 +736,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
           category: "general",
           shortBlurb: null,
           bookingAssistance: true,
+          faqEntries: [],
         },
       ],
     });
@@ -756,6 +761,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
               category: "Food",
               shortBlurb: null,
               bookingAssistance: true,
+              faqEntries: [],
             },
           ],
           // Stub slot so a tool is "built" and bookable rendering fires.
@@ -778,6 +784,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
               category: "Tech",
               shortBlurb: "Diagnostic and repair service.",
               bookingAssistance: false,
+              faqEntries: [],
             },
           ],
         })
@@ -800,6 +807,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
               category: "Food",
               shortBlurb: null,
               bookingAssistance: true,
+              faqEntries: [],
             },
             {
               serviceId: "srv_describe",
@@ -808,6 +816,7 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
               category: "Tech",
               shortBlurb: null,
               bookingAssistance: false,
+              faqEntries: [],
             },
           ],
           availabilitySlots: [stubSlot],
@@ -817,6 +826,191 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
       expect(prompt).toMatch(/Describe-only services at this shop/i);
       expect(prompt).toContain("Pastry Tutorial");
       expect(prompt).toContain("Laptop Repair");
+    });
+  });
+
+  describe("Per-menu-item FAQ rendering (sc1.png follow-up fix)", () => {
+    // Bug repro: anchor I Robot, customer asks "what's included in Newly
+    // Baker?". AI replied "I only have full FAQ info for I Robot here"
+    // because ContextBuilder only fetched FAQ for the focused service.
+    // Fix: menu items now carry their own faqEntries; the prompt renders
+    // them under the menu line so Claude has detailed Q&As for every
+    // AI-enabled service, not just the focused one.
+
+    it("renders the FAQ block under the menu item when entries are present", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_newly",
+              serviceName: "Newly Baker",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: "Hands-on baking tutorial.",
+              bookingAssistance: true,
+              faqEntries: [
+                {
+                  question: "What's included in this session?",
+                  answer:
+                    "Hands-on baking instruction with one of our chefs, all ingredients, and the finished bake to take home.",
+                },
+                {
+                  question: "What should I bring?",
+                  answer: "Closed-toe shoes. We supply aprons and tools.",
+                },
+              ],
+            },
+          ],
+          availabilitySlots: [stubSlot],
+        })
+      );
+      expect(prompt).toContain("Newly Baker ($99.00)");
+      expect(prompt).toMatch(/FAQ for Newly Baker/);
+      expect(prompt).toContain("What's included in this session?");
+      expect(prompt).toContain("Hands-on baking instruction");
+      expect(prompt).toContain("What should I bring?");
+      expect(prompt).toContain("Closed-toe shoes");
+    });
+
+    it("does NOT render an FAQ block when the menu item's faqEntries is empty", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_newly",
+              serviceName: "Newly Baker",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: null,
+              bookingAssistance: true,
+              faqEntries: [],
+            },
+          ],
+          availabilitySlots: [stubSlot],
+        })
+      );
+      // Menu line still appears
+      expect(prompt).toContain("Newly Baker ($99.00)");
+      // No FAQ-for header anywhere — empty entries → no nested block.
+      expect(prompt).not.toMatch(/FAQ for Newly Baker/);
+    });
+
+    it("skips half-filled entries defensively (empty question or empty answer)", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_newly",
+              serviceName: "Newly Baker",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: null,
+              bookingAssistance: true,
+              faqEntries: [
+                { question: "", answer: "no question" },
+                { question: "no answer", answer: "  " },
+                { question: "real Q", answer: "real A" },
+              ],
+            },
+          ],
+          availabilitySlots: [stubSlot],
+        })
+      );
+      expect(prompt).toContain("real Q");
+      expect(prompt).toContain("real A");
+      expect(prompt).not.toContain("no question");
+      expect(prompt).not.toContain("no answer");
+    });
+
+    it("renders FAQ blocks for multiple menu items independently", () => {
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_newly",
+              serviceName: "Newly Baker",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: null,
+              bookingAssistance: true,
+              faqEntries: [{ question: "Bread Q", answer: "Bread A" }],
+            },
+            {
+              serviceId: "srv_aqua",
+              serviceName: "AQua Tech",
+              priceUsd: 455,
+              category: "Tech",
+              shortBlurb: null,
+              bookingAssistance: true,
+              faqEntries: [{ question: "Laptop Q", answer: "Laptop A" }],
+            },
+          ],
+          availabilitySlots: [stubSlot],
+        })
+      );
+      expect(prompt).toMatch(/FAQ for Newly Baker/);
+      expect(prompt).toMatch(/FAQ for AQua Tech/);
+      expect(prompt).toContain("Bread Q");
+      expect(prompt).toContain("Laptop Q");
+    });
+
+    it("truncates a menu item's FAQ block when it exceeds MAX_MENU_ITEM_FAQ_BLOCK_CHARS", () => {
+      const longAnswer = "x".repeat(800);
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_newly",
+              serviceName: "Newly Baker",
+              priceUsd: 99,
+              category: "Food",
+              shortBlurb: null,
+              bookingAssistance: true,
+              faqEntries: [
+                { question: "Q1", answer: longAnswer },
+                { question: "Q2", answer: longAnswer },
+                { question: "Q3 should-be-truncated", answer: longAnswer },
+              ],
+            },
+          ],
+          availabilitySlots: [stubSlot],
+        })
+      );
+      // First two entries fit (each ~800 chars + prefix), third is over the
+      // 1500-char per-menu-item cap and gets truncated.
+      expect(prompt).toContain("Q1");
+      expect(prompt).not.toContain("Q3 should-be-truncated");
+      expect(prompt).toMatch(/more Newly Baker FAQ entries truncated/);
+    });
+
+    it("renders FAQ under describe-only menu items too (handoff context)", () => {
+      // Even when a menu item is describe-only, Claude should have FAQ
+      // available so it can answer questions about that service before
+      // handing off to a teammate. The FAQ is useful regardless of
+      // booking mode.
+      const prompt = professionalPrompt(
+        baseContext({
+          shopServiceMenu: [
+            {
+              serviceId: "srv_describe",
+              serviceName: "Laptop Repair",
+              priceUsd: 455,
+              category: "Tech",
+              shortBlurb: null,
+              bookingAssistance: false,
+              faqEntries: [
+                {
+                  question: "What's your turnaround time?",
+                  answer: "3-5 business days for most repairs.",
+                },
+              ],
+            },
+          ],
+        })
+      );
+      expect(prompt).toMatch(/Describe-only services at this shop/i);
+      expect(prompt).toMatch(/FAQ for Laptop Repair/);
+      expect(prompt).toContain("3-5 business days");
     });
   });
 
@@ -986,6 +1180,7 @@ describe("PromptTemplates — focused-service-default fix (anchor wins over hist
             category: "Food",
             shortBlurb: null,
             bookingAssistance: true,
+            faqEntries: [],
           },
         ],
       })

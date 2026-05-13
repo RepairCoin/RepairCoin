@@ -582,6 +582,78 @@ describe("ContextBuilder", () => {
       });
       expect(ctx.shopServiceMenu).toEqual([]);
     });
+
+    it("populates faqEntries on each menu item via the FAQ repo (per-service)", async () => {
+      // sc1.png follow-up: the AI knew Newly Baker existed but had no
+      // FAQ for it, only for the focused service. Fix is to fetch FAQ
+      // per menu item. This test verifies the repo is called per item
+      // and entries land on each menu item independently.
+      const { builder, mockFaqRepo } = makeMocks({
+        service: baseService(),
+        siblingServices: [
+          { serviceId: "srv_newly", serviceName: "Newly Baker", priceUsd: 99, aiSalesEnabled: true },
+          { serviceId: "srv_aqua", serviceName: "AQua Tech", priceUsd: 455, aiSalesEnabled: true },
+        ],
+      });
+      mockFaqRepo.getEntriesForService = jest.fn().mockImplementation((id: string) => {
+        if (id === "srv_newly")
+          return Promise.resolve([
+            { question: "What's included?", answer: "Ingredients + take-home bake." },
+          ]);
+        if (id === "srv_aqua")
+          return Promise.resolve([
+            { question: "Brands?", answer: "Apple, Dell, HP, Lenovo." },
+          ]);
+        // Focused service — return whatever; not under test here.
+        return Promise.resolve([]);
+      });
+
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      const byId = Object.fromEntries(ctx.shopServiceMenu.map((m) => [m.serviceId, m]));
+      expect(byId["srv_newly"].faqEntries).toEqual([
+        { question: "What's included?", answer: "Ingredients + take-home bake." },
+      ]);
+      expect(byId["srv_aqua"].faqEntries).toEqual([
+        { question: "Brands?", answer: "Apple, Dell, HP, Lenovo." },
+      ]);
+      // Repo was called per menu item (plus once for the focused service).
+      const callServiceIds = mockFaqRepo.getEntriesForService.mock.calls.map((c: any[]) => c[0]);
+      expect(callServiceIds).toContain("srv_newly");
+      expect(callServiceIds).toContain("srv_aqua");
+    });
+
+    it("returns empty faqEntries on a menu item when its FAQ fetch fails (graceful)", async () => {
+      // Per-service failures shouldn't break the menu — that service
+      // just renders without its FAQ block. Same fault-tolerance the
+      // rest of fetchShopServiceMenu already has.
+      const { builder, mockFaqRepo } = makeMocks({
+        service: baseService(),
+        siblingServices: [
+          { serviceId: "srv_newly", serviceName: "Newly Baker", priceUsd: 99, aiSalesEnabled: true },
+          { serviceId: "srv_aqua", serviceName: "AQua Tech", priceUsd: 455, aiSalesEnabled: true },
+        ],
+      });
+      mockFaqRepo.getEntriesForService = jest.fn().mockImplementation((id: string) => {
+        if (id === "srv_newly") return Promise.reject(new Error("transient DB blip"));
+        if (id === "srv_aqua") return Promise.resolve([{ question: "Q", answer: "A" }]);
+        return Promise.resolve([]);
+      });
+
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      const byId = Object.fromEntries(ctx.shopServiceMenu.map((m) => [m.serviceId, m]));
+      // The failed-fetch item lands with an empty FAQ instead of throwing.
+      expect(byId["srv_newly"].faqEntries).toEqual([]);
+      // The healthy partner still gets its FAQ.
+      expect(byId["srv_aqua"].faqEntries).toEqual([{ question: "Q", answer: "A" }]);
+    });
   });
 
   it("maps customer messages → 'user' role and shop messages → 'assistant' role", async () => {

@@ -300,6 +300,21 @@ export interface AgentShopServiceMenuItem {
    * `ai_sales_enabled`.
    */
   bookingAssistance: boolean;
+  /**
+   * Q&A pairs for this menu item (NOT the focused service — that's on
+   * AgentServiceContext.faqEntries above). Empty array when the shop owner
+   * hasn't authored FAQ for this service. When non-empty, the prompt
+   * renders a nested "Frequently asked questions for {serviceName}" block
+   * directly under the menu item so Claude has detailed answers when the
+   * customer asks about non-focused services.
+   *
+   * Without this, the AI knew menu items existed but could only quote
+   * price/duration/short-blurb — when asked "what's included in Newly
+   * Baker?" while anchored to I Robot, it would honestly admit "I only
+   * have full FAQ info for I Robot here." Plumbing the FAQ through the
+   * menu item closes that gap.
+   */
+  faqEntries: AgentServiceFaqEntry[];
 }
 
 /**
