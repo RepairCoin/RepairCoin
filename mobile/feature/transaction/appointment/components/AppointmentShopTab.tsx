@@ -12,7 +12,7 @@ import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { router } from "expo-router";
 
 // Hooks
-import { useBookingsData, useBookingsFilter, useCalendarUI } from "../hooks/ui";
+import { useBookingsData, useBookingsFilter, useCalendarUI } from "../hooks";
 
 // Utils
 import {

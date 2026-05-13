@@ -23,7 +23,7 @@ import EnhancedBookingCard from "../customer/EnhancedBookingCard";
 
 // Hooks
 import { useBookingsData, useBookingsFilter } from "../../hooks";
-import { useCalendarUI } from "@/feature/transaction/appointment/hooks/ui/useCalendarUI";
+import { useCalendarUI } from "@/feature/transaction/appointment/hooks";
 
 // Utils
 import {
