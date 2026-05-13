@@ -8,6 +8,10 @@ import * as categoryController from './controllers/categoryController';
 import * as vendorController from './controllers/vendorController';
 import * as adjustmentController from './controllers/adjustmentController';
 import * as uploadController from './controllers/uploadController';
+import * as alertController from './controllers/alertController';
+import * as purchaseOrderController from './controllers/purchaseOrderController';
+import * as analyticsController from './controllers/analyticsController';
+import * as serviceIntegrationController from './controllers/serviceIntegrationController';
 
 export function initializeRoutes(): Router {
   const router = Router();
@@ -85,6 +89,93 @@ export function initializeRoutes(): Router {
 
   // Delete vendor
   router.delete('/vendors/:vendorId', shopAuth, vendorController.deleteVendor);
+
+  // ============================================================================
+  // LOW STOCK ALERTS ROUTES
+  // ============================================================================
+
+  // Get alert settings
+  router.get('/alerts/settings/:shopId', shopAuth, alertController.getAlertSettings);
+
+  // Update alert settings
+  router.put('/alerts/settings/:shopId', shopAuth, alertController.updateAlertSettings);
+
+  // Get low stock items (without sending email)
+  router.get('/alerts/low-stock/:shopId', shopAuth, alertController.getLowStockItems);
+
+  // Trigger manual alert check
+  router.post('/alerts/check/:shopId', shopAuth, alertController.triggerManualCheck);
+
+  // Admin routes for scheduler management
+  const adminAuth = [authMiddleware, requireRole(['admin'])];
+  router.get('/alerts/scheduler/status', adminAuth, alertController.getSchedulerStatus);
+  router.post('/alerts/scheduler/run', adminAuth, alertController.runSchedulerNow);
+
+  // ============================================================================
+  // PURCHASE ORDERS ROUTES
+  // ============================================================================
+
+  // Get purchase order statistics
+  router.get('/purchase-orders/stats/:shopId', shopAuth, purchaseOrderController.getPurchaseOrderStats);
+
+  // Get all purchase orders
+  router.get('/purchase-orders/:shopId', shopAuth, purchaseOrderController.getPurchaseOrders);
+
+  // Get single purchase order
+  router.get('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.getPurchaseOrder);
+
+  // Create purchase order
+  router.post('/purchase-orders/:shopId', shopAuth, purchaseOrderController.createPurchaseOrder);
+
+  // Update purchase order
+  router.put('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.updatePurchaseOrder);
+
+  // Receive items
+  router.post('/purchase-orders/:shopId/:poId/receive', shopAuth, purchaseOrderController.receiveItems);
+
+  // Cancel purchase order
+  router.post('/purchase-orders/:shopId/:poId/cancel', shopAuth, purchaseOrderController.cancelPurchaseOrder);
+
+  // Delete purchase order
+  router.delete('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.deletePurchaseOrder);
+
+  // ============================================================================
+  // ANALYTICS ROUTES
+  // ============================================================================
+
+  // Get overall inventory analytics
+  router.get('/analytics/:shopId/overview', shopAuth, analyticsController.getInventoryAnalytics);
+
+  // Get inventory turnover analysis
+  router.get('/analytics/:shopId/turnover', shopAuth, analyticsController.getInventoryTurnover);
+
+  // Get profit margin analysis
+  router.get('/analytics/:shopId/margins', shopAuth, analyticsController.getProfitMargins);
+
+  // Get stock level trends
+  router.get('/analytics/:shopId/trends', shopAuth, analyticsController.getStockTrends);
+
+  // Get low stock forecast
+  router.get('/analytics/:shopId/forecast', shopAuth, analyticsController.getLowStockForecast);
+
+  // ============================================================================
+  // SERVICE INTEGRATION ROUTES
+  // ============================================================================
+
+  // Link inventory items to a service
+  router.post('/service-integration/link/:serviceId', shopAuth, serviceIntegrationController.linkItemsToService);
+
+  // Get inventory items linked to a service
+  router.get('/service-integration/service/:serviceId', shopAuth, serviceIntegrationController.getServiceInventoryItems);
+
+  // Check stock availability for a service
+  router.get('/service-integration/availability/:serviceId', shopAuth, serviceIntegrationController.checkServiceStockAvailability);
+
+  // Remove inventory item link from service
+  router.delete('/service-integration/link/:serviceId/:linkId', shopAuth, serviceIntegrationController.unlinkItemFromService);
+
+  // Get all services using a specific inventory item
+  router.get('/service-integration/item/:itemId/services', shopAuth, serviceIntegrationController.getServicesUsingItem);
 
   return router;
 }

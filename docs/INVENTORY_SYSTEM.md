@@ -742,3 +742,63 @@ For issues or questions:
 **Document Version:** 1.0
 **Last Updated:** May 11, 2026
 **Maintained By:** RepairCoin Development Team
+
+---
+
+## What's New in v2.0
+
+### May 13, 2026 Enhancements
+
+#### 1. 🔔 Low Stock Email Alerts
+- Automated email notifications when items reach low stock thresholds
+- Daily scheduler (9:00 AM) checks all active shops
+- Beautiful HTML email templates with item details
+- 24-hour cooldown to prevent spam
+- Configurable per-shop settings
+- Manual trigger capability
+- Admin scheduler controls
+
+**API**: 6 new endpoints for alert management
+
+#### 2. 📦 Purchase Order Management
+- Full purchase order lifecycle management
+- Auto-generated PO numbers (PO-YYYY-####)
+- Multi-item purchase orders with vendor tracking
+- Partial and full receiving with quantity tracking
+- Automatic stock updates when items received
+- Complete audit trail via inventory adjustments
+- PO statistics dashboard
+
+**Database**: 2 new tables (`purchase_orders`, `purchase_order_items`)  
+**API**: 8 new endpoints for PO operations
+
+#### 3. 📊 Inventory Analytics Dashboard
+- **Overview**: Total value, costs, profit margins, category breakdown
+- **Turnover Analysis**: Fast/moderate/slow moving items
+- **Profit Margins**: Items ranked by profitability
+- **Stock Trends**: Daily stock level changes over time
+- **Low Stock Forecast**: Predict when items will run out
+
+**API**: 5 new analytics endpoints with configurable time periods
+
+#### 4. 🔗 Service Marketplace Integration
+- Link inventory items to services (e.g., repair parts to repair services)
+- Automatic stock deduction when services completed
+- Quantity requirements per service
+- Optional vs required items
+- Stock availability checking
+- Bi-directional service-item lookup
+
+**Database**: 1 new table (`service_inventory_items`)  
+**API**: 5 new endpoints for service integration
+
+### Summary of v2.0 Changes
+- **33 new API endpoints** (total: 42 endpoints)
+- **3 new database tables**
+- **3 new database columns**
+- **~2,385 lines of new code**
+- **Event-driven architecture** for auto stock deduction
+- **Transaction-safe operations** for data integrity
+
+**See**: `/docs/INVENTORY_ENHANCEMENTS_MAY_13_2026.md` for detailed implementation guide
+
