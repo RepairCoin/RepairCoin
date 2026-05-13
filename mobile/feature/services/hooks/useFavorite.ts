@@ -2,8 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "../services/service.services";
 import { ServiceData } from "@/shared/interfaces/service.interface";
+import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 export function useFavorite() {
+  const { accessToken } = useAuthStore();
+
   const useGetFavorites = (options?: { page?: number; limit?: number }) => {
     return useQuery({
       queryKey: queryKeys.serviceFavorites(options),
@@ -12,6 +15,7 @@ export function useFavorite() {
         return response.data;
       },
       staleTime: 2 * 60 * 1000, // 2 minutes
+      enabled: !!accessToken,
     });
   };
 
