@@ -14,12 +14,12 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams } from "expo-router";
 import { DateData } from "react-native-calendars";
 import { useService } from "@/feature/services/hooks/useService";
-import { useBalance } from "../hooks/queries/useBalance";
 import {
+  useBalance,
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
-} from "../hooks/queries";
-import { useCreateStripeCheckoutMutation } from "../hooks/mutations";
+  useCreateStripeCheckoutMutation,
+} from "../hooks";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useQuery } from "@tanstack/react-query";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
