@@ -13,11 +13,9 @@ import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { RescheduleRequestCard } from "../../components";
 import {
   useRescheduleRequestsQuery,
-} from "../../hooks/queries";
-import {
   useApproveRescheduleRequestMutation,
   useRejectRescheduleRequestMutation,
-} from "../../hooks/mutations";
+} from "../../hooks";
 import { RescheduleRequestStatus } from "@/feature/transaction/appointment/services/appointment.services";
 
 type FilterStatus = RescheduleRequestStatus | "all";

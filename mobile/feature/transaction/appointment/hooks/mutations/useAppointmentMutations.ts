@@ -80,4 +80,4 @@ export function useUpdateServiceDurationMutation() {
 }
 
 // Re-export from global hooks (single source of truth)
-export { useCancelAppointmentMutation } from "@/feature/transaction/booking/hooks/useBooking";
+export { useCancelAppointmentMutation } from "@/feature/transaction/booking/hooks";

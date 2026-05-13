@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
-import { useServiceOrdersQuery } from "../../queries/shop/useServiceOrdersQuery";
-import { bookingApi } from "../../../services/booking.services";
+import { useServiceOrdersQuery } from "./useBookingQueries";
+import { bookingApi } from "../services/booking.services";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
-import { OrderFilterType, ServiceOrderWithDetails, OrderStats } from "../../../types";
+import { OrderFilterType, ServiceOrderWithDetails, OrderStats } from "../types";
 
 const FILTERS: { key: OrderFilterType; label: string }[] = [
   { key: "all", label: "All" },

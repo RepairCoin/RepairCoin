@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { TrendDays } from "../../../types";
-import { useBookingAnalyticsQuery } from "../../queries/shop/useBookingAnalyticsQuery";
+import { TrendDays } from "../types";
+import { useBookingAnalyticsQuery } from "./useBookingQueries";
 
 export function useBookingAnalyticsUI() {
   const [trendDays, setTrendDays] = useState<TrendDays>(30);
