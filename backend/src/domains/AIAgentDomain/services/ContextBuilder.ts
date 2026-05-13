@@ -480,10 +480,16 @@ export class ContextBuilder {
     // ciphertext) are filtered upstream by the orchestrator before being sent
     // to Claude — Anthropic rejects user messages with empty content.
     const content = row.messageText ?? row.message_text ?? row.content ?? "";
+    // Plumb metadata so the orchestrator's loop guard can read prior
+    // booking_suggestions. Strictly internal — never sent to Anthropic.
+    const metadata = (row.metadata ?? undefined) as
+      | Record<string, any>
+      | undefined;
     return {
       role: senderType === "customer" ? "user" : "assistant",
       content,
       createdAt: row.createdAt ?? row.created_at,
+      ...(metadata ? { metadata } : {}),
     };
   }
 

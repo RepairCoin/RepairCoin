@@ -247,6 +247,13 @@ export interface AgentMessageContext {
   role: "user" | "assistant";
   content: string;
   createdAt: Date | string;
+  /**
+   * Raw `messages.metadata` JSON from the DB row, plumbed through unchanged.
+   * Only read by the orchestrator's same-slot loop guard — it inspects the
+   * previous AI message's `booking_suggestions` to drop duplicate tool calls.
+   * NEVER passed to Anthropic (Claude only sees role + content).
+   */
+  metadata?: Record<string, any>;
 }
 
 /**

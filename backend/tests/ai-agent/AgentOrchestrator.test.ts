@@ -10,6 +10,9 @@
 import {
   AgentOrchestrator,
   detectMentionedServices,
+  collectPriorBookingPairs,
+  detectCrossServiceOfferFollowUp,
+  isLikelyDuplicateText,
 } from "../../src/domains/AIAgentDomain/services/AgentOrchestrator";
 
 function makeMocks(opts: {
@@ -1347,6 +1350,995 @@ describe("AgentOrchestrator — focused-default server enforcement", () => {
     const created = mocks.messageRepo.createMessage.mock.calls[0][0];
     expect(created.metadata.booking_suggestions).toEqual([
       expect.objectContaining({ serviceId: focusedServiceId, slotIso: focusedSlotIso }),
+    ]);
+  });
+});
+
+describe("collectPriorBookingPairs — extract prior assistant's proposed slots", () => {
+  it("returns empty set when history is empty or null", () => {
+    expect(collectPriorBookingPairs([]).size).toBe(0);
+    expect(collectPriorBookingPairs(null as any).size).toBe(0);
+    expect(collectPriorBookingPairs(undefined as any).size).toBe(0);
+  });
+
+  it("returns pairs from the most recent assistant message's metadata", () => {
+    const history = [
+      { role: "user", metadata: undefined },
+      {
+        role: "assistant",
+        metadata: {
+          booking_suggestions: [
+            { serviceId: "srv_a", slotIso: "2026-05-12T19:00:00.000Z" },
+          ],
+        },
+      },
+      { role: "user", metadata: undefined },
+    ];
+    const pairs = collectPriorBookingPairs(history);
+    expect(pairs.has("srv_a|2026-05-12T19:00:00.000Z")).toBe(true);
+    expect(pairs.size).toBe(1);
+  });
+
+  it("stops at the latest assistant turn even when older assistants had bookings", () => {
+    // Only the IMMEDIATE predecessor matters for loop detection.
+    const history = [
+      {
+        role: "assistant",
+        metadata: {
+          booking_suggestions: [
+            { serviceId: "srv_old", slotIso: "2026-01-01T10:00:00.000Z" },
+          ],
+        },
+      },
+      { role: "user", metadata: undefined },
+      {
+        role: "assistant",
+        metadata: { booking_suggestions: [] }, // most recent: no slots proposed
+      },
+      { role: "user", metadata: undefined },
+    ];
+    const pairs = collectPriorBookingPairs(history);
+    // Should NOT pick up srv_old — only the latest assistant is considered.
+    expect(pairs.size).toBe(0);
+  });
+
+  it("returns empty set when latest assistant has no metadata", () => {
+    const history = [{ role: "assistant", metadata: undefined }];
+    expect(collectPriorBookingPairs(history).size).toBe(0);
+  });
+
+  it("returns empty set when latest assistant has metadata but no booking_suggestions", () => {
+    const history = [
+      { role: "assistant", metadata: { generated_by: "ai_agent" } },
+    ];
+    expect(collectPriorBookingPairs(history).size).toBe(0);
+  });
+
+  it("collects multiple pairs from a single assistant turn (multi-service reply)", () => {
+    const history = [
+      {
+        role: "assistant",
+        metadata: {
+          booking_suggestions: [
+            { serviceId: "srv_a", slotIso: "2026-05-12T19:00:00.000Z" },
+            { serviceId: "srv_b", slotIso: "2026-05-13T14:00:00.000Z" },
+          ],
+        },
+      },
+    ];
+    const pairs = collectPriorBookingPairs(history);
+    expect(pairs.size).toBe(2);
+    expect(pairs.has("srv_a|2026-05-12T19:00:00.000Z")).toBe(true);
+    expect(pairs.has("srv_b|2026-05-13T14:00:00.000Z")).toBe(true);
+  });
+
+  it("skips suggestions missing serviceId or slotIso defensively", () => {
+    const history = [
+      {
+        role: "assistant",
+        metadata: {
+          booking_suggestions: [
+            { serviceId: "srv_a", slotIso: "2026-05-12T19:00:00.000Z" },
+            { serviceId: "srv_b" }, // missing slotIso
+            { slotIso: "2026-05-13T14:00:00.000Z" }, // missing serviceId
+            null,
+          ],
+        },
+      },
+    ];
+    const pairs = collectPriorBookingPairs(history);
+    expect(pairs.size).toBe(1);
+    expect(pairs.has("srv_a|2026-05-12T19:00:00.000Z")).toBe(true);
+  });
+});
+
+describe("AgentOrchestrator — same-slot loop guard", () => {
+  // Mike's bug. Repro: an AI turn proposed Tuesday 3 PM. The customer's
+  // next turn was a non-booking signal ("so u sell bread", "what u sell",
+  // "thank u"). Claude re-fired the booking tool with the same Tuesday 3
+  // PM slot. The loop guard drops the duplicate so the customer sees a
+  // text reply instead of a third copy of the same tap card.
+
+  const slotIso = "2026-05-12T19:00:00.000Z";
+  const focusedServiceId = "srv_test";
+
+  const ctxWithPriorBooking = () => ({
+    service: {
+      serviceId: focusedServiceId,
+      serviceName: "Test Service",
+      priceUsd: 50,
+      category: "test",
+      description: "test",
+      bookingAssistance: true,
+      suggestUpsells: false,
+      faqEntries: [],
+    },
+    customer: {
+      address: "0xabc",
+      name: "Mike",
+      tier: "BRONZE",
+      rcnBalance: 0,
+      joinedAt: null,
+    },
+    shop: {
+      shopId: "shop_test",
+      shopName: "Test Shop",
+      category: "test",
+      hoursSummary: null,
+      timezone: null,
+    },
+    // The prior AI turn proposed Tuesday 3 PM and the customer is now
+    // sending a non-acceptance reply. Loop guard should drop the
+    // duplicate if Claude tries to re-propose.
+    conversationHistory: [
+      { role: "user", content: "what times do you have?", createdAt: new Date() },
+      {
+        role: "assistant",
+        content: "Earliest is Tuesday at 3 PM — tap below.",
+        createdAt: new Date(),
+        metadata: {
+          booking_suggestions: [
+            { serviceId: focusedServiceId, slotIso, humanLabel: "Tuesday at 3:00 PM" },
+          ],
+        },
+      },
+    ],
+    siblingServices: [],
+    shopServiceMenu: [],
+    availabilitySlots: [
+      {
+        date: "2026-05-12",
+        time: "15:00",
+        slotIso,
+        humanLabel: "Tuesday at 3:00 PM",
+        serviceId: focusedServiceId,
+        serviceName: "Test Service",
+      },
+    ],
+  });
+
+  const buildLoopMocks = (
+    customerMessageText: string,
+    claudeText: string = ""
+  ) => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: claudeText,
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_loop",
+            input: {
+              service_id: focusedServiceId,
+              slot_iso: slotIso,
+              reply_text: "Earliest available is today at 3:00 PM — tap below.",
+            },
+          },
+        ],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctxWithPriorBooking());
+    return { mocks, customerMessageText };
+  };
+
+  it("drops the tool block when the customer's reply is gratitude (\"thank u\")", async () => {
+    const { mocks, customerMessageText } = buildLoopMocks("thank u");
+    await mocks.orch.handleCustomerMessage(sampleInput({ customerMessageText }));
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "loop_guard_same_slot",
+    ]);
+    // No tool block → no card. The customer sees a text reply. The prior
+    // tap card from the previous AI turn is still in their chat scroll.
+  });
+
+  it("drops the tool block when the customer's reply is off-topic (\"so u sell bread\")", async () => {
+    const { mocks, customerMessageText } = buildLoopMocks("so u sell bread");
+    await mocks.orch.handleCustomerMessage(sampleInput({ customerMessageText }));
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "loop_guard_same_slot",
+    ]);
+  });
+
+  it("drops the tool block when the customer asks a shop-scope question (\"what u sell\")", async () => {
+    const { mocks, customerMessageText } = buildLoopMocks("what u sell");
+    await mocks.orch.handleCustomerMessage(sampleInput({ customerMessageText }));
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "loop_guard_same_slot",
+    ]);
+  });
+
+  it("falls back to LOOP_GUARD_FALLBACK_TEXT when Claude emitted no companion text", async () => {
+    // If Claude's response was tool-only (empty text block) and the guard
+    // drops the only tool, the customerFacingText would otherwise be ""
+    // — Anthropic returns just the tool call. The fallback ensures the
+    // customer gets a brief acknowledgement rather than an empty bubble.
+    const { mocks, customerMessageText } = buildLoopMocks("thank u", "");
+    await mocks.orch.handleCustomerMessage(sampleInput({ customerMessageText }));
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(typeof created.messageText).toBe("string");
+    expect(created.messageText.length).toBeGreaterThan(0);
+  });
+
+  it("uses Claude's companion text when present and guard drops the tool", async () => {
+    const { mocks, customerMessageText } = buildLoopMocks(
+      "what u sell",
+      "We focus on Test Service — building your own personal helper bot."
+    );
+    await mocks.orch.handleCustomerMessage(sampleInput({ customerMessageText }));
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    // Claude's text answers the customer's actual question — keep it.
+    expect(created.messageText).toContain("Test Service");
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+  });
+
+  it("ALSO drops the tool block on acceptance (\"yes please\") — prior card handles booking", async () => {
+    // Option B: the guard is unconditional. On real acceptance, Claude's
+    // prompt tells it to reply in text ("Great — tap the card above!")
+    // instead of re-firing the tool. If Claude misbehaves and fires
+    // anyway, the guard catches it. The prior tap card is still visible
+    // in the chat and still the booking action.
+    const { mocks, customerMessageText } = buildLoopMocks(
+      "yes please",
+      "Great — tap the card above to lock in Tuesday at 3 PM!"
+    );
+    await mocks.orch.handleCustomerMessage(sampleInput({ customerMessageText }));
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    // Duplicate dropped — same as the non-acceptance case.
+    expect(created.metadata.booking_suggestions).toBeUndefined();
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "loop_guard_same_slot",
+    ]);
+    // Claude's companion text reaches the customer (they get a brief
+    // confirmation pointing at the existing card).
+    expect(created.messageText).toContain("tap the card");
+  });
+
+  it("KEEPS the tool block when Claude proposes a DIFFERENT slot", async () => {
+    // Customer's non-acceptance reply, but Claude proposes Wednesday
+    // instead of Tuesday — not a duplicate, so the guard leaves it alone.
+    const newerSlotIso = "2026-05-13T19:00:00.000Z";
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_diff",
+            input: {
+              service_id: focusedServiceId,
+              slot_iso: newerSlotIso,
+              reply_text: "How about Wednesday at 3 PM?",
+            },
+          },
+        ],
+      },
+    });
+    const ctx = ctxWithPriorBooking();
+    // Add Wednesday slot to availability so the validator accepts it.
+    ctx.availabilitySlots.push({
+      date: "2026-05-13",
+      time: "15:00",
+      slotIso: newerSlotIso,
+      humanLabel: "Wednesday at 3:00 PM",
+      serviceId: focusedServiceId,
+      serviceName: "Test Service",
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctx);
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "thank u" })
+    );
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toEqual([
+      expect.objectContaining({ serviceId: focusedServiceId, slotIso: newerSlotIso }),
+    ]);
+    expect(created.metadata.booking_suggestion_dropped).toBeUndefined();
+  });
+
+  it("does nothing when there is no prior AI booking (first AI reply)", async () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_first",
+            input: {
+              service_id: focusedServiceId,
+              slot_iso: slotIso,
+              reply_text: "Tuesday at 3 PM works.",
+            },
+          },
+        ],
+      },
+    });
+    // No prior assistant message in history — first turn.
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      ...ctxWithPriorBooking(),
+      conversationHistory: [],
+    });
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "what times do you have?" })
+    );
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.booking_suggestions).toEqual([
+      expect.objectContaining({ serviceId: focusedServiceId, slotIso }),
+    ]);
+    expect(created.metadata.booking_suggestion_dropped).toBeUndefined();
+  });
+
+  it("preserves valid new slots while dropping duplicates in a multi-tool response", async () => {
+    // Claude emits TWO tool blocks: one repeats Tuesday (duplicate),
+    // the other proposes Wednesday (new). Loop guard should drop only
+    // the Tuesday one, keep Wednesday.
+    const newerSlotIso = "2026-05-13T19:00:00.000Z";
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 80,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_dup",
+            input: {
+              service_id: focusedServiceId,
+              slot_iso: slotIso, // duplicate of prior turn
+              reply_text: "Tuesday at 3 PM still open.",
+            },
+          },
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_new",
+            input: {
+              service_id: focusedServiceId,
+              slot_iso: newerSlotIso,
+              reply_text: "Or Wednesday at 3 PM.",
+            },
+          },
+        ],
+      },
+    });
+    const ctx = ctxWithPriorBooking();
+    ctx.availabilitySlots.push({
+      date: "2026-05-13",
+      time: "15:00",
+      slotIso: newerSlotIso,
+      humanLabel: "Wednesday at 3:00 PM",
+      serviceId: focusedServiceId,
+      serviceName: "Test Service",
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctx);
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "what u sell" })
+    );
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    // Only the new slot survives.
+    expect(created.metadata.booking_suggestions).toEqual([
+      expect.objectContaining({ serviceId: focusedServiceId, slotIso: newerSlotIso }),
+    ]);
+    expect(created.metadata.booking_suggestion_dropped).toEqual([
+      "loop_guard_same_slot",
+    ]);
+    // The duplicate's reply_text is dropped too.
+    expect(created.messageText).not.toContain("Tuesday at 3 PM still open");
+    expect(created.messageText).toContain("Or Wednesday at 3 PM");
+  });
+});
+
+describe("detectCrossServiceOfferFollowUp — same-anchor cross-service offer recognition", () => {
+  const shopServices = [
+    { serviceId: "srv_iRobot", serviceName: "I Robot" },
+    { serviceId: "srv_newly", serviceName: "Newly Baker" },
+  ];
+
+  it("returns null when conversation history is empty", () => {
+    expect(detectCrossServiceOfferFollowUp([], "srv_iRobot", shopServices)).toBeNull();
+  });
+
+  it("returns null when no assistant turn exists in history", () => {
+    const history = [
+      { role: "user", content: "hi" },
+      { role: "user", content: "?" },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toBeNull();
+  });
+
+  it("returns null when the prior anchor is different (anchor-switch case)", () => {
+    // Customer was anchored to Newly Baker, just switched to I Robot.
+    // The focused-default filter should still fire to suppress history bias.
+    const history = [
+      {
+        role: "assistant",
+        content: "Newly Baker tutorials are 90 minutes long.",
+        metadata: { anchor_service_id: "srv_newly" },
+      },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toBeNull();
+  });
+
+  it("returns offered service when prior anchor matches AND prior text mentions a non-focused service", () => {
+    // Sc1.png scenario: anchored to I Robot, AI's previous turn offered
+    // Newly Baker. The customer's follow-up should be interpreted as
+    // accepting Newly Baker, not the anchor.
+    const history = [
+      { role: "user", content: "do you sell bread?" },
+      {
+        role: "assistant",
+        content:
+          "Ha, not quite — we focus on tech, but the Newly Baker tutorial is one of our services. Want to grab a slot?",
+        metadata: { anchor_service_id: "srv_iRobot" },
+      },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toEqual({
+      offeredServiceId: "srv_newly",
+      offeredServiceName: "Newly Baker",
+    });
+  });
+
+  it("returns null when prior anchor matches but prior text only mentions focused service", () => {
+    // Normal in-thread turn — AI was just talking about I Robot, no
+    // cross-service offer to follow up on.
+    const history = [
+      {
+        role: "assistant",
+        content: "I Robot is a great hands-on session. Want to book?",
+        metadata: { anchor_service_id: "srv_iRobot" },
+      },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toBeNull();
+  });
+
+  it("returns null when prior assistant has no metadata at all", () => {
+    // No way to know which anchor the prior turn was on — conservative
+    // default keeps the existing behavior.
+    const history = [
+      {
+        role: "assistant",
+        content: "Want to check out Newly Baker?",
+        metadata: undefined,
+      },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toBeNull();
+  });
+
+  it("falls back to booking_suggestions[0].serviceId when anchor_service_id is missing (legacy data)", () => {
+    // Legacy assistant rows pre-dating anchor_service_id can still be
+    // disambiguated when a single booking_suggestion is present.
+    const history = [
+      {
+        role: "assistant",
+        content: "Newly Baker is one of our services too. Want to try?",
+        metadata: {
+          booking_suggestions: [
+            { serviceId: "srv_iRobot", slotIso: "2026-05-14T14:00:00.000Z" },
+          ],
+        },
+      },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toEqual({
+      offeredServiceId: "srv_newly",
+      offeredServiceName: "Newly Baker",
+    });
+  });
+
+  it("returns null when legacy booking_suggestions split across multiple services (ambiguous)", () => {
+    // Multi-service tool blocks — without anchor_service_id we cannot
+    // tell what the anchor was, so don't make assumptions.
+    const history = [
+      {
+        role: "assistant",
+        content: "Newly Baker is one of our services.",
+        metadata: {
+          booking_suggestions: [
+            { serviceId: "srv_iRobot", slotIso: "2026-05-14T14:00:00.000Z" },
+            { serviceId: "srv_newly", slotIso: "2026-05-15T10:00:00.000Z" },
+          ],
+        },
+      },
+    ];
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toBeNull();
+  });
+
+  it("walks past user messages to find the most-recent assistant turn", () => {
+    // History: [assistant offer, user reply, assistant follow-up, user reply].
+    // Only the MOST RECENT assistant counts (the follow-up). If the
+    // follow-up didn't mention a non-focused service, return null.
+    const history = [
+      {
+        role: "assistant",
+        content: "We also have Newly Baker — want to try?",
+        metadata: { anchor_service_id: "srv_iRobot" },
+      },
+      { role: "user", content: "how long?" },
+      {
+        role: "assistant",
+        content: "About 90 minutes.",
+        metadata: { anchor_service_id: "srv_iRobot" },
+      },
+      { role: "user", content: "ok" },
+    ];
+    // The most recent assistant ("About 90 minutes.") mentions no service
+    // name, so the cross-service follow-up window is closed.
+    expect(detectCrossServiceOfferFollowUp(history, "srv_iRobot", shopServices)).toBeNull();
+  });
+});
+
+describe("AgentOrchestrator — cross-service offer follow-up integration", () => {
+  // sc1.png repro: anchored to I Robot. AI's prior turn offered Newly
+  // Baker in plain text ("…the Newly Baker tutorial is one of our
+  // services — want to grab a slot?"). Customer's follow-up is "yes
+  // please". Without the fix: focused-default filter strips Newly
+  // Baker's slots and the active-topic reminder tells Claude to stay
+  // on I Robot, so Claude can't book Newly Baker. With the fix: the
+  // filter is bypassed and the reminder is suppressed.
+
+  const focusedServiceId = "srv_test"; // matches sampleInput's serviceId
+  const otherServiceId = "srv_newly";
+  const focusedSlotIso = "2026-05-14T13:00:00.000Z";
+  const otherSlotIso = "2026-05-14T14:00:00.000Z";
+
+  const ctxWithCrossServiceOffer = () => ({
+    service: {
+      serviceId: focusedServiceId,
+      serviceName: "I Robot",
+      priceUsd: 699.99,
+      category: "tech",
+      description: "Build your own robot.",
+      bookingAssistance: true,
+      suggestUpsells: true,
+      faqEntries: [],
+    },
+    customer: {
+      address: "0xabc",
+      name: "Tester",
+      tier: "BRONZE",
+      rcnBalance: 0,
+      joinedAt: null,
+    },
+    shop: {
+      shopId: "shop_test",
+      shopName: "Peanut",
+      category: "tech",
+      hoursSummary: null,
+      timezone: null,
+    },
+    // Prior AI turn offered Newly Baker (a non-focused service) and was
+    // operating under the same I Robot anchor as the current turn.
+    conversationHistory: [
+      { role: "user", content: "do you sell bread?", createdAt: new Date() },
+      {
+        role: "assistant",
+        content:
+          "Ha, not quite! We're a Repairs and Tech shop. The Newly Baker baking tutorial is one of our services though — want to grab a slot?",
+        createdAt: new Date(),
+        metadata: { anchor_service_id: focusedServiceId },
+      },
+    ],
+    siblingServices: [],
+    shopServiceMenu: [
+      {
+        serviceId: otherServiceId,
+        serviceName: "Newly Baker",
+        priceUsd: 99,
+        category: "baking",
+        shortBlurb: null,
+        bookingAssistance: true,
+      },
+    ],
+    availabilitySlots: [
+      {
+        date: "2026-05-14",
+        time: "09:00",
+        slotIso: focusedSlotIso,
+        humanLabel: "Thursday at 9:00 AM",
+        serviceId: focusedServiceId,
+        serviceName: "I Robot",
+      },
+      {
+        date: "2026-05-14",
+        time: "10:00",
+        slotIso: otherSlotIso,
+        humanLabel: "Thursday at 10:00 AM",
+        serviceId: otherServiceId,
+        serviceName: "Newly Baker",
+      },
+    ],
+  });
+
+  it("does NOT strip non-focused slots on a cross-service offer follow-up", async () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctxWithCrossServiceOffer());
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "yes please" })
+    );
+
+    const callArgs = mocks.anthropicClient.complete.mock.calls[0][0];
+    const slotEnum = callArgs.tools[0].inputSchema.properties.slot_iso.enum;
+    const svcEnum = callArgs.tools[0].inputSchema.properties.service_id.enum;
+    // Both services' slots remain available — Claude can book Newly Baker.
+    expect(slotEnum).toContain(focusedSlotIso);
+    expect(slotEnum).toContain(otherSlotIso);
+    expect(svcEnum).toContain(focusedServiceId);
+    expect(svcEnum).toContain(otherServiceId);
+  });
+
+  it("injects a CROSS-SERVICE OFFER reminder pointing at the offered service", async () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctxWithCrossServiceOffer());
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "yes please" })
+    );
+
+    const messages = mocks.anthropicClient.complete.mock.calls[0][0].messages;
+    // Expect: [..., assistant cross-offer reminder, user "yes please"]
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+    const lastTwo = messages.slice(-2);
+    expect(lastTwo[0].role).toBe("assistant");
+    // Reminder must reference the OFFERED service, not the anchor.
+    expect(lastTwo[0].content).toMatch(/offered "Newly Baker"/);
+    expect(lastTwo[0].content).toMatch(/service_id="srv_newly"/);
+    expect(lastTwo[0].content).toMatch(/CALL propose_booking_slot/);
+    // Reminder should NOT be the anchor flavor.
+    expect(lastTwo[0].content).not.toMatch(/^.{0,200}anchored to "I Robot"/);
+    expect(lastTwo[1]).toEqual({ role: "user", content: "yes please" });
+  });
+
+  it("DOES strip slots and inject reminder on anchor-switch (different prior anchor)", async () => {
+    // Anchor changed: prior turn's anchor was the OTHER service, customer
+    // now in focused. Existing focused-default behavior should apply —
+    // strip non-focused slots, fire the reminder.
+    const ctx = ctxWithCrossServiceOffer();
+    // Override the prior assistant's anchor to differ from current.
+    ctx.conversationHistory[1] = {
+      ...ctx.conversationHistory[1],
+      metadata: { anchor_service_id: otherServiceId },
+    };
+
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctx);
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "what's the price?" })
+    );
+
+    const callArgs = mocks.anthropicClient.complete.mock.calls[0][0];
+    const slotEnum = callArgs.tools[0].inputSchema.properties.slot_iso.enum;
+    // Only the focused service's slot remains — anchor-switch path.
+    expect(slotEnum).toEqual([focusedSlotIso]);
+
+    const messages = callArgs.messages;
+    // Reminder IS present — anchor-switch case still gets the active-topic note.
+    const assistantContents = messages
+      .filter((m: any) => m.role === "assistant")
+      .map((m: any) => m.content);
+    expect(assistantContents.some((c: string) => /anchored to "I Robot"/.test(c))).toBe(true);
+  });
+
+  it("DOES strip slots when prior turn mentioned only the focused service (normal in-thread)", async () => {
+    // No cross-service offer in the prior turn — should behave like a
+    // normal anchored conversation.
+    const ctx = ctxWithCrossServiceOffer();
+    ctx.conversationHistory[1] = {
+      ...ctx.conversationHistory[1],
+      content: "I Robot is a 4-hour hands-on session. Want a time?",
+    };
+
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue(ctx);
+
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "yes please" })
+    );
+
+    const callArgs = mocks.anthropicClient.complete.mock.calls[0][0];
+    const slotEnum = callArgs.tools[0].inputSchema.properties.slot_iso.enum;
+    // Existing behavior: focused-default filter strips non-focused slot.
+    expect(slotEnum).toEqual([focusedSlotIso]);
+  });
+
+  it("stamps anchor_service_id onto AI message metadata for downstream turns", async () => {
+    const mocks = makeMocks();
+    await mocks.orch.handleCustomerMessage(sampleInput());
+
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    expect(created.metadata.anchor_service_id).toBe("srv_test");
+  });
+});
+
+describe("isLikelyDuplicateText — near-duplicate string detection", () => {
+  it("returns true for the observed staging duplicate (closest match / closest we've got)", () => {
+    // Exact pair captured from sc1.png on 5/13. Claude emitted both as a
+    // text block + tool reply_text. The orchestrator's exact-string
+    // dedup missed it and the customer saw both lines stacked.
+    const a = "Friday at 3:30 PM is the closest match — tap below to lock it in! 🎯";
+    const b = "Friday at 3:30 PM is the closest we've got — tap below to lock it in! 🎯";
+    expect(isLikelyDuplicateText(a, b)).toBe(true);
+  });
+
+  it("returns true for byte-identical strings", () => {
+    const s = "Thursday at 2:00 PM works — tap below.";
+    expect(isLikelyDuplicateText(s, s)).toBe(true);
+  });
+
+  it("returns true when one string is a near-superset (extra filler word)", () => {
+    expect(
+      isLikelyDuplicateText(
+        "Friday at 2:00 PM works — tap below.",
+        "Friday at 2:00 PM works perfectly — tap below."
+      )
+    ).toBe(true);
+  });
+
+  it("returns false for the legitimate multi-service combination", () => {
+    // The multi-service pattern that DOES add new info — must survive.
+    const extraText =
+      "For the laptop repair (AQua Tech), you'll need to book that through their service page separately. Want me to flag a teammate to coordinate both?";
+    const replyText = "For the pastry tutorial — Friday at 2 PM works! Tap below.";
+    expect(isLikelyDuplicateText(extraText, replyText)).toBe(false);
+  });
+
+  it("returns false when extra adds a distinct preamble (legit setup + propose)", () => {
+    const extraText = "Here's a great pick that lines up with your morning preference:";
+    const replyText = "Thursday at 9:00 AM works — tap below.";
+    expect(isLikelyDuplicateText(extraText, replyText)).toBe(false);
+  });
+
+  it("returns false for very short strings (avoid suppressing confirmations)", () => {
+    expect(isLikelyDuplicateText("Sure!", "Thursday at 2 PM works — tap below.")).toBe(false);
+    expect(isLikelyDuplicateText("Got it.", "Thursday at 2 PM works — tap below.")).toBe(false);
+    expect(isLikelyDuplicateText("Great!", "Friday at 9 AM is open.")).toBe(false);
+  });
+
+  it("returns false on empty / non-string inputs", () => {
+    expect(isLikelyDuplicateText("", "anything")).toBe(false);
+    expect(isLikelyDuplicateText("anything", "")).toBe(false);
+    expect(isLikelyDuplicateText(null as any, "anything")).toBe(false);
+    expect(isLikelyDuplicateText("anything", undefined as any)).toBe(false);
+  });
+
+  it("returns false for short strings sharing only a single keyword", () => {
+    // "Tuesday" appears in both but the rest is different — not a dup.
+    expect(
+      isLikelyDuplicateText("Tuesday is generally our quietest day.", "Tuesday at 3 PM works.")
+    ).toBe(false);
+  });
+
+  it("ignores punctuation, emoji, and case differences", () => {
+    expect(
+      isLikelyDuplicateText(
+        "Friday at 2:00 PM works — tap below!",
+        "FRIDAY AT 2:00 PM works   tap below 🎯🎯🎯"
+      )
+    ).toBe(true);
+  });
+});
+
+describe("AgentOrchestrator — near-duplicate extraText suppression", () => {
+  // Replay of sc1.png: anchor I Robot, customer asked "how about friday
+  // 3pm?". Claude returned ONE tool_use (reply_text "Friday at 3:30 PM
+  // is the closest we've got — tap below") AND a text block ("Friday at
+  // 3:30 PM is the closest match — tap below"). The orchestrator
+  // should suppress the text block as near-duplicate.
+
+  const slotIso = "2026-05-15T19:30:00.000Z";
+
+  const buildMocks = () => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "Friday at 3:30 PM is the closest match — tap below to lock it in! 🎯",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 80,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses: [
+          {
+            toolName: "propose_booking_slot",
+            toolUseId: "tool_dup",
+            input: {
+              service_id: "srv_test",
+              slot_iso: slotIso,
+              reply_text:
+                "Friday at 3:30 PM is the closest we've got — tap below to lock it in! 🎯",
+            },
+          },
+        ],
+      },
+    });
+    mocks.contextBuilder.build = jest.fn().mockResolvedValue({
+      service: {
+        serviceId: "srv_test",
+        serviceName: "I Robot",
+        priceUsd: 699.99,
+        category: "tech",
+        description: "test",
+        bookingAssistance: true,
+        suggestUpsells: false,
+        faqEntries: [],
+      },
+      customer: { address: "0xabc", name: "Tester", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: {
+        shopId: "shop_test",
+        shopName: "Peanut",
+        category: "tech",
+        hoursSummary: null,
+        timezone: null,
+      },
+      conversationHistory: [],
+      siblingServices: [],
+      shopServiceMenu: [],
+      availabilitySlots: [
+        {
+          date: "2026-05-15",
+          time: "15:30",
+          slotIso,
+          humanLabel: "Friday at 3:30 PM",
+          serviceId: "srv_test",
+          serviceName: "I Robot",
+        },
+      ],
+    });
+    return mocks;
+  };
+
+  it("drops the extra text block when it nearly duplicates the tool reply_text", async () => {
+    const mocks = buildMocks();
+    await mocks.orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "how about friday 3pm?" })
+    );
+    const created = mocks.messageRepo.createMessage.mock.calls[0][0];
+    // Only one variant survives — the tool's reply_text. The text-block
+    // duplicate is suppressed.
+    expect(created.messageText).toBe(
+      "Friday at 3:30 PM is the closest we've got — tap below to lock it in! 🎯"
+    );
+    // Both phrasings should NOT be present together.
+    expect(created.messageText).not.toContain("closest match");
+    // The tap card still lands.
+    expect(created.metadata.booking_suggestions).toEqual([
+      expect.objectContaining({ serviceId: "srv_test", slotIso }),
     ]);
   });
 });
