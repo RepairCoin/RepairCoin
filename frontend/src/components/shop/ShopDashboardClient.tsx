@@ -28,6 +28,9 @@ import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { InventoryTab } from "@/components/shop/tabs/InventoryTab";
+import { PurchaseOrdersTab } from "@/components/shop/tabs/PurchaseOrdersTab";
+import { InventoryAnalyticsTab } from "@/components/shop/tabs/InventoryAnalyticsTab";
+import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
@@ -1314,6 +1317,24 @@ export default function ShopDashboardClient() {
           {activeTab === "inventory" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <InventoryTab shopId={shopData.shopId} />
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "purchase-orders" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <PurchaseOrdersTab shopId={shopData.shopId} />
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "inventory-analytics" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <InventoryAnalyticsTab shopId={shopData.shopId} />
+            </SubscriptionGuard>
+          )}
+
+          {activeTab === "low-stock-alerts" && shopData && (
+            <SubscriptionGuard shopData={shopData}>
+              <LowStockAlertsTab shopId={shopData.shopId} />
             </SubscriptionGuard>
           )}
 

@@ -182,4 +182,152 @@ export const inventoryApi = {
     });
     return response;
   },
+
+  // ============================================================================
+  // PURCHASE ORDERS (v2.0)
+  // ============================================================================
+
+  // Get purchase order statistics
+  async getPurchaseOrderStats(shopId: string): Promise<import('@/types/inventory').PurchaseOrderStats> {
+    const response = await apiClient.get(`/inventory/purchase-orders/stats/${shopId}`);
+    return response.stats;
+  },
+
+  // Get all purchase orders
+  async getPurchaseOrders(shopId: string, status?: string): Promise<import('@/types/inventory').PurchaseOrder[]> {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+
+    const response = await apiClient.get(`/inventory/purchase-orders/${shopId}?${params.toString()}`);
+    return response.purchaseOrders;
+  },
+
+  // Get single purchase order
+  async getPurchaseOrder(shopId: string, poId: string): Promise<import('@/types/inventory').PurchaseOrder> {
+    const response = await apiClient.get(`/inventory/purchase-orders/${shopId}/${poId}`);
+    return response.purchaseOrder;
+  },
+
+  // Create purchase order
+  async createPurchaseOrder(shopId: string, data: import('@/types/inventory').CreatePurchaseOrderData): Promise<import('@/types/inventory').PurchaseOrder> {
+    const response = await apiClient.post(`/inventory/purchase-orders/${shopId}`, data);
+    return response.purchaseOrder;
+  },
+
+  // Update purchase order
+  async updatePurchaseOrder(shopId: string, poId: string, data: import('@/types/inventory').UpdatePurchaseOrderData): Promise<import('@/types/inventory').PurchaseOrder> {
+    const response = await apiClient.put(`/inventory/purchase-orders/${shopId}/${poId}`, data);
+    return response.purchaseOrder;
+  },
+
+  // Receive items from purchase order
+  async receiveItems(shopId: string, poId: string, data: import('@/types/inventory').ReceiveItemsData): Promise<import('@/types/inventory').PurchaseOrder> {
+    const response = await apiClient.post(`/inventory/purchase-orders/${shopId}/${poId}/receive`, data);
+    return response.purchaseOrder;
+  },
+
+  // Cancel purchase order
+  async cancelPurchaseOrder(shopId: string, poId: string): Promise<import('@/types/inventory').PurchaseOrder> {
+    const response = await apiClient.post(`/inventory/purchase-orders/${shopId}/${poId}/cancel`);
+    return response.purchaseOrder;
+  },
+
+  // Delete purchase order (draft only)
+  async deletePurchaseOrder(shopId: string, poId: string): Promise<void> {
+    await apiClient.delete(`/inventory/purchase-orders/${shopId}/${poId}`);
+  },
+
+  // ============================================================================
+  // ANALYTICS (v2.0)
+  // ============================================================================
+
+  // Get inventory overview analytics
+  async getOverviewAnalytics(shopId: string, period: number = 30): Promise<import('@/types/inventory').InventoryOverviewAnalytics> {
+    const response = await apiClient.get(`/inventory/analytics/${shopId}/overview?period=${period}`);
+    return response.analytics;
+  },
+
+  // Get inventory turnover analytics
+  async getTurnoverAnalytics(shopId: string, period: number = 90): Promise<import('@/types/inventory').InventoryTurnoverAnalytics> {
+    const response = await apiClient.get(`/inventory/analytics/${shopId}/turnover?period=${period}`);
+    return response.analytics;
+  },
+
+  // Get profit margin analytics
+  async getProfitMarginAnalytics(shopId: string): Promise<import('@/types/inventory').ProfitMarginAnalytics> {
+    const response = await apiClient.get(`/inventory/analytics/${shopId}/margins`);
+    return response.analytics;
+  },
+
+  // Get stock level trends
+  async getStockTrendAnalytics(shopId: string, period: number = 30): Promise<import('@/types/inventory').StockTrendAnalytics> {
+    const response = await apiClient.get(`/inventory/analytics/${shopId}/trends?period=${period}`);
+    return response.analytics;
+  },
+
+  // Get low stock forecast
+  async getLowStockForecast(shopId: string, days: number = 7): Promise<import('@/types/inventory').LowStockForecastAnalytics> {
+    const response = await apiClient.get(`/inventory/analytics/${shopId}/forecast?days=${days}`);
+    return response.analytics;
+  },
+
+  // ============================================================================
+  // LOW STOCK ALERTS (v2.0)
+  // ============================================================================
+
+  // Get alert settings
+  async getAlertSettings(shopId: string): Promise<import('@/types/inventory').LowStockAlertSettings> {
+    const response = await apiClient.get(`/inventory/alerts/settings/${shopId}`);
+    return response.settings;
+  },
+
+  // Update alert settings
+  async updateAlertSettings(shopId: string, settings: import('@/types/inventory').LowStockAlertSettings): Promise<import('@/types/inventory').LowStockAlertSettings> {
+    const response = await apiClient.put(`/inventory/alerts/settings/${shopId}`, settings);
+    return response.settings;
+  },
+
+  // Get low stock items
+  async getLowStockItems(shopId: string): Promise<import('@/types/inventory').LowStockItem[]> {
+    const response = await apiClient.get(`/inventory/alerts/low-stock/${shopId}`);
+    return response.items;
+  },
+
+  // Trigger manual alert check
+  async triggerAlertCheck(shopId: string): Promise<import('@/types/inventory').LowStockAlertResult> {
+    const response = await apiClient.post(`/inventory/alerts/check/${shopId}`);
+    return response.data;
+  },
+
+  // ============================================================================
+  // SERVICE INTEGRATION (v2.0)
+  // ============================================================================
+
+  // Link items to service
+  async linkItemsToService(serviceId: string, data: import('@/types/inventory').LinkItemsToServiceData): Promise<void> {
+    await apiClient.post(`/inventory/service-integration/link/${serviceId}`, data);
+  },
+
+  // Get service inventory items
+  async getServiceInventoryItems(serviceId: string): Promise<import('@/types/inventory').ServiceInventoryItemsResponse> {
+    const response = await apiClient.get(`/inventory/service-integration/service/${serviceId}`);
+    return response.data;
+  },
+
+  // Check service stock availability
+  async checkServiceStockAvailability(serviceId: string): Promise<import('@/types/inventory').ServiceStockAvailability> {
+    const response = await apiClient.get(`/inventory/service-integration/availability/${serviceId}`);
+    return response.data;
+  },
+
+  // Unlink item from service
+  async unlinkItemFromService(serviceId: string, linkId: string): Promise<void> {
+    await apiClient.delete(`/inventory/service-integration/link/${serviceId}/${linkId}`);
+  },
+
+  // Get services using item
+  async getServicesUsingItem(itemId: string): Promise<{ services: import('@/types/inventory').ServiceUsingItem[]; count: number }> {
+    const response = await apiClient.get(`/inventory/service-integration/item/${itemId}/services`);
+    return response.data;
+  },
 };

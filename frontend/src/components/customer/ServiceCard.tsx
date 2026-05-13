@@ -80,6 +80,21 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
         )}
 
+        {/* Inventory Stock Status Banner */}
+        {service.inventoryStatus && (service.inventoryStatus === 'low_stock' || service.inventoryStatus === 'out_of_stock') && (
+          <div className="absolute top-0 left-0 right-0 z-20">
+            <div className={`py-1.5 px-3 text-center text-xs font-bold backdrop-blur-md ${
+              service.inventoryStatus === 'out_of_stock'
+                ? 'bg-red-600/95 text-white'
+                : 'bg-orange-500/95 text-white'
+            }`}>
+              {service.inventoryStatus === 'out_of_stock'
+                ? '⚠️ Parts Out of Stock'
+                : '⚠️ Limited Parts Availability'}
+            </div>
+          </div>
+        )}
+
         {/* Favorite Button - Top Right */}
         <div className="absolute top-3 right-3 z-10">
           <FavoriteButton

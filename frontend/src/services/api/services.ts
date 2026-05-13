@@ -87,6 +87,8 @@ export interface ShopServiceWithShopInfo extends ShopService {
     state?: string;
     zipCode?: string;
   };
+  // Inventory status for linked items
+  inventoryStatus?: 'available' | 'low_stock' | 'out_of_stock';
   // Legacy fields for compatibility
   averageRating?: number;
 }
