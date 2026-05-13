@@ -12,4 +12,4 @@ export {
   useShopBookingQuery,
   useCustomerBookingQuery,
   useMyAppointmentsQuery,
-} from "@/feature/transaction/booking/hooks/useBooking";
+} from "@/feature/transaction/booking/hooks";

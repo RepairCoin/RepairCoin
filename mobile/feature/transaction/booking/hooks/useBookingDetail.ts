@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { Alert } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { useShopBookingQuery, useCustomerBookingQuery } from "../../queries";
+import { useShopBookingQuery, useCustomerBookingQuery } from "./useBookingQueries";
 import {
   useApproveOrderMutation,
   useCompleteOrderMutation,
@@ -10,11 +10,11 @@ import {
   useMarkNoShowMutation,
   useRescheduleMutation,
   useCreateRescheduleRequestMutation,
-} from "../../mutations";
+} from "./useBookingMutations";
 import { BookingData, BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
-import { getStatusColor } from "../../../utils";
+import { getStatusColor } from "../utils";
 
 export function useBookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();

@@ -16,13 +16,14 @@ import { BookingData } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { bookingApi } from "../../services/booking.services";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
-import { useRescheduleRequestCountQuery } from "../../hooks/queries";
+import { useRescheduleRequestCountQuery } from "../../hooks";
 import { useQuery } from "@tanstack/react-query";
 import { disputeApi } from "../../services/dispute.services";
 import EnhancedBookingCard from "../customer/EnhancedBookingCard";
 
 // Hooks
-import { useBookingsData, useBookingsFilter, useCalendarUI } from "../../hooks/ui";
+import { useBookingsData, useBookingsFilter } from "../../hooks";
+import { useCalendarUI } from "@/feature/transaction/appointment/hooks/ui/useCalendarUI";
 
 // Utils
 import {
