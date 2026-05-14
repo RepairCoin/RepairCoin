@@ -23,20 +23,74 @@ interface ServiceCheckoutModalProps {
   onClose: () => void;
   onSuccess: () => void;
   /**
-   * Pre-fill the booking date when the modal opens. Used by Phase 3 Task 10's
-   * AI-suggested booking flow: the customer taps a suggestion card in chat,
-   * the route reads ?suggestedSlotIso=..., and passes the parsed Date here so
-   * the date picker is already selected. Falls back to null (customer picks)
-   * when omitted.
+   * Raw ISO 8601 slot string from the AI-suggested booking flow (Phase 3
+   * Task 10): the customer taps a tap-to-book card in chat → route reads
+   * ?suggestedSlotIso=... → passes the unmodified string here.
+   *
+   * Parsing is intentionally deferred to inside this modal, after the
+   * shop's timezone is loaded via appointmentsApi.getTimeSlotConfig.
+   * Without that timezone we cannot extract the date + HH:MM correctly:
+   * a slot like "2026-05-15T18:25:00Z" represents 2:25 PM in a NYC shop
+   * but 2:25 AM May 16 in a Manila customer's browser-local time. Using
+   * the customer's local timezone here would land the picker on the
+   * wrong date and miss the slot list entirely (the slot list comes from
+   * the API in shop-tz HH:MM, so a local-tz HH:MM pre-fill matches
+   * nothing on that wrong date).
    */
-  initialBookingDate?: Date | null;
-  /**
-   * Pre-fill the booking time slot (HH:MM, 24-hour). Same source as
-   * initialBookingDate. The TimeSlotPicker still validates against real
-   * availability — if the pre-filled slot is unavailable, the customer just
-   * picks another with no harm done.
-   */
-  initialBookingTimeSlot?: string | null;
+  initialBookingSlotIso?: string | null;
+}
+
+/**
+ * Extract { date, HH:MM } from an ISO slot string interpreted in the given
+ * IANA timezone. Returns null when the ISO is malformed or formatToParts
+ * fails to produce the expected fields (very old browsers / bogus tz name).
+ *
+ * The returned `bookingDate` is constructed via `new Date(year, month-1, day)`
+ * so that subsequent `formatLocalDate(bookingDate)` (browser-local getters)
+ * returns the same Y-M-D we extracted in shop tz. Downstream consumers
+ * (TimeSlotPicker, formatLocalDate) read getDate/getMonth in browser-local
+ * time, so the Date must be a "browser-local midnight on the shop-tz date".
+ */
+function parseSlotIsoInTimezone(
+  slotIso: string,
+  timeZone: string
+): { bookingDate: Date; bookingTimeSlot: string } | null {
+  const d = new Date(slotIso);
+  if (Number.isNaN(d.getTime())) return null;
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+  } catch {
+    return null;
+  }
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  const yearStr = get("year");
+  const monthStr = get("month");
+  const dayStr = get("day");
+  let hourStr = get("hour");
+  const minuteStr = get("minute");
+  if (!yearStr || !monthStr || !dayStr || !hourStr || !minuteStr) return null;
+  // Chrome / V8 quirk: hour12:false with 'en-US' sometimes yields "24" for
+  // midnight instead of "00". Normalize.
+  if (hourStr === "24") hourStr = "00";
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  return {
+    bookingDate: new Date(year, month - 1, day),
+    bookingTimeSlot: `${hourStr}:${minuteStr}`,
+  };
 }
 
 // Inner form component that uses Stripe hooks
@@ -174,8 +228,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   service,
   onClose,
   onSuccess,
-  initialBookingDate = null,
-  initialBookingTimeSlot = null,
+  initialBookingSlotIso = null,
 }) => {
   const { balanceData, fetchCustomerData } = useCustomerStore();
   const address = useAuthStore((state) => state.account?.address);
@@ -187,12 +240,40 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentInitialized, setPaymentInitialized] = useState(false);
 
-  // Booking Date & Time State — initialized from props for Phase 3 Task 10's
-  // AI-suggested-slot flow. When the customer tapped an AI suggestion, both
-  // values arrive populated; otherwise they're null and the customer picks.
-  const [bookingDate, setBookingDate] = useState<Date | null>(initialBookingDate);
-  const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(initialBookingTimeSlot);
+  // Booking Date & Time State. The AI-suggested-slot flow (Phase 3 Task 10)
+  // pre-fills these from initialBookingSlotIso, but only after the shop's
+  // timezone has loaded — see the effect below. Until then both stay null
+  // and the customer's date/time pickers behave as in a non-suggested flow.
+  const [bookingDate, setBookingDate] = useState<Date | null>(null);
+  const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
+  // Guard so the AI-slot pre-fill only fires ONCE per modal mount. Without
+  // this, any timeSlotConfig refetch would clobber the customer's manual
+  // date/time edits with the original AI suggestion.
+  const [suggestedSlotApplied, setSuggestedSlotApplied] = useState(false);
+
+  // Apply the AI-suggested slot in the shop's timezone, once the shop's
+  // timezone is known. The fix for the cross-timezone bug:
+  // a slot like 2026-05-15T18:25Z (2:25 PM in a NYC shop) was previously
+  // parsed in the customer's local tz, landing the picker on May 16 02:25
+  // for a Manila customer and missing the picker's slot list entirely.
+  // Now we parse in the shop's tz so the date matches what the card said.
+  useEffect(() => {
+    if (suggestedSlotApplied) return;
+    if (!initialBookingSlotIso) return;
+    const tz = timeSlotConfig?.timezone;
+    if (!tz) return;
+    const parsed = parseSlotIsoInTimezone(initialBookingSlotIso, tz);
+    if (!parsed) {
+      // Malformed ISO or unsupported timezone — silently skip the pre-fill.
+      // Customer still sees the modal with empty pickers and can pick.
+      setSuggestedSlotApplied(true);
+      return;
+    }
+    setBookingDate(parsed.bookingDate);
+    setBookingTimeSlot(parsed.bookingTimeSlot);
+    setSuggestedSlotApplied(true);
+  }, [initialBookingSlotIso, timeSlotConfig?.timezone, suggestedSlotApplied]);
 
   // No-Show Status State
   const [noShowStatus, setNoShowStatus] = useState<CustomerNoShowStatus | null>(null);
