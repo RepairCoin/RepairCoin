@@ -13,6 +13,7 @@ import {
   collectPriorBookingPairs,
   detectCrossServiceOfferFollowUp,
   isLikelyDuplicateText,
+  resolveDiscussedServiceId,
 } from "../../src/domains/AIAgentDomain/services/AgentOrchestrator";
 
 function makeMocks(opts: {
@@ -2340,5 +2341,184 @@ describe("AgentOrchestrator — near-duplicate extraText suppression", () => {
     expect(created.metadata.booking_suggestions).toEqual([
       expect.objectContaining({ serviceId: "srv_test", slotIso }),
     ]);
+  });
+});
+
+describe("resolveDiscussedServiceId — chip dynamic update policy", () => {
+  // Drives the frontend "Currently discussing" chip. Policy: tool call wins
+  // > single-service text mention > carry forward previous AI turn's value
+  // > anchor fallback. Designed so short replies ("thanks", "ok") don't
+  // snap the chip back to the anchor mid-conversation.
+
+  const services = [
+    { serviceId: "srv_aqua", serviceName: "AQua Tech" },
+    { serviceId: "srv_robot", serviceName: "I Robot" },
+    { serviceId: "srv_baker", serviceName: "Newly Baker" },
+  ];
+  const anchorServiceId = "srv_aqua";
+
+  it("tool-call serviceId wins over text mentions and prior history", () => {
+    const out = resolveDiscussedServiceId(
+      [{ serviceId: "srv_robot" }, { serviceId: "srv_baker" }],
+      "Booked you for AQua Tech!", // mentions anchor — should still lose to tool call
+      services,
+      [],
+      anchorServiceId
+    );
+    expect(out).toBe("srv_robot"); // first tool call's service
+  });
+
+  it("multi-tool turn pins to the FIRST tool call (the lead service)", () => {
+    const out = resolveDiscussedServiceId(
+      [
+        { serviceId: "srv_baker" },
+        { serviceId: "srv_robot" },
+        { serviceId: "srv_aqua" },
+      ],
+      "Two bookings coming up!",
+      services,
+      [],
+      anchorServiceId
+    );
+    expect(out).toBe("srv_baker");
+  });
+
+  it("falls through to text mention when bookingSuggestions is empty", () => {
+    const out = resolveDiscussedServiceId(
+      [],
+      "Sure! Here's what you need to know about I Robot — full kit included.",
+      services,
+      [],
+      anchorServiceId
+    );
+    expect(out).toBe("srv_robot");
+  });
+
+  it("treats multi-service text mentions as ambiguous and carries forward", () => {
+    // Polite catch-all reply: "happy to help with AQua Tech or I Robot."
+    // Two services named → ambiguous → carry forward instead of guessing.
+    const history = [
+      {
+        role: "assistant",
+        metadata: { discussed_service_id: "srv_robot" },
+      },
+    ];
+    const out = resolveDiscussedServiceId(
+      [],
+      "You're welcome! Whether it's AQua Tech or I Robot, happy to help.",
+      services,
+      history,
+      anchorServiceId
+    );
+    expect(out).toBe("srv_robot");
+  });
+
+  it("carries forward the prior AI turn's value on a generic reply", () => {
+    // "thanks" → "you're welcome" — no service named, prior turn was about
+    // I Robot. Chip must stay on I Robot, not snap back to anchor.
+    const history = [
+      {
+        role: "assistant",
+        metadata: { discussed_service_id: "srv_robot" },
+      },
+      { role: "user", metadata: undefined },
+    ];
+    const out = resolveDiscussedServiceId(
+      [],
+      "You're welcome! Let me know if you need anything else.",
+      services,
+      history,
+      anchorServiceId
+    );
+    expect(out).toBe("srv_robot");
+  });
+
+  it("walks past pre-deploy AI turns lacking discussed_service_id", () => {
+    // Migration case: older AI messages don't carry the field yet. Walk
+    // back until we find one that does. If none → anchor fallback.
+    const history = [
+      {
+        role: "assistant",
+        metadata: { discussed_service_id: "srv_baker" }, // oldest with field
+      },
+      { role: "user", metadata: undefined },
+      {
+        role: "assistant",
+        metadata: { generated_by: "ai_agent" }, // pre-deploy, no field
+      },
+      { role: "user", metadata: undefined },
+    ];
+    const out = resolveDiscussedServiceId(
+      [],
+      "ok",
+      services,
+      history,
+      anchorServiceId
+    );
+    expect(out).toBe("srv_baker");
+  });
+
+  it("falls back to anchor on the first AI reply", () => {
+    // Empty history → no prior turn to carry forward from. Anchor wins.
+    const out = resolveDiscussedServiceId(
+      [],
+      "Hi! Welcome.",
+      services,
+      [],
+      anchorServiceId
+    );
+    expect(out).toBe(anchorServiceId);
+  });
+
+  it("falls back to anchor when no prior AI turn carries the field", () => {
+    const history = [
+      { role: "user", metadata: undefined },
+      { role: "user", metadata: undefined },
+    ];
+    const out = resolveDiscussedServiceId(
+      [],
+      "ok",
+      services,
+      history,
+      anchorServiceId
+    );
+    expect(out).toBe(anchorServiceId);
+  });
+
+  it("ignores empty/whitespace reply text and uses carry-forward", () => {
+    const history = [
+      {
+        role: "assistant",
+        metadata: { discussed_service_id: "srv_robot" },
+      },
+    ];
+    expect(
+      resolveDiscussedServiceId([], "   ", services, history, anchorServiceId)
+    ).toBe("srv_robot");
+    expect(
+      resolveDiscussedServiceId([], "", services, history, anchorServiceId)
+    ).toBe("srv_robot");
+  });
+
+  it("ignores tool-call entries missing serviceId defensively", () => {
+    // Resolver shouldn't index into a serviceId-less entry — that would
+    // stamp `undefined` onto the metadata field and break the chip.
+    const history = [
+      {
+        role: "assistant",
+        metadata: { discussed_service_id: "srv_robot" },
+      },
+    ];
+    const out = resolveDiscussedServiceId(
+      [{} as any, { serviceId: "srv_baker" }],
+      "",
+      services,
+      history,
+      anchorServiceId
+    );
+    // First entry has no serviceId → step 1 doesn't fire → step 3 carries
+    // forward to srv_robot. (Step 1 doesn't fall through to the second
+    // entry — that's intentional, "first call wins or skip" semantics.)
+    expect(out).toBe("srv_robot");
   });
 });

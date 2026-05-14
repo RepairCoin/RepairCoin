@@ -697,6 +697,28 @@ export class AgentOrchestrator {
 
       // 7. Insert AI reply into messages table
       const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
+      // Active topic for this turn — separate from anchor_service_id below.
+      // anchor_service_id is the service the customer originally clicked
+      // into; discussed_service_id follows in-conversation drift so the
+      // frontend "Currently discussing" chip reflects what's actually
+      // being talked about (e.g., customer pivots from AQua Tech to
+      // I Robot mid-thread → chip flips, anchor stays).
+      const discussedServiceId = resolveDiscussedServiceId(
+        bookingSuggestions,
+        customerFacingText,
+        allShopServicesForDetection,
+        ctx.conversationHistory,
+        serviceId
+      );
+      // Stamp the resolved service's display name alongside the id so the
+      // frontend chip can render without a separate service lookup. The
+      // anchor is guaranteed to be in allShopServicesForDetection (we seed
+      // it from ctx.service.serviceName at the top of the method), and
+      // every other branch resolves to a service that came from that same
+      // list, so a name should always be findable.
+      const discussedServiceName =
+        allShopServicesForDetection.find((s) => s.serviceId === discussedServiceId)
+          ?.serviceName ?? null;
       const inserted = await this.messageRepo.createMessage({
         messageId: aiMessageId,
         conversationId,
@@ -715,6 +737,13 @@ export class AgentOrchestrator {
           // please" may be accepting a non-focused service the AI just
           // offered (don't strip those slots / fire the anchor reminder).
           anchor_service_id: serviceId,
+          // Active service for THIS turn — see comment above the
+          // resolveDiscussedServiceId call. Read by the frontend chip;
+          // equal to anchor_service_id in the common (no-drift) case.
+          discussed_service_id: discussedServiceId,
+          ...(discussedServiceName
+            ? { discussed_service_name: discussedServiceName }
+            : {}),
           // Store cost + latency on the message metadata too — easier for
           // shop dashboard to show "AI sent this in 2.6s, cost $0.018"
           // without joining to ai_agent_messages
@@ -1175,4 +1204,79 @@ export function collectPriorBookingPairs(
     return pairs;
   }
   return pairs;
+}
+
+/**
+ * Resolve the service the AI is ACTIVELY discussing on the turn being
+ * persisted. Stamped onto messages.metadata.discussed_service_id so the
+ * frontend's "Currently discussing" chip can follow conversation drift
+ * instead of staying pinned to the original anchor (conversation.service_id).
+ *
+ * Resolution policy (Option A — carry-forward, anchor as last resort):
+ *   1. AI proposed a booking via tool call → first proposal's service. The
+ *      first call is the headlining topic; multi-tool turns may include
+ *      secondaries, but the leading service is what the AI just committed
+ *      to.
+ *   2. AI named exactly ONE service in the reply text → that service.
+ *      When the AI names multiple (a polite catch-all like
+ *      "...whether AQua Tech or I Robot, happy to help") it's ambiguous
+ *      and we fall through to carry-forward rather than guessing.
+ *   3. No clear signal → carry forward the previous AI message's
+ *      discussed_service_id. Keeps the chip stable across "thanks" / "ok"
+ *      / off-topic replies instead of snapping back to the anchor.
+ *   4. First AI reply / no prior discussed value → fall back to the
+ *      anchor (the service the customer originally clicked into).
+ *
+ * Exported for unit testing.
+ */
+export function resolveDiscussedServiceId(
+  bookingSuggestions: { serviceId?: string }[],
+  aiReplyText: string,
+  allShopServices: { serviceId: string; serviceName: string }[],
+  conversationHistory: { role: string; metadata?: Record<string, any> }[],
+  anchorServiceId: string
+): string {
+  // Step 1 — tool call wins. The "first one" rule is deliberate: when
+  // Claude emits multiple propose_booking_slot calls (a rare multi-service
+  // booking turn), pin to the lead service rather than letting the chip
+  // jitter to whichever serviceId happened to appear last in the array.
+  if (
+    Array.isArray(bookingSuggestions) &&
+    bookingSuggestions.length > 0 &&
+    typeof bookingSuggestions[0].serviceId === "string" &&
+    bookingSuggestions[0].serviceId.length > 0
+  ) {
+    return bookingSuggestions[0].serviceId;
+  }
+
+  // Step 2 — single-service text mention. Re-uses detectMentionedServices
+  // (the same name-matching the customer-message detector uses) on the
+  // AI's outgoing text so the rule is symmetric with how we detect
+  // customer-named services elsewhere in the orchestrator.
+  if (typeof aiReplyText === "string" && aiReplyText.trim().length > 0) {
+    const mentioned = detectMentionedServices(aiReplyText, allShopServices);
+    if (mentioned.size === 1) {
+      return mentioned.values().next().value as string;
+    }
+  }
+
+  // Step 3 — carry forward. Walk the history in reverse to find the most
+  // recent AI turn that already carries a discussed_service_id and reuse
+  // it. Older turns predate the field (pre-deploy data) and will have
+  // undefined — skip those rather than treating them as a "no prior"
+  // signal, so the chip recovers gradually as new turns land.
+  if (Array.isArray(conversationHistory)) {
+    for (let i = conversationHistory.length - 1; i >= 0; i--) {
+      const turn = conversationHistory[i];
+      if (turn?.role !== "assistant") continue;
+      const prev = turn?.metadata?.discussed_service_id;
+      if (typeof prev === "string" && prev.length > 0) {
+        return prev;
+      }
+    }
+  }
+
+  // Step 4 — anchor fallback. First turn after deploy, or a conversation
+  // with no AI history at all.
+  return anchorServiceId;
 }
