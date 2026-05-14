@@ -26,6 +26,16 @@ export interface Conversation {
   participantAvatar?: string;
   participantName: string;
   isOnline?: boolean;
+  /**
+   * Whether the AI sales agent will reply on this conversation. Server-
+   * computed from ai_shop_settings.ai_global_enabled AND the conversation
+   * service's ai_sales_enabled. Read by ConversationThread to gate the
+   * "AI is typing" indicator — without this, the indicator fires for
+   * non-AI shops and times out 30s later, falsely promising a reply.
+   * Defaults to false on legacy clients that haven't received the new
+   * API field yet.
+   */
+  aiEnabled?: boolean;
 }
 
 interface MessageInboxProps {

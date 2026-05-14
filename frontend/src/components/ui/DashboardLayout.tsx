@@ -16,6 +16,19 @@ interface DashboardLayoutProps {
   onTabChange?: (tab: string) => void;
   isSuperAdmin?: boolean;
   adminRole?: string;
+  /**
+   * Viewport-lock mode. When true, the wrapper takes exactly 100dvh and
+   * the main content area becomes a flex column with overflow:hidden, so
+   * descendants can use `flex-1 overflow-y-auto` to scroll a region
+   * internally instead of scrolling the whole page. Used by the customer
+   * Messages tab to deliver WhatsApp/Slack-style chat behavior (latest
+   * message + input always visible, no page-scroll required). See
+   * docs/tasks/strategy/messages-layout-viewport-lock.md.
+   *
+   * Defaults to false to preserve the existing scroll behavior for every
+   * other tab and consumer.
+   */
+  fullHeight?: boolean;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -25,7 +38,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   activeSubTab,
   onTabChange,
   isSuperAdmin = false,
-  adminRole = ""
+  adminRole = "",
+  fullHeight = false,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -81,7 +95,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#101010]">
+    <div
+      className={
+        fullHeight
+          ? "h-[100dvh] bg-[#101010] flex flex-col overflow-hidden"
+          : "min-h-screen bg-[#101010]"
+      }
+    >
       {renderSidebar()}
 
       {/* Mobile header bar — hamburger only */}
@@ -113,13 +133,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main Content Area. In fullHeight mode, becomes a flex column that
+          bounds children to the remaining viewport height — required for
+          chat-style internal scroll. min-h-0 is the standard flex fix so
+          children CAN shrink below their content height (without it the
+          inner overflow-y-auto on the message list won't actually clip). */}
       <div className={`
         transition-all duration-300 ease-in-out
         pt-[76px] lg:pt-0
         ${isSidebarCollapsed ? "lg:ml-20" : "lg:ml-64"}
+        ${fullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0" : ""}
       `}>
-        <main>
+        <main className={fullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0" : ""}>
           {children}
         </main>
       </div>

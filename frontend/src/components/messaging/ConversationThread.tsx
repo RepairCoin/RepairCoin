@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Send,
   Paperclip,
@@ -15,6 +15,8 @@ import {
   RotateCcw,
   Loader2,
   Tag,
+  Bot,
+  ArrowLeft,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
@@ -66,6 +68,25 @@ interface ConversationThreadProps {
   onArchiveConversation?: (archived: boolean) => Promise<void>;
   onRetryMessage?: (messageId: string) => void;
   onDiscardMessage?: (messageId: string) => void;
+  /**
+   * Mobile/tablet back-to-inbox callback. When provided, renders an inline
+   * back-arrow button as the first item in the chat header (before the
+   * avatar) — visible only below the lg breakpoint, where the layout uses
+   * the single-pane toggle. Replaces the previous absolute-positioned
+   * overlay that sat on top of the participant avatar at the same
+   * coordinates and obscured it.
+   */
+  onBack?: () => void;
+  /**
+   * Server-stamped: whether the AI sales agent will actually reply on
+   * this conversation (ai_shop_settings.ai_global_enabled AND the
+   * service's ai_sales_enabled). Gates the "AI is typing" indicator so
+   * it does NOT fire on conversations with shops that don't have AI
+   * configured (where the previous unconditional indicator would mislead
+   * the customer into expecting a reply that never comes — 30s timeout).
+   * Defaults to false when undefined so behavior is conservative.
+   */
+  aiEnabled?: boolean;
   conversationDetails?: {
     id: string;
     customerId?: string;
@@ -96,6 +117,8 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   onRetryMessage,
   onDiscardMessage,
   conversationDetails,
+  onBack,
+  aiEnabled = false,
 }) => {
   const [messageInput, setMessageInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -113,6 +136,99 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const scrollHeightBeforeRef = useRef(0);
+
+  // "Currently discussing" chip — follows in-conversation drift instead of
+  // staying pinned to conversation.service_id (the original anchor). Reads
+  // discussed_service_name off the most recent AI-generated message (the
+  // orchestrator stamps it on every AI reply via resolveDiscussedServiceId).
+  // Falls back to the serviceName prop when no AI message has stamped a
+  // value yet — covers conversations from before this field was rolled out
+  // and the very first turn of any conversation.
+  const discussedServiceName = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const name = messages[i]?.metadata?.discussed_service_name;
+      if (typeof name === "string" && name.length > 0) {
+        return name;
+      }
+    }
+    return serviceName;
+  }, [messages, serviceName]);
+
+  // "AI is typing" auto-indicator. Customer-side only — when the customer's
+  // message is the latest in the thread, we assume an AI reply is in
+  // flight (typical AI latency 2-7s per ai_agent_messages). Cleared
+  // automatically when the next message of any kind arrives (covers both
+  // the AI reply and any out-of-band shop staff reply). 30s safety timeout
+  // catches the edge case where the AI errored so the indicator doesn't
+  // spin indefinitely. Shop-side intentionally NOT included: the shop
+  // staff don't need to see their own AI "typing".
+  //
+  // Gated on aiEnabled: previously this fired for ANY conversation where
+  // the customer's message was last, including shops without AI configured
+  // — those threads would show the indicator for the full 30s with no
+  // reply ever arriving, falsely promising one. The aiEnabled signal is
+  // server-stamped (ai_shop_settings.ai_global_enabled AND the conversation
+  // service's ai_sales_enabled) so we KNOW a reply is on its way.
+  const [isAwaitingAiReply, setIsAwaitingAiReply] = useState(false);
+  useEffect(() => {
+    if (currentUserType !== "customer") {
+      setIsAwaitingAiReply(false);
+      return;
+    }
+    if (!aiEnabled) {
+      setIsAwaitingAiReply(false);
+      return;
+    }
+    if (messages.length === 0) {
+      setIsAwaitingAiReply(false);
+      return;
+    }
+    const last = messages[messages.length - 1];
+    // Skip failed sends — no reply is coming on a message that never
+    // made it to the server.
+    if (last.status === "failed") {
+      setIsAwaitingAiReply(false);
+      return;
+    }
+    if (last.senderType === "customer") {
+      setIsAwaitingAiReply(true);
+      const timer = setTimeout(() => setIsAwaitingAiReply(false), 30000);
+      return () => clearTimeout(timer);
+    }
+    setIsAwaitingAiReply(false);
+    // conversationId in deps: when the customer switches conversations,
+    // the effect re-runs immediately and resets the indicator from any
+    // prior pending state — even if the parent's messages-clear cycle
+    // briefly lags (e.g., during loading), this guarantees no false
+    // typing-dots flash on the new thread.
+  }, [messages, currentUserType, aiEnabled, conversationId]);
+
+  // Combine: prop-driven `isTyping` (currently unwired, reserved for a
+  // future presence/WS signal) OR our locally-derived AI-waiting state.
+  // Either source produces the same visual indicator.
+  const showTypingIndicator = isTyping || isAwaitingAiReply;
+
+  // Keep the typing bubble in view when it first appears. Without this the
+  // customer's just-sent message is the last scrolled-to element and the
+  // typing bubble (rendered below it) may sit just under the viewport.
+  useEffect(() => {
+    if (!showTypingIndicator) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [showTypingIndicator]);
+
+  // Reset the message-length tracker when the conversation changes, so
+  // the next non-empty render is classified as a fresh "initial load"
+  // by the auto-scroll effect below (prevLength === 0 branch → scroll
+  // to bottom). Without this, switching from a 20-message conv to
+  // another 20-message conv lands the scroll at the TOP: prevLength
+  // and newLength are both ~20, so `added` is ~0, no auto-scroll branch
+  // fires, and the scroll position stays at 0 (top of the freshly-
+  // cleared container).
+  useEffect(() => {
+    prevMessagesLengthRef.current = 0;
+  }, [conversationId]);
 
   // Capture scroll height before DOM updates (for load-more scroll preservation)
   useEffect(() => {
@@ -289,8 +405,22 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   return (
     <div className="flex flex-col h-full bg-[#0A0A0A] relative">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-[#1A1A1A]">
+      <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-800 bg-[#1A1A1A]">
         <div className="flex items-center gap-3">
+          {/* Mobile/tablet back button. Inline (NOT overlaid on the avatar
+              like the previous absolute-positioned version was), visible
+              only below lg where the single-pane layout needs a way back
+              to the inbox. */}
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to conversations"
+              className="lg:hidden flex-shrink-0 p-2 -ml-2 rounded-full hover:bg-[#0A0A0A] transition-colors text-gray-300 hover:text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           {/* Avatar - Show shop logo if available, otherwise show initial */}
           <div className="relative">
             {participantAvatar && !avatarError ? (
@@ -319,9 +449,9 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
               {/* Subtitle is reserved for transient indicators (typing/online).
                   The service-anchor chip below shows the persistent
                   "what service this chat is about" context. */}
-              {(isTyping || isOnline) && (
+              {(showTypingIndicator || isOnline) && (
                 <p className="text-xs text-gray-400">
-                  {isTyping ? (
+                  {showTypingIndicator ? (
                     <span className="text-[#FFCC00]">typing...</span>
                   ) : (
                     "Online"
@@ -329,17 +459,19 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                 </p>
               )}
             </div>
-            {/* Phase 6: "Currently discussing: X" chip. Always visible so
-                customers and shop staff know which service the chat is
-                anchored to — updates automatically when conversation.service_id
-                changes (e.g., customer re-enters from a different service's
-                modal). */}
-            {serviceName && (
+            {/* "Currently discussing: X" chip. Dynamic-update follow-up:
+                reads the latest AI message's metadata.discussed_service_name
+                so the chip follows in-conversation drift (e.g., chat is
+                anchored to AQua Tech but the customer pivots to I Robot →
+                chip flips to I Robot). Falls back to the serviceName prop
+                (= conversation.service_id's name) for the first AI reply,
+                legacy data, and conversations with no AI messages yet. */}
+            {discussedServiceName && (
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-violet-500/10 border border-violet-400/30 rounded-full self-start max-w-full">
                 <Tag className="w-3 h-3 text-violet-300 flex-shrink-0" aria-hidden="true" />
                 <span className="text-[11px] font-medium text-violet-200 truncate">
                   <span className="text-violet-300/70">Currently discussing: </span>
-                  {serviceName}
+                  {discussedServiceName}
                 </span>
               </div>
             )}
@@ -740,11 +872,22 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
           </div>
         ))}
 
-        {/* Typing Indicator */}
-        {isTyping && (
-          <div className="flex justify-start">
+        {/* Typing Indicator. Appears below the latest message, left-aligned.
+            When isAwaitingAiReply is the source (customer just sent a message),
+            we use a bot avatar + the "AI is typing" label so the customer
+            knows an AI agent is composing — distinct from the general
+            participant-typing case driven by the isTyping prop. */}
+        {showTypingIndicator && (
+          <div className="flex justify-start" aria-live="polite" aria-atomic="true">
             <div className="flex gap-2">
-              {participantAvatar && !avatarError ? (
+              {isAwaitingAiReply ? (
+                <div
+                  className="w-8 h-8 bg-gradient-to-br from-violet-500 to-violet-700 rounded-full flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <Bot className="w-4 h-4 text-white" />
+                </div>
+              ) : participantAvatar && !avatarError ? (
                 <img
                   src={participantAvatar}
                   alt={participantName}
@@ -758,10 +901,17 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                   </span>
                 </div>
               )}
-              <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-3 flex items-center gap-1">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+              <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl px-3 py-2 flex items-center gap-2">
+                {isAwaitingAiReply && (
+                  <span className="text-[11px] font-medium text-violet-300/90">
+                    AI is typing
+                  </span>
+                )}
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -770,7 +920,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
       {/* Selected Files Preview */}
       {selectedFiles.length > 0 && (
-        <div className="px-4 py-2 border-t border-gray-800 bg-[#1A1A1A]">
+        <div className="shrink-0 px-4 py-2 border-t border-gray-800 bg-[#1A1A1A]">
           {isUploading && (
             <div className="flex items-center gap-2 mb-2">
               <div className="w-4 h-4 border-2 border-[#FFCC00] border-t-transparent rounded-full animate-spin" />
@@ -829,7 +979,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
       )}
 
       {/* Input Area */}
-      <div className="p-4 border-t border-gray-800 bg-[#1A1A1A]">
+      <div className="shrink-0 p-4 border-t border-gray-800 bg-[#1A1A1A]">
         {/* Error Message */}
         {sendError && (
           <div className="mb-3 p-3 bg-red-900/20 border border-red-500/50 rounded-lg flex items-start justify-between">

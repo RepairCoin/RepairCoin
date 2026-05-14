@@ -35,6 +35,22 @@ export interface Conversation {
    * referenced service has been deleted.
    */
   serviceName?: string;
+  /**
+   * Computed at query time: TRUE only when BOTH the shop has
+   * ai_shop_settings.ai_global_enabled=TRUE AND the conversation's
+   * service has shop_services.ai_sales_enabled=TRUE. Used by the
+   * customer-side chat UI to decide whether to show the "AI is typing"
+   * indicator on a pending customer message — without this signal the
+   * indicator fires (and times out 30s later) on conversations with
+   * shops that don't have AI configured, misleading the customer.
+   *
+   * FALSE when ANY of these are true:
+   *   - The shop has no ai_shop_settings row at all
+   *   - ai_shop_settings.ai_global_enabled = false
+   *   - The conversation has no service_id
+   *   - The service has ai_sales_enabled = false
+   */
+  aiEnabled: boolean;
 }
 
 export interface Message {
@@ -242,16 +258,21 @@ export class MessageRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get conversations
+      // Get conversations. Joins ai_shop_settings + reuses the existing
+      // shop_services join to compute ai_enabled on each row — saves the
+      // frontend a separate lookup per conversation when deciding whether
+      // to show the "AI is typing" indicator.
       const query = `
         SELECT
           c.*,
           s.name as shop_name,
           s.logo_url as shop_image_url,
-          srv.service_name as service_name
+          srv.service_name as service_name,
+          (COALESCE(ais.ai_global_enabled, false) AND COALESCE(srv.ai_sales_enabled, false)) AS ai_enabled
         FROM conversations c
         LEFT JOIN shops s ON c.shop_id = s.shop_id
         LEFT JOIN shop_services srv ON c.service_id = srv.service_id
+        LEFT JOIN ai_shop_settings ais ON c.shop_id = ais.shop_id
         ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -314,16 +335,20 @@ export class MessageRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get conversations
+      // Get conversations. Same ai_enabled computation as the customer
+      // path — the shop dashboard surfaces the field too (future: gates
+      // the "AI is typing on your behalf" indicator for shop staff).
       const query = `
         SELECT
           c.*,
           cust.name as customer_name,
           cust.profile_image_url as customer_image_url,
-          srv.service_name as service_name
+          srv.service_name as service_name,
+          (COALESCE(ais.ai_global_enabled, false) AND COALESCE(srv.ai_sales_enabled, false)) AS ai_enabled
         FROM conversations c
         LEFT JOIN customers cust ON c.customer_address = cust.address
         LEFT JOIN shop_services srv ON c.service_id = srv.service_id
+        LEFT JOIN ai_shop_settings ais ON c.shop_id = ais.shop_id
         ${whereClause}
         ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -824,6 +849,11 @@ export class MessageRepository extends BaseRepository {
       shopName: row.shop_name,
       shopImageUrl: row.shop_image_url,
       serviceName: row.service_name ?? undefined,
+      // Default to false on legacy queries that don't SELECT ai_enabled
+      // (e.g. internal helpers like getConversationById). Only the list
+      // endpoints expose this honestly; everywhere else gets a safe
+      // "AI not assumed" default.
+      aiEnabled: row.ai_enabled === true,
     };
   }
 

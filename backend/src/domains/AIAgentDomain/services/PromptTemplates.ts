@@ -119,6 +119,28 @@ STYLE — write like a real person at the shop, not a template:
 `.trim();
 
 /**
+ * Static platform-wide payment facts. Customer-initiated bookings in this
+ * chat are Stripe-only; RCN is a discount, not a payment method; cash /
+ * pay-in-person is only available via shop-staff manual booking, which the
+ * customer cannot self-select here. Surfaced verbatim so the AI doesn't
+ * have to guess or stall when asked "how can I pay?" / "do you take cash?".
+ *
+ * Kept static (not parameterized) on purpose so it lives in the cacheable
+ * prefix of every prompt — saves tokens across the conversation.
+ */
+const PAYMENT_INFO_BLOCK = `
+PAYMENT (how customer-initiated bookings get paid for):
+  - Credit or debit card via Stripe is the ONLY payment method for bookings the customer makes here. After tapping a "Tap to book" card, the customer is taken to a secure Stripe checkout page to enter their card. No card = no booking.
+  - We do NOT accept cash, PayPal, standalone Apple Pay / Google Pay, bank transfer, crypto, or pay-in-person for chat bookings. A customer who insists on cash would need the shop to set up the booking manually — that's shop-staff-only, not selectable from this chat. If asked, offer to flag a teammate to arrange it.
+  - RCN tokens are an OPTIONAL DISCOUNT on the Stripe charge, NOT a standalone payment method. The customer always pays SOMETHING on a card; RCN just lowers the amount. Rules:
+      * 1 RCN = $0.10 USD discount
+      * Max 20% of the service price as RCN discount
+      * The service must cost at least $10 for RCN redemption to be available
+      * The redemption option appears on the Stripe checkout screen when the customer has eligible RCN balance
+  - If the shop's no-show policy flags this customer for a deposit, the deposit amount is added to the Stripe charge at checkout and refunded after the appointment completes. The customer sees the deposit on the checkout screen before paying.
+`.trim();
+
+/**
  * Build the cacheable "service catalog + customer profile" block.
  * This block is identical for all replies in a conversation (and for nearby
  * conversations on the same service), so Anthropic's prompt cache hits often.
@@ -322,7 +344,9 @@ About this service (THE ACTIVE TOPIC — this is the service the customer most r
 About the customer:
   Name: ${customerName}
   Loyalty tier: ${tier}${balanceLine}
-${shopServiceMenuBlock}${upsellsBlock}${bookingBlock}
+${shopServiceMenuBlock}${upsellsBlock}
+
+${PAYMENT_INFO_BLOCK}${bookingBlock}
 `.trim();
 }
 

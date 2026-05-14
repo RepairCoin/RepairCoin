@@ -201,7 +201,7 @@ export const CustomerFavoritesTab: React.FC<CustomerFavoritesTabProps> = ({
                 <button
                   onClick={() => {
                     // Navigate to service details
-                    window.location.href = `/customer/marketplace?service=${service.serviceId}`;
+                    window.location.href = `/customer?tab=marketplace&service=${service.serviceId}`;
                   }}
                   className="px-4 py-2 bg-[#FFCC00] text-black font-semibold rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2"
                 >

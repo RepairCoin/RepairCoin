@@ -33,6 +33,10 @@ function transformConversation(
       conv.isArchivedCustomer || conv.isArchivedShop ? "resolved" : "active",
     hasAttachment: false,
     isOnline: false,
+    // Default to false defensively — older backends may not send the
+    // field. Front-end consumers must treat undefined/missing as "AI
+    // is NOT enabled" to avoid the false-positive typing indicator.
+    aiEnabled: conv.aiEnabled === true,
   };
 }
 

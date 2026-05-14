@@ -24,11 +24,12 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
 
   // Pre-fill from a Phase 3 Task 10 booking-suggestion card tap. The chat
   // thread navigates here with ?suggestedSlotIso=<ISO 8601> when the
-  // customer taps an AI-proposed slot. We open the modal automatically and
-  // pass the parsed Date + HH:MM time so the date and time pickers are
-  // already selected when the customer arrives.
+  // customer taps an AI-proposed slot. We pass the raw ISO straight through
+  // to the modal — parsing into a Date + HH:MM happens inside the modal
+  // once the shop's timezone is known, so the picker lands on the same
+  // date the chat card displayed (rather than the customer's local-tz
+  // interpretation, which can roll forward a day across timezones).
   const suggestedSlotIso = searchParams.get('suggestedSlotIso') ?? undefined;
-  const { initialBookingDate, initialBookingTimeSlot } = parseSuggestedSlot(suggestedSlotIso);
 
   useEffect(() => {
     fetchServiceDetails();
@@ -75,7 +76,7 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
       setShowCheckout(true);
     } else {
       // Redirect to marketplace with this service pre-selected
-      router.push(`/customer/marketplace?service=${serviceId}`);
+      router.push(`/customer?tab=marketplace&service=${serviceId}`);
     }
   };
 
@@ -106,7 +107,7 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
             {error || 'The service you\'re looking for doesn\'t exist or has been removed.'}
           </p>
           <button
-            onClick={() => router.push('/customer/marketplace')}
+            onClick={() => router.push('/customer?tab=marketplace')}
             className="px-6 py-3 bg-[#FFCC00] hover:bg-[#e6b800] text-[#101010] font-semibold rounded-lg transition-colors"
           >
             Browse All Services
@@ -122,7 +123,7 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
         <div className="max-w-4xl mx-auto">
           {/* Back to Marketplace Link */}
           <button
-            onClick={() => router.push('/customer/marketplace')}
+            onClick={() => router.push('/customer?tab=marketplace')}
             className="text-[#FFCC00] hover:text-[#e6b800] mb-6 flex items-center gap-2 transition-colors"
           >
             ← Back to Marketplace
@@ -296,30 +297,9 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
           service={service}
           onClose={() => setShowCheckout(false)}
           onSuccess={handleCheckoutSuccess}
-          initialBookingDate={initialBookingDate}
-          initialBookingTimeSlot={initialBookingTimeSlot}
+          initialBookingSlotIso={suggestedSlotIso ?? null}
         />
       )}
     </>
   );
 };
-
-/**
- * Parse the suggestedSlotIso query param into the Date + HH:MM shape the
- * checkout modal expects. Returns undefined fields when the param is missing
- * or malformed — modal then falls back to its normal "pick a date" flow.
- */
-function parseSuggestedSlot(slotIso?: string): {
-  initialBookingDate?: Date;
-  initialBookingTimeSlot?: string;
-} {
-  if (!slotIso) return {};
-  const d = new Date(slotIso);
-  if (Number.isNaN(d.getTime())) return {};
-  // The modal's TimeSlotPicker keys on HH:MM strings (24-hour). Render in
-  // the user's local timezone — same convention the picker uses when
-  // showing slot lists.
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return { initialBookingDate: d, initialBookingTimeSlot: `${hh}:${mm}` };
-}

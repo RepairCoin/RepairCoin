@@ -17,7 +17,7 @@ export function ServicePageClient({ serviceId, service }: ServicePageClientProps
     // Redirect to marketplace after a brief delay
     // This allows the page to render with meta tags first
     const timer = setTimeout(() => {
-      router.replace(`/customer/marketplace?service=${serviceId}`);
+      router.replace(`/customer?tab=marketplace&service=${serviceId}`);
     }, 100);
 
     return () => clearTimeout(timer);
@@ -31,7 +31,7 @@ export function ServicePageClient({ serviceId, service }: ServicePageClientProps
           <h1 className="text-2xl font-bold text-white mb-4">Service Not Found</h1>
           <p className="text-gray-400 mb-6">The requested service could not be found.</p>
           <button
-            onClick={() => router.push("/customer/marketplace")}
+            onClick={() => router.push("/customer?tab=marketplace")}
             className="bg-[#FFCC00] text-black font-semibold px-6 py-3 rounded-lg hover:bg-[#FFD700] transition-colors"
           >
             Browse Services
@@ -119,7 +119,7 @@ export function ServicePageClient({ serviceId, service }: ServicePageClientProps
               {/* CTA */}
               <div className="mt-8">
                 <button
-                  onClick={() => router.push(`/customer/marketplace?service=${serviceId}`)}
+                  onClick={() => router.push(`/customer?tab=marketplace&service=${serviceId}`)}
                   className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all"
                 >
                   Book This Service

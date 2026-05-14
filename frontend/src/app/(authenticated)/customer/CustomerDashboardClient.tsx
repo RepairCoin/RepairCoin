@@ -214,14 +214,32 @@ export default function CustomerDashboardClient() {
     );
   }
 
+  // L1 rollback flag for the WhatsApp-style viewport-lock layout on the
+  // messages tab. Flip to false to instantly revert to the previous
+  // always-page-scroll behavior with no other code changes. See
+  // docs/tasks/strategy/messages-layout-viewport-lock.md for details.
+  const FULL_HEIGHT_MESSAGES_ENABLED = true;
+  const isMessagesTab = activeTab === "messages";
+  const isMessagesFullHeight = FULL_HEIGHT_MESSAGES_ENABLED && isMessagesTab;
+
   return (
     <DashboardLayout
       userRole="customer"
       activeTab={activeTab}
       onTabChange={handleTabChange}
+      fullHeight={isMessagesFullHeight}
     >
       <div
-        className="min-h-screen py-8 pt-16 lg:pt-8"
+        className={
+          // Mobile/tablet (< lg): DashboardLayout's main already adds
+          // pt-[76px] to clear the fixed mobile header bar — adding pt-16
+          // here on top of that gave 140px of wasted vertical space.
+          // Use pt-0 on mobile + lg:pt-4 on desktop so the parent's offset
+          // is the single source of truth on small screens.
+          isMessagesFullHeight
+            ? "flex-1 flex flex-col overflow-hidden min-h-0 pb-4 pt-0 lg:py-4"
+            : "min-h-screen py-8 pt-16 lg:pt-8"
+        }
         style={{
           backgroundImage: `url('/img/dashboard-bg.png')`,
           backgroundSize: "cover",
@@ -229,58 +247,86 @@ export default function CustomerDashboardClient() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Suspension Banner - Show if account is suspended */}
-          {userProfile?.suspended && (
-            <SuspensionBanner
-              reason={userProfile.suspensionReason}
-              suspendedAt={userProfile.suspendedAt}
-            />
+        <div
+          className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${
+            isMessagesFullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0 w-full" : ""
+          }`}
+        >
+          {/* Banners. Alert banners (suspension, no-show, account-restriction,
+              account-claim) are HIDDEN entirely on the messages tab —
+              they're already surfaced on every other tab the customer
+              lands on, and on mobile a single banner can fill the viewport
+              and push the chat below the fold (observed: NoShowWarningBanner
+              consumed 100% of a 375x667 iPhone SE screen). Breadcrumb
+              also hidden in messages mode to maximize chat space — the
+              conversation thread header already shows the active context.
+              shrink-0 matters only when viewport-lock is active. */}
+          {!isMessagesTab && (
+            <div>
+              {/* Suspension Banner - Show if account is suspended */}
+              {userProfile?.suspended && (
+                <SuspensionBanner
+                  reason={userProfile.suspensionReason}
+                  suspendedAt={userProfile.suspendedAt}
+                />
+              )}
+
+              {/* Breadcrumb */}
+              <CustomerBreadcrumb activeTab={activeTab} />
+
+              {/* No-Show Warning Banner - Show tier restrictions */}
+              <NoShowWarningBanner status={noShowStatus} />
+
+              {/* Account Claim Banner - Show if customer has placeholder accounts to claim */}
+              <AccountClaimBanner />
+            </div>
           )}
 
-          {/* Breadcrumb */}
-          <CustomerBreadcrumb activeTab={activeTab} />
+          {/* Tab Content. Messages gets a flex-1 wrapper so it absorbs the
+              leftover viewport height; other tabs render in normal flow. */}
+          {isMessagesFullHeight ? (
+            userProfile?.id && (
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <MessagesTab customerId={userProfile.id} />
+              </div>
+            )
+          ) : (
+            <>
+              {activeTab === "overview" && <OverviewTab />}
 
-          {/* No-Show Warning Banner - Show tier restrictions */}
-          <NoShowWarningBanner status={noShowStatus} />
+              {/* Marketplace Tab */}
+              {activeTab === "marketplace" && <ServiceMarketplaceClient />}
 
-          {/* Account Claim Banner - Show if customer has placeholder accounts to claim */}
-          <AccountClaimBanner />
+              {/* Messages Tab (rollback path: viewport lock disabled) */}
+              {activeTab === "messages" && userProfile?.id && (
+                <MessagesTab customerId={userProfile.id} />
+              )}
 
-          {/* Tab Content */}
-          {activeTab === "overview" && <OverviewTab />}
+              {/* Orders Tab */}
+              {activeTab === "orders" && <ServiceOrdersTab />}
 
-          {/* Marketplace Tab */}
-          {activeTab === "marketplace" && <ServiceMarketplaceClient />}
+              {/* Appointments Tab */}
+              {activeTab === "appointments" && <AppointmentsTab />}
 
-          {/* Messages Tab */}
-          {activeTab === "messages" && userProfile?.id && (
-            <MessagesTab customerId={userProfile.id} />
+              {/* Referrals Tab */}
+              {activeTab === "referrals" && <ReferralDashboard />}
+
+              {/* Approvals Tab */}
+              {activeTab === "approvals" && <RedemptionApprovals />}
+
+              {/* Find Shop Tab */}
+              {activeTab === "findshop" && <FindShop />}
+
+              {/* Token Gifting Tab */}
+              {activeTab === "gifting" && <TokenGiftingTab />}
+
+              {/* Settings Tab */}
+              {activeTab === "settings" && <SettingsTab />}
+
+              {/* FAQ Tab */}
+              {activeTab === "faq" && <CustomerFAQSection />}
+            </>
           )}
-
-          {/* Orders Tab */}
-          {activeTab === "orders" && <ServiceOrdersTab />}
-
-          {/* Appointments Tab */}
-          {activeTab === "appointments" && <AppointmentsTab />}
-
-          {/* Referrals Tab */}
-          {activeTab === "referrals" && <ReferralDashboard />}
-
-          {/* Approvals Tab */}
-          {activeTab === "approvals" && <RedemptionApprovals />}
-
-          {/* Find Shop Tab */}
-          {activeTab === "findshop" && <FindShop />}
-
-          {/* Token Gifting Tab */}
-          {activeTab === "gifting" && <TokenGiftingTab />}
-
-          {/* Settings Tab */}
-          {activeTab === "settings" && <SettingsTab />}
-
-          {/* FAQ Tab */}
-          {activeTab === "faq" && <CustomerFAQSection />}
         </div>
       </div>
     </DashboardLayout>

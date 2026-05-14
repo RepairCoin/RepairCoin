@@ -34,6 +34,15 @@ export interface Conversation {
    * Undefined when no service is anchored.
    */
   serviceName?: string;
+  /**
+   * Whether the AI sales agent will actually respond on this conversation.
+   * Computed server-side from ai_shop_settings.ai_global_enabled AND
+   * shop_services.ai_sales_enabled. Used to gate the "AI is typing"
+   * indicator on the customer-side chat — without this, the indicator
+   * fires for shops without AI configured and times out 30s later,
+   * misleading the customer into expecting a reply that will never come.
+   */
+  aiEnabled: boolean;
 }
 
 export interface Message {

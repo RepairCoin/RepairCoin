@@ -1584,3 +1584,62 @@ describe("PromptTemplates — Q&A FAQ block (replaces dropped ai_custom_instruct
     expect(prompt).not.toContain("Q20:");
   });
 });
+
+describe("PromptTemplates — payment info block", () => {
+  // Surfaces customer-facing payment facts so the AI can answer "how can
+  // I pay?" / "do you take cash?" without stalling or inventing. Stripe
+  // (credit/debit card) is the only customer-selectable payment mode for
+  // chat bookings; RCN is an optional discount; cash/PayPal/etc. are
+  // shop-staff manual-booking territory, not selectable here.
+
+  it("renders the PAYMENT header in every tone", () => {
+    const ctx = baseContext();
+    for (const buildPrompt of [friendlyPrompt, professionalPrompt, urgentPrompt]) {
+      const p = buildPrompt(ctx);
+      expect(p).toMatch(/PAYMENT \(how customer-initiated bookings get paid/i);
+    }
+  });
+
+  it("names Stripe as the only payment method for chat bookings", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/Credit or debit card via Stripe is the ONLY payment method/i);
+  });
+
+  it("explicitly disclaims cash / PayPal / in-person for chat bookings", () => {
+    const prompt = professionalPrompt(baseContext());
+    // The block should make it impossible for the AI to claim cash is accepted.
+    expect(prompt).toMatch(/do NOT accept cash/i);
+    expect(prompt).toMatch(/PayPal/);
+    expect(prompt).toMatch(/pay-in-person/i);
+  });
+
+  it("frames RCN as an optional discount, not a standalone payment method", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/RCN tokens are an OPTIONAL DISCOUNT/i);
+    expect(prompt).toMatch(/NOT a standalone payment method/i);
+  });
+
+  it("surfaces the RCN redemption rules (rate, cap, minimum)", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/1 RCN = \$0\.10 USD discount/i);
+    expect(prompt).toMatch(/Max 20% of the service price/i);
+    expect(prompt).toMatch(/service must cost at least \$10/i);
+  });
+
+  it("explains the deposit flow for no-show-flagged customers", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/deposit.*added to the Stripe charge/i);
+    expect(prompt).toMatch(/refunded after the appointment completes/i);
+  });
+
+  it("is independent of customer RCN balance — present even when balance is 0", () => {
+    // Static block — same for every customer so it sits in the cacheable
+    // prefix. Verifies the block isn't accidentally gated on balance > 0.
+    const ctx = baseContext({
+      customer: { ...baseContext().customer, rcnBalance: 0 },
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/PAYMENT \(how customer-initiated bookings/i);
+    expect(prompt).toMatch(/1 RCN = \$0\.10 USD discount/i);
+  });
+});
