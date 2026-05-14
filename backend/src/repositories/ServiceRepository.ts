@@ -45,6 +45,8 @@ export interface ShopServiceWithShopInfo extends ShopService {
     state?: string;
     zipCode?: string;
   };
+  // Inventory status for linked items (v2.0)
+  inventoryStatus?: 'available' | 'low_stock' | 'out_of_stock';
 }
 
 export interface CreateServiceParams {
@@ -500,7 +502,19 @@ export class ServiceRepository extends BaseRepository {
             JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
             LEFT JOIN shop_group_rcn_allocations alloc ON alloc.shop_id = s.shop_id AND alloc.group_id = sga.group_id
             WHERE sga.service_id = s.service_id AND sga.active = true
-          ) as groups
+          ) as groups,
+          (
+            SELECT
+              CASE
+                WHEN COUNT(ii.id) FILTER (WHERE sii.is_optional = false AND ii.status = 'out_of_stock') > 0 THEN 'out_of_stock'
+                WHEN COUNT(ii.id) FILTER (WHERE sii.is_optional = false AND ii.status = 'low_stock') > 0 THEN 'low_stock'
+                WHEN COUNT(ii.id) FILTER (WHERE sii.is_optional = false) > 0 THEN 'available'
+                ELSE NULL
+              END as inventory_status
+            FROM service_inventory_items sii
+            LEFT JOIN inventory_items ii ON sii.inventory_item_id = ii.id AND ii.deleted_at IS NULL
+            WHERE sii.service_id = s.service_id
+          ) as inventory_status
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
