@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { MessageInbox, type Conversation } from "./MessageInbox";
 import { ConversationThread, type Message } from "./ConversationThread";
 
@@ -66,6 +66,7 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
       serviceName={selectedConversation.serviceName}
       isOnline={selectedConversation.isOnline}
       isTyping={false}
+      aiEnabled={selectedConversation.aiEnabled === true}
       currentUserId={currentUserId}
       currentUserType={userType}
       onSendMessage={onSendMessage}
@@ -75,6 +76,7 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
       conversationStatus={selectedConversation.status}
       onRetryMessage={onRetryMessage}
       onDiscardMessage={onDiscardMessage}
+      onBack={onBackToInbox}
       {...(userType === "shop" && onArchiveConversation
         ? { onArchiveConversation }
         : {})}
@@ -134,27 +136,21 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
 
   return (
     <div className="h-full flex bg-[#0A0A0A]">
-      {/* Desktop Layout */}
-      <div className="hidden md:flex w-full h-full">
+      {/* Side-by-side layout (1024px+ — desktop only).
+          Previously used md: (768px) but the thread became too cramped on
+          tablet portrait: inbox 384px + thread ~384px is unreadable for a
+          chat. Standard messaging apps (WhatsApp Web, Telegram Web) use
+          single-pane below tablet-landscape width. */}
+      <div className="hidden lg:flex w-full h-full">
         <div className="w-96 flex-shrink-0">{inbox}</div>
         <div className="flex-1">{desktopMain}</div>
       </div>
 
-      {/* Mobile Layout */}
-      <div className="md:hidden w-full h-full">
-        {showMobileThread && thread ? (
-          <div className="relative h-full">
-            <button
-              onClick={onBackToInbox}
-              className="absolute top-4 left-4 z-10 p-2 bg-[#1A1A1A] rounded-full border border-gray-800 hover:bg-[#0A0A0A] transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-white" />
-            </button>
-            {thread}
-          </div>
-        ) : (
-          inbox
-        )}
+      {/* Single-pane layout (mobile + tablet portrait, < 1024px). The
+          back-to-inbox button is rendered inline inside ConversationThread's
+          header now (see its onBack prop) — no overlay needed here. */}
+      <div className="lg:hidden w-full h-full">
+        {showMobileThread && thread ? thread : inbox}
       </div>
     </div>
   );

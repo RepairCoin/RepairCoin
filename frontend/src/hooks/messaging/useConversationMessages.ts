@@ -72,6 +72,17 @@ export function useConversationMessages(
       return;
     }
 
+    // Clear the previous conversation's messages immediately on switch,
+    // BEFORE awaiting the new fetch. Without this the chat continues to
+    // render the prior thread until the new fetch resolves (observed:
+    // switching from DC Shopuo to Peanut briefly showed DC Shopuo's
+    // bubbles under Peanut's header, and the AI-typing indicator falsely
+    // fired because the prior conv's last-was-customer state was still
+    // visible while aiEnabled flipped to true under Peanut).
+    setMessages([]);
+    setHasMore(false);
+    currentPageRef.current = 1;
+
     const fetchMessages = async (isInitialLoad: boolean) => {
       const requestedId = selectedConversationId;
       try {

@@ -14,8 +14,13 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ customerId }) => {
   const conversationId = searchParams.get("conversation");
   return (
     <div className="h-full flex flex-col">
-      {/* Header Info Banner (Optional) */}
-      <div className="bg-gradient-to-r from-[#FFCC00]/10 to-[#FFD700]/10 border border-[#FFCC00]/20 rounded-lg p-4 mb-4">
+      {/* Header Info Banner. shrink-0 keeps it from competing with the
+          chat region for vertical space when the parent dashboard runs in
+          viewport-lock mode; harmless otherwise. Hidden on small screens
+          (<lg) since the ~80-100px it consumes is too costly on mobile
+          where chat content is the priority — the message itself is purely
+          informational ("Message Shops Directly") and not actionable. */}
+      <div className="hidden lg:block shrink-0 bg-gradient-to-r from-[#FFCC00]/10 to-[#FFD700]/10 border border-[#FFCC00]/20 rounded-lg p-4 mb-4">
         <div className="flex items-start gap-3">
           <div className="p-2 bg-[#FFCC00]/20 rounded-lg">
             <HelpCircle className="w-5 h-5 text-[#FFCC00]" />
@@ -31,8 +36,10 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ customerId }) => {
         </div>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
+      {/* Messages Container. min-h-0 lets the flex child shrink below its
+          intrinsic content height so the inner overflow-y-auto on the
+          message list actually clips instead of expanding the page. */}
+      <div className="flex-1 min-h-0 bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
         <MessagesContainer userType="customer" currentUserId={customerId} initialConversationId={conversationId} />
       </div>
     </div>
