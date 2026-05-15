@@ -72,36 +72,94 @@ describe("scrubSpecificTimes", () => {
 });
 
 describe("scrubAssistantHistory", () => {
-  it("scrubs assistant messages but leaves user messages alone", () => {
+  // Post-2026-05-15: scrubbing is GATED on metadata.booking_suggestions.
+  // Only assistant messages that actually proposed a slot are scrubbed —
+  // the original copy-paste bug (Claude re-suggesting a stale slot time)
+  // only happens with those. Messages that mention a time but aren't slot
+  // proposals (shop hours, durations) are left intact.
+
+  const slotMeta = {
+    booking_suggestions: [
+      { serviceId: "srv_x", slotIso: "2026-05-15T13:00:00.000Z" },
+    ],
+  };
+
+  it("scrubs an assistant message that PROPOSED a slot (has booking_suggestions)", () => {
     const messages = [
-      { role: "user" as const, content: "Can I book Thursday afternoon at 2 PM?" },
-      { role: "assistant" as const, content: "How does Thursday at 9:00 AM sound?" },
-      { role: "user" as const, content: "I'd prefer 3 PM" },
-      { role: "assistant" as const, content: "Sure, 3 PM works! Tap below to lock it in." },
+      {
+        role: "assistant" as const,
+        content: "How does Thursday at 9:00 AM sound? Tap below to lock it in.",
+        metadata: slotMeta,
+      },
     ];
     const result = scrubAssistantHistory(messages);
-
-    // User messages survive verbatim — including their own time mentions
-    expect(result[0].content).toBe("Can I book Thursday afternoon at 2 PM?");
-    expect(result[2].content).toBe("I'd prefer 3 PM");
-
-    // Assistant times are scrubbed
-    expect(result[1].content).toBe(`How does Thursday at ${PLACEHOLDER} sound?`);
-    expect(result[3].content).toBe(`Sure, ${PLACEHOLDER} works! Tap below to lock it in.`);
+    expect(result[0].content).toBe(
+      `How does Thursday at ${PLACEHOLDER} sound? Tap below to lock it in.`
+    );
   });
 
-  it("returns the same message object reference when nothing changes", () => {
-    // No-op scrubs preserve identity — small allocation win, also a useful
-    // signal that nothing was touched
-    const noTimeMsg = { role: "assistant" as const, content: "Sounds good!" };
-    const messages = [noTimeMsg];
+  it("does NOT scrub an assistant message WITHOUT booking_suggestions (shop hours)", () => {
+    // The exact staging bug: a shop-hours answer mentions many times but
+    // proposed no slot. It must reach Claude verbatim — otherwise Claude
+    // reads "[earlier suggested time]" placeholders, thinks it never
+    // answered, and re-dumps the hours.
+    const hoursReply =
+      "Our shop hours are: Sunday 9:00 AM - 6:00 PM, Friday 9:00 AM - 5:00 PM, Saturday Closed.";
+    const messages = [
+      { role: "assistant" as const, content: hoursReply, metadata: { generated_by: "ai_agent" } },
+    ];
     const result = scrubAssistantHistory(messages);
-    expect(result[0]).toBe(noTimeMsg); // Identity-equal, not just deep-equal
+    expect(result[0].content).toBe(hoursReply); // untouched
+  });
+
+  it("does NOT scrub an assistant message with empty booking_suggestions array", () => {
+    const messages = [
+      {
+        role: "assistant" as const,
+        content: "We're open until 6 PM today.",
+        metadata: { booking_suggestions: [] },
+      },
+    ];
+    expect(scrubAssistantHistory(messages)[0].content).toBe(
+      "We're open until 6 PM today."
+    );
+  });
+
+  it("does NOT scrub an assistant message with no metadata at all", () => {
+    const messages = [
+      { role: "assistant" as const, content: "Come by before 5 PM." },
+    ];
+    expect(scrubAssistantHistory(messages)[0].content).toBe("Come by before 5 PM.");
+  });
+
+  it("leaves user messages alone even when they mention times", () => {
+    const messages = [
+      { role: "user" as const, content: "Can I book Thursday at 2 PM?" },
+      {
+        role: "assistant" as const,
+        content: "How about 9 AM instead?",
+        metadata: slotMeta,
+      },
+    ];
+    const result = scrubAssistantHistory(messages);
+    expect(result[0].content).toBe("Can I book Thursday at 2 PM?"); // verbatim
+    expect(result[1].content).toBe(`How about ${PLACEHOLDER} instead?`); // scrubbed
+  });
+
+  it("strips metadata from the output (returns plain ChatMessage shape)", () => {
+    const messages = [
+      { role: "assistant" as const, content: "Hi there!", metadata: slotMeta },
+    ];
+    const result = scrubAssistantHistory(messages);
+    expect(result[0]).toEqual({ role: "assistant", content: "Hi there!" });
+    expect((result[0] as any).metadata).toBeUndefined();
   });
 
   it("does not mutate the input array or its messages", () => {
     const original = "How does 9 AM sound?";
-    const messages = [{ role: "assistant" as const, content: original }];
+    const messages = [
+      { role: "assistant" as const, content: original, metadata: slotMeta },
+    ];
     scrubAssistantHistory(messages);
     expect(messages[0].content).toBe(original);
   });
@@ -110,22 +168,25 @@ describe("scrubAssistantHistory", () => {
     expect(scrubAssistantHistory([])).toEqual([]);
   });
 
-  it("scrubs ALL assistant messages in a long history (not just the most recent)", () => {
-    const messages = Array.from({ length: 5 }, (_, i) => ({
-      role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
-      content: `Reply ${i} at ${i + 9} AM.`,
-    }));
+  it("mixed history: scrubs only the slot-proposal turns", () => {
+    const messages = [
+      { role: "user" as const, content: "what are your hours?" },
+      {
+        role: "assistant" as const,
+        content: "We're open 9 AM to 6 PM.",
+        metadata: { generated_by: "ai_agent" }, // hours answer, no slot
+      },
+      { role: "user" as const, content: "book me in" },
+      {
+        role: "assistant" as const,
+        content: "Friday at 2:30 PM works!",
+        metadata: slotMeta, // slot proposal
+      },
+    ];
     const result = scrubAssistantHistory(messages);
-
-    // user (i=0): content kept verbatim ("Reply 0 at 9 AM.")
-    expect(result[0].content).toBe("Reply 0 at 9 AM.");
-    // assistant (i=1): scrubbed
-    expect(result[1].content).toBe(`Reply 1 at ${PLACEHOLDER}.`);
-    // user (i=2)
-    expect(result[2].content).toBe("Reply 2 at 11 AM.");
-    // assistant (i=3): scrubbed
-    expect(result[3].content).toBe(`Reply 3 at ${PLACEHOLDER}.`);
-    // user (i=4)
-    expect(result[4].content).toBe("Reply 4 at 13 AM.");
+    expect(result[0].content).toBe("what are your hours?");
+    expect(result[1].content).toBe("We're open 9 AM to 6 PM."); // NOT scrubbed
+    expect(result[2].content).toBe("book me in");
+    expect(result[3].content).toBe(`Friday at ${PLACEHOLDER} works!`); // scrubbed
   });
 });
