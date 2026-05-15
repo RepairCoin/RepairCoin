@@ -36,6 +36,14 @@ export interface Conversation {
    * API field yet.
    */
   aiEnabled?: boolean;
+  /**
+   * Phase 2 human-handoff: ISO 8601 timestamp. When in the future, AI
+   * auto-reply is paused on this conversation (either the 30s auto
+   * race-window from a recent shop message, OR the indefinite "Take
+   * Over" hold from the shop dashboard). NULL/undefined = AI active.
+   * Drives the shop-side "Take Over" / "Resume AI" UI controls.
+   */
+  aiPausedUntil?: string;
 }
 
 interface MessageInboxProps {

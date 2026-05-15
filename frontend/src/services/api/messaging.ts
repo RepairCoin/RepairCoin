@@ -43,6 +43,14 @@ export interface Conversation {
    * misleading the customer into expecting a reply that will never come.
    */
   aiEnabled: boolean;
+  /**
+   * Phase 2 human-handoff: when set, AI auto-reply is paused on this
+   * conversation. NULL = AI active. Future timestamp = paused (either
+   * the 30s race window from a recent shop message, or the indefinite
+   * "Take Over" hold from the shop dashboard). Shop-side chat shows
+   * the Take Over / Resume AI controls based on this value.
+   */
+  aiPausedUntil?: string;
 }
 
 export interface Message {
@@ -195,6 +203,22 @@ export const markConversationAsRead = async (conversationId: string): Promise<vo
  */
 export const archiveConversation = async (conversationId: string, archived: boolean): Promise<void> => {
   await apiClient.patch(`/messages/conversations/${conversationId}/archive`, { archived });
+};
+
+/**
+ * Phase 2 human-handoff: shop dashboard takeover button.
+ * Sets conversations.ai_paused_until to a far-future date.
+ */
+export const takeoverConversation = async (conversationId: string): Promise<void> => {
+  await apiClient.post(`/messages/conversations/${conversationId}/takeover`);
+};
+
+/**
+ * Phase 2 human-handoff: shop dashboard "Resume AI" button.
+ * Clears conversations.ai_paused_until to NULL.
+ */
+export const resumeAiConversation = async (conversationId: string): Promise<void> => {
+  await apiClient.post(`/messages/conversations/${conversationId}/resume-ai`);
 };
 
 /**
