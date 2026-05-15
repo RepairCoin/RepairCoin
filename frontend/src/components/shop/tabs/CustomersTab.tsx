@@ -17,6 +17,7 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import {
   Select,
@@ -583,11 +584,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
 
         {/* Table Header - Hidden on mobile */}
         <div className="hidden sm:block bg-black px-4 sm:px-7 py-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <p className="text-sm font-semibold text-white">CUSTOMER</p>
             <p className="text-sm font-semibold text-white">TIER</p>
             <p className="text-sm font-semibold text-white">EARNED AT YOUR SHOP</p>
             <p className="text-sm font-semibold text-white">TRANSACTIONS</p>
+            <p className="text-sm font-semibold text-white text-right">ACTION</p>
           </div>
         </div>
 
@@ -625,7 +627,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                   onClick={() => handleViewProfile(customer.address)}
                 >
                   {/* Desktop: Table Row */}
-                  <div className="hidden sm:grid grid-cols-4 gap-4 items-center">
+                  <div className="hidden sm:grid grid-cols-5 gap-4 items-center">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-700">
                         {customer.profile_image_url ? (
@@ -661,6 +663,18 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
                       <p className="text-sm font-semibold text-white">
                         {customer.totalTransactions}
                       </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewProfile(customer.address);
+                        }}
+                        className="flex items-center gap-1.5 text-[#FFCC00] hover:text-[#FFD633] text-xs sm:text-sm font-medium transition-colors"
+                      >
+                        View Profile
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 

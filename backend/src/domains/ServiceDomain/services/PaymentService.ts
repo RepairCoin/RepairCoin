@@ -948,6 +948,17 @@ export class PaymentService {
         throw new Error('Cannot cancel a completed order');
       }
 
+      if (order.bookingDate && order.bookingTime) {
+        const dateStr = getDateString(order.bookingDate);
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const [hour, minute] = order.bookingTime.split(':').map(Number);
+        const bookingDateTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+        const hoursUntil = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntil < 24) {
+          throw new Error('Bookings must be cancelled at least 24 hours in advance');
+        }
+      }
+
       let refundStatus = '';
       const refundDetails: string[] = [];
 
