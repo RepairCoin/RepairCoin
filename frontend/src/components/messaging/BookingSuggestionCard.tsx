@@ -42,12 +42,21 @@ export interface BookingSuggestionCardProps {
    */
   serviceName?: string;
   servicePriceUsd?: number;
+  /**
+   * Render the card as a read-only audit view — gray styling, no click
+   * handler, no chevron, no hover affordance. Used on the shop dashboard
+   * so staff can see exactly what slot the AI proposed to the customer
+   * without being able to (or expected to) trigger the checkout flow on
+   * the customer's behalf. Customer side always passes false (default).
+   */
+  readOnly?: boolean;
 }
 
 export function BookingSuggestionCard({
   suggestion,
   serviceName: serviceNameProp,
   servicePriceUsd,
+  readOnly = false,
 }: BookingSuggestionCardProps) {
   const router = useRouter();
 
@@ -80,6 +89,56 @@ export function BookingSuggestionCard({
   // over the message-level prop fallback — critical for multi-card
   // responses where each card belongs to a different service.
   const displayServiceName = suggestion.serviceName ?? serviceNameProp;
+
+  if (readOnly) {
+    // Audit / shop-side rendering. No button semantics, no click, no
+    // hover transitions. Gray palette so the card reads as "this is
+    // historical info" rather than "this is interactive."
+    return (
+      <div
+        className="mt-2 w-full bg-gray-800/40 border border-gray-700/60 rounded-xl px-4 py-3 flex items-center gap-3"
+        aria-label={`AI proposed booking for ${displayServiceName ?? "this service"} on ${timeLabel} (read-only)`}
+      >
+        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-700/40 flex items-center justify-center">
+          <Calendar className="w-4 h-4 text-gray-400" aria-hidden="true" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+            AI proposed slot
+          </div>
+          {displayServiceName && (
+            <div className="text-sm font-semibold text-gray-300 truncate">
+              {displayServiceName}
+            </div>
+          )}
+          <div
+            className={
+              displayServiceName
+                ? "text-xs text-gray-400 truncate"
+                : "text-sm font-semibold text-gray-300 truncate"
+            }
+          >
+            {timeLabel}
+          </div>
+          {(servicePriceUsd !== undefined ||
+            (suggestion.depositUsd !== undefined && suggestion.depositUsd > 0)) && (
+            <div className="text-xs text-gray-500 truncate">
+              {servicePriceUsd !== undefined && (
+                <span>${servicePriceUsd.toFixed(2)}</span>
+              )}
+              {servicePriceUsd !== undefined &&
+                suggestion.depositUsd !== undefined &&
+                suggestion.depositUsd > 0 &&
+                " · "}
+              {suggestion.depositUsd !== undefined && suggestion.depositUsd > 0 && (
+                <span>${suggestion.depositUsd.toFixed(2)} deposit</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <button

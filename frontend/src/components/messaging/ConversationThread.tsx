@@ -963,10 +963,14 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                         {/* Booking Suggestion Cards (Phase 3 Task 10) — AI
                             recommended one or more bookable slots and the
                             backend validated them against real availability.
-                            Tap → existing service-checkout flow with the
-                            slot pre-filled. */}
-                        {!isOwnMessage &&
-                          Array.isArray(message.metadata?.booking_suggestions) &&
+                            Customer side: tappable → opens service-checkout
+                            with the slot pre-filled. Shop side: rendered
+                            read-only (gray, no click) so staff can see what
+                            the AI proposed and follow the thread without
+                            being able to (or expected to) trigger the
+                            customer's checkout on their behalf. The
+                            !isOwnMessage gate was dropped 2026-05-15. */}
+                        {Array.isArray(message.metadata?.booking_suggestions) &&
                           message.metadata.booking_suggestions.length > 0 && (
                             <div className="space-y-1">
                               {(message.metadata.booking_suggestions as BookingSuggestion[]).map(
@@ -978,6 +982,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                                     servicePriceUsd={
                                       message.metadata?.servicePrice as number | undefined
                                     }
+                                    readOnly={isOwnMessage}
                                   />
                                 )
                               )}
