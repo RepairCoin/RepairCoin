@@ -101,8 +101,43 @@ export function useConversations(userType: UserType): UseConversationsResult {
 
     const onNewMessage = () => fetchConversations(false);
     window.addEventListener("new-message-received", onNewMessage);
-    return () =>
+
+    // Periodic safety-net poll (ws-message-delivery-reliability.md Option A).
+    // Keeps the inbox list — unread counts + last-message previews —
+    // fresh even when a `message:new` WS broadcast was dropped. The
+    // useConversationMessages poll covers the OPEN conversation's
+    // message list; this one covers the inbox itself (matters when the
+    // user is looking at the list without a conversation open). Paused
+    // while the tab is hidden; one immediate refetch on becoming
+    // visible. fetchConversations(false) is non-disruptive (silent
+    // refresh, no loading flicker).
+    let pollId: number | null = null;
+    const startPoll = () => {
+      if (pollId !== null) return;
+      pollId = window.setInterval(() => fetchConversations(false), 30000);
+    };
+    const stopPoll = () => {
+      if (pollId !== null) {
+        window.clearInterval(pollId);
+        pollId = null;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchConversations(false);
+        startPoll();
+      } else {
+        stopPoll();
+      }
+    };
+    if (document.visibilityState === "visible") startPoll();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      stopPoll();
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("new-message-received", onNewMessage);
+    };
   }, [userType, switchingAccount, fetchConversations]);
 
   const updateConversation = useCallback(

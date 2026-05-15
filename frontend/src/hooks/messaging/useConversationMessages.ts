@@ -163,8 +163,54 @@ export function useConversationMessages(
     };
     window.addEventListener("ws-reconnected", onReconnected);
 
+    // Periodic safety-net poll (ws-message-delivery-reliability.md Option A).
+    // WS `message:new` broadcasts can be silently dropped — the receiver's
+    // socket not OPEN at broadcast time, a zombie connection that never
+    // fired `onclose`, or the broadcast landing during the fresh-conversation
+    // mount race before this listener attached. The 2.5s catchup above only
+    // covers fast openers; a slow AI opener (10s+ observed on staging when
+    // clicking the marketplace message icon) outlives it, so the reply sat
+    // in the DB unrendered until a manual refresh.
+    //
+    // This interval refetches every 30s while the tab is VISIBLE, so any
+    // missed message surfaces within 30s with no user action. Paused while
+    // the tab is hidden (no point polling when the user can't see updates);
+    // on becoming visible again it does one immediate catchup fetch then
+    // resumes the interval. fetchMessages(false) is incremental + dedups by
+    // id, so a redundant poll that races a live WS event is a harmless
+    // no-op.
+    let pollId: number | null = null;
+    const startPoll = () => {
+      if (pollId !== null) return;
+      pollId = window.setInterval(() => {
+        if (activeIdRef.current === selectedConversationId) {
+          fetchMessages(false);
+        }
+      }, 30000);
+    };
+    const stopPoll = () => {
+      if (pollId !== null) {
+        window.clearInterval(pollId);
+        pollId = null;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        if (activeIdRef.current === selectedConversationId) {
+          fetchMessages(false); // close the gap accumulated while hidden
+        }
+        startPoll();
+      } else {
+        stopPoll();
+      }
+    };
+    if (document.visibilityState === "visible") startPoll();
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       window.clearTimeout(catchupTimer);
+      stopPoll();
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("new-message-received", onNewMessage);
       window.removeEventListener("ws-reconnected", onReconnected);
     };
