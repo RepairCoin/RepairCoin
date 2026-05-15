@@ -17,11 +17,18 @@ import {
   Tag,
   Bot,
   ArrowLeft,
+  Hand,
+  Play,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import { SERVICE_CATEGORIES } from "@/services/api/services";
 import { AIMessageLabel } from "@/components/messaging/AIMessageLabel";
+import { HumanStaffLabel } from "@/components/messaging/HumanStaffLabel";
+import {
+  takeoverConversation as apiTakeoverConversation,
+  resumeAiConversation as apiResumeAiConversation,
+} from "@/services/api/messaging";
 import {
   BookingSuggestionCard,
   type BookingSuggestion,
@@ -87,6 +94,15 @@ interface ConversationThreadProps {
    * Defaults to false when undefined so behavior is conservative.
    */
   aiEnabled?: boolean;
+  /**
+   * Phase 2 human-handoff: ISO timestamp from conversations.ai_paused_until.
+   * Future timestamp → AI auto-reply paused (either 30s auto race-window
+   * from a recent staff message, or indefinite hold from the "Take Over"
+   * button). NULL/undefined → AI active. Shop-side header uses this to
+   * decide whether to render "Take Over" vs "Resume AI". Customer side
+   * ignores it (no UI change for v1 per the strategy doc).
+   */
+  aiPausedUntil?: string;
   conversationDetails?: {
     id: string;
     customerId?: string;
@@ -119,6 +135,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   conversationDetails,
   onBack,
   aiEnabled = false,
+  aiPausedUntil,
 }) => {
   const [messageInput, setMessageInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -169,6 +186,31 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   // reply ever arriving, falsely promising one. The aiEnabled signal is
   // server-stamped (ai_shop_settings.ai_global_enabled AND the conversation
   // service's ai_sales_enabled) so we KNOW a reply is on its way.
+
+  // Phase 2 human-handoff state derivation. Three buckets:
+  //   - active: AI is firing normally (NULL or past timestamp)
+  //   - auto: 30s race-window pause from a recent shop message
+  //          (timestamp within the next 60 seconds — we use 60s instead
+  //          of 30 to avoid flickering near the boundary)
+  //   - takeover: indefinite hold from the "Take Over" button (any
+  //          timestamp farther in the future than the auto window)
+  //
+  // Customer side ignores all of this — controls render shop-only.
+  // Declared BEFORE the isAwaitingAiReply effect because that effect
+  // reads aiPauseState in its dep array; const TDZ would error otherwise.
+  const aiPauseState: "active" | "auto" | "takeover" = useMemo(() => {
+    if (!aiPausedUntil) return "active";
+    const pausedAtMs = Date.parse(aiPausedUntil);
+    if (!Number.isFinite(pausedAtMs)) return "active";
+    const msFromNow = pausedAtMs - Date.now();
+    if (msFromNow <= 0) return "active";
+    // 60s threshold: auto race window bumps to NOW+30s; anything beyond
+    // 60s in the future must be the indefinite takeover (the button
+    // sets NOW + 100 years). Comfortable gap, no overlap.
+    if (msFromNow <= 60_000) return "auto";
+    return "takeover";
+  }, [aiPausedUntil]);
+
   const [isAwaitingAiReply, setIsAwaitingAiReply] = useState(false);
   useEffect(() => {
     if (currentUserType !== "customer") {
@@ -176,6 +218,16 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
       return;
     }
     if (!aiEnabled) {
+      setIsAwaitingAiReply(false);
+      return;
+    }
+    // Phase 2: do NOT show the typing indicator when the AI is paused
+    // for this conversation. Both pause modes (30s auto race window
+    // and indefinite takeover) mean the orchestrator will skip the
+    // upcoming customer turn → no AI message will land → indicator
+    // would falsely promise a reply and then time out after 30s,
+    // which is exactly the bug captured in sc2.png.
+    if (aiPauseState !== "active") {
       setIsAwaitingAiReply(false);
       return;
     }
@@ -201,12 +253,52 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
     // prior pending state — even if the parent's messages-clear cycle
     // briefly lags (e.g., during loading), this guarantees no false
     // typing-dots flash on the new thread.
-  }, [messages, currentUserType, aiEnabled, conversationId]);
+    // aiPauseState in deps: pause state can flip mid-thread (auto-window
+    // expires → "active"; staff clicks Take Over → "takeover"). Effect
+    // must re-run on transition so the indicator immediately hides or
+    // shows to match the actual orchestrator behavior.
+  }, [messages, currentUserType, aiEnabled, conversationId, aiPauseState]);
 
   // Combine: prop-driven `isTyping` (currently unwired, reserved for a
   // future presence/WS signal) OR our locally-derived AI-waiting state.
   // Either source produces the same visual indicator.
   const showTypingIndicator = isTyping || isAwaitingAiReply;
+
+  const [isTakeoverActionInFlight, setIsTakeoverActionInFlight] = useState(false);
+  const handleTakeOver = async () => {
+    if (isTakeoverActionInFlight) return;
+    setIsTakeoverActionInFlight(true);
+    try {
+      await apiTakeoverConversation(conversationId);
+      // Optimistic event so the conversation list refetches and the
+      // local aiPausedUntil flips immediately on the next render.
+      window.dispatchEvent(
+        new CustomEvent("new-message-received", {
+          detail: { conversationId },
+        })
+      );
+    } catch (err) {
+      console.error("Take over failed:", err);
+    } finally {
+      setIsTakeoverActionInFlight(false);
+    }
+  };
+  const handleResumeAi = async () => {
+    if (isTakeoverActionInFlight) return;
+    setIsTakeoverActionInFlight(true);
+    try {
+      await apiResumeAiConversation(conversationId);
+      window.dispatchEvent(
+        new CustomEvent("new-message-received", {
+          detail: { conversationId },
+        })
+      );
+    } catch (err) {
+      console.error("Resume AI failed:", err);
+    } finally {
+      setIsTakeoverActionInFlight(false);
+    }
+  };
 
   // Keep the typing bubble in view when it first appears. Without this the
   // customer's just-sent message is the last scrolled-to element and the
@@ -409,14 +501,21 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
         <div className="flex items-center gap-3">
           {/* Mobile/tablet back button. Inline (NOT overlaid on the avatar
               like the previous absolute-positioned version was), visible
-              only below lg where the single-pane layout needs a way back
-              to the inbox. */}
+              only when the messages layout is in single-pane mode. Shop
+              and customer use different breakpoints because the shop's
+              dashboard has more horizontal chrome and stays single-pane
+              up to xl: (1280px); customer stays single-pane up to lg:
+              (1024px) — see MessagesLayout.tsx for the matching split.
+              Static class strings so Tailwind purging detects both. */}
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label="Back to conversations"
-              className="lg:hidden flex-shrink-0 p-2 -ml-2 rounded-full hover:bg-[#0A0A0A] transition-colors text-gray-300 hover:text-white"
+              className={
+                (currentUserType === "shop" ? "xl:hidden" : "lg:hidden") +
+                " flex-shrink-0 p-2 -ml-2 rounded-full hover:bg-[#0A0A0A] transition-colors text-gray-300 hover:text-white"
+              }
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -459,14 +558,22 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                 </p>
               )}
             </div>
-            {/* "Currently discussing: X" chip. Dynamic-update follow-up:
-                reads the latest AI message's metadata.discussed_service_name
-                so the chip follows in-conversation drift (e.g., chat is
-                anchored to AQua Tech but the customer pivots to I Robot →
-                chip flips to I Robot). Falls back to the serviceName prop
-                (= conversation.service_id's name) for the first AI reply,
-                legacy data, and conversations with no AI messages yet. */}
-            {discussedServiceName && (
+            {/* "Currently discussing: X" chip. Customer-side only —
+                helps the customer remember which service they were
+                asking about as the conversation drifts. Hidden on the
+                shop side (decision 2026-05-15): shop staff already
+                know what service a customer is inquiring about from
+                the conversation context + service-id metadata they
+                see elsewhere, so the chip adds noise rather than info.
+                Dynamic-update follow-up: reads the latest AI message's
+                metadata.discussed_service_name so the chip follows
+                in-conversation drift (e.g., chat is anchored to AQua
+                Tech but the customer pivots to I Robot → chip flips
+                to I Robot). Falls back to the serviceName prop
+                (= conversation.service_id's name) for the first AI
+                reply, legacy data, and conversations with no AI
+                messages yet. */}
+            {currentUserType === "customer" && discussedServiceName && (
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-violet-500/10 border border-violet-400/30 rounded-full self-start max-w-full">
                 <Tag className="w-3 h-3 text-violet-300 flex-shrink-0" aria-hidden="true" />
                 <span className="text-[11px] font-medium text-violet-200 truncate">
@@ -480,6 +587,42 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Phase 2 human-handoff controls — shop-only. The auto race
+              window (aiPauseState === "auto") is intentionally NOT
+              surfaced; it's a 30s detail the shop staff doesn't need to
+              see. Only the explicit takeover/resume controls render.
+              Styled prominently (solid backgrounds, dark/white text)
+              after the v1 muted-pill version was reported as too easy
+              to miss. */}
+          {currentUserType === "shop" && aiEnabled && aiPauseState !== "auto" && (
+            aiPauseState === "takeover" ? (
+              <button
+                type="button"
+                onClick={handleResumeAi}
+                disabled={isTakeoverActionInFlight}
+                aria-label="Resume AI auto-reply"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-500 hover:bg-violet-400 border border-violet-400 hover:border-violet-300 rounded-lg text-xs font-semibold text-white shadow-sm shadow-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Let the AI auto-reply on this conversation again"
+              >
+                <Play className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Resume AI</span>
+                <span className="sm:hidden">Resume</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleTakeOver}
+                disabled={isTakeoverActionInFlight}
+                aria-label="Take over this conversation from the AI"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFCC00] hover:bg-[#FFD700] border border-[#FFCC00] hover:border-[#FFD700] rounded-lg text-xs font-semibold text-[#1A1A1A] shadow-sm shadow-[#FFCC00]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Pause AI auto-reply; handle this conversation manually"
+              >
+                <Hand className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Take Over</span>
+                <span className="sm:hidden">Take Over</span>
+              </button>
+            )
+          )}
           {conversationStatus === "resolved" && (
             <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">
               Resolved
@@ -646,13 +789,34 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
                       {/* Message Bubble */}
                       <div>
-                        {/* AI assistant disclosure — shown above bubble when
-                            this message was generated by the AI Sales Agent
-                            (Phase 3 Task 9). Universal rule: customers must
-                            be able to tell at a glance that a reply is AI. */}
-                        {!isOwnMessage && message.metadata?.generated_by === "ai_agent" && (
-                          <AIMessageLabel />
-                        )}
+                        {/* Authorship badges (Phase 4 of the human-handoff
+                            strategy). Two cases — both render on EVERY
+                            shop-side message, regardless of who's viewing:
+                              1. AI badge: any message stamped with
+                                 metadata.generated_by === "ai_agent".
+                                 Drops the prior !isOwnMessage gate so
+                                 shop staff also see clearly which
+                                 messages on their own dashboard came
+                                 from the AI vs from a teammate (or
+                                 themselves). Customer-side disclosure
+                                 was the original Phase 3 Task 9 case
+                                 and still satisfied.
+                              2. Human-staff badge: shop-side messages
+                                 lacking the AI stamp. Tells the customer
+                                 "a real team member sent this" so mixed
+                                 conversations after Phase 2 handoff are
+                                 legible at a glance. Skipped for the
+                                 customer's own messages and customer
+                                 senders generally — only shop-side
+                                 messages get labeled. */}
+                        {message.senderType === "shop" &&
+                          message.metadata?.generated_by === "ai_agent" && (
+                            <AIMessageLabel />
+                          )}
+                        {message.senderType === "shop" &&
+                          message.metadata?.generated_by !== "ai_agent" && (
+                            <HumanStaffLabel />
+                          )}
                         <div
                           className={`rounded-2xl p-3 ${
                             isOwnMessage

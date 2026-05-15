@@ -67,6 +67,7 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
       isOnline={selectedConversation.isOnline}
       isTyping={false}
       aiEnabled={selectedConversation.aiEnabled === true}
+      aiPausedUntil={selectedConversation.aiPausedUntil}
       currentUserId={currentUserId}
       currentUserType={userType}
       onSendMessage={onSendMessage}
@@ -134,22 +135,39 @@ export const MessagesLayout: React.FC<MessagesLayoutProps> = ({
     );
   })();
 
+  // Breakpoint where side-by-side (inbox + thread) replaces single-pane
+  // toggle (inbox OR thread). Differs by userType because the shop
+  // dashboard wraps the chat in significantly more chrome (sub-tab
+  // switcher, stats grid, filter/export bar, wider max-w-screen-2xl
+  // container) that competes for horizontal space — at 1024-1279px the
+  // shop thread is cramped to ~400-600px wide and reads as a narrow
+  // strip next to the inbox. Bumping shop to xl: (1280px) gives single-
+  // pane chat the full width on tablet-landscape devices. Customer
+  // side has minimal chrome (just an info banner + header) so the
+  // standard lg: (1024px) threshold remains comfortable.
+  //
+  // Classes are static string literals (not template-built) so Tailwind
+  // purging picks them up correctly.
+  const sideBySideClass =
+    userType === "shop"
+      ? "hidden xl:flex w-full h-full"
+      : "hidden lg:flex w-full h-full";
+  const singlePaneClass =
+    userType === "shop" ? "xl:hidden w-full h-full" : "lg:hidden w-full h-full";
+
   return (
     <div className="h-full flex bg-[#0A0A0A]">
-      {/* Side-by-side layout (1024px+ — desktop only).
-          Previously used md: (768px) but the thread became too cramped on
-          tablet portrait: inbox 384px + thread ~384px is unreadable for a
-          chat. Standard messaging apps (WhatsApp Web, Telegram Web) use
-          single-pane below tablet-landscape width. */}
-      <div className="hidden lg:flex w-full h-full">
+      {/* Side-by-side layout. Customer: 1024px+. Shop: 1280px+. */}
+      <div className={sideBySideClass}>
         <div className="w-96 flex-shrink-0">{inbox}</div>
         <div className="flex-1">{desktopMain}</div>
       </div>
 
-      {/* Single-pane layout (mobile + tablet portrait, < 1024px). The
-          back-to-inbox button is rendered inline inside ConversationThread's
-          header now (see its onBack prop) — no overlay needed here. */}
-      <div className="lg:hidden w-full h-full">
+      {/* Single-pane layout (toggle between inbox and thread). Customer:
+          <1024px. Shop: <1280px. The back-to-inbox button is rendered
+          inline inside ConversationThread's header (see its onBack prop)
+          — no overlay needed here. */}
+      <div className={singlePaneClass}>
         {showMobileThread && thread ? thread : inbox}
       </div>
     </div>

@@ -37,6 +37,9 @@ function transformConversation(
     // field. Front-end consumers must treat undefined/missing as "AI
     // is NOT enabled" to avoid the false-positive typing indicator.
     aiEnabled: conv.aiEnabled === true,
+    // Phase 2 human-handoff state. Passes through as ISO string; the
+    // chat header parses + decides whether the AI is paused right now.
+    aiPausedUntil: conv.aiPausedUntil,
   };
 }
 

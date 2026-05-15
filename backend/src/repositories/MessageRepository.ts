@@ -51,6 +51,19 @@ export interface Conversation {
    *   - The service has ai_sales_enabled = false
    */
   aiEnabled: boolean;
+  /**
+   * Phase 2 human-handoff state (see
+   * docs/tasks/strategy/ai-human-handoff-clash.md). When set in the
+   * future, the AI orchestrator skips its reply (SkipReason 'ai_paused').
+   * NULL = AI is active.
+   *
+   *   - 30-second auto race window: bumped whenever a non-AI shop
+   *     message lands, preventing the AI from talking over staff who's
+   *     actively replying. After 30s of staff silence, AI is back.
+   *   - Indefinite takeover: shop dashboard "Take Over" button sets
+   *     this to NOW() + 100 years. "Resume AI" clears to NULL.
+   */
+  aiPausedUntil?: Date;
 }
 
 export interface Message {
@@ -419,6 +432,54 @@ export class MessageRepository extends BaseRepository {
           conversationId: params.conversationId,
           senderType: params.senderType
         });
+
+        // Phase 2 human-handoff: when a NON-AI shop staff message lands,
+        // bump conversations.ai_paused_until forward 30 seconds. This is
+        // the race-window pause that prevents the AI from firing on top
+        // of staff who is actively typing (the staging trace bug). Each
+        // new staff message slides the window forward; staff silence for
+        // 30s lets the AI resume on the next customer turn.
+        //
+        // AI messages (metadata.generated_by === 'ai_agent') do NOT bump —
+        // the orchestrator already gates itself on this column, and the
+        // AI bumping its own pause column would create a feedback loop.
+        // Customer messages also don't bump.
+        //
+        // We intentionally run this AFTER the message insert (not in the
+        // same statement) so that a slow conversations UPDATE never
+        // blocks the message-send response path. The window is short
+        // enough that minor lag is harmless.
+        const isHumanShopMessage =
+          params.senderType === 'shop' &&
+          (params.metadata as any)?.generated_by !== 'ai_agent';
+        if (isHumanShopMessage) {
+          try {
+            await this.pool.query(
+              `UPDATE conversations
+                 SET ai_paused_until = NOW() + INTERVAL '30 seconds',
+                     updated_at = NOW()
+               WHERE conversation_id = $1
+                 AND (ai_paused_until IS NULL
+                      OR ai_paused_until < NOW() + INTERVAL '1 hour')`,
+              [params.conversationId]
+            );
+            // The `< NOW() + INTERVAL '1 hour'` guard preserves the
+            // explicit Take Over state: if the shop dashboard set
+            // ai_paused_until to NOW() + 100 years, this bump shouldn't
+            // shorten it back down to 30s. 1 hour is comfortably above
+            // any auto-bump value and well below any indefinite hold.
+          } catch (pauseErr) {
+            // Never let the pause update fail the message send.
+            // Worst case: the AI fires on the next customer turn —
+            // a degraded behavior, not a broken one.
+            logger.error('Failed to bump ai_paused_until on shop message:', {
+              conversationId: params.conversationId,
+              messageId: params.messageId,
+              error: (pauseErr as Error)?.message,
+            });
+          }
+        }
+
         return { message: this.mapMessageRow(insertResult.rows[0]), created: true };
       }
 
@@ -824,6 +885,51 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Phase 2 human-handoff: shop dashboard "Take Over" button. Sets
+   * ai_paused_until to NOW() + 100 years (effectively indefinite hold).
+   * The orchestrator prefilter reads this column and skips with
+   * SkipReason 'ai_paused' as long as the timestamp is in the future.
+   * Cleared back to NULL by resumeAiOnConversation.
+   */
+  async takeoverAiOnConversation(conversationId: string): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE conversations
+           SET ai_paused_until = NOW() + INTERVAL '100 years',
+               updated_at = NOW()
+         WHERE conversation_id = $1`,
+        [conversationId]
+      );
+      logger.info('Conversation takeover set', { conversationId });
+    } catch (error) {
+      logger.error('Error in takeoverAiOnConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Phase 2 human-handoff: shop dashboard "Resume AI" button. Clears
+   * ai_paused_until to NULL. AI orchestrator will fire normally on the
+   * next customer message — regardless of how it was paused (auto race
+   * window OR explicit takeover).
+   */
+  async resumeAiOnConversation(conversationId: string): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE conversations
+           SET ai_paused_until = NULL,
+               updated_at = NOW()
+         WHERE conversation_id = $1`,
+        [conversationId]
+      );
+      logger.info('Conversation AI resumed', { conversationId });
+    } catch (error) {
+      logger.error('Error in resumeAiOnConversation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map conversation database row to Conversation object
    */
   private mapConversationRow(row: any): Conversation {
@@ -854,6 +960,11 @@ export class MessageRepository extends BaseRepository {
       // endpoints expose this honestly; everywhere else gets a safe
       // "AI not assumed" default.
       aiEnabled: row.ai_enabled === true,
+      // Phase 2 pause state. Read from c.* on every query that does
+      // SELECT c.*. The column was added in migration 114, defaults
+      // NULL on existing rows so legacy behavior (AI active) is
+      // preserved.
+      aiPausedUntil: row.ai_paused_until ?? undefined,
     };
   }
 

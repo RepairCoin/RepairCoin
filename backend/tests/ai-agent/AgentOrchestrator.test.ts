@@ -25,6 +25,9 @@ function makeMocks(opts: {
   claudeResponse?: any;
   claudeError?: any;
   contextHistory?: any[];
+  // Phase 2 human-handoff: drives the orchestrator's ai_paused check.
+  // null/undefined = AI active. Future Date = paused. Past Date = ignored.
+  aiPausedUntil?: Date | null;
 } = {}) {
   const service =
     opts.service !== undefined
@@ -48,6 +51,13 @@ function makeMocks(opts: {
     query: jest.fn().mockImplementation((sql: string) => {
       if (sql.includes("FROM ai_shop_settings")) {
         return Promise.resolve({ rows: shopSettings ? [shopSettings] : [] });
+      }
+      // Orchestrator's Phase 2 ai_paused lookup. Returns the configured
+      // ai_paused_until (or null/undefined for "AI active").
+      if (sql.includes("SELECT ai_paused_until FROM conversations")) {
+        return Promise.resolve({
+          rows: [{ ai_paused_until: opts.aiPausedUntil ?? null }],
+        });
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
     }),
@@ -260,20 +270,42 @@ describe("AgentOrchestrator — skip paths", () => {
   });
 });
 
-describe("AgentOrchestrator — escalation", () => {
-  it("escalates and logs audit row with escalated_to_human=true, no AI reply posted", async () => {
-    const { orch, messageRepo, auditLogger } = makeMocks({ shouldEscalate: true });
+describe("AgentOrchestrator — escalation (post-2026-05-15: Claude handles handoff via rule #4)", () => {
+  // Pre-fix: matching escalation keywords short-circuited the turn entirely
+  // — no Claude call, no AI message. Customer saw the typing indicator
+  // appear and time out without acknowledgement. Now: the detector still
+  // fires for telemetry (audit-log flag), but the orchestrator proceeds
+  // to Claude so rule #4 produces a polite "teammate will follow up"
+  // reply. Customer always gets an acknowledgement.
+
+  it("still calls Claude on escalation keywords (no early short-circuit)", async () => {
+    const { orch, anthropicClient } = makeMocks({ shouldEscalate: true });
     const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("ai_replied");
+    expect(anthropicClient.complete).toHaveBeenCalled();
+  });
 
-    expect(result.outcome).toBe("escalated");
-    if (result.outcome === "escalated") {
-      expect(result.reason).toBe("test_reason");
-    }
+  it("posts the AI message + audit row with escalatedToHuman=true", async () => {
+    const { orch, messageRepo, auditLogger } = makeMocks({ shouldEscalate: true });
+    await orch.handleCustomerMessage(sampleInput());
 
-    expect(messageRepo.createMessage).not.toHaveBeenCalled();
+    // Message was actually posted (rule #4 generated the handoff line).
+    expect(messageRepo.createMessage).toHaveBeenCalled();
+    // Single audit row from the successful Claude call, with the
+    // escalation flag stamped on it for admin telemetry.
     expect(auditLogger.log).toHaveBeenCalledTimes(1);
-    expect(auditLogger.log.mock.calls[0][0].escalatedToHuman).toBe(true);
-    expect(auditLogger.log.mock.calls[0][0].costUsd).toBe(0);
+    const audit = auditLogger.log.mock.calls[0][0];
+    expect(audit.escalatedToHuman).toBe(true);
+    expect(audit.costUsd).toBeGreaterThan(0); // real Claude call, real cost
+    // errorMessage is undefined on success-path audits (not explicitly
+    // set vs the failure-path which sets it to the thrown error string)
+    expect(audit.errorMessage).toBeFalsy();
+  });
+
+  it("flags escalatedToHuman=false on non-escalation turns", async () => {
+    const { orch, auditLogger } = makeMocks({ shouldEscalate: false });
+    await orch.handleCustomerMessage(sampleInput());
+    expect(auditLogger.log.mock.calls[0][0].escalatedToHuman).toBe(false);
   });
 });
 
@@ -314,7 +346,14 @@ describe("AgentOrchestrator — message handling", () => {
   it("appends current customerMessageText if last history message is not 'user'", async () => {
     const { orch, anthropicClient } = makeMocks({
       contextHistory: [
-        { role: "assistant", content: "earlier ai reply", createdAt: new Date() },
+        {
+          role: "assistant",
+          content: "earlier ai reply",
+          createdAt: new Date(),
+          // generated_by stamp keeps this mock from triggering the
+          // human-takeover prefilter (added 2026-05-15).
+          metadata: { generated_by: "ai_agent" },
+        },
       ],
     });
     await orch.handleCustomerMessage(sampleInput({ customerMessageText: "I have a question" }));
@@ -348,7 +387,12 @@ describe("AgentOrchestrator — message handling", () => {
     const { orch, anthropicClient } = makeMocks({
       contextHistory: [
         { role: "user", content: "", createdAt: new Date() }, // attachment-only
-        { role: "assistant", content: "shop reply", createdAt: new Date() },
+        {
+          role: "assistant",
+          content: "shop reply",
+          createdAt: new Date(),
+          metadata: { generated_by: "ai_agent" },
+        },
         { role: "user", content: "   ", createdAt: new Date() }, // whitespace-only
         { role: "user", content: "real question", createdAt: new Date() },
       ],
@@ -1498,6 +1542,7 @@ describe("AgentOrchestrator — same-slot loop guard", () => {
         content: "Earliest is Tuesday at 3 PM — tap below.",
         createdAt: new Date(),
         metadata: {
+          generated_by: "ai_agent",
           booking_suggestions: [
             { serviceId: focusedServiceId, slotIso, humanLabel: "Tuesday at 3:00 PM" },
           ],
@@ -1987,7 +2032,7 @@ describe("AgentOrchestrator — cross-service offer follow-up integration", () =
         content:
           "Ha, not quite! We're a Repairs and Tech shop. The Newly Baker baking tutorial is one of our services though — want to grab a slot?",
         createdAt: new Date(),
-        metadata: { anchor_service_id: focusedServiceId },
+        metadata: { generated_by: "ai_agent", anchor_service_id: focusedServiceId },
       },
     ],
     siblingServices: [],
@@ -2099,7 +2144,7 @@ describe("AgentOrchestrator — cross-service offer follow-up integration", () =
     // Override the prior assistant's anchor to differ from current.
     ctx.conversationHistory[1] = {
       ...ctx.conversationHistory[1],
-      metadata: { anchor_service_id: otherServiceId },
+      metadata: { generated_by: "ai_agent", anchor_service_id: otherServiceId },
     };
 
     const mocks = makeMocks({
@@ -2520,5 +2565,198 @@ describe("resolveDiscussedServiceId — chip dynamic update policy", () => {
     // forward to srv_robot. (Step 1 doesn't fall through to the second
     // entry — that's intentional, "first call wins or skip" semantics.)
     expect(out).toBe("srv_robot");
+  });
+});
+
+// (Removed in Phase 2) The toMillis + findMostRecentHumanShopMessage
+// unit tests and the AgentOrchestrator — human takeover skip integration
+// tests have been replaced by the AgentOrchestrator — ai_paused skip
+// suite below. Phase 2 moved the takeover decision from a history-based
+// heuristic to a persistent conversations.ai_paused_until column —
+// single source of truth for both the 30s auto race window and the
+// indefinite "Take Over" hold. See migration 114 + docs/tasks/strategy/
+// ai-human-handoff-clash.md.
+
+describe("AgentOrchestrator — ai_paused skip (Phase 2 human handoff)", () => {
+  // Replaces the time-window heuristic with a single DB-column check.
+  // The orchestrator reads conversations.ai_paused_until in the prefilter
+  // and skips when the timestamp is in the future. Two write paths feed
+  // this column (auto race window on shop msg + explicit takeover button)
+  // but the read path is identical for both.
+
+  it("skips with reason ai_paused when ai_paused_until is in the future", async () => {
+    const future = new Date(Date.now() + 25 * 1000); // 25s ahead (mimics auto window)
+    const { orch, messageRepo, auditLogger, anthropicClient } = makeMocks({
+      aiPausedUntil: future,
+    });
+    const result = await orch.handleCustomerMessage(sampleInput());
+
+    expect(result.outcome).toBe("skipped");
+    if (result.outcome === "skipped") {
+      expect(result.reason).toBe("ai_paused");
+    }
+    // No Claude call. No AI message inserted.
+    expect(anthropicClient.complete).not.toHaveBeenCalled();
+    expect(messageRepo.createMessage).not.toHaveBeenCalled();
+    // Audit row written with reason: 'ai_paused' + pausedUntil snapshot.
+    expect(auditLogger.log).toHaveBeenCalledTimes(1);
+    const audit = auditLogger.log.mock.calls[0][0];
+    expect(audit.escalatedToHuman).toBe(false);
+    expect(audit.errorMessage).toBeNull();
+    expect(audit.responsePayload).toBeNull();
+    expect((audit.requestPayload as any).reason).toBe("ai_paused");
+    expect((audit.requestPayload as any).pausedUntil).toBe(future.toISOString());
+  });
+
+  it("skips also when ai_paused_until is far in the future (takeover mode)", async () => {
+    // 100 years out — the explicit takeover button's value.
+    const farFuture = new Date(Date.now() + 100 * 365.25 * 24 * 3600 * 1000);
+    const { orch, anthropicClient } = makeMocks({ aiPausedUntil: farFuture });
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("skipped");
+    if (result.outcome === "skipped") {
+      expect(result.reason).toBe("ai_paused");
+    }
+    expect(anthropicClient.complete).not.toHaveBeenCalled();
+  });
+
+  it("fires normally when ai_paused_until is NULL (AI active)", async () => {
+    const { orch, anthropicClient } = makeMocks({ aiPausedUntil: null });
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("ai_replied");
+    expect(anthropicClient.complete).toHaveBeenCalled();
+  });
+
+  it("fires normally when ai_paused_until is in the past (expired auto window)", async () => {
+    // 10 seconds ago — the auto window just elapsed.
+    const past = new Date(Date.now() - 10 * 1000);
+    const { orch, anthropicClient } = makeMocks({ aiPausedUntil: past });
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("ai_replied");
+    expect(anthropicClient.complete).toHaveBeenCalled();
+  });
+
+  it("does NOT consult conversation history for the pause decision", async () => {
+    // Phase 1 heuristic looked at the history's most recent shop message.
+    // Phase 2 doesn't — only ai_paused_until counts. Verify by giving
+    // the test a history full of recent non-AI shop messages BUT with
+    // ai_paused_until = NULL → AI must still fire.
+    const recentNonAiHistory = [
+      {
+        role: "assistant",
+        content: "human shop staff typing here",
+        createdAt: new Date(Date.now() - 5 * 60_000),
+        // No metadata.generated_by — would have triggered the old heuristic.
+      },
+    ];
+    const { orch, anthropicClient } = makeMocks({
+      aiPausedUntil: null,
+      contextHistory: recentNonAiHistory,
+    });
+    const result = await orch.handleCustomerMessage(sampleInput());
+    expect(result.outcome).toBe("ai_replied");
+    expect(anthropicClient.complete).toHaveBeenCalled();
+  });
+});
+
+
+
+describe("PromptTemplates rule #9 — current-message-only disclosure (Bug B fix)", () => {
+  // Bug B from the AI/human handoff strategy: AI volunteered "I'm an AI"
+  // when the customer's CURRENT message didn't ask, because earlier
+  // history contained "real human here". Rule #9 now requires the
+  // CURRENT message to ask, with explicit anti-history-inference language
+  // and negative few-shot examples.
+  const path = require("path");
+  // Lazy require so this describe block doesn't import PromptTemplates
+  // at the top of the file (which would force coverage tooling to do
+  // extra work even for unrelated test runs).
+  it("explicitly anchors the disclosure rule to the CURRENT message", () => {
+    const { friendlyPrompt } = require(
+      "../../src/domains/AIAgentDomain/services/PromptTemplates"
+    );
+    // Minimal ctx — only the bits the template reads to build rules.
+    const ctx = {
+      service: {
+        serviceId: "srv",
+        serviceName: "Test",
+        description: "",
+        priceUsd: 10,
+        category: "test",
+        bookingAssistance: false,
+        suggestUpsells: false,
+        faqEntries: [],
+      },
+      customer: { address: "0xabc", name: "Cust", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: {
+        shopId: "s",
+        shopName: "Shop",
+        category: "test",
+        hoursSummary: null,
+        timezone: null,
+        bookingAdvanceDays: null,
+        minBookingHours: null,
+        reschedulesAllowed: null,
+        maxReschedulesPerBooking: null,
+        rescheduleMinHours: null,
+        cancellationMinHours: null,
+        address: null,
+        phone: null,
+        email: null,
+        website: null,
+      },
+      conversationHistory: [],
+      siblingServices: [],
+      shopServiceMenu: [],
+      availabilitySlots: [],
+    };
+    const prompt = friendlyPrompt(ctx);
+    expect(prompt).toMatch(/in their CURRENT message/);
+    expect(prompt).toMatch(/Never volunteer your AI identity/i);
+    expect(prompt).toMatch(/Do NOT infer the question from history/i);
+  });
+
+  it("includes the negative few-shot examples that anchor the fix to its trigger scenario", () => {
+    const { professionalPrompt } = require(
+      "../../src/domains/AIAgentDomain/services/PromptTemplates"
+    );
+    const ctx = {
+      service: {
+        serviceId: "srv",
+        serviceName: "Test",
+        description: "",
+        priceUsd: 10,
+        category: "test",
+        bookingAssistance: false,
+        suggestUpsells: false,
+        faqEntries: [],
+      },
+      customer: { address: "0xabc", name: "Cust", tier: "BRONZE", rcnBalance: 0, joinedAt: null },
+      shop: {
+        shopId: "s",
+        shopName: "Shop",
+        category: "test",
+        hoursSummary: null,
+        timezone: null,
+        bookingAdvanceDays: null,
+        minBookingHours: null,
+        reschedulesAllowed: null,
+        maxReschedulesPerBooking: null,
+        rescheduleMinHours: null,
+        cancellationMinHours: null,
+        address: null,
+        phone: null,
+        email: null,
+        website: null,
+      },
+      conversationHistory: [],
+      siblingServices: [],
+      shopServiceMenu: [],
+      availabilitySlots: [],
+    };
+    const prompt = professionalPrompt(ctx);
+    // The "real human here" history scenario specifically.
+    expect(prompt).toMatch(/real human here/);
+    expect(prompt).toMatch(/im looking for bread training/);
   });
 });

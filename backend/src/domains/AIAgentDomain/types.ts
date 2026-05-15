@@ -444,7 +444,8 @@ export type SkipReason =
   | "shop_ai_disabled" // ai_shop_settings.ai_global_enabled = false
   | "spend_cap_exceeded" // hit monthly_budget_usd
   | "no_shop_settings" // no ai_shop_settings row for this shop (shouldn't happen post-migration 110 backfill, but guard anyway)
-  | "service_shop_mismatch"; // serviceId belongs to a different shop than conversation.shopId — defends against spoofed metadata.serviceId
+  | "service_shop_mismatch" // serviceId belongs to a different shop than conversation.shopId — defends against spoofed metadata.serviceId
+  | "ai_paused"; // conversations.ai_paused_until is in the future — either the 30s auto race window from a recent non-AI shop message, or an explicit "Take Over" hold set via the shop dashboard. See docs/tasks/strategy/ai-human-handoff-clash.md Phase 2.
 
 // ============================================================================
 // AuditLogger — what gets persisted into ai_agent_messages
