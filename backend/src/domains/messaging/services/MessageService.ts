@@ -857,6 +857,45 @@ export class MessageService {
       throw error;
     }
   }
+
+  /**
+   * Set / clear conversations.ai_paused_until (Phase 2 human handoff).
+   *
+   *   - mode = 'takeover' → ai_paused_until = NOW() + 100 years
+   *     (effectively indefinite until 'resume' clears it). Triggered by
+   *     the shop dashboard "Take Over" button.
+   *   - mode = 'resume'   → ai_paused_until = NULL. AI resumes on the
+   *     next customer message.
+   *
+   * Shop-only: caller's shopId must match the conversation's shopId.
+   * The 30-second auto race-window pause is set elsewhere (in
+   * MessageRepository.createMessage when a non-AI shop message lands)
+   * — this method handles the two explicit-state transitions only.
+   */
+  async setAiPausedUntil(
+    conversationId: string,
+    shopId: string,
+    mode: 'takeover' | 'resume'
+  ): Promise<void> {
+    try {
+      const conversation = await this.messageRepo.getConversationById(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+      if (conversation.shopId !== shopId) {
+        throw new Error('Unauthorized');
+      }
+      if (mode === 'takeover') {
+        await this.messageRepo.takeoverAiOnConversation(conversationId);
+      } else {
+        await this.messageRepo.resumeAiOnConversation(conversationId);
+      }
+      logger.info('AI pause state updated', { conversationId, shopId, mode });
+    } catch (error) {
+      logger.error('Error in setAiPausedUntil:', error);
+      throw error;
+    }
+  }
 }
 
 export const messageService = new MessageService();

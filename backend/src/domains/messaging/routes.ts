@@ -159,6 +159,26 @@ router.post('/conversations/:conversationId/resolve', messageController.resolveC
 router.post('/conversations/:conversationId/reopen', messageController.reopenConversation);
 
 /**
+ * @route POST /api/messages/conversations/:conversationId/takeover
+ * @description Shop staff takes over an AI-active conversation. Sets
+ *   conversations.ai_paused_until to a far-future date so the AI
+ *   orchestrator skips auto-replies with SkipReason 'ai_paused' until
+ *   the shop clicks Resume AI. See docs/tasks/strategy/
+ *   ai-human-handoff-clash.md (Phase 2).
+ * @access Shop only — caller's shopId must match conversation.shopId
+ */
+router.post('/conversations/:conversationId/takeover', messageController.takeoverConversation);
+
+/**
+ * @route POST /api/messages/conversations/:conversationId/resume-ai
+ * @description Clears the AI pause on a conversation. Sets
+ *   conversations.ai_paused_until to NULL so the AI resumes on the
+ *   next customer turn.
+ * @access Shop only — caller's shopId must match conversation.shopId
+ */
+router.post('/conversations/:conversationId/resume-ai', messageController.resumeAiConversation);
+
+/**
  * @route GET /api/messages/quick-replies
  * @description Get all quick replies for the authenticated shop
  * @access Authenticated shop users

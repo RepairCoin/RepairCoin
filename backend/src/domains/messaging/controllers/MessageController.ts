@@ -837,4 +837,62 @@ export class MessageController {
       });
     }
   };
+
+  /**
+   * Take over a conversation (Phase 2 human handoff).
+   * POST /api/messages/conversations/:conversationId/takeover
+   *
+   * Shop staff signal that they will handle this conversation manually
+   * for the foreseeable future. Sets conversations.ai_paused_until to a
+   * far-future date; AI orchestrator will skip with SkipReason
+   * 'ai_paused' until "Resume AI" clears it back to NULL.
+   *
+   * Shop-only. Customer attempts are rejected at the role gate.
+   */
+  takeoverConversation = async (req: Request, res: Response) => {
+    try {
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+      if (userRole !== 'shop' || !shopId) {
+        return res.status(403).json({ success: false, error: 'Shop only' });
+      }
+      const { conversationId } = req.params;
+      await this.messageService.setAiPausedUntil(conversationId, shopId, 'takeover');
+      res.json({ success: true, message: 'AI paused (takeover)' });
+    } catch (error: unknown) {
+      logger.error('Error in takeoverConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to take over conversation',
+      });
+    }
+  };
+
+  /**
+   * Resume AI auto-reply on a conversation (Phase 2 human handoff).
+   * POST /api/messages/conversations/:conversationId/resume-ai
+   *
+   * Clears conversations.ai_paused_until to NULL. AI will fire on the
+   * next customer message regardless of when staff last typed.
+   *
+   * Shop-only.
+   */
+  resumeAiConversation = async (req: Request, res: Response) => {
+    try {
+      const userRole = req.user?.role;
+      const shopId = req.user?.shopId;
+      if (userRole !== 'shop' || !shopId) {
+        return res.status(403).json({ success: false, error: 'Shop only' });
+      }
+      const { conversationId } = req.params;
+      await this.messageService.setAiPausedUntil(conversationId, shopId, 'resume');
+      res.json({ success: true, message: 'AI resumed' });
+    } catch (error: unknown) {
+      logger.error('Error in resumeAiConversation controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resume AI',
+      });
+    }
+  };
 }

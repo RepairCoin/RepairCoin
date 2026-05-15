@@ -176,6 +176,65 @@ export class AgentOrchestrator {
         // includeUpsells defaults to service.aiSuggestUpsells inside builder
       });
 
+      // 4.1 ai_paused check (Phase 2 of the handoff strategy doc).
+      // Reads conversations.ai_paused_until directly — single source of
+      // truth for both the 30-second auto race-window pause (bumped by
+      // MessageRepository whenever a non-AI shop message lands) and the
+      // explicit indefinite "Take Over" hold (set via the shop
+      // dashboard). NULL or past timestamp → AI is active.
+      //
+      // Audit-logged so the admin dashboard can quantify how often
+      // pause is firing and distinguish the auto race window from
+      // explicit takeover (auto bumps are short; takeover holds are
+      // months-long).
+      try {
+        const pausedRow = await this.pool.query<{ ai_paused_until: Date | null }>(
+          `SELECT ai_paused_until FROM conversations WHERE conversation_id = $1`,
+          [conversationId]
+        );
+        const pausedUntil = pausedRow.rows[0]?.ai_paused_until ?? null;
+        if (pausedUntil && pausedUntil.getTime() > Date.now()) {
+          const secondsRemaining = Math.round(
+            (pausedUntil.getTime() - Date.now()) / 1000
+          );
+          logger.info(
+            "AgentOrchestrator: skipping AI reply — ai_paused_until is in the future",
+            { conversationId, secondsRemaining, pausedUntil }
+          );
+          await this.auditLogger.log({
+            conversationId,
+            serviceId,
+            shopId,
+            customerAddress,
+            requestPayload: {
+              reason: "ai_paused",
+              pausedUntil: pausedUntil.toISOString(),
+              secondsRemaining,
+              customerMessageText,
+            },
+            responsePayload: null,
+            model,
+            inputTokens: 0,
+            outputTokens: 0,
+            cachedInputTokens: 0,
+            costUsd: 0,
+            latencyMs: null,
+            escalatedToHuman: false,
+            errorMessage: null,
+          });
+          return { outcome: "skipped", reason: "ai_paused" };
+        }
+      } catch (pauseLookupErr) {
+        // Never let the pause-state read fail the whole reply flow.
+        // Falling through means AI replies even when it shouldn't —
+        // degraded behavior in a corner case, but preferable to the
+        // alternative of silent total failure on every customer turn.
+        logger.error("AgentOrchestrator: ai_paused lookup failed, proceeding without pause check", {
+          conversationId,
+          error: (pauseLookupErr as Error)?.message,
+        });
+      }
+
       // 4.5 Reorder availability slots based on the customer's stated time
       // preference (Phase 3 Task 10 fix-4). Pure prompt rules failed to
       // override Claude's recency bias — Claude kept picking the first slot
@@ -299,32 +358,34 @@ export class AgentOrchestrator {
         }
       }
 
-      // 5. Escalation check — does the customer want a human?
+      // 5. Escalation detection — runs for TELEMETRY only.
+      //
+      // Pre-2026-05-15: matching escalation keywords short-circuited the
+      // turn — no Claude call, no AI message, just a silent skip. The
+      // customer saw the typing indicator appear and disappear without
+      // any acknowledgement, which contradicted prompt rule #4's intent
+      // (politely hand off, don't go silent).
+      //
+      // Now: the detector still fires to set an audit flag for "how
+      // often do customers ask for humans?" tracking, but the orchestrator
+      // proceeds to Claude. Rule #4 instructs Claude to reply briefly
+      // ("a teammate will follow up shortly") instead of trying to
+      // handle the request. Customer always sees an acknowledgement.
       const escalation = this.escalationDetector.shouldEscalate(
         customerMessageText,
         ctx.conversationHistory,
         escalationThreshold
       );
       if (escalation.shouldEscalate) {
-        // Log to audit so admins can see we backed off, but don't post a reply
-        await this.auditLogger.log({
-          conversationId,
-          serviceId,
-          shopId,
-          customerAddress,
-          requestPayload: { reason: "escalated_pre_call", customerMessageText },
-          responsePayload: null,
-          model,
-          inputTokens: 0,
-          outputTokens: 0,
-          cachedInputTokens: 0,
-          costUsd: 0,
-          latencyMs: null,
-          escalatedToHuman: true,
-          errorMessage: null,
-        });
-        return { outcome: "escalated", reason: escalation.reason ?? "unspecified" };
+        logger.info(
+          "AgentOrchestrator: escalation keywords detected — proceeding to Claude for rule #4 handoff reply",
+          { conversationId, reason: escalation.reason ?? "unspecified" }
+        );
       }
+      // Stamped onto the audit row after the Claude call resolves so
+      // admins can filter ai_agent_messages for escalation turns
+      // regardless of whether the reply itself fired.
+      const escalationFlagForAudit = escalation.shouldEscalate;
 
       // 6. Build prompt + call Claude
       const tone: AITone = (service.aiTone ?? DEFAULT_TONE) as AITone;
@@ -797,6 +858,13 @@ export class AgentOrchestrator {
               })),
             }
           : {}),
+        // Stamped on the audit row when the EscalationDetector flagged
+        // this turn — used by admin dashboards to track "how often do
+        // customers ask for humans?" without scanning message text.
+        // Per the post-2026-05-15 design, the AI still replies on
+        // escalation turns (rule #4 generates the polite handoff line)
+        // — the flag is purely informational.
+        escalatedToHuman: escalationFlagForAudit,
       });
 
       // 9. Update spend cap
@@ -1280,3 +1348,9 @@ export function resolveDiscussedServiceId(
   // with no AI history at all.
   return anchorServiceId;
 }
+
+// findMostRecentHumanShopMessage + toMillis helpers removed in Phase 2.
+// The time-window heuristic they powered is replaced by the persistent
+// conversations.ai_paused_until column (migration 114) — single source
+// of truth for both the 30s auto race window and indefinite "Take Over"
+// holds. See docs/tasks/strategy/ai-human-handoff-clash.md.
