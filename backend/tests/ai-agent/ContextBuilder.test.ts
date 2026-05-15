@@ -49,15 +49,15 @@ describe("ContextBuilder", () => {
     ...overrides,
   });
 
-  const baseMessages = (count = 0) => ({
-    items: Array.from({ length: count }, (_, i) => ({
+  // getRecentConversationMessages returns a plain Message[] (oldest-first),
+  // not a paginated { items, pagination } envelope.
+  const baseMessages = (count = 0) =>
+    Array.from({ length: count }, (_, i) => ({
       conversationId: "conv_xxx",
       content: `message ${i + 1}`,
       senderType: i % 2 === 0 ? "customer" : "shop",
       createdAt: new Date(Date.now() + i * 1000),
-    })),
-    pagination: { page: 1, limit: 20, totalItems: count, totalPages: 1 },
-  });
+    }));
 
   function makeMocks(opts: {
     service?: any;
@@ -90,7 +90,7 @@ describe("ContextBuilder", () => {
       getServicesByShop: jest.fn().mockResolvedValue({ items: siblings, pagination: {} }),
     };
     const mockMessageRepo = {
-      getConversationMessages: jest.fn().mockResolvedValue(messages),
+      getRecentConversationMessages: jest.fn().mockResolvedValue(messages),
     };
     // AvailabilityFetcher mock — no slots needed for these unit tests; the
     // booking-card flow has its own dedicated AvailabilityFetcher tests.
@@ -532,7 +532,7 @@ describe("ContextBuilder", () => {
         }),
       };
       const mockMessageRepo = {
-        getConversationMessages: jest.fn().mockResolvedValue(baseMessages()),
+        getRecentConversationMessages: jest.fn().mockResolvedValue(baseMessages()),
       };
       const mockAvailabilityFetcher = {
         fetchUpcomingSlots: jest.fn().mockResolvedValue([]),
@@ -670,17 +670,20 @@ describe("ContextBuilder", () => {
     expect(ctx.conversationHistory[3].role).toBe("assistant");
   });
 
-  it("requests last 20 messages oldest-first from the message repo", async () => {
+  it("requests the recent 20-message window oldest-first from the message repo", async () => {
     const { builder, mockMessageRepo } = makeMocks();
     await builder.build({
       customerAddress: "0xabc123",
       serviceId: "srv_main",
       conversationId: "conv_xxx",
     });
-    expect(mockMessageRepo.getConversationMessages).toHaveBeenCalledWith("conv_xxx", {
-      limit: 20,
-      sort: "asc",
-    });
+    // Must use getRecentConversationMessages (newest N, re-sorted ASC) —
+    // NOT getConversationMessages(sort:'asc'), which returns the OLDEST N
+    // and freezes the AI's context once a thread passes 20 messages.
+    expect(mockMessageRepo.getRecentConversationMessages).toHaveBeenCalledWith(
+      "conv_xxx",
+      20
+    );
   });
 
   it("reads messageText (canonical Message shape) when content field absent", async () => {
@@ -688,13 +691,10 @@ describe("ContextBuilder", () => {
     // Earlier toMessageContext was reading row.content and silently dropping
     // every body to "", which made Anthropic reject the conversation with
     // "user messages must have non-empty content". Regression guard.
-    const messages = {
-      items: [
-        { messageText: "first user msg", senderType: "customer", createdAt: new Date() },
-        { messageText: "shop reply",     senderType: "shop",     createdAt: new Date() },
-      ],
-      pagination: { page: 1, limit: 20, totalItems: 2, totalPages: 1 },
-    };
+    const messages = [
+      { messageText: "first user msg", senderType: "customer", createdAt: new Date() },
+      { messageText: "shop reply",     senderType: "shop",     createdAt: new Date() },
+    ];
     const mockCustomerRepo = { getCustomer: jest.fn().mockResolvedValue(baseCustomer()) };
     const mockShopRepo = { getShop: jest.fn().mockResolvedValue(baseShop()) };
     const mockServiceRepo = {
@@ -702,7 +702,7 @@ describe("ContextBuilder", () => {
       getServicesByShop: jest.fn().mockResolvedValue({ items: [], pagination: {} }),
     };
     const mockMessageRepo = {
-      getConversationMessages: jest.fn().mockResolvedValue(messages),
+      getRecentConversationMessages: jest.fn().mockResolvedValue(messages),
     };
     const mockFaqRepo = {
       getEntriesForService: jest.fn().mockResolvedValue([]),
@@ -736,12 +736,9 @@ describe("ContextBuilder", () => {
   });
 
   it("reads message_text (raw pg row shape) as a second fallback", async () => {
-    const messages = {
-      items: [
-        { message_text: "raw row body", sender_type: "customer", created_at: new Date() },
-      ],
-      pagination: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
-    };
+    const messages = [
+      { message_text: "raw row body", sender_type: "customer", created_at: new Date() },
+    ];
     const mockCustomerRepo = { getCustomer: jest.fn().mockResolvedValue(baseCustomer()) };
     const mockShopRepo = { getShop: jest.fn().mockResolvedValue(baseShop()) };
     const mockServiceRepo = {
@@ -749,7 +746,7 @@ describe("ContextBuilder", () => {
       getServicesByShop: jest.fn().mockResolvedValue({ items: [], pagination: {} }),
     };
     const mockMessageRepo = {
-      getConversationMessages: jest.fn().mockResolvedValue(messages),
+      getRecentConversationMessages: jest.fn().mockResolvedValue(messages),
     };
     const mockFaqRepo = {
       getEntriesForService: jest.fn().mockResolvedValue([]),
@@ -811,7 +808,7 @@ describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
       getServicesByShop: jest.fn().mockResolvedValue({ items: [], pagination: {} }),
     };
     const mockMessageRepo = {
-      getConversationMessages: jest.fn().mockResolvedValue({ items: [], pagination: { totalItems: 0 } }),
+      getRecentConversationMessages: jest.fn().mockResolvedValue([]),
     };
     const mockAvailabilityFetcher = {
       fetchUpcomingSlots: jest.fn().mockResolvedValue([]),

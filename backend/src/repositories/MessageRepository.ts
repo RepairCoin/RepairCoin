@@ -560,6 +560,54 @@ export class MessageRepository extends BaseRepository {
   }
 
   /**
+   * Get the MOST RECENT `limit` messages of a conversation, returned
+   * OLDEST-FIRST.
+   *
+   * This is deliberately distinct from getConversationMessages(sort:'asc'):
+   * that runs `ORDER BY created_at ASC LIMIT N`, which returns the OLDEST
+   * N messages — fine for forward pagination from page 1, but WRONG for
+   * "give me the tail of the conversation". Once a thread exceeds N
+   * messages the ASC+LIMIT form silently freezes on the first N and never
+   * returns anything newer.
+   *
+   * The AI ContextBuilder needs the recent window (the orchestrator reads
+   * the last element as "the message Claude is about to reply to"). It
+   * previously used getConversationMessages(sort:'asc', limit:20), so on
+   * any conversation past 20 messages the AI lost all recent context and
+   * kept replying to a stale turn (observed 2026-05-15: customer asked an
+   * off-topic question, AI repeated its earlier "you're welcome").
+   *
+   * Implementation: take the newest N via `DESC LIMIT N` in a subquery,
+   * then re-sort that window ASC so the caller gets oldest-first.
+   */
+  async getRecentConversationMessages(
+    conversationId: string,
+    limit: number
+  ): Promise<Message[]> {
+    try {
+      const query = `
+        SELECT * FROM (
+          SELECT
+            m.*,
+            COALESCE(c.name, s.name) as sender_name
+          FROM messages m
+          LEFT JOIN customers c ON m.sender_address = c.address AND m.sender_type = 'customer'
+          LEFT JOIN shops s ON m.sender_address = s.shop_id AND m.sender_type = 'shop'
+          WHERE m.conversation_id = $1 AND m.is_deleted = FALSE
+          ORDER BY m.created_at DESC
+          LIMIT $2
+        ) recent
+        ORDER BY recent.created_at ASC
+      `;
+      const result = await this.pool.query(query, [conversationId, limit]);
+      return result.rows.map(row => this.mapMessageRow(row));
+    } catch (error) {
+      logger.error('Error in getRecentConversationMessages:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Mark message as read
    */
   async markMessageAsRead(messageId: string): Promise<void> {
