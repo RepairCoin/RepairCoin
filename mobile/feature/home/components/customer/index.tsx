@@ -25,6 +25,7 @@ import { useFavorite } from "@/feature/services/hooks/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 import RecentlyViewedSection from "./RecentlyViewedSection";
+import CampaignsPromosSection from "./CampaignsPromosSection";
 
 export default function CustomerWalletTab() {
   const { account, userProfile } = useAuthStore();
@@ -67,6 +68,7 @@ export default function CustomerWalletTab() {
   }, [favoritesData]);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [campaignRefreshKey, setCampaignRefreshKey] = useState(0);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -78,6 +80,7 @@ export default function CustomerWalletTab() {
         refetchRecentlyViewed(),
         refetchFavorites(),
       ]);
+      setCampaignRefreshKey((k) => k + 1);
     } finally {
       setRefreshing(false);
     }
@@ -328,6 +331,7 @@ export default function CustomerWalletTab() {
               </Text>
             </View>
           )}
+        <CampaignsPromosSection refreshKey={campaignRefreshKey} />
       </ScrollView>
     </View>
   );
