@@ -33,6 +33,10 @@ import {
   BookingSuggestionCard,
   type BookingSuggestion,
 } from "@/components/messaging/BookingSuggestionCard";
+import {
+  findRecentHumanShopMessageAt,
+  shouldAwaitAiReply,
+} from "@/components/messaging/typingIndicator";
 
 const CATEGORY_LABEL_MAP = new Map(SERVICE_CATEGORIES.map((c) => [c.value, c.label]));
 
@@ -244,53 +248,66 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiPausedUntil]);
 
+  // Identity of the latest message — id + senderType + status only.
+  // The typing-indicator effect below keys on THESE, not the whole
+  // `messages` array. Critical: fetchMessages(false) — fired by the WS
+  // catchup timers AND the 30s periodic poll — always returns a NEW
+  // `messages` array reference even when content is identical. If the
+  // typing effect depended on `messages`, every poll cycle would re-run
+  // it and reset the 30s safety timeout, so the indicator would never
+  // auto-clear when the AI doesn't reply (paused conversation, error,
+  // etc.) — observed bug: typing loader stuck running for 1min+.
+  // Keying on the last message's identity makes a no-op poll a no-op
+  // for this effect.
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const lastMessageId = lastMessage?.id ?? null;
+  const lastMessageSenderType = lastMessage?.senderType ?? null;
+  const lastMessageStatus = lastMessage?.status ?? null;
+
+  // Timestamp of the most recent non-AI (real staff) shop message.
+  // Derived from the reliable `messages` array — see typingIndicator.ts.
+  // useMemo returns a primitive (ms | null) so it stays stable across
+  // no-op polls that re-create the messages array without changing it.
+  const recentHumanShopMessageAt = useMemo(
+    () => findRecentHumanShopMessageAt(messages),
+    [messages]
+  );
+
+  // "AI is typing" indicator. Decision logic is the pure shouldAwaitAiReply
+  // in typingIndicator.ts; this effect just applies it + arms the 30s
+  // safety timeout. Deps are the last-message IDENTITY fields, NOT the
+  // `messages` array: fetchMessages(false) (WS catchups + 30s poll) hands
+  // back a new array reference every cycle even when content is unchanged,
+  // and depending on `messages` would reset the 30s timeout each cycle so
+  // the indicator never auto-cleared (observed: stuck running 1min+).
   const [isAwaitingAiReply, setIsAwaitingAiReply] = useState(false);
   useEffect(() => {
-    if (currentUserType !== "customer") {
-      setIsAwaitingAiReply(false);
-      return;
-    }
-    if (!aiEnabled) {
-      setIsAwaitingAiReply(false);
-      return;
-    }
-    // Phase 2: do NOT show the typing indicator when the AI is paused
-    // for this conversation. Both pause modes (30s auto race window
-    // and indefinite takeover) mean the orchestrator will skip the
-    // upcoming customer turn → no AI message will land → indicator
-    // would falsely promise a reply and then time out after 30s,
-    // which is exactly the bug captured in sc2.png.
-    if (aiPauseState !== "active") {
-      setIsAwaitingAiReply(false);
-      return;
-    }
-    if (messages.length === 0) {
-      setIsAwaitingAiReply(false);
-      return;
-    }
-    const last = messages[messages.length - 1];
-    // Skip failed sends — no reply is coming on a message that never
-    // made it to the server.
-    if (last.status === "failed") {
-      setIsAwaitingAiReply(false);
-      return;
-    }
-    if (last.senderType === "customer") {
+    const shouldAwait = shouldAwaitAiReply({
+      currentUserType,
+      aiEnabled,
+      aiPauseState,
+      lastMessageId,
+      lastMessageSenderType,
+      lastMessageStatus,
+      recentHumanShopMessageAt,
+      now: Date.now(),
+    });
+    if (shouldAwait) {
       setIsAwaitingAiReply(true);
       const timer = setTimeout(() => setIsAwaitingAiReply(false), 30000);
       return () => clearTimeout(timer);
     }
     setIsAwaitingAiReply(false);
-    // conversationId in deps: when the customer switches conversations,
-    // the effect re-runs immediately and resets the indicator from any
-    // prior pending state — even if the parent's messages-clear cycle
-    // briefly lags (e.g., during loading), this guarantees no false
-    // typing-dots flash on the new thread.
-    // aiPauseState in deps: pause state can flip mid-thread (auto-window
-    // expires → "active"; staff clicks Take Over → "takeover"). Effect
-    // must re-run on transition so the indicator immediately hides or
-    // shows to match the actual orchestrator behavior.
-  }, [messages, currentUserType, aiEnabled, conversationId, aiPauseState]);
+  }, [
+    lastMessageId,
+    lastMessageSenderType,
+    lastMessageStatus,
+    recentHumanShopMessageAt,
+    currentUserType,
+    aiEnabled,
+    conversationId,
+    aiPauseState,
+  ]);
 
   // Combine: prop-driven `isTyping` (currently unwired, reserved for a
   // future presence/WS signal) OR our locally-derived AI-waiting state.
