@@ -17,13 +17,22 @@ import * as messagingApi from "@/services/api/messaging";
 
 interface MessagesTabProps {
   shopId: string;
+  /**
+   * Compact mode — set by the dashboard when running in viewport-lock
+   * layout (activeTab === "messages" + FULL_HEIGHT_MESSAGES_ENABLED).
+   * Defaults the stats grid to collapsed so the chat region absorbs the
+   * full available viewport. Shop staff can still expand stats via the
+   * existing toggle button. Defaults to false on every other call site,
+   * preserving the previous "stats visible by default" behavior.
+   */
+  compact?: boolean;
 }
 
-export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
+export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId, compact = false }) => {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("conversation");
   const [activeSubTab, setActiveSubTab] = useState<"conversations" | "auto-messages">("conversations");
-  const [showStats, setShowStats] = useState(true);
+  const [showStats, setShowStats] = useState(!compact);
   const [conversations, setConversations] = useState<messagingApi.Conversation[]>([]);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [filterUnread, setFilterUnread] = useState(false);
@@ -138,7 +147,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
   return (
     <div className="h-full flex flex-col">
       {/* Sub-Tab Switcher */}
-      <div className="flex items-center gap-1 mb-4 bg-[#0D0D0D] border border-gray-800 rounded-lg p-1 w-fit">
+      <div className="shrink-0 flex items-center gap-1 mb-4 bg-[#0D0D0D] border border-gray-800 rounded-lg p-1 w-fit">
         <button
           onClick={() => setActiveSubTab("conversations")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
@@ -170,7 +179,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
       <>
       {/* Stats Cards (Collapsible) */}
       {showStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="shrink-0 grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -222,7 +231,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
       )}
 
       {/* Quick Actions Bar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="shrink-0 flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowStats(!showStats)}
@@ -298,17 +307,16 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ shopId }) => {
         </div>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
+      {/* Messages Container. min-h-0 lets the flex child shrink below its
+          intrinsic content height so the inner overflow-y-auto on the
+          message list actually clips instead of expanding the page. */}
+      <div className="flex-1 min-h-0 bg-[#1A1A1A] border border-gray-800 rounded-lg overflow-hidden">
         <MessagesContainer userType="shop" currentUserId={shopId} initialConversationId={conversationId} filterUnread={filterUnread} filterDateRange={filterDateRange} />
       </div>
 
-      {/* Help Text */}
-      <div className="mt-4 bg-gradient-to-r from-[#FFCC00]/10 to-[#FFD700]/10 border border-[#FFCC00]/20 rounded-lg p-3">
-        <p className="text-xs text-gray-400">
-          💡 <span className="font-semibold text-white">Pro Tip:</span> Quick responses improve customer satisfaction and increase booking conversions by up to 40%
-        </p>
-      </div>
+      {/* Pro-tip footer removed per the messages-viewport-lock strategy
+          (decision #2). It was eating ~50px of vertical space below the
+          chat region with no actionable content. */}
       </>
       )}
     </div>

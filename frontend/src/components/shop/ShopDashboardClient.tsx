@@ -1226,18 +1226,40 @@ export default function ShopDashboardClient() {
     window.history.pushState({}, "", url);
   };
 
+  // L1 rollback flag for the WhatsApp-style viewport-lock layout on the
+  // messages tab (mirrors the customer-side fix). Flip to false to revert
+  // to the previous always-scrolling behavior with no other code changes.
+  // See docs/tasks/strategy/shop-messages-viewport-lock.md.
+  const FULL_HEIGHT_MESSAGES_ENABLED = true;
+  const isMessagesTab = activeTab === "messages";
+  const isMessagesFullHeight = FULL_HEIGHT_MESSAGES_ENABLED && isMessagesTab;
+
   // Main dashboard
   return (
     <DashboardLayout
       userRole="shop"
       activeTab={activeTab}
       onTabChange={handleTabChange}
+      fullHeight={isMessagesFullHeight}
     >
-      <div className="min-h-screen py-8">
-        <div className="max-w-screen-2xl w-[96%] mx-auto">
-          {/* Warning Banner for Non-Operational Shops */}
-          {/* Only show when shop data is loaded (not during loading state) */}
-          {shopData && isBlocked && !showSuspendedModal && !showOnboardingModal && (
+      <div
+        className={
+          isMessagesFullHeight
+            ? "flex-1 flex flex-col overflow-hidden min-h-0 pb-4 pt-0 lg:py-4"
+            : "min-h-screen py-8"
+        }
+      >
+        <div
+          className={`max-w-screen-2xl w-[96%] mx-auto ${
+            isMessagesFullHeight ? "flex-1 flex flex-col overflow-hidden min-h-0" : ""
+          }`}
+        >
+          {/* Warning Banner for Non-Operational Shops.
+              Hidden on messages tab — same call as customer-side alert
+              banners. The shop owner sees this on every other tab they
+              land on; hiding it here reclaims ~80-120px of vertical space
+              so the chat region fills the viewport. */}
+          {!isMessagesTab && shopData && isBlocked && !showSuspendedModal && !showOnboardingModal && (
             <div className={`mb-6 rounded-xl p-4 ${
               isPending ? 'bg-yellow-900/20 border-2 border-yellow-500/50' :
               isPaused ? 'bg-blue-900/20 border-2 border-blue-500/50' :
@@ -1283,8 +1305,11 @@ export default function ShopDashboardClient() {
 
           {/* Subscription Cancellation Banner - Hidden when status is cancelled */}
 
-          {/* Breadcrumb Navigation */}
-          <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
+          {/* Breadcrumb Navigation — hidden on messages tab (chat header
+              already shows the active conversation context). */}
+          {!isMessagesTab && (
+            <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
+          )}
 
           {/* Loading state for tabs that require shopData */}
           {!shopData && activeTab !== "overview" && (
@@ -1365,7 +1390,13 @@ export default function ShopDashboardClient() {
           )}
           {activeTab === "messages" && shopData && (
             <SubscriptionGuard shopData={shopData}>
-              <MessagesTab shopId={shopData.shopId} />
+              {isMessagesFullHeight ? (
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                  <MessagesTab shopId={shopData.shopId} compact />
+                </div>
+              ) : (
+                <MessagesTab shopId={shopData.shopId} />
+              )}
             </SubscriptionGuard>
           )}
 
