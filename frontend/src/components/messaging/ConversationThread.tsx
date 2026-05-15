@@ -198,7 +198,16 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   // Customer side ignores all of this — controls render shop-only.
   // Declared BEFORE the isAwaitingAiReply effect because that effect
   // reads aiPauseState in its dep array; const TDZ would error otherwise.
-  const aiPauseState: "active" | "auto" | "takeover" = useMemo(() => {
+  //
+  // This is state + a self-expiring timer, NOT a useMemo: the
+  // classification is wall-clock-dependent (it compares against
+  // Date.now()), but aiPausedUntil itself is a static string. A useMemo
+  // keyed on [aiPausedUntil] would compute "auto" while the pause is in
+  // the future and then NEVER recompute as time passes — leaving the
+  // typing indicator gated off until a page refresh (observed staging
+  // bug 2026-05-15). The effect below schedules a recompute for the
+  // exact moment a short pause expires so the UI self-heals.
+  const computeAiPauseState = (): "active" | "auto" | "takeover" => {
     if (!aiPausedUntil) return "active";
     const pausedAtMs = Date.parse(aiPausedUntil);
     if (!Number.isFinite(pausedAtMs)) return "active";
@@ -209,6 +218,30 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
     // sets NOW + 100 years). Comfortable gap, no overlap.
     if (msFromNow <= 60_000) return "auto";
     return "takeover";
+  };
+  const [aiPauseState, setAiPauseState] = useState<
+    "active" | "auto" | "takeover"
+  >(computeAiPauseState);
+  useEffect(() => {
+    setAiPauseState(computeAiPauseState());
+    if (!aiPausedUntil) return;
+    const pausedAtMs = Date.parse(aiPausedUntil);
+    if (!Number.isFinite(pausedAtMs)) return;
+    const msFromNow = pausedAtMs - Date.now();
+    // Schedule a recompute only for SHORT pauses (the 30s auto race
+    // window). +250ms cushion so the timer fires just after expiry.
+    // Indefinite "Take Over" holds (msFromNow ~ years) get no timer —
+    // they don't auto-expire; the effect re-runs when aiPausedUntil
+    // flips to NULL on Resume AI. The 5-minute ceiling also dodges the
+    // setTimeout 32-bit-overflow trap for very large delays.
+    if (msFromNow > 0 && msFromNow <= 5 * 60_000) {
+      const timer = setTimeout(
+        () => setAiPauseState(computeAiPauseState()),
+        msFromNow + 250
+      );
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiPausedUntil]);
 
   const [isAwaitingAiReply, setIsAwaitingAiReply] = useState(false);

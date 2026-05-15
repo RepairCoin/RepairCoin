@@ -408,6 +408,11 @@ export class AgentOrchestrator {
           .map((m) => ({
             role: m.role,
             content: m.content,
+            // Pass metadata through so the scrubber can scrub ONLY
+            // slot-proposal messages (those with booking_suggestions)
+            // — not every message that happens to mention a time
+            // (shop hours, durations, etc).
+            metadata: m.metadata,
           }))
       );
 
