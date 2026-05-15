@@ -182,10 +182,16 @@ export class ContextBuilder {
     const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy, faqEntriesResult] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
-      this.messageRepo.getConversationMessages(conversationId, {
-        limit: MAX_CONVERSATION_MESSAGES,
-        sort: "asc", // Oldest-first; newest is the message Claude is about to reply to
-      }),
+      // The RECENT window, oldest-first. Must NOT use
+      // getConversationMessages(sort:'asc',limit:N) — that returns the
+      // OLDEST N, so once a conversation passes N messages the AI's
+      // context freezes on the first N and it keeps replying to a stale
+      // turn. getRecentConversationMessages takes the newest N then
+      // re-sorts ascending. See that method's doc comment.
+      this.messageRepo.getRecentConversationMessages(
+        conversationId,
+        MAX_CONVERSATION_MESSAGES
+      ),
       includeUpsells
         ? this.fetchSiblingServices(serviceRow.shopId, serviceId)
         : Promise.resolve([] as AgentSiblingService[]),
@@ -230,7 +236,7 @@ export class ContextBuilder {
       service: this.toServiceContext(serviceRow, faqEntriesResult),
       customer: this.toCustomerContext(customerRow),
       shop: this.toShopContext(shopRow, weeklyHours, bookingPolicy),
-      conversationHistory: messagesResult.items.map((m: any) =>
+      conversationHistory: messagesResult.map((m: any) =>
         this.toMessageContext(m)
       ),
       siblingServices: siblingsResult,
