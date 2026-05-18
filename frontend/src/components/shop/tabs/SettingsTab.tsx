@@ -10,6 +10,7 @@ import { SocialMediaSettings } from "../SocialMediaSettings";
 import { ModerationSettings } from "../ModerationSettings";
 import { ShopFAQSection } from "../ShopFAQSection";
 import CalendarIntegrationSettings from "../CalendarIntegrationSettings";
+import { AISalesAgentSettings } from "../AISalesAgentSettings";
 import {
   Store,
   Mail,
@@ -30,6 +31,7 @@ import {
   HelpCircle,
   Ban,
   Calendar,
+  Bot,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -94,6 +96,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "calendar"
     | "moderation"
     | "faq"
+    | "ai-assistant"
   >("shop-profile");
   // crossShopEnabled state removed - universal redemption is now always enabled
   const [error] = useState<string | null>(null);
@@ -113,7 +116,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       section === "social-media" ||
       section === "calendar" ||
       section === "moderation" ||
-      section === "faq"
+      section === "faq" ||
+      section === "ai-assistant"
     )) {
       setActiveTab(section);
     }
@@ -312,6 +316,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     },
     { id: "social-media" as const, label: "Social Media", icon: MessageSquare },
     { id: "calendar" as const, label: "Calendar Integration", icon: Calendar },
+    { id: "ai-assistant" as const, label: "AI Assistant", icon: Bot },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
     { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
   ];
@@ -767,6 +772,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {activeTab === "calendar" && (
             <div>
               <CalendarIntegrationSettings />
+            </div>
+          )}
+
+          {/* AI Assistant Tab Content */}
+          {activeTab === "ai-assistant" && (
+            <div>
+              <AISalesAgentSettings />
             </div>
           )}
 
