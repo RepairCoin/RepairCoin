@@ -3,6 +3,12 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import { previewAIReply } from './controllers/PreviewController';
 import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
+import {
+  getOwnShopAiSettings,
+  updateOwnShopAiSettings,
+  listShopAiSettings,
+  adminUpdateShopAiSettings,
+} from './controllers/SettingsController';
 
 /**
  * AI Agent domain routes.
@@ -13,6 +19,8 @@ import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendControl
  *   GET  /api/ai/health        — public skeleton-status check
  *   POST /api/ai/preview       — shop/admin: live preview of AI reply for a service
  *   GET  /api/ai/spend         — shop: own monthly spend snapshot (Task 12)
+ *   GET  /api/ai/settings      — shop: own AI settings snapshot
+ *   PUT  /api/ai/settings      — shop: update own shop-editable AI settings
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
@@ -52,6 +60,12 @@ export function initializeRoutes(): Router {
   // param, so a shop can never request another shop's spend).
   router.get('/spend', authMiddleware, requireRole(['shop']), getOwnShopSpend);
 
+  // Shop-side AI settings. Both gate on `shop` role; the controller reads
+  // shopId from the JWT (no path param) so a shop can only ever read/write
+  // its own settings. PUT touches only the shop-editable fields.
+  router.get('/settings', authMiddleware, requireRole(['shop']), getOwnShopAiSettings);
+  router.put('/settings', authMiddleware, requireRole(['shop']), updateOwnShopAiSettings);
+
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
   // the auth boundary explicit. Pure read — safe for admin dashboards.
   router.get(
@@ -59,6 +73,22 @@ export function initializeRoutes(): Router {
     authMiddleware,
     requireRole(['admin']),
     getAdminCostSummary
+  );
+
+  // Admin gate — per-shop AI capability controls. List every shop's AI
+  // settings, and set the gate fields (AI on/off, follow-ups on/off,
+  // monthly budget) for one shop.
+  router.get(
+    '/admin/shop-settings',
+    authMiddleware,
+    requireRole(['admin']),
+    listShopAiSettings
+  );
+  router.put(
+    '/admin/shop-settings/:shopId',
+    authMiddleware,
+    requireRole(['admin']),
+    adminUpdateShopAiSettings
   );
 
   return router;

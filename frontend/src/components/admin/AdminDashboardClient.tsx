@@ -22,6 +22,7 @@ import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
+import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -391,6 +392,13 @@ export default function AdminDashboardClient() {
           {activeTab === "promo-codes" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "promo-codes"}>
                 <PromoCodesAnalyticsTab />
+              </LazyTabWrapper>
+            )}
+
+          {/* AI Agent — per-shop capability gate */}
+          {activeTab === "ai-agent" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "ai-agent"}>
+                <AdminAISettingsTab />
               </LazyTabWrapper>
             )}
 
