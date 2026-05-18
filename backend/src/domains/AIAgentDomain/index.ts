@@ -6,6 +6,8 @@ import { logger } from '../../utils/logger';
 import { eventBus } from '../../events/EventBus';
 import { OrderConfirmationHandler } from './services/OrderConfirmationHandler';
 import { BookingConfirmationHandler } from './services/BookingConfirmationHandler';
+import { AISalesFollowUpHandler } from './services/AISalesFollowUpHandler';
+import { AISalesFollowUpDetector } from './services/AISalesFollowUpDetector';
 import { WebSocketManager } from '../../services/WebSocketManager';
 
 /**
@@ -32,6 +34,10 @@ export class AIAgentDomain implements DomainModule {
   // Booking-confirmation handler (templated, no Claude call) — constructed
   // unconditionally since it has no ANTHROPIC_API_KEY dependency.
   private bookingConfirmationHandler: BookingConfirmationHandler;
+  // AI sales follow-up nudge (Claude-backed) — lazily constructed since it
+  // needs ANTHROPIC_API_KEY. The detector polls; the handler sends.
+  private followUpHandler: AISalesFollowUpHandler | null = null;
+  private followUpDetector: AISalesFollowUpDetector | null = null;
 
   constructor() {
     this.routes = initializeRoutes();
@@ -48,6 +54,8 @@ export class AIAgentDomain implements DomainModule {
     const handler = this.getOrCreateOrderConfirmationHandler();
     handler?.setWebSocketManager(wsManager);
     this.bookingConfirmationHandler.setWebSocketManager(wsManager);
+    // followUpHandler is constructed in initialize() (runs before this).
+    this.followUpHandler?.setWebSocketManager(wsManager);
   }
 
   async initialize(): Promise<void> {
@@ -80,7 +88,36 @@ export class AIAgentDomain implements DomainModule {
     );
     logger.info(`${this.name} domain: subscribed to service.order_paid`);
 
+    // Start the AI sales follow-up detector — polls every 5 minutes for
+    // customers who went quiet mid-conversation and nudges them. Per-shop
+    // gated by ai_shop_settings.ai_followup_enabled (staged rollout: OFF
+    // by default). AI_FOLLOWUP_ENABLED=false is a global kill-switch.
+    if (process.env.AI_FOLLOWUP_ENABLED === 'false') {
+      logger.info(`${this.name} domain: AI follow-up detector DISABLED via AI_FOLLOWUP_ENABLED=false`);
+    } else {
+      try {
+        this.followUpHandler = new AISalesFollowUpHandler();
+        this.followUpDetector = new AISalesFollowUpDetector(this.followUpHandler);
+        this.followUpDetector.start();
+        logger.info(`${this.name} domain: AI sales follow-up detector started`);
+      } catch (err) {
+        // AISalesFollowUpHandler builds an AnthropicClient — missing
+        // ANTHROPIC_API_KEY in dev/test throws here. Degrade gracefully.
+        this.followUpHandler = null;
+        this.followUpDetector = null;
+        logger.warn(
+          `${this.name} domain: AI follow-up detector unavailable (likely no ANTHROPIC_API_KEY)`,
+          { error: (err as Error)?.message }
+        );
+      }
+    }
+
     logger.info(`${this.name} domain initialized — AI Sales Agent`);
+  }
+
+  /** Stop background jobs on graceful shutdown (DomainModule.cleanup). */
+  async cleanup(): Promise<void> {
+    this.followUpDetector?.stop();
   }
 
   /**
