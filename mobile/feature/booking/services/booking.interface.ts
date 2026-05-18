@@ -2,9 +2,6 @@ import { TimeSlot, ShopAvailability } from "@/shared/interfaces/appointment.inte
 import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { DateData } from "react-native-calendars";
 
-// ============================================
-// Component Props
-// ============================================
 
 export interface TimeSlotPickerProps {
   timeSlots: TimeSlot[] | undefined;
@@ -56,10 +53,6 @@ export interface PriceSummaryCardProps {
   finalPrice: number;
   serviceName?: string;
 }
-
-// ============================================
-// Screen Props
-// ============================================
 
 export interface BookingPaymentScreenProps {
   selectedDate: string;
@@ -125,10 +118,6 @@ export interface StripeCheckoutResponse {
   };
 }
 
-// ============================================
-// Service Orders Types (from service-orders)
-// ============================================
-
 export type OrderFilterType = "all" | "pending" | "paid" | "completed" | "cancelled" | "no_show";
 
 export type BookingStage = "requested" | "paid" | "approved" | "scheduled" | "completed";
@@ -174,10 +163,6 @@ export interface OrderStats {
   revenue: number;
 }
 
-// ============================================
-// Booking Analytics Types (from booking-analytics)
-// ============================================
-
 export type TrendDays = 7 | 30 | 90;
 
 export interface BookingAnalytics {
@@ -199,10 +184,6 @@ export interface BookingAnalytics {
   cancellationReasons: Array<{ reason: string; count: number }>;
   bookingTrends: Array<{ date: string; count: number }>;
 }
-
-// ============================================
-// Payment Types (from payment)
-// ============================================
 
 export type PaymentType = "subscription" | "token_purchase";
 
