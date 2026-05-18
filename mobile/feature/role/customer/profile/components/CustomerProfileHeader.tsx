@@ -2,7 +2,8 @@ import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PROFILE_COLORS } from "../constants";
-import { getTierColor, getTierDisplayName } from "../../utils";
+import { getTierColor } from "@/shared/utilities/getTierColor";
+import { getTierDisplayName } from "@/shared/utilities/getTierDisplayName";
 
 interface CustomerProfileHeaderProps {
   name?: string;

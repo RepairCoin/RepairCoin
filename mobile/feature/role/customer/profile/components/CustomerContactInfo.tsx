@@ -1,6 +1,8 @@
 import { View, Text } from "react-native";
 import { ContactInfoCard } from "./ContactInfoCard";
-import { handleEmail, handleCall, copyToClipboard } from "../../utils";
+import { handleEmail } from "@/shared/utilities/handleEmail";
+import { handleCall } from "@/shared/utilities/handleCall";
+import { copyToClipboard } from "@/shared/utilities/copyToClipboard";
 
 interface CustomerContactInfoProps {
   email?: string;

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Message } from "../types";
-import { decryptMessage } from "../utils/encryption";
+import { decryptMessage } from "@/shared/utilities/encryption";
 
 type UnlockSession = {
   setUnlocked: (messageId: string, data: { text: string | null; attachmentUrls: string[] }) => void;

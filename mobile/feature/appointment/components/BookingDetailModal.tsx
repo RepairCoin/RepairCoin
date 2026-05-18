@@ -1,8 +1,8 @@
 import { View, Text, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { CalendarBooking } from "@/shared/interfaces/appointment.interface";
-import { formatTimeRange, formatBookingDate } from "../utils/timeFormat";
-import { getStatusColor } from "../utils/statusUtils";
+import { formatTimeRange, formatBookingDate } from "@/shared/utilities/timeFormat";
+import { getStatusColor } from "@/shared/utilities/statusUtils";
 
 interface BookingDetailModalProps {
   booking: CalendarBooking | null;

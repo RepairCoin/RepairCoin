@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { RedemptionSession } from "../../types";
-import { formatDate } from "../../utils";
+import { formatDate } from "@/shared/utilities/formatDateTime";
 
 interface RequestCardProps {
   session: RedemptionSession;

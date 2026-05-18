@@ -5,7 +5,7 @@ import {
   getTodayAvailability,
   formatShopHours,
   getShopStatus,
-} from "../utils";
+} from "@/shared/utilities/shopLocation";
 
 interface ShopCardProps {
   shop: ShopWithLocation;

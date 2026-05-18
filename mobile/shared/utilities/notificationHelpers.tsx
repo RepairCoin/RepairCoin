@@ -1,7 +1,7 @@
 import React from "react";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from "@expo/vector-icons";
-import { Notification, NotificationStyle } from "../types";
-import { NOTIFICATION_ROUTES } from "../constants";
+import { Notification, NotificationStyle } from "@/feature/notification/types";
+import { NOTIFICATION_ROUTES } from "@/feature/notification/constants";
 
 export function getNotificationStyle(type: string): NotificationStyle {
   switch (type) {

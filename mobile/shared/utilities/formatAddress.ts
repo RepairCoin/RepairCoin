@@ -11,3 +11,10 @@ export const formatWalletAddress = (
   }
   return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 };
+
+/**
+ * Format wallet address for display with default truncation (6...4)
+ */
+export const formatAddress = (address: string): string => {
+  return formatWalletAddress(address);
+};

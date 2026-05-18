@@ -14,7 +14,7 @@ import {
 import { BookingData, BookingStatus } from "@/shared/interfaces/booking.interfaces";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
-import { getStatusColor } from "../utils";
+import { getStatusColor } from "@/shared/utilities/statusUtils";
 
 export function useBookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();

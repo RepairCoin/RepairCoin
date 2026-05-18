@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { formatDateDivider } from "../utils";
+import { formatDateDivider } from "@/shared/utilities/messageFormatters";
 
 type DateDividerProps = {
   dateString: string;

@@ -1,7 +1,7 @@
 import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Message, Conversation } from "../types";
-import { formatMessageTime } from "../utils";
+import { formatMessageTime } from "@/shared/utilities/messageFormatters";
 import LockedMessageBubble from "./LockedMessageBubble";
 
 type UnlockSession = {

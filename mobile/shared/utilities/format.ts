@@ -1,6 +1,6 @@
-export const formatDate = (dateString?: string) => {
-  if (!dateString) return "N/A";
-  const date = new Date(dateString);
+export const formatDate = (dateInput?: string | Date) => {
+  if (!dateInput) return "N/A";
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",

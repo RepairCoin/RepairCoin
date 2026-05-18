@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { CustomerRedemptionData } from "../../types";
-import { calculateUsdValue } from "../../utils";
+import { calculateUsdValue } from "@/shared/utilities/calculateUsdValue";
 
 interface RedemptionSummaryProps {
   redemptionAmount: string;

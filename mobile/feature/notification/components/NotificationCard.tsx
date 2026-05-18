@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { formatDistanceToNow } from "date-fns";
 import { Notification } from "../types";
-import { getNotificationStyle, getNavigationRoute } from "../utils";
+import { getNotificationStyle, getNavigationRoute } from "@/shared/utilities/notificationHelpers";
 
 interface NotificationCardProps {
   notification: Notification;

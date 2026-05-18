@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Conversation } from "../types";
-import { formatTimestamp } from "../utils";
+import { formatTimestamp } from "@/shared/utilities/messageFormatters";
 
 type ConversationItemProps = {
   conversation: Conversation;

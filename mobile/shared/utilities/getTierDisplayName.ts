@@ -1,4 +1,4 @@
-import { CustomerTier } from "../profile/types";
+import { CustomerTier } from "@/feature/role/customer/profile/types";
 
 /**
  * Get tier display name with proper capitalization

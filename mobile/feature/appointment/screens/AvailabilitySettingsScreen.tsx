@@ -21,7 +21,7 @@ import {
   CreateDateOverrideRequest,
 } from "@/shared/interfaces/appointment.interface";
 import { appointmentApi } from "../services/appointment.services";
-import { formatTimeSlot } from "../utils/timeFormat";
+import { formatTimeSlot } from "@/shared/utilities/timeFormat";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 
 const DAY_NAMES = [

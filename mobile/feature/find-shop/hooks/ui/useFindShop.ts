@@ -32,7 +32,7 @@ import {
   ZOOM_LAT_DELTA,
   ZOOM_LNG_DELTA,
 } from "../../constants";
-import { calculateDistance, buildFullAddress } from "../../utils";
+import { calculateDistance, buildFullAddress } from "@/shared/utilities/shopLocation";
 
 export function useFindShop() {
   const { useGetShops } = useShop();

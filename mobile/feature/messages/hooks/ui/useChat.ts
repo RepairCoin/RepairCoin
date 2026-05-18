@@ -7,7 +7,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { Message, Conversation, MessageAttachment } from "../../types";
 import { MESSAGE_POLL_INTERVAL } from "../../constants";
 import { AttachmentFile } from "../../components/MessageInput";
-import { encryptMessage } from "../../utils/encryption";
+import { encryptMessage } from "@/shared/utilities/encryption";
 
 export function useChat() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();

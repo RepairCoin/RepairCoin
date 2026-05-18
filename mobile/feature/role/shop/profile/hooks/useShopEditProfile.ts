@@ -5,7 +5,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { useShopProfileByWalletQuery, useUpdateShopProfileMutation } from "../../account/hooks/useShopQuery";
 import { ShopEditFormData } from "../../account/types";
-import { isValidEmail } from "../../utils";
+import { isValidEmail } from "@/shared/utilities/validation";
 
 export const useShopEditProfile = () => {
   const { account, accessToken } = useAuthStore();

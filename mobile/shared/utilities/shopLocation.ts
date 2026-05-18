@@ -1,4 +1,4 @@
-import { EARTH_RADIUS_MILES } from "../constants";
+import { EARTH_RADIUS_MILES } from "@/feature/find-shop/constants";
 import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
 
 /**

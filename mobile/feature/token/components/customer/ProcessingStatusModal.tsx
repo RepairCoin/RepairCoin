@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { RedemptionSession, SessionStatus } from "../../types";
-import { formatAddress } from "../../utils";
+import { formatAddress } from "@/shared/utilities/formatAddress";
 
 interface ProcessingStatusModalProps {
   visible: boolean;

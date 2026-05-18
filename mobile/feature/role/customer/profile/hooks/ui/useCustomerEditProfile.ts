@@ -6,7 +6,7 @@ import { useAppToast } from "@/shared/hooks";
 import { useCustomerProfileQuery } from "../queries";
 import { useUpdateCustomerProfileMutation } from "../mutations";
 import { CustomerEditFormData } from "../../types";
-import { isValidEmail } from "../../../utils";
+import { isValidEmail } from "@/shared/utilities/validation";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 
 /**
