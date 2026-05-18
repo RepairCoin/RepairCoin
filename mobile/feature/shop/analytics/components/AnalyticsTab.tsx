@@ -13,8 +13,8 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/shared/components/shared/FilterModal";
-import { useAnalyticsDataUI, type ChartDataPoint } from "../hooks";
-import { TimeRange } from "../hooks/useShopAnalyticsQuery";
+import { useAnalyticsDataUI } from "../hooks";
+import { TimeRange } from "../../services/shop.interface";
 
 export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
 

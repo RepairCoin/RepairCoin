@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { TransactionsResponse, PurchasesResponse } from "@/feature/shop/services/shop.interface";
+import { TransactionsResponse, PurchasesResponse, TimeRange } from "@/feature/shop/services/shop.interface";
 import { shopApi as analyticsApi } from "@/feature/shop/services/shop.services";
-import { TimeRange } from "../types";
 
 export function useShopAnalyticsQuery(shopId: string, timeRange: TimeRange) {
   const { startDate, endDate } = useMemo(() => {

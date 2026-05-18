@@ -1,14 +1,15 @@
 import { useCallback, useMemo } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { Transaction, Purchase } from "@/feature/shop/services/shop.interface";
-import { useShopAnalyticsQuery } from "./useShopAnalyticsQuery";
-import { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";
 import { 
+  Transaction, 
+  Purchase, 
   TimeRange, 
   ProfitData, 
-  ChartDataPoint,
-  ProfitMetrics,
-} from "../types";
+  ChartDataPoint, 
+  ProfitMetrics 
+} from "@/feature/shop/services/shop.interface";
+import { useShopAnalyticsQuery } from "./useShopAnalyticsQuery";
+import { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";
 
 export function useAnalyticsDataUI() {
   const { userProfile } = useAuthStore();

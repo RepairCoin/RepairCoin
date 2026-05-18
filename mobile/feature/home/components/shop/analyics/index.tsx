@@ -14,7 +14,7 @@ import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/shared/components/shared/FilterModal";
 import { ChartFilter, TimeRange } from "@/feature/shop/account/types";
-import { useAnalyticsDataUI } from "@/feature/shop/account/hooks";
+import { useAnalyticsDataUI } from "@/feature/shop/analytics/hooks";
 
 // Filter options
 const CHART_FILTERS: FilterOption[] = [
