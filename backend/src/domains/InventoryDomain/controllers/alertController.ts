@@ -14,12 +14,18 @@ export async function getAlertSettings(req: Request, res: Response): Promise<voi
   try {
     const { shopId } = req.params;
 
-    // Query shop's alert settings
+    // Query shop's alert settings including new digest preferences
     const query = `
       SELECT
         low_stock_alerts_enabled,
         low_stock_alert_email,
-        low_stock_alert_frequency
+        low_stock_alert_frequency,
+        low_stock_digest_mode,
+        low_stock_digest_day_of_week,
+        low_stock_digest_day_of_month,
+        low_stock_digest_time,
+        last_digest_sent_at,
+        email
       FROM shops
       WHERE shop_id = $1
     `;
@@ -39,9 +45,14 @@ export async function getAlertSettings(req: Request, res: Response): Promise<voi
     res.json({
       success: true,
       data: {
-        enabled: shop.low_stock_alerts_enabled ?? true, // Default to true
+        enabled: shop.low_stock_alerts_enabled ?? true,
         email: shop.low_stock_alert_email || shop.email,
-        frequency: shop.low_stock_alert_frequency || 'daily'
+        frequency: shop.low_stock_alert_frequency || 'daily',
+        digestMode: shop.low_stock_digest_mode || 'daily',
+        digestDayOfWeek: shop.low_stock_digest_day_of_week || 1,
+        digestDayOfMonth: shop.low_stock_digest_day_of_month || 1,
+        digestTime: shop.low_stock_digest_time || '09:00',
+        lastDigestSentAt: shop.last_digest_sent_at
       }
     });
   } catch (error) {
@@ -59,7 +70,15 @@ export async function getAlertSettings(req: Request, res: Response): Promise<voi
 export async function updateAlertSettings(req: Request, res: Response): Promise<void> {
   try {
     const { shopId } = req.params;
-    const { enabled, email, frequency } = req.body;
+    const {
+      enabled,
+      email,
+      frequency,
+      digestMode,
+      digestDayOfWeek,
+      digestDayOfMonth,
+      digestTime
+    } = req.body;
 
     // Validate inputs
     if (enabled !== undefined && typeof enabled !== 'boolean') {
@@ -86,9 +105,41 @@ export async function updateAlertSettings(req: Request, res: Response): Promise<
       return;
     }
 
+    if (digestMode && !['immediate', 'daily', 'weekly', 'monthly'].includes(digestMode)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid digest mode. Must be "immediate", "daily", "weekly", or "monthly"'
+      });
+      return;
+    }
+
+    if (digestDayOfWeek !== undefined && (digestDayOfWeek < 0 || digestDayOfWeek > 6)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid day of week. Must be 0-6 (0=Sunday, 6=Saturday)'
+      });
+      return;
+    }
+
+    if (digestDayOfMonth !== undefined && (digestDayOfMonth < 1 || digestDayOfMonth > 28)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid day of month. Must be 1-28'
+      });
+      return;
+    }
+
+    if (digestTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(digestTime)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid time format. Must be HH:MM (24-hour format)'
+      });
+      return;
+    }
+
     // Build update query dynamically
     const updates: string[] = [];
-    const values: Array<boolean | string> = [];
+    const values: Array<boolean | string | number> = [];
     let paramIndex = 1;
 
     if (enabled !== undefined) {
@@ -106,6 +157,26 @@ export async function updateAlertSettings(req: Request, res: Response): Promise<
       values.push(frequency);
     }
 
+    if (digestMode) {
+      updates.push(`low_stock_digest_mode = $${paramIndex++}`);
+      values.push(digestMode);
+    }
+
+    if (digestDayOfWeek !== undefined) {
+      updates.push(`low_stock_digest_day_of_week = $${paramIndex++}`);
+      values.push(digestDayOfWeek);
+    }
+
+    if (digestDayOfMonth !== undefined) {
+      updates.push(`low_stock_digest_day_of_month = $${paramIndex++}`);
+      values.push(digestDayOfMonth);
+    }
+
+    if (digestTime) {
+      updates.push(`low_stock_digest_time = $${paramIndex++}`);
+      values.push(digestTime);
+    }
+
     if (updates.length === 0) {
       res.status(400).json({
         success: false,
@@ -120,7 +191,14 @@ export async function updateAlertSettings(req: Request, res: Response): Promise<
       UPDATE shops
       SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE shop_id = $${paramIndex}
-      RETURNING low_stock_alerts_enabled, low_stock_alert_email, low_stock_alert_frequency
+      RETURNING
+        low_stock_alerts_enabled,
+        low_stock_alert_email,
+        low_stock_alert_frequency,
+        low_stock_digest_mode,
+        low_stock_digest_day_of_week,
+        low_stock_digest_day_of_month,
+        low_stock_digest_time
     `;
 
     const result = await pool.query(query, values);
@@ -141,7 +219,11 @@ export async function updateAlertSettings(req: Request, res: Response): Promise<
       data: {
         enabled: updated.low_stock_alerts_enabled,
         email: updated.low_stock_alert_email,
-        frequency: updated.low_stock_alert_frequency
+        frequency: updated.low_stock_alert_frequency,
+        digestMode: updated.low_stock_digest_mode,
+        digestDayOfWeek: updated.low_stock_digest_day_of_week,
+        digestDayOfMonth: updated.low_stock_digest_day_of_month,
+        digestTime: updated.low_stock_digest_time
       }
     });
 
