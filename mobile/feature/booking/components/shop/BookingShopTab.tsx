@@ -33,7 +33,7 @@ import {
   getScrollableDays,
   getDistinctStatusesForDots,
 } from "@/shared/utilities/calendar";
-import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../../constants";
+import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "@/shared/constants/booking";
 import {
   getBookingStatusColor,
   BOOKING_STATUS_LEGEND,

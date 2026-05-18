@@ -17,7 +17,7 @@ import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { useShop } from "@/feature/role/shop/account/hooks/useShopQuery";
 import { ShopRegisterDto, type ShopRegisterData } from "../dto";
 import { Slide } from "../services/auth.interface";
-import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "../constants";
+import { INITIAL_SHOP_FORM_DATA, SHOP_REGISTER_SLIDES } from "@/shared/constants/auth";
 import { normalizeUrl } from "@/shared/utilities/normalizeUrl";
 
 const { width } = Dimensions.get("window");

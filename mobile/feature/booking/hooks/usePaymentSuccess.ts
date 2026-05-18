@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { PaymentSuccessParams } from "../types";
-import { SUBSCRIPTION_PERIOD_DAYS } from "../constants";
+import { SUBSCRIPTION_PERIOD_DAYS } from "@/shared/constants/booking";
 
 export function usePaymentSuccess() {
   const router = useRouter();

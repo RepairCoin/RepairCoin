@@ -8,7 +8,7 @@ import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
 import { CustomerRegisterDto, type CustomerRegisterData } from "../dto";
-import { INITIAL_CUSTOMER_FORM_DATA } from "../constants";
+import { INITIAL_CUSTOMER_FORM_DATA } from "@/shared/constants/auth";
 
 export const useCustomerRegister = () => {
   const { showError } = useAppToast();

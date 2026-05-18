@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { SUBSCRIPTION_PRICE, SUBSCRIPTION_PERIOD } from "../../account/constants";
+import { SUBSCRIPTION_PRICE, SUBSCRIPTION_PERIOD } from "@/shared/constants/shopAccount";
 
 type PriceCardProps = {
   isSubscribed: boolean;

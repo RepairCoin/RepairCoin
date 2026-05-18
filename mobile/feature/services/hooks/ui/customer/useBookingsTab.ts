@@ -4,7 +4,7 @@ import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/feature/
 import { useAppToast } from "@/shared/hooks";
 import { MyAppointment } from "@/shared/interfaces/appointment.interface";
 import { BookingFilterTab, BookingStatusFilter } from "../../../tab-types";
-import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "../../../constants";
+import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "@/shared/constants/services";
 
 // Check if appointment can be cancelled (24+ hours before + not already cancelled/completed)
 export const canCancelAppointment = (appointment: MyAppointment) => {

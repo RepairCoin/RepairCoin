@@ -1,6 +1,6 @@
 import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { PROFILE_COLORS } from "../constants";
+import { PROFILE_COLORS } from "@/shared/constants/shopAccount";
 
 interface ShopProfileHeaderProps {
   name: string;

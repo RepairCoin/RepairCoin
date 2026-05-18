@@ -28,7 +28,7 @@ import { BookingShopTab } from "@/feature/transaction/booking/components";
 import { BookingAnalyticsTab } from "@/feature/transaction/booking/components";
 
 // Constants
-import { SERVICE_TABS } from "../../constants";
+import { SERVICE_TABS } from "@/shared/constants/services";
 
 export default function ShopServiceScreen() {
   const [showManualBookingModal, setShowManualBookingModal] = useState(false);

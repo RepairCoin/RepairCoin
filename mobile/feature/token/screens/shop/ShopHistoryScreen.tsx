@@ -12,7 +12,7 @@ import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
 import { useHistoryListUI } from "../../hooks";
-import { STATUS_FILTERS, DATE_FILTERS } from "../../constants";
+import { STATUS_FILTERS, DATE_FILTERS } from "@/shared/constants/token";
 import { TransactionHistoryCard, FilterChip } from "../../components";
 
 export default function ShopHistoryScreen() {

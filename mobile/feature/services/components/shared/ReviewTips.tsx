@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { REVIEW_TIPS } from "../../constants";
+import { REVIEW_TIPS } from "@/shared/constants/services";
 
 export default function ReviewTips() {
   return (

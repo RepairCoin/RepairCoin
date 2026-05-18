@@ -6,7 +6,7 @@ import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { NavigableSlideProps } from "../../services/auth.interface";
-import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../../constants";
+import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "@/shared/constants/auth";
 import type { ShopRegisterData } from "../../dto/register.dto";
 
 export default function SecondSlide({

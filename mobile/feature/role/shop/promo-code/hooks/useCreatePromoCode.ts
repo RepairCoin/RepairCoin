@@ -7,7 +7,7 @@ import {
   CODE_MAX_LENGTH,
   MAX_PERCENTAGE,
   DEFAULT_PROMO_DURATION_DAYS,
-} from "../constants";
+} from "@/shared/constants/promoCode";
 import { useCreatePromoCodeMutation } from "./usePromoCodeQuery";
 
 export function useCreatePromoCode() {

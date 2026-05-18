@@ -5,7 +5,7 @@ import { useFocusEffect } from "expo-router";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { Message, Conversation, MessageAttachment } from "../../types";
-import { MESSAGE_POLL_INTERVAL } from "../../constants";
+import { MESSAGE_POLL_INTERVAL } from "@/shared/constants/messaging";
 import { AttachmentFile } from "../../components/MessageInput";
 import { encryptMessage } from "@/shared/utilities/encryption";
 

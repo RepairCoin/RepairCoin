@@ -1,5 +1,5 @@
 import { View, Text, TextInput } from "react-native";
-import { MAX_COMMENT_LENGTH } from "../../constants";
+import { MAX_COMMENT_LENGTH } from "@/shared/constants/services";
 
 interface CommentInputProps {
   value: string;

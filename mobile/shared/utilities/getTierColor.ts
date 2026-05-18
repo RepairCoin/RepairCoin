@@ -1,5 +1,5 @@
 import type { CustomerTierLower } from "@/shared/interfaces/customer.interface";
-import { TIER_COLORS, DEFAULT_TIER } from "@/feature/role/customer/profile/constants";
+import { TIER_COLORS, DEFAULT_TIER } from "@/shared/constants/customerProfile";
 
 /**
  * Get tier color based on customer tier

@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SettingsItem, SettingsSection, Divider, ReportBugModal } from "../components";
 import { useSettings } from "../hooks/ui/useSettings";
-import { APP_VERSION } from "../constants";
+import { APP_VERSION } from "@/shared/constants/app";
 import type { SettingsScreenProps } from "../types";
 
 export default function SettingsScreen({ role }: SettingsScreenProps) {

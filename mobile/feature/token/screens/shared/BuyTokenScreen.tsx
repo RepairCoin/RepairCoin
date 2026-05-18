@@ -21,7 +21,7 @@ import {
   useBuyTokenUI,
   useBuyTokenNavigation,
 } from "../../hooks";
-import { QUICK_AMOUNTS } from "../../constants";
+import { QUICK_AMOUNTS } from "@/shared/constants/token";
 
 // How It Works content
 const HOW_IT_WORKS_ITEMS: HowItWorksItem[] = [

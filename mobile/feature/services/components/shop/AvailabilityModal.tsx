@@ -18,7 +18,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { TimeSlotConfig, DateOverride } from "@/shared/interfaces/appointment.interface";
 import { PendingAvailabilityChanges } from "../../types";
 import { useAvailabilityModal } from "../../hooks";
-import { AVAILABILITY_TABS, FULL_DAYS, TIME_OPTIONS } from "../../constants";
+import { AVAILABILITY_TABS, FULL_DAYS, TIME_OPTIONS } from "@/shared/constants/services";
 
 interface AvailabilityModalProps {
   visible: boolean;

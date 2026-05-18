@@ -1,5 +1,5 @@
 import { View, Text, TextInput } from "react-native";
-import { MESSAGE_MAX_LENGTH } from "../../constants";
+import { MESSAGE_MAX_LENGTH } from "@/shared/constants/token";
 
 interface MessageInputProps {
   value: string;

@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { REFERRER_REWARD, REFEREE_REWARD } from "../constants";
+import { REFERRER_REWARD, REFEREE_REWARD } from "@/shared/constants/referral";
 
 export default function RewardDetailsCard() {
   return (

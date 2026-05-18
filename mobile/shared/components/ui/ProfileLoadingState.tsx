@@ -1,5 +1,5 @@
 import { View, Text, ActivityIndicator } from "react-native";
-import { PROFILE_COLORS } from "../../../feature/role/customer/profile/constants";
+import { PROFILE_COLORS } from "@/shared/constants/customerProfile";
 
 interface ProfileLoadingStateProps {
   message?: string;

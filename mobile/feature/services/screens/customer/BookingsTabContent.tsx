@@ -12,7 +12,7 @@ import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal } from "@/shared/components/shared/FilterModal";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useBookingsTab } from "../../hooks";
-import { TIME_FILTERS, STATUS_FILTERS } from "../../constants";
+import { TIME_FILTERS, STATUS_FILTERS } from "@/shared/constants/services";
 import { BookingFilterTab, BookingStatusFilter } from "../../tab-types";
 import { AppointmentCard, CancelModal, BookingsEmptyState } from "../../components";
 

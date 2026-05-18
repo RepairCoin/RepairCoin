@@ -2,7 +2,7 @@ import { useState } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { COPY_FEEDBACK_DURATION } from "../../constants";
+import { COPY_FEEDBACK_DURATION } from "@/shared/constants/qrCode";
 
 export function useQRCode() {
   const [modalVisible, setModalVisible] = useState(false);

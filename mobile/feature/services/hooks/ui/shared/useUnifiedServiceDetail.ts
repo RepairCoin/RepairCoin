@@ -11,7 +11,7 @@ import { messageApi } from "@/feature/messages/services/message.services";
 import { serviceApi } from "../../../services/service.services";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { queryKeys } from "@/shared/config/queryClient";
-import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION, FULL_DAYS } from "../../../constants";
+import { TIER_CONFIG, REWARD_RATE, COPY_FEEDBACK_DURATION, FULL_DAYS } from "@/shared/constants/services";
 import { TierInfo, RewardCalculation } from "../../../types";
 import {
   useShopAvailabilityWithConfigQuery,

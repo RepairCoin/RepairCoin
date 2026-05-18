@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { HOW_IT_WORKS_STEPS } from "../constants";
+import { HOW_IT_WORKS_STEPS } from "@/shared/constants/referral";
 
 const DASH_HEIGHT = 8;
 const DASH_GAP = 6;

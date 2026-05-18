@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "../constants";
+import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "@/shared/constants/referral";
 import { useCustomer } from "../../profile/hooks/useCustomer";
 
 export function useReferral() {

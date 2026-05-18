@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { Tier } from "@/shared/utilities/GlobalTypes";
-import { TIER_CONFIG, TIER_ORDER } from "../constants";
+import { TIER_CONFIG, TIER_ORDER } from "@/shared/constants/tierInfo";
 import { TierProgress } from "../types";
 import { useCustomer } from "../../profile/hooks/useCustomer";
 

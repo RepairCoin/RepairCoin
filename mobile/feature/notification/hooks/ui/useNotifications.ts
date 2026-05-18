@@ -4,7 +4,7 @@ import { notificationApi } from "@/feature/notification/services/notification.se
 import { usePushNotificationContext } from "@/shared/providers/PushNotificationProvider";
 import { useAppToast } from "@/shared/hooks";
 import { Notification, TabType } from "../../types";
-import { NOTIFICATIONS_PER_PAGE } from "../../constants";
+import { NOTIFICATIONS_PER_PAGE } from "@/shared/constants/notifications";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);

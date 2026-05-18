@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { HERO_GRADIENT_COLORS } from "../constants";
+import { HERO_GRADIENT_COLORS } from "@/shared/constants/referral";
 
 export default function HeroSection() {
   return (

@@ -1,7 +1,7 @@
 import { View, Text, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { PROFILE_COLORS } from "../constants";
+import { PROFILE_COLORS } from "@/shared/constants/customerProfile";
 import { getTierColor } from "@/shared/utilities/getTierColor";
 import { getTierDisplayName } from "@/shared/utilities/getTierDisplayName";
 

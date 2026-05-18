@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { CustomRepairOption, PresetRepairOption } from "./RepairTypeOption";
-import { REPAIR_OPTIONS } from "../../constants";
+import { REPAIR_OPTIONS } from "@/shared/constants/token";
 import { RepairType } from "../../types";
 
 interface RepairTypeSectionProps {

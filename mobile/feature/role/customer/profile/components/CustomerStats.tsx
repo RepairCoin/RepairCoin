@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { PROFILE_COLORS } from "../constants";
+import { PROFILE_COLORS } from "@/shared/constants/customerProfile";
 
 interface CustomerStatsProps {
   lifetimeEarnings: number;

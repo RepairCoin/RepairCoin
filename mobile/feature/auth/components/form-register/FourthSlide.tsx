@@ -6,7 +6,7 @@ import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { FourthSlideProps } from "../../services/auth.interface";
-import { TERMS_ITEMS } from "../../constants";
+import { TERMS_ITEMS } from "@/shared/constants/auth";
 import type { ShopRegisterData } from "../../dto/register.dto";
 
 export default function FourthSlide({

@@ -18,7 +18,7 @@ import {
   ShareModal,
 } from "../../components";
 import { UnifiedReviewsSection } from "../../components/shared/UnifiedReviewsSection";
-import { FULL_DAYS } from "../../constants";
+import { FULL_DAYS } from "@/shared/constants/services";
 
 export default function UnifiedServiceDetailScreen() {
   const {

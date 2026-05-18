@@ -11,7 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useCustomerHistoryListUI } from "../../hooks";
-import { TRANSACTION_FILTERS, DATE_FILTERS } from "../../constants";
+import { TRANSACTION_FILTERS, DATE_FILTERS } from "@/shared/constants/token";
 import { TransactionHistoryCard, FilterChip } from "../../components";
 
 export default function CustomerHistoryScreen() {

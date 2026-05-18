@@ -13,7 +13,7 @@ import {
   SubmitFormParams,
 } from "../../../types";
 import { useCreateServiceMutation, useUpdateServiceMutation } from "../../mutations/shop/useServiceMutations";
-import { INITIAL_FORM_DATA } from "../../../constants/shop/INITIAL_FORM_DATA";
+import { INITIAL_FORM_DATA } from "@/shared/constants/services";
 
 export function useServiceFormUI(
   isEditMode: boolean,

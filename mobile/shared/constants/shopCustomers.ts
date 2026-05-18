@@ -1,4 +1,4 @@
-import { SortBy, TierFilter } from "../types";
+import { SortBy, TierFilter } from "@/feature/role/shop/customers/types";
 
 export const TIER_OPTIONS: { value: TierFilter; label: string }[] = [
   { value: "all", label: "All Tiers" },

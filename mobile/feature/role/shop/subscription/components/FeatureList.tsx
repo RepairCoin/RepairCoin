@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { AntDesign } from "@expo/vector-icons";
-import { SUBSCRIPTION_FEATURES } from "../../account/constants";
+import { SUBSCRIPTION_FEATURES } from "@/shared/constants/shopAccount";
 
 type FeatureListProps = {
   isSubscribed: boolean;

@@ -23,7 +23,7 @@ import {
   formatTime12h,
   getDistinctStatusesForDots,
 } from "@/shared/utilities/calendar";
-import { APPOINTMENT_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
+import { APPOINTMENT_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "@/shared/constants/appointment";
 import {
   getBookingStatusColor,
   BOOKING_STATUS_LEGEND,

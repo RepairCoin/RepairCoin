@@ -7,7 +7,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useModalStore } from "@/shared/store/common.store";
 import { useAppToast } from "@/shared/hooks";
 import { PaymentParams } from "../types";
-import { DEFAULT_SUBSCRIPTION_AMOUNT } from "../constants";
+import { DEFAULT_SUBSCRIPTION_AMOUNT } from "@/shared/constants/booking";
 
 export function usePayment() {
   const router = useRouter();

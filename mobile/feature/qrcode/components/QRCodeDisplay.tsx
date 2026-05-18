@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { QR_CODE_CONFIG } from "../constants";
+import { QR_CODE_CONFIG } from "@/shared/constants/qrCode";
 
 interface QRCodeDisplayProps {
   walletAddress: string;

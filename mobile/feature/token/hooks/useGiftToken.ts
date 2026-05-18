@@ -9,7 +9,7 @@ import { ValidationResult } from "../types";
 import {
   WALLET_ADDRESS_LENGTH,
   WALLET_ADDRESS_PREFIX,
-} from "../constants";
+} from "@/shared/constants/token";
 
 export function useGiftToken() {
   const { account } = useAuthStore();

@@ -31,7 +31,7 @@ import {
   DEFAULT_LNG_DELTA,
   ZOOM_LAT_DELTA,
   ZOOM_LNG_DELTA,
-} from "../../constants";
+} from "@/shared/constants/mapConfig";
 import { calculateDistance, buildFullAddress } from "@/shared/utilities/shopLocation";
 
 export function useFindShop() {

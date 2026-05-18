@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { CustomerServiceTab } from "../../tab-types";
-import { CUSTOMER_SERVICE_TABS } from "../../constants";
+import { CUSTOMER_SERVICE_TABS } from "@/shared/constants/services";
 
 interface CustomerTabBarProps {
   activeTab: CustomerServiceTab;

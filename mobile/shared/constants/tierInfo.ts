@@ -1,5 +1,5 @@
 import { Tier } from "@/shared/utilities/GlobalTypes";
-import { TierConfig } from "../types";
+import { TierConfig } from "@/feature/role/customer/tier-info/types";
 
 export const TIER_CONFIG: Record<Tier, TierConfig> = {
   BRONZE: {

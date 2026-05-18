@@ -1,4 +1,4 @@
-import { QRCodeConfig } from "../types";
+import { QRCodeConfig } from "@/feature/qrcode/types";
 
 export const QR_CODE_CONFIG: QRCodeConfig = {
   size: 250,
