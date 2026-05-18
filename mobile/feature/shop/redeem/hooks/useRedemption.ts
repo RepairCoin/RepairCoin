@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { RedemptionCallbacks } from "../types";
-import { useCustomerLookup } from "./useTokensQuery";
-import { useRedemptionSession } from "./useRedemptionSession";
+import { useRedemptionSession } from "../hooks/useRedemptionSession";
+import { useCustomerLookup } from "../../customers/hooks/useCustomerLookup";
+import { RedemptionCallbacks } from "../../services/shop.interface";
 
 export const useRedemption = (callbacks?: RedemptionCallbacks) => {
   const customerLookup = useCustomerLookup();

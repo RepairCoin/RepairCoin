@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { TIER_STYLES } from "@/shared/constants/token";
-import { CustomerRedemptionData } from "../../types";
+import { CustomerRedemptionData } from "../../services/shop.interface";
 
 interface CustomerDetailsSectionProps {
   customerAddress: string;

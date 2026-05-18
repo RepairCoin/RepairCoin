@@ -1,5 +1,5 @@
 // Shop screens
-export { default as RedeemTokenScreen } from "./shop/RedeemTokenScreen";
+export { default as RedeemTokenScreen } from "../../shop/redeem/screens/RedeemTokenScreen";
 export { default as ShopHistoryScreen } from "./shop/ShopHistoryScreen";
 
 // Customer screens

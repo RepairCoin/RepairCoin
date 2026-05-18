@@ -5,13 +5,13 @@ import {
   SessionStatus,
   CreateRedemptionSessionRequest,
   RedemptionCallbacks,
-} from "../types";
+} from "../../../token/types";
 import {
   useCreateRedemptionSession,
   useCancelRedemptionSession,
-} from "./useTokensMutation";
-import { useSessionTimer } from "./useSessionTimer";
-import { useSessionPolling } from "./useSessionPolling";
+} from "../../../token/hooks/useTokensMutation";
+import { useSessionTimer } from "../../../token/hooks/useSessionTimer";
+import { useSessionPolling } from "../../../token/hooks/useSessionPolling";
 
 export const useRedemptionSession = (callbacks?: RedemptionCallbacks) => {
   const shopData = useAuthStore((state) => state.userProfile);

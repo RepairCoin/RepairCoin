@@ -11,11 +11,7 @@ import {
   MyRedemptionSessionsResponse,
 } from "@/feature/token/services/token.interface";
 import { TransactionResponse } from "@/feature/customer/profile/services/customer.interface";
-import {
-  RedemptionSession,
-  CustomerRedemptionData,
-  CustomerTier,
-} from "../types";
+import { RedemptionSession } from "@/feature/shop/services/shop.interface";
 
 export interface BalanceData {
   availableBalance: number;
@@ -184,88 +180,3 @@ export function useBuyTokenQueries() {
 
 // Customer lookup (cross-shop redemption data)
 const CROSS_SHOP_LIMIT_PERCENTAGE = 0.2;
-
-export const useCustomerLookup = () => {
-  const shopData = useAuthStore((state) => state.userProfile);
-  const [customerAddress, setCustomerAddress] = useState("");
-  const [customerData, setCustomerData] =
-    useState<CustomerRedemptionData | null>(null);
-  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
-  const [customerError, setCustomerError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (customerAddress && customerAddress.length === 42) {
-      lookupCustomer(customerAddress);
-    } else {
-      setCustomerData(null);
-      setCustomerError(null);
-    }
-  }, [customerAddress, shopData?.shopId]);
-
-  const lookupCustomer = async (address: string) => {
-    setIsLoadingCustomer(true);
-    setCustomerError(null);
-
-    try {
-      const [customerResponse, balanceResponse, crossShopResponse, isHomeShop] =
-        await Promise.all([
-          customerApi.getCustomerByWalletAddress(address),
-          balanceApi.getCustomerBalance(address),
-          customerApi.getCrossShopBalance(address).catch(() => null),
-          shopData?.shopId
-            ? customerApi.hasEarnedAtShop(address, shopData.shopId)
-            : Promise.resolve(false),
-        ]);
-
-      if (customerResponse && balanceResponse) {
-        const balance = balanceResponse.data?.totalBalance || 0;
-        const lifetimeEarnings =
-          customerResponse.data?.customer?.lifetimeEarnings || 0;
-
-        const crossShopLimit =
-          crossShopResponse?.data?.crossShopLimit ??
-          lifetimeEarnings * CROSS_SHOP_LIMIT_PERCENTAGE;
-
-        const maxRedeemable = isHomeShop
-          ? balance
-          : Math.min(balance, crossShopLimit);
-
-        setCustomerData({
-          address,
-          tier:
-            (customerResponse.data?.customer?.tier as CustomerTier) || "BRONZE",
-          balance,
-          lifetimeEarnings,
-          isHomeShop,
-          maxRedeemable,
-          crossShopLimit,
-        });
-      } else {
-        setCustomerError("Customer not found");
-        setCustomerData(null);
-      }
-    } catch (error) {
-      console.error("Error looking up customer:", error);
-      setCustomerError("Failed to lookup customer");
-      setCustomerData(null);
-    } finally {
-      setIsLoadingCustomer(false);
-    }
-  };
-
-  const resetCustomer = useCallback(() => {
-    setCustomerAddress("");
-    setCustomerData(null);
-    setCustomerError(null);
-  }, []);
-
-  return {
-    customerAddress,
-    setCustomerAddress,
-    customerData,
-    isLoadingCustomer,
-    customerError,
-    lookupCustomer,
-    resetCustomer,
-  };
-};

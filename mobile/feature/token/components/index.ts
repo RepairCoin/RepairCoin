@@ -1,9 +1,9 @@
 // Shop - Redeem token components
-export { RedeemTokenHeader } from "./shop/RedeemTokenHeader";
-export { CustomerDetailsSection as RedeemCustomerDetailsSection } from "./shop/RedeemCustomerDetailsSection";
-export { RedemptionAmountSection } from "./shop/RedemptionAmountSection";
-export { RedemptionSummary } from "./shop/RedemptionSummary";
-export { HowItWorksModal as RedeemHowItWorksModal } from "./shop/RedeemHowItWorksModal";
+export { RedeemTokenHeader } from "../../shop/redeem/components/RedeemTokenHeader";
+export { CustomerDetailsSection as RedeemCustomerDetailsSection } from "../../shop/redeem/components/RedeemCustomerDetailsSection";
+export { RedemptionAmountSection } from "../../shop/redeem/components/RedemptionAmountSection";
+export { RedemptionSummary } from "../../shop/redeem/components/RedemptionSummary";
+export { HowItWorksModal as RedeemHowItWorksModal } from "../../shop/redeem/components/RedeemHowItWorksModal";
 
 // Shop - Reward token components
 export { default as RewardHeader } from "../../shop/reward/components/RewardHeader";

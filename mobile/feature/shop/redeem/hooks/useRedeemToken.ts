@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import { useRedemption } from "./useRedemption";
+import { useRedemption } from "../hooks/useRedemption";
 
 export const useRedeemToken = () => {
   const shopData = useAuthStore((state) => state.userProfile);

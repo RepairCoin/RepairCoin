@@ -2,7 +2,6 @@ import React from "react";
 import { ScrollView, RefreshControl } from "react-native";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { QRScanner } from "@/shared/components/shop/QRScanner";
-import { useRedeemToken } from "../../hooks";
 import {
   RedeemTokenHeader,
   RedeemCustomerDetailsSection as CustomerDetailsSection,
@@ -10,7 +9,8 @@ import {
   RedemptionSummary,
   RedeemHowItWorksModal as HowItWorksModal,
   ProcessingStatusModal,
-} from "../../components";
+} from "../../../token/components";
+import { useRedeemToken } from "../hooks";
 
 export default function RedeemTokenScreen() {
   const {

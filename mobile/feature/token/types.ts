@@ -1,13 +1,8 @@
 // Re-export all token interfaces from their canonical location
 export type {
-  CustomerTier,
-  CustomerData,
   CrossShopBalance,
-  CustomerRedemptionData,
-  RedemptionSession,
   CreateRedemptionSessionRequest,
   SessionStatus,
-  RedemptionCallbacks,
   HowItWorksItem,
   StripeCheckoutResponse,
   ValidationResult,
