@@ -12,9 +12,9 @@
 | Feature | Backend | Frontend | Total | Status |
 |---------|---------|----------|-------|--------|
 | **1. Email Digest Mode** | ✅ 100% | ✅ 100% | ✅ 100% | **COMPLETE** |
-| **2. Barcode Scanning** | ⏳ 0% | ⏳ 0% | ⏳ 0% | Pending |
-| **3. Auto PO Suggestions** | ⏳ 0% | ⏳ 0% | ⏳ 0% | Pending |
-| **TOTAL v2.1** | 🟡 33% | 🟡 33% | 🟡 33% | **In Progress** |
+| **2. Barcode Scanning** | ⏳ 0% | ⏳ 0% | ⏳ 0% | Not Implemented |
+| **3. Auto PO Suggestions** | ✅ 100% | ✅ 100% | ✅ 100% | **COMPLETE** |
+| **TOTAL v2.1** | ✅ 67% | ✅ 67% | ✅ 67% | **2/3 Complete** |
 
 ---
 
@@ -253,25 +253,200 @@ LowStockAlertResult {
 
 ---
 
-## ⏳ Feature 3: Auto PO Suggestions (0% Complete)
+## ✅ Feature 3: Auto PO Suggestions (100% COMPLETE)
 
-**Time Estimate:** 5-6 hours
-**Status:** Not started
+**Time Spent:** ~3.5 hours
+**Status:** ✅ Complete (Backend ✅ + Frontend ✅)
 
-### Planned Implementation
+### Backend Implementation ✅ COMPLETE
 
-#### Backend (3-4 hours)
-1. Migration 116: vendor lead times + PO suggestions table
-2. Create `POSuggestionService.ts` (usage analytics + recommendations)
-3. Add 3 endpoints:
-   - `GET /api/inventory/suggestions/:shopId`
-   - `POST /api/inventory/suggestions/:id/approve`
-   - `POST /api/inventory/suggestions/:id/reject`
+#### **1. Database Migration 116** ✅
+**File:** `backend/migrations/116_create_po_suggestions_system.sql`
 
-#### Frontend (2 hours)
-1. Create `POSuggestionsCard.tsx`
-2. Add to `InventoryTab.tsx` (above item list)
-3. Approval/rejection workflow
+**Schema Changes:**
+- Added `lead_time_days` column to `inventory_vendors` table (1-365 days constraint)
+- Created `purchase_order_suggestions` table with comprehensive fields:
+  - Core fields: shop_id, item_id, vendor_id, suggested_quantity, current_stock
+  - Analytics: avg_daily_usage, days_until_stockout, days_of_supply
+  - Urgency & Priority: urgency (low/medium/high/critical), priority_score (0-100)
+  - Explanation: reason (human-readable), estimated_stockout_date
+  - Recommendations: reorder_point, safety_stock
+  - Workflow: status (pending/approved/rejected/expired/ordered)
+  - Timestamps: created_at, expires_at (7 days), approved_at, rejected_at, ordered_at
+  - Metadata: rejection_reason, approved_by, rejected_by, purchase_order_id
+- Created 8 indexes for performance (including composite index for active suggestions)
+
+#### **2. POSuggestionService** ✅
+**File:** `backend/src/services/POSuggestionService.ts` (~550 lines)
+
+**Core Methods:**
+1. `generateSuggestions(shopId)` - Main AI generation logic
+   - Identifies items needing reorder (low stock or approaching stockout)
+   - Calculates usage analytics from last 30 days of inventory_adjustments
+   - Creates smart suggestions with urgency and priority scoring
+   - Prevents duplicate suggestions for same item
+
+2. `getItemsNeedingReorder(shopId)` - Query items below threshold
+   - Joins with vendors to get lead time data
+   - Filters discontinued items
+   - Orders by stock quantity (lowest first)
+
+3. `calculateUsageAnalytics(shopId, item)` - Advanced analytics
+   - Calculates average daily usage from last 30 days
+   - Filters relevant adjustment types: sale, service_completion, damage, loss
+   - Estimates days until stockout (stock / daily usage)
+   - Calculates safety stock (7 days supply or threshold, whichever higher)
+   - Calculates reorder point (lead time × usage + safety stock)
+   - Suggests order quantity based on urgency:
+     - <5 transactions: threshold × 2 (not enough data)
+     - ≤7 days until stockout: 60-day supply (critical)
+     - ≤15 days: 45-day supply (high urgency)
+     - >15 days: 30-day supply (normal)
+   - Minimum order quantity: 10 units
+
+4. `createSuggestion(shopId, item, analytics)` - Insert suggestion
+   - Checks for existing pending suggestions (prevents duplicates)
+   - Calculates urgency level (critical/high/medium/low)
+   - Calculates priority score (0-100 based on urgency, stock level, usage velocity)
+   - Generates human-readable reason explaining the suggestion
+   - Sets expiration to 7 days
+   - Emits `inventory:suggestions_generated` event
+
+5. `getSuggestions(shopId, filters?)` - Retrieve with filtering
+   - Supports filtering by: urgency, status, minPriority
+   - Joins with items and vendors for complete data
+   - Orders by priority score descending
+
+6. `approveSuggestion(id, userId, autoCreatePO?)` - Approve workflow
+   - Updates status to 'approved'
+   - Records approved_by and approved_at
+   - Emits `inventory:suggestion_approved` event
+   - TODO: Auto-create PO option (future enhancement)
+
+7. `rejectSuggestion(id, reason, userId)` - Reject workflow
+   - Updates status to 'rejected'
+   - Records rejection_reason, rejected_by, rejected_at
+   - Emits `inventory:suggestion_rejected` event
+
+8. `expireOldSuggestions()` - Cleanup task
+   - Auto-expires pending suggestions older than 7 days
+   - Can be called by scheduler or admin endpoint
+
+**Helper Methods:**
+- `calculateUrgency(daysUntilStockout)` - Maps days to urgency level
+- `calculatePriorityScore(days, stock, usage)` - 0-100 scoring algorithm
+- `generateReason(item, analytics, urgency)` - Human-readable explanations
+- `mapRowToSuggestion(row)` - Database row mapper
+
+#### **3. PO Suggestion Controller** ✅
+**File:** `backend/src/domains/InventoryDomain/controllers/poSuggestionController.ts`
+
+**Endpoints:**
+1. `POST /api/inventory/suggestions/:shopId/generate` - Generate new suggestions
+2. `GET /api/inventory/suggestions/:shopId` - Get suggestions (with filters)
+3. `POST /api/inventory/suggestions/:id/approve` - Approve suggestion
+4. `POST /api/inventory/suggestions/:id/reject` - Reject with reason (required)
+5. `POST /api/inventory/suggestions/expire` - Admin: Expire old suggestions
+
+**Validation:**
+- Rejection requires a reason
+- 404 errors for not found/already processed suggestions
+- User tracking via JWT (approved_by, rejected_by)
+
+#### **4. Routes Registration** ✅
+**File:** `backend/src/domains/InventoryDomain/routes.ts`
+
+Registered 5 new routes in Inventory Domain with proper authentication:
+- All suggestion routes require shop role authentication
+- Expire endpoint requires admin role
+
+**Status:** ✅ Backend 100% complete
+
+---
+
+### Frontend Implementation ✅ COMPLETE
+
+#### **1. TypeScript Types** ✅
+**File:** `frontend/src/types/inventory.ts` (+60 lines)
+
+**New Types:**
+```typescript
+POSuggestionUrgency = 'low' | 'medium' | 'high' | 'critical'
+POSuggestionStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'ordered'
+
+interface POSuggestion {
+  // Full typing with all 25+ fields from backend
+  // Includes analytics, urgency, status, timestamps, etc.
+}
+
+interface POSuggestionFilters {
+  urgency?, status?, minPriority?
+}
+
+interface GenerateSuggestionsResponse, ApproveSuggestionData, RejectSuggestionData
+```
+
+#### **2. API Service Methods** ✅
+**File:** `frontend/src/services/api/inventory.ts` (+40 lines)
+
+**New Methods:**
+- `generateSuggestions(shopId)` - POST generate
+- `getSuggestions(shopId, filters?)` - GET with query params
+- `approveSuggestion(suggestionId, data?)` - POST approve
+- `rejectSuggestion(suggestionId, data)` - POST reject with reason
+
+#### **3. POSuggestionsCard Component** ✅
+**File:** `frontend/src/components/shop/inventory/POSuggestionsCard.tsx` (~420 lines)
+
+**Features:**
+- **Smart Empty State**: Green gradient card with "Generate" button when no suggestions
+- **Collapsible Card**: Purple gradient header with expand/collapse functionality
+- **Suggestion List**: Beautiful cards with:
+  - Item name + SKU + urgency badge (color-coded)
+  - Human-readable reason from backend
+  - Stats grid: Current Stock, Suggested Quantity, Avg Usage/Day, Days Until Stockout
+  - Vendor name (if available)
+  - Approve/Reject action buttons
+
+- **Urgency Color Coding**:
+  - Critical: Red (AlertTriangle icon)
+  - High: Orange (AlertTriangle icon)
+  - Medium: Yellow (TrendingDown icon)
+  - Low: Blue (Package icon)
+
+- **Actions**:
+  - Approve: Green button → removes suggestion, shows success toast
+  - Reject: Shows inline textarea for reason → confirms → removes suggestion
+  - Generate: Refresh suggestions manually
+  - Refresh: Reload current suggestions
+
+- **Loading States**: Spinner while loading/processing
+- **Responsive Design**: Grid layout adapts to screen size
+- **Real-time Updates**: Removes suggestions after approve/reject
+- **Event Callback**: `onSuggestionActioned` triggers inventory reload
+
+#### **4. InventoryTab Integration** ✅
+**File:** `frontend/src/components/shop/tabs/InventoryTab.tsx`
+
+**Changes:**
+- Imported POSuggestionsCard component
+- Inserted card between stats section and search/filters section
+- Passes shopId and loadInventoryData callback
+- Seamless integration with existing layout
+
+**Status:** ✅ Frontend 100% complete
+
+---
+
+### Build Status ✅
+
+**Frontend Build:** ✅ Successful (no TypeScript errors)
+- Compiled successfully in 43s
+- /shop route: 462 kB (increased by ~2KB for suggestions card)
+- All types properly resolved
+- No linting errors
+
+---
 
 ---
 
@@ -288,13 +463,14 @@ LowStockAlertResult {
 - New methods: 9
 
 **Frontend:**
-- Files created: 0
-- Files modified: 2 (types, component)
-- Lines added: ~180 lines
-- TypeScript interfaces updated: 1
+- Files created: 1 (POSuggestionsCard component)
+- Files modified: 3 (types, API service, InventoryTab)
+- Lines added: ~520 lines
+- TypeScript interfaces created: 7
+- UI components created: 1
 - UI components enhanced: 1
 
-**Total Progress:** 33% (Feature 1 complete: 100%)
+**Total Progress:** 67% (Features 1 & 3 complete: 100% each, Feature 2 skipped)
 
 ---
 

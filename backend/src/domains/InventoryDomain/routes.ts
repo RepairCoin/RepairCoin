@@ -12,6 +12,7 @@ import * as alertController from './controllers/alertController';
 import * as purchaseOrderController from './controllers/purchaseOrderController';
 import * as analyticsController from './controllers/analyticsController';
 import * as serviceIntegrationController from './controllers/serviceIntegrationController';
+import * as poSuggestionController from './controllers/poSuggestionController';
 
 export function initializeRoutes(): Router {
   const router = Router();
@@ -138,6 +139,25 @@ export function initializeRoutes(): Router {
 
   // Delete purchase order
   router.delete('/purchase-orders/:shopId/:poId', shopAuth, purchaseOrderController.deletePurchaseOrder);
+
+  // ============================================================================
+  // PO SUGGESTIONS ROUTES (v2.1)
+  // ============================================================================
+
+  // Generate PO suggestions for a shop
+  router.post('/suggestions/:shopId/generate', shopAuth, poSuggestionController.generateSuggestions);
+
+  // Get PO suggestions with optional filtering
+  router.get('/suggestions/:shopId', shopAuth, poSuggestionController.getSuggestions);
+
+  // Approve a PO suggestion
+  router.post('/suggestions/:id/approve', shopAuth, poSuggestionController.approveSuggestion);
+
+  // Reject a PO suggestion
+  router.post('/suggestions/:id/reject', shopAuth, poSuggestionController.rejectSuggestion);
+
+  // Expire old suggestions (admin/scheduler)
+  router.post('/suggestions/expire', adminAuth, poSuggestionController.expireOldSuggestions);
 
   // ============================================================================
   // ANALYTICS ROUTES

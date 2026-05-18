@@ -36,6 +36,7 @@ import { StockAdjustmentModal } from '../modals/StockAdjustmentModal';
 import { AdjustmentHistoryModal } from '../modals/AdjustmentHistoryModal';
 import { BulkActionsBar } from './BulkActionsBar';
 import { BulkUpdateModal } from '../modals/BulkUpdateModal';
+import { POSuggestionsCard } from '../inventory/POSuggestionsCard';
 
 interface InventoryTabProps {
   shopId: string;
@@ -370,6 +371,9 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
           </div>
         </div>
       )}
+
+      {/* PO Suggestions Card (v2.1) */}
+      <POSuggestionsCard shopId={shopId} onSuggestionActioned={loadInventoryData} />
 
       {/* Search and Filters */}
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">

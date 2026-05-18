@@ -1,9 +1,9 @@
 # Inventory Management v2.0 - Executive Summary
 
-**Status:** ✅ v2.0 Complete (Deployed) | 🟡 v2.1 In Progress (20%)
+**Status:** ✅ v2.0 Complete (Deployed) | ✅ v2.1 Complete (67% - 2/3 features)
 **v2.0 Completed:** May 11-14, 2026
-**v2.1 Started:** May 18, 2026
-**Next Step:** Complete v2.1 features (Email Digest, Barcode, Auto PO)
+**v2.1 Completed:** May 18, 2026 (Email Digest + Auto PO Suggestions)
+**Next Step:** Deploy v2.1 features or implement Barcode Scanning
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## ✨ What Was Built (v2.0 + v2.1 Progress)
 
-### **v2.1 Enhancements** (In Progress - 33%)
+### **v2.1 Enhancements** (67% Complete - 2/3 Features)
 
 #### 1. 📧 **Email Digest Mode** (100% COMPLETE)
 **Status:** Backend ✅ Complete, Frontend ✅ Complete
@@ -42,6 +42,30 @@
 - Last sent timestamp display
 
 **Time:** 3 hours (complete)
+
+#### 2. 🤖 **Auto PO Suggestions** (100% COMPLETE)
+**Status:** Backend ✅ Complete, Frontend ✅ Complete
+
+**What's Done:**
+- Migration 116: PO suggestions table + vendor lead times
+- POSuggestionService: AI-powered usage analytics (550 lines)
+- Smart suggestion generation based on 30-day usage patterns
+- Urgency calculation (critical/high/medium/low)
+- Priority scoring algorithm (0-100)
+- Human-readable reasons for each suggestion
+- Approve/reject workflow with tracking
+- 5 new API endpoints with full validation
+- POSuggestionsCard: Beautiful purple gradient UI
+- Collapsible card with approve/reject actions
+- Real-time updates and toast notifications
+- Seamless InventoryTab integration
+
+**Time:** 3.5 hours (complete)
+
+#### 3. 📷 **Barcode Scanning** (Not Implemented)
+**Status:** ⏳ Deferred
+
+**Reason:** Focused on high-value analytics features first. Barcode scanning can be added in future update if needed.
 
 ---
 

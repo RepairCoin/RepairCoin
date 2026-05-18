@@ -330,4 +330,50 @@ export const inventoryApi = {
     const response = await apiClient.get(`/inventory/service-integration/item/${itemId}/services`);
     return response.data;
   },
+
+  // ============================================================================
+  // PO SUGGESTIONS (v2.1)
+  // ============================================================================
+
+  // Generate PO suggestions
+  async generateSuggestions(shopId: string): Promise<import('@/types/inventory').GenerateSuggestionsResponse> {
+    const response = await apiClient.post(`/inventory/suggestions/${shopId}/generate`);
+    return response.data;
+  },
+
+  // Get PO suggestions with optional filters
+  async getSuggestions(
+    shopId: string,
+    filters?: import('@/types/inventory').POSuggestionFilters
+  ): Promise<{ suggestions: import('@/types/inventory').POSuggestion[]; count: number }> {
+    const params = new URLSearchParams();
+
+    if (filters?.urgency) params.append('urgency', filters.urgency);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.minPriority !== undefined) params.append('minPriority', filters.minPriority.toString());
+
+    const queryString = params.toString();
+    const url = `/inventory/suggestions/${shopId}${queryString ? `?${queryString}` : ''}`;
+
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  // Approve a PO suggestion
+  async approveSuggestion(
+    suggestionId: string,
+    data?: import('@/types/inventory').ApproveSuggestionData
+  ): Promise<{ suggestion: import('@/types/inventory').POSuggestion; purchaseOrderId?: string }> {
+    const response = await apiClient.post(`/inventory/suggestions/${suggestionId}/approve`, data || {});
+    return response.data;
+  },
+
+  // Reject a PO suggestion
+  async rejectSuggestion(
+    suggestionId: string,
+    data: import('@/types/inventory').RejectSuggestionData
+  ): Promise<{ suggestion: import('@/types/inventory').POSuggestion }> {
+    const response = await apiClient.post(`/inventory/suggestions/${suggestionId}/reject`, data);
+    return response.data;
+  },
 };

@@ -464,3 +464,60 @@ export interface ServiceUsingItem {
   quantityRequired: number;
   isOptional: boolean;
 }
+
+// ============================================================================
+// PO SUGGESTIONS (v2.1)
+// ============================================================================
+
+export type POSuggestionUrgency = 'low' | 'medium' | 'high' | 'critical';
+export type POSuggestionStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'ordered';
+
+export interface POSuggestion {
+  id: string;
+  shopId: string;
+  itemId: string;
+  itemName: string;
+  itemSku?: string;
+  vendorId?: string;
+  vendorName?: string;
+  suggestedQuantity: number;
+  currentStock: number;
+  avgDailyUsage: number;
+  daysUntilStockout?: number;
+  daysOfSupply?: number;
+  urgency: POSuggestionUrgency;
+  priorityScore: number;
+  reason: string;
+  estimatedStockoutDate?: string;
+  reorderPoint?: number;
+  safetyStock?: number;
+  status: POSuggestionStatus;
+  createdAt: string;
+  expiresAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  orderedAt?: string;
+  rejectionReason?: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  purchaseOrderId?: string;
+}
+
+export interface POSuggestionFilters {
+  urgency?: POSuggestionUrgency;
+  status?: POSuggestionStatus;
+  minPriority?: number;
+}
+
+export interface GenerateSuggestionsResponse {
+  suggestions: POSuggestion[];
+  count: number;
+}
+
+export interface ApproveSuggestionData {
+  autoCreatePO?: boolean;
+}
+
+export interface RejectSuggestionData {
+  reason: string;
+}
