@@ -76,6 +76,8 @@ describe("ContextBuilder", () => {
       break_start_time?: string | null;
       break_end_time?: string | null;
     }>;
+    /** NoShowPolicyService.getCustomerStatus stub return value. */
+    noShowStatus?: any;
   } = {}) {
     const serviceRow = opts.service !== undefined ? opts.service : baseService();
     const customerRow = opts.customer !== undefined ? opts.customer : baseCustomer();
@@ -113,6 +115,17 @@ describe("ContextBuilder", () => {
     const mockFaqRepo = {
       getEntriesForService: jest.fn().mockResolvedValue(opts.faqEntries ?? []),
     };
+    // No-show policy mock — unrestricted customer by default. Tests for the
+    // no-show slot filtering override via opts.noShowStatus.
+    const mockNoShowPolicyService = {
+      getCustomerStatus: jest.fn().mockResolvedValue(
+        opts.noShowStatus ?? {
+          minimumAdvanceHours: 0,
+          canBook: true,
+          restrictions: [],
+        }
+      ),
+    };
 
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
@@ -121,10 +134,21 @@ describe("ContextBuilder", () => {
       mockMessageRepo as any,
       mockAvailabilityFetcher as any,
       mockPool as any,
-      mockFaqRepo as any
+      mockFaqRepo as any,
+      mockNoShowPolicyService as any
     );
 
-    return { builder, mockCustomerRepo, mockShopRepo, mockServiceRepo, mockMessageRepo, mockPool, mockFaqRepo };
+    return {
+      builder,
+      mockCustomerRepo,
+      mockShopRepo,
+      mockServiceRepo,
+      mockMessageRepo,
+      mockAvailabilityFetcher,
+      mockPool,
+      mockFaqRepo,
+      mockNoShowPolicyService,
+    };
   }
 
   it("returns a complete AgentContext with all 5 fields populated", async () => {
@@ -542,6 +566,13 @@ describe("ContextBuilder", () => {
       const mockFaqRepo = {
         getEntriesForService: jest.fn().mockResolvedValue([]),
       };
+      const mockNoShowPolicyService = {
+        getCustomerStatus: jest.fn().mockResolvedValue({
+          minimumAdvanceHours: 0,
+          canBook: true,
+          restrictions: [],
+        }),
+      };
 
       const { ContextBuilder } = require("../../src/domains/AIAgentDomain/services/ContextBuilder");
       const builder = new ContextBuilder(
@@ -551,7 +582,8 @@ describe("ContextBuilder", () => {
         mockMessageRepo as any,
         mockAvailabilityFetcher as any,
         mockPool as any,
-        mockFaqRepo as any
+        mockFaqRepo as any,
+        mockNoShowPolicyService as any
       );
       await builder.build({
         customerAddress: "0xabc123",
@@ -714,6 +746,13 @@ describe("ContextBuilder", () => {
     const mockPool = {
       query: jest.fn().mockResolvedValue({ rows: [] }),
     };
+    const mockNoShowPolicyService = {
+      getCustomerStatus: jest.fn().mockResolvedValue({
+        minimumAdvanceHours: 0,
+        canBook: true,
+        restrictions: [],
+      }),
+    };
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
       mockShopRepo as any,
@@ -721,7 +760,8 @@ describe("ContextBuilder", () => {
       mockMessageRepo as any,
       mockAvailabilityFetcher as any,
       mockPool as any,
-      mockFaqRepo as any
+      mockFaqRepo as any,
+      mockNoShowPolicyService as any
     );
 
     const ctx = await builder.build({
@@ -758,6 +798,13 @@ describe("ContextBuilder", () => {
     const mockPool = {
       query: jest.fn().mockResolvedValue({ rows: [] }),
     };
+    const mockNoShowPolicyService = {
+      getCustomerStatus: jest.fn().mockResolvedValue({
+        minimumAdvanceHours: 0,
+        canBook: true,
+        restrictions: [],
+      }),
+    };
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
       mockShopRepo as any,
@@ -765,7 +812,8 @@ describe("ContextBuilder", () => {
       mockMessageRepo as any,
       mockAvailabilityFetcher as any,
       mockPool as any,
-      mockFaqRepo as any
+      mockFaqRepo as any,
+      mockNoShowPolicyService as any
     );
 
     const ctx = await builder.build({
@@ -776,6 +824,91 @@ describe("ContextBuilder", () => {
 
     expect(ctx.conversationHistory[0].content).toBe("raw row body");
     expect(ctx.conversationHistory[0].role).toBe("user");
+  });
+
+  describe("no-show policy integration", () => {
+    it("passes the customer's no-show minAdvanceHours to the slot fetcher", async () => {
+      const { builder, mockAvailabilityFetcher } = makeMocks({
+        noShowStatus: {
+          minimumAdvanceHours: 48,
+          canBook: true,
+          restrictions: ["Must book at least 48 hours in advance"],
+        },
+      });
+      await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(mockAvailabilityFetcher.fetchUpcomingSlotsForServices).toHaveBeenCalledWith(
+        "peanut",
+        expect.any(Array),
+        48
+      );
+    });
+
+    it("does NOT fetch slots when the customer is suspended (canBook false)", async () => {
+      const { builder, mockAvailabilityFetcher } = makeMocks({
+        noShowStatus: {
+          minimumAdvanceHours: 0,
+          canBook: false,
+          restrictions: ["Booking suspended until 6/1/2026"],
+        },
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(mockAvailabilityFetcher.fetchUpcomingSlotsForServices).not.toHaveBeenCalled();
+      expect(ctx.availabilitySlots).toEqual([]);
+    });
+
+    it("populates the customer's no-show fields in the context", async () => {
+      const { builder } = makeMocks({
+        noShowStatus: {
+          minimumAdvanceHours: 24,
+          canBook: true,
+          restrictions: [
+            "Must book at least 24 hours in advance",
+            "Maximum 80% RCN redemption",
+          ],
+        },
+      });
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(ctx.customer.canBook).toBe(true);
+      expect(ctx.customer.minAdvanceHours).toBe(24);
+      expect(ctx.customer.bookingRestrictions).toEqual([
+        "Must book at least 24 hours in advance",
+        "Maximum 80% RCN redemption",
+      ]);
+    });
+
+    it("fails open (unrestricted) when the no-show lookup throws", async () => {
+      const { builder, mockNoShowPolicyService, mockAvailabilityFetcher } = makeMocks();
+      mockNoShowPolicyService.getCustomerStatus.mockRejectedValueOnce(
+        new Error("DB down")
+      );
+      const ctx = await builder.build({
+        customerAddress: "0xabc123",
+        serviceId: "srv_main",
+        conversationId: "conv_xxx",
+      });
+      expect(ctx.customer.canBook).toBe(true);
+      expect(ctx.customer.minAdvanceHours).toBe(0);
+      expect(ctx.customer.bookingRestrictions).toEqual([]);
+      // Slots still fetched — fail-open reverts to pre-fix behavior for
+      // this one reply rather than dropping the whole response.
+      expect(mockAvailabilityFetcher.fetchUpcomingSlotsForServices).toHaveBeenCalledWith(
+        "peanut",
+        expect.any(Array),
+        0
+      );
+    });
   });
 });
 
@@ -818,6 +951,13 @@ describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
     const mockFaqRepo = {
       getEntriesForService: jest.fn().mockResolvedValue([]),
     };
+    const mockNoShowPolicyService = {
+      getCustomerStatus: jest.fn().mockResolvedValue({
+        minimumAdvanceHours: 0,
+        canBook: true,
+        restrictions: [],
+      }),
+    };
 
     const builder = new ContextBuilder(
       mockCustomerRepo as any,
@@ -826,7 +966,8 @@ describe("ContextBuilder — shop hours summarizer (Phase 3 follow-up)", () => {
       mockMessageRepo as any,
       mockAvailabilityFetcher as any,
       mockPool as any,
-      mockFaqRepo as any
+      mockFaqRepo as any,
+      mockNoShowPolicyService as any
     );
     return { builder, mockPool };
   }

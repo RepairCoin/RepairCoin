@@ -37,6 +37,10 @@ export interface ServiceOrder {
   // Expired fields (24h past appointment without completion)
   expiredAt?: Date;
   expiredBy?: string;
+  // AI chat conversation this order was booked from (conv_*). Set only when
+  // the customer booked via an AI booking card; undefined for marketplace
+  // bookings. Drives the AI booking-confirmation message.
+  conversationId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +84,8 @@ export interface CreateOrderParams {
   // Auto-approval fields
   shopApproved?: boolean;
   approvedAt?: Date;
+  // AI chat conversation this order was booked from (conv_*), if any.
+  conversationId?: string;
 }
 
 export interface OrderFilters {
@@ -103,8 +109,9 @@ export class OrderRepository extends BaseRepository {
           order_id, service_id, customer_address, shop_id, total_amount,
           rcn_redeemed, rcn_discount_usd, final_amount_usd,
           booking_date, booking_time_slot, booking_end_time, notes,
-          stripe_payment_intent_id, status, shop_approved, approved_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          stripe_payment_intent_id, status, shop_approved, approved_at,
+          conversation_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING *
       `;
 
@@ -124,7 +131,8 @@ export class OrderRepository extends BaseRepository {
         params.stripePaymentIntentId || null,
         status,
         params.shopApproved || false,
-        params.approvedAt || null
+        params.approvedAt || null,
+        params.conversationId || null
       ];
 
       const result = await this.pool.query(query, values);
@@ -658,6 +666,7 @@ export class OrderRepository extends BaseRepository {
       // Expired fields
       expiredAt: row.expired_at,
       expiredBy: row.expired_by,
+      conversationId: row.conversation_id || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

@@ -164,4 +164,67 @@ describe("AvailabilityFetcher.fetchUpcomingSlots — dynamic slot cap", () => {
     const slots = await fetcher.fetchUpcomingSlots("peanut", "srv_main");
     expect(slots).toEqual([]);
   });
+
+  // ----- Per-customer no-show advance-notice floor -----
+  //
+  // A customer on a no-show restriction tier (caution = 24h,
+  // deposit_required = 48h) must only be offered slots far enough out, or
+  // the AI proposes a slot the checkout then rejects ("Booking Time Too
+  // Soon"). minAdvanceHours is the 4th arg.
+
+  it("returns ALL slots when minAdvanceHours is 0 (unrestricted customer)", async () => {
+    const fetcher = makeFetcher({ slotsPerDay: [9, 9, 9, 9, 9, 9] });
+    const slots = await fetcher.fetchUpcomingSlots("peanut", "srv_main", "srv_main", 0);
+    expect(slots).toHaveLength(54);
+  });
+
+  it("drops EVERY slot when minAdvanceHours exceeds the whole window", async () => {
+    // 3-day window, 240-hour (10-day) floor → nothing in the window
+    // satisfies it. The AI then gets zero slots and won't propose a card.
+    const fetcher = makeFetcher({ slotsPerDay: [6, 6, 6] });
+    const slots = await fetcher.fetchUpcomingSlots("peanut", "srv_main", "srv_main", 240);
+    expect(slots).toEqual([]);
+  });
+
+  it("only returns slots at least minAdvanceHours out from now", async () => {
+    // 30-day window with a 48-hour floor. Near slots (today/tomorrow) are
+    // dropped; far slots survive. Assert the invariant directly so the
+    // test is deterministic regardless of the time of day it runs.
+    const fetcher = makeFetcher({
+      slotsPerDay: Array(30).fill(4),
+      bookingAdvanceDays: 30,
+    });
+    const minAdvanceHours = 48;
+    const slots = await fetcher.fetchUpcomingSlots(
+      "peanut",
+      "srv_main",
+      "srv_main",
+      minAdvanceHours
+    );
+    // Far days easily clear 48h, so some slots must survive.
+    expect(slots.length).toBeGreaterThan(0);
+    // Every surviving slot must start at least 48h from now.
+    const cutoffMs = Date.now() + minAdvanceHours * 3_600_000;
+    for (const s of slots) {
+      expect(Date.parse(s.slotIso)).toBeGreaterThanOrEqual(cutoffMs);
+    }
+  });
+
+  it("forwards minAdvanceHours through fetchUpcomingSlotsForServices", async () => {
+    const fetcher = makeFetcher({
+      slotsPerDay: Array(30).fill(4),
+      bookingAdvanceDays: 30,
+    });
+    const minAdvanceHours = 48;
+    const slots = await fetcher.fetchUpcomingSlotsForServices(
+      "peanut",
+      [{ serviceId: "srv_main", serviceName: "Oil Change" }],
+      minAdvanceHours
+    );
+    expect(slots.length).toBeGreaterThan(0);
+    const cutoffMs = Date.now() + minAdvanceHours * 3_600_000;
+    for (const s of slots) {
+      expect(Date.parse(s.slotIso)).toBeGreaterThanOrEqual(cutoffMs);
+    }
+  });
 });

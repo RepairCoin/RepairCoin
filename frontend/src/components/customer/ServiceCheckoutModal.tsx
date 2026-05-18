@@ -38,6 +38,13 @@ interface ServiceCheckoutModalProps {
    * nothing on that wrong date).
    */
   initialBookingSlotIso?: string | null;
+  /**
+   * The AI chat conversation this booking came from, when the customer
+   * arrived via an AI booking card. Sent through to createPaymentIntent so
+   * the order row is linked to the conversation — that link drives the AI
+   * "your appointment is confirmed" message posted after payment.
+   */
+  conversationId?: string | null;
 }
 
 /**
@@ -91,6 +98,52 @@ function parseSlotIsoInTimezone(
     bookingDate: new Date(year, month - 1, day),
     bookingTimeSlot: `${hourStr}:${minuteStr}`,
   };
+}
+
+/**
+ * Convert a wall-clock time (year, month0-indexed, day, hour, minute)
+ * interpreted in the given IANA timezone into its UTC epoch milliseconds.
+ *
+ * `new Date(y, m, d, h, mi)` interprets the wall time in the BROWSER's
+ * timezone. The booking slot's wall time is in the SHOP's timezone, so a
+ * customer outside that timezone (e.g. a Manila customer booking a New York
+ * shop, ~12h apart) miscounts the real lead time to the slot — which makes
+ * the advance-notice check falsely reject perfectly valid slots. Anchoring
+ * to the shop timezone fixes that.
+ */
+function zonedWallTimeToUtcMs(
+  year: number,
+  month0: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string
+): number {
+  // Naive: pretend the wall time is UTC, then correct by the tz offset.
+  const naiveUtcMs = Date.UTC(year, month0, day, hour, minute, 0);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(naiveUtcMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  let h = get("hour");
+  if (h === 24) h = 0; // some Intl impls emit 24 for midnight
+  const tzWallAsUtcMs = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    h,
+    get("minute"),
+    get("second")
+  );
+  const offsetMs = tzWallAsUtcMs - naiveUtcMs;
+  return naiveUtcMs - offsetMs;
 }
 
 // Inner form component that uses Stripe hooks
@@ -229,6 +282,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   onClose,
   onSuccess,
   initialBookingSlotIso = null,
+  conversationId = null,
 }) => {
   const { balanceData, fetchCustomerData } = useCustomerStore();
   const address = useAuthStore((state) => state.account?.address);
@@ -377,18 +431,30 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
       return { isValid: true, error: null };
     }
 
-    // Parse the booking time slot (format: "HH:MM AM/PM")
+    // Parse the booking time slot. TimeSlotPicker passes the raw API value
+    // ("HH:MM" 24-hour) and the AI prefill (parseSlotIsoInTimezone) also
+    // yields "HH:MM" — but tolerate a trailing "AM/PM" defensively.
     const [time, period] = bookingTimeSlot.split(' ');
     const [hours, minutes] = time.split(':').map(Number);
     let hour24 = hours;
     if (period === 'PM' && hours !== 12) hour24 += 12;
     if (period === 'AM' && hours === 12) hour24 = 0;
 
-    const bookingDateTime = new Date(bookingDate);
-    bookingDateTime.setHours(hour24, minutes, 0, 0);
+    // Anchor the slot's wall time to the SHOP timezone, not the browser's.
+    // Without this, a customer outside the shop timezone miscounts the lead
+    // time (a Manila customer booking a New York shop is off by ~12h) and a
+    // valid slot is falsely rejected as "Booking Time Too Soon".
+    const shopTz = timeSlotConfig?.timezone || 'America/New_York';
+    const slotUtcMs = zonedWallTimeToUtcMs(
+      bookingDate.getFullYear(),
+      bookingDate.getMonth(),
+      bookingDate.getDate(),
+      hour24,
+      minutes,
+      shopTz
+    );
 
-    const now = new Date();
-    const hoursUntilBooking = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursUntilBooking = (slotUtcMs - Date.now()) / (1000 * 60 * 60);
 
     if (hoursUntilBooking < minimumHours) {
       return {
@@ -420,6 +486,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
         bookingDate: bookingDate ? formatLocalDate(bookingDate) : undefined,
         bookingTime: bookingTimeSlot || undefined,
         rcnToRedeem: actualRcnRedeemed > 0 ? actualRcnRedeemed : undefined,
+        conversationId: conversationId || undefined,
       });
 
       if (response) {

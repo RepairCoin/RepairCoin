@@ -19,6 +19,7 @@ import { ShopRepository } from "../../../repositories/ShopRepository";
 import { ServiceRepository } from "../../../repositories/ServiceRepository";
 import { MessageRepository } from "../../../repositories/MessageRepository";
 import { ServiceAIFaqRepository } from "../../../repositories/ServiceAIFaqRepository";
+import { NoShowPolicyService } from "../../../services/NoShowPolicyService";
 import { AvailabilityFetcher } from "./AvailabilityFetcher";
 import {
   AgentContext,
@@ -78,6 +79,20 @@ interface BookingPolicyRow {
 }
 
 /**
+ * Customer's no-show policy standing, distilled to what the AI context
+ * needs: the advance-notice floor for proposed slots, whether the customer
+ * can book at all, and the human-readable restriction lines for the prompt.
+ */
+interface NoShowSummary {
+  /** Per-customer minimum advance hours (0 = no extra restriction). */
+  minAdvanceHours: number;
+  /** False when the customer is suspended — AI must not propose any slot. */
+  canBook: boolean;
+  /** Human-readable restriction lines, e.g. "Must book at least 48 hours in advance". */
+  restrictions: string[];
+}
+
+/**
  * Hard cap on sibling services for upsell suggestions. More than 5 dilutes
  * the recommendation and bloats the prompt.
  */
@@ -119,7 +134,10 @@ export class ContextBuilder {
     private readonly messageRepo: MessageRepository = new MessageRepository(),
     private readonly availabilityFetcher: AvailabilityFetcher = new AvailabilityFetcher(),
     private readonly pool: Pool = getSharedPool(),
-    private readonly faqRepo: ServiceAIFaqRepository = new ServiceAIFaqRepository()
+    private readonly faqRepo: ServiceAIFaqRepository = new ServiceAIFaqRepository(),
+    // No-show policy: drives the per-customer advance-notice floor on
+    // proposed slots + the restriction lines in the prompt.
+    private readonly noShowPolicyService: NoShowPolicyService = new NoShowPolicyService()
   ) {}
 
   /**
@@ -150,6 +168,18 @@ export class ContextBuilder {
     const shopServiceMenu = await this.fetchShopServiceMenu(
       serviceRow.shopId,
       serviceId
+    );
+
+    // No-show policy status for this customer at this shop. Fetched
+    // sequentially (before the parallel block) because its result feeds
+    // the slot fetcher below: a customer on a restriction tier must only
+    // be offered slots beyond their personal advance-notice floor, or the
+    // AI proposes a slot the checkout then rejects ("Booking Time Too
+    // Soon"). Also surfaced in the prompt so the AI can EXPLAIN the
+    // restriction if the customer asks for something sooner.
+    const noShowStatus = await this.fetchCustomerNoShowStatus(
+      customerAddress,
+      serviceRow.shopId
     );
 
     // Phase 2 + follow-up: assemble the set of services the AI can book in
@@ -202,10 +232,17 @@ export class ContextBuilder {
       // service. Still gated by the focused service's
       // aiBookingAssistance flag — turning it off for the focused service
       // disables the booking-card path entirely.
-      includeBookingSlots
+      // Booking slots — gated by the focused service's aiBookingAssistance
+      // AND the customer's no-show standing. A suspended customer (canBook
+      // false) is offered NO slots: the AI must not propose any booking.
+      // For restricted-but-allowed tiers, minAdvanceHours pushes the slot
+      // window out so every proposed slot survives the checkout's
+      // advance-notice check.
+      includeBookingSlots && noShowStatus.canBook
         ? this.availabilityFetcher.fetchUpcomingSlotsForServices(
             serviceRow.shopId,
-            bookableServices
+            bookableServices,
+            noShowStatus.minAdvanceHours
           )
         : Promise.resolve([] as AgentAvailabilitySlot[]),
       // Weekly operating hours so the AI can answer "what are your hours?"
@@ -234,7 +271,7 @@ export class ContextBuilder {
 
     return {
       service: this.toServiceContext(serviceRow, faqEntriesResult),
-      customer: this.toCustomerContext(customerRow),
+      customer: this.toCustomerContext(customerRow, noShowStatus),
       shop: this.toShopContext(shopRow, weeklyHours, bookingPolicy),
       conversationHistory: messagesResult.map((m: any) =>
         this.toMessageContext(m)
@@ -433,7 +470,10 @@ export class ContextBuilder {
     };
   }
 
-  private toCustomerContext(row: any): AgentCustomerContext {
+  private toCustomerContext(
+    row: any,
+    noShow: NoShowSummary
+  ): AgentCustomerContext {
     // Customer row uses snake_case from BaseRepository mapping;
     // some fields may be camelCase depending on which method was called.
     // Be defensive — read both shapes.
@@ -449,7 +489,40 @@ export class ContextBuilder {
       tier: row.tier ?? "BRONZE",
       rcnBalance: Number(row.currentBalance ?? row.current_balance ?? 0),
       joinedAt: row.joinDate ?? row.join_date ?? row.createdAt ?? row.created_at ?? null,
+      canBook: noShow.canBook,
+      minAdvanceHours: noShow.minAdvanceHours,
+      bookingRestrictions: noShow.restrictions,
     };
+  }
+
+  /**
+   * Fetch the customer's no-show policy standing at this shop. Wrapped so a
+   * transient failure (DB hiccup, missing policy row) degrades to
+   * "unrestricted" rather than breaking the AI reply — the checkout still
+   * enforces the real rule, so fail-open here just reverts to pre-fix
+   * behavior for that one reply instead of dropping the whole response.
+   */
+  private async fetchCustomerNoShowStatus(
+    customerAddress: string,
+    shopId: string
+  ): Promise<NoShowSummary> {
+    try {
+      const status = await this.noShowPolicyService.getCustomerStatus(
+        customerAddress,
+        shopId
+      );
+      return {
+        minAdvanceHours: status.minimumAdvanceHours ?? 0,
+        canBook: status.canBook !== false,
+        restrictions: Array.isArray(status.restrictions) ? status.restrictions : [],
+      };
+    } catch (err) {
+      logger.warn(
+        "ContextBuilder: no-show status fetch failed — treating customer as unrestricted",
+        { customerAddress, shopId, error: (err as Error)?.message }
+      );
+      return { minAdvanceHours: 0, canBook: true, restrictions: [] };
+    }
   }
 
   private toShopContext(

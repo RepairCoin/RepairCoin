@@ -43,7 +43,7 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Customer authentication required' });
       }
 
-      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes } = req.body;
+      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes, conversationId } = req.body;
 
       if (!serviceId) {
         return res.status(400).json({ success: false, error: 'Service ID is required' });
@@ -64,7 +64,9 @@ export class OrderController {
         bookingDate: new Date(bookingDate),
         bookingTime,
         rcnToRedeem: rcnToRedeem ? parseFloat(rcnToRedeem) : undefined,
-        notes
+        notes,
+        // Optional — present only when the booking came from an AI chat card.
+        conversationId: typeof conversationId === 'string' && conversationId ? conversationId : undefined
       });
 
       res.status(201).json({

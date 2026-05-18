@@ -197,6 +197,10 @@ export interface CreatePaymentIntentData {
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+  // Set only when the booking originated from an AI chat booking card.
+  // Threaded to the order row so the AI can post a confirmation message
+  // back into this conversation after payment.
+  conversationId?: string;
 }
 
 export interface CreatePaymentIntentResponse {
