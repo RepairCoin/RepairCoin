@@ -179,6 +179,24 @@ export interface AgentCustomerContext {
   rcnBalance: number;
   /** Months/years on the platform — soft signal of regularity */
   joinedAt: Date | string | null;
+  /**
+   * No-show policy: false when the customer is suspended from booking.
+   * When false the AI must not propose any slot. Optional — absent on
+   * legacy/partial contexts; treated as "can book" when undefined.
+   */
+  canBook?: boolean;
+  /**
+   * Per-customer minimum advance-booking hours from the no-show tier
+   * (0 = unrestricted, caution = 24, deposit_required = 48). Proposed
+   * slots are already filtered to satisfy this; surfaced so the AI can
+   * explain the rule if the customer asks for something sooner.
+   */
+  minAdvanceHours?: number;
+  /**
+   * Human-readable no-show restriction lines (advance notice, deposit,
+   * RCN cap, suspension). Empty/absent for unrestricted customers.
+   */
+  bookingRestrictions?: string[];
 }
 
 /**

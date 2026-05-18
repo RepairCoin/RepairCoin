@@ -5,6 +5,7 @@ import { initializeRoutes } from './routes';
 import { logger } from '../../utils/logger';
 import { eventBus } from '../../events/EventBus';
 import { OrderConfirmationHandler } from './services/OrderConfirmationHandler';
+import { BookingConfirmationHandler } from './services/BookingConfirmationHandler';
 import { WebSocketManager } from '../../services/WebSocketManager';
 
 /**
@@ -28,20 +29,25 @@ export class AIAgentDomain implements DomainModule {
   routes: Router;
   private orderConfirmationHandler: OrderConfirmationHandler | null = null;
   private orderConfirmationAvailable: boolean | null = null;
+  // Booking-confirmation handler (templated, no Claude call) — constructed
+  // unconditionally since it has no ANTHROPIC_API_KEY dependency.
+  private bookingConfirmationHandler: BookingConfirmationHandler;
 
   constructor() {
     this.routes = initializeRoutes();
+    this.bookingConfirmationHandler = new BookingConfirmationHandler();
   }
 
   /**
-   * Wire the AI confirmation handler to the WebSocket manager so its
-   * Claude-generated reply lands in the customer's chat in real-time.
-   * Called by app.ts after the WS server boots, mirroring the messaging +
-   * notification domains' pattern.
+   * Wire the AI confirmation handlers to the WebSocket manager so their
+   * replies land in the customer's chat in real-time. Called by app.ts
+   * after the WS server boots, mirroring the messaging + notification
+   * domains' pattern.
    */
   setWebSocketManager(wsManager: WebSocketManager): void {
     const handler = this.getOrCreateOrderConfirmationHandler();
     handler?.setWebSocketManager(wsManager);
+    this.bookingConfirmationHandler.setWebSocketManager(wsManager);
   }
 
   async initialize(): Promise<void> {
@@ -62,6 +68,18 @@ export class AIAgentDomain implements DomainModule {
         `${this.name} domain: OrderConfirmationHandler unavailable (likely no ANTHROPIC_API_KEY); confirmation hook disabled`
       );
     }
+
+    // Subscribe the booking-confirmation hook. Posts a templated "your
+    // appointment is confirmed" message into the chat when a customer pays
+    // for a booking that started from an AI booking card. No Claude call,
+    // so it runs regardless of ANTHROPIC_API_KEY.
+    eventBus.subscribe(
+      'service.order_paid',
+      (event) => this.bookingConfirmationHandler.handleOrderPaid(event),
+      'AIAgentDomain'
+    );
+    logger.info(`${this.name} domain: subscribed to service.order_paid`);
+
     logger.info(`${this.name} domain initialized — AI Sales Agent`);
   }
 

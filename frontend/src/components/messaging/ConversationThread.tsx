@@ -1033,6 +1033,7 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                                       message.metadata?.servicePrice as number | undefined
                                     }
                                     readOnly={isOwnMessage}
+                                    conversationId={conversationId}
                                   />
                                 )
                               )}

@@ -14,6 +14,7 @@ import Stripe from 'stripe';
 import { NoShowPolicyService } from '../../../services/NoShowPolicyService';
 import { GoogleCalendarService } from '../../../services/GoogleCalendarService';
 import { ModerationRepository } from '../../../repositories/ModerationRepository';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export interface CreatePaymentIntentRequest {
   serviceId: string;
@@ -22,6 +23,10 @@ export interface CreatePaymentIntentRequest {
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+  // AI chat conversation the customer booked from (conv_*), when the
+  // booking originated from an AI booking card. Threaded into the Stripe
+  // PaymentIntent metadata so it lands on the order row at payment success.
+  conversationId?: string;
 }
 
 /**
@@ -62,6 +67,45 @@ function normalizeTimeSlot(time: string): string {
   // Extract just the HH:MM part (handles "10:00:00", "10:00", etc.)
   const parts = time.split(':');
   return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+}
+
+/**
+ * Convert a wall-clock slot (YYYY-MM-DD + HH:MM) interpreted in the given
+ * IANA timezone into its UTC epoch milliseconds.
+ *
+ * Slot times are stored and displayed in the SHOP's timezone. Advance-notice
+ * math must anchor to that, not the server's local timezone — otherwise a
+ * server running in UTC (e.g. DigitalOcean) miscounts the lead time by the
+ * shop's UTC offset and can wrongly accept or reject a slot near the cutoff.
+ */
+function zonedSlotToUtcMs(dateStr: string, timeStr: string, timeZone: string): number {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = timeStr.split(':').map(Number);
+  // Naive: pretend the wall time is UTC, then correct by the tz offset.
+  const naiveUtcMs = Date.UTC(y, mo - 1, d, h, mi, 0);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(naiveUtcMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  let hh = get('hour');
+  if (hh === 24) hh = 0; // some Intl impls emit 24 for midnight
+  const tzWallAsUtcMs = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    hh,
+    get('minute'),
+    get('second')
+  );
+  const offsetMs = tzWallAsUtcMs - naiveUtcMs;
+  return naiveUtcMs - offsetMs;
 }
 
 export interface CreatePaymentIntentResponse {
@@ -186,13 +230,15 @@ export class PaymentService {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
         }
 
-        // Validate minimum notice (minBookingHours)
-        // Parse booking date and time to create a proper DateTime
-        const [bookingYear, bookingMonth, bookingDay] = bookingDateStr.split('-').map(Number);
-        const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
-        const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
-        const now = new Date();
-        const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+        // Validate minimum notice (minBookingHours).
+        // The slot's wall time is in the SHOP timezone — anchor it there so
+        // the lead time is correct regardless of the server's timezone.
+        const slotUtcMs = zonedSlotToUtcMs(
+          bookingDateStr,
+          request.bookingTime,
+          config.timezone || 'America/New_York'
+        );
+        const hoursUntilSlot = (slotUtcMs - Date.now()) / (1000 * 60 * 60);
 
         // Apply the greater of shop's min booking hours or customer's tier-based requirement
         const requiredAdvanceHours = Math.max(config.minBookingHours, customerStatus.minimumAdvanceHours);
@@ -296,6 +342,7 @@ export class PaymentService {
           bookingTime: request.bookingTime || '',
           bookingEndTime: bookingEndTime || '',
           notes: request.notes || '',
+          conversationId: request.conversationId || '',
           type: 'service_booking'
         },
         description: `Service Booking: ${service.serviceName}${rcnRedeemed > 0 ? ` (${rcnRedeemed} RCN redeemed)` : ''}${depositAmount > 0 ? ` + $${depositAmount} deposit` : ''}`
@@ -621,7 +668,9 @@ export class PaymentService {
         status: 'paid',
         // Auto-approve on payment success
         shopApproved: true,
-        approvedAt: new Date()
+        approvedAt: new Date(),
+        // Soft link back to the AI chat this booking came from, if any.
+        conversationId: metadata.conversationId || undefined
       });
 
       logger.info('Order created from successful payment', {
@@ -777,6 +826,14 @@ export class PaymentService {
             const startTime = order.bookingTime;
             const endTime = this.calculateEndTime(startTime, 60);
 
+            // Booking start/end are wall times in the SHOP's timezone — the
+            // calendar event must be created with that same timezone or the
+            // event lands at the wrong absolute instant for any non-ET shop.
+            const shopConfig = await this.appointmentRepository.getTimeSlotConfig(
+              order.shopId
+            );
+            const shopTimezone = shopConfig?.timezone || 'America/New_York';
+
             await this.googleCalendarService.createEvent({
               orderId: order.orderId,
               serviceName: service.serviceName,
@@ -789,7 +846,7 @@ export class PaymentService {
               startTime,
               endTime,
               totalAmount: order.totalAmount,
-              shopTimezone: 'America/New_York', // TODO: Get from shop settings
+              shopTimezone,
             });
             logger.info('Calendar event created for booking', { orderId: order.orderId });
           }
@@ -797,6 +854,39 @@ export class PaymentService {
       } catch (calendarError) {
         logger.error('Failed to create calendar event:', calendarError);
         // Don't fail the payment if calendar sync fails
+      }
+
+      // Emit `service.order_paid` — the booking-completed beat. Subscribed by
+      // AIAgentDomain's BookingConfirmationHandler, which posts a "your
+      // appointment is confirmed" message into the chat when the order
+      // carries a conversationId. Distinct from `service.order_completed`
+      // (fired later when the shop marks the service rendered).
+      //
+      // handlePaymentSuccess is idempotent (early-return above when the order
+      // is already paid/completed), so this fires once per order even though
+      // both the confirm endpoint and the Stripe webhook call this method.
+      try {
+        await eventBus.publish(createDomainEvent(
+          'service.order_paid',
+          order.customerAddress,
+          {
+            orderId: order.orderId,
+            customerAddress: order.customerAddress,
+            shopId: order.shopId,
+            serviceId: order.serviceId,
+            conversationId: order.conversationId ?? null,
+            bookingDate: order.bookingDate,
+            bookingTime: order.bookingTime,
+            totalAmount: order.totalAmount,
+          },
+          'ServiceDomain'
+        ));
+        logger.info('Service order paid event published', {
+          orderId: order.orderId,
+          conversationId: order.conversationId ?? null,
+        });
+      } catch (eventError) {
+        logger.error('Failed to publish order_paid event (non-fatal):', eventError);
       }
 
       return order;

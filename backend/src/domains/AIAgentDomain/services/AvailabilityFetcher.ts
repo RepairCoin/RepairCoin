@@ -74,8 +74,16 @@ export class AvailabilityFetcher {
    *   - Shop's open hours per day-of-week
    *   - Day-specific overrides (closed days, special hours)
    *   - Existing bookings + max_concurrent_bookings
-   *   - Min-notice + max-advance window
+   *   - Min-notice + max-advance window (the SHOP's min_booking_hours)
    *   - Service-specific duration
+   *
+   * `minAdvanceHours` is an ADDITIONAL, per-customer floor on top of the
+   * shop's min-notice rule. It exists because a customer on a no-show
+   * restriction tier (caution = 24h, deposit_required = 48h) must book
+   * further out than the shop baseline. Without this, the AI would propose
+   * a near slot that the checkout then rejects with "Booking Time Too
+   * Soon" — a confusing dead end for the customer. Defaults to 0 (no extra
+   * restriction) for unrestricted customers.
    *
    * Returns an empty array when the service has no AI booking assistance,
    * the shop has no slots configured, or no openings exist in the window.
@@ -85,11 +93,18 @@ export class AvailabilityFetcher {
   async fetchUpcomingSlots(
     shopId: string,
     serviceId: string,
-    serviceName: string = serviceId
+    serviceName: string = serviceId,
+    minAdvanceHours: number = 0
   ): Promise<AgentAvailabilitySlot[]> {
     try {
       const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
       const timezone = config?.timezone ?? "America/New_York";
+
+      // Cutoff for the per-customer advance-notice floor. Slots whose start
+      // instant is before this are dropped so the AI never proposes a slot
+      // the checkout would reject. Computed once per call.
+      const advanceCutoffMs =
+        minAdvanceHours > 0 ? Date.now() + minAdvanceHours * 3_600_000 : 0;
 
       // Use the shop's configured booking_advance_days as the lookahead
       // window. Clamped to [MIN, MAX] so a misconfigured 0 or 365 doesn't
@@ -116,7 +131,15 @@ export class AvailabilityFetcher {
             );
             return slots
               .filter((s) => s.available)
-              .map((s) => this.toAgentSlot(date, s.time, timezone, serviceId, serviceName));
+              .map((s) => this.toAgentSlot(date, s.time, timezone, serviceId, serviceName))
+              // Per-customer advance-notice floor (no-show tier). Drop any
+              // slot starting before the cutoff. No-op when minAdvanceHours
+              // is 0 (advanceCutoffMs === 0).
+              .filter(
+                (slot) =>
+                  advanceCutoffMs === 0 ||
+                  Date.parse(slot.slotIso) >= advanceCutoffMs
+              );
           } catch (err) {
             logger.warn("AvailabilityFetcher: getAvailableTimeSlots failed for date", {
               shopId,
@@ -193,10 +216,14 @@ export class AvailabilityFetcher {
    * Empty `services` array → returns empty list immediately (no work).
    * Per-service failures are swallowed inside fetchUpcomingSlots; the
    * combined list just omits that service's slots.
+   *
+   * `minAdvanceHours` is forwarded to every per-service fetch — the
+   * per-customer no-show advance-notice floor (see fetchUpcomingSlots).
    */
   async fetchUpcomingSlotsForServices(
     shopId: string,
-    services: { serviceId: string; serviceName: string }[]
+    services: { serviceId: string; serviceName: string }[],
+    minAdvanceHours: number = 0
   ): Promise<AgentAvailabilitySlot[]> {
     if (!services || services.length === 0) {
       return [];
@@ -208,7 +235,7 @@ export class AvailabilityFetcher {
       // queries — well within pool capacity (20).
       const perServiceResults = await Promise.all(
         services.map((s) =>
-          this.fetchUpcomingSlots(shopId, s.serviceId, s.serviceName)
+          this.fetchUpcomingSlots(shopId, s.serviceId, s.serviceName, minAdvanceHours)
         )
       );
       const flat = perServiceResults.flat();

@@ -31,6 +31,12 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
   // interpretation, which can roll forward a day across timezones).
   const suggestedSlotIso = searchParams.get('suggestedSlotIso') ?? undefined;
 
+  // Set when the customer arrived here by tapping an AI booking card in chat.
+  // Threaded into checkout so the order is linked to the conversation, and
+  // used below to redirect the customer back into that chat thread after
+  // payment (instead of the generic orders page).
+  const conversationId = searchParams.get('conversationId') ?? undefined;
+
   useEffect(() => {
     fetchServiceDetails();
   }, [serviceId]);
@@ -82,8 +88,14 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
 
   const handleCheckoutSuccess = () => {
     setShowCheckout(false);
-    // Redirect to orders page
-    router.push('/customer/orders?success=true');
+    // If the booking came from an AI chat card, send the customer back into
+    // that conversation — the AI posts a confirmation message there right
+    // after payment. Marketplace/direct bookings keep the orders page.
+    if (conversationId) {
+      router.push(`/customer?tab=messages&conversation=${encodeURIComponent(conversationId)}`);
+    } else {
+      router.push('/customer/orders?success=true');
+    }
   };
 
   if (loading) {
@@ -298,6 +310,7 @@ export const ServiceCheckoutClient: React.FC<ServiceCheckoutClientProps> = ({ se
           onClose={() => setShowCheckout(false)}
           onSuccess={handleCheckoutSuccess}
           initialBookingSlotIso={suggestedSlotIso ?? null}
+          conversationId={conversationId ?? null}
         />
       )}
     </>

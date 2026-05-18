@@ -312,6 +312,12 @@ ${describeOnlyMenuItems.map(renderMenuLine).join("\n")}`
       ? `\n  RCN balance: ${ctx.customer.rcnBalance.toFixed(0)} (can be redeemed for discount at this shop)`
       : "";
 
+  // No-show standing — surfaced so the AI can explain why near slots
+  // aren't on offer (the slot list is already filtered to satisfy the
+  // customer's advance-notice floor) instead of leaving the customer
+  // confused. Empty for unrestricted customers.
+  const customerRestrictionBlock = buildCustomerRestrictionBlock(ctx.customer);
+
   const bookingBlock = buildBookingBlock(ctx);
 
   // Today's date anchor — computed at prompt-build time in the shop's
@@ -348,11 +354,40 @@ About this service (THE ACTIVE TOPIC — this is the service the customer most r
 
 About the customer:
   Name: ${customerName}
-  Loyalty tier: ${tier}${balanceLine}
+  Loyalty tier: ${tier}${balanceLine}${customerRestrictionBlock}
 ${shopServiceMenuBlock}${upsellsBlock}
 
 ${PAYMENT_INFO_BLOCK}${bookingBlock}
 `.trim();
+}
+
+/**
+ * Build the customer no-show restriction block for the "About the customer"
+ * section. Returns "" for unrestricted customers (the common case).
+ *
+ * Two shapes:
+ *   - SUSPENDED (canBook=false): a hard instruction not to propose any slot.
+ *   - RESTRICTED (advance-notice / deposit tier): lists the restriction
+ *     lines and tells the AI the slot list is already filtered, so it can
+ *     explain rather than apologize for "no near slots".
+ *
+ * The slot filtering in AvailabilityFetcher is the load-bearing fix — this
+ * block only lets the AI EXPLAIN the restriction gracefully when asked.
+ */
+function buildCustomerRestrictionBlock(customer: AgentContext["customer"]): string {
+  if (customer.canBook === false) {
+    return `\n  ⚠ Booking status: this customer is currently SUSPENDED from booking and cannot make an appointment. Do NOT propose any slots or emit a booking suggestion. If they ask to book, explain politely that their account is temporarily suspended and suggest they contact the shop directly.`;
+  }
+  const restrictions = customer.bookingRestrictions;
+  if (!restrictions || restrictions.length === 0) {
+    return "";
+  }
+  const minHours = customer.minAdvanceHours ?? 0;
+  const advanceLine =
+    minHours > 0
+      ? ` The slots offered below already satisfy the ${minHours}-hour advance-notice rule — only propose those. If the customer asks for a sooner time, explain they must book at least ${minHours} hours ahead because of their account standing (do not blame them — keep it factual and friendly).`
+      : "";
+  return `\n  Booking restrictions (no-show policy): ${restrictions.join("; ")}.${advanceLine}`;
 }
 
 /**

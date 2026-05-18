@@ -50,6 +50,13 @@ export interface BookingSuggestionCardProps {
    * the customer's behalf. Customer side always passes false (default).
    */
   readOnly?: boolean;
+  /**
+   * The conversation this card was rendered in. Threaded into the checkout
+   * URL so that, after payment, the AI can post a confirmation message back
+   * into this exact thread and the customer is redirected here. Customer
+   * side only — irrelevant for the read-only shop view.
+   */
+  conversationId?: string;
 }
 
 export function BookingSuggestionCard({
@@ -57,6 +64,7 @@ export function BookingSuggestionCard({
   serviceName: serviceNameProp,
   servicePriceUsd,
   readOnly = false,
+  conversationId,
 }: BookingSuggestionCardProps) {
   const router = useRouter();
 
@@ -68,6 +76,11 @@ export function BookingSuggestionCard({
     params.set("suggestedSlotIso", suggestion.slotIso);
     if (suggestion.depositUsd !== undefined) {
       params.set("suggestedDeposit", String(suggestion.depositUsd));
+    }
+    // Carry the conversation through checkout so the post-payment flow can
+    // post the AI confirmation here and redirect the customer back.
+    if (conversationId) {
+      params.set("conversationId", conversationId);
     }
     router.push(`/service/${suggestion.serviceId}?${params.toString()}`);
   };

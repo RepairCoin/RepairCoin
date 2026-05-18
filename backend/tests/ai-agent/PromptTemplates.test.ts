@@ -129,6 +129,53 @@ describe("PromptTemplates — tone-specific signatures", () => {
   });
 });
 
+describe("PromptTemplates — customer no-show restriction block", () => {
+  it("omits the restriction block for an unrestricted customer", () => {
+    // baseContext's customer has no no-show fields set → undefined →
+    // treated as unrestricted.
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).not.toMatch(/Booking restrictions \(no-show policy\)/);
+    expect(prompt).not.toMatch(/SUSPENDED from booking/);
+  });
+
+  it("renders the restriction lines + advance-notice guidance for a restricted customer", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        customer: {
+          ...baseContext().customer,
+          canBook: true,
+          minAdvanceHours: 48,
+          bookingRestrictions: [
+            "Must book at least 48 hours in advance",
+            "$25.00 refundable deposit required",
+            "Maximum 80% RCN redemption",
+          ],
+        },
+      })
+    );
+    expect(prompt).toContain("Booking restrictions (no-show policy)");
+    expect(prompt).toContain("Must book at least 48 hours in advance");
+    expect(prompt).toContain("$25.00 refundable deposit required");
+    // Advance-notice guidance so the AI can explain a too-soon request.
+    expect(prompt).toMatch(/48-hour advance-notice rule/);
+  });
+
+  it("renders a hard 'do not propose slots' instruction for a suspended customer", () => {
+    const prompt = professionalPrompt(
+      baseContext({
+        customer: {
+          ...baseContext().customer,
+          canBook: false,
+          minAdvanceHours: 0,
+          bookingRestrictions: ["Booking suspended until 6/1/2026"],
+        },
+      })
+    );
+    expect(prompt).toMatch(/SUSPENDED from booking/);
+    expect(prompt).toMatch(/Do NOT propose any slots/);
+  });
+});
+
 describe("PromptTemplates — context content", () => {
   it("includes RCN balance line when balance > 0", () => {
     const prompt = professionalPrompt(baseContext({
