@@ -1,4 +1,4 @@
-import { purchaseApi } from "../services/purchase.services";
+import { shopApi } from "@/feature/shop/services/shop.services";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useAppToast } from "@/shared/hooks";
@@ -15,7 +15,7 @@ export function usePurchase() {
         if (amount < 5) {
           throw new Error("Minimum purchase amount is 5 RCN");
         }
-        return purchaseApi.createTokenPurchasePaymentIntent(amount);
+        return shopApi.createTokenPurchasePaymentIntent(amount);
       },
       onSuccess: () => {},
       onError: (error: any) => {

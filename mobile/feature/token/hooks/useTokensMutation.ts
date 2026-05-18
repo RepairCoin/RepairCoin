@@ -5,15 +5,13 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
-import { usePaymentStore } from "@/feature/transaction/booking/store/payment.store";
+import { usePaymentStore } from "@/feature/booking/store/payment.store";
 import { tokenApi } from "../services/token.services";
-import { purchaseApi } from "../services/purchase.services";
-import { rewardApi } from "../services";
-import { promoCodeApi } from "@/feature/shop/promo-code/services/promoCode.services";
+import { shopApi } from "@/feature/shop/services/shop.services";
 import {
   CreatePromoCodeRequest,
   RewardRequest,
-} from "@/feature/shop/account/services/shop.interface";
+} from "@/feature/shop/services/shop.interface";
 import {
   GiftTokenRequest,
   GiftTokenResponse,
@@ -189,7 +187,7 @@ export function useIssueReward(resetInputs?: () => void) {
       if (!shopId) {
         throw new Error("Shop not authenticated");
       }
-      return rewardApi.issueReward(shopId, request);
+      return shopApi.issueReward(shopId, request);
     },
     onSuccess: (data, variables) => {
       showSuccess(
@@ -258,7 +256,7 @@ export function useValidatePromoCode() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return promoCodeApi.validatePromoCode(shopId, {
+      return shopApi.validatePromoCode(shopId, {
         code: code.trim(),
         customer_address: customerAddress,
       });
@@ -286,7 +284,7 @@ export function useUpdatePromoCodeStatus() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return promoCodeApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
+      return shopApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
     },
     onSuccess: (_, variables) => {
       if (shopId) {
@@ -323,7 +321,7 @@ export function useCreatePromoCode() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return promoCodeApi.createPromoCode(shopId, promoCodeData);
+      return shopApi.createPromoCode(shopId, promoCodeData);
     },
     onSuccess: () => {
       showSuccess("Promo code created successfully!");
@@ -416,7 +414,7 @@ export function useCreateStripeCheckoutMutation() {
       if (amount < 5) {
         throw new Error("Minimum purchase amount is 5 RCN");
       }
-      return purchaseApi.createStripeCheckout(amount);
+      return shopApi.createStripeCheckout(amount);
     },
     onSuccess: async (data) => {
       usePaymentStore.getState().setActiveSession({

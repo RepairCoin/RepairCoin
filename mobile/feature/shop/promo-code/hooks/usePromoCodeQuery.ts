@@ -3,8 +3,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
-import { CreatePromoCodeRequest, PromoCodesListResponse } from "@/feature/shop/account/services/shop.interface";
-import { promoCodeApi } from "../services/promoCode.services";
+import { CreatePromoCodeRequest, PromoCodesListResponse } from "@/feature/shop/services/shop.interface";
+import { shopApi as promoCodeApi } from "@/feature/shop/services/shop.services";
 
 export function useShopPromoCodesQuery() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";

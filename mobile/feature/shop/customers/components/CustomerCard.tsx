@@ -1,8 +1,8 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import type { CustomerCardProps } from "../types";
 import { getTierConfig } from "@/shared/utilities/getTier";
+import { CustomerCardProps } from "../../services/shop.interface";
 
 const getInitials = (name: string) => {
   if (!name) return "?";

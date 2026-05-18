@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Text, View, Pressable } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { CustomerGrowthData } from "@/feature/shop/account/services/shop.interface";
+import { CustomerGrowthData } from "@/feature/shop/services/shop.interface";
 import { useShopCustomersQuery } from "@/feature/customer/profile/hooks";
 import StatCard from "@/shared/components/ui/StatCard";
 

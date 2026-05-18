@@ -13,9 +13,10 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { BookingData } from "@/feature/booking/services/booking.interfaces";
+import { BookingFilterStatus } from "../../services/booking.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { bookingApi } from "../../services/booking.services";
-import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
+import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { useRescheduleRequestCountQuery } from "../../hooks";
 import { useQuery } from "@tanstack/react-query";
 import { disputeApi } from "../../services/dispute.services";
@@ -23,7 +24,7 @@ import EnhancedBookingCard from "../customer/EnhancedBookingCard";
 
 // Hooks
 import { useBookingsData, useBookingsFilter } from "../../hooks";
-import { useCalendarUI } from "@/feature/transaction/appointment/hooks";
+import { useCalendarUI } from "@/feature/appointment/hooks";
 
 // Utils
 import {
@@ -569,7 +570,7 @@ export default function BookingsTab() {
     staleTime: 60 * 1000,
   });
   const pendingDisputeCount = disputeData?.pendingCount ?? 0;
-  const { statusFilter, setStatusFilter } = useBookingsFilter();
+  const { statusFilter, setStatusFilter } = useBookingsFilter<BookingFilterStatus>();
   const {
     isLoading,
     getBookingsForDate,

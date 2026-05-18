@@ -1,9 +1,13 @@
 import { BaseResponse } from "@/shared/interfaces/base.interface";
 import { CustomerData } from "@/feature/customer/profile/services/customer.interface";
 
-// ============================================
-// Shared Shop Types
-// ============================================
+export type BonusType = "fixed" | "percentage";
+export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
+export type TimeRange = "day" | "month" | "year";
+export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
+export type ViewMode = "my-customers" | "search-all";
+export type TierFilter = "all" | "bronze" | "silver" | "gold";
+export type SortBy = "recent" | "earnings" | "active";
 
 export interface LocationData {
   city: string;
@@ -14,39 +18,26 @@ export interface LocationData {
 }
 
 export interface ShopFormData {
-  // Shop Information
   shopId: string;
-  name: string; // Company name
+  name: string;
   walletAddress: string;
-
-  // Personal Information
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-
-  // Business Information
-  address: string; // Street address
+  address: string;
   city: string;
   country: string;
   companySize: string;
   monthlyRevenue: string;
   website: string;
   referral: string;
-
-  // Social Media
   facebook: string;
   twitter: string;
   instagram: string;
-
-  // Wallet Information
   reimbursementAddress: string;
   fixflowShopId: string;
-
-  // Location (for mapping)
   location: LocationData;
-
-  // Terms and Conditions
   acceptTerms: boolean;
 }
 
@@ -83,7 +74,6 @@ export interface ShopData {
   verified: boolean;
   walletAddress: string;
   website: string;
-  // Suspension (populated by /auth/check-user when shop is suspended)
   isActive?: boolean;
   suspendedAt?: string | null;
   suspensionReason?: string | null;
@@ -217,7 +207,7 @@ export interface PurchaseData {
     totalItems: number;
     totalPages: number;
     hasMore: boolean;
-    };
+  };
 }
 
 export interface ProfitData {
@@ -238,29 +228,6 @@ export interface ProfitMetrics {
   profitTrend: "up" | "down" | "flat";
 }
 
-export interface PurchasesResponse extends BaseResponse<PurchaseData> {}
-export interface TransactionsResponse extends BaseResponse<TransactionData> {}
-export interface PromoCodeValidateResponse extends BaseResponse<PromoCodeValidateData> {}
-export interface PromoCodeResponse extends BaseResponse<PromoCodeData> {}
-export interface PromoCodesListResponse {
-  success?: boolean;
-  data?: PromoCodeData[];
-  items?: PromoCodeData[];
-}
-export interface ProcessRedemptionResponse extends BaseResponse<ProcessRedemptionData> {}
-export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}
-export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}
-export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthData> {}
-export interface ShopResponse extends BaseResponse<ShopResponseData> {}
-export interface RewardResponse extends BaseResponse<RewardData> {}
-
-// ============================================
-// Feature-Specific Types
-// ============================================
-
-export type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
-export type TimeRange = "day" | "month" | "year";
-export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profit Margin Trend";
 
 export interface ShopHomeData {
   shopData: ShopData | undefined;
@@ -306,3 +273,84 @@ export interface ProfileTab {
   key: string;
   label: string;
 }
+
+export interface PromoCodeFormData {
+  code: string;
+  name: string;
+  description: string;
+  bonusType: BonusType;
+  bonusValue: string;
+  startDate: Date;
+  endDate: Date;
+  totalUsageLimit: string;
+  perCustomerLimit: string;
+  maxBonus: string;
+}
+
+export interface CreatePromoCodeData {
+  code: string;
+  name: string;
+  description?: string;
+  bonus_type: BonusType;
+  bonus_value: number;
+  start_date: string;
+  end_date: string;
+  total_usage_limit?: number;
+  per_customer_limit?: number;
+  max_bonus?: number;
+  is_active: boolean;
+}
+
+export interface CustomerCardProps {
+  name: string;
+  tier: string;
+  lifetimeEarnings: number;
+  profileImageUrl?: string | null;
+  lastTransactionDate?: string;
+  total_transactions?: number;
+  referralCount?: number;
+  totalRedemptions?: number;
+  joinDate?: string;
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
+  onPress?: () => void;
+  onMessagePress?: () => void;
+}
+
+export interface SubscriptionFormData {
+  shopName: string;
+  email: string;
+  phoneNumber: string;
+  shopAddress: string;
+  acceptTerms: boolean;
+}
+
+export interface SubscriptionResponse {
+  success: boolean;
+  error?: string;
+  data?: {
+    isPendingResume?: boolean;
+    message?: string;
+    paymentUrl?: string;
+    nextSteps?: string;
+    clientSecret?: string;
+    subscriptionId?: string;
+  };
+}
+
+
+export interface PurchasesResponse extends BaseResponse<PurchaseData> {}
+export interface TransactionsResponse extends BaseResponse<TransactionData> {}
+export interface PromoCodeValidateResponse extends BaseResponse<PromoCodeValidateData> {}
+export interface PromoCodeResponse extends BaseResponse<PromoCodeData> {}
+export interface PromoCodesListResponse {
+  success?: boolean;
+  data?: PromoCodeData[];
+  items?: PromoCodeData[];
+}
+export interface ProcessRedemptionResponse extends BaseResponse<ProcessRedemptionData> {}
+export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}
+export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}
+export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthData> {}
+export interface ShopResponse extends BaseResponse<ShopResponseData> {}
+export interface RewardResponse extends BaseResponse<RewardData> {}

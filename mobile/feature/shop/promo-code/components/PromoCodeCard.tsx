@@ -1,6 +1,6 @@
-import { View, Text, Switch } from "react-native";
-import { PromoCode } from "@/feature/transaction/token/types";
 import { useState } from "react";
+import { View, Text, Switch } from "react-native";
+import { PromoCode } from "@/feature/token/types";
 
 interface PromoCodeCardProps {
   promoCode: PromoCode;

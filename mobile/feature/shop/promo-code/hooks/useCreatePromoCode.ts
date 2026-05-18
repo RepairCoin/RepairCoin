@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAppToast } from "@/shared/hooks";
-import { PromoCodeFormData } from "../types";
 import {
   CODE_MIN_LENGTH,
   CODE_MAX_LENGTH,
@@ -9,6 +8,7 @@ import {
   DEFAULT_PROMO_DURATION_DAYS,
 } from "@/shared/constants/promoCode";
 import { useCreatePromoCodeMutation } from "./usePromoCodeQuery";
+import { PromoCodeFormData } from "../../services/shop.interface";
 
 export function useCreatePromoCode() {
   const { showError } = useAppToast();

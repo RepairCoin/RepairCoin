@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { appointmentApi, CustomerSearchResult } from "@/feature/transaction/appointment/services/appointment.services";
+import { appointmentApi, CustomerSearchResult } from "@/feature/appointment/services/appointment.services";
 
 /**
  * Hook to search customers for manual booking

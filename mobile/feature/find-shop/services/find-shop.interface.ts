@@ -1,4 +1,4 @@
-import { ShopData } from "@/feature/shop/account/services/shop.interface";
+import { ShopData } from "@/feature/shop/services/shop.interface";
 import { ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 import { Region, LatLng } from "react-native-maps";
 

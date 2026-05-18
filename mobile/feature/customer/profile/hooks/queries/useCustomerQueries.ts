@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { shopApi } from "@/feature/shop/account/services/shop.services";
+import { shopApi } from "@/feature/shop/services/shop.services";
 import { customerApi } from "@/feature/customer/profile/services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { CustomerData } from "@/feature/customer/profile/services/customer.interface";
@@ -31,7 +31,7 @@ const transformCustomer = (customer: any): CustomerData => ({
   monthlyEarnings: getNumericValue(customer.monthly_earnings, customer.monthlyEarnings, 0),
   joinDate: getStringValue(customer.join_date, customer.joinDate, ""),
   isActive: customer.is_active ?? customer.isActive ?? true,
-  isSuspended: customer.suspended ?? customer.is_suspended ?? customer.isSuspended ?? (customer.is_active === false) ?? false,
+  isSuspended: customer.suspended ?? customer.is_suspended ?? customer.isSuspended ?? !customer.is_active,
   suspensionReason: customer.suspension_reason ?? customer.suspensionReason ?? null,
   profileImageUrl: customer.profile_image_url ?? customer.profileImageUrl ?? null,
   total_transactions: getNumericValue(customer.total_transactions, undefined, 0),

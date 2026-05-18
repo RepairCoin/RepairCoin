@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Linking } from "react-native";
 import { BookingFormData, BookingResponse } from "@/feature/booking/services/booking.interfaces";
-import { usePaymentStore } from "@/feature/transaction/booking/store/payment.store";
-import { bookingApi } from "@/feature/transaction/booking/services/booking.services";
+import { usePaymentStore } from "@/feature/booking/store/payment.store";
+import { bookingApi } from "@/feature/booking/services/booking.services";
 import { useAppToast } from "@/shared/hooks";
 
 export function useCreateBookingMutation() {
@@ -113,8 +113,8 @@ export function useCancelOrderMutation() {
   const { showSuccess, showError } = useAppToast();
 
   return useMutation({
-    mutationFn: async (orderId: string) => {
-      return bookingApi.cancelOrder(orderId);
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
+      return bookingApi.cancelOrder(orderId, reason || "Cancelled by user");
     },
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { Transaction, Purchase } from "@/feature/shop/account/services/shop.interface";
+import { Transaction, Purchase } from "@/feature/shop/services/shop.interface";
 import { useShopAnalyticsQuery } from "./useShopAnalyticsQuery";
 import { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";
 import { 

@@ -12,7 +12,7 @@ import {
   CustomerSearchResult,
   RescheduleRequest,
   RescheduleRequestStatus,
-} from "@/feature/transaction/appointment/services/appointment.services";
+} from "@/feature/appointment/services/appointment.services";
 import { TrendDays } from "../types";
 
 interface QueryOptions {

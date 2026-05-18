@@ -16,7 +16,7 @@ import {
   useApproveRescheduleRequestMutation,
   useRejectRescheduleRequestMutation,
 } from "../../hooks";
-import { RescheduleRequestStatus } from "@/feature/transaction/appointment/services/appointment.services";
+import { RescheduleRequestStatus } from "@/feature/appointment/services/appointment.services";
 
 type FilterStatus = RescheduleRequestStatus | "all";
 

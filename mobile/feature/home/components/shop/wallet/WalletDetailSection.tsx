@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ShopData } from "@/feature/shop/account/services/shop.interface";
+import { ShopData } from "@/feature/shop/services/shop.interface";
 import StatCard from "@/shared/components/ui/StatCard";
 
 function WalletDetailSection({ shopData }: { shopData: ShopData }) {

@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { CustomerData } from "@/feature/customer/profile/services/customer.interface";
 import { useShopCustomersQuery, useSearchAllCustomersQuery } from "@/feature/customer/profile/hooks/queries/useCustomerQueries";
 import { useCustomerSearch } from "@/feature/customer/profile/hooks/ui/useCustomerSearch";
-import { ViewMode, TierFilter, SortBy } from "../types";
+import { ViewMode, TierFilter, SortBy } from "@/feature/shop/services/shop.interface";
 
 export function useCustomerListUI() {
   const [refreshing, setRefreshing] = useState(false);

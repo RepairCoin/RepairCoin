@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
-import { shopCustomerApi } from "../services/shopCustomer.services";
+import { shopApi as shopCustomerApi } from "@/feature/shop/services/shop.services";
 import { customerApi } from "@/feature/customer/profile/services/customer.services";
 import { transformCustomer } from "@/shared/utilities/transformCustomer";
 

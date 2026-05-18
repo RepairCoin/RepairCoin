@@ -3,7 +3,7 @@ import { Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useHomeDataUI } from "@/feature/shop/account/hooks";
-import { ShopTabs } from "@/feature/shop/account/services/shop.interface";
+import { ShopTabs } from "@/feature/shop/services/shop.interface";
 import {
   ShopWalletTab,
   PromoCodeTab,

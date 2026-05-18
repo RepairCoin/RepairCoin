@@ -5,7 +5,7 @@ import { bookingApi } from "../services/booking.services";
 import {
   appointmentApi,
   ManualBookingData,
-} from "@/feature/transaction/appointment/services/appointment.services";
+} from "@/feature/appointment/services/appointment.services";
 import { usePaymentStore } from "../store/payment.store";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";

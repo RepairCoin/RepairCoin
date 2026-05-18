@@ -10,7 +10,7 @@ import {
   ShopServiceDetailsModal,
   AddServiceFab,
 } from "../../components";
-import { ManualBookingModal } from "@/feature/transaction/booking/components";
+import { ManualBookingModal } from "@/feature/booking/components";
 
 // Store
 import { useAuthStore } from "@/feature/auth/store/auth.store";
@@ -24,8 +24,8 @@ import {
 
 // Feature
 import ServicesTab from "@/feature/services/components/shared/ServicesTab";
-import { BookingShopTab } from "@/feature/transaction/booking/components";
-import { BookingAnalyticsTab } from "@/feature/transaction/booking/components";
+import { BookingShopTab } from "@/feature/booking/components";
+import { BookingAnalyticsTab } from "@/feature/booking/components";
 
 // Constants
 import { SERVICE_TABS } from "@/shared/constants/services";

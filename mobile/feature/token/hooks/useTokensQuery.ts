@@ -3,11 +3,9 @@ import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { queryKeys } from "@/shared/config/queryClient";
 import { tokenApi } from "../services/token.services";
-import { purchaseApi } from "../services/purchase.services";
 import { balanceApi } from "../services/balance.services";
-import { shopApi } from "@/feature/shop/account/services/shop.services";
+import { shopApi } from "@/feature/shop/services/shop.services";
 import { customerApi } from "@/feature/customer/profile/services/customer.services";
-import { promoCodeApi } from "@/feature/shop/promo-code/services/promoCode.services";
 import {
   TransferHistoryResponse,
   MyRedemptionSessionsResponse,
@@ -115,7 +113,7 @@ export function useShopPromoCodes() {
       if (!shopId) {
         throw new Error("No shop ID found");
       }
-      return promoCodeApi.getPromoCodes(shopId);
+      return shopApi.getPromoCodes(shopId);
     },
     enabled: !!shopId,
     select: (data) => data.data || [],
@@ -132,7 +130,7 @@ export function useShopTransactionsQuery() {
   return useQuery({
     queryKey: queryKeys.shopTransactions(shopId),
     queryFn: async () => {
-      const response = await purchaseApi.getShopTransactions(shopId);
+      const response = await shopApi.getShopTransactions(shopId);
       return response?.data;
     },
     enabled: !!shopId,

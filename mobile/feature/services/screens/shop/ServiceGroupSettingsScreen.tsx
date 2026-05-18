@@ -17,7 +17,7 @@ import { useMyGroups } from "@/feature/groups/hooks/useGroups";
 import {
   ServiceGroupLink,
   serviceGroupApi,
-} from "@/feature/transaction/appointment/services/serviceGroup.services";
+} from "@/feature/appointment/services/serviceGroup.services";
 
 export default function ServiceGroupSettingsScreen() {
   const { serviceId, serviceName } = useLocalSearchParams<{

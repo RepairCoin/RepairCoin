@@ -12,7 +12,7 @@ import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCreatePromoCode } from "../hooks";
 import { formatDate } from "@/shared/utilities/format";
-import { BonusType } from "../types";
+import { BonusType } from "../../services/shop.interface";
 
 export default function CreatePromoCodeScreen() {
   const {
