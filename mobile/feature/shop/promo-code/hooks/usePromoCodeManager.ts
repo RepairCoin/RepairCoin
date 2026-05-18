@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useValidatePromoCode } from "../../../token/hooks/useTokensMutation";
+import { useValidatePromoCode } from "./usePromoCodeQuery";
 
 export function usePromoCodeManager(
   customerAddress: string,

@@ -5,7 +5,7 @@ import {
   StatusFilter,
   TransactionFilter,
   DateFilter,
-} from "@/feature/token/types";
+} from "@/feature/token/services/token.interface";
 
 export const TIER_STYLES: Record<CustomerTierUpper, string> = {
   GOLD: "bg-gradient-to-r from-yellow-500 to-yellow-600",

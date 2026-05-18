@@ -1,19 +1,55 @@
-/**
- * Merged token feature types
- * Combined from: redeem-token, buy-token, gift-token, reward-token, history
- */
-
-import { CustomerTier } from "@/feature/customer/profile/types";
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import { RedemptionSession } from "@/feature/shop/services/shop.interface";
 
-// ─── Redeem Token Types ──────────────────────────────────────────────────────
+export type SessionStatus = "idle" | "waiting" | "processing" | "completed";
+export type Props = CustomerTransactionProps | ShopTransactionProps;
+export type StatusFilter = "all" | "pending" | "completed" | "failed";
+export type TransactionFilter = "all" | "earned" | "redeemed" | "gifts";
+export type DateFilter = "all" | "today" | "week" | "month";
+export type CustomerTransactionProps = {
+  variant: "customer";
+  type: string;
+  amount: number;
+  shopName?: string;
+  description: string;
+  createdAt: string;
+};
+export type ShopTransactionProps = {
+  variant: "shop";
+  amount: number;
+  createdAt: string;
+  paymentMethod: string;
+  totalCost: number;
+  status: string;
+  completedAt?: string;
+};
 
-/**
- * Cross-shop redemption limits
- * - Home shop (where customer earned RCN): 100% redemption allowed
- * - Other shops: max 20% of lifetime earnings
- */
+export interface RedemptionSession {
+  sessionId: string;
+  customerAddress: string;
+  shopId: string;
+  amount?: number;
+  maxAmount?: number;
+  status: "pending" | "approved" | "rejected" | "processing" | "completed" | "expired" | "used";
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  usedAt?: string;
+  qrCode?: string;
+  metadata?: {
+    cancelledByShop?: boolean;
+  };
+}
+
+export interface RedemptionCallbacks {
+  onSessionCreated?: (session: RedemptionSession) => void;
+  onSessionApproved?: (session: RedemptionSession) => void;
+  onSessionRejected?: (session: RedemptionSession) => void;
+  onSessionExpired?: (session: RedemptionSession) => void;
+  onRedemptionComplete?: (data: any) => void;
+  onError?: (error: Error) => void;
+}
+
 export interface CrossShopBalance {
   totalRedeemableBalance: number;
   crossShopLimit: number; // 20% of lifetime earnings
@@ -26,18 +62,12 @@ export interface CreateRedemptionSessionRequest {
   shopId: string;
   amount: number;
 }
-
-export type SessionStatus = "idle" | "waiting" | "processing" | "completed";
-
 export interface HowItWorksItem {
   icon: string;
   title: string;
   desc: string;
 }
 
-// ─── Buy Token Types ─────────────────────────────────────────────────────────
-
-/** Response from Stripe checkout session creation */
 export interface StripeCheckoutResponse {
   data: {
     checkoutUrl: string;
@@ -47,8 +77,6 @@ export interface StripeCheckoutResponse {
     totalCost: number;
   };
 }
-
-// ─── Gift Token Types ────────────────────────────────────────────────────────
 
 export interface ValidationResult {
   valid: boolean;
@@ -74,37 +102,6 @@ export interface ValidateTransferParams {
   toAddress: string;
   amount: number;
 }
-
-// ─── History Types ───────────────────────────────────────────────────────────
-
-// Shop filters
-export type StatusFilter = "all" | "pending" | "completed" | "failed";
-
-// Customer filters
-export type TransactionFilter = "all" | "earned" | "redeemed" | "gifts";
-
-// Common filters
-export type DateFilter = "all" | "today" | "week" | "month";
-export type CustomerTransactionProps = {
-  variant: "customer";
-  type: string;
-  amount: number;
-  shopName?: string;
-  description: string;
-  createdAt: string;
-};
-export type ShopTransactionProps = {
-  variant: "shop";
-  amount: number;
-  createdAt: string;
-  paymentMethod: string;
-  totalCost: number;
-  status: string;
-  completedAt?: string;
-};
-export type Props = CustomerTransactionProps | ShopTransactionProps;
-
-// ─── API Data Types (from shared) ───────────────────────────────────────────
 
 export interface RedemptionSessionData {
   sessionId: string;
@@ -176,22 +173,41 @@ export interface BalanceData {
   homeShop?: string;
 }
 
-// ─── API Response Types ─────────────────────────────────────────────────────
-
-export interface CreateRedemptionSessionResponse extends BaseResponse<RedemptionSessionData> {}
-
-export interface RedemptionSessionStatusResponse extends BaseResponse<RedemptionSession> {}
-
 export interface MyRedemptionSessionsResponse {
   success: boolean;
   sessions: RedemptionSession[];
   pendingCount: number;
 }
 
+export interface ApprovalRequest {
+  sessionId: string;
+  signature: string;
+  transactionHash?: string;
+}
+
+export interface PurchaseHistoryData {
+  amount: number,
+  completedAt: string,
+  createdAt: string,
+  id: number,
+  paymentMethod: string,
+  paymentReference: string,
+  pricePerRcn: null,
+  shopId: string,
+  status: string,
+  totalCost: number
+}
+
+export interface PurchaseHistory {
+  purchases: PurchaseHistoryData[];
+  total: number;
+  totalPages: number;
+}
+
+export interface PurchaseHistoryResponse extends BaseResponse<PurchaseHistory> {}
+export interface CreateRedemptionSessionResponse extends BaseResponse<RedemptionSessionData> {}
+export interface RedemptionSessionStatusResponse extends BaseResponse<RedemptionSession> {}
 export interface GiftTokenResponse extends BaseResponse<GiftTokenData> {}
-
 export interface ValidateTransferResponse extends BaseResponse<ValidateTransferData> {}
-
 export interface TransferHistoryResponse extends BaseResponse<TransferHistoryData> {}
-
 export interface BalanceResponse extends BaseResponse<BalanceData> {}
