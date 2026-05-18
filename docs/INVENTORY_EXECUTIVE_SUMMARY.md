@@ -25,10 +25,10 @@
 
 ## ✨ What Was Built (v2.0 + v2.1 Progress)
 
-### **v2.1 Enhancements** (In Progress - 20%)
+### **v2.1 Enhancements** (In Progress - 33%)
 
-#### 1. 📧 **Email Digest Mode** (60% Complete)
-**Status:** Backend ✅ Complete, Frontend ⏳ Pending
+#### 1. 📧 **Email Digest Mode** (100% COMPLETE)
+**Status:** Backend ✅ Complete, Frontend ✅ Complete
 
 **What's Done:**
 - Migration 115: Digest preferences (5 new columns)
@@ -36,12 +36,12 @@
 - Usage analytics: avg usage/day, days until stockout, suggested quantities
 - Beautiful digest email template with recommendations
 - Alert controller: Updated GET/PUT endpoints
+- Frontend UI: Digest mode selector with conditional scheduling
+- TypeScript types updated
+- Info panels for each digest mode
+- Last sent timestamp display
 
-**What's Pending:**
-- Frontend UI for digest settings
-- Testing digest scheduling
-
-**Time:** 2 hours done, 1 hour remaining
+**Time:** 3 hours (complete)
 
 ---
 

@@ -18,6 +18,9 @@ import {
   Play,
   CheckCircle,
   X,
+  Clock,
+  CalendarDays,
+  Info,
 } from "lucide-react";
 
 interface LowStockAlertsTabProps {
@@ -32,6 +35,10 @@ export function LowStockAlertsTab({ shopId }: LowStockAlertsTabProps) {
     enabled: true,
     email: "",
     frequency: "daily",
+    digestMode: "daily",
+    digestDayOfWeek: 1,
+    digestDayOfMonth: 1,
+    digestTime: "09:00",
   });
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
   const [lastCheckResult, setLastCheckResult] = useState<LowStockAlertResult | null>(null);
@@ -129,7 +136,13 @@ export function LowStockAlertsTab({ shopId }: LowStockAlertsTabProps) {
             <div>
               <p className="font-medium text-green-900">Alerts are enabled</p>
               <p className="text-sm text-green-700">
-                You'll receive {settings.frequency} notifications when items are low on stock
+                {settings.digestMode === "immediate"
+                  ? "You'll receive immediate notifications when items are low on stock"
+                  : settings.digestMode === "daily"
+                  ? `Daily digest at ${settings.digestTime || "09:00"}`
+                  : settings.digestMode === "weekly"
+                  ? `Weekly digest on ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][settings.digestDayOfWeek || 1]} at ${settings.digestTime || "09:00"}`
+                  : `Monthly digest on day ${settings.digestDayOfMonth || 1} at ${settings.digestTime || "09:00"}`}
               </p>
             </div>
           </>
@@ -195,25 +208,151 @@ export function LowStockAlertsTab({ shopId }: LowStockAlertsTabProps) {
             </p>
           </div>
 
-          {/* Frequency */}
+          {/* Digest Mode */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Alert Frequency
+              Digest Mode
             </label>
             <select
-              value={settings.frequency}
-              onChange={(e) => setSettings({ ...settings, frequency: e.target.value as "daily" | "weekly" })}
+              value={settings.digestMode || "daily"}
+              onChange={(e) => setSettings({ ...settings, digestMode: e.target.value as "immediate" | "daily" | "weekly" | "monthly" })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
               disabled={!settings.enabled}
             >
-              <option value="daily">Daily (9:00 AM)</option>
-              <option value="weekly">Weekly (Monday, 9:00 AM)</option>
+              <option value="immediate">⚡ Immediate (as items go low)</option>
+              <option value="daily">📅 Daily Summary</option>
+              <option value="weekly">📆 Weekly Summary</option>
+              <option value="monthly">🗓️ Monthly Summary</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              Choose how often you want to receive low stock alerts
+              Choose how you want to receive low stock alerts
             </p>
           </div>
+
+          {/* Digest Scheduling (conditional based on mode) */}
+          {settings.digestMode && settings.digestMode !== "immediate" && (
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4 border border-gray-200">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Clock className="w-4 h-4" />
+                Scheduling
+              </div>
+
+              {/* Day of Week (weekly mode) */}
+              {settings.digestMode === "weekly" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Day of Week
+                  </label>
+                  <select
+                    value={settings.digestDayOfWeek || 1}
+                    onChange={(e) => setSettings({ ...settings, digestDayOfWeek: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                  >
+                    <option value={0}>Sunday</option>
+                    <option value={1}>Monday</option>
+                    <option value={2}>Tuesday</option>
+                    <option value={3}>Wednesday</option>
+                    <option value={4}>Thursday</option>
+                    <option value={5}>Friday</option>
+                    <option value={6}>Saturday</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Day of Month (monthly mode) */}
+              {settings.digestMode === "monthly" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Day of Month
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={settings.digestDayOfMonth || 1}
+                    onChange={(e) => setSettings({ ...settings, digestDayOfMonth: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Day 1-28 (limited to 28 to ensure digest sends every month)
+                  </p>
+                </div>
+              )}
+
+              {/* Time (all scheduled modes) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Time (24-hour format)
+                </label>
+                <input
+                  type="time"
+                  value={settings.digestTime || "09:00"}
+                  onChange={(e) => setSettings({ ...settings, digestTime: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Digest will be sent within 1 hour of this time
+                </p>
+              </div>
+
+              {/* Next Digest Preview */}
+              {settings.lastDigestSentAt && (
+                <div className="pt-2 border-t border-gray-200">
+                  <p className="text-xs text-gray-600">
+                    Last digest sent: {new Date(settings.lastDigestSentAt).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Info Panel for Digest Modes */}
+          {settings.digestMode && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex gap-2">
+                <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  {settings.digestMode === "immediate" && (
+                    <>
+                      <p className="font-medium mb-1">Immediate Mode</p>
+                      <p className="text-blue-700">
+                        Receive an email alert as soon as an item goes below its low stock threshold.
+                        Each item has a 24-hour cooldown to prevent spam.
+                      </p>
+                    </>
+                  )}
+                  {settings.digestMode === "daily" && (
+                    <>
+                      <p className="font-medium mb-1">Daily Digest</p>
+                      <p className="text-blue-700">
+                        Receive one email per day at {settings.digestTime || "09:00"} with all low stock items.
+                        Reduces email fatigue while keeping you informed.
+                      </p>
+                    </>
+                  )}
+                  {settings.digestMode === "weekly" && (
+                    <>
+                      <p className="font-medium mb-1">Weekly Digest</p>
+                      <p className="text-blue-700">
+                        Receive one email per week on {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][settings.digestDayOfWeek || 1]} at {settings.digestTime || "09:00"}.
+                        Perfect for less critical inventory tracking.
+                      </p>
+                    </>
+                  )}
+                  {settings.digestMode === "monthly" && (
+                    <>
+                      <p className="font-medium mb-1">Monthly Digest</p>
+                      <p className="text-blue-700">
+                        Receive one email per month on day {settings.digestDayOfMonth || 1} at {settings.digestTime || "09:00"}.
+                        Best for slow-moving inventory or periodic reviews.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Save Button */}
           <div className="flex justify-end pt-4 border-t border-gray-200">
@@ -324,13 +463,14 @@ export function LowStockAlertsTab({ shopId }: LowStockAlertsTabProps) {
 
       {/* Info Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-        <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
-          <p className="font-medium mb-1">How Low Stock Alerts Work</p>
+          <p className="font-medium mb-1">How Email Digest Mode Works</p>
           <ul className="list-disc list-inside space-y-1 text-blue-700">
-            <li>Alerts are sent automatically at the scheduled time (daily or weekly)</li>
+            <li><strong>Immediate:</strong> Get an alert as soon as an item goes low (24-hour cooldown per item)</li>
+            <li><strong>Daily/Weekly/Monthly:</strong> Get one consolidated email with all low stock items</li>
             <li>Only items at or below their low stock threshold are included</li>
-            <li>Each item has a 24-hour cooldown to prevent alert spam</li>
+            <li>Digest emails include usage analytics and smart order quantity suggestions</li>
             <li>You can manually trigger an immediate check at any time</li>
             <li>Make sure your email address is correct to receive alerts</li>
           </ul>

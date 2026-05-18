@@ -376,6 +376,11 @@ export interface LowStockAlertSettings {
   enabled: boolean;
   email?: string;
   frequency: 'daily' | 'weekly';
+  digestMode?: 'immediate' | 'daily' | 'weekly' | 'monthly';
+  digestDayOfWeek?: number;  // 0-6 (0=Sunday, 6=Saturday)
+  digestDayOfMonth?: number;  // 1-28 (safe for all months)
+  digestTime?: string;         // HH:MM format (24-hour)
+  lastDigestSentAt?: string;   // ISO timestamp
 }
 
 export interface LowStockItem {
