@@ -78,3 +78,15 @@ export function useSearchAllCustomersQuery(searchQuery: string, enabled: boolean
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useCustomerInfo(walletAddress: string) {
+  return useQuery({
+    queryKey: queryKeys.customerInfo(walletAddress),
+    queryFn: () => customerApi.getCustomerByWalletAddress(walletAddress),
+    enabled: !!walletAddress && walletAddress.length === 42,
+    select: (data) => data.data?.customer,
+    retry: false,
+    staleTime: 60000,
+    gcTime: 5 * 60 * 1000,
+  });
+}

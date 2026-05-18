@@ -76,52 +76,6 @@ export const useTokenBalance = (walletAddress?: string) => {
   });
 };
 
-// Shop balance
-export function useShopBalance() {
-  const shopId = useAuthStore((state) => state.userProfile?.shopId);
-
-  return useQuery({
-    queryKey: queryKeys.shop(shopId || ""),
-    queryFn: () => shopApi.getShopById(shopId!),
-    enabled: !!shopId,
-    select: (data) => data.data?.purchasedRcnBalance ?? 0,
-    staleTime: 30 * 1000,
-    refetchOnMount: true,
-  });
-}
-
-// Customer info by wallet address
-export function useCustomerInfo(walletAddress: string) {
-  return useQuery({
-    queryKey: queryKeys.customerInfo(walletAddress),
-    queryFn: () => customerApi.getCustomerByWalletAddress(walletAddress),
-    enabled: !!walletAddress && walletAddress.length === 42,
-    select: (data) => data.data?.customer,
-    retry: false,
-    staleTime: 60000,
-    gcTime: 5 * 60 * 1000,
-  });
-}
-
-// Shop promo codes
-export function useShopPromoCodes() {
-  const shopId = useAuthStore((state) => state.userProfile?.shopId);
-
-  return useQuery({
-    queryKey: queryKeys.shopPromoCodes(shopId || ""),
-    queryFn: () => {
-      if (!shopId) {
-        throw new Error("No shop ID found");
-      }
-      return shopApi.getPromoCodes(shopId);
-    },
-    enabled: !!shopId,
-    select: (data) => data.data || [],
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-}
-
 // Shop transactions
 export function useShopTransactionsQuery() {
   const { userProfile } = useAuthStore();

@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-export type RepairType = "minor" | "small" | "large" | "custom";
+import { RepairType } from "../../services/shop.interface";
 
 const TIER_BONUSES = {
   BRONZE: 0,

@@ -1,7 +1,7 @@
 import { ScrollView, RefreshControl } from "react-native";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { QRScanner } from "@/shared/components/shop/QRScanner";
-import { useRewardToken } from "../../hooks";
+import { useRewardToken } from "../hooks";
 import {
   RewardHeader,
   RewardCustomerDetailsSection as CustomerDetailsSection,
@@ -10,37 +10,28 @@ import {
   RewardHowItWorksModal as HowItWorksModal,
   ConfirmRewardModal,
   RecentRewards,
-} from "../../components";
+} from "../components";
 
 export default function RewardTokenScreen() {
   const {
-    // Modal states
     showHowItWorks,
     setShowHowItWorks,
     showQRScanner,
     setShowQRScanner,
-
-    // Refresh
     isRefreshing,
     handleRefresh,
-
-    // Customer
     customerAddress,
     setCustomerAddress,
     customerInfo,
     isLoadingCustomer,
     isSelfReward,
     isCustomerNotFound,
-
-    // Repair
     repairType,
     customAmount,
     setCustomAmount,
     customRcn,
     setCustomRcn,
     handleRepairTypeSelect,
-
-    // Promo
     availablePromoCodes,
     promoCode,
     promoBonus,
@@ -51,17 +42,11 @@ export default function RewardTokenScreen() {
     handlePromoCodeChange,
     handlePromoCodeSelect,
     handlePromoCodeClear,
-
-    // Reward calculations
     baseReward,
     tierBonus,
     totalReward,
-
-    // Balance
     availableBalance,
     hasInsufficientBalance,
-
-    // Actions
     isIssuingReward,
     isIssueDisabled,
     handleIssueReward,
@@ -69,8 +54,6 @@ export default function RewardTokenScreen() {
     handleQRScan,
     handleGoBack,
     getButtonText,
-
-    // Confirmation modal
     showConfirmation,
     setShowConfirmation,
   } = useRewardToken();

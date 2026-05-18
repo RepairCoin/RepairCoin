@@ -2,7 +2,6 @@
 export type {
   CustomerTier,
   CustomerData,
-  RepairType,
   CrossShopBalance,
   CustomerRedemptionData,
   RedemptionSession,
@@ -15,8 +14,6 @@ export type {
   GiftTokenFormData,
   TransferParams,
   ValidateTransferParams,
-  RepairOption,
-  PromoCode,
   StatusFilter,
   TransactionFilter,
   DateFilter,

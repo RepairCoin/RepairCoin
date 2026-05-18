@@ -3,11 +3,8 @@
  * Combined from: redeem-token, buy-token, gift-token, reward-token, history
  */
 
+import { CustomerTier } from "@/feature/customer/profile/types";
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import type { CustomerTier, CustomerData } from "@/feature/customer/profile/services/customer.interface";
-import type { RepairType } from "../hooks/useRepairCalculations";
-
-export type { CustomerTier, CustomerData, RepairType };
 
 // ─── Redeem Token Types ──────────────────────────────────────────────────────
 
@@ -113,31 +110,6 @@ export interface ValidateTransferParams {
   fromAddress: string;
   toAddress: string;
   amount: number;
-}
-
-// ─── Reward Token Types ──────────────────────────────────────────────────────
-
-export interface RepairOption {
-  type: RepairType;
-  label: string;
-  rcn: number;
-  description: string;
-}
-
-export interface PromoCode {
-  id: string;
-  code: string;
-  name?: string;
-  bonus_type: "fixed" | "percentage";
-  bonus_value: number;
-  is_active?: boolean;
-  total_usage_limit?: number;
-  times_used?: number;
-  max_bonus?: number;
-  valid_from?: string;
-  valid_until?: string;
-  start_date?: string;
-  end_date?: string;
 }
 
 // ─── History Types ───────────────────────────────────────────────────────────

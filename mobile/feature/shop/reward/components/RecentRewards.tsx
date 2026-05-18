@@ -1,9 +1,7 @@
 import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
-import { shopApi } from "@/feature/shop/services/shop.services";
-import { useAuthStore } from "@/feature/auth/store/auth.store";
+import { useRecentRewards } from "../hooks/useRewardQuery";
 
 interface RewardTransaction {
   id: string | number;
@@ -33,15 +31,7 @@ const shortAddress = (address: string) =>
   address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
 
 export default function RecentRewards() {
-  const shopId = useAuthStore((state) => state.userProfile?.shopId);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["recentRewards", shopId],
-    queryFn: () => shopApi.getRecentRewards(shopId!, 5),
-    enabled: !!shopId,
-    staleTime: 30 * 1000,
-    select: (res) => res?.data?.transactions || res?.data || [],
-  });
+  const { data, isLoading } = useRecentRewards();
 
   const rewards: RewardTransaction[] = data || [];
 

@@ -5,3 +5,4 @@ export {
   useCreatePromoCodeMutation,
   useShopPromoCodesQuery,
 } from "./usePromoCodeQuery";
+export { usePromoCodeManager } from "./usePromoCodeManager";

@@ -6,17 +6,17 @@ export { RedemptionSummary } from "./shop/RedemptionSummary";
 export { HowItWorksModal as RedeemHowItWorksModal } from "./shop/RedeemHowItWorksModal";
 
 // Shop - Reward token components
-export { default as RewardHeader } from "./shop/RewardHeader";
-export { default as CustomerInfoCard } from "./shop/CustomerInfoCard";
-export { default as CustomerWarning } from "./shop/CustomerWarning";
-export { default as PromoCodeInput } from "./shop/PromoCodeInput";
-export { PresetRepairOption, CustomRepairOption } from "./shop/RepairTypeOption";
-export { default as RewardSummary } from "./shop/RewardSummary";
-export { default as RewardHowItWorksModal } from "./shop/RewardHowItWorksModal";
-export { default as RewardCustomerDetailsSection } from "./shop/RewardCustomerDetailsSection";
-export { default as RepairTypeSection } from "./shop/RepairTypeSection";
-export { default as ConfirmRewardModal } from "./shop/ConfirmRewardModal";
-export { default as RecentRewards } from "./shop/RecentRewards";
+export { default as RewardHeader } from "../../shop/reward/components/RewardHeader";
+export { default as CustomerInfoCard } from "../../shop/reward/components/CustomerInfoCard";
+export { default as CustomerWarning } from "../../shop/reward/components/CustomerWarning";
+export { default as PromoCodeInput } from "../../shop/reward/components/PromoCodeInput";
+export { PresetRepairOption, CustomRepairOption } from "../../shop/reward/components/RepairTypeOption";
+export { default as RewardSummary } from "../../shop/reward/components/RewardSummary";
+export { default as RewardHowItWorksModal } from "../../shop/reward/components/RewardHowItWorksModal";
+export { default as RewardCustomerDetailsSection } from "../../shop/reward/components/RewardCustomerDetailsSection";
+export { default as RepairTypeSection } from "../../shop/reward/components/RepairTypeSection";
+export { default as ConfirmRewardModal } from "../../shop/reward/components/ConfirmRewardModal";
+export { default as RecentRewards } from "../../shop/reward/components/RecentRewards";
 
 // Customer - Redeem components
 export { ProcessingStatusModal } from "./customer/ProcessingStatusModal";

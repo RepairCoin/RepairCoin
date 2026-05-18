@@ -4,7 +4,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { CreatePromoCodeRequest, PromoCodesListResponse } from "@/feature/shop/services/shop.interface";
-import { shopApi as promoCodeApi } from "@/feature/shop/services/shop.services";
+import { shopApi as promoCodeApi, shopApi } from "@/feature/shop/services/shop.services";
 
 export function useShopPromoCodesQuery() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";
@@ -20,6 +20,25 @@ export function useShopPromoCodesQuery() {
     gcTime: 10 * 60 * 1000,
   });
 }
+
+export function useShopPromoCodes() {
+  const shopId = useAuthStore((state) => state.userProfile?.shopId);
+
+  return useQuery({
+    queryKey: queryKeys.shopPromoCodes(shopId || ""),
+    queryFn: () => {
+      if (!shopId) {
+        throw new Error("No shop ID found");
+      }
+      return shopApi.getPromoCodes(shopId);
+    },
+    enabled: !!shopId,
+    select: (data) => data.data || [],
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
 
 export function useUpdatePromoCodeStatusMutation() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";

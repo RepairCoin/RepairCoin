@@ -1,7 +1,7 @@
 import { CustomerTierUpper } from "@/feature/customer/profile/services/customer.interface";
+import { RepairOption } from "@/feature/shop/services/shop.interface";
 import {
   HowItWorksItem,
-  RepairOption,
   StatusFilter,
   TransactionFilter,
   DateFilter,

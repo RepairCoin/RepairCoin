@@ -10,3 +10,5 @@ export {
   useUpdateShopProfileMutation,
 } from "./useShopQuery";
 export { useHomeDataUI } from "./useHomeDataUI";
+export { useShopEditProfile } from "./useShopEditProfile";
+export { useShopProfileScreen } from "./useShopProfileScreen";

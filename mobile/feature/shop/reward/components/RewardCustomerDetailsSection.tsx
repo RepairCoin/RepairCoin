@@ -3,7 +3,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import CustomerInfoCard from "./CustomerInfoCard";
 import CustomerWarning from "./CustomerWarning";
 import PromoCodeInput from "./PromoCodeInput";
-import { CustomerData, PromoCode } from "../../types";
+import { PromoCode } from "../../services/shop.interface";
+import { CustomerData } from "@/feature/customer/profile/types";
 
 interface CustomerDetailsSectionProps {
   customerAddress: string;
@@ -35,7 +36,7 @@ export default function CustomerDetailsSection({
   isCustomerNotFound,
   isSelfReward,
   onQRScan,
-  promoCode,
+  promoCode,  
   promoBonus,
   promoError,
   isValidatingPromo,

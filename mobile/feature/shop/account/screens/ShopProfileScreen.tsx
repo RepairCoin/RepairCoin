@@ -6,13 +6,13 @@ import { handleLink } from "@/shared/utilities/linking";
 import { formatDate } from "@/shared/utilities/format";
 import { ProfileLoadingState } from "@/shared/components/ui/ProfileLoadingState";
 import { ProfileErrorState } from "@/shared/components/ui/ProfileErrorState";
-import { useShopProfileScreen } from "../hooks/useShopProfileScreen";
 import { SHOP_PROFILE_TABS } from "@/shared/constants/shopProfile";
+import { useShopProfileScreen } from "../hooks/useShopProfileScreen";
 import {
   ShopProfileHeader,
   ShopDetailsTab,
   ShopServicesTab,
-} from "../../account/components";
+} from "../components";
 
 interface ShopProfileScreenProps {
   shopId: string;

@@ -1,9 +1,6 @@
 // React Query hooks - queries
 export {
   useTokenBalance,
-  useShopBalance,
-  useCustomerInfo,
-  useShopPromoCodes,
   useShopTransactionsQuery,
   useCustomerTransactionsQuery,
   useRedemptionSessions,
@@ -19,7 +16,6 @@ export {
   useRejectRedemptionSession,
   useCancelRedemptionSession,
   useCreateRedemptionSession,
-  useIssueReward,
   useValidatePromoCode,
   useUpdatePromoCodeStatus,
   useCreatePromoCode,
@@ -30,10 +26,9 @@ export {
 export type { ApprovalRequest } from "./useTokensMutation";
 
 // UI hooks
-export { useRepairCalculations } from "./useRepairCalculations";
-export type { RepairType } from "./useRepairCalculations";
-export { usePromoCodeManager } from "./usePromoCodeManager";
-export { useShopRewards } from "./useShopRewards";
+export { useRepairCalculations } from "../../shop/reward/hooks/useRepairCalculations";
+export { usePromoCodeManager } from "../../shop/promo-code/hooks/usePromoCodeManager";
+export { useShopRewards } from "../../shop/reward/hooks/useShopRewards";
 export { useRedemptionSignature } from "./useRedemptionSignature";
 export type { SignatureParams } from "./useRedemptionSignature";
 export { useSessionTimer } from "./useSessionTimer";
@@ -43,7 +38,7 @@ export { useRedemption } from "./useRedemption";
 export { useRedeemToken } from "./useRedeemToken";
 export { useCustomerRedeem } from "./useCustomerRedeem";
 export { useCustomerRedeemData } from "./useCustomerRedeemData";
-export { useRewardToken } from "./useRewardToken";
+export { useRewardToken } from "../../shop/reward/hooks/useRewardToken";
 export { useGiftToken } from "./useGiftToken";
 export { useBuyTokenUI } from "./useBuyTokenUI";
 export { useBuyTokenNavigation } from "./useBuyTokenNavigation";

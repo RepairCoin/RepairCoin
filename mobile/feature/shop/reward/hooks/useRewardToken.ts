@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopRewards } from "./useShopRewards";
-import { useShopBalance } from "./useTokensQuery";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
-import type { RepairType } from "./useRepairCalculations";
+import { useShopRewards } from "./useShopRewards";
+import { useShopBalance } from "./useRewardQuery";
+import { RepairType } from "../../services/shop.interface";
 
 export function useRewardToken() {
   const shopData = useAuthStore((state) => state.userProfile);

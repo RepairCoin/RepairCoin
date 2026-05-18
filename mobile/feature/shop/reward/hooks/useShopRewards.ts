@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useCustomerInfo, useShopPromoCodes } from "./useTokensQuery";
-import { useIssueReward } from "./useTokensMutation";
+import { useCustomerInfo } from "@/feature/customer/profile/hooks/queries/useCustomerQueries";
 import { useRepairCalculations } from "./useRepairCalculations";
-import { usePromoCodeManager } from "./usePromoCodeManager";
+import { usePromoCodeManager } from "../../promo-code/hooks";
+import { useShopPromoCodes } from "../../promo-code/hooks/usePromoCodeQuery";
+import { useIssueReward } from "./useRewardQuery";
 
 export function useShopRewards() {
   const [customerAddress, setCustomerAddress] = useState("");

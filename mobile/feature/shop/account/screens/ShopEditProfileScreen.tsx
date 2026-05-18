@@ -7,8 +7,8 @@ import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import LocationPickerModal from "@/shared/components/shared/LocationPickerModal";
-import { useShopEditProfile } from "../hooks";
 import { PROFILE_COLORS } from "@/shared/constants/shopAccount";
+import { useShopEditProfile } from "../hooks";
 
 export default function ShopEditProfileScreen() {
   const {

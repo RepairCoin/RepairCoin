@@ -8,6 +8,7 @@ export type ChartFilter = "Profit & Loss Over Time" | "Revenue vs Cost" | "Profi
 export type ViewMode = "my-customers" | "search-all";
 export type TierFilter = "all" | "bronze" | "silver" | "gold";
 export type SortBy = "recent" | "earnings" | "active";
+export type RepairType = "minor" | "small" | "large" | "custom";
 
 export interface LocationData {
   city: string;
@@ -142,12 +143,35 @@ export interface PromoCodeData {
   times_used?: number;
 }
 
+export interface PromoCode {
+  id: string;
+  code: string;
+  name?: string;
+  bonus_type: "fixed" | "percentage";
+  bonus_value: number;
+  is_active?: boolean;
+  total_usage_limit?: number;
+  times_used?: number;
+  max_bonus?: number;
+  valid_from?: string;
+  valid_until?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
 export interface PromoCodeValidateData {
   is_valid: boolean;
   bonus_type?: "fixed" | "percentage";
   bonus_value?: string;
   max_bonus?: string;
   error_message?: string;
+}
+
+export interface RepairOption {
+  type: RepairType;
+  label: string;
+  rcn: number;
+  description: string;
 }
 
 export interface RewardRequest {
