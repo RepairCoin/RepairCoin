@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { MyAppointment } from "@/shared/interfaces/appointment.interface";
+import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
 import { getStatusConfig } from "@/shared/constants/services";
 import { canCancelAppointment } from "../../hooks";
 

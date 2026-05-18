@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useHaptics } from "@/shared/hooks/useHaptics";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 
 interface ServiceActionModalProps {
   visible: boolean;

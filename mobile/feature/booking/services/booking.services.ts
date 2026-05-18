@@ -1,6 +1,6 @@
 import { apiClient } from "@/shared/utilities/axios";
 import { buildQueryString } from "@/shared/utilities/buildQueryString";
-import { BookingFilters, BookingFormData, BookingResponse } from "@/shared/interfaces/booking.interfaces";
+import { BookingFilters, BookingFormData, BookingResponse } from "@/feature/booking/services/booking.interfaces";
 
 class BookingApi {
   async getShopBookings(filters?: BookingFilters): Promise<BookingResponse> {

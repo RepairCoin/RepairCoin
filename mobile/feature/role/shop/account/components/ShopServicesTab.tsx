@@ -2,7 +2,7 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useService } from "@/feature/services/hooks/useService";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { PROFILE_COLORS } from "@/shared/constants/shopAccount";
 
 interface ShopServicesTabProps {

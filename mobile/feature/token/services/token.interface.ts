@@ -3,7 +3,8 @@
  * Combined from: redeem-token, buy-token, gift-token, reward-token, history
  */
 
-import type { CustomerTier, CustomerData } from "@/shared/interfaces/customer.interface";
+import { BaseResponse } from "@/shared/interfaces/base.interface";
+import type { CustomerTier, CustomerData } from "@/feature/role/customer/profile/services/customer.interface";
 import type { RepairType } from "../hooks/useRepairCalculations";
 
 export type { CustomerTier, CustomerData, RepairType };
@@ -167,3 +168,90 @@ export type ShopTransactionProps = {
   completedAt?: string;
 };
 export type Props = CustomerTransactionProps | ShopTransactionProps;
+
+// ─── API Data Types (from shared) ───────────────────────────────────────────
+
+export interface RedemptionSessionData {
+  sessionId: string;
+  expiresAt: string;
+  qrCode: string;
+}
+
+export interface GiftTokenRequest {
+  fromAddress: string;
+  toAddress: string;
+  amount: number;
+  message: string;
+  transactionHash: string;
+}
+
+export interface GiftTokenData {
+  transferId: string;
+  fromAddress: string;
+  toAddress: string;
+  amount: number;
+  message: string;
+  transactionHash: string;
+  timestamp: string;
+  recipientWasNew: boolean;
+}
+
+export interface ValidateTransferRequest {
+  fromAddress: string;
+  toAddress: string;
+  amount: number;
+}
+
+export interface ValidateTransferData {
+  valid: boolean;
+  message: string;
+  senderBalance: number;
+  recipientExists: boolean;
+}
+
+export interface TransferRecord {
+  id: string;
+  type: string;
+  amount: number;
+  direction: string;
+  otherParty: string;
+  message: string;
+  transactionHash: string;
+  timestamp: string;
+  status: string;
+}
+
+export interface TransferHistoryData {
+  transfers: TransferRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface BalanceData {
+  availableBalance: number;
+  lifetimeEarned: number;
+  totalRedeemed: number;
+  earningHistory: any[];
+  homeShop: any;
+}
+
+// ─── API Response Types ─────────────────────────────────────────────────────
+
+export interface CreateRedemptionSessionResponse extends BaseResponse<RedemptionSessionData> {}
+
+export interface RedemptionSessionStatusResponse extends BaseResponse<RedemptionSession> {}
+
+export interface MyRedemptionSessionsResponse {
+  success: boolean;
+  sessions: RedemptionSession[];
+  pendingCount: number;
+}
+
+export interface GiftTokenResponse extends BaseResponse<GiftTokenData> {}
+
+export interface ValidateTransferResponse extends BaseResponse<ValidateTransferData> {}
+
+export interface TransferHistoryResponse extends BaseResponse<TransferHistoryData> {}
+
+export interface BalanceResponse extends BaseResponse<BalanceData> {}

@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ReviewStats } from "@/shared/interfaces/review.interface";
+import { ReviewStats } from "@/feature/services/services/review.interface";
 
 interface RatingSummaryProps {
   stats: ReviewStats;

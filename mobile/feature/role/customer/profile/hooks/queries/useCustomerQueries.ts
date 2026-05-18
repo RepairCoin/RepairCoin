@@ -3,7 +3,7 @@ import { queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/feature/role/shop/account/services/shop.services";
 import { customerApi } from "@/feature/role/customer/profile/services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { CustomerData } from "@/shared/interfaces/customer.interface";
+import { CustomerData } from "@/feature/role/customer/profile/services/customer.interface";
 
 // Helper to get numeric value, properly handling 0 vs null/undefined
 const getNumericValue = (snakeCase: any, camelCase: any, defaultValue: number = 0): number => {

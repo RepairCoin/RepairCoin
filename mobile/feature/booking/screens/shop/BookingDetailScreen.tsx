@@ -21,7 +21,7 @@ import {
   ShopActions,
   CustomerActions,
 } from "../../components";
-import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
+import { BookingStatus } from "@/feature/booking/services/booking.interfaces";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 import { useBookingDetail } from "../../hooks";
 

@@ -10,7 +10,7 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCustomerTransactionsQuery } from "../../hooks";
-import { TransactionData } from "@/shared/interfaces/customer.interface";
+import { TransactionData } from "@/feature/role/customer/profile/services/customer.interface";
 import { useMemo } from "react";
 
 interface RecentTransactionsModalProps {

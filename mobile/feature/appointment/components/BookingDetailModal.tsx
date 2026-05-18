@@ -1,6 +1,6 @@
 import { View, Text, Modal, TouchableOpacity, ScrollView } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { CalendarBooking } from "@/shared/interfaces/appointment.interface";
+import { CalendarBooking } from "@/feature/appointment/services/appointment.interface";
 import { formatTimeRange, formatBookingDate } from "@/shared/utilities/timeFormat";
 import { getStatusColor } from "@/shared/utilities/statusUtils";
 

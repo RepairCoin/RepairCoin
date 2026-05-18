@@ -19,8 +19,8 @@ import {
   formatDuration,
 } from "@/shared/providers/RouteProvider";
 import { WebViewMapRef } from "@/shared/components/maps/WebViewMap";
-import { ShopData } from "@/shared/interfaces/shop.interface";
-import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
+import { ShopData } from "@/feature/role/shop/account/services/shop.interface";
+import { ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 import { ServiceCategory } from "@/shared/constants/service-categories";
 import { ViewMode, ShopWithLocation, GeocodedCoords } from "../../types";
 import {

@@ -11,8 +11,8 @@ import { promoCodeApi } from "@/feature/role/shop/promo-code/services/promoCode.
 import {
   TransferHistoryResponse,
   MyRedemptionSessionsResponse,
-} from "@/shared/interfaces/token.interface";
-import { TransactionResponse } from "@/shared/interfaces/customer.interface";
+} from "@/feature/token/services/token.interface";
+import { TransactionResponse } from "@/feature/role/customer/profile/services/customer.interface";
 import {
   RedemptionSession,
   CustomerRedemptionData,

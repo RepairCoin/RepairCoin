@@ -2,7 +2,7 @@ import apiClient from "@/shared/utilities/axios";
 import {
   RewardRequest,
   RewardResponse,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 
 class RewardApi {
   async issueReward(

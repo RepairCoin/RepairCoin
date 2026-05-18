@@ -17,7 +17,7 @@ import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { useHaptics } from "@/shared/hooks/useHaptics";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { messageApi } from "../services/message.services";
-import { AutoMessage } from "@/shared/interfaces/message.interface";
+import { AutoMessage } from "@/feature/messages/services/message.interface";
 import AutoMessageHistoryModal from "../components/AutoMessageHistoryModal";
 
 const getTriggerLabel = (autoMessage: AutoMessage): string => {

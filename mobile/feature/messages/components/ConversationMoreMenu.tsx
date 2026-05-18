@@ -1,7 +1,7 @@
 import React from "react";
 import { Modal, TouchableOpacity, View, Text, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Conversation } from "@/shared/interfaces/message.interface";
+import { Conversation } from "@/feature/messages/services/message.interface";
 
 interface MenuOption {
   key: string;

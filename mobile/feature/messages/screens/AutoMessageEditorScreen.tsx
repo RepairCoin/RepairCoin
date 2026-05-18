@@ -21,7 +21,7 @@ import {
   AutoMessageEventType,
   AutoMessageTargetAudience,
   CreateAutoMessageRequest,
-} from "@/shared/interfaces/message.interface";
+} from "@/feature/messages/services/message.interface";
 
 const TRIGGER_OPTIONS: { value: AutoMessageTriggerType; label: string; icon: string }[] = [
   { value: "schedule", label: "Scheduled", icon: "calendar" },

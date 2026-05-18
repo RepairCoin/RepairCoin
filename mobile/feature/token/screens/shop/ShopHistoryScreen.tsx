@@ -10,7 +10,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
-import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
+import { PurchaseHistoryData } from "@/feature/token/services/purchase.interface";
 import { useHistoryListUI } from "../../hooks";
 import { STATUS_FILTERS, DATE_FILTERS } from "@/shared/constants/token";
 import { TransactionHistoryCard, FilterChip } from "../../components";

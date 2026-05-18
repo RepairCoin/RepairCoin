@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { ServiceStatusFilter } from "../../../types";
 import { useInfiniteShopServicesQuery } from "../../queries/shop/useServiceQueries";
 

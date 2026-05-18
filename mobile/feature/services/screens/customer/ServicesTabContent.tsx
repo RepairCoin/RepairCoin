@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { useServicesTab } from "../../hooks";
 import { ServiceFilterModal, FilterChip, ClearAllFilters } from "../../components";
 import { ServiceSortOption } from "../../tab-types";

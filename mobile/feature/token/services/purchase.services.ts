@@ -1,5 +1,5 @@
 import apiClient from "@/shared/utilities/axios";
-import { PurchaseHistoryResponse } from "@/shared/interfaces/purchase.interface";
+import { PurchaseHistoryResponse } from "@/feature/token/services/purchase.interface";
 import { StripeCheckoutResponse } from "../types";
 
 class PurchaseApi {

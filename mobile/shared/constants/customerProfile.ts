@@ -1,4 +1,4 @@
-import { CustomerTierLower } from "@/shared/interfaces/customer.interface";
+import { CustomerTierLower } from "@/feature/role/customer/profile/services/customer.interface";
 export { THEME_COLORS as PROFILE_COLORS } from "@/shared/constants/Colors";
 
 export const TIER_COLORS: Record<CustomerTierLower, string> = {

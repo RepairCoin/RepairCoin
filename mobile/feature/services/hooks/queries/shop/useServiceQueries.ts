@@ -5,7 +5,7 @@ import { serviceApi } from "../../../services/service.services";
 import {
   ServiceResponse,
   ServiceDetailResponse,
-} from "@/shared/interfaces/service.interface";
+} from "@/feature/services/services/service.interface";
 
 export function useServicesTabQuery() {
   const { userProfile } = useAuthStore();

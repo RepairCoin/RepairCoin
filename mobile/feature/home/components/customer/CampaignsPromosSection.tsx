@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { notificationApi } from "@/feature/notification/services/notification.services";
-import { Notification } from "@/shared/interfaces/notification.interface";
+import { Notification } from "@/feature/notification/services/notification.interface";
 import CampaignCard from "./CampaignCard";
 
 interface CampaignsPromosSectionProps {

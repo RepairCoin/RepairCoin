@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { router } from "expo-router";
 import { useService } from "../../useService";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { DEFAULT_TRENDING_LIMIT, DEFAULT_TRENDING_DAYS } from "@/shared/constants/services";
 
 export function useTrendingServices() {

@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { CalendarBooking } from "@/shared/interfaces/appointment.interface";
+import { CalendarBooking } from "@/feature/appointment/services/appointment.interface";
 import { getDaysInMonth, isToday, isDateSelected } from "@/shared/utilities/calendar";
 import { DAYS } from "@/shared/constants/appointment";
 import { getBookingStatusColor, BOOKING_STATUS_LEGEND } from "@/shared/constants/booking-colors";

@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
-import { CreatePromoCodeRequest, PromoCodesListResponse } from "@/shared/interfaces/shop.interface";
+import { CreatePromoCodeRequest, PromoCodesListResponse } from "@/feature/role/shop/account/services/shop.interface";
 import { promoCodeApi } from "../services/promoCode.services";
 
 export function useShopPromoCodesQuery() {

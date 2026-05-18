@@ -4,7 +4,7 @@ import { useAppToast } from "@/shared/hooks";
 import {
   CreateServiceRequest,
   UpdateServiceData,
-} from "@/shared/interfaces/service.interface";
+} from "@/feature/services/services/service.interface";
 
 export function useCreateServiceMutation() {
   const { showError } = useAppToast();

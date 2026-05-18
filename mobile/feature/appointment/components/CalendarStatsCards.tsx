@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { CalendarBooking } from "@/shared/interfaces/appointment.interface";
+import { CalendarBooking } from "@/feature/appointment/services/appointment.interface";
 
 interface CalendarStatsCardsProps {
   bookings: CalendarBooking[];

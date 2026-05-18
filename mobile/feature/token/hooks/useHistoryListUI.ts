@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { PurchaseHistoryData } from "@/shared/interfaces/purchase.interface";
+import { PurchaseHistoryData } from "@/feature/token/services/purchase.interface";
 import { useShopTransactionsQuery } from "./useTokensQuery";
 import { useHistorySearch } from "./useHistorySearch";
 import { useHistoryFilters } from "./useHistoryFilters";

@@ -15,8 +15,8 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { appointmentApi, CustomerSearchResult, ManualBookingData } from "@/feature/transaction/appointment/services/appointment.services";
 import { serviceApi } from "@/feature/services/services/service.services";
-import { TimeSlot, ShopAvailability } from "@/shared/interfaces/appointment.interface";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { TimeSlot, ShopAvailability } from "@/feature/appointment/services/appointment.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import CustomerSearchInput from "./CustomerSearchInput";
 import { useManualBookingMutation } from "../../hooks";
 

@@ -4,7 +4,7 @@ import {
   PromoCodeResponse,
   PromoCodesListResponse,
   PromoCodeValidateResponse,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 
 class PromoCodeApi {
   async getPromoCodes(shopId: string): Promise<PromoCodesListResponse> {

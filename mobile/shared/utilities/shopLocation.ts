@@ -1,5 +1,5 @@
 import { EARTH_RADIUS_MILES } from "@/shared/constants/mapConfig";
-import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
+import { ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 
 /**
  * Calculate distance between two coordinates using Haversine formula

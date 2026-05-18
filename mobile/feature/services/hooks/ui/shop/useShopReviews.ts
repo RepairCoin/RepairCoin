@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { serviceApi } from "../../../services/service.services";
 import { useAppToast } from "@/shared/hooks";
-import { ReviewData } from "@/shared/interfaces/review.interface";
+import { ReviewData } from "@/feature/services/services/review.interface";
 
 export function useShopReviews() {
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);

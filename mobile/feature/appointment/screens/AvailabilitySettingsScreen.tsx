@@ -19,7 +19,7 @@ import {
   DateOverride,
   UpdateAvailabilityRequest,
   CreateDateOverrideRequest,
-} from "@/shared/interfaces/appointment.interface";
+} from "@/feature/appointment/services/appointment.interface";
 import { appointmentApi } from "../services/appointment.services";
 import { formatTimeSlot } from "@/shared/utilities/timeFormat";
 import { useAppToast } from "@/shared/hooks/useAppToast";

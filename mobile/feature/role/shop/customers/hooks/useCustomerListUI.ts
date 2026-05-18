@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { CustomerData } from "@/shared/interfaces/customer.interface";
+import { CustomerData } from "@/feature/role/customer/profile/services/customer.interface";
 import { useShopCustomersQuery, useSearchAllCustomersQuery } from "@/feature/role/customer/profile/hooks/queries/useCustomerQueries";
 import { useCustomerSearch } from "@/feature/role/customer/profile/hooks/ui/useCustomerSearch";
 import { ViewMode, TierFilter, SortBy } from "../types";

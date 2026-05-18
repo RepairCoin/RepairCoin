@@ -9,7 +9,7 @@ import {
   ServiceResponse,
   UpdateServiceData,
   ServiceDetailResponse,
-} from "@/shared/interfaces/service.interface";
+} from "@/feature/services/services/service.interface";
 
 export function useService() {
   const { showSuccess, showError } = useAppToast();

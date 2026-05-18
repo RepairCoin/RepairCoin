@@ -9,7 +9,7 @@ import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { useFavoritesTab } from "../../hooks";
 
 export default function FavoritesTabContent() {

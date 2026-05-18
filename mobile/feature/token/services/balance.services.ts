@@ -1,5 +1,5 @@
 import apiClient from "@/shared/utilities/axios";
-import { CustomerBalanceResponse } from "@/shared/interfaces/balance.interface";
+import { CustomerBalanceResponse } from "@/feature/token/services/balance.interface";
 
 class BalanceAppi {
   async getCustomerBalance(customerAddress: string): Promise<CustomerBalanceResponse> {

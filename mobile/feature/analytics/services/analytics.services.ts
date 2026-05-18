@@ -2,7 +2,7 @@ import apiClient from "@/shared/utilities/axios";
 import {
   TransactionsResponse,
   PurchasesResponse,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 
 class AnalyticsApi {
   async getShopTransactions(

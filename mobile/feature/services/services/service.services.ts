@@ -6,11 +6,11 @@ import {
   UpdateServiceData,
   ServiceFilters,
   ServiceDetailResponse,
-} from "@/shared/interfaces/service.interface";
+} from "@/feature/services/services/service.interface";
 import {
   ServiceReviewsResponse,
   ReviewFilters,
-} from "@/shared/interfaces/review.interface";
+} from "@/feature/services/services/review.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
 class ServiceApi {

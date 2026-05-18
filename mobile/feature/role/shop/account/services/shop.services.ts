@@ -3,7 +3,7 @@ import {
   ShopFormData,
   ShopByWalletAddressResponse,
   ShopResponse,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 
 class ShopApi {
   async register(payload: ShopFormData) {

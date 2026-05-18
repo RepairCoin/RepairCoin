@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { TransactionsResponse, PurchasesResponse } from "@/shared/interfaces/shop.interface";
+import { TransactionsResponse, PurchasesResponse } from "@/feature/role/shop/account/services/shop.interface";
 import { analyticsApi } from "../services/analytics.services";
 import { TimeRange } from "../types";
 

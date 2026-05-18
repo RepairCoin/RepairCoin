@@ -2,7 +2,7 @@ import apiClient from "@/shared/utilities/axios";
 import {
   ShopCustomersResponse,
   ShopCustomerGrowthResponse,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 
 class ShopCustomerApi {
   async getShopCustomers(shopId: string): Promise<ShopCustomersResponse> {

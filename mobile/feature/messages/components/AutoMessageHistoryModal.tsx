@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { messageApi } from "../services/message.services";
-import { AutoMessageHistory } from "@/shared/interfaces/message.interface";
+import { AutoMessageHistory } from "@/feature/messages/services/message.interface";
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);

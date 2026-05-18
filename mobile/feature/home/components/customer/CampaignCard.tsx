@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { formatDistanceToNow } from "date-fns";
-import { Notification } from "@/shared/interfaces/notification.interface";
+import { Notification } from "@/feature/notification/services/notification.interface";
 
 interface CampaignCardProps {
   notification: Notification;

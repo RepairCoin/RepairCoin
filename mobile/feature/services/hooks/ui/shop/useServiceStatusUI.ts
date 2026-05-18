@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { useAppToast } from "@/shared/hooks";
 import { useServiceToggleMutation } from "../../mutations";
 

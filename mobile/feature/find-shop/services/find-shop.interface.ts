@@ -1,5 +1,5 @@
-import { ShopData } from "@/shared/interfaces/shop.interface";
-import { ShopAvailability } from "@/shared/interfaces/appointment.interface";
+import { ShopData } from "@/feature/role/shop/account/services/shop.interface";
+import { ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 import { Region, LatLng } from "react-native-maps";
 
 export type ViewMode = "map" | "list";

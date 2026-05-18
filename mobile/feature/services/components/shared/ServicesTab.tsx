@@ -28,7 +28,7 @@ import {
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
 // Others
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
 import { SERVICE_STATUS_OPTIONS } from "@/shared/constants/services";
 

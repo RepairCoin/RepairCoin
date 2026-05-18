@@ -18,7 +18,7 @@ import {
   GetAutoMessagesResponse,
   AutoMessageResponse,
   GetAutoMessageHistoryResponse,
-} from "@/shared/interfaces/message.interface";
+} from "@/feature/messages/services/message.interface";
 
 class MessageApi {
   /**

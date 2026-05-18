@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { BookingStatus } from "@/shared/interfaces/booking.interfaces";
+import { BookingStatus } from "@/feature/booking/services/booking.interfaces";
 
 const TIMELINE_STEPS = [
   { key: "pending", label: "Booking Created", desc: "Waiting for payment", icon: "clock" as keyof typeof Feather.glyphMap, color: "#FFCC00" },

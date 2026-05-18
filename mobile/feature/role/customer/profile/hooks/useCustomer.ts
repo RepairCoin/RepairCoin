@@ -2,7 +2,7 @@ import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import {
   CustomerFormData,
   TransactionResponse,
-} from "@/shared/interfaces/customer.interface";
+} from "@/feature/role/customer/profile/services/customer.interface";
 import { customerApi } from "../services/customer.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useMutation, useQuery } from "@tanstack/react-query";

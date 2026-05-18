@@ -1,4 +1,4 @@
-import type { CustomerTierLower } from "@/shared/interfaces/customer.interface";
+import type { CustomerTierLower } from "@/feature/role/customer/profile/services/customer.interface";
 import { TIER_COLORS, DEFAULT_TIER } from "@/shared/constants/customerProfile";
 
 /**

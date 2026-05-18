@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { BookingData } from "@/shared/interfaces/booking.interfaces";
+import { BookingData } from "@/feature/booking/services/booking.interfaces";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { bookingApi } from "../../services/booking.services";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";

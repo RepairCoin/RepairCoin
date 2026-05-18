@@ -1,4 +1,4 @@
-import { BookingFilters } from '@/shared/interfaces/booking.interfaces';
+import { BookingFilters } from '@/feature/booking/services/booking.interfaces';
 import { QueryClient } from '@tanstack/react-query';
 
 export const createQueryClient = () => {

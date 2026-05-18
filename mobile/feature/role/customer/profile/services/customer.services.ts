@@ -3,7 +3,7 @@ import {
   CustomerFormData,
   CustomerData,
   CustomerResponse,
-} from "@/shared/interfaces/customer.interface";
+} from "@/feature/role/customer/profile/services/customer.interface";
 import {
   CrossShopBalanceResponse,
   SearchCustomersResponse,

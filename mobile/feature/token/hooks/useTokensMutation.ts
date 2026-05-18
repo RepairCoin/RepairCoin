@@ -13,13 +13,13 @@ import { promoCodeApi } from "@/feature/role/shop/promo-code/services/promoCode.
 import {
   CreatePromoCodeRequest,
   RewardRequest,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 import {
   GiftTokenRequest,
   GiftTokenResponse,
   ValidateTransferRequest,
   ValidateTransferResponse,
-} from "@/shared/interfaces/token.interface";
+} from "@/feature/token/services/token.interface";
 import {
   CreateRedemptionSessionRequest,
   RedemptionSession,

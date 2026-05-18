@@ -9,7 +9,7 @@ import {
   MyAppointment,
   UpdateAvailabilityRequest,
   CreateDateOverrideRequest,
-} from "@/shared/interfaces/appointment.interface";
+} from "@/feature/appointment/services/appointment.interface";
 
 // ============================================
 // Types

@@ -3,7 +3,7 @@
  * Used by appointment and booking features
  */
 
-import { BookingData } from "@/shared/interfaces/booking.interfaces";
+import { BookingData } from "@/feature/booking/services/booking.interfaces";
 
 // Attention-requiring statuses first so the most important dot is always visible.
 const STATUS_PRIORITY: string[] = [

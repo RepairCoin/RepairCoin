@@ -13,7 +13,7 @@ import {
   TransactionsResponse,
   PurchasesResponse,
   PromoCodesListResponse,
-} from "@/shared/interfaces/shop.interface";
+} from "@/feature/role/shop/account/services/shop.interface";
 import { TimeRange } from "../types";
 import { promoCodeApi } from "../../promo-code/services/promoCode.services";
 import { analyticsApi } from "@/feature/transaction/analytics/services/analytics.services";

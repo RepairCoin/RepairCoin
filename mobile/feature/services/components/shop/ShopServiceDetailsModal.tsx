@@ -11,8 +11,8 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceData } from "@/shared/interfaces/service.interface";
-import { ReviewData } from "@/shared/interfaces/review.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
+import { ReviewData } from "@/feature/services/services/review.interface";
 import { serviceApi } from "../../services/service.services";
 import { Alert } from "react-native";
 

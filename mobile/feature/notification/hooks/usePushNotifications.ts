@@ -10,7 +10,7 @@ import { notificationApi } from "@/feature/notification/services/notification.se
 import {
   PushNotificationState,
   NotificationData,
-} from "@/shared/interfaces/notification.interface";
+} from "@/feature/notification/services/notification.interface";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

@@ -5,7 +5,7 @@ import {
   UpdateAvailabilityRequest,
   TimeSlotConfig,
   CreateDateOverrideRequest,
-} from "@/shared/interfaces/appointment.interface";
+} from "@/feature/appointment/services/appointment.interface";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
 
 export function useUpdateShopAvailabilityMutation() {

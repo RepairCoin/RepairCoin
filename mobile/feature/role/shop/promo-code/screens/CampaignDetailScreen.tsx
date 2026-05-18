@@ -12,7 +12,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { notificationApi } from "@/feature/notification/services/notification.services";
-import { Notification } from "@/shared/interfaces/notification.interface";
+import { Notification } from "@/feature/notification/services/notification.interface";
 
 function DesignBlock({ block, metadata }: { block: any; metadata: any }) {
   const style = block.style || {};

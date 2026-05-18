@@ -17,7 +17,7 @@ import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { useCustomerListUI } from "../hooks";
-import { CustomerData } from "@/shared/interfaces/customer.interface";
+import { CustomerData } from "@/feature/role/customer/profile/services/customer.interface";
 import { SORT_OPTIONS, TIER_OPTIONS } from "@/shared/constants/shopCustomers";
 import { CustomerCard } from "../components";
 

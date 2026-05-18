@@ -1,4 +1,4 @@
-import { BaseResponse } from "./base.interface";
+import { BaseResponse } from "@/shared/interfaces/base.interface";
 
 export interface ReviewData {
   reviewId: string;

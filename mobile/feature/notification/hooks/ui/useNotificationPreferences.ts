@@ -4,7 +4,7 @@ import { notificationApi } from "@/feature/notification/services/notification.se
 import {
   AppointmentNotificationPreferences,
   GeneralNotificationPreferences,
-} from "@/shared/interfaces/notification.interface";
+} from "@/feature/notification/services/notification.interface";
 import { useAppToast } from "@/shared/hooks";
 
 interface AppointmentFormData {

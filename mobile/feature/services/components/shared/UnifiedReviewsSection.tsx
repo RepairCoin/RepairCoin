@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ReviewData, ReviewStats } from "@/shared/interfaces/review.interface";
+import { ReviewData, ReviewStats } from "@/feature/services/services/review.interface";
 import { serviceApi } from "../../services/service.services";
 
 interface UnifiedReviewsSectionProps {

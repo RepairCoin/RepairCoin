@@ -2,7 +2,7 @@ import React, { createContext, useContext, ReactNode } from "react";
 import {
   usePushNotifications,
 } from "@/feature/notification/hooks/usePushNotifications";
-import { PushNotificationState } from "@/shared/interfaces/notification.interface";
+import { PushNotificationState } from "@/feature/notification/services/notification.interface";
 
 interface PushNotificationContextType extends PushNotificationState {
   registerForPushNotifications: () => Promise<string | null>;

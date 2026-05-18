@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
-import { ServiceData } from "@/shared/interfaces/service.interface";
+import { ServiceData } from "@/feature/services/services/service.interface";
 import { useTrendingServices } from "../../hooks";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;

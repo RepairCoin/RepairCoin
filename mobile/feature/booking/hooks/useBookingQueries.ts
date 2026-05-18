@@ -5,8 +5,8 @@ import { bookingAnalyticsApi } from "../services/bookingAnalytics.services";
 import {
   BookingFilters,
   BookingResponse,
-} from "@/shared/interfaces/booking.interfaces";
-import { MyAppointment } from "@/shared/interfaces/appointment.interface";
+} from "@/feature/booking/services/booking.interfaces";
+import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
 import {
   appointmentApi,
   CustomerSearchResult,

@@ -11,7 +11,7 @@ import {
   AppointmentNotificationPreferences,
   GeneralNotificationPreferences,
   UpdateGeneralNotificationPreferences,
-} from "@/shared/interfaces/notification.interface";
+} from "@/feature/notification/services/notification.interface";
 
 class NotificationApi {
   /**

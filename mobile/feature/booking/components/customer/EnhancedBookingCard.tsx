@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, Alert, Image } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { BookingData } from "@/shared/interfaces/booking.interfaces";
+import { BookingData } from "@/feature/booking/services/booking.interfaces";
 import { router } from "expo-router";
 import { getBookingStatusColor } from "@/shared/constants/booking-colors";
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { useQueryClient } from "@tanstack/react-query";
 import { SERVICE_CATEGORIES } from "@/shared/constants/service-categories";
-import { UpdateServiceData } from "@/shared/interfaces/service.interface";
+import { UpdateServiceData } from "@/feature/services/services/service.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { queryKeys } from "@/shared/config/queryClient";
