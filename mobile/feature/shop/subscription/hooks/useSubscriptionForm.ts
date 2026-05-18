@@ -3,8 +3,8 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
-import { SubscriptionFormData, SubscriptionResponse } from "../types";
 import { useShop } from "../../account/hooks/useShopQuery";
+import { SubscriptionFormData, SubscriptionResponse } from "../../services/shop.interface";
 
 export function useSubscriptionForm() {
   const router = useRouter();

@@ -14,10 +14,6 @@ import {
   ShopServicesTab,
 } from "../components";
 
-interface ShopProfileScreenProps {
-  shopId: string;
-}
-
 export default function ShopProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
