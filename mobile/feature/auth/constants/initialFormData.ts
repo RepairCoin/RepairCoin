@@ -1,4 +1,4 @@
-import { CustomerFormData, ShopFormData } from "../types";
+import { CustomerFormData, ShopFormData } from "../services/auth.interface";
 
 export const INITIAL_CUSTOMER_FORM_DATA: CustomerFormData = {
   fullName: "",

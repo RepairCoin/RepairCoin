@@ -1,11 +1,11 @@
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { Controller, useFormContext } from "react-hook-form";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
-import { NavigableSlideProps } from "../../types";
+import { NavigableSlideProps } from "../../services/auth.interface";
 import { COMPANY_SIZE_OPTIONS, MONTHLY_REVENUE_OPTIONS } from "../../constants";
 import type { ShopRegisterData } from "../../dto/register.dto";
 

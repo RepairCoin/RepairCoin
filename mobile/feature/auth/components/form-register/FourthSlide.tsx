@@ -1,11 +1,11 @@
 import { View, Text, ScrollView } from "react-native";
 import { Controller, useWatch, useFormContext } from "react-hook-form";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import Checkbox from "expo-checkbox";
 import FormInput from "@/shared/components/ui/FormInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
-import { FourthSlideProps } from "../../types";
+import { FourthSlideProps } from "../../services/auth.interface";
 import { TERMS_ITEMS } from "../../constants";
 import type { ShopRegisterData } from "../../dto/register.dto";
 

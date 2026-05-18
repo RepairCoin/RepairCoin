@@ -12,7 +12,7 @@ import {
   FourthSlide,
   ProgressBar,
 } from "../../components/form-register";
-import { Slide } from "../../types";
+import { Slide } from "../../services/auth.interface";
 
 const SLIDE_TITLES = [
   "Register Shop",

@@ -1,13 +1,13 @@
 import { View, Text, ScrollView } from "react-native";
 import { Controller, useFormContext } from "react-hook-form";
-import type { ShopRegisterData } from "../../dto/register.dto";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import FormInput from "@/shared/components/ui/FormInput";
 import PhoneInput from "@/shared/components/ui/PhoneInput";
 import SectionHeader from "@/shared/components/ui/SectionHeader";
 import PrimaryButton from "@/shared/components/ui/PrimaryButton";
 import { THEME_COLORS } from "@/shared/constants/Colors";
-import { FirstSlideProps } from "../../types";
+import type { ShopRegisterData } from "../../dto/register.dto";
+import { FirstSlideProps } from "../../services/auth.interface";
 
 export default function FirstSlide({
   handleGoNext,
