@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
 import { CustomerData } from "../../types";
 import { TIER_STYLES } from "@/shared/constants/token";
-import type { CustomerTierUpper } from "@/feature/role/customer/profile/services/customer.interface";
+import type { CustomerTierUpper } from "@/feature/customer/profile/services/customer.interface";
 
 interface CustomerInfoCardProps {
   customerInfo: CustomerData;

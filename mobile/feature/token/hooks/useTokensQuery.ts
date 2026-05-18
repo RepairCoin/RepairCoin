@@ -5,14 +5,14 @@ import { queryKeys } from "@/shared/config/queryClient";
 import { tokenApi } from "../services/token.services";
 import { purchaseApi } from "../services/purchase.services";
 import { balanceApi } from "../services/balance.services";
-import { shopApi } from "@/feature/role/shop/account/services/shop.services";
-import { customerApi } from "@/feature/role/customer/profile/services/customer.services";
-import { promoCodeApi } from "@/feature/role/shop/promo-code/services/promoCode.services";
+import { shopApi } from "@/feature/shop/account/services/shop.services";
+import { customerApi } from "@/feature/customer/profile/services/customer.services";
+import { promoCodeApi } from "@/feature/shop/promo-code/services/promoCode.services";
 import {
   TransferHistoryResponse,
   MyRedemptionSessionsResponse,
 } from "@/feature/token/services/token.interface";
-import { TransactionResponse } from "@/feature/role/customer/profile/services/customer.interface";
+import { TransactionResponse } from "@/feature/customer/profile/services/customer.interface";
 import {
   RedemptionSession,
   CustomerRedemptionData,

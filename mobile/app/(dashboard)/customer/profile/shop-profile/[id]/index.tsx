@@ -1,1 +1,1 @@
-export { ShopProfileScreen as default } from "@/feature/role/shop/profile/screens";
+export { ShopProfileScreen as default } from "@/feature/shop/profile/screens";

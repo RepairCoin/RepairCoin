@@ -1,6 +1,6 @@
 import React from "react";
 import { Image, View, Text } from "react-native";
-import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
+import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { DemoBanner } from "@/shared/components/ui/DemoBanner";
 import {

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tier } from "@/shared/utilities/GlobalTypes";
-import { TierProgressCardProps } from "@/feature/role/customer/profile/types";
+import { TierProgressCardProps } from "@/feature/customer/profile/types";
 
 const TIER_CONFIG: Record<Tier, { color: string[]; label: string; bonus: number; requirement: number }> = {
   BRONZE: {

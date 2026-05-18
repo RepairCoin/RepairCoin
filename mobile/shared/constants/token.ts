@@ -1,4 +1,4 @@
-import { CustomerTierUpper } from "@/feature/role/customer/profile/services/customer.interface";
+import { CustomerTierUpper } from "@/feature/customer/profile/services/customer.interface";
 import {
   HowItWorksItem,
   RepairOption,

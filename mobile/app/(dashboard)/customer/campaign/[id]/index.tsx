@@ -1,1 +1,1 @@
-export { default } from "@/feature/role/shop/promo-code/screens/CampaignDetailScreen";
+export { default } from "@/feature/shop/promo-code/screens/CampaignDetailScreen";

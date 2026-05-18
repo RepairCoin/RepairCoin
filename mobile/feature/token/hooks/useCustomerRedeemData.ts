@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useCustomer } from "@/feature/role/customer/profile/hooks/useCustomer";
-import { TransactionData } from "@/feature/role/customer/profile/services/customer.interface";
+import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
+import { TransactionData } from "@/feature/customer/profile/services/customer.interface";
 import { useTokenBalance } from "./useTokensQuery";
 
 /**

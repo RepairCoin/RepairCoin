@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { TransactionData } from "@/feature/role/customer/profile/services/customer.interface";
+import { TransactionData } from "@/feature/customer/profile/services/customer.interface";
 import { useCustomerTransactionsQuery } from "./useTokensQuery";
 import { useHistorySearch } from "./useHistorySearch";
 import { useCustomerHistoryFilters } from "./useCustomerHistoryFilters";

@@ -1,4 +1,4 @@
-import { CustomerData } from "@/feature/role/customer/profile/services/customer.interface";
+import { CustomerData } from "@/feature/customer/profile/services/customer.interface";
 
 const getNumericValue = (snakeCase: any, camelCase: any, defaultValue: number = 0): number => {
   if (snakeCase !== undefined && snakeCase !== null) return Number(snakeCase);

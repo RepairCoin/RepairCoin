@@ -1,1 +1,1 @@
-export { SubscriptionFormScreen as default } from "@/feature/role/shop/subscription/screens";
+export { SubscriptionFormScreen as default } from "@/feature/shop/subscription/screens";

@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import { router } from "expo-router";
 import MapView, { Region, LatLng } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
-import { useShop } from "@/feature/role/shop/account/hooks/useShopQuery";
+import { useShop } from "@/feature/shop/account/hooks/useShopQuery";
 import { useAppToast } from "@/shared/hooks";
 import { appointmentApi } from "@/feature/transaction/appointment/services/appointment.services";
 import { serviceApi } from "@/feature/services/services/service.services";
@@ -19,7 +19,7 @@ import {
   formatDuration,
 } from "@/shared/providers/RouteProvider";
 import { WebViewMapRef } from "@/shared/components/maps/WebViewMap";
-import { ShopData } from "@/feature/role/shop/account/services/shop.interface";
+import { ShopData } from "@/feature/shop/account/services/shop.interface";
 import { ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 import { ServiceCategory } from "@/shared/constants/service-categories";
 import { ViewMode, ShopWithLocation, GeocodedCoords } from "../../types";

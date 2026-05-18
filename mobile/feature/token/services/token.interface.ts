@@ -4,7 +4,7 @@
  */
 
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import type { CustomerTier, CustomerData } from "@/feature/role/customer/profile/services/customer.interface";
+import type { CustomerTier, CustomerData } from "@/feature/customer/profile/services/customer.interface";
 import type { RepairType } from "../hooks/useRepairCalculations";
 
 export type { CustomerTier, CustomerData, RepairType };

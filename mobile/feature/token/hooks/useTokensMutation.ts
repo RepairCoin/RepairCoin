@@ -9,11 +9,11 @@ import { usePaymentStore } from "@/feature/transaction/booking/store/payment.sto
 import { tokenApi } from "../services/token.services";
 import { purchaseApi } from "../services/purchase.services";
 import { rewardApi } from "../services";
-import { promoCodeApi } from "@/feature/role/shop/promo-code/services/promoCode.services";
+import { promoCodeApi } from "@/feature/shop/promo-code/services/promoCode.services";
 import {
   CreatePromoCodeRequest,
   RewardRequest,
-} from "@/feature/role/shop/account/services/shop.interface";
+} from "@/feature/shop/account/services/shop.interface";
 import {
   GiftTokenRequest,
   GiftTokenResponse,
