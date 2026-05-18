@@ -1,6 +1,6 @@
 # API Endpoints Reference
 
-> Last updated: 2026-04-24
+> Last updated: 2026-05-18
 
 Complete cross-reference of all backend API routes and their mobile app integration status.
 
@@ -9,7 +9,54 @@ Complete cross-reference of all backend API routes and their mobile app integrat
 ## Table of Contents
 
 - [Active Endpoints (Used by Mobile)](#active-endpoints-used-by-mobile)
+  - [Authentication (`/api/auth`)](#authentication-apiauth)
+  - [Customers (`/api/customers`)](#customers-apicustomers)
+  - [Shops (`/api/shops`)](#shops-apishops)
+  - [Shop Purchases (`/api/shops/purchase`)](#shop-purchases-apishopspurchase)
+  - [Shop Analytics (`/api/shops`)](#shop-analytics-apishops)
+  - [Services (`/api/services`)](#services-apiservices)
+  - [Service Discovery (`/api/services/discovery`)](#service-discovery-apiservicesdiscovery)
+  - [Service Favorites (`/api/services/favorites`)](#service-favorites-apiservicesfavorites)
+  - [Service Reviews (`/api/services`)](#service-reviews-apiservices)
+  - [Service Groups (`/api/services`)](#service-groups-apiservices)
+  - [Bookings / Orders (`/api/services/orders`)](#bookings--orders-apiservicesorders)
+  - [Booking Analytics (`/api/services/analytics`)](#booking-analytics-apiservicesanalytics)
+  - [Appointments (`/api/services/appointments`)](#appointments-apiservicesappointments)
+  - [Reschedule Requests (`/api/services/appointments`)](#reschedule-requests-apiservicesappointments)
+  - [Direct Reschedule (`/api/services/bookings`)](#direct-reschedule-apiservicesbookings)
+  - [Disputes & No-Show](#disputes--no-show)
+  - [No-Show Policy](#no-show-policy)
+  - [Manual Bookings](#manual-bookings)
+  - [Messages (`/api/messages`)](#messages-apimessages)
+  - [Quick Replies (`/api/messages/quick-replies`)](#quick-replies-apimessagesquick-replies)
+  - [Auto-Messages (`/api/messages/auto-messages`)](#auto-messages-apimessagesauto-messages)
+  - [Notifications (`/api/notifications`)](#notifications-apinotifications)
+  - [Affiliate Shop Groups (`/api/affiliate-shop-groups`)](#affiliate-shop-groups-apiaffiliate-shop-groups)
+  - [Tokens (`/api/tokens`)](#tokens-apitokens)
+  - [Bug Reports (`/api/bug-reports`)](#bug-reports-apibug-reports)
+  - [External APIs (non-backend)](#external-apis-non-backend)
 - [Backend-Only Endpoints (Not Used by Mobile)](#backend-only-endpoints-not-used-by-mobile)
+  - [Auth — web/admin only](#auth--webadmin-only)
+  - [Security (`/api/security`)](#security-apisecurity--entire-domain)
+  - [Customers — admin/web only](#customers--adminweb-only)
+  - [Shops — web only sub-routes](#shops--web-only-sub-routes)
+  - [Shop Moderation (`/api/shops/moderation`)](#shop-moderation-apishopsmoderation)
+  - [Promo Codes — web/admin only](#promo-codes--webadmin-only)
+  - [Services — Import/Export & Misc](#services--importexport--misc)
+  - [AI Agent (`/api/ai`)](#ai-agent-apiai)
+  - [Inventory (`/api/inventory`)](#inventory-apiinventory)
+  - [Messaging — Typing Indicators](#messaging--typing-indicators)
+  - [Referrals (`/api/referrals`)](#referrals-apireferrals--entire-domain)
+  - [Upload (`/api/upload`)](#upload-apiupload--entire-domain)
+  - [Health (`/api/health`)](#health-apihealth--inframonitoring)
+  - [Waitlist (`/api/waitlist`)](#waitlist-apiwaitlist--entire-domain)
+  - [Marketing (`/api/marketing`)](#marketing-apimarketing--entire-domain)
+  - [Support (`/api/support`)](#support-apisupport--entire-domain)
+  - [Webhooks (`/api/webhooks`)](#webhooks-apiwebhooks--server-to-server)
+  - [Notifications — unused by mobile](#notifications--unused-by-mobile)
+  - [Affiliate Groups — unused by mobile](#affiliate-groups--unused-by-mobile)
+  - [Tokens — unused by mobile](#tokens--unused-by-mobile)
+  - [System / Misc](#system--misc)
 - [Summary](#summary)
 
 ---
@@ -23,6 +70,8 @@ Complete cross-reference of all backend API routes and their mobile app integrat
 | POST | `/auth/token` | `auth.services.ts` | `getToken()` |
 | POST | `/auth/check-user` | `auth.services.ts` | `checkUserExists()` |
 | POST | `/auth/refresh` | `auth.services.ts` | `getRefreshToken()` |
+| GET | `/auth/demo/status` | `auth.services.ts` | `getDemoStatus()` |
+| POST | `/auth/demo` | `auth.services.ts` | `loginDemo()` |
 
 ### Customers (`/api/customers`)
 
@@ -372,9 +421,21 @@ Complete cross-reference of all backend API routes and their mobile app integrat
 | * | `/shops/purchase-sync/*` | Payment sync routes |
 | * | `/shops/payment-methods/*` | Payment methods |
 | * | `/shops/reports/*` | Reports |
-| * | `/shops/moderation/*` | Moderation |
 | * | `/shops/calendar/*` | Calendar integration |
 | * | `/shops/gmail/*` | Gmail integration |
+
+### Shop Moderation (`/api/shops/moderation`)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/shops/moderation/blocked-customers` | Get all blocked customers for shop |
+| POST | `/shops/moderation/block-customer` | Block a customer with reason |
+| DELETE | `/shops/moderation/blocked-customers/:walletAddress` | Unblock customer |
+| GET | `/shops/moderation/blocked-customers/:walletAddress/status` | Check if customer is blocked |
+| GET | `/shops/moderation/reports` | Get all reports for a shop |
+| POST | `/shops/moderation/reports` | Submit issue/moderation report |
+| GET | `/shops/moderation/flagged-reviews` | Get all flagged reviews |
+| POST | `/shops/moderation/flag-review` | Flag a specific review |
 
 ### Promo Codes — web/admin only
 
@@ -385,6 +446,56 @@ Complete cross-reference of all backend API routes and their mobile app integrat
 | GET | `/shops/customers/:address/promo-history` | Customer promo history |
 | GET | `/shops/admin/promo-codes` | All promo codes (admin) |
 | GET | `/shops/admin/promo-codes/analytics` | Promo analytics (admin) |
+
+### Services — Import/Export & Misc
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/services/export` | Export services to Excel/CSV |
+| GET | `/services/template` | Download import template |
+| POST | `/services/import` | Bulk import services from file (max 10MB, 1000 rows) |
+| GET | `/services/import/:jobId` | Get import job status |
+| GET | `/services/:serviceId/favorites/count` | Get favorite count for service |
+
+### AI Agent (`/api/ai`)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/ai/health` | Public health check for AI domain |
+| POST | `/ai/preview` | Live AI reply preview for service (shop/admin) |
+| GET | `/ai/spend` | Shop's monthly AI spend snapshot |
+| GET | `/ai/admin/cost-summary` | Platform-wide AI cost aggregate (admin) |
+
+### Inventory (`/api/inventory`)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/inventory/upload-image` | Upload inventory item image |
+| GET | `/inventory/stats` | Get inventory statistics |
+| GET | `/inventory/items` | Get all items with filters/pagination |
+| GET | `/inventory/items/:itemId` | Get single inventory item |
+| POST | `/inventory/items` | Create new inventory item |
+| PUT | `/inventory/items/:itemId` | Update inventory item |
+| DELETE | `/inventory/items/:itemId` | Delete inventory item |
+| POST | `/inventory/items/bulk/delete` | Bulk delete items |
+| POST | `/inventory/items/bulk/update` | Bulk update items |
+| POST | `/inventory/items/:itemId/adjust` | Adjust stock for item |
+| GET | `/inventory/items/:itemId/adjustments` | Get adjustment history for item |
+| GET | `/inventory/categories` | Get all categories |
+| POST | `/inventory/categories` | Create category |
+| PUT | `/inventory/categories/:categoryId` | Update category |
+| DELETE | `/inventory/categories/:categoryId` | Delete category |
+| GET | `/inventory/vendors` | Get all vendors |
+| POST | `/inventory/vendors` | Create vendor |
+| PUT | `/inventory/vendors/:vendorId` | Update vendor |
+| DELETE | `/inventory/vendors/:vendorId` | Delete vendor |
+
+### Messaging — Typing Indicators
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/messages/conversations/:id/typing` | Set typing indicator |
+| GET | `/messages/conversations/:id/typing` | Get typing indicators |
 
 ### Referrals (`/api/referrals`) — entire domain
 
@@ -516,9 +627,9 @@ Complete cross-reference of all backend API routes and their mobile app integrat
 
 | Category | Count |
 |----------|-------|
-| **Active (used by mobile)** | ~170 endpoints |
-| **Backend-only (web/admin/infra)** | ~100+ endpoints |
-| **Total backend endpoints** | ~270+ |
+| **Active (used by mobile)** | ~172 endpoints |
+| **Backend-only (web/admin/infra)** | ~135+ endpoints |
+| **Total backend endpoints** | ~307+ |
 
 ### Entire domains with zero mobile usage
 
@@ -532,3 +643,5 @@ Complete cross-reference of all backend API routes and their mobile app integrat
 - Webhooks
 - Metrics
 - Setup
+- AI Agent
+- Inventory
