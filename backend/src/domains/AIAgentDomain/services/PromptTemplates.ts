@@ -669,7 +669,7 @@ function buildFaqBlock(
   const truncNote = truncated
     ? "\n\n[...additional FAQ entries truncated to keep the prompt bounded — ask the shop for specifics on anything not covered here.]"
     : "";
-  return `\n\nFrequently asked questions for this service (use these to answer specific customer questions — quote facts directly when relevant; reason across the description above AND these FAQ entries to handle the question):\n${lines.join("\n\n")}${truncNote}`;
+  return `\n\nFrequently asked questions for this service (use these to answer specific customer questions — quote facts directly when relevant; reason across the description above AND these FAQ entries to handle the question. IMPORTANT: if any FAQ answer states a price, deposit, duration, or hours that differs from the structured values given earlier in this prompt, the structured value is the correct one — trust it and ignore the conflicting FAQ text, as the FAQ entry is likely stale):\n${lines.join("\n\n")}${truncNote}`;
 }
 
 /**

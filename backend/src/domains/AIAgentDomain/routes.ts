@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import { previewAIReply } from './controllers/PreviewController';
+import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
 import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
 import {
   getOwnShopAiSettings,
@@ -52,6 +53,15 @@ export function initializeRoutes(): Router {
     authMiddleware,
     requireRole(['shop', 'admin']),
     previewAIReply
+  );
+
+  // AI-suggested FAQ entries for a service. Route gates on shop/admin role;
+  // the controller does the per-service ownership check.
+  router.post(
+    '/services/:serviceId/faq-suggestions',
+    authMiddleware,
+    requireRole(['shop', 'admin']),
+    suggestServiceFaqs
   );
 
   // Task 12 — Spend monitoring.
