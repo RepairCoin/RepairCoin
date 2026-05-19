@@ -8,7 +8,6 @@ interface PaymentSessionData {
   type: PaymentType;
   orderId: string;
   sessionId: string;
-  // Additional data for display
   amount?: number;
   rcnRedeemed?: number;
   serviceName?: string;
@@ -18,21 +17,11 @@ interface PaymentSessionData {
 }
 
 interface PaymentSessionState {
-  // Active checkout session data
   activeSession: PaymentSessionData | null;
-  // Hydration state
   _hasHydrated: boolean;
-
-  // Set the active checkout session when initiating Stripe checkout
   setActiveSession: (data: PaymentSessionData) => void;
-
-  // Validate and consume the session (returns session data if valid, clears after validation)
   validateAndConsumeSession: (orderId: string) => PaymentSessionData | null;
-
-  // Clear the session
   clearSession: () => void;
-
-  // Set hydration state
   setHasHydrated: (state: boolean) => void;
 }
 
@@ -57,10 +46,8 @@ export const usePaymentStore = create<PaymentSessionState>()(
         validateAndConsumeSession: (orderId: string) => {
           const { activeSession } = get();
 
-          // Valid if the order IDs match (convert both to string for comparison)
           if (activeSession && String(activeSession.orderId) === String(orderId)) {
             const sessionData = { ...activeSession };
-            // Clear the session so it can't be reused
             set(
               { activeSession: null },
               false,
@@ -91,7 +78,6 @@ export const usePaymentStore = create<PaymentSessionState>()(
   )
 );
 
-// Helper to wait for hydration
 export const waitForPaymentStoreHydration = (): Promise<void> => {
   return new Promise((resolve) => {
     if (usePaymentStore.getState()._hasHydrated) {

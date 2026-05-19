@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useBookingAnalyticsUI } from "../../hooks";
-import { TrendDays } from "../../types";
+import { TrendDays } from "@/feature/services/services/service.interface";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

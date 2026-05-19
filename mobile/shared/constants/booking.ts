@@ -1,4 +1,4 @@
-import { BookingFilterStatus } from "@/feature/services/booking/types";
+import { BookingFilterStatus } from "@/feature/services/services/service.interface";
 export { DAYS, MONTHS, YEARS } from "@/shared/utilities/calendar";
 
 export const BOOKING_STATUS_FILTERS: {

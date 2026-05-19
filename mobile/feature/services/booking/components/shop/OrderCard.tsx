@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ServiceOrderWithDetails, BookingStage } from "../../types";
+import { ServiceOrderWithDetails, BookingStage } from "@/feature/services/services/service.interface";
 
 const BOOKING_STAGES: BookingStage[] = [
   "requested",

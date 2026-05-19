@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useServiceOrdersQuery } from "./useBookingQueries";
-import { bookingApi } from "../services/booking.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
-import { OrderFilterType, ServiceOrderWithDetails, OrderStats } from "../types";
+import { OrderFilterType, ServiceOrderWithDetails, OrderStats } from "@/feature/services/services/service.interface";
 
 const FILTERS: { key: OrderFilterType; label: string }[] = [
   { key: "all", label: "All" },
@@ -57,7 +57,7 @@ export function useServiceOrdersUI() {
     async (orderId: string) => {
       setProcessingId(orderId);
       try {
-        await bookingApi.approveOrder(orderId);
+        await serviceApi.approveOrder(orderId);
         await refetch();
       } finally {
         setProcessingId(null);
@@ -70,7 +70,7 @@ export function useServiceOrdersUI() {
     async (orderId: string) => {
       setProcessingId(orderId);
       try {
-        await bookingApi.updateOrderStatus(orderId, "completed");
+        await serviceApi.updateOrderStatus(orderId, "completed");
         await refetch();
       } finally {
         setProcessingId(null);

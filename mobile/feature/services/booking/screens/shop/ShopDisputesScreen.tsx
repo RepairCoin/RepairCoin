@@ -17,7 +17,8 @@ import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppToast } from "@/shared/hooks";
-import { disputeApi, DisputeEntry } from "../../services/dispute.services";
+import { serviceApi } from "@/feature/services/services/service.services";
+import { DisputeEntry } from "@/feature/services/services/service.interface";
 
 type DisputeFilter = "pending" | "approved" | "rejected" | "all";
 
@@ -46,14 +47,14 @@ export default function ShopDisputesScreen() {
     refetch,
   } = useQuery({
     queryKey: ["shopDisputes", shopId, filter],
-    queryFn: () => disputeApi.getShopDisputes(shopId, filter),
+    queryFn: () => serviceApi.getShopDisputes(shopId, filter),
     enabled: !!shopId,
     staleTime: 60 * 1000,
   });
 
   const approveMutation = useMutation({
     mutationFn: ({ disputeId, notes }: { disputeId: string; notes?: string }) =>
-      disputeApi.approveDispute(shopId, disputeId, notes),
+      serviceApi.approveDispute(shopId, disputeId, notes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shopDisputes"] });
       setActionModal(null);
@@ -67,7 +68,7 @@ export default function ShopDisputesScreen() {
 
   const rejectMutation = useMutation({
     mutationFn: ({ disputeId, reason }: { disputeId: string; reason: string }) =>
-      disputeApi.rejectDispute(shopId, disputeId, reason),
+      serviceApi.rejectDispute(shopId, disputeId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shopDisputes"] });
       setActionModal(null);

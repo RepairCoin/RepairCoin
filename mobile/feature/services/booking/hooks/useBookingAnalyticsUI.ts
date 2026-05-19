@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { TrendDays } from "../types";
+import { TrendDays } from "@/feature/services/services/service.interface";
 import { useBookingAnalyticsQuery } from "./useBookingQueries";
 
 export function useBookingAnalyticsUI() {

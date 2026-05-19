@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Linking } from "react-native";
-import { BookingFormData, BookingResponse } from "@/feature/services/booking/services/booking.interfaces";
+import { BookingFormData, BookingResponse } from "@/feature/services/services/service.interface";
 import { usePaymentStore } from "@/feature/services/booking/store/payment.store";
-import { bookingApi } from "@/feature/services/booking/services/booking.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 import { useAppToast } from "@/shared/hooks";
 
 export function useCreateBookingMutation() {
   return useMutation({
     mutationFn: async (data: BookingFormData) => {
-      const response: BookingResponse = await bookingApi.createPaymentIntent(data);
+      const response: BookingResponse = await serviceApi.createPaymentIntent(data);
       return response.data;
     },
   });
@@ -19,7 +19,7 @@ export function useCreateStripeCheckoutMutation() {
 
   return useMutation({
     mutationFn: async (data: BookingFormData) => {
-      return bookingApi.createStripeCheckout(data);
+      return serviceApi.createStripeCheckout(data);
     },
     onSuccess: async (response) => {
       const orderId = response.data.orderId;
@@ -64,7 +64,7 @@ export function useApproveOrderMutation() {
 
   return useMutation({
     mutationFn: async (orderId: string) => {
-      return bookingApi.approveOrder(orderId);
+      return serviceApi.approveOrder(orderId);
     },
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)
@@ -94,7 +94,7 @@ export function useCompleteOrderMutation() {
 
   return useMutation({
     mutationFn: async (orderId: string) => {
-      return bookingApi.updateOrderStatus(orderId, "completed");
+      return serviceApi.updateOrderStatus(orderId, "completed");
     },
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)
@@ -114,7 +114,7 @@ export function useCancelOrderMutation() {
 
   return useMutation({
     mutationFn: async ({ orderId, reason }: { orderId: string; reason?: string }) => {
-      return bookingApi.cancelOrder(orderId, reason || "Cancelled by user");
+      return serviceApi.cancelOrder(orderId, reason || "Cancelled by user");
     },
     onSuccess: () => {
       // Invalidate all shop bookings queries (with any filters)

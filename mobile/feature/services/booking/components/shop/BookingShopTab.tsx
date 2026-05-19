@@ -12,14 +12,13 @@ import {
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { BookingData } from "@/feature/services/booking/services/booking.interfaces";
-import { BookingFilterStatus } from "../../services/booking.interface";
+import { BookingData } from "@/feature/services/services/service.interface";
+import { BookingFilterStatus } from "@/feature/services/services/service.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { bookingApi } from "../../services/booking.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
 import { useRescheduleRequestCountQuery } from "../../hooks";
 import { useQuery } from "@tanstack/react-query";
-import { disputeApi } from "../../services/dispute.services";
 import EnhancedBookingCard from "../customer/EnhancedBookingCard";
 
 // Hooks
@@ -565,7 +564,7 @@ export default function BookingsTab() {
   const { data: disputeData } = useQuery({
     queryKey: ["shopDisputes", userProfile?.shopId, "pending"],
     queryFn: () =>
-      disputeApi.getShopDisputes(userProfile?.shopId || "", "pending"),
+      serviceApi.getShopDisputes(userProfile?.shopId || "", "pending"),
     enabled: !!userProfile?.shopId,
     staleTime: 60 * 1000,
   });
@@ -583,7 +582,7 @@ export default function BookingsTab() {
     async (orderId: string) => {
       setProcessingId(orderId);
       try {
-        await bookingApi.approveOrder(orderId);
+        await serviceApi.approveOrder(orderId);
         await refetch();
       } catch {
         Alert.alert("Error", "Failed to approve booking");
@@ -598,7 +597,7 @@ export default function BookingsTab() {
     async (orderId: string) => {
       setProcessingId(orderId);
       try {
-        await bookingApi.updateOrderStatus(orderId, "completed");
+        await serviceApi.updateOrderStatus(orderId, "completed");
         await refetch();
       } catch {
         Alert.alert("Error", "Failed to complete order");

@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookingData } from "@/feature/services/booking/services/booking.interfaces";
-import { BookingFilterStatus } from "../types";
-import { bookingApi } from "../services/booking.services";
+import { BookingData } from "@/feature/services/services/service.interface";
+import { BookingFilterStatus } from "@/feature/services/services/service.interface";
+import { serviceApi } from "@/feature/services/services/service.services";
 
 export function useBookingsData(statusFilter: BookingFilterStatus) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["shopBookings"],
     queryFn: async () => {
-      const response = await bookingApi.getShopBookings();
+      const response = await serviceApi.getShopBookings();
       return (response.data ?? response.items ?? []) as BookingData[];
     },
     staleTime: 30 * 1000,

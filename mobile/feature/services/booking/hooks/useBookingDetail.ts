@@ -11,7 +11,7 @@ import {
   useRescheduleMutation,
   useCreateRescheduleRequestMutation,
 } from "./useBookingMutations";
-import { BookingData, BookingStatus } from "@/feature/services/booking/services/booking.interfaces";
+import { BookingData, BookingStatus } from "@/feature/services/services/service.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
 import { getStatusColor } from "@/shared/utilities/statusUtils";

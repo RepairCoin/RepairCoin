@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaymentStore, PaymentType, waitForPaymentStoreHydration } from "@/feature/services/booking/store/payment.store";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { bookingApi } from "@/feature/services/booking/services/booking.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 
 export default function PaymentSuccess() {
   const { order_id } = useLocalSearchParams<{ order_id: string }>();
@@ -101,7 +101,7 @@ export default function PaymentSuccess() {
         try {
           // Call the appropriate confirm endpoint based on payment type
           if (session.type === "service_booking") {
-            const result = await bookingApi.confirmCheckoutPayment(session.sessionId);
+            const result = await serviceApi.confirmCheckoutPayment(session.sessionId);
             if (!result.success) {
               setConfirmError(result.error || "Failed to confirm payment");
             } else {

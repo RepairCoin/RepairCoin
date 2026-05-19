@@ -1,7 +1,7 @@
 import { Linking } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { bookingApi } from "../services/booking.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 import {
   appointmentApi,
   ManualBookingData,
@@ -12,7 +12,7 @@ import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import {
   BookingFormData,
   BookingResponse,
-} from "@/feature/services/booking/services/booking.interfaces";
+} from "@/feature/services/services/service.interface";
 
 // ─── Booking Mutations ──────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ export function useCreateBookingMutation() {
   return useMutation({
     mutationFn: async (data: BookingFormData) => {
       const response: BookingResponse =
-        await bookingApi.createPaymentIntent(data);
+        await serviceApi.createPaymentIntent(data);
       return response.data;
     },
   });
@@ -32,7 +32,7 @@ export function useCreateStripeCheckoutMutation() {
 
   const mutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      return bookingApi.createStripeCheckout(data);
+      return serviceApi.createStripeCheckout(data);
     },
     onSuccess: async (response) => {
       const orderId = response.data.orderId;
@@ -95,7 +95,7 @@ export function useApproveOrderMutation() {
 
   const mutation = useMutation({
     mutationFn: async (orderId: string) => {
-      return bookingApi.approveOrder(orderId);
+      return serviceApi.approveOrder(orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -141,7 +141,7 @@ export function useCompleteOrderMutation() {
 
   const mutation = useMutation({
     mutationFn: async (orderId: string) => {
-      return bookingApi.updateOrderStatus(orderId, "completed");
+      return serviceApi.updateOrderStatus(orderId, "completed");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -183,7 +183,7 @@ export function useCancelOrderMutation() {
       reason: string;
       notes?: string;
     }) => {
-      return bookingApi.cancelOrder(orderId, reason, notes);
+      return serviceApi.cancelOrder(orderId, reason, notes);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -221,7 +221,7 @@ export function useCancelOrderByShopMutation() {
       orderId: string;
       reason?: string;
     }) => {
-      return bookingApi.cancelOrderByShop(
+      return serviceApi.cancelOrderByShop(
         orderId,
         reason || "Cancelled by shop"
       );

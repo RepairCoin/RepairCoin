@@ -6,10 +6,14 @@ import {
   UpdateServiceData,
   ServiceFilters,
   ServiceDetailResponse,
-} from "@/feature/services/services/service.interface";
-import {
   ServiceReviewsResponse,
   ReviewFilters,
+  BookingFilters,
+  BookingFormData,
+  BookingResponse,
+  BookingAnalytics,
+  DisputeEntry,
+  DisputeListResponse,
 } from "@/feature/services/services/service.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
@@ -180,7 +184,6 @@ class ServiceApi {
     }
   }
 
-  // Shop Reviews API
   async getShopReviews(
     filters?: ReviewFilters
   ): Promise<ServiceReviewsResponse> {
@@ -203,6 +206,189 @@ class ServiceApi {
       });
     } catch (error: any) {
       console.error("Failed to add shop response:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopBookings(filters?: BookingFilters): Promise<BookingResponse> {
+    try {
+      const queryString = buildQueryString({...filters});
+      return await apiClient.get(`/services/orders/shop${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get bookings:", error.message);
+      throw error;
+    }
+  }
+
+  async getCustomerBookings(filters?: BookingFilters): Promise<BookingResponse> {
+    try {
+      const queryString = buildQueryString({...filters});
+      return await apiClient.get(`/services/orders/customer${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get bookings:", error.message);
+      throw error;
+    }
+  }
+
+  async getOrderById(orderId: string) {
+    try {
+      return await apiClient.get(`/services/orders/${orderId}`);
+    } catch (error: any) {
+      console.error("Failed to get order:", error.message);
+      throw error;
+    }
+  }
+
+  async updateOrderStatus(orderId: string, status: string) {
+    try {
+      return await apiClient.put(`/services/orders/${orderId}/status`, { status });
+    } catch (error: any) {
+      console.error("Failed to update order status:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelOrder(orderId: string, cancellationReason: string, cancellationNotes?: string) {
+    try {
+      return await apiClient.post(`/services/orders/${orderId}/cancel`, {
+        cancellationReason,
+        cancellationNotes,
+      });
+    } catch (error: any) {
+      console.error("Failed to cancel order:", error.message);
+      throw error;
+    }
+  }
+
+  async approveOrder(orderId: string) {
+    try {
+      return await apiClient.post(`/services/orders/${orderId}/approve`);
+    } catch (error: any) {
+      console.error("Failed to approve order:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelOrderByShop(orderId: string, cancellationReason: string, cancellationNotes?: string) {
+    try {
+      return await apiClient.post(`/services/orders/${orderId}/shop-cancel`, {
+        cancellationReason,
+        cancellationNotes,
+      });
+    } catch (error: any) {
+      console.error("Failed to cancel order by shop:", error.message);
+      throw error;
+    }
+  }
+
+  async confirmPayment(orderId: string, paymentIntentId: string) {
+    try {
+      return await apiClient.post(`/services/orders/${orderId}/confirm`, { paymentIntentId });
+    } catch (error: any) {
+      console.error("Failed to confirm payment:", error.message);
+      throw error;
+    }
+  }
+
+  async confirmCheckoutPayment(sessionId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await apiClient.post("/services/orders/confirm", { paymentIntentId: sessionId });
+      return { success: true, data: response };
+    } catch (error: any) {
+      console.error("Failed to confirm checkout payment:", error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createPaymentIntent(data: BookingFormData) {
+    try {
+      return await apiClient.post("/services/orders/create-payment-intent", data);
+    } catch (error: any) {
+      console.error("Failed to create payment intent:", error.message);
+      throw error;
+    }
+  }
+
+  async createStripeCheckout(data: BookingFormData): Promise<{
+    data: {
+      orderId: string;
+      checkoutUrl: string;
+      sessionId: string;
+      amount: number;
+      currency: string;
+      totalAmount?: number;
+      rcnRedeemed?: number;
+      rcnDiscountUsd?: number;
+      finalAmount?: number;
+    };
+  }> {
+    try {
+      return await apiClient.post("/services/orders/stripe-checkout", data);
+    } catch (error: any) {
+      console.error("Failed to create Stripe checkout session:", error.message);
+      throw error;
+    }
+  }
+
+  async getBookingAnalytics(trendDays: number = 30): Promise<BookingAnalytics> {
+    try {
+      const response = await apiClient.get(
+        `/services/analytics/shop/bookings?trendDays=${trendDays}`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to get booking analytics:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopDisputes(
+    shopId: string,
+    status?: string,
+    page?: number
+  ): Promise<DisputeListResponse> {
+    try {
+      const queryString = buildQueryString({ status, page, limit: 20 });
+      const response: any = await apiClient.get(
+        `/services/shops/${shopId}/disputes${queryString}`
+      );
+      return response.data || { disputes: [], total: 0, pendingCount: 0 };
+    } catch (error: any) {
+      console.error("Failed to get shop disputes:", error.message);
+      throw error;
+    }
+  }
+
+  async approveDispute(
+    shopId: string,
+    disputeId: string,
+    resolutionNotes?: string
+  ): Promise<DisputeEntry> {
+    try {
+      const response: any = await apiClient.put(
+        `/services/shops/${shopId}/disputes/${disputeId}/approve`,
+        { resolutionNotes }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to approve dispute:", error.message);
+      throw error;
+    }
+  }
+
+  async rejectDispute(
+    shopId: string,
+    disputeId: string,
+    resolutionNotes: string
+  ): Promise<DisputeEntry> {
+    try {
+      const response: any = await apiClient.put(
+        `/services/shops/${shopId}/disputes/${disputeId}/reject`,
+        { resolutionNotes }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to reject dispute:", error.message);
       throw error;
     }
   }

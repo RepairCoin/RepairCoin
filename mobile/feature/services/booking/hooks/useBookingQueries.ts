@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
-import { bookingApi } from "../services/booking.services";
-import { bookingAnalyticsApi } from "../services/bookingAnalytics.services";
+import { serviceApi } from "@/feature/services/services/service.services";
 import {
   BookingFilters,
   BookingResponse,
-} from "@/feature/services/booking/services/booking.interfaces";
+} from "@/feature/services/services/service.interface";
 import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
 import {
   appointmentApi,
@@ -13,7 +12,7 @@ import {
   RescheduleRequest,
   RescheduleRequestStatus,
 } from "@/feature/appointment/services/appointment.services";
-import { TrendDays } from "../types";
+import { TrendDays } from "@/feature/services/services/service.interface";
 
 interface QueryOptions {
   enabled?: boolean;
@@ -29,7 +28,7 @@ export function useShopBookingQuery(
     queryKey: queryKeys.shopBookings(filters),
     queryFn: async () => {
       const response: BookingResponse =
-        await bookingApi.getShopBookings(filters);
+        await serviceApi.getShopBookings(filters);
       return response.data;
     },
     staleTime: 30 * 1000,
@@ -41,7 +40,7 @@ export function useServiceOrdersQuery() {
   return useQuery({
     queryKey: ["repaircoin", "serviceOrders"],
     queryFn: async () => {
-      const response = await bookingApi.getShopBookings({ limit: 500 });
+      const response = await serviceApi.getShopBookings({ limit: 500 });
       return response.data || response.items || [];
     },
     staleTime: 30 * 1000,
@@ -51,7 +50,7 @@ export function useServiceOrdersQuery() {
 export function useBookingAnalyticsQuery(trendDays: TrendDays) {
   return useQuery({
     queryKey: ["repaircoin", "bookingAnalytics", trendDays],
-    queryFn: () => bookingAnalyticsApi.getBookingAnalytics(trendDays),
+    queryFn: () => serviceApi.getBookingAnalytics(trendDays),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -66,7 +65,7 @@ export function useCustomerBookingQuery(
     queryKey: queryKeys.customerBookings(filters),
     queryFn: async () => {
       const response: BookingResponse =
-        await bookingApi.getCustomerBookings(filters);
+        await serviceApi.getCustomerBookings(filters);
       return response.data;
     },
     staleTime: 5 * 60 * 1000,

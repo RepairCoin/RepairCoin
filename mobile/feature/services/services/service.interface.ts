@@ -1,8 +1,15 @@
 import { ServiceCategory } from "@/shared/constants/service-categories";
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import { BookingStatus } from "@/feature/services/booking/services/booking.interfaces";
 import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
+import { TimeSlot, ShopAvailability } from "@/feature/appointment/services/appointment.interface";
+import { DateData } from "react-native-calendars";
 
+export type PaymentType = "subscription" | "token_purchase";
+export type TrendDays = 7 | 30 | 90;
+export type BookingStep = "schedule" | "discount";
+export type OrderFilterType = "all" | "pending" | "paid" | "completed" | "cancelled" | "no_show";
+export type BookingStage = "requested" | "paid" | "approved" | "scheduled" | "completed";
+export type BookingStatus = "pending" | "paid" | "in_progress" | "completed" | "cancelled" | "refunded" | "expired";
 export type AvailabilityTab = "hours" | "settings" | "overrides";
 export type ServiceStatusFilter = "all" | "active" | "inactive";
 export type RatingLevel = 0 | 1 | 2 | 3 | 4 | 5;
@@ -18,13 +25,27 @@ export type ServiceSortOption =
   | "duration_short"
   | "duration_long"
   | "newest";
+
+export type PaymentParams = {
+  clientSecret: string;
+  subscriptionId?: string;
+  purchaseId?: string;
+  amount?: string;
+  totalCost?: string;
+  type?: PaymentType;
+};
+
+export type PaymentSuccessParams = {
+  type?: PaymentType;
+  amount?: string;
+  purchaseId?: string;
+  totalCost?: string;
+};
   
 export interface ServiceFilters { shopId?: string; category?: ServiceCategory; search?: string; minPrice?: number; maxPrice?: number; page?: number; limit?: number; }
 export interface ServiceData { active: boolean; category: ServiceCategory; createdAt: string; description: string; durationMinutes: number; imageUrl: string; priceUsd: number; serviceId: string; serviceName: string; shopId: string; tags: string[]; updatedAt: string; avgRating?: number; reviewCount?: number; shopName?: string; shopAddress?: string; shopPhone?: string; shopEmail?: string; }
 export interface CreateServiceRequest { serviceName: string; description?: string; category?: string; priceUsd: number; durationMinutes?: number; imageUrl?: string; tags?: string[]; active?: boolean; }
 export interface UpdateServiceData { serviceName?: string; description?: string; priceUsd?: number; durationMinutes?: number; category?: ServiceCategory; imageUrl?: string; tags?: string[]; active?: boolean; }
-export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
-export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}
 
 export interface TierConfig {
   color: string;
@@ -218,3 +239,244 @@ export interface ServiceCardData {
   imageUrl?: string;
   active: boolean;
 }
+
+export interface BookingFilters {
+  status?: BookingStatus | "all";
+  page?: number;
+  limit?: number;
+}
+
+export interface BookingFormData {
+  serviceId: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  rcnToRedeem?: number;
+  notes?: string;
+}
+
+export interface BookingData {
+  orderId: string;
+  shopId: string;
+  serviceId: string;
+  serviceName: string;
+  serviceDescription: string | null;
+  serviceCategory: string;
+  serviceDuration: number;
+  serviceImageUrl: string | null;
+  customerAddress: string;
+  customerName: string | null;
+  status: BookingStatus;
+  totalAmount: number;
+  rcnEarned: number;
+  stripePaymentIntentId: string | null;
+  notes: string | null;
+  bookingDate: string | null;
+  bookingTimeSlot?: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  shopApproved?: boolean;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  shopName?: string;
+  shopAddress?: string;
+  shopPhone?: string;
+  hasReview?: boolean;
+}
+
+export interface TimeSlotPickerProps {
+  timeSlots: TimeSlot[] | undefined;
+  selectedTime: string | null;
+  isLoading: boolean;
+  error: Error | null;
+  onTimeSelect: (time: string) => void;
+}
+
+export interface BookingCardProps {
+  serviceName: string;
+  customerAddress: string;
+  customerName: string | null;
+  status: BookingStatus;
+  totalAmount: number;
+  createdAt: string;
+  bookingDate?: string | null;
+  onPress?: () => void;
+}
+
+export interface RcnRedeemInputProps {
+  rcnToRedeem: string;
+  maxRcnRedeemable: number;
+  maxRcnLimit: number;
+  onRcnChange: (value: string) => void;
+  onMaxRcn: () => void;
+}
+
+export interface AppointmentSummaryCardProps {
+  selectedDate: string;
+  selectedTime: string;
+  title?: string;
+  variant?: "default" | "highlighted";
+}
+
+export interface StepIndicatorProps {
+  currentStep: number;
+  totalSteps: number;
+}
+
+export interface RcnBalanceCardProps {
+  availableRcn: number;
+}
+
+export interface PriceSummaryCardProps {
+  servicePrice: number;
+  rcnValue?: number;
+  rcnDiscount?: number;
+  finalPrice: number;
+  serviceName?: string;
+}
+
+export interface BookingPaymentScreenProps {
+  selectedDate: string;
+  selectedTime: string;
+  serviceName: string;
+  servicePrice: number;
+  rcnValue: number;
+  rcnDiscount: number;
+  finalPrice: number;
+  paymentError: string | null;
+  onCardChange: (complete: boolean) => void;
+}
+
+export interface BookingScheduleScreenProps {
+  selectedDate: string;
+  selectedTime: string | null;
+  timeSlots: TimeSlot[] | undefined;
+  isLoadingSlots: boolean;
+  slotsError: Error | null;
+  shopAvailability: ShopAvailability[] | undefined;
+  onDateSelect: (day: DateData) => void;
+  onTimeSelect: (time: string) => void;
+}
+
+export interface BookingDiscountScreenProps {
+  selectedDate: string;
+  selectedTime: string;
+  availableRcn: number;
+  rcnToRedeem: string;
+  rcnValue: number;
+  rcnDiscount: number;
+  maxRcnRedeemable: number;
+  maxRcnLimit: number;
+  servicePrice: number;
+  finalPrice: number;
+  onRcnChange: (value: string) => void;
+  onMaxRcn: () => void;
+}
+
+export interface StripeCheckoutResponse {
+  data: {
+    orderId: string;
+    checkoutUrl: string;
+    sessionId: string;
+    amount: number;
+    currency: string;
+    totalAmount?: number;
+    rcnRedeemed?: number;
+    rcnDiscountUsd?: number;
+    finalAmount?: number;
+  };
+}
+
+export interface ServiceOrderWithDetails {
+  orderId: string;
+  serviceId: string;
+  shopId: string;
+  status: string;
+  totalAmount: number;
+  bookingDate?: string;
+  bookingTime?: string;
+  bookingTimeSlot?: string;
+  bookingEndTime?: string;
+  serviceName: string;
+  serviceImageUrl?: string;
+  serviceCategory?: string;
+  serviceDuration?: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress: string;
+  customerTier?: string;
+  rcnEarned?: number;
+  promoRcn?: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  shopApproved?: boolean;
+  approvedAt?: string;
+  rescheduledAt?: string;
+  rescheduleReason?: string;
+  rescheduleCount?: number;
+  notes?: string;
+  noShow?: boolean;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderStats {
+  pending: number;
+  paid: number;
+  completed: number;
+  revenue: number;
+}
+
+export interface BookingAnalytics {
+  summary: {
+    totalBookings: number;
+    completed: number;
+    noShows: number;
+    cancelled: number;
+    completionRate: number;
+    noShowRate: number;
+    cancellationRate: number;
+    avgLeadTimeDays: number;
+    rescheduledCount: number;
+    avgRescheduleCount: number;
+  };
+  statusBreakdown: Array<{ status: string; count: number }>;
+  busiestDays: Array<{ dayOfWeek: number; count: number }>;
+  peakHours: Array<{ hour: number; count: number }>;
+  cancellationReasons: Array<{ reason: string; count: number }>;
+  bookingTrends: Array<{ date: string; count: number }>;
+}
+
+export interface DisputeEntry {
+  id: string;
+  customerAddress: string;
+  orderId: string;
+  serviceId: string;
+  shopId: string;
+  scheduledTime: string;
+  markedNoShowAt: string;
+  notes?: string;
+  customerTierAtTime?: string;
+  disputed: boolean;
+  disputeStatus?: "pending" | "approved" | "rejected";
+  disputeReason?: string;
+  disputeSubmittedAt?: string;
+  disputeResolvedAt?: string;
+  disputeResolvedBy?: string;
+  disputeResolutionNotes?: string;
+  serviceName?: string;
+  customerName?: string;
+  customerEmail?: string;
+  createdAt: string;
+}
+
+export interface DisputeListResponse {
+  disputes: DisputeEntry[];
+  total: number;
+  pendingCount: number;
+}
+
+export interface BookingResponse extends BaseResponse<BookingData[]> {}
+export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
+export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}
