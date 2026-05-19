@@ -12,3 +12,8 @@ export { default as StatusBanner } from "./StatusBanner";
 export { default as InfoBanner } from "./InfoBanner";
 export { default as ActionButton } from "./ActionButton";
 export { ShopActions, CustomerActions } from "./BookingActions";
+export { default as EnhancedBookingCard } from "./EnhancedBookingCard";
+
+// Re-export from other modules
+export { RescheduleModal, RescheduleRequestCard } from "@/feature/services/reschedule/components";
+export { PaymentError, PaymentDetails, SuccessIcon, TokenPurchaseDetails, SubscriptionDetails } from "@/feature/services/payment/components";

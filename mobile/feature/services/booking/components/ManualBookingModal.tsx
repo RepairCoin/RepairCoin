@@ -18,7 +18,7 @@ import { serviceApi } from "@/feature/services/services/service.services";
 import { TimeSlot, ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import CustomerSearchInput from "./CustomerSearchInput";
-import { useManualBookingMutation } from "../../hooks";
+import { useManualBookingMutation } from "../hooks";
 
 interface ManualBookingModalProps {
   visible: boolean;

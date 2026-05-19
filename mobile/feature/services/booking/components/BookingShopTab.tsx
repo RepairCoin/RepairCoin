@@ -17,12 +17,12 @@ import { BookingFilterStatus } from "@/feature/services/services/service.interfa
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { serviceApi } from "@/feature/services/services/service.services";
 import { appointmentApi } from "@/feature/appointment/services/appointment.services";
-import { useRescheduleRequestCountQuery } from "../../hooks";
+import { useRescheduleRequestCountQuery } from "../hooks";
 import { useQuery } from "@tanstack/react-query";
-import EnhancedBookingCard from "../customer/EnhancedBookingCard";
+import EnhancedBookingCard from "./EnhancedBookingCard";
 
 // Hooks
-import { useBookingsData, useBookingsFilter } from "../../hooks";
+import { useBookingsData, useBookingsFilter } from "../hooks";
 import { useCalendarUI } from "@/feature/appointment/hooks";
 
 // Utils
