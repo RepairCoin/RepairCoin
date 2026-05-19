@@ -1,7 +1,7 @@
 // backend/src/services/POSuggestionService.ts
 import { logger } from '../utils/logger';
 import { getSharedPool } from '../utils/database-pool';
-import { eventBus } from '../events/EventBus';
+import { eventBus, createDomainEvent } from '../events/EventBus';
 
 const pool = getSharedPool();
 
@@ -91,11 +91,12 @@ export class POSuggestionService {
       logger.info(`Generated ${suggestions.length} PO suggestions for shop ${shopId}`);
 
       // Emit event
-      eventBus.emit('inventory:suggestions_generated', {
+      await eventBus.publish(createDomainEvent(
+        'inventory:suggestions_generated',
         shopId,
-        count: suggestions.length,
-        timestamp: new Date(),
-      });
+        { shopId, count: suggestions.length },
+        'POSuggestionService'
+      ));
 
       return suggestions;
     } catch (error) {
@@ -525,12 +526,12 @@ export class POSuggestionService {
       logger.info(`Approved PO suggestion ${suggestionId} by ${userId}`);
 
       // Emit event
-      eventBus.emit('inventory:suggestion_approved', {
+      await eventBus.publish(createDomainEvent(
+        'inventory:suggestion_approved',
         suggestionId,
-        userId,
-        itemId: suggestion.itemId,
-        timestamp: new Date(),
-      });
+        { suggestionId, userId, itemId: suggestion.itemId },
+        'POSuggestionService'
+      ));
 
       // Auto-create PO if requested
       let purchaseOrderId: string | undefined;
@@ -640,12 +641,12 @@ export class POSuggestionService {
       logger.info(`Rejected PO suggestion ${suggestionId} by ${userId}: ${reason}`);
 
       // Emit event
-      eventBus.emit('inventory:suggestion_rejected', {
+      await eventBus.publish(createDomainEvent(
+        'inventory:suggestion_rejected',
         suggestionId,
-        userId,
-        reason,
-        timestamp: new Date(),
-      });
+        { suggestionId, userId, reason },
+        'POSuggestionService'
+      ));
 
       return suggestion;
     } catch (error) {
