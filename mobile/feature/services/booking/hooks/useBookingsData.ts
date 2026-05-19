@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookingData } from "@/feature/booking/services/booking.interfaces";
+import { BookingData } from "@/feature/services/booking/services/booking.interfaces";
 import { BookingFilterStatus } from "../types";
 import { bookingApi } from "../services/booking.services";
 

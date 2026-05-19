@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Linking } from "react-native";
-import { BookingFormData, BookingResponse } from "@/feature/booking/services/booking.interfaces";
-import { usePaymentStore } from "@/feature/booking/store/payment.store";
-import { bookingApi } from "@/feature/booking/services/booking.services";
+import { BookingFormData, BookingResponse } from "@/feature/services/booking/services/booking.interfaces";
+import { usePaymentStore } from "@/feature/services/booking/store/payment.store";
+import { bookingApi } from "@/feature/services/booking/services/booking.services";
 import { useAppToast } from "@/shared/hooks";
 
 export function useCreateBookingMutation() {

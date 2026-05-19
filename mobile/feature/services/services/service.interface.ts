@@ -1,6 +1,6 @@
 import { ServiceCategory } from "@/shared/constants/service-categories";
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import { BookingStatus } from "@/feature/booking/services/booking.interfaces";
+import { BookingStatus } from "@/feature/services/booking/services/booking.interfaces";
 import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
 
 export type AvailabilityTab = "hours" | "settings" | "overrides";

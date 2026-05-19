@@ -8,8 +8,8 @@ import {
   Dimensions,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { BookingData } from "@/feature/booking/services/booking.interfaces";
-import { BookingFilterStatus } from "@/feature/booking/services/booking.interface";
+import { BookingData } from "@/feature/services/booking/services/booking.interfaces";
+import { BookingFilterStatus } from "@/feature/services/booking/services/booking.interface";
 import { router } from "expo-router";
 
 // Hooks

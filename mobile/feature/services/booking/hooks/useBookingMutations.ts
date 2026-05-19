@@ -12,7 +12,7 @@ import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import {
   BookingFormData,
   BookingResponse,
-} from "@/feature/booking/services/booking.interfaces";
+} from "@/feature/services/booking/services/booking.interfaces";
 
 // ─── Booking Mutations ──────────────────────────────────────────────────────
 

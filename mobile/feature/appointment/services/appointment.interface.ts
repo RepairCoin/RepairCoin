@@ -1,5 +1,5 @@
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import { BookingStatus } from "@/feature/booking/services/booking.interfaces";
+import { BookingStatus } from "@/feature/services/booking/services/booking.interfaces";
 import { DateData } from "react-native-calendars";
 
 // ============================================

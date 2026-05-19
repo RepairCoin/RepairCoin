@@ -4,6 +4,6 @@ export {
   useMyAppointmentsQuery,
   useShopBookingQuery,
   useCustomerBookingQuery,
-} from "@/feature/booking/hooks";
+} from "@/feature/services/booking/hooks";
 
-export { useCancelAppointmentMutation } from "@/feature/booking/hooks";
+export { useCancelAppointmentMutation } from "@/feature/services/booking/hooks";

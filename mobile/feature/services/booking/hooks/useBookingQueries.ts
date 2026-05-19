@@ -5,7 +5,7 @@ import { bookingAnalyticsApi } from "../services/bookingAnalytics.services";
 import {
   BookingFilters,
   BookingResponse,
-} from "@/feature/booking/services/booking.interfaces";
+} from "@/feature/services/booking/services/booking.interfaces";
 import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
 import {
   appointmentApi,

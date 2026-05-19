@@ -13,7 +13,7 @@ export {
   useMyAppointmentsQuery,
   useShopBookingQuery,
   useCustomerBookingQuery,
-} from "@/feature/booking/hooks";
+} from "@/feature/services/booking/hooks";
 
 // React Query hooks - mutations
 export {
@@ -36,4 +36,4 @@ export { useCancelAppointmentMutation } from "./useAppointmentMutations";
 export { useCalendarUI } from "./useCalendarUI";
 
 // Re-exports from booking hooks (single source of truth)
-export { useBookingsFilter, useBookingsData } from "@/feature/booking/hooks";
+export { useBookingsFilter, useBookingsData } from "@/feature/services/booking/hooks";
