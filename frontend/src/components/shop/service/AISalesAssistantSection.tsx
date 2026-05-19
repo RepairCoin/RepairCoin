@@ -40,6 +40,12 @@ export interface AISalesAssistantSectionProps {
   onChange: (changes: Partial<Omit<AISalesAssistantSectionProps, "onChange">>) => void;
   /** Optional — when present, the preview fetches a real Claude reply for this service. */
   serviceId?: string;
+  /**
+   * The live (possibly unsaved) service description from the form — passed
+   * through to the FAQ "Suggest with AI" call so edits take effect before
+   * a save.
+   */
+  description?: string;
 }
 
 interface LivePreviewState {
@@ -64,6 +70,7 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
   faqEntries,
   onChange,
   serviceId,
+  description,
 }) => {
   const [previewOpen, setPreviewOpen] = useState(true);
 
@@ -258,6 +265,8 @@ export const AISalesAssistantSection: React.FC<AISalesAssistantSectionProps> = (
           value={faqEntries}
           disabled={!enabled}
           onChange={(next) => onChange({ faqEntries: next })}
+          serviceId={serviceId}
+          description={description}
         />
       </div>
 

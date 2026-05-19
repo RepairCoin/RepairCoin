@@ -189,6 +189,7 @@ export default function EditServicePage() {
                 enableBookingAssistance={aiBookingAssistance}
                 faqEntries={faqEntries}
                 serviceId={serviceId}
+                description={previewData.description}
                 onChange={(changes) => {
                   if (changes.enabled !== undefined) setAiEnabled(changes.enabled);
                   if (changes.tone !== undefined) setAiTone(changes.tone);
