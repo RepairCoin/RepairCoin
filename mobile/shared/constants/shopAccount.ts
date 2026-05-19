@@ -1,9 +1,14 @@
-import { SubscriptionFeature } from "@/feature/shop/account/types";
+import { ProfileTab } from "@/feature/shop/services/shop.interface";
 export { THEME_COLORS as PROFILE_COLORS } from "@/shared/constants/Colors";
 
 export const SUBSCRIPTION_PRICE = 500;
 export const SUBSCRIPTION_PERIOD = "month";
 export const INITIAL_CHAT_MESSAGE = "Hi, I'm interested in your services.";
+
+interface SubscriptionFeature {
+  id: string;
+  label: string;
+}
 
 export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { id: "1", label: "Unlimited RCN purchases" },
@@ -13,7 +18,7 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { id: "5", label: "Analytics dashboard" },
 ];
 
-export const SHOP_PROFILE_TABS: import("@/feature/shop/account/types").ProfileTab[] = [
+export const SHOP_PROFILE_TABS: ProfileTab[] = [
   { key: "services", label: "Services" },
   { key: "details", label: "Details" },
 ];

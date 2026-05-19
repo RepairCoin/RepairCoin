@@ -9,10 +9,10 @@ export { useCustomerSearch } from "./ui";
 export { useCustomerListUI } from "@/feature/shop/customers/hooks";
 
 // Tier Info
-export { useTierInfo } from "./ui";
+export { useTierInfo } from "@/feature/customer/tier-info/hooks";
 
 // Referral
-export { useReferral } from "./ui";
+export { useReferral } from "@/feature/customer/referral/hooks";
 
 // Profile
 export { useCustomerProfileScreen, useCustomerEditProfile } from "./ui";

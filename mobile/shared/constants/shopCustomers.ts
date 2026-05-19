@@ -1,4 +1,4 @@
-import { SortBy, TierFilter } from "@/feature/shop/customers/types";
+import { SortBy, TierFilter } from "@/feature/shop/services/shop.interface";
 
 export const TIER_OPTIONS: { value: TierFilter; label: string }[] = [
   { value: "all", label: "All Tiers" },

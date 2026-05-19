@@ -16,7 +16,7 @@ import {
   RewardRequest,
   RewardResponse,
 } from "./shop.interface";
-import { PurchaseHistoryResponse } from "@/feature/token/services/purchase.interface";
+import { PurchaseHistoryResponse } from "@/feature/token/services/token.interface";
 import { StripeCheckoutResponse } from "@/feature/token/services/token.interface";
 
 class ShopApi {

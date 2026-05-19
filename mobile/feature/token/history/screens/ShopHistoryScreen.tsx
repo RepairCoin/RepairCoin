@@ -11,7 +11,7 @@ import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
 import { STATUS_FILTERS, DATE_FILTERS } from "@/shared/constants/token";
-import { PurchaseHistoryData } from "@/feature/token/services/purchase.interface";
+import { PurchaseHistoryData } from "@/feature/token/services/token.interface";
 import { useHistoryListUI } from "../hooks";
 import { TransactionHistoryCard, FilterChip } from "../components";
 
