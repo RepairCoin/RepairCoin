@@ -1,4 +1,3 @@
-// Queries (re-exported from booking feature)
 export {
   useMyAppointmentsQuery,
   useShopBookingQuery,
@@ -6,5 +5,4 @@ export {
   useCancelAppointmentMutation,
 } from "./useBookingTabQuery";
 
-// UI Hooks
 export { useBookingsTab, canCancelAppointment } from "./useBookingsTab";

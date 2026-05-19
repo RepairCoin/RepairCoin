@@ -2,11 +2,8 @@ import { Linking } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/shared/config/queryClient";
 import { serviceApi } from "@/feature/services/services/service.services";
-import {
-  appointmentApi,
-  ManualBookingData,
-} from "@/feature/appointment/services/appointment.services";
-import { usePaymentStore } from "../store/payment.store";
+import { ManualBookingData } from "@/feature/services/services/service.interface";
+import { usePaymentStore } from "@/feature/services/payment/store/payment.store";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";
 import {
@@ -257,7 +254,7 @@ export function useMarkNoShowMutation() {
       orderId: string;
       notes?: string;
     }) => {
-      return appointmentApi.markOrderAsNoShow(orderId, notes);
+      return serviceApi.markOrderAsNoShow(orderId, notes);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -281,7 +278,7 @@ export function useCancelAppointmentMutation() {
 
   return useMutation({
     mutationFn: async (orderId: string) => {
-      return await appointmentApi.cancelAppointment(orderId);
+      return await serviceApi.cancelAppointment(orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
@@ -307,7 +304,7 @@ export function useRescheduleMutation() {
       newTimeSlot: string;
       reason?: string;
     }) => {
-      return appointmentApi.directRescheduleOrder(
+      return serviceApi.directRescheduleOrder(
         orderId,
         newDate,
         newTimeSlot,
@@ -329,140 +326,6 @@ export function useRescheduleMutation() {
   });
 }
 
-export function useApproveRescheduleRequestMutation() {
-  const queryClient = useQueryClient();
-  const { showSuccess, showError } = useAppToast();
-
-  return useMutation({
-    mutationFn: async (requestId: string) => {
-      return appointmentApi.approveRescheduleRequest(requestId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["repaircoin", "reschedule-requests"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["repaircoin", "bookings", "shop"],
-      });
-      showSuccess(
-        "The reschedule request has been approved. The appointment has been updated."
-      );
-    },
-    onError: (error: any) => {
-      console.error("Failed to approve reschedule request:", error);
-      const errorMessage =
-        error.response?.data?.error || error.message || "";
-      showError(
-        errorMessage ||
-          "Failed to approve reschedule request. Please try again."
-      );
-    },
-  });
-}
-
-export function useRejectRescheduleRequestMutation() {
-  const queryClient = useQueryClient();
-  const { showSuccess, showError } = useAppToast();
-
-  return useMutation({
-    mutationFn: async ({
-      requestId,
-      reason,
-    }: {
-      requestId: string;
-      reason?: string;
-    }) => {
-      return appointmentApi.rejectRescheduleRequest(requestId, reason);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["repaircoin", "reschedule-requests"],
-      });
-      showSuccess(
-        "The reschedule request has been rejected. The customer will be notified."
-      );
-    },
-    onError: (error: any) => {
-      console.error("Failed to reject reschedule request:", error);
-      const errorMessage =
-        error.response?.data?.error || error.message || "";
-      showError(
-        errorMessage ||
-          "Failed to reject reschedule request. Please try again."
-      );
-    },
-  });
-}
-
-export function useCreateRescheduleRequestMutation() {
-  const queryClient = useQueryClient();
-  const { showSuccess, showError } = useAppToast();
-
-  return useMutation({
-    mutationFn: async ({
-      orderId,
-      requestedDate,
-      requestedTimeSlot,
-      reason,
-    }: {
-      orderId: string;
-      requestedDate: string;
-      requestedTimeSlot: string;
-      reason?: string;
-    }) => {
-      return appointmentApi.createRescheduleRequest(
-        orderId,
-        requestedDate,
-        requestedTimeSlot,
-        reason
-      );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["repaircoin", "bookings", "customer"],
-      });
-      showSuccess(
-        "Reschedule request sent. The shop will review it shortly."
-      );
-    },
-    onError: (error: any) => {
-      console.error("Failed to create reschedule request:", error);
-      const errorMessage =
-        error.response?.data?.error || error.message || "";
-      showError(
-        errorMessage ||
-          "Failed to send reschedule request. Please try again."
-      );
-    },
-  });
-}
-
-export function useCancelRescheduleRequestMutation() {
-  const queryClient = useQueryClient();
-  const { showSuccess, showError } = useAppToast();
-
-  return useMutation({
-    mutationFn: async (requestId: string) => {
-      return appointmentApi.cancelRescheduleRequest(requestId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["repaircoin", "bookings", "customer"],
-      });
-      showSuccess("Reschedule request cancelled.");
-    },
-    onError: (error: any) => {
-      console.error("Failed to cancel reschedule request:", error);
-      const errorMessage =
-        error.response?.data?.error || error.message || "";
-      showError(
-        errorMessage ||
-          "Failed to cancel reschedule request. Please try again."
-      );
-    },
-  });
-}
-
 // ─── Manual Booking Mutation ────────────────────────────────────────────────
 
 export function useManualBookingMutation() {
@@ -477,7 +340,7 @@ export function useManualBookingMutation() {
       shopId: string;
       bookingData: ManualBookingData;
     }) => {
-      return appointmentApi.createManualBooking(shopId, bookingData);
+      return serviceApi.createManualBooking(shopId, bookingData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

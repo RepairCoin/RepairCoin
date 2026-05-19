@@ -9,8 +9,8 @@ import {
   useCancelOrderByShopMutation,
   useMarkNoShowMutation,
   useRescheduleMutation,
-  useCreateRescheduleRequestMutation,
 } from "./useBookingMutations";
+import { useCreateRescheduleRequestMutation } from "@/feature/services/reschedule/hooks";
 import { BookingData, BookingStatus } from "@/feature/services/services/service.interface";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";

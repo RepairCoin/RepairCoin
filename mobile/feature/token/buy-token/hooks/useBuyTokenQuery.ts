@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { usePaymentStore } from "@/feature/services/booking/store/payment.store";
+import { usePaymentStore } from "@/feature/services/payment/store/payment.store";
 import { shopApi } from "@/feature/shop/services/shop.services";
 import { useAppToast } from "@/shared/hooks";
 import { useSubmitGuard } from "@/shared/hooks/useSubmitGuard";

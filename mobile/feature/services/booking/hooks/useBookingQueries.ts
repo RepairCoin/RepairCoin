@@ -9,8 +9,6 @@ import { MyAppointment } from "@/feature/appointment/services/appointment.interf
 import {
   appointmentApi,
   CustomerSearchResult,
-  RescheduleRequest,
-  RescheduleRequestStatus,
 } from "@/feature/appointment/services/appointment.services";
 import { TrendDays } from "@/feature/services/services/service.interface";
 
@@ -84,29 +82,6 @@ export function useMyAppointmentsQuery(startDate: string, endDate: string) {
     },
     enabled: !!startDate && !!endDate,
     staleTime: 2 * 60 * 1000,
-  });
-}
-
-// ─── Reschedule Queries ─────────────────────────────────────────────────────
-
-export function useRescheduleRequestsQuery(
-  status?: RescheduleRequestStatus | "all",
-  options?: QueryOptions
-) {
-  return useQuery<RescheduleRequest[]>({
-    queryKey: ["repaircoin", "reschedule-requests", status || "all"],
-    queryFn: () => appointmentApi.getShopRescheduleRequests(status),
-    staleTime: 30 * 1000,
-    enabled: options?.enabled !== false,
-  });
-}
-
-export function useRescheduleRequestCountQuery(options?: QueryOptions) {
-  return useQuery<number>({
-    queryKey: ["repaircoin", "reschedule-requests", "count"],
-    queryFn: () => appointmentApi.getShopRescheduleRequestCount(),
-    staleTime: 60 * 1000,
-    enabled: options?.enabled !== false,
   });
 }
 

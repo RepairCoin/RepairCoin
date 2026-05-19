@@ -15,10 +15,13 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAppToast } from "@/shared/hooks";
-import { serviceApi } from "@/feature/services/services/service.services";
 import { DisputeEntry } from "@/feature/services/services/service.interface";
+import {
+  useShopDisputesQuery,
+  useApproveDisputeMutation,
+  useRejectDisputeMutation,
+} from "../hooks";
 
 type DisputeFilter = "pending" | "approved" | "rejected" | "all";
 
@@ -38,65 +41,34 @@ export default function ShopDisputesScreen() {
     action: "approve" | "reject";
   } | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
-  const { showSuccess, showError } = useAppToast();
-  const queryClient = useQueryClient();
+  const { showError } = useAppToast();
 
   const {
     data: disputeData,
     isLoading,
     refetch,
-  } = useQuery({
-    queryKey: ["shopDisputes", shopId, filter],
-    queryFn: () => serviceApi.getShopDisputes(shopId, filter),
-    enabled: !!shopId,
-    staleTime: 60 * 1000,
-  });
+  } = useShopDisputesQuery(shopId, filter);
 
-  const approveMutation = useMutation({
-    mutationFn: ({ disputeId, notes }: { disputeId: string; notes?: string }) =>
-      serviceApi.approveDispute(shopId, disputeId, notes),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shopDisputes"] });
-      setActionModal(null);
-      setResolutionNotes("");
-      showSuccess("Dispute approved. No-show penalty reversed.");
-    },
-    onError: (error: any) => {
-      showError(error.response?.data?.error || "Failed to approve dispute");
-    },
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: ({ disputeId, reason }: { disputeId: string; reason: string }) =>
-      serviceApi.rejectDispute(shopId, disputeId, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shopDisputes"] });
-      setActionModal(null);
-      setResolutionNotes("");
-      showSuccess("Dispute rejected.");
-    },
-    onError: (error: any) => {
-      showError(error.response?.data?.error || "Failed to reject dispute");
-    },
-  });
+  const approveMutation = useApproveDisputeMutation(shopId);
+  const rejectMutation = useRejectDisputeMutation(shopId);
 
   const handleAction = () => {
     if (!actionModal) return;
 
     if (actionModal.action === "approve") {
-      approveMutation.mutate({
-        disputeId: actionModal.disputeId,
-        notes: resolutionNotes || undefined,
-      });
+      approveMutation.mutate(
+        { disputeId: actionModal.disputeId, notes: resolutionNotes || undefined },
+        { onSuccess: () => { setActionModal(null); setResolutionNotes(""); } }
+      );
     } else {
       if (resolutionNotes.length < 10) {
         showError("Rejection reason must be at least 10 characters");
         return;
       }
-      rejectMutation.mutate({
-        disputeId: actionModal.disputeId,
-        reason: resolutionNotes,
-      });
+      rejectMutation.mutate(
+        { disputeId: actionModal.disputeId, reason: resolutionNotes },
+        { onSuccess: () => { setActionModal(null); setResolutionNotes(""); } }
+      );
     }
   };
 

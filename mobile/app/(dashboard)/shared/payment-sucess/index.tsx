@@ -3,7 +3,7 @@ import { Ionicons, Feather, FontAwesome5 } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePaymentStore, PaymentType, waitForPaymentStoreHydration } from "@/feature/services/booking/store/payment.store";
+import { usePaymentStore, PaymentType, waitForPaymentStoreHydration } from "@/feature/services/payment/store/payment.store";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { serviceApi } from "@/feature/services/services/service.services";
 

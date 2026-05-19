@@ -10,13 +10,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { AppHeader } from "@/shared/components/ui/AppHeader";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
-import { RescheduleRequestCard } from "../../components";
+import { RescheduleRequestCard } from "../components";
 import {
   useRescheduleRequestsQuery,
   useApproveRescheduleRequestMutation,
   useRejectRescheduleRequestMutation,
-} from "../../hooks";
-import { RescheduleRequestStatus } from "@/feature/appointment/services/appointment.services";
+} from "../hooks";
+import { RescheduleRequestStatus } from "@/feature/services/services/service.interface";
 
 type FilterStatus = RescheduleRequestStatus | "all";
 

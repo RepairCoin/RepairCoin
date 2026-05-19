@@ -20,10 +20,10 @@ import {
   StatusBanner,
   ShopActions,
   CustomerActions,
-} from "../../components";
+} from "../components";
 import { BookingStatus } from "@/feature/services/services/service.interface";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
-import { useBookingDetail } from "../../hooks";
+import { useBookingDetail } from "../hooks";
 
 // --- Formatters ---
 

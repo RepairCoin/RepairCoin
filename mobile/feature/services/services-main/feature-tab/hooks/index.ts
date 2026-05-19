@@ -1,4 +1,3 @@
-// Queries & Mutations
 export {
   useAllServicesQuery,
   useInfiniteServicesQuery,
@@ -15,8 +14,6 @@ export {
   useServiceReviewsQuery,
   useSubmitReviewMutation,
 } from "./useFeatureTabQuery";
-
-// UI Hooks
 export { useCustomerServiceTab } from "./useCustomerServiceTab";
 export { useServicesTab } from "./useServicesTab";
 export { useFavoritesTab } from "./useFavoritesTab";

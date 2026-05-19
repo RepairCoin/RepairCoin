@@ -13,7 +13,11 @@ import {
   BookingResponse,
   BookingAnalytics,
   DisputeEntry,
+  RescheduleRequest,
+  RescheduleRequestStatus,
   DisputeListResponse,
+  ManualBookingData,
+  ManualBookingResponse,
 } from "@/feature/services/services/service.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
@@ -389,6 +393,174 @@ class ServiceApi {
       return response.data;
     } catch (error: any) {
       console.error("Failed to reject dispute:", error.message);
+      throw error;
+    }
+  }
+
+  // ============================================
+  // Reschedule Endpoints
+  // ============================================
+
+  async getShopRescheduleRequests(
+    status?: RescheduleRequestStatus | "all"
+  ): Promise<RescheduleRequest[]> {
+    try {
+      const queryString = status ? buildQueryString({ status }) : "";
+      const response: any = await apiClient.get(
+        `/services/appointments/reschedule-requests${queryString}`
+      );
+      return response.data || response.requests || response || [];
+    } catch (error: any) {
+      console.error("Failed to get reschedule requests:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopRescheduleRequestCount(): Promise<number> {
+    try {
+      const response = await apiClient.get(
+        `/services/appointments/reschedule-requests/count`
+      );
+      return response.data?.count || response.count || 0;
+    } catch (error: any) {
+      console.error("Failed to get reschedule request count:", error.message);
+      return 0;
+    }
+  }
+
+  async approveRescheduleRequest(requestId: string): Promise<boolean> {
+    try {
+      await apiClient.post(
+        `/services/appointments/reschedule-request/${requestId}/approve`
+      );
+      return true;
+    } catch (error: any) {
+      console.error("Failed to approve reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  async rejectRescheduleRequest(
+    requestId: string,
+    reason?: string
+  ): Promise<boolean> {
+    try {
+      await apiClient.post(
+        `/services/appointments/reschedule-request/${requestId}/reject`,
+        { reason }
+      );
+      return true;
+    } catch (error: any) {
+      console.error("Failed to reject reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  async createRescheduleRequest(
+    orderId: string,
+    requestedDate: string,
+    requestedTimeSlot: string,
+    reason?: string
+  ): Promise<RescheduleRequest> {
+    try {
+      const response = await apiClient.post(
+        `/services/appointments/reschedule-request`,
+        { orderId, requestedDate, requestedTimeSlot, reason }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to create reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelRescheduleRequest(requestId: string): Promise<boolean> {
+    try {
+      await apiClient.delete(
+        `/services/appointments/reschedule-request/${requestId}`
+      );
+      return true;
+    } catch (error: any) {
+      console.error("Failed to cancel reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  async getRescheduleRequestForOrder(
+    orderId: string
+  ): Promise<RescheduleRequest | null> {
+    try {
+      const response = await apiClient.get(
+        `/services/appointments/reschedule-request/order/${orderId}`
+      );
+      return response.data || null;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      console.error("Failed to get reschedule request:", error.message);
+      throw error;
+    }
+  }
+
+  async directRescheduleOrder(
+    orderId: string,
+    newDate: string,
+    newTimeSlot: string,
+    reason?: string
+  ): Promise<boolean> {
+    try {
+      await apiClient.post(`/services/bookings/${orderId}/direct-reschedule`, {
+        newDate,
+        newTimeSlot,
+        reason,
+      });
+      return true;
+    } catch (error: any) {
+      console.error("Failed to reschedule order:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelAppointment(
+    orderId: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.post(
+        `/services/appointments/cancel/${orderId}`
+      );
+    } catch (error: any) {
+      console.error("Failed to cancel appointment:", error.message);
+      throw error;
+    }
+  }
+
+  async markOrderAsNoShow(orderId: string, notes?: string): Promise<boolean> {
+    try {
+      await apiClient.post(`/services/orders/${orderId}/mark-no-show`, {
+        notes,
+      });
+      return true;
+    } catch (error: any) {
+      console.error("Failed to mark order as no-show:", error.message);
+      throw error;
+    }
+  }
+
+  async createManualBooking(
+    shopId: string,
+    bookingData: ManualBookingData
+  ): Promise<ManualBookingResponse> {
+    try {
+      const response = await apiClient.post(
+        `/services/shops/${shopId}/appointments/manual`,
+        bookingData
+      );
+      return {
+        success: true,
+        data: response.data,
+        message: response.message || "Booking created successfully",
+      };
+    } catch (error: any) {
+      console.error("Failed to create manual booking:", error.message);
       throw error;
     }
   }

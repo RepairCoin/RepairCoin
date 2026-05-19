@@ -480,3 +480,65 @@ export interface DisputeListResponse {
 export interface BookingResponse extends BaseResponse<BookingData[]> {}
 export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
 export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}
+
+// ============================================
+// Reschedule Types
+// ============================================
+
+export type RescheduleRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired"
+  | "cancelled";
+
+export interface RescheduleRequest {
+  requestId: string;
+  orderId: string;
+  shopId: string;
+  customerAddress: string;
+  customerName?: string;
+  originalDate: string;
+  originalTimeSlot: string;
+  originalEndTime?: string;
+  requestedDate: string;
+  requestedTimeSlot: string;
+  requestedEndTime?: string;
+  status: RescheduleRequestStatus;
+  customerReason?: string;
+  shopReason?: string;
+  createdAt: string;
+  expiresAt?: string;
+  serviceName?: string;
+  serviceId?: string;
+  totalAmount?: number;
+}
+
+// ============================================
+// Manual Booking Types
+// ============================================
+
+export interface ManualBookingData {
+  customerAddress: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+  serviceId: string;
+  bookingDate: string;
+  bookingTimeSlot: string;
+  bookingEndTime: string;
+  paymentStatus: "paid" | "pending" | "unpaid";
+  notes?: string;
+  createNewCustomer?: boolean;
+}
+
+export interface ManualBookingResponse {
+  success: boolean;
+  data: {
+    orderId: string;
+    status: string;
+    bookingDate: string;
+    bookingTimeSlot: string;
+  };
+  message: string;
+}
