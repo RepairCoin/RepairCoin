@@ -1,1 +1,1 @@
-export { default } from "@/feature/services/screens/shop/ServiceGroupSettingsScreen";
+export { default } from "@/feature/services/services-main/screens/shop/ServiceGroupSettingsScreen";

@@ -10,7 +10,7 @@ import { router } from "expo-router";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonHorizontalCards } from "@/shared/components/ui/Skeleton";
-import { useFavorite } from "@/feature/services/hooks/useFavorite";
+import { useGetFavoritesQuery } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 
 interface RecentlyViewedSectionProps {
   data: ServiceData[];
@@ -23,8 +23,7 @@ export default function RecentlyViewedSection({
   isLoading,
   onServicePress,
 }: RecentlyViewedSectionProps) {
-  const { useGetFavorites } = useFavorite();
-  const { data: favoritesData } = useGetFavorites();
+  const { data: favoritesData } = useGetFavoritesQuery();
 
   const favoritedIds = React.useMemo(() => {
     if (!favoritesData) return new Set<string>();

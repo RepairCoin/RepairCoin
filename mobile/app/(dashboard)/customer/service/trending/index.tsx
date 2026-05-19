@@ -1,1 +1,1 @@
-export { TrendingServicesScreen as default } from "@/feature/services/screens";
+export { TrendingServicesScreen as default } from "@/feature/services/services-main/screens";

@@ -10,7 +10,7 @@ import {
 import {
   ServiceReviewsResponse,
   ReviewFilters,
-} from "@/feature/services/services/review.interface";
+} from "@/feature/services/services/service.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
 class ServiceApi {

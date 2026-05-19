@@ -16,12 +16,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
-import { useService } from "@/feature/services/hooks/useService";
+import { useAllServicesQuery, useGetTrendingServicesQuery, useGetRecentlyViewedQuery, useGetFavoritesQuery } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { apiClient } from "@/shared/utilities/axios";
 import { useAppToast } from "@/shared/hooks";
 import ActionCard from "@/shared/components/shared/ActionCard";
-import { useFavorite } from "@/feature/services/hooks/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 import RecentlyViewedSection from "./RecentlyViewedSection";
@@ -30,8 +29,6 @@ import CampaignsPromosSection from "./CampaignsPromosSection";
 export default function CustomerWalletTab() {
   const { account, userProfile } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const { useGetAllServicesQuery, useGetTrendingServices, useGetRecentlyViewed } = useService();
-  const { useGetFavorites } = useFavorite();
   const walletAddress = account?.address || userProfile?.walletAddress || userProfile?.address;
 
   const {
@@ -45,21 +42,21 @@ export default function CustomerWalletTab() {
     data: servicesData,
     isLoading: servicesLoading,
     refetch: refetchServices,
-  } = useGetAllServicesQuery();
+  } = useAllServicesQuery();
 
   const {
     data: trendingData,
     isLoading: trendingLoading,
     refetch: refetchTrending,
-  } = useGetTrendingServices({ limit: 4, days: 7 });
+  } = useGetTrendingServicesQuery({ limit: 4, days: 7 });
 
   const {
     data: recentlyViewedData,
     isLoading: recentlyViewedLoading,
     refetch: refetchRecentlyViewed,
-  } = useGetRecentlyViewed({ limit: 8 });
+  } = useGetRecentlyViewedQuery({ limit: 8 });
 
-  const { data: favoritesData, refetch: refetchFavorites } = useGetFavorites();
+  const { data: favoritesData, refetch: refetchFavorites } = useGetFavoritesQuery();
 
   const 
   favoritedIds = useMemo(() => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFavorite } from "@/feature/services/hooks/useFavorite";
+import { useToggleFavoriteMutation } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 import { useHaptics } from "@/shared/hooks/useHaptics";
 import { getCategoryLabel } from "@/shared/utilities/getCategoryLabel";
 
@@ -63,8 +63,7 @@ function ServiceCard({
   isFavorited: initialFavorited,
 }: ServiceCardProps) {
   const category = getCategoryLabel(rawCategory);
-  const { useToggleFavorite } = useFavorite();
-  const { toggleFavorite } = useToggleFavorite();
+  const { toggleFavorite } = useToggleFavoriteMutation();
   const haptics = useHaptics();
 
   const [localFavorited, setLocalFavorited] = useState(initialFavorited);

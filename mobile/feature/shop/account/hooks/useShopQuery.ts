@@ -5,7 +5,7 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 import { queryClient, queryKeys } from "@/shared/config/queryClient";
 import { shopApi } from "@/feature/shop/services/shop.services";
-import { useService } from "@/feature/services/hooks/useService";
+import { useShopServicesQuery as useServiceShopQuery } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 import {
   ShopFormData,
   ShopResponse,
@@ -259,8 +259,7 @@ export const useShopProfileByWalletQuery = (walletAddress: string) => {
 };
 
 export const useShopServicesQuery = (shopId: string) => {
-  const { useShopServicesQuery: useServices } = useService();
-  return useServices({ shopId, page: 1, limit: 20 });
+  return useServiceShopQuery({ shopId, page: 1, limit: 20 });
 };
 
 export function useUpdatePromoCodeStatusMutation() {

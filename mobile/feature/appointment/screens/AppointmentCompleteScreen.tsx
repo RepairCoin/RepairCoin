@@ -13,7 +13,7 @@ import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams } from "expo-router";
 import { DateData } from "react-native-calendars";
-import { useService } from "@/feature/services/hooks/useService";
+import { useGetServiceQuery } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 import {
   useBalance,
   useAvailableTimeSlotsQuery,
@@ -31,8 +31,7 @@ import { AppointmentStep } from "../types";
 export default function AppointmentCompleteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userProfile } = useAuthStore();
-  const { useGetService } = useService();
-  const { data: serviceData, isLoading, error } = useGetService(id!);
+  const { data: serviceData, isLoading, error } = useGetServiceQuery(id!);
   const { data: balanceData } = useBalance(userProfile?.address || "");
   const stripeCheckoutMutation = useCreateStripeCheckoutMutation();
 

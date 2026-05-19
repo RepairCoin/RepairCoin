@@ -1,7 +1,7 @@
-import { TierConfig } from "@/feature/services/types";
-import { CustomerServiceTab } from "@/feature/services/tab-types";
+import { TierConfig } from "@/feature/services/services/service.interface";
+import { CustomerServiceTab } from "@/feature/services/services/service.interface";
 import { FilterOption } from "@/shared/components/shared/FilterModal";
-import { AvailabilityTab, ServiceStatusFilter, ServiceFormData } from "@/feature/services/types";
+import { AvailabilityTab, ServiceStatusFilter, ServiceFormData } from "@/feature/services/services/service.interface";
 
 // Tier configuration for service detail
 export const TIER_CONFIG: Record<string, TierConfig> = {
