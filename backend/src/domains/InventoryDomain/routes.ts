@@ -36,6 +36,9 @@ export function initializeRoutes(): Router {
   // Get single item by ID
   router.get('/items/:itemId', shopAuth, inventoryController.getInventoryItem);
 
+  // Get item by barcode (for barcode scanning)
+  router.get('/items/barcode/:barcode', shopAuth, inventoryController.getInventoryItemByBarcode);
+
   // Create new item
   router.post('/items', shopAuth, inventoryController.createInventoryItem);
 

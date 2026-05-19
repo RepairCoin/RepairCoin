@@ -58,6 +58,12 @@ export const inventoryApi = {
     return response.item;
   },
 
+  // Get inventory item by barcode (for barcode scanning)
+  async getItemByBarcode(barcode: string): Promise<{ success: boolean; item: InventoryItem | null }> {
+    const response = await apiClient.get(`/inventory/items/barcode/${encodeURIComponent(barcode)}`);
+    return response;
+  },
+
   // Create new inventory item
   async createItem(data: CreateInventoryItemData): Promise<InventoryItem> {
     const response = await apiClient.post('/inventory/items', data);

@@ -254,6 +254,25 @@ export class InventoryRepository extends BaseRepository {
   }
 
   /**
+   * Get inventory item by barcode
+   */
+  async getItemByBarcode(barcode: string, shopId: string): Promise<InventoryItem | null> {
+    try {
+      const query = `
+        SELECT * FROM inventory_items
+        WHERE barcode = $1 AND shop_id = $2 AND deleted_at IS NULL
+      `;
+      const result = await this.pool.query(query, [barcode, shopId]);
+
+      if (result.rows.length === 0) return null;
+      return this.mapSnakeToCamel(result.rows[0]) as InventoryItem;
+    } catch (error: any) {
+      logger.error('Error fetching inventory item by barcode:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get inventory items with filters and pagination
    */
   async getItems(

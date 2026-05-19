@@ -18,6 +18,8 @@ import {
   TrendingUp,
   History,
   Download,
+  Camera,
+  BarChart3,
 } from 'lucide-react';
 import { inventoryApi } from '@/services/api/inventory';
 import type {
@@ -37,6 +39,8 @@ import { AdjustmentHistoryModal } from '../modals/AdjustmentHistoryModal';
 import { BulkActionsBar } from './BulkActionsBar';
 import { BulkUpdateModal } from '../modals/BulkUpdateModal';
 import { POSuggestionsCard } from '../inventory/POSuggestionsCard';
+import { BarcodeScannerModal } from '../modals/BarcodeScannerModal';
+import { BatchStockCountModal } from '../modals/BatchStockCountModal';
 
 interface InventoryTabProps {
   shopId: string;
@@ -76,7 +80,10 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [showBatchScannerModal, setShowBatchScannerModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItemWithDetails | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   // Load data
   useEffect(() => {
@@ -265,6 +272,24 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
     setSelectedItems(new Set());
   };
 
+  const handleItemScanned = (item: InventoryItemWithDetails) => {
+    // Highlight the found item in the list
+    setHighlightedItemId(item.id);
+
+    // Scroll to the item (if it's in the current list)
+    setTimeout(() => {
+      const element = document.getElementById(`inventory-item-${item.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 300);
+
+    // Clear highlight after 3 seconds
+    setTimeout(() => {
+      setHighlightedItemId(null);
+    }, 3000);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header with Stats */}
@@ -298,6 +323,22 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
           >
             <Download className="w-4 h-4" />
             Export CSV
+          </button>
+          <button
+            onClick={() => setShowScannerModal(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 font-medium"
+            title="Scan barcode to find item"
+          >
+            <Camera className="w-5 h-5" />
+            Scan Barcode
+          </button>
+          <button
+            onClick={() => setShowBatchScannerModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium"
+            title="Batch scan for inventory count"
+          >
+            <BarChart3 className="w-5 h-5" />
+            Batch Scan
           </button>
           <button
             onClick={() => setShowAddModal(true)}
@@ -821,6 +862,22 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
             loadInventory();
             loadStats();
             clearSelection();
+          }}
+        />
+      )}
+      {showScannerModal && (
+        <BarcodeScannerModal
+          onClose={() => setShowScannerModal(false)}
+          onItemFound={handleItemScanned}
+          mode="lookup"
+        />
+      )}
+      {showBatchScannerModal && (
+        <BatchStockCountModal
+          onClose={() => setShowBatchScannerModal(false)}
+          onComplete={() => {
+            loadInventory();
+            loadStats();
           }}
         />
       )}

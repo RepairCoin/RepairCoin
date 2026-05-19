@@ -235,3 +235,33 @@ export const getInventoryStats = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ error: 'Failed to fetch inventory statistics' });
   }
 };
+
+/**
+ * Get inventory item by barcode
+ */
+export const getInventoryItemByBarcode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const shopId = req.user?.shopId;
+    if (!shopId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { barcode } = req.params;
+
+    if (!barcode) {
+      res.status(400).json({ error: 'Barcode is required' });
+      return;
+    }
+
+    const item = await inventoryRepo.getItemByBarcode(barcode, shopId);
+
+    res.json({
+      success: true,
+      item: item || null
+    });
+  } catch (error: any) {
+    logger.error('Error fetching inventory item by barcode:', error);
+    res.status(500).json({ error: 'Failed to lookup barcode' });
+  }
+};

@@ -532,14 +532,86 @@ export class POSuggestionService {
         timestamp: new Date(),
       });
 
-      // TODO: If autoCreatePO, create actual purchase order
-      // This would integrate with existing PO creation logic
+      // Auto-create PO if requested
+      let purchaseOrderId: string | undefined;
+      if (autoCreatePO && suggestion.vendorId) {
+        purchaseOrderId = await this.createPOFromSuggestion(suggestion, userId);
 
-      return { suggestion };
+        // Update suggestion with PO ID
+        await pool.query(
+          `UPDATE purchase_order_suggestions SET purchase_order_id = $1 WHERE id = $2`,
+          [purchaseOrderId, suggestionId]
+        );
+
+        logger.info(`Auto-created PO ${purchaseOrderId} from suggestion ${suggestionId}`);
+      }
+
+      return { suggestion, purchaseOrderId };
     } catch (error) {
       logger.error('Error approving suggestion:', error);
       throw error;
     }
+  }
+
+  /**
+   * Create a purchase order from an approved suggestion
+   */
+  private async createPOFromSuggestion(suggestion: POSuggestion, userId: string): Promise<string> {
+    const PurchaseOrderRepository = require('../repositories/PurchaseOrderRepository').PurchaseOrderRepository;
+    const poRepository = new PurchaseOrderRepository();
+
+    // Get item details
+    const itemQuery = `SELECT * FROM inventory_items WHERE id = $1`;
+    const itemResult = await pool.query(itemQuery, [suggestion.itemId]);
+
+    if (itemResult.rows.length === 0) {
+      throw new Error(`Item not found: ${suggestion.itemId}`);
+    }
+
+    const item = itemResult.rows[0];
+
+    // Get vendor details
+    const vendorQuery = `SELECT * FROM inventory_vendors WHERE id = $1`;
+    const vendorResult = await pool.query(vendorQuery, [suggestion.vendorId]);
+
+    if (vendorResult.rows.length === 0) {
+      throw new Error(`Vendor not found: ${suggestion.vendorId}`);
+    }
+
+    const vendor = vendorResult.rows[0];
+
+    // Calculate expected delivery date based on lead time
+    const expectedDeliveryDate = new Date();
+    if (vendor.lead_time_days) {
+      expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + vendor.lead_time_days);
+    } else {
+      expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + 7); // Default 7 days
+    }
+
+    // Create PO data
+    const poData = {
+      shopId: suggestion.shopId,
+      vendorId: suggestion.vendorId,
+      vendorName: vendor.name,
+      orderDate: new Date(),
+      expectedDeliveryDate,
+      notes: `Auto-generated from PO suggestion. Reason: ${suggestion.reason}. Priority: ${suggestion.priorityScore}/100.`,
+      createdBy: userId,
+      items: [
+        {
+          inventoryItemId: suggestion.itemId,
+          itemName: item.name,
+          itemSku: item.sku || null,
+          quantity: suggestion.suggestedQuantity,
+          unitCost: item.cost || 0,
+        },
+      ],
+    };
+
+    // Create the PO
+    const purchaseOrder = await poRepository.createPurchaseOrder(poData);
+
+    return purchaseOrder.id;
   }
 
   /**

@@ -72,12 +72,16 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
     }
   };
 
-  const handleApprove = async (suggestionId: string) => {
+  const handleApprove = async (suggestionId: string, autoCreatePO: boolean = false) => {
     try {
       setProcessingId(suggestionId);
-      await inventoryApi.approveSuggestion(suggestionId);
+      const response = await inventoryApi.approveSuggestion(suggestionId, { autoCreatePO });
 
-      toast.success("Suggestion approved! You can now create a purchase order for this item.");
+      if (autoCreatePO && response.data?.purchaseOrderId) {
+        toast.success(`Suggestion approved and PO created!`);
+      } else {
+        toast.success("Suggestion approved!");
+      }
 
       // Remove approved suggestion from list
       setSuggestions(suggestions.filter((s) => s.id !== suggestionId));
@@ -330,17 +334,26 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                   ) : (
                     <>
                       <button
-                        onClick={() => handleApprove(suggestion.id)}
+                        onClick={() => handleApprove(suggestion.id, false)}
                         disabled={processingId === suggestion.id}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       >
                         <ThumbsUp className="w-4 h-4" />
                         {processingId === suggestion.id ? "Processing..." : "Approve"}
                       </button>
                       <button
+                        onClick={() => handleApprove(suggestion.id, true)}
+                        disabled={processingId === suggestion.id}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        title="Approve and automatically create purchase order"
+                      >
+                        <Package className="w-4 h-4" />
+                        {processingId === suggestion.id ? "Processing..." : "Create PO"}
+                      </button>
+                      <button
                         onClick={() => setRejectingId(suggestion.id)}
                         disabled={processingId === suggestion.id}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       >
                         <ThumbsDown className="w-4 h-4" />
                         Reject
