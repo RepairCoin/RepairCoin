@@ -1,6 +1,8 @@
--- Migration: Create Purchase Order Suggestions System
+-- Migration 120: Create Purchase Order Suggestions System
 -- Description: Adds vendor lead times and PO suggestions table with smart analytics
--- Date: 2026-05-18
+-- Date: 2026-05-18 (renumbered from 116 → 120 on 2026-05-20 to resolve a
+-- numbering collision with AI-team migration 116; migration_history INSERT
+-- below updated to version 120, content unchanged.)
 -- Version: v2.1 - Auto PO Suggestions
 
 -- ============================================================================
@@ -112,5 +114,5 @@ COMMENT ON COLUMN purchase_order_suggestions.expires_at IS 'Suggestion expires 7
 -- ============================================================================
 
 INSERT INTO migration_history (migration_number, migration_name, executed_at)
-VALUES (116, 'create_po_suggestions_system', CURRENT_TIMESTAMP)
+VALUES (120, 'create_po_suggestions_system', CURRENT_TIMESTAMP)
 ON CONFLICT (migration_number) DO NOTHING;

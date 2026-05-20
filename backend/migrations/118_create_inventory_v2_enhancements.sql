@@ -1,6 +1,7 @@
--- Migration: Create Inventory v2.0 Enhancement Tables
+-- Migration 118: Create Inventory v2.0 Enhancement Tables
 -- Description: Creates tables for service-inventory integration, purchase orders, and alert settings
--- Date: 2026-05-14
+-- Date: 2026-05-14 (renumbered from 114 → 118 on 2026-05-20 to resolve a
+-- numbering collision with AI-team migration 114; content unchanged.)
 -- Related: Inventory v2.0 features (service integration, purchase orders, low stock alerts)
 
 -- ============================================================================

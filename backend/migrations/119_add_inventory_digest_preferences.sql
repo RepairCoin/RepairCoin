@@ -1,5 +1,7 @@
--- Migration 115: Add Inventory Email Digest Preferences
--- Date: 2026-05-18
+-- Migration 119: Add Inventory Email Digest Preferences
+-- Date: 2026-05-18 (renumbered from 115 → 119 on 2026-05-20 to resolve
+-- a numbering collision with AI-team migration 115; tracking insert below
+-- updated to match the new filename, content unchanged.)
 -- Purpose: Allow shops to configure email digest frequency for low stock alerts
 
 -- Add digest preferences to shops table
@@ -26,4 +28,4 @@ CREATE INDEX IF NOT EXISTS idx_shops_digest_schedule ON shops(low_stock_digest_m
 
 -- Migration tracking
 INSERT INTO migrations (name, applied_at)
-VALUES ('115_add_inventory_digest_preferences.sql', NOW());
+VALUES ('119_add_inventory_digest_preferences.sql', NOW());
