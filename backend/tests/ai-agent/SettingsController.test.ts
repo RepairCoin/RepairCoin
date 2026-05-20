@@ -34,6 +34,7 @@ const settingsRow = (overrides: any = {}) => ({
   escalation_threshold: 5,
   monthly_budget_usd: "20.00",
   current_month_spend_usd: "3.50",
+  human_reply_baseline_minutes: 240,
   ...overrides,
 });
 
@@ -101,6 +102,54 @@ describe("validateShopAiSettingsUpdate", () => {
       validateShopAiSettingsUpdate({ escalationThreshold: 20, aiFollowupDelayMinutes: 30 }).ok
     ).toBe(true);
   });
+
+  // ----- Optional humanReplyBaselineMinutes (added 2026-05-20 for Impact Metrics) -----
+
+  it("treats humanReplyBaselineMinutes as optional — omits it from value when absent", () => {
+    const r = validateShopAiSettingsUpdate({ escalationThreshold: 5, aiFollowupDelayMinutes: 20 });
+    expect(r.ok).toBe(true);
+    expect(r.value).not.toHaveProperty("humanReplyBaselineMinutes");
+  });
+
+  it("accepts a valid humanReplyBaselineMinutes when present", () => {
+    const r = validateShopAiSettingsUpdate({
+      escalationThreshold: 5,
+      aiFollowupDelayMinutes: 20,
+      humanReplyBaselineMinutes: 120,
+    });
+    expect(r.ok).toBe(true);
+    expect(r.value?.humanReplyBaselineMinutes).toBe(120);
+  });
+
+  it("accepts the humanReplyBaselineMinutes boundary values (15 and 1440)", () => {
+    expect(
+      validateShopAiSettingsUpdate({
+        escalationThreshold: 5,
+        aiFollowupDelayMinutes: 20,
+        humanReplyBaselineMinutes: 15,
+      }).ok
+    ).toBe(true);
+    expect(
+      validateShopAiSettingsUpdate({
+        escalationThreshold: 5,
+        aiFollowupDelayMinutes: 20,
+        humanReplyBaselineMinutes: 1440,
+      }).ok
+    ).toBe(true);
+  });
+
+  it.each([0, 14, 1441, 60.5, -1, "240", null])(
+    "rejects humanReplyBaselineMinutes = %p",
+    (bad) => {
+      const r = validateShopAiSettingsUpdate({
+        escalationThreshold: 5,
+        aiFollowupDelayMinutes: 20,
+        humanReplyBaselineMinutes: bad,
+      });
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/humanReplyBaselineMinutes/);
+    }
+  );
 });
 
 // ----- GET /api/ai/settings -----
@@ -130,6 +179,7 @@ describe("SettingsController.getOwnShopAiSettings", () => {
         currentMonthSpendUsd: 3.5,
         escalationThreshold: 5,
         aiFollowupDelayMinutes: 20,
+        humanReplyBaselineMinutes: 240,
       },
     });
   });
@@ -313,6 +363,9 @@ describe("SettingsController.listShopAiSettings", () => {
           currentMonthSpendUsd: 9.36,
           escalationThreshold: 5,
           aiFollowupDelayMinutes: 15,
+          // Admin row mock omits human_reply_baseline_minutes → controller
+          // falls back to DEFAULT_HUMAN_REPLY_BASELINE_MINUTES.
+          humanReplyBaselineMinutes: 240,
         },
       ],
     });

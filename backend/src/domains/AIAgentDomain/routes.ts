@@ -10,6 +10,7 @@ import {
   listShopAiSettings,
   adminUpdateShopAiSettings,
 } from './controllers/SettingsController';
+import { getMetrics } from './controllers/MetricsController';
 
 /**
  * AI Agent domain routes.
@@ -22,6 +23,7 @@ import {
  *   GET  /api/ai/spend         — shop: own monthly spend snapshot (Task 12)
  *   GET  /api/ai/settings      — shop: own AI settings snapshot
  *   PUT  /api/ai/settings      — shop: update own shop-editable AI settings
+ *   GET  /api/ai/metrics       — shop: own AI Impact Metrics (Phase 2)
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
@@ -75,6 +77,12 @@ export function initializeRoutes(): Router {
   // its own settings. PUT touches only the shop-editable fields.
   router.get('/settings', authMiddleware, requireRole(['shop']), getOwnShopAiSettings);
   router.put('/settings', authMiddleware, requireRole(['shop']), updateOwnShopAiSettings);
+
+  // Shop-side AI Impact Metrics — Phase 2. Same auth shape as /settings:
+  // gates on `shop` role; the controller reads shopId from the JWT (no
+  // path param) so a shop can only ever read its OWN metrics.
+  // Query: ?range=7d|30d|90d|all  (default 30d)
+  router.get('/metrics', authMiddleware, requireRole(['shop']), getMetrics);
 
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
   // the auth boundary explicit. Pure read — safe for admin dashboards.

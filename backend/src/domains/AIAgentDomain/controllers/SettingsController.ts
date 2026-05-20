@@ -10,8 +10,11 @@
 //   - Admin "gates" (read-only here): ai_global_enabled, ai_followup_enabled,
 //     monthly_budget_usd. The shop never edits these via this endpoint — a
 //     shop must not turn on its own AI capability or raise its own cost cap.
-//   - Shop-editable: escalation_threshold, ai_followup_delay_minutes. These
-//     are behavior tuning — how the AI behaves once a capability is gated on.
+//   - Shop-editable: escalation_threshold, ai_followup_delay_minutes,
+//     human_reply_baseline_minutes. Behavior tuning + the per-shop baseline
+//     used by the Impact Metrics "Time your AI saved you" estimate.
+//     human_reply_baseline_minutes is OPTIONAL on PUT — older clients that
+//     don't yet send it are honored; we only write the column when present.
 //
 // Deliberately NOT exposed: business_hours_only_ai and blacklist_keywords —
 // both are columns on ai_shop_settings but NO code reads them yet. Surfacing
@@ -29,12 +32,18 @@ import { logger } from "../../../utils/logger";
 const DEFAULT_MONTHLY_BUDGET = 20.0;
 const DEFAULT_ESCALATION_THRESHOLD = 5;
 const DEFAULT_FOLLOWUP_DELAY_MINUTES = 20;
+// Matches DB DEFAULT 240 on ai_shop_settings.human_reply_baseline_minutes
+// (migration 117). Used when no row exists yet for the shop.
+const DEFAULT_HUMAN_REPLY_BASELINE_MINUTES = 240;
 
 // Validation bounds for the shop-editable fields.
 const ESCALATION_MIN = 1;
 const ESCALATION_MAX = 20;
 const DELAY_MIN = 15;
 const DELAY_MAX = 30;
+// Mirrors the DB CHECK constraint added in migration 117.
+const BASELINE_MIN = 15;
+const BASELINE_MAX = 1440;
 
 // Admin-gated monthly budget bounds. Admin is trusted; the cap is just a
 // fat-finger guard so a typo can't set a shop's AI budget to $50,000.
@@ -50,11 +59,14 @@ export interface ShopAiSettings {
   // Shop-editable
   escalationThreshold: number;
   aiFollowupDelayMinutes: number;
+  humanReplyBaselineMinutes: number;
 }
 
 export interface ShopAiSettingsUpdate {
   escalationThreshold: number;
   aiFollowupDelayMinutes: number;
+  /** Optional — only written when present. Defaults stay untouched if absent. */
+  humanReplyBaselineMinutes?: number;
 }
 
 export interface ValidationResult {
@@ -74,6 +86,7 @@ export function validateShopAiSettingsUpdate(body: any): ValidationResult {
   }
   const esc = body.escalationThreshold;
   const delay = body.aiFollowupDelayMinutes;
+  const baseline = body.humanReplyBaselineMinutes;
 
   if (!Number.isInteger(esc) || esc < ESCALATION_MIN || esc > ESCALATION_MAX) {
     return {
@@ -87,10 +100,25 @@ export function validateShopAiSettingsUpdate(body: any): ValidationResult {
       error: `aiFollowupDelayMinutes must be an integer between ${DELAY_MIN} and ${DELAY_MAX}`,
     };
   }
-  return {
-    ok: true,
-    value: { escalationThreshold: esc, aiFollowupDelayMinutes: delay },
+
+  const value: ShopAiSettingsUpdate = {
+    escalationThreshold: esc,
+    aiFollowupDelayMinutes: delay,
   };
+
+  // Baseline is optional. Validate only when the field is explicitly present
+  // so older clients that don't send it continue to work.
+  if (baseline !== undefined) {
+    if (!Number.isInteger(baseline) || baseline < BASELINE_MIN || baseline > BASELINE_MAX) {
+      return {
+        ok: false,
+        error: `humanReplyBaselineMinutes must be an integer between ${BASELINE_MIN} and ${BASELINE_MAX}`,
+      };
+    }
+    value.humanReplyBaselineMinutes = baseline;
+  }
+
+  return { ok: true, value };
 }
 
 /** One shop's AI settings as the admin gate view sees it. */
@@ -165,9 +193,11 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     escalation_threshold: number | null;
     monthly_budget_usd: string;
     current_month_spend_usd: string;
+    human_reply_baseline_minutes: number | null;
   }>(
     `SELECT ai_global_enabled, ai_followup_enabled, ai_followup_delay_minutes,
-            escalation_threshold, monthly_budget_usd, current_month_spend_usd
+            escalation_threshold, monthly_budget_usd, current_month_spend_usd,
+            human_reply_baseline_minutes
      FROM ai_shop_settings WHERE shop_id = $1`,
     [shopId]
   );
@@ -180,6 +210,7 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
       currentMonthSpendUsd: 0,
       escalationThreshold: DEFAULT_ESCALATION_THRESHOLD,
       aiFollowupDelayMinutes: DEFAULT_FOLLOWUP_DELAY_MINUTES,
+      humanReplyBaselineMinutes: DEFAULT_HUMAN_REPLY_BASELINE_MINUTES,
     };
   }
   const row = r.rows[0];
@@ -191,6 +222,8 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
     aiFollowupDelayMinutes:
       row.ai_followup_delay_minutes ?? DEFAULT_FOLLOWUP_DELAY_MINUTES,
+    humanReplyBaselineMinutes:
+      row.human_reply_baseline_minutes ?? DEFAULT_HUMAN_REPLY_BASELINE_MINUTES,
   };
 }
 
@@ -199,7 +232,8 @@ const ADMIN_SELECT = `
   SELECT s.shop_id, COALESCE(sh.name, s.shop_id) AS shop_name,
          s.ai_global_enabled, s.ai_followup_enabled,
          s.ai_followup_delay_minutes, s.escalation_threshold,
-         s.monthly_budget_usd, s.current_month_spend_usd
+         s.monthly_budget_usd, s.current_month_spend_usd,
+         s.human_reply_baseline_minutes
   FROM ai_shop_settings s
   LEFT JOIN shops sh ON sh.shop_id = s.shop_id`;
 
@@ -214,6 +248,8 @@ function mapAdminRow(row: any): AdminShopAiSettings {
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
     aiFollowupDelayMinutes:
       row.ai_followup_delay_minutes ?? DEFAULT_FOLLOWUP_DELAY_MINUTES,
+    humanReplyBaselineMinutes:
+      row.human_reply_baseline_minutes ?? DEFAULT_HUMAN_REPLY_BASELINE_MINUTES,
   };
 }
 
@@ -254,18 +290,30 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
           return;
         }
 
-        // Upsert the two shop-editable fields. The INSERT branch (shop has no
+        // Upsert the shop-editable fields. The INSERT branch (shop has no
         // settings row yet) leaves every gate field at its column DEFAULT —
         // crucially ai_global_enabled / ai_followup_enabled stay FALSE, so a
         // shop can never enable a capability through this endpoint.
+        // Dynamic columns so optional fields (humanReplyBaselineMinutes) are
+        // only written when the client sent them — mirrors the admin upsert.
+        const v = validation.value;
+        const cols: string[] = ["shop_id", "escalation_threshold", "ai_followup_delay_minutes"];
+        const vals: any[] = [shopId, v.escalationThreshold, v.aiFollowupDelayMinutes];
+        const setClauses: string[] = [
+          "escalation_threshold = EXCLUDED.escalation_threshold",
+          "ai_followup_delay_minutes = EXCLUDED.ai_followup_delay_minutes",
+        ];
+        if (v.humanReplyBaselineMinutes !== undefined) {
+          cols.push("human_reply_baseline_minutes");
+          vals.push(v.humanReplyBaselineMinutes);
+          setClauses.push("human_reply_baseline_minutes = EXCLUDED.human_reply_baseline_minutes");
+        }
+        const placeholders = vals.map((_, i) => `$${i + 1}`);
         await pool.query(
-          `INSERT INTO ai_shop_settings (shop_id, escalation_threshold, ai_followup_delay_minutes)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (shop_id) DO UPDATE SET
-             escalation_threshold = EXCLUDED.escalation_threshold,
-             ai_followup_delay_minutes = EXCLUDED.ai_followup_delay_minutes,
-             updated_at = NOW()`,
-          [shopId, validation.value.escalationThreshold, validation.value.aiFollowupDelayMinutes]
+          `INSERT INTO ai_shop_settings (${cols.join(", ")})
+           VALUES (${placeholders.join(", ")})
+           ON CONFLICT (shop_id) DO UPDATE SET ${setClauses.join(", ")}, updated_at = NOW()`,
+          vals
         );
 
         const data = await fetchSettings(pool, shopId);

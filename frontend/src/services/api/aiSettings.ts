@@ -15,17 +15,21 @@ export interface ShopAiSettings {
   // Shop-editable
   escalationThreshold: number;
   aiFollowupDelayMinutes: number;
+  humanReplyBaselineMinutes: number;
 }
 
 export interface ShopAiSettingsUpdate {
   escalationThreshold: number;
   aiFollowupDelayMinutes: number;
+  /** Optional — backend skips writing the column when absent. */
+  humanReplyBaselineMinutes?: number;
 }
 
 /** Bounds the UI enforces; the backend validates the same ranges. */
 export const AI_SETTINGS_BOUNDS = {
   escalationThreshold: { min: 1, max: 20 },
   aiFollowupDelayMinutes: { min: 15, max: 30 },
+  humanReplyBaselineMinutes: { min: 15, max: 1440 },
 } as const;
 
 /** Fetch the requesting shop's AI settings snapshot. */

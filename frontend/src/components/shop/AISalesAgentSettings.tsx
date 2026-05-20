@@ -12,6 +12,7 @@ import {
   getShopAiSettings,
   updateShopAiSettings,
 } from "@/services/api/aiSettings";
+import { AISalesImpactSection } from "./AISalesImpactSection";
 
 /**
  * Shop-side AI Sales Agent settings panel (a section inside SettingsTab).
@@ -32,6 +33,7 @@ export const AISalesAgentSettings: React.FC = () => {
   // Editable local state
   const [escalationThreshold, setEscalationThreshold] = useState<number>(5);
   const [followupDelay, setFollowupDelay] = useState<number>(20);
+  const [humanBaseline, setHumanBaseline] = useState<number>(240);
 
   useEffect(() => {
     const load = async () => {
@@ -42,6 +44,7 @@ export const AISalesAgentSettings: React.FC = () => {
         setSettings(data);
         setEscalationThreshold(data.escalationThreshold);
         setFollowupDelay(data.aiFollowupDelayMinutes);
+        setHumanBaseline(data.humanReplyBaselineMinutes);
       } catch (err) {
         console.error("Error loading AI settings:", err);
         setError(
@@ -56,16 +59,20 @@ export const AISalesAgentSettings: React.FC = () => {
 
   const escBounds = AI_SETTINGS_BOUNDS.escalationThreshold;
   const delayBounds = AI_SETTINGS_BOUNDS.aiFollowupDelayMinutes;
+  const baselineBounds = AI_SETTINGS_BOUNDS.humanReplyBaselineMinutes;
 
   const hasChanges =
     !!settings &&
     (escalationThreshold !== settings.escalationThreshold ||
-      followupDelay !== settings.aiFollowupDelayMinutes);
+      followupDelay !== settings.aiFollowupDelayMinutes ||
+      humanBaseline !== settings.humanReplyBaselineMinutes);
 
   const inRange = (v: number, b: { min: number; max: number }) =>
     Number.isInteger(v) && v >= b.min && v <= b.max;
   const valid =
-    inRange(escalationThreshold, escBounds) && inRange(followupDelay, delayBounds);
+    inRange(escalationThreshold, escBounds) &&
+    inRange(followupDelay, delayBounds) &&
+    inRange(humanBaseline, baselineBounds);
 
   const handleSave = async () => {
     if (!valid) {
@@ -77,11 +84,13 @@ export const AISalesAgentSettings: React.FC = () => {
       const update: ShopAiSettingsUpdate = {
         escalationThreshold,
         aiFollowupDelayMinutes: followupDelay,
+        humanReplyBaselineMinutes: humanBaseline,
       };
       const fresh = await updateShopAiSettings(update);
       setSettings(fresh);
       setEscalationThreshold(fresh.escalationThreshold);
       setFollowupDelay(fresh.aiFollowupDelayMinutes);
+      setHumanBaseline(fresh.humanReplyBaselineMinutes);
       toast.success("AI settings saved");
     } catch (err) {
       console.error("Error saving AI settings:", err);
@@ -137,6 +146,12 @@ export const AISalesAgentSettings: React.FC = () => {
           Configure how your AI assistant behaves with customers.
         </p>
       </div>
+
+      {/* ---- Impact (Phase 2/3 of Impact Metrics feature) ----
+           Self-contained: owns its own fetch lifecycle, picker state, and
+           render branches. Mounts ABOVE the configuration cards so the
+           shop owner sees outcome first, then settings. */}
+      <AISalesImpactSection />
 
       {/* ---- Status (read-only, admin-gated) ---- */}
       <div className="border-t border-[#3F3F3F] pt-6">
@@ -275,6 +290,34 @@ export const AISalesAgentSettings: React.FC = () => {
                 delay takes effect once RepairCoin turns them on.
               </p>
             )}
+          </div>
+
+          {/* Estimated human reply time — baseline for the Impact Metrics
+              "Time your AI saved you" estimate. Scope decision E:
+              per-shop configurable. */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              Estimated human reply time
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={baselineBounds.min}
+                max={baselineBounds.max}
+                value={humanBaseline}
+                onChange={(e) =>
+                  setHumanBaseline(parseInt(e.target.value, 10))
+                }
+                className="w-24 px-3 py-2 bg-[#F6F8FA] text-[#24292F] rounded-lg border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+              />
+              <span className="text-sm text-gray-400">minutes</span>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500">
+              Used to estimate the time your AI saves. Set this to how long
+              you typically take to reply when handling customers yourself.
+              Allowed: {baselineBounds.min}–{baselineBounds.max} (default 240
+              = 4h).
+            </p>
           </div>
 
           <div className="pt-1">
