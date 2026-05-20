@@ -235,7 +235,19 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
             }`}
           >
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+              {/* Bot + tiny green "AI is enabled" indicator dot. Scope-doc
+                  Section 6 Q2: keep the dot subtle, only show when ON.
+                  Ring matches the dashboard bg so it stays crisp over the
+                  active-tab underline. */}
+              <div className="relative">
+                <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                {service.aiSalesEnabled && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full ring-1 ring-[#0a0a0a]"
+                    aria-label="AI Assistant is enabled for this service"
+                  />
+                )}
+              </div>
               <span className="hidden sm:inline">AI Assistant</span>
             </div>
             {activeTab === 'ai' && (
@@ -345,6 +357,9 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
             <ServiceAIAssistantTab
               serviceId={serviceId}
               onUnsavedChangesChange={setHasUnsavedAiChanges}
+              // Keep parent's `service` in sync after a save so the
+              // tab's AI-enabled dot updates immediately, no reload.
+              onServiceUpdated={setService}
             />
           )}
         </div>

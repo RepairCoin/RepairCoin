@@ -37,6 +37,7 @@ import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDet
 import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
 import { ServiceImportModal } from "@/components/shop/modals/ServiceImportModal";
 import { ServiceExportModal } from "@/components/shop/modals/ServiceExportModal";
+import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
 
 interface ShopData {
   shopName?: string;
@@ -405,13 +406,21 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                     />
                   </div>
 
-                  {/* Category Badge */}
-                  {service.category && (
-                    <div className="mb-3">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-gray-600 rounded-full text-xs text-gray-300">
-                        <Tag className="w-3 h-3" />
-                        {getCategoryLabel(service.category)}
-                      </span>
+                  {/* Category + AI Badge row */}
+                  {(service.category || service.aiSalesEnabled) && (
+                    <div className="mb-3 flex items-center gap-2 flex-wrap">
+                      {service.category && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-gray-600 rounded-full text-xs text-gray-300">
+                          <Tag className="w-3 h-3" />
+                          {getCategoryLabel(service.category)}
+                        </span>
+                      )}
+                      {service.aiSalesEnabled && (
+                        <AIAssistantBadge
+                          variant="default"
+                          tooltip="AI Sales Assistant is enabled for this service. Customers booking this service will get AI replies."
+                        />
+                      )}
                     </div>
                   )}
 
