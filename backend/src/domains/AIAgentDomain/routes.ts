@@ -11,6 +11,11 @@ import {
   adminUpdateShopAiSettings,
 } from './controllers/SettingsController';
 import { getMetrics } from './controllers/MetricsController';
+import { askHelp } from './controllers/HelpAssistantController';
+import {
+  listHelpArticles,
+  getHelpArticle,
+} from './controllers/HelpArticleController';
 
 /**
  * AI Agent domain routes.
@@ -23,7 +28,10 @@ import { getMetrics } from './controllers/MetricsController';
  *   GET  /api/ai/spend         — shop: own monthly spend snapshot (Task 12)
  *   GET  /api/ai/settings      — shop: own AI settings snapshot
  *   PUT  /api/ai/settings      — shop: update own shop-editable AI settings
- *   GET  /api/ai/metrics       — shop: own AI Impact Metrics (Phase 2)
+ *   GET  /api/ai/metrics       — shop: own AI Impact Metrics
+ *   POST /api/ai/help          — shop: How-To Assistant (in-dashboard product help)
+ *   GET  /api/ai/help/articles — shop: list help-article index (filename + title)
+ *   GET  /api/ai/help/articles/:filename — shop: one help article body
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
@@ -83,6 +91,29 @@ export function initializeRoutes(): Router {
   // path param) so a shop can only ever read its OWN metrics.
   // Query: ?range=7d|30d|90d|all  (default 30d)
   router.get('/metrics', authMiddleware, requireRole(['shop']), getMetrics);
+
+  // How-To Assistant — shop-owner in-dashboard product help AI.
+  // Body: { sessionId, messages: [{ role, content }, ...] }. The
+  // controller reads shopId from the JWT (no path param), spend-caps
+  // against the shop's monthly budget (shared with the AI Sales Agent),
+  // and audits each call into ai_help_messages.
+  router.post('/help', authMiddleware, requireRole(['shop']), askHelp);
+
+  // Help article expansion. The chat assistant cites titles in a
+  // *Related:* footer; the panel fetches the index on mount and the
+  // body on click. Both shop-role guarded — same audience as /help.
+  router.get(
+    '/help/articles',
+    authMiddleware,
+    requireRole(['shop']),
+    listHelpArticles
+  );
+  router.get(
+    '/help/articles/:filename',
+    authMiddleware,
+    requireRole(['shop']),
+    getHelpArticle
+  );
 
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
   // the auth boundary explicit. Pure read — safe for admin dashboards.
