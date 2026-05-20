@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Edit, Settings, Calendar, Loader2, Star, Home, ChevronRight, HeartHandshake } from "lucide-react";
+import { Edit, Settings, Calendar, Loader2, Star, Home, ChevronRight, HeartHandshake, Bot } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getServiceById, ShopService } from "@/services/api/services";
 import { sanitizeDescription } from "@/utils/sanitize";
@@ -11,13 +11,14 @@ import { sanitizeDescription } from "@/utils/sanitize";
 import { ServiceAvailabilitySettings } from "@/components/shop/service/ServiceAvailabilitySettings";
 import { ServiceCalendarView } from "@/components/shop/service/ServiceCalendarView";
 import { ServiceReviewsView } from "@/components/shop/service/ServiceReviewsView";
+import { ServiceAIAssistantTab } from "@/components/shop/service/ServiceAIAssistantTab";
 import { getCategoryLabel } from "@/utils/helper/category";
 
 interface ServiceManagementClientProps {
   serviceId: string;
 }
 
-type TabType = 'overview' | 'availability' | 'calendar' | 'reviews';
+type TabType = 'overview' | 'availability' | 'calendar' | 'reviews' | 'ai';
 
 // Tab labels for breadcrumb
 const TAB_LABELS: Record<TabType, string> = {
@@ -25,6 +26,7 @@ const TAB_LABELS: Record<TabType, string> = {
   availability: 'Availability',
   calendar: 'Calendar',
   reviews: 'Reviews',
+  ai: 'AI Assistant',
 };
 
 export default function ServiceManagementClient({ serviceId }: ServiceManagementClientProps) {
@@ -33,11 +35,15 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
   const [service, setService] = useState<ShopService | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  // Tracks dirty edits inside the AI Assistant tab so we can intercept
+  // tab switches with a confirm dialog. Owned here so the parent's
+  // `handleTabChange` can read it synchronously when intercepting.
+  const [hasUnsavedAiChanges, setHasUnsavedAiChanges] = useState(false);
 
   useEffect(() => {
     // Check URL params for tab
     const tab = searchParams.get('tab') as TabType;
-    if (tab && ['overview', 'availability', 'calendar', 'reviews'].includes(tab)) {
+    if (tab && ['overview', 'availability', 'calendar', 'reviews', 'ai'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -66,6 +72,15 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
   };
 
   const handleTabChange = (tab: TabType) => {
+    // Unsaved-changes guard — only relevant when leaving the AI tab
+    // with dirty edits. Native confirm() is intentional for v1: matches
+    // the beforeunload pattern, no extra modal component to maintain.
+    if (activeTab === 'ai' && tab !== 'ai' && hasUnsavedAiChanges) {
+      const ok = window.confirm(
+        "You have unsaved AI Assistant changes. Discard them and switch tabs?"
+      );
+      if (!ok) return;
+    }
     setActiveTab(tab);
     // Update URL without navigation
     const newUrl = `/shop/services/${serviceId}${tab !== 'overview' ? `?tab=${tab}` : ''}`;
@@ -116,6 +131,7 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
               {activeTab === 'availability' && <Settings className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
               {activeTab === 'calendar' && <Calendar className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
               {activeTab === 'reviews' && <Star className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
+              {activeTab === 'ai' && <Bot className="w-4 h-4 sm:w-5 sm:h-5 inline mr-1" />}
             </span>
             <span className="text-sm sm:text-base font-medium text-[#FFCC00] flex-shrink-0">{TAB_LABELS[activeTab]}</span>
           </div>
@@ -206,6 +222,23 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
               <span className="hidden sm:inline">Reviews</span>
             </div>
             {activeTab === 'reviews' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+            )}
+          </button>
+
+          <button
+            onClick={() => handleTabChange('ai')}
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-semibold transition-colors relative flex-shrink-0 text-sm sm:text-base ${
+              activeTab === 'ai'
+                ? 'text-[#FFCC00]'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden sm:inline">AI Assistant</span>
+            </div>
+            {activeTab === 'ai' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
             )}
           </button>
@@ -306,6 +339,13 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
           {activeTab === 'reviews' && (
             <ServiceReviewsView serviceId={serviceId} service={service} />
+          )}
+
+          {activeTab === 'ai' && (
+            <ServiceAIAssistantTab
+              serviceId={serviceId}
+              onUnsavedChangesChange={setHasUnsavedAiChanges}
+            />
           )}
         </div>
 
