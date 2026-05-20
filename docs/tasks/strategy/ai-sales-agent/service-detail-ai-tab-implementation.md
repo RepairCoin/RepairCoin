@@ -20,21 +20,17 @@ read that first for the *why* + resolved decisions. This doc is the *how*
 | Phase | State | Notes |
 |---|---|---|
 | Phase 1 — Tab + wrapper + Save + guard all done | ☑ done (browser verify pending) | 1.1–1.5 landed end-to-end. Browser smoke test pending. |
-| Phase 2 — Tests + manual QA | ◐ in progress | 2.1 jest tests **deferred** — frontend has no Jest infra; setup is scope creep. 2.2 manual QA on user. |
-| Phase 3 — Optional polish | ☐ not started | Conditional on open question 2 (tab badge) |
+| Phase 2 — Tests + manual QA | ☑ done | 2.1 jest tests **deferred** (no frontend test infra). 2.2 manual QA **passed in staging on 2026-05-20**. |
+| Phase 3 — Optional polish | ☑ done | 3.1 tab badge + 3.2 exec UX review both landed. Save button moved to sticky-bottom per exec preference. |
 
-**Last worked on:** 2026-05-20 — Phase 2 entered. **2.1 (jest tests)
-deferred** by explicit user decision after discovering the frontend has
-no Jest / @testing-library infrastructure (no deps, no config, no test
-script, no existing `*.test.tsx` files anywhere). Setting up frontend
-testing is project-level infra work (~1 day on its own) and shouldn't
-be bundled into a feature task. Reverification options: (a) manual QA
-matrix in 2.2; (b) the `tsc --noEmit` we've been running each phase.
-Setting up frontend test infrastructure logged as a separate future
-initiative.
-**Next action:** **2.2 manual QA matrix** — user runs through the
-scenarios listed in Phase 2's checklist. If green: Phase 1 + Phase 2
-done; move on to Phase 3 (optional polish) or ship.
+**Last worked on:** 2026-05-20 — Phase 3.2 done. Exec UX walkthrough
+done; exec preferred sticky-bottom save over top-right. Save button
+moved into a `sticky bottom-0` bar with backdrop blur + top border so
+it stays reachable while scrolling through long FAQ lists. Header
+strip (title + button) removed since the tab label provides context.
+Added a subtle "Unsaved changes" hint that appears when there are
+pending edits. Scope-doc Section 5 row E amended. `tsc` clean.
+**Next action:** All phases done. **Ship when ready.**
 **Open blockers:** scope-doc Section 6 open questions ideally resolved
 before Phase 1.3 (save button placement, Q1) and Phase 3 (tab badge, Q2).
 Recommended defaults below are safe to ship without exec sign-off; revise
@@ -53,9 +49,11 @@ States: ☐ not started · ◐ in progress · ☑ done.
    other service fields untouched. **Zero backend work.**
 4. **Unsaved-changes guard** → confirm-dialog on tab switch + browser
    `beforeunload` for external nav.
-5. **Save button placement** → **top-right inside the tab** (mirrors the
-   existing "Edit Service" button on the detail page). Sticky-bottom is
-   the fallback if the exec prefers it during Phase 3 review.
+5. **Save button placement** → **sticky-bottom bar** (revised 2026-05-20
+   after exec UX review). Was originally top-right; exec preferred
+   sticky-bottom so the button stays reachable while scrolling through
+   long FAQ lists. Includes an "Unsaved changes" hint that appears when
+   there are pending edits. Scope-doc Section 5 row E amended.
 6. **Loading state** → skeleton matching the AI section shape.
 7. **Error state** → small inline banner above the section with a Retry
    button; tab navigation stays usable.
@@ -223,7 +221,7 @@ AI settings → edit → save → reload → values persist.
     that's clean across all Phase 1 changes. Reopen if/when the team
     adopts frontend testing as an initiative.
 
-- [ ] **2.2** Manual QA matrix:
+- [x] **2.2** Manual QA matrix:
   - Brand-new service (AI fully off) → tab visible → toggle on → save →
     reload → AI now on.
   - Service with FAQ entries → edit one entry → save → reload → edit
@@ -236,6 +234,8 @@ AI settings → edit → save → reload → values persist.
     fires.
   - Edit Service page's AI section still loads/saves the same fields →
     no regression.
+  - **Done 2026-05-20** — user-verified end-to-end against staging. All
+    scenarios pass.
 
 ---
 
@@ -243,14 +243,31 @@ AI settings → edit → save → reload → values persist.
 
 Only if Section 6 open questions resolve in favor of these.
 
-- [ ] **3.1** Tab badge for AI-enabled services (open Q2).
+- [x] **3.1** Tab badge for AI-enabled services (open Q2).
   - Add a small green dot next to "AI Assistant" in the tab label when
     `aiSalesEnabled === true` on the loaded service.
-- [ ] **3.2** Final UX pass with the requesting exec.
+  - **Done 2026-05-20** — small `bg-green-500` dot rendered at the
+    top-right of the `Bot` icon when `service.aiSalesEnabled === true`,
+    with a 1px ring matching the dashboard background so it stays crisp
+    over the active-tab underline. Includes an `aria-label` for screen
+    readers ("AI Assistant is enabled for this service"). To keep the
+    dot in sync after the user toggles AI on/off and saves without
+    forcing a reload: added `onServiceUpdated?: (service) => void` to
+    `ServiceAIAssistantTab` — the parent passes `setService` so the
+    derived state updates immediately on every successful save.
+- [x] **3.2** Final UX pass with the requesting exec.
   - Walk through the tab live, confirm save-button position,
     confirm-dialog wording, error banner styling.
   - If exec prefers sticky-bottom save, flip the placement and update
     scope-doc Section 5 row E.
+  - **Done 2026-05-20** — exec preferred **sticky-bottom save bar**
+    over the original top-right placement. Save button moved into a
+    `sticky bottom-0` bar with backdrop blur + top border so it stays
+    visible while scrolling through FAQ lists. Header strip (title +
+    button) dropped — the tab label "AI Assistant" already provides
+    context. Added an "Unsaved changes" hint that appears next to the
+    button when `hasChanges === true` and not saving. Scope-doc
+    Section 5 row E amended.
 
 ---
 

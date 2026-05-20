@@ -97,7 +97,7 @@ Decision: **Option A.** No backend work for v1.
 | B | Theme | **Keep AISalesAssistantSection light/green as-is.** Visual contrast against the dark detail page draws attention to the configure surface (deliberate, not a bug). |
 | C | Save scope | **Partial PUT** — only AI fields. Standard service fields untouched. |
 | D | Unsaved-changes guard | Confirm-dialog when user navigates away (tab switch within detail page OR external nav) with pending edits. Same pattern as a typical form. |
-| E | Save button placement | **Top-right inside the tab content**, mirroring the existing "Edit Service" button position on the detail page. Sticky bottom is more conventional but breaks visual symmetry. |
+| E | Save button placement | **Sticky-bottom bar** (revised 2026-05-20 after exec UX review). Initial recommendation was top-right to mirror the "Edit Service" button, but the exec preferred a sticky-bottom save bar — stays glued to the viewport while the user scrolls through long FAQ lists, with an "Unsaved changes" hint that appears alongside the button when there are pending edits. |
 | F | Loading state | Skeleton matching the AI section shape while the service loads. Same Loader2 spinner pattern the Edit Service page uses. |
 | G | Error state | Small inline banner above the AI section with a Retry button. Tab navigation stays usable. |
 | H | Empty service (AI fully off) | **Always show the tab.** It's how you turn AI on for the first time — must be reachable when off. |

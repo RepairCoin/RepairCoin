@@ -40,6 +40,13 @@ export interface ServiceAIAssistantTabProps {
    * value doesn't linger in the parent's state.
    */
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
+  /**
+   * Fires after a successful save with the freshly-saved service row.
+   * The parent uses this to refresh its `service` state so derived UI
+   * (e.g. the green "AI enabled" dot on the tab label) updates without
+   * a page reload.
+   */
+  onServiceUpdated?: (service: ShopService) => void;
 }
 
 /**
@@ -111,6 +118,7 @@ const seedFromService = (service: ShopService): AIEditorState => {
 export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
   serviceId,
   onUnsavedChangesChange,
+  onServiceUpdated,
 }) => {
   const [service, setService] = useState<ShopService | null>(null);
   const [loading, setLoading] = useState(true);
@@ -209,6 +217,10 @@ export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
       // Snapshot the just-saved state so `hasChanges` flips back to
       // false and the Save button disables until the user edits again.
       setInitialState(currentState);
+      // Refresh local + parent service state so derived UI (e.g. the
+      // AI-enabled tab dot) updates without a page reload.
+      setService(updated);
+      onServiceUpdated?.(updated);
       toast.success("AI settings saved");
     } catch (err) {
       console.error("Failed to save AI settings:", err);
@@ -218,7 +230,7 @@ export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [currentState, saving, serviceId]);
+  }, [currentState, saving, serviceId, onServiceUpdated]);
 
   if (loading) {
     return (
@@ -255,11 +267,32 @@ export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
 
   return (
     <div>
-      {/* Header strip with title + Save button (scope-doc decision E: top-right). */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h2 className="text-lg sm:text-xl font-semibold text-white">
-          AI Sales Assistant
-        </h2>
+      <AISalesAssistantSection
+        enabled={currentState.enabled}
+        tone={currentState.tone}
+        suggestUpsells={currentState.suggestUpsells}
+        enableBookingAssistance={currentState.enableBookingAssistance}
+        faqEntries={currentState.faqEntries}
+        serviceId={serviceId}
+        description={service.description}
+        onChange={handleChange}
+      />
+
+      {/* Sticky-bottom save bar (scope-doc decision E revised 2026-05-20
+          per exec UX review). Stays glued to the viewport bottom while
+          the user scrolls through long FAQ lists; settles at the bottom
+          of the tab content when the page reaches the end. Backdrop
+          blur + top border separate it visually from the AI section
+          card above. Sits inside the tab content (no negative margins)
+          so the button keeps consistent breathing room from the right
+          edge — earlier edge-extension version pinned Save flush to
+          the viewport edge. */}
+      <div className="sticky bottom-0 mt-4 z-10 bg-[#0A0A0A] border-t border-gray-800 px-4 sm:px-6 py-3 flex items-center justify-end gap-3">
+        {hasChanges && !saving && (
+          <span className="text-xs text-gray-400 font-medium">
+            Unsaved changes
+          </span>
+        )}
         <button
           type="button"
           onClick={handleSave}
@@ -278,17 +311,6 @@ export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
           {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
-
-      <AISalesAssistantSection
-        enabled={currentState.enabled}
-        tone={currentState.tone}
-        suggestUpsells={currentState.suggestUpsells}
-        enableBookingAssistance={currentState.enableBookingAssistance}
-        faqEntries={currentState.faqEntries}
-        serviceId={serviceId}
-        description={service.description}
-        onChange={handleChange}
-      />
     </div>
   );
 };
