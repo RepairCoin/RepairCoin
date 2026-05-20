@@ -230,9 +230,8 @@ export class PurchaseOrderRepository extends BaseRepository {
 
     // Get orders
     const query = `
-      SELECT po.*, v.name as vendor_name
+      SELECT po.*
       FROM purchase_orders po
-      LEFT JOIN inventory_vendors v ON po.vendor_id = v.id
       WHERE ${whereClause}
       ORDER BY po.order_date DESC, po.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

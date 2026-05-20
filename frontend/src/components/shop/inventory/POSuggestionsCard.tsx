@@ -32,16 +32,17 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected">("pending");
 
   useEffect(() => {
     loadSuggestions();
-  }, [shopId]);
+  }, [shopId, statusFilter]);
 
   const loadSuggestions = async () => {
     try {
       setLoading(true);
       const response = await inventoryApi.getSuggestions(shopId, {
-        status: "pending",
+        status: statusFilter,
       });
       setSuggestions(response.suggestions);
     } catch (error) {
@@ -83,8 +84,8 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
         toast.success("Suggestion approved!");
       }
 
-      // Remove approved suggestion from list
-      setSuggestions(suggestions.filter((s) => s.id !== suggestionId));
+      // Reload suggestions to get fresh data
+      await loadSuggestions();
 
       onSuggestionActioned?.();
     } catch (error) {
@@ -109,8 +110,8 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
 
       toast.success("Suggestion rejected");
 
-      // Remove rejected suggestion from list
-      setSuggestions(suggestions.filter((s) => s.id !== suggestionId));
+      // Reload suggestions to get fresh data
+      await loadSuggestions();
       setRejectingId(null);
       setRejectionReason("");
 
@@ -212,6 +213,17 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Status Filter Dropdown */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as "pending" | "approved" | "rejected")}
+            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
           <button
             onClick={handleGenerate}
             disabled={generating}
@@ -262,18 +274,18 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
                       <p className="text-xs text-gray-500">Current Stock</p>
-                      <p className="text-sm font-semibold text-gray-900">{suggestion.currentStock}</p>
+                      <p className="text-sm font-semibold text-gray-900">{suggestion.currentStock.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Suggested Quantity</p>
                       <p className="text-sm font-semibold text-green-600">
-                        {suggestion.suggestedQuantity}
+                        {suggestion.suggestedQuantity.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Avg Usage/Day</p>
                       <p className="text-sm font-semibold text-gray-900">
-                        {suggestion.avgDailyUsage.toFixed(1)}
+                        {suggestion.avgDailyUsage.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                       </p>
                     </div>
                     {suggestion.daysUntilStockout && (
@@ -287,7 +299,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                             suggestion.daysUntilStockout <= 7 ? "text-red-600" : "text-gray-900"
                           }`}
                         >
-                          {suggestion.daysUntilStockout}
+                          {suggestion.daysUntilStockout.toLocaleString()}
                         </p>
                       </div>
                     )}
@@ -303,62 +315,98 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
 
                 {/* Right: Actions */}
                 <div className="flex flex-col gap-2">
-                  {rejectingId === suggestion.id ? (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-                      <textarea
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        placeholder="Reason for rejection..."
-                        className="w-full px-2 py-1.5 text-sm border border-red-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                        rows={2}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleReject(suggestion.id)}
-                          disabled={processingId === suggestion.id}
-                          className="flex-1 px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          onClick={() => {
-                            setRejectingId(null);
-                            setRejectionReason("");
-                          }}
-                          className="flex-1 px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
+                  {statusFilter === "pending" ? (
+                    rejectingId === suggestion.id ? (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                        <textarea
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          placeholder="Reason for rejection..."
+                          className="w-full px-2 py-1.5 text-sm border border-red-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                          rows={2}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleReject(suggestion.id)}
+                            disabled={processingId === suggestion.id}
+                            className="flex-1 px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => {
+                              setRejectingId(null);
+                              setRejectionReason("");
+                            }}
+                            className="flex-1 px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleApprove(suggestion.id, false)}
+                          disabled={processingId === suggestion.id}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                          {processingId === suggestion.id ? "Processing..." : "Approve"}
+                        </button>
+                        <button
+                          onClick={() => handleApprove(suggestion.id, true)}
+                          disabled={processingId === suggestion.id}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          title="Approve and automatically create purchase order"
+                        >
+                          <Package className="w-4 h-4" />
+                          {processingId === suggestion.id ? "Processing..." : "Create PO"}
+                        </button>
+                        <button
+                          onClick={() => setRejectingId(suggestion.id)}
+                          disabled={processingId === suggestion.id}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                          Reject
+                        </button>
+                      </>
+                    )
+                  ) : statusFilter === "approved" ? (
                     <>
-                      <button
-                        onClick={() => handleApprove(suggestion.id, false)}
-                        disabled={processingId === suggestion.id}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        <ThumbsUp className="w-4 h-4" />
-                        {processingId === suggestion.id ? "Processing..." : "Approve"}
-                      </button>
-                      <button
-                        onClick={() => handleApprove(suggestion.id, true)}
-                        disabled={processingId === suggestion.id}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                        title="Approve and automatically create purchase order"
-                      >
-                        <Package className="w-4 h-4" />
-                        {processingId === suggestion.id ? "Processing..." : "Create PO"}
-                      </button>
-                      <button
-                        onClick={() => setRejectingId(suggestion.id)}
-                        disabled={processingId === suggestion.id}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        <ThumbsDown className="w-4 h-4" />
-                        Reject
-                      </button>
+                      <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                        <CheckCircle className="w-4 h-4" />
+                        Approved
+                      </div>
+                      {!suggestion.purchaseOrderId && (
+                        <button
+                          onClick={() => handleApprove(suggestion.id, true)}
+                          disabled={processingId === suggestion.id}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          title="Create purchase order from this approved suggestion"
+                        >
+                          <Package className="w-4 h-4" />
+                          {processingId === suggestion.id ? "Creating..." : "Create PO"}
+                        </button>
+                      )}
+                      {suggestion.purchaseOrderId && (
+                        <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                          <Package className="w-4 h-4 inline mr-1" />
+                          PO Created
+                        </div>
+                      )}
                     </>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                      <X className="w-4 h-4" />
+                      Rejected
+                      {suggestion.rejectionReason && (
+                        <div className="mt-1 text-xs text-gray-600">
+                          {suggestion.rejectionReason}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

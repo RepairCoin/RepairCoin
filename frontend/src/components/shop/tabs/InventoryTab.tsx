@@ -414,7 +414,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
       )}
 
       {/* PO Suggestions Card (v2.1) */}
-      <POSuggestionsCard shopId={shopId} onSuggestionActioned={loadInventoryData} />
+      <POSuggestionsCard shopId={shopId} onSuggestionActioned={() => { loadInventory(); loadStats(); }} />
 
       {/* Search and Filters */}
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">
@@ -712,7 +712,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                      </td>                    </tr>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>

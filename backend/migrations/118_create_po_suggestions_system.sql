@@ -91,7 +91,7 @@ CREATE INDEX idx_po_suggestions_expires_at ON purchase_order_suggestions(expires
 -- Composite index for active suggestions per shop
 CREATE INDEX idx_po_suggestions_active
   ON purchase_order_suggestions(shop_id, status, priority_score DESC)
-  WHERE status = 'pending' AND expires_at > CURRENT_TIMESTAMP;
+  WHERE status = 'pending';
 
 -- ============================================================================
 -- 4. COMMENTS FOR DOCUMENTATION
@@ -113,6 +113,10 @@ COMMENT ON COLUMN purchase_order_suggestions.expires_at IS 'Suggestion expires 7
 -- 5. MIGRATION TRACKING
 -- ============================================================================
 
+<<<<<<<< HEAD:backend/migrations/120_create_po_suggestions_system.sql
 INSERT INTO migration_history (migration_number, migration_name, executed_at)
 VALUES (120, 'create_po_suggestions_system', CURRENT_TIMESTAMP)
 ON CONFLICT (migration_number) DO NOTHING;
+========
+-- Migration tracking handled automatically by migration system
+>>>>>>>> ca6e704d (fix: Purchase Orders integration and migration conflicts):backend/migrations/118_create_po_suggestions_system.sql

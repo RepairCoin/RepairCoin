@@ -196,7 +196,7 @@ export const inventoryApi = {
   // Get purchase order statistics
   async getPurchaseOrderStats(shopId: string): Promise<import('@/types/inventory').PurchaseOrderStats> {
     const response = await apiClient.get(`/inventory/purchase-orders/stats/${shopId}`);
-    return response.stats;
+    return response.data;
   },
 
   // Get all purchase orders
@@ -205,37 +205,37 @@ export const inventoryApi = {
     if (status) params.append('status', status);
 
     const response = await apiClient.get(`/inventory/purchase-orders/${shopId}?${params.toString()}`);
-    return response.purchaseOrders;
+    return response.data.orders || [];
   },
 
   // Get single purchase order
   async getPurchaseOrder(shopId: string, poId: string): Promise<import('@/types/inventory').PurchaseOrder> {
     const response = await apiClient.get(`/inventory/purchase-orders/${shopId}/${poId}`);
-    return response.purchaseOrder;
+    return response.data;
   },
 
   // Create purchase order
   async createPurchaseOrder(shopId: string, data: import('@/types/inventory').CreatePurchaseOrderData): Promise<import('@/types/inventory').PurchaseOrder> {
     const response = await apiClient.post(`/inventory/purchase-orders/${shopId}`, data);
-    return response.purchaseOrder;
+    return response.data;
   },
 
   // Update purchase order
   async updatePurchaseOrder(shopId: string, poId: string, data: import('@/types/inventory').UpdatePurchaseOrderData): Promise<import('@/types/inventory').PurchaseOrder> {
     const response = await apiClient.put(`/inventory/purchase-orders/${shopId}/${poId}`, data);
-    return response.purchaseOrder;
+    return response.data;
   },
 
   // Receive items from purchase order
   async receiveItems(shopId: string, poId: string, data: import('@/types/inventory').ReceiveItemsData): Promise<import('@/types/inventory').PurchaseOrder> {
     const response = await apiClient.post(`/inventory/purchase-orders/${shopId}/${poId}/receive`, data);
-    return response.purchaseOrder;
+    return response.data;
   },
 
   // Cancel purchase order
   async cancelPurchaseOrder(shopId: string, poId: string): Promise<import('@/types/inventory').PurchaseOrder> {
     const response = await apiClient.post(`/inventory/purchase-orders/${shopId}/${poId}/cancel`);
-    return response.purchaseOrder;
+    return response.data;
   },
 
   // Delete purchase order (draft only)

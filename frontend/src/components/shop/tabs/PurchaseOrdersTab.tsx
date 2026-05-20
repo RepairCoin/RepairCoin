@@ -176,7 +176,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Orders</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalOrders}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalOrders || 0}</p>
               </div>
               <FileText className="w-8 h-8 text-gray-400" />
             </div>
@@ -186,7 +186,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Spending</p>
-                <p className="text-2xl font-bold text-gray-900">${stats.totalSpending.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-gray-900">${(stats.totalSpending || 0).toFixed(2)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
@@ -196,7 +196,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Pending Orders</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.pendingOrders}</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.pendingOrders || 0}</p>
               </div>
               <Clock className="w-8 h-8 text-orange-500" />
             </div>
@@ -206,7 +206,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Received Orders</p>
-                <p className="text-2xl font-bold text-green-600">{stats.receivedOrders}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.receivedOrders || 0}</p>
               </div>
               <PackageCheck className="w-8 h-8 text-green-500" />
             </div>
@@ -216,7 +216,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Avg Order Value</p>
-                <p className="text-2xl font-bold text-gray-900">${stats.averageOrderValue.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-gray-900">${(stats.averageOrderValue || 0).toFixed(2)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-500" />
             </div>

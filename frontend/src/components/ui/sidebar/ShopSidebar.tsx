@@ -28,6 +28,7 @@ import {
   Wallet,
   FileBarChart,
   Megaphone,
+  Package,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
@@ -113,6 +114,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=inventory",
           icon: <ShoppingBagIcon className="w-5 h-5" />,
           tabId: "inventory",
+        },
+        {
+          title: "Purchase Orders",
+          href: "/shop?tab=purchase-orders",
+          icon: <Package className="w-5 h-5" />,
+          tabId: "purchase-orders",
         },
         {
           title: "Bookings",
