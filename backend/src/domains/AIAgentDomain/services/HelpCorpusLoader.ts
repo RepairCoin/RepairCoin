@@ -63,15 +63,25 @@ export class HelpCorpusLoader {
   }
 
   /**
-   * Default location of the corpus relative to this compiled file.
-   * Override with `HELP_CORPUS_DIR` env var when the deploy layout
-   * doesn't place `docs/` as a sibling of `backend/` at the project root.
+   * Default location of the corpus.
+   *
+   * The corpus lives at `backend/help/` (alongside `backend/migrations/`
+   * and other backend-authored runtime assets). On build, the postbuild
+   * step copies it into `backend/dist/help/` so it ships with the
+   * compiled JS in the deploy artifact.
+   *
+   * Path resolution from `backend/(src|dist)/src/domains/AIAgentDomain/
+   * services/` walks up 4 segments to reach `backend/(src|dist)/`, then
+   * `help/`. The same expression works in both dev (running ts-node
+   * from `src/`, so `../../../../help` resolves to `backend/help/`)
+   * and production (compiled file inside `dist/src/.../`, so
+   * `../../../../help` resolves to `backend/dist/help/`).
+   *
+   * Override with `HELP_CORPUS_DIR` env var for unusual deploy layouts.
    */
   static defaultCorpusDir(): string {
     if (process.env.HELP_CORPUS_DIR) return process.env.HELP_CORPUS_DIR;
-    // From backend/(src|dist)/domains/AIAgentDomain/services/ → repo root
-    // is 5 segments up; then into docs/help.
-    return path.resolve(__dirname, "../../../../..", "docs", "help");
+    return path.resolve(__dirname, "../../../..", "help");
   }
 
   /**
