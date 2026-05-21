@@ -186,7 +186,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Total Spending</p>
-                <p className="text-2xl font-bold text-white">${(stats.totalSpending || 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold text-white">${parseFloat(stats.totalSpending || '0').toFixed(2)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
@@ -216,7 +216,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Avg Order Value</p>
-                <p className="text-2xl font-bold text-white">${(stats.averageOrderValue || 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold text-white">${parseFloat(stats.averageOrderValue || '0').toFixed(2)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-500" />
             </div>
@@ -339,7 +339,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">${po.total.toFixed(2)}</div>
+                      <div className="text-sm font-medium text-white">${parseFloat(po.total as any).toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-300">
