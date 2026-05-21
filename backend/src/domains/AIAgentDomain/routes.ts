@@ -16,6 +16,7 @@ import {
   listHelpArticles,
   getHelpArticle,
 } from './controllers/HelpArticleController';
+import { askInsights } from './controllers/InsightsController';
 
 /**
  * AI Agent domain routes.
@@ -32,6 +33,7 @@ import {
  *   POST /api/ai/help          — shop: How-To Assistant (in-dashboard product help)
  *   GET  /api/ai/help/articles — shop: list help-article index (filename + title)
  *   GET  /api/ai/help/articles/:filename — shop: one help article body
+ *   POST /api/ai/insights      — shop: Business-Data Insights assistant (Sonnet + tools)
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
@@ -114,6 +116,14 @@ export function initializeRoutes(): Router {
     requireRole(['shop']),
     getHelpArticle
   );
+
+  // Business-Data Insights assistant — shop-owner "Ask about your
+  // business" AI. Body: { sessionId, messages: [{ role, content }, ...] }.
+  // Sonnet + tool-use; tools query the requesting shop's data via
+  // hardcoded shop-scoped SQL (shopId sourced from the JWT, never
+  // from Claude args). Spend-capped against the shared monthly budget
+  // and audited into ai_insights_messages with the tool_calls JSONB.
+  router.post('/insights', authMiddleware, requireRole(['shop']), askInsights);
 
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
   // the auth boundary explicit. Pure read — safe for admin dashboards.

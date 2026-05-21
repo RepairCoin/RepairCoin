@@ -16,10 +16,32 @@ export type ClaudeModel =
 /**
  * One turn in the back-and-forth conversation. The system prompt is passed
  * separately as `PromptCacheable[]`, not as part of this messages array.
+ *
+ * `content` is either a plain string (the common case — what AgentOrchestrator
+ * passes) OR an array of structured content blocks. The array form is
+ * required by Anthropic for the tool-use roundtrip (assistant's tool_use
+ * blocks + user's tool_result blocks). InsightsController uses it.
  */
+export type ChatMessageContentBlock =
+  | { type: "text"; text: string }
+  | {
+      type: "tool_use";
+      id: string;
+      name: string;
+      input: Record<string, unknown>;
+    }
+  | {
+      type: "tool_result";
+      tool_use_id: string;
+      content: string;
+      is_error?: boolean;
+    };
+
+export type ChatMessageContent = string | ChatMessageContentBlock[];
+
 export interface ChatMessage {
   role: "user" | "assistant";
-  content: string;
+  content: ChatMessageContent;
 }
 
 /**
