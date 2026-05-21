@@ -59,6 +59,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "android.permission.INTERNET",
         "android.permission.VIBRATE",
       ],
+      blockedPermissions: [
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+      ],
     },
     web: {
       bundler: "metro",
