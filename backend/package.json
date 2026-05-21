@@ -28,7 +28,7 @@
     "_comment_admin_examples": "# Usage: npm run admin:promote 0x123...abc --action deactivate --reason 'Owner promotion'",
     "clean": "rm -rf dist || true",
     "prebuild": "npm run clean",
-    "postbuild": "cp package.json dist/",
+    "postbuild": "cp package.json dist/ && cp -R help dist/help",
     "prestart": "npm run db:migrate || echo 'Migration warning: db:migrate failed but app will start anyway'",
     "typecheck": "tsc --noEmit",
     "healthcheck": "curl http://localhost:3000/api/health",

@@ -46,11 +46,24 @@ export class AdminRoleConflictService {
     const normalizedAddress = walletAddress.toLowerCase();
 
     try {
+      // Only ACTIVE customer/shop rows count as conflicts. Inactive
+      // rows are the expected leftover state after an
+      // `action: 'deactivate'` admin promotion — the row stays for
+      // audit/history but the user can't operate in that role anymore,
+      // so there's no privilege overlap to flag.
+      //
+      // Without the active filter, every wallet ever promoted via
+      // `promoteToAdmin --action deactivate` would re-appear as a
+      // conflict on every backend boot and the startup validator
+      // would block deploy. (Discovered 2026-05-21 when staging
+      // failed to start after two consecutive shop→admin promotions.)
+
       // Check customer table
       const customerQuery = `
         SELECT address as id, name, email, is_active as "isActive", created_at as "createdAt"
-        FROM customers 
+        FROM customers
         WHERE LOWER(wallet_address) = $1
+          AND is_active = true
       `;
       const customerResult = await this.db.query(customerQuery, [normalizedAddress]);
 
@@ -65,8 +78,9 @@ export class AdminRoleConflictService {
       // Check shop table
       const shopQuery = `
         SELECT shop_id as id, name, email, active as "isActive", created_at as "createdAt"
-        FROM shops 
+        FROM shops
         WHERE LOWER(wallet_address) = $1
+          AND active = true
       `;
       const shopResult = await this.db.query(shopQuery, [normalizedAddress]);
 
