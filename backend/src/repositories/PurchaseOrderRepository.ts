@@ -130,6 +130,7 @@ export class PurchaseOrderRepository extends BaseRepository {
       const po = this.mapSnakeToCamel(poResult.rows[0]);
 
       // Insert purchase order items
+      const items: PurchaseOrderItem[] = [];
       for (const item of data.items) {
         const lineTotal = item.quantity * item.unitCost;
 
@@ -138,6 +139,7 @@ export class PurchaseOrderRepository extends BaseRepository {
             po_id, inventory_item_id, item_name, item_sku,
             quantity_ordered, quantity_received, unit_cost, line_total
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING *
         `;
 
         const itemValues = [
@@ -151,12 +153,16 @@ export class PurchaseOrderRepository extends BaseRepository {
           lineTotal
         ];
 
-        await client.query(itemQuery, itemValues);
+        const itemResult = await client.query(itemQuery, itemValues);
+        items.push(this.mapSnakeToCamel(itemResult.rows[0]));
       }
+
+      // Attach items to PO
+      po.items = items;
 
       logger.info(`Purchase order created: ${poNumber}`, { poId: po.id, shopId: data.shopId });
 
-      return await this.getPurchaseOrderById(po.id);
+      return po;
     });
   }
 
