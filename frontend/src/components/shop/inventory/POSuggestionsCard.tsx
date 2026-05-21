@@ -127,15 +127,15 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "critical":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-900/50 text-red-400 border-red-700";
       case "high":
-        return "bg-orange-100 text-orange-800 border-orange-200";
+        return "bg-orange-900/50 text-orange-400 border-orange-700";
       case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-yellow-900/50 text-yellow-400 border-yellow-700";
       case "low":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-900/50 text-blue-400 border-blue-700";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-800 text-gray-300 border-gray-700";
     }
   };
 
@@ -155,7 +155,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 p-6">
         <div className="flex items-center justify-center h-24">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFCC00]"></div>
         </div>
@@ -165,15 +165,15 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
 
   if (suggestions.length === 0) {
     return (
-      <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200 p-6">
+      <div className="bg-gradient-to-r from-green-900/20 to-blue-900/20 rounded-lg border border-green-800 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+            <div className="p-2 bg-green-900/30 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-green-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">No Purchase Order Suggestions</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="font-semibold text-white">No Purchase Order Suggestions</h3>
+              <p className="text-sm text-gray-400">
                 All inventory levels are healthy. Click "Generate" to check for new suggestions.
               </p>
             </div>
@@ -192,21 +192,21 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
   }
 
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-6">
+    <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-lg border border-purple-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <Sparkles className="w-6 h-6 text-purple-600" />
+          <div className="p-2 bg-purple-900/30 rounded-lg">
+            <Sparkles className="w-6 h-6 text-purple-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-white flex items-center gap-2">
               Smart Purchase Order Suggestions
               <span className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full">
                 {suggestions.length}
               </span>
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-400">
               AI-powered recommendations based on usage analytics
             </p>
           </div>
@@ -217,7 +217,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as "pending" | "approved" | "rejected")}
-            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-3 py-1.5 bg-[#1a1a1a] border border-gray-700 text-white rounded-lg text-sm font-medium hover:bg-[#252525] transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
@@ -227,14 +227,14 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] border border-gray-700 text-white rounded-lg hover:bg-[#252525] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${generating ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1.5 hover:bg-white/50 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-gray-400"
           >
             {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </button>
@@ -247,13 +247,13 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
           {suggestions.map((suggestion) => (
             <div
               key={suggestion.id}
-              className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              className="bg-[#1a1a1a] rounded-lg border border-gray-800 p-4 hover:border-gray-700 transition-colors"
             >
               <div className="flex items-start justify-between gap-4">
                 {/* Left: Item Info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-semibold text-gray-900">{suggestion.itemName}</h4>
+                    <h4 className="font-semibold text-white">{suggestion.itemName}</h4>
                     {suggestion.itemSku && (
                       <span className="text-xs text-gray-500">SKU: {suggestion.itemSku}</span>
                     )}
@@ -268,23 +268,23 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                   </div>
 
                   {/* Reason */}
-                  <p className="text-sm text-gray-700 mb-3">{suggestion.reason}</p>
+                  <p className="text-sm text-gray-300 mb-3">{suggestion.reason}</p>
 
                   {/* Stats Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
                       <p className="text-xs text-gray-500">Current Stock</p>
-                      <p className="text-sm font-semibold text-gray-900">{suggestion.currentStock.toLocaleString()}</p>
+                      <p className="text-sm font-semibold text-white">{suggestion.currentStock.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Suggested Quantity</p>
-                      <p className="text-sm font-semibold text-green-600">
+                      <p className="text-sm font-semibold text-green-400">
                         {suggestion.suggestedQuantity.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Avg Usage/Day</p>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-white">
                         {suggestion.avgDailyUsage.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                       </p>
                     </div>
@@ -296,7 +296,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                         </p>
                         <p
                           className={`text-sm font-semibold ${
-                            suggestion.daysUntilStockout <= 7 ? "text-red-600" : "text-gray-900"
+                            suggestion.daysUntilStockout <= 7 ? "text-red-400" : "text-white"
                           }`}
                         >
                           {suggestion.daysUntilStockout.toLocaleString()}
@@ -308,7 +308,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                   {/* Vendor */}
                   {suggestion.vendorName && (
                     <div className="mt-2 text-xs text-gray-500">
-                      Vendor: <span className="font-medium">{suggestion.vendorName}</span>
+                      Vendor: <span className="font-medium text-gray-400">{suggestion.vendorName}</span>
                     </div>
                   )}
                 </div>
@@ -317,12 +317,12 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                 <div className="flex flex-col gap-2">
                   {statusFilter === "pending" ? (
                     rejectingId === suggestion.id ? (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                      <div className="bg-red-900/20 border border-red-700 rounded-lg p-3 space-y-2">
                         <textarea
                           value={rejectionReason}
                           onChange={(e) => setRejectionReason(e.target.value)}
                           placeholder="Reason for rejection..."
-                          className="w-full px-2 py-1.5 text-sm border border-red-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                          className="w-full px-2 py-1.5 text-sm bg-[#1a1a1a] border border-red-600 text-white rounded focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none placeholder-gray-500"
                           rows={2}
                         />
                         <div className="flex gap-2">
@@ -338,7 +338,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                               setRejectingId(null);
                               setRejectionReason("");
                             }}
-                            className="flex-1 px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors"
+                            className="flex-1 px-3 py-1.5 bg-[#1a1a1a] border border-gray-700 text-white text-sm rounded hover:bg-[#252525] transition-colors"
                           >
                             Cancel
                           </button>
@@ -366,7 +366,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                         <button
                           onClick={() => setRejectingId(suggestion.id)}
                           disabled={processingId === suggestion.id}
-                          className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-gray-700 text-gray-300 rounded-lg hover:bg-[#252525] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                         >
                           <ThumbsDown className="w-4 h-4" />
                           Reject
@@ -375,7 +375,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                     )
                   ) : statusFilter === "approved" ? (
                     <>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-green-900/20 border border-green-700 rounded-lg text-sm text-green-400">
                         <CheckCircle className="w-4 h-4" />
                         Approved
                       </div>
@@ -391,18 +391,18 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                         </button>
                       )}
                       {suggestion.purchaseOrderId && (
-                        <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                        <div className="px-3 py-2 bg-blue-900/20 border border-blue-700 rounded-lg text-sm text-blue-400">
                           <Package className="w-4 h-4 inline mr-1" />
                           PO Created
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-900/20 border border-red-700 rounded-lg text-sm text-red-400">
                       <X className="w-4 h-4" />
                       Rejected
                       {suggestion.rejectionReason && (
-                        <div className="mt-1 text-xs text-gray-600">
+                        <div className="mt-1 text-xs text-gray-500">
                           {suggestion.rejectionReason}
                         </div>
                       )}
@@ -417,9 +417,9 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
 
       {/* Footer Info */}
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-purple-200">
-          <p className="text-xs text-gray-600">
-            <strong>How it works:</strong> Suggestions are generated based on your last 30 days of usage
+        <div className="mt-4 pt-4 border-t border-purple-700/50">
+          <p className="text-xs text-gray-400">
+            <strong className="text-gray-300">How it works:</strong> Suggestions are generated based on your last 30 days of usage
             data. Urgency levels are calculated based on estimated days until stockout. Approved
             suggestions can be converted to purchase orders.
           </p>
