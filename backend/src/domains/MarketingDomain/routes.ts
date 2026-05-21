@@ -353,6 +353,224 @@ export function initializeRoutes(): Router {
     controller.cancelCampaign
   );
 
+  // ==================== CONTACT IMPORT ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/marketing/shops/{shopId}/contacts:
+   *   get:
+   *     summary: Get imported contacts for a shop
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 50
+   *       - in: query
+   *         name: status
+   *         schema:
+   *           type: string
+   *           enum: [active, unsubscribed, bounced, invalid]
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of contacts
+   */
+  router.get(
+    '/shops/:shopId/contacts',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.getContacts
+  );
+
+  /**
+   * @swagger
+   * /api/marketing/shops/{shopId}/contacts:
+   *   post:
+   *     summary: Add a new contact
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - fullName
+   *             properties:
+   *               fullName:
+   *                 type: string
+   *               email:
+   *                 type: string
+   *               phone:
+   *                 type: string
+   *               tags:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *               notes:
+   *                 type: string
+   *     responses:
+   *       201:
+   *         description: Contact created
+   */
+  router.post(
+    '/shops/:shopId/contacts',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.createContact
+  );
+
+  /**
+   * @swagger
+   * /api/marketing/shops/{shopId}/contacts/import:
+   *   post:
+   *     summary: Bulk import contacts from CSV
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - contacts
+   *             properties:
+   *               contacts:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   required:
+   *                     - fullName
+   *                   properties:
+   *                     fullName:
+   *                       type: string
+   *                     email:
+   *                       type: string
+   *                     phone:
+   *                       type: string
+   *                     tags:
+   *                       type: array
+   *                       items:
+   *                         type: string
+   *     responses:
+   *       200:
+   *         description: Contacts imported
+   */
+  router.post(
+    '/shops/:shopId/contacts/import',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.importContacts
+  );
+
+  /**
+   * @swagger
+   * /api/marketing/shops/{shopId}/contacts/stats:
+   *   get:
+   *     summary: Get contact statistics
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Contact statistics
+   */
+  router.get(
+    '/shops/:shopId/contacts/stats',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.getContactStats
+  );
+
+  /**
+   * @swagger
+   * /api/marketing/contacts/{contactId}:
+   *   put:
+   *     summary: Update a contact
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: contactId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Contact updated
+   */
+  router.put(
+    '/contacts/:contactId',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.updateContact
+  );
+
+  /**
+   * @swagger
+   * /api/marketing/contacts/{contactId}:
+   *   delete:
+   *     summary: Delete a contact
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: contactId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Contact deleted
+   */
+  router.delete(
+    '/contacts/:contactId',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.deleteContact
+  );
+
   // ==================== TEMPLATE ROUTES ====================
 
   /**

@@ -1,15 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { MarketingService } from '../../../services/MarketingService';
 import { ShopRepository } from '../../../repositories/ShopRepository';
+import { ContactRepository } from '../../../repositories/ContactRepository';
 import { logger } from '../../../utils/logger';
 
 export class MarketingController {
   private marketingService: MarketingService;
   private shopRepo: ShopRepository;
+  private contactRepo: ContactRepository;
 
   constructor() {
     this.marketingService = new MarketingService();
     this.shopRepo = new ShopRepository();
+    this.contactRepo = new ContactRepository();
   }
 
   /**
@@ -474,6 +477,240 @@ export class MarketingController {
     } catch (error: any) {
       logger.error('Error getting template:', error);
       next(error);
+    }
+  };
+
+  // ==================== CONTACT MANAGEMENT ====================
+
+  /**
+   * Get imported contacts for a shop
+   */
+  getContacts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+      const { page = 1, limit = 50, status, search } = req.query;
+
+      // Verify shop ownership
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      const result = await this.contactRepo.getContacts(shopId, {
+        page: Number(page),
+        limit: Number(limit),
+        status: status as string | undefined,
+        search: search as string | undefined
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error: unknown) {
+      logger.error('Error getting contacts:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({ success: false, error: (error as { message: string }).message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to get contacts' });
+      }
+    }
+  };
+
+  /**
+   * Create a new contact
+   */
+  createContact = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+      const { fullName, email, phone, tags, notes } = req.body;
+
+      // Verify shop ownership
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      if (!fullName) {
+        res.status(400).json({ success: false, error: 'Full name is required' });
+        return;
+      }
+
+      if (!email && !phone) {
+        res.status(400).json({ success: false, error: 'At least one contact method (email or phone) is required' });
+        return;
+      }
+
+      const contact = await this.contactRepo.createContact({
+        shopId,
+        fullName,
+        email,
+        phone,
+        source: 'manual',
+        tags,
+        notes
+      });
+
+      res.status(201).json({ success: true, data: contact });
+    } catch (error: unknown) {
+      logger.error('Error creating contact:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({ success: false, error: (error as { message: string }).message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to create contact' });
+      }
+    }
+  };
+
+  /**
+   * Bulk import contacts from CSV
+   */
+  importContacts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+      const { contacts } = req.body;
+
+      // Verify shop ownership
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      if (!Array.isArray(contacts) || contacts.length === 0) {
+        res.status(400).json({ success: false, error: 'Contacts array is required and cannot be empty' });
+        return;
+      }
+
+      // Add shopId to each contact
+      const contactsWithShop = contacts.map(c => ({
+        shopId,
+        fullName: c.fullName,
+        email: c.email,
+        phone: c.phone,
+        source: 'csv' as const,
+        tags: c.tags || []
+      }));
+
+      const result = await this.contactRepo.bulkCreateContacts(contactsWithShop);
+
+      res.json({
+        success: true,
+        data: {
+          created: result.created,
+          failed: result.errors.length,
+          errors: result.errors
+        }
+      });
+    } catch (error: unknown) {
+      logger.error('Error importing contacts:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({ success: false, error: (error as { message: string }).message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to import contacts' });
+      }
+    }
+  };
+
+  /**
+   * Get contact statistics
+   */
+  getContactStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+
+      // Verify shop ownership
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      const stats = await this.contactRepo.getContactStats(shopId);
+
+      res.json({ success: true, data: stats });
+    } catch (error: unknown) {
+      logger.error('Error getting contact stats:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({ success: false, error: (error as { message: string }).message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to get contact stats' });
+      }
+    }
+  };
+
+  /**
+   * Update a contact
+   */
+  updateContact = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { contactId } = req.params;
+      const { fullName, email, phone, status, tags, notes } = req.body;
+
+      // Get contact to verify shop ownership
+      const contact = await this.contactRepo.getContactById(contactId);
+
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== contact.shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      const updated = await this.contactRepo.updateContact(contactId, {
+        fullName,
+        email,
+        phone,
+        status,
+        tags,
+        notes
+      });
+
+      res.json({ success: true, data: updated });
+    } catch (error: unknown) {
+      logger.error('Error updating contact:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as { message: string }).message;
+        if (message === 'Contact not found') {
+          res.status(404).json({ success: false, error: message });
+          return;
+        }
+        res.status(500).json({ success: false, error: message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to update contact' });
+      }
+    }
+  };
+
+  /**
+   * Delete a contact
+   */
+  deleteContact = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { contactId } = req.params;
+
+      // Get contact to verify shop ownership
+      const contact = await this.contactRepo.getContactById(contactId);
+
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== contact.shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      await this.contactRepo.deleteContact(contactId);
+
+      res.json({ success: true, message: 'Contact deleted successfully' });
+    } catch (error: unknown) {
+      logger.error('Error deleting contact:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as { message: string }).message;
+        if (message === 'Contact not found') {
+          res.status(404).json({ success: false, error: message });
+          return;
+        }
+        res.status(500).json({ success: false, error: message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to delete contact' });
+      }
     }
   };
 }
