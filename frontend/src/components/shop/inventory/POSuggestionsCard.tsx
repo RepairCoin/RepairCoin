@@ -78,8 +78,12 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
       setProcessingId(suggestionId);
       const response = await inventoryApi.approveSuggestion(suggestionId, { autoCreatePO });
 
-      if (autoCreatePO && response.data?.purchaseOrderId) {
-        toast.success(`Suggestion approved and PO created!`);
+      console.log('Approve response:', response); // Debug log
+
+      if (autoCreatePO && response.purchaseOrderId) {
+        toast.success(`Suggestion approved and PO #${response.purchaseOrderId.slice(0, 8)} created!`);
+      } else if (autoCreatePO) {
+        toast.success(`Suggestion approved!`);
       } else {
         toast.success("Suggestion approved!");
       }
