@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { HelpCircle } from "lucide-react";
+import React, { useState } from "react";
+import { HelpCircle, Maximize2, Minimize2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -17,17 +17,21 @@ import { HelpAssistantPanel } from "./HelpAssistantPanel";
  * cluster. Clicking opens a right-side slide-over (shadcn `Sheet`)
  * housing the multi-turn How-To Assistant chat.
  *
- * Phase 3.2 ships this skeleton:
- *   - Round yellow button matching `MessageIcon` / `CartIcon` styling.
- *   - shadcn Sheet wired with open/close state.
- *   - Empty body — Phase 3.3 replaces the placeholder with the chat UI;
- *     Phase 3.4 seeds suggested starter questions.
+ * Phase 6.5 UI enhancement pass (mirroring InsightsLauncher):
+ *   - Default Sheet width bumped to `sm:max-w-2xl` (672px) so
+ *     numbered procedure steps + UI label callouts don't wrap.
+ *   - Expand toggle (`Maximize2` / `Minimize2`) flips to
+ *     `sm:max-w-5xl` (~1024px) for long article-expansion views.
+ *   - Toggle placed before shadcn's built-in `X` close (which
+ *     absolute-positions at `right-4 top-4`) — `mr-8` reserves
+ *     space so the two buttons don't fight for the same corner.
  *
  * Shop-only — `DashboardLayout` gates this on `userRole === 'shop'`
- * because the help corpus is shop-facing. Customers and admins don't
- * see the button.
+ * because the help corpus is shop-facing.
  */
 export const HelpAssistantLauncher: React.FC = () => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -40,17 +44,33 @@ export const HelpAssistantLauncher: React.FC = () => {
         </button>
       </SheetTrigger>
 
-      {/* Override shadcn defaults: dark background to match the
-          dashboard, wider on desktop than the default sm:max-w-sm so
-          chat bubbles have room to breathe. */}
       <SheetContent
         side="right"
-        className="bg-[#101010] border-l border-gray-800 text-white sm:max-w-md p-6 flex flex-col"
+        className={`bg-[#101010] border-l border-gray-800 text-white p-6 flex flex-col transition-[max-width] duration-200 ease-out ${
+          isExpanded ? "sm:max-w-5xl" : "sm:max-w-2xl"
+        }`}
       >
-        <SheetTitle className="text-white">How-To Assistant</SheetTitle>
-        <p className="text-xs text-gray-400 mt-1">
-          Ask how to use the RepairCoin shop dashboard.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <SheetTitle className="text-white">How-To Assistant</SheetTitle>
+            <p className="text-xs text-gray-400 mt-1">
+              Ask how to use the RepairCoin shop dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsExpanded((v) => !v)}
+            aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
+            title={isExpanded ? "Collapse panel" : "Expand panel"}
+            className="mr-8 mt-0.5 p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex-shrink-0"
+          >
+            {isExpanded ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
+          </button>
+        </div>
 
         <HelpAssistantPanel />
       </SheetContent>
