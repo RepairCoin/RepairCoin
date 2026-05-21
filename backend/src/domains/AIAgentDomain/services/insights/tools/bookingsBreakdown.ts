@@ -21,6 +21,12 @@ import {
   ToolDisplay,
   ToolResult,
 } from "../types";
+import {
+  RangeKey,
+  RANGE_ENUM,
+  RANGE_LABEL,
+  windowBoundsFor,
+} from "../ranges";
 
 const NAME = "bookings_breakdown";
 
@@ -37,8 +43,11 @@ export const bookingsBreakdown: BusinessInsightsTool = {
     properties: {
       range: {
         type: "string",
-        enum: ["7d", "30d", "90d", "all"],
-        description: "Lookback window.",
+        enum: [...RANGE_ENUM],
+        description:
+          "Time window. Rolling ('7d'/'30d'/'90d'/'all') or calendar " +
+          "('this_week'/'this_month'/'last_week'/'last_month'/" +
+          "'this_quarter').",
       },
     },
     required: ["range"],
@@ -46,13 +55,17 @@ export const bookingsBreakdown: BusinessInsightsTool = {
   },
   async execute(args: unknown, ctx: ToolContext): Promise<ToolResult> {
     const parsed = parseArgs(args);
-    const from = windowStart(new Date(), parsed.range);
+    const bounds = windowBoundsFor(parsed.range);
 
     const conds: string[] = [`shop_id = $1`];
     const params: unknown[] = [ctx.shopId];
-    if (from) {
-      params.push(from);
+    if (bounds.from) {
+      params.push(bounds.from);
       conds.push(`created_at >= $${params.length}`);
+    }
+    if (bounds.to) {
+      params.push(bounds.to);
+      conds.push(`created_at < $${params.length}`);
     }
 
     const res = await ctx.pool.query<{ status: string; n: string }>(
@@ -107,26 +120,9 @@ export const bookingsBreakdown: BusinessInsightsTool = {
 // Helpers
 // ----------------------------------------------------------------
 
-type RangeKey = "7d" | "30d" | "90d" | "all";
-
 interface ParsedArgs {
   range: RangeKey;
 }
-
-const RANGE_DAYS: Record<Exclude<RangeKey, "all">, number> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-};
-
-const RANGE_LABEL: Record<RangeKey, string> = {
-  "7d": "last 7 days",
-  "30d": "last 30 days",
-  "90d": "last 90 days",
-  all: "all time",
-};
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const CANONICAL_STATUSES = [
   "completed",
@@ -160,11 +156,6 @@ function parseArgs(args: unknown): ParsedArgs {
     throw new Error(`${NAME}: invalid range '${String(a.range)}'`);
   }
   return { range };
-}
-
-function windowStart(now: Date, range: RangeKey): Date | null {
-  if (range === "all") return null;
-  return new Date(now.getTime() - RANGE_DAYS[range] * MS_PER_DAY);
 }
 
 function defaultLabel(raw: string): string {

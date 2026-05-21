@@ -33,6 +33,12 @@ import {
   ToolDisplay,
   ToolResult,
 } from "../types";
+import {
+  RangeKey,
+  RANGE_ENUM,
+  RANGE_LABEL,
+  windowBoundsFor,
+} from "../ranges";
 
 const NAME = "top_services";
 
@@ -48,8 +54,11 @@ export const topServices: BusinessInsightsTool = {
     properties: {
       range: {
         type: "string",
-        enum: ["7d", "30d", "90d", "all"],
-        description: "Lookback window.",
+        enum: [...RANGE_ENUM],
+        description:
+          "Time window. Rolling ('7d'/'30d'/'90d'/'all') or calendar " +
+          "('this_week'/'this_month'/'last_week'/'last_month'/" +
+          "'this_quarter').",
       },
       by: {
         type: "string",
@@ -105,7 +114,6 @@ export const topServices: BusinessInsightsTool = {
 // Helpers
 // ----------------------------------------------------------------
 
-type RangeKey = "7d" | "30d" | "90d" | "all";
 type ByKey = "revenue" | "bookings" | "conversion";
 
 interface ParsedArgs {
@@ -127,21 +135,6 @@ interface RawRow {
   /** Conversation count for the service. Populated only for conversion. */
   conversations: number | null;
 }
-
-const RANGE_DAYS: Record<Exclude<RangeKey, "all">, number> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-};
-
-const RANGE_LABEL: Record<RangeKey, string> = {
-  "7d": "last 7 days",
-  "30d": "last 30 days",
-  "90d": "last 90 days",
-  all: "all time",
-};
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function parseArgs(args: unknown): ParsedArgs {
   if (!args || typeof args !== "object") {
@@ -168,11 +161,6 @@ function parseArgs(args: unknown): ParsedArgs {
   return { range, by, limit };
 }
 
-function windowStart(now: Date, range: RangeKey): Date | null {
-  if (range === "all") return null;
-  return new Date(now.getTime() - RANGE_DAYS[range] * MS_PER_DAY);
-}
-
 async function queryRevenue(
   pool: Pool,
   shopId: string,
@@ -183,10 +171,14 @@ async function queryRevenue(
     `o.status IN ('paid', 'completed')`,
   ];
   const params: unknown[] = [shopId];
-  const from = windowStart(new Date(), parsed.range);
-  if (from) {
-    params.push(from);
+  const bounds = windowBoundsFor(parsed.range);
+  if (bounds.from) {
+    params.push(bounds.from);
     conds.push(`o.created_at >= $${params.length}`);
+  }
+  if (bounds.to) {
+    params.push(bounds.to);
+    conds.push(`o.created_at < $${params.length}`);
   }
   params.push(parsed.limit);
   const limitParam = `$${params.length}`;
@@ -227,10 +219,14 @@ async function queryBookings(
   // separate from the paid+completed revenue view.
   const conds: string[] = [`o.shop_id = $1`];
   const params: unknown[] = [shopId];
-  const from = windowStart(new Date(), parsed.range);
-  if (from) {
-    params.push(from);
+  const bounds = windowBoundsFor(parsed.range);
+  if (bounds.from) {
+    params.push(bounds.from);
     conds.push(`o.created_at >= $${params.length}`);
+  }
+  if (bounds.to) {
+    params.push(bounds.to);
+    conds.push(`o.created_at < $${params.length}`);
   }
   params.push(parsed.limit);
   const limitParam = `$${params.length}`;
@@ -272,14 +268,34 @@ async function queryConversion(
   // same time window — the outer `shop_services` filter is the
   // belt-and-suspenders shop guard.
   const params: unknown[] = [shopId];
-  const from = windowStart(new Date(), parsed.range);
-  const windowCondOrders = from
-    ? `AND o.created_at >= $${params.length + 1}`
-    : "";
-  const windowCondConvos = from
-    ? `AND c.created_at >= $${params.length + 1}`
-    : "";
-  if (from) params.push(from);
+  const bounds = windowBoundsFor(parsed.range);
+  // Push window params first so they're $2 (from) and optionally $3 (to);
+  // limit gets whatever comes after. Both CTEs reference the same param
+  // indices so we build the predicate strings once.
+  let fromIdx = -1;
+  let toIdx = -1;
+  if (bounds.from) {
+    params.push(bounds.from);
+    fromIdx = params.length;
+  }
+  if (bounds.to) {
+    params.push(bounds.to);
+    toIdx = params.length;
+  }
+  const orderWindow = [
+    bounds.from ? `AND o.created_at >= $${fromIdx}` : "",
+    bounds.to ? `AND o.created_at < $${toIdx}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const convosWindow = [
+    bounds.from ? `AND c.created_at >= $${fromIdx}` : "",
+    bounds.to ? `AND c.created_at < $${toIdx}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const windowCondOrders = orderWindow;
+  const windowCondConvos = convosWindow;
   params.push(parsed.limit);
   const limitParam = `$${params.length}`;
 

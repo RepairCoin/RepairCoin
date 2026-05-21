@@ -61,17 +61,24 @@ export class MetricsAggregator {
   async aggregate(args: {
     shopId: string;
     windowStart: MetricsWindow;
+    /**
+     * Optional exclusive upper bound (Phase 6 calendar-range support —
+     * e.g. `last_month` = [prevMonthStart, currentMonthStart)). Omit /
+     * pass null / undefined for rolling-from-now ranges + all-time.
+     */
+    windowEnd?: MetricsWindow;
     baselineMinutes: number;
   }): Promise<ImpactMetrics> {
-    const { shopId, windowStart, baselineMinutes } = args;
+    const { shopId, windowStart, windowEnd, baselineMinutes } = args;
+    const windowEndArg: MetricsWindow = windowEnd ?? null;
 
     // The `($2::timestamp IS NULL OR ...)` form lets a single SQL string
     // serve both the 7/30/90d ranges and the all-time case without dynamic
-    // SQL string building.
+    // SQL string building. Same idiom now used for the upper bound ($3).
     const [msgStats, orderStats, recovered] = await Promise.all([
-      this.queryMessageStats(shopId, windowStart),
-      this.queryOrderStats(shopId, windowStart),
-      this.queryCustomersRecovered(shopId, windowStart),
+      this.queryMessageStats(shopId, windowStart, windowEndArg),
+      this.queryOrderStats(shopId, windowStart, windowEndArg),
+      this.queryCustomersRecovered(shopId, windowStart, windowEndArg),
     ]);
 
     const aiConversations = msgStats.distinctConversations;
@@ -129,7 +136,8 @@ export class MetricsAggregator {
   /** Distinct conversations + successful-reply count + avg latency. */
   private async queryMessageStats(
     shopId: string,
-    windowStart: MetricsWindow
+    windowStart: MetricsWindow,
+    windowEnd: MetricsWindow
   ): Promise<{
     distinctConversations: number;
     successfulReplies: number;
@@ -146,8 +154,9 @@ export class MetricsAggregator {
          AVG(latency_ms) FILTER (WHERE response_payload IS NOT NULL) AS avg_latency_ms
        FROM ai_agent_messages
        WHERE shop_id = $1
-         AND ($2::timestamp IS NULL OR created_at >= $2)`,
-      [shopId, windowStart]
+         AND ($2::timestamp IS NULL OR created_at >= $2)
+         AND ($3::timestamp IS NULL OR created_at < $3)`,
+      [shopId, windowStart, windowEnd]
     );
     const row = r.rows[0];
     return {
@@ -164,7 +173,8 @@ export class MetricsAggregator {
    */
   private async queryOrderStats(
     shopId: string,
-    windowStart: MetricsWindow
+    windowStart: MetricsWindow,
+    windowEnd: MetricsWindow
   ): Promise<{ bookings: number; revenue: number }> {
     const r = await this.pool.query<{
       bookings: string;
@@ -176,9 +186,10 @@ export class MetricsAggregator {
        FROM service_orders
        WHERE shop_id = $1
          AND ($2::timestamp IS NULL OR created_at >= $2)
+         AND ($3::timestamp IS NULL OR created_at < $3)
          AND conversation_id IS NOT NULL
          AND status IN ('paid', 'completed')`,
-      [shopId, windowStart]
+      [shopId, windowStart, windowEnd]
     );
     const row = r.rows[0];
     return {
@@ -199,7 +210,8 @@ export class MetricsAggregator {
    */
   private async queryCustomersRecovered(
     shopId: string,
-    windowStart: MetricsWindow
+    windowStart: MetricsWindow,
+    windowEnd: MetricsWindow
   ): Promise<number> {
     const r = await this.pool.query<{ recovered: string }>(
       `SELECT COUNT(DISTINCT m.customer_address) AS recovered
@@ -209,11 +221,12 @@ export class MetricsAggregator {
         AND o.shop_id = m.shop_id
        WHERE m.shop_id = $1
          AND ($2::timestamp IS NULL OR m.created_at >= $2)
+         AND ($3::timestamp IS NULL OR m.created_at < $3)
          AND m.request_payload->>'source' = 'ai_followup'
          AND o.status IN ('paid', 'completed')
          AND o.created_at >= m.created_at
          AND o.created_at <= m.created_at + INTERVAL '7 days'`,
-      [shopId, windowStart]
+      [shopId, windowStart, windowEnd]
     );
     return parseInt(r.rows[0]?.recovered ?? "0", 10) || 0;
   }

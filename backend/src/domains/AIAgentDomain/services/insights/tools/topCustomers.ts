@@ -30,6 +30,12 @@ import {
   ToolDisplay,
   ToolResult,
 } from "../types";
+import {
+  RangeKey,
+  RANGE_ENUM,
+  RANGE_LABEL,
+  windowBoundsFor,
+} from "../ranges";
 
 const NAME = "top_customers";
 
@@ -44,8 +50,11 @@ export const topCustomers: BusinessInsightsTool = {
     properties: {
       range: {
         type: "string",
-        enum: ["7d", "30d", "90d", "all"],
-        description: "Lookback window.",
+        enum: [...RANGE_ENUM],
+        description:
+          "Time window. Rolling ('7d'/'30d'/'90d'/'all') or calendar " +
+          "('this_week'/'this_month'/'last_week'/'last_month'/" +
+          "'this_quarter'). Pick whichever phrasing the user used.",
       },
       by: {
         type: "string",
@@ -102,7 +111,6 @@ export const topCustomers: BusinessInsightsTool = {
 // Helpers
 // ----------------------------------------------------------------
 
-type RangeKey = "7d" | "30d" | "90d" | "all";
 type ByKey = "rcn_earned" | "spend" | "order_count";
 
 interface ParsedArgs {
@@ -122,21 +130,6 @@ interface RawRow {
   /** Order count — always populated for spend/order_count; null-ish for rcn_earned. */
   order_count: number;
 }
-
-const RANGE_DAYS: Record<Exclude<RangeKey, "all">, number> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-};
-
-const RANGE_LABEL: Record<RangeKey, string> = {
-  "7d": "last 7 days",
-  "30d": "last 30 days",
-  "90d": "last 90 days",
-  all: "all time",
-};
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function parseArgs(args: unknown): ParsedArgs {
   if (!args || typeof args !== "object") {
@@ -158,11 +151,6 @@ function parseArgs(args: unknown): ParsedArgs {
   return { range, by, limit };
 }
 
-function windowStart(now: Date, range: RangeKey): Date | null {
-  if (range === "all") return null;
-  return new Date(now.getTime() - RANGE_DAYS[range] * MS_PER_DAY);
-}
-
 async function querySpendOrCount(
   pool: Pool,
   shopId: string,
@@ -174,10 +162,14 @@ async function querySpendOrCount(
     `o.status IN ('paid', 'completed')`,
   ];
   const params: unknown[] = [shopId];
-  const from = windowStart(new Date(), parsed.range);
-  if (from) {
-    params.push(from);
+  const bounds = windowBoundsFor(parsed.range);
+  if (bounds.from) {
+    params.push(bounds.from);
     conds.push(`o.created_at >= $${params.length}`);
+  }
+  if (bounds.to) {
+    params.push(bounds.to);
+    conds.push(`o.created_at < $${params.length}`);
   }
   const orderBy =
     parsed.by === "spend"
@@ -229,10 +221,14 @@ async function queryRcnEarned(
     `t.type IN ('mint', 'tier_bonus')`,
   ];
   const params: unknown[] = [shopId];
-  const from = windowStart(new Date(), parsed.range);
-  if (from) {
-    params.push(from);
+  const bounds = windowBoundsFor(parsed.range);
+  if (bounds.from) {
+    params.push(bounds.from);
     conds.push(`t.created_at >= $${params.length}`);
+  }
+  if (bounds.to) {
+    params.push(bounds.to);
+    conds.push(`t.created_at < $${params.length}`);
   }
   params.push(parsed.limit);
   const limitParam = `$${params.length}`;
