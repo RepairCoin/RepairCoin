@@ -1072,6 +1072,126 @@ jest suite ≥ 150 assertions; smoke matrix runs clean on peanut.
 
 ---
 
+## 8b. Phase 6.3 + full 6.4 — START HERE TOMORROW
+
+**Status as of EOD 2026-05-21:** Phase 6.1 + 6.2 + minimal 6.4 merged
+via PR #371 (commit `1f9c36c0`) and deployed. **`deo/business-insights`
+is now behind `main`** — start tomorrow by either:
+- `git checkout main && git pull && git checkout -b deo/business-insights-phase-6-3`
+- Or reset existing branch: `git checkout deo/business-insights && git fetch && git reset --hard origin/main`
+
+Either way, base off the fresh `main` so the Phase 6.3 work picks up
+PR #371 + the 4 unrelated commits that landed alongside it.
+
+### What's left in Phase 6
+
+- [ ] **6.3.1** New `suggest_followups({ questions: string[] })`
+  meta-tool — Claude calls this AFTER answering. Trivial dispatch
+  (no DB call) — just echoes `questions` into the result as a new
+  display kind. Tool description should explicitly say "use AFTER
+  data-fetching tools, not instead of them" so the agent loop
+  orders correctly.
+- [ ] **6.3.2** New `ToolDisplay` discriminated-union variant:
+  `{ kind: "follow_ups"; items: string[] }`. Extend both backend
+  (`services/insights/types.ts`) and frontend (`services/api/aiInsights.ts`)
+  type declarations.
+- [ ] **6.3.3** Frontend renderer addition to `InsightsToolCallCard`:
+  `kind: "follow_ups"` → row of pill chips. Each chip's onClick fires
+  an `onFollowupClick(text)` callback prop. **Plumbing required**:
+  `InsightsPanel` → `<TurnBubble onFollowupClick={submitText} />` →
+  `<InsightsToolCallCard onFollowupClick={...} />`. Currently the
+  card doesn't know about the panel's submit handler.
+- [ ] **6.3.4** Prompt rule addition (rule 11 or extend rule 2):
+  "After answering a question, call `suggest_followups` with 2-3
+  short questions the user might ask next. Pick questions answerable
+  by your other tools — never out-of-scope topics. Skip the call
+  when the user's last message indicates they're done."
+- [ ] **6.4 (full)** Prompt-tuning pass — observe real shop-owner
+  traffic from the Phase 6.2 deploy. If Claude misroutes
+  ("how many gold customers?" → `top_customers` instead of
+  `customer_tier_distribution`), tighten descriptions to disambiguate.
+  The 10-tool toolkit is the first time we're seriously testing
+  Claude's tool-selection accuracy.
+
+### Implementation design choices already worked out
+
+**For 6.3.1 — `suggest_followups` tool shape:**
+
+```ts
+// services/insights/tools/suggestFollowups.ts
+export const suggestFollowups: BusinessInsightsTool = {
+  name: "suggest_followups",
+  description:
+    "After answering a question with a data tool, call this with 2-3 " +
+    "short next questions the user might ask. Pick questions answerable " +
+    "by your other tools — never speculative ones. Skip when the user's " +
+    "last message indicates they're done (e.g. 'thanks').",
+  inputSchema: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        items: { type: "string", maxLength: 80 },
+        minItems: 1,
+        maxItems: 5,
+      },
+    },
+    required: ["questions"],
+    additionalProperties: false,
+  },
+  async execute(args: unknown, _ctx: ToolContext): Promise<ToolResult> {
+    const a = args as { questions?: unknown };
+    if (!Array.isArray(a.questions)) {
+      throw new Error("suggest_followups: questions must be an array");
+    }
+    const questions = a.questions
+      .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+      .map((q) => q.trim())
+      .slice(0, 5);
+    return {
+      data: { questions },
+      display: { kind: "follow_ups", items: questions },
+    };
+  },
+};
+```
+
+**Risk: dead chips.** From the roadmap doc: bad chips feel worse than
+no chips. Mitigation paths:
+1. Make the tool description aggressive about "never out-of-scope" so
+   Claude only suggests questions other registered tools can answer.
+2. After landing, do a manual QA pass — issue 10 different real
+   questions and verify the suggested chips are all answerable.
+3. If chip quality is bad, kill the rule and ship only as a
+   not-prompted-by-default tool (Claude can call it if it wants, but
+   the prompt doesn't ASK it to).
+
+**For 6.3.3 — frontend callback plumbing:** the cleanest way is to
+add `onFollowupClick?: (question: string) => void` as a prop on both
+`InsightsToolCallCard` and `TurnBubble`. In `InsightsPanel`, pass
+`submitText` (the existing per-panel submit handler) as the callback.
+Threading should be 3 lines per file, but watch for `TurnBubble`'s
+existing prop interface — the bubble currently only gets `turn` and
+`markdownComponents`.
+
+### Real-traffic feedback to watch before tomorrow
+
+- Does `customer_tier_distribution` get picked correctly for "how
+  many gold customers do I have?" — or does Claude reach for
+  `top_customers` first? Tool-name similarity is a known
+  disambiguation risk.
+- Does `time_of_day_pattern` actually render a clean sparkline at
+  the panel width, or does it look squished?
+- Does the calendar-range `this_month` resolve correctly mid-month
+  (e.g. asking on the 21st should compare Mon-21 last month to
+  Mon-21 this month per `priorWindowBoundsFor`'s same-elapsed-length
+  semantics)?
+
+If any of those misbehave, surface BEFORE Phase 6.3 — they're
+prompt/SQL tuning, separate from the chip-rendering work.
+
+---
+
 ## 9. Out of scope for v1 (do not build)
 
 - ~~The 3 deferred tools (`cancellation_breakdown`,
