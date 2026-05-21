@@ -18,13 +18,26 @@ import { topCustomers } from "./tools/topCustomers";
 import { topServices } from "./tools/topServices";
 import { bookingsBreakdown } from "./tools/bookingsBreakdown";
 import { aiAssistantImpact } from "./tools/aiAssistantImpact";
+// Phase 6.2 — breadth expansion.
+import { customerTierDistribution } from "./tools/customerTierDistribution";
+import { rcnBalanceSummary } from "./tools/rcnBalanceSummary";
+import { cancellationBreakdown } from "./tools/cancellationBreakdown";
+import { repeatCustomerAnalysis } from "./tools/repeatCustomerAnalysis";
+import { timeOfDayPattern } from "./tools/timeOfDayPattern";
 
 const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
+  // v1 (Phase 2)
   revenueSummary,
   topCustomers,
   topServices,
   bookingsBreakdown,
   aiAssistantImpact,
+  // Phase 6.2 — breadth expansion
+  customerTierDistribution,
+  rcnBalanceSummary,
+  cancellationBreakdown,
+  repeatCustomerAnalysis,
+  timeOfDayPattern,
 ]);
 
 const INSIGHTS_TOOLS_BY_NAME: ReadonlyMap<string, BusinessInsightsTool> =

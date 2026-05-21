@@ -25,6 +25,13 @@ import {
   ToolDisplay,
   ToolResult,
 } from "../types";
+import {
+  RangeKey,
+  RANGE_ENUM,
+  RANGE_LABEL,
+  windowBoundsFor,
+  priorWindowBoundsFor,
+} from "../ranges";
 
 const NAME = "revenue_summary";
 
@@ -41,10 +48,13 @@ export const revenueSummary: BusinessInsightsTool = {
     properties: {
       range: {
         type: "string",
-        enum: ["7d", "30d", "90d", "all"],
+        enum: [...RANGE_ENUM],
         description:
-          "Lookback window. '7d' = last 7 days, '30d' = last 30 days, " +
-          "'90d' = last 90 days, 'all' = since the shop's first order.",
+          "Time window. Rolling: '7d'/'30d'/'90d' (last N days from now), " +
+          "'all' (since shop's first order). Calendar: 'this_week'/'this_month'/" +
+          "'this_quarter' (current period to date), 'last_week'/'last_month' " +
+          "(prior closed period). Pick whichever phrasing the user used: " +
+          "'this month' → 'this_month'; 'last 30 days' → '30d'.",
       },
       compare: {
         type: "string",
@@ -62,12 +72,12 @@ export const revenueSummary: BusinessInsightsTool = {
     const parsed = parseArgs(args);
     const now = new Date();
 
-    const currentFrom = windowStart(now, parsed.range);
+    const currentBounds = windowBoundsFor(parsed.range, now);
     const current = await sumWindow(
       ctx.pool,
       ctx.shopId,
-      currentFrom,
-      null
+      currentBounds.from,
+      currentBounds.to
     );
 
     if (parsed.compare !== "prior") {
@@ -77,7 +87,8 @@ export const revenueSummary: BusinessInsightsTool = {
     // compare='prior' for 'all' has no defined prior window. Surface
     // the unsupported case in the data so Claude phrases it honestly
     // instead of inventing a comparison.
-    if (parsed.range === "all") {
+    const priorBounds = priorWindowBoundsFor(parsed.range, now);
+    if (priorBounds === null) {
       return {
         data: {
           range: parsed.range,
@@ -91,9 +102,12 @@ export const revenueSummary: BusinessInsightsTool = {
       };
     }
 
-    const priorFrom = windowStart(now, parsed.range, /*priorMultiplier*/ 2);
-    const priorTo = currentFrom; // exclusive upper bound = current window's lower bound
-    const prior = await sumWindow(ctx.pool, ctx.shopId, priorFrom, priorTo);
+    const prior = await sumWindow(
+      ctx.pool,
+      ctx.shopId,
+      priorBounds.from,
+      priorBounds.to
+    );
 
     return compareResult(parsed.range, current, prior);
   },
@@ -102,8 +116,6 @@ export const revenueSummary: BusinessInsightsTool = {
 // ----------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------
-
-type RangeKey = "7d" | "30d" | "90d" | "all";
 
 interface ParsedArgs {
   range: RangeKey;
@@ -114,21 +126,6 @@ interface WindowSum {
   totalUsd: number;
   orderCount: number;
 }
-
-const RANGE_DAYS: Record<Exclude<RangeKey, "all">, number> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-};
-
-const RANGE_LABEL: Record<RangeKey, string> = {
-  "7d": "last 7 days",
-  "30d": "last 30 days",
-  "90d": "last 90 days",
-  all: "all time",
-};
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function parseArgs(args: unknown): ParsedArgs {
   if (!args || typeof args !== "object") {
@@ -143,20 +140,6 @@ function parseArgs(args: unknown): ParsedArgs {
     throw new Error(`${NAME}: invalid compare '${String(a.compare)}'`);
   }
   return { range, compare: a.compare as "prior" | undefined };
-}
-
-/**
- * Lower bound for a window. `priorMultiplier=2` gives the start of the
- * window-before-the-current-window (used for compare='prior'). Returns
- * null for 'all' (no lower bound).
- */
-function windowStart(
-  now: Date,
-  range: RangeKey,
-  priorMultiplier = 1
-): Date | null {
-  if (range === "all") return null;
-  return new Date(now.getTime() - RANGE_DAYS[range] * priorMultiplier * MS_PER_DAY);
 }
 
 async function sumWindow(

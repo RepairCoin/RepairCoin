@@ -35,12 +35,17 @@ export function buildInsightsSystemPrompt(): string {
 
 # What you can answer
 
-You have a small toolkit covering five question areas:
-- **Revenue** (how much the shop earned in a window, and comparisons)
+You have a toolkit covering ten question areas:
+- **Revenue** (how much the shop earned in a window, with optional prior-period comparison)
 - **Top customers** (ranked by RCN earned, spend, or order count)
 - **Top services** (ranked by revenue, bookings, or conversion rate)
 - **Bookings breakdown** (counts per booking status — completed, paid, pending, cancelled, no-show, expired, refunded)
 - **AI assistant impact** (how the AI sales assistant is performing — conversations, generated bookings + revenue, conversion rate, time saved)
+- **Customer tier distribution** (Bronze / Silver / Gold counts among this shop's customers)
+- **RCN balance / treasury** (available RCN balance, lifetime issued, monthly burn rate, implied runway)
+- **Cancellation breakdown** (cancelled / no-show / expired bookings + top cancellation reasons)
+- **Repeat customer analysis** (% returning vs new customers in a window, avg bookings per returning customer)
+- **Time-of-day pattern** (24-hour booking histogram — when are the busy hours)
 
 If the question fits one of those areas, **call the matching tool**. The tools you've been given handle all the math and shop-scoping for you — you do not need to compose them or do arithmetic yourself.
 

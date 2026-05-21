@@ -27,6 +27,12 @@ import {
   ToolResult,
 } from "../types";
 import { MetricsAggregator } from "../../MetricsAggregator";
+import {
+  RangeKey,
+  RANGE_ENUM,
+  RANGE_LABEL,
+  windowBoundsFor,
+} from "../ranges";
 
 const NAME = "ai_assistant_impact";
 
@@ -42,8 +48,11 @@ export const aiAssistantImpact: BusinessInsightsTool = {
     properties: {
       range: {
         type: "string",
-        enum: ["7d", "30d", "90d", "all"],
-        description: "Lookback window.",
+        enum: [...RANGE_ENUM],
+        description:
+          "Time window. Rolling ('7d'/'30d'/'90d'/'all') or calendar " +
+          "('this_week'/'this_month'/'last_week'/'last_month'/" +
+          "'this_quarter').",
       },
     },
     required: ["range"],
@@ -51,13 +60,14 @@ export const aiAssistantImpact: BusinessInsightsTool = {
   },
   async execute(args: unknown, ctx: ToolContext): Promise<ToolResult> {
     const parsed = parseArgs(args);
-    const windowStart = windowStartFor(parsed.range);
+    const bounds = windowBoundsFor(parsed.range);
     const baselineMinutes = await fetchBaselineMinutes(ctx.pool, ctx.shopId);
 
     const aggregator = new MetricsAggregator({ pool: ctx.pool });
     const metrics = await aggregator.aggregate({
       shopId: ctx.shopId,
-      windowStart,
+      windowStart: bounds.from,
+      windowEnd: bounds.to,
       baselineMinutes,
     });
 
@@ -87,26 +97,9 @@ export const aiAssistantImpact: BusinessInsightsTool = {
 // Helpers
 // ----------------------------------------------------------------
 
-type RangeKey = "7d" | "30d" | "90d" | "all";
-
 interface ParsedArgs {
   range: RangeKey;
 }
-
-const RANGE_DAYS: Record<Exclude<RangeKey, "all">, number> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-};
-
-const RANGE_LABEL: Record<RangeKey, string> = {
-  "7d": "last 7 days",
-  "30d": "last 30 days",
-  "90d": "last 90 days",
-  all: "all time",
-};
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Mirrors MetricsController's DEFAULT_HUMAN_REPLY_BASELINE_MINUTES.
 // Per the existing codebase convention, this constant is duplicated
@@ -124,11 +117,6 @@ function parseArgs(args: unknown): ParsedArgs {
     throw new Error(`${NAME}: invalid range '${String(a.range)}'`);
   }
   return { range };
-}
-
-function windowStartFor(range: RangeKey): Date | null {
-  if (range === "all") return null;
-  return new Date(Date.now() - RANGE_DAYS[range] * MS_PER_DAY);
 }
 
 async function fetchBaselineMinutes(pool: Pool, shopId: string): Promise<number> {

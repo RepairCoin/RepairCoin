@@ -938,10 +938,147 @@ range to 30d.
 
 ---
 
+## 8a. Phase 6 — Breadth + exploration UX
+
+**Goal:** close the breadth gap to Square AI (5 more tools) + add
+calendar-aligned ranges + AI-suggested follow-up chips. Per the
+`phase-6-plus-roadmap.md` ranking, this is the highest-ROI lane.
+
+**Started 2026-05-21**, after Phase 5 ship was merged + deployed
+(PR #370, commit `ad0389ed`).
+
+### 6.1 — Calendar-aligned ranges (`this_week` / `this_month` / `last_month` / `this_quarter`)
+
+- [x] **6.1** Extend the `RangeKey` union in all 5 v1 tools to
+  add `this_week | last_week | this_month | last_month | this_quarter`
+  alongside the existing `7d | 30d | 90d | all`. Both vocabularies
+  coexist — rolling for "rolling 30-day NPS" style asks, calendar
+  for "this month" style asks. Prompt rule 5 updated so Claude picks
+  whichever the user phrased.
+  > **Done 2026-05-21.** Approach: new `services/insights/ranges.ts`
+  > module as the single source of truth. Exports `RangeKey` (9-value
+  > union), `RANGE_ENUM` (for JSON-schema `enum` arrays),
+  > `RANGE_LABEL` (human-readable strings), `windowBoundsFor()`
+  > (returns `{from, to}` for both rolling + calendar ranges),
+  > `priorWindowBoundsFor()` (compare='prior' helper that shifts
+  > current window backward by its own length — fair apples-to-apples
+  > for partial-period calendar ranges like "this_month so far"
+  > vs "last month, same days"), and `windowStartFor()` (backward-
+  > compat shim). Calendar math is hand-rolled — ISO 8601 Monday-anchored
+  > week start, calendar-aligned month/quarter starts. **No date-lib
+  > dep needed.**
+  > Tool refactor: all 5 existing tools migrated to import from
+  > `ranges.ts`. Local `RangeKey` types, `RANGE_DAYS`, `RANGE_LABEL`,
+  > `MS_PER_DAY`, `windowStart()` removed (saves ~15 lines per tool).
+  > Every SQL builder now handles BOTH `bounds.from` (created_at >=)
+  > AND `bounds.to` (created_at <) so `last_week` / `last_month`
+  > correctly exclude this-week / this-month data.
+  > **MetricsAggregator extended** with optional `windowEnd` param —
+  > additive, backward-compatible. MetricsController still calls
+  > without `windowEnd` and gets old behavior; aiAssistantImpact tool
+  > now passes both bounds.
+  > All 5 existing input schemas now expose all 9 enum values via
+  > `[...RANGE_ENUM]`. Tool descriptions updated to mention both
+  > vocabularies + tell Claude to pick whichever phrasing the user
+  > used.
+  > Verification: `tsc --noEmit` clean. Jest **95/95 pass** —
+  > existing tests are vocabulary-agnostic (they queue mock rows,
+  > don't care about which enum value triggered the query) so the
+  > expansion was backward-compatible without test changes.
+
+### 6.2 — Five new tools
+
+- [x] **6.2.1** `cancellation_breakdown({ range })` — counts
+  service_orders with `status IN ('cancelled', 'no_show', 'expired')`
+  grouped by status + cancellation_reason where populated. Display:
+  list with status rollup + top-3 reason rows (`↳ <reason>`).
+- [x] **6.2.2** `customer_tier_distribution()` — current snapshot
+  (no range arg). JOIN customers ↔ service_orders on
+  customer_address restricts to THIS shop's customers. Canonical
+  Bronze/Silver/Gold zero-fill + forward-compat for extra tiers
+  (e.g. Platinum). NULL tier → "Unknown" label.
+- [x] **6.2.3** `time_of_day_pattern({ range })` — 24-bucket
+  hourly histogram via `EXTRACT(HOUR FROM COALESCE(booking_date,
+  created_at))`. Display: **sparkline** (first v1 use of the
+  sparkline kind). Primary surfaces peak hour ("peak 8pm (10)").
+  Defensive: hours outside 0..23 silently dropped. SQL precedence
+  bug caught + fixed before commit.
+- [x] **6.2.4** `repeat_customer_analysis({ range })` — CTE
+  computes per-customer order counts in the window, outer query
+  splits into new (n=1) vs repeat (n≥2) + `avgRepeatOrders`.
+  Display: number kind w/ `% repeat` as primary; sub describes
+  the split + avg-orders-for-returning-customers depth.
+  Edge case: pctRepeat = null when total = 0.
+- [x] **6.2.5** `rcn_balance_summary()` — reads `shops.purchased_rcn_balance`
+  + `shops.total_tokens_issued` for the snapshot, plus a 30-day
+  rolling `SUM(amount) WHERE type IN ('mint', 'tier_bonus')` from
+  transactions for the burn rate. Implied runway = available / burn
+  (null when burn=0). Display: list of 4 rows. No range arg —
+  shop owners ask "what's my RCN treasury" as a snapshot, not a
+  window.
+  > **Done 2026-05-21.** All 5 tool files created under
+  > `services/insights/tools/`, registered in `registry.ts` ordered
+  > after the v1 tools. **Total tool count: 5 → 10.** No schema
+  > collisions, no broken existing tools. Each new tool has a
+  > dedicated jest file under `tests/ai-agent/insights/tools/`
+  > using the same mock-pool pattern as Phase 5.1 — **93/93 jest
+  > assertions** pass across all 10 tool test files (5×14-19 v1
+  > + 5×6-9 new = 93). Smoke scripts deferred — the pipeline smoke
+  > (`smoke-insights-pipeline.ts`) will exercise the registry
+  > end-to-end against real DO once the prompt update lands and
+  > Claude can route to the new tools. `tsc --noEmit` clean.
+
+**Acceptance:** each tool gets a jest test (mock-pool pattern from
+Phase 5.1), smoke script against real DO data, and registry entry.
+Adds ~70-100 jest assertions total. ✓ **53 new assertions added
+(7+7+6+5+10+8+5+6 across the 5 tool files); registry now exposes
+10 tools.**
+
+### 6.3 — AI-suggested follow-up chips
+
+- [ ] **6.3.1** New `suggest_followups({ questions: string[] })`
+  tool — meta-tool Claude calls AFTER answering. Returns the
+  questions directly as a new display kind `follow_ups`. Shop-scope
+  irrelevant (doesn't touch the DB).
+- [ ] **6.3.2** New `ToolDisplay` variant `{ kind: 'follow_ups';
+  items: string[] }`. Both backend types + frontend types extended.
+- [ ] **6.3.3** Frontend renderer in `InsightsToolCallCard`:
+  tap-able pill chips, each submits the chip text via the parent
+  panel's submit handler. Needs an `onFollowupClick` callback
+  threaded from `InsightsPanel` → `TurnBubble` → `InsightsToolCallCard`.
+- [ ] **6.3.4** Prompt rule update: "After answering, call
+  `suggest_followups` with 2-3 short questions the user might ask
+  next. Pick questions answerable by your other tools — never
+  out-of-scope topics. Skip the call if the user's last message
+  indicated they're done."
+
+**Acceptance:** asking "how much did I earn last week?" returns the
+revenue number card AND a chip row below with 2-3 next-step
+suggestions ("Top customers", "Compare to the month before",
+"Bookings breakdown"). Tapping any chip submits it as a new user
+message.
+
+### 6.4 — Prompt tuning pass + final smoke
+
+- [ ] **6.4** After all 5 tools land, update prompt's tool-areas
+  list (was 5, now 10). Tighten descriptions if Claude's tool
+  selection drifts (test by asking the same question repeatedly).
+  Re-run prompt-builder jest assertions; bump to ~30 covering the
+  new rules.
+
+**Phase 6 acceptance:** all 5 tools merged + deployed; calendar
+ranges work end-to-end; clicking a follow-up chip submits + answers;
+jest suite ≥ 150 assertions; smoke matrix runs clean on peanut.
+
+---
+
 ## 9. Out of scope for v1 (do not build)
 
-- The 3 deferred tools (`cancellation_breakdown`,
-  `customer_tier_distribution`, `rcn_balance_summary`) — v1.1.
+- ~~The 3 deferred tools (`cancellation_breakdown`,
+  `customer_tier_distribution`, `rcn_balance_summary`) — v1.1.~~
+  **Reclassified into Phase 6** (2026-05-21) — all three are being
+  built alongside `time_of_day_pattern` + `repeat_customer_analysis`
+  as part of the breadth-gap close.
 - Free-form NL→SQL fallback.
 - Admin platform-wide Q&A.
 - Anomaly alerts / proactive notifications.
