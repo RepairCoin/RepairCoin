@@ -240,21 +240,37 @@ export class POSuggestionService {
     },
     analytics: UsageAnalytics
   ): Promise<POSuggestion> {
-    // Check if suggestion already exists for this item (pending status)
+    // Check if suggestion already exists for this item
+    // 1. Pending suggestions that haven't expired
+    // 2. Approved suggestions from last 7 days (without PO or with pending PO)
+    // 3. Approved suggestions that have a PO created
     const existingQuery = `
-      SELECT id FROM purchase_order_suggestions
+      SELECT id, status, purchase_order_id FROM purchase_order_suggestions
       WHERE shop_id = $1 AND item_id = $2
-        AND status = 'pending'
-        AND expires_at > CURRENT_TIMESTAMP
+        AND (
+          (status = 'pending' AND expires_at > CURRENT_TIMESTAMP)
+          OR (status = 'approved' AND approved_at > CURRENT_TIMESTAMP - INTERVAL '7 days')
+          OR (status = 'approved' AND purchase_order_id IS NOT NULL)
+        )
+      ORDER BY created_at DESC
       LIMIT 1
     `;
 
     const existingResult = await pool.query(existingQuery, [shopId, item.id]);
 
     if (existingResult.rows.length > 0) {
-      logger.info(`Suggestion already exists for item ${item.id}, skipping`);
+      const existing = existingResult.rows[0];
+
+      if (existing.status === 'approved' && existing.purchase_order_id) {
+        logger.info(`Approved suggestion with PO already exists for item ${item.id}, skipping`);
+      } else if (existing.status === 'approved') {
+        logger.info(`Recently approved suggestion exists for item ${item.id}, skipping`);
+      } else {
+        logger.info(`Pending suggestion already exists for item ${item.id}, skipping`);
+      }
+
       // Return existing suggestion instead of creating duplicate
-      return this.getSuggestionById(existingResult.rows[0].id);
+      return this.getSuggestionById(existing.id);
     }
 
     // Calculate urgency
