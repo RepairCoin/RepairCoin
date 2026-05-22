@@ -1085,27 +1085,56 @@ PR #371 + the 4 unrelated commits that landed alongside it.
 
 ### What's left in Phase 6
 
-- [ ] **6.3.1** New `suggest_followups({ questions: string[] })`
+- [x] **6.3.1** New `suggest_followups({ questions: string[] })`
   meta-tool — Claude calls this AFTER answering. Trivial dispatch
   (no DB call) — just echoes `questions` into the result as a new
   display kind. Tool description should explicitly say "use AFTER
   data-fetching tools, not instead of them" so the agent loop
   orders correctly.
-- [ ] **6.3.2** New `ToolDisplay` discriminated-union variant:
-  `{ kind: "follow_ups"; items: string[] }`. Extend both backend
+  > **Done 2026-05-22.** Built `services/insights/tools/suggestFollowups.ts`.
+  > Defensive cleaning in execute() — trims, drops empties, caps at
+  > 80 chars per question + 5 questions max. Throws on no-valid-
+  > questions or non-array input. Registered in registry after the
+  > 10 data-fetching tools so the description's "AFTER" framing
+  > matches the natural ordering.
+- [x] **6.3.2** New `ToolDisplay` discriminated-union variant:
+  `{ kind: "follow_ups"; items: string[] }`. Extended both backend
   (`services/insights/types.ts`) and frontend (`services/api/aiInsights.ts`)
   type declarations.
-- [ ] **6.3.3** Frontend renderer addition to `InsightsToolCallCard`:
+  > **Done 2026-05-22.** DisplayBody + ExpandedDisplayBody switches
+  > both got `case "follow_ups"` branches returning `null` for type
+  > exhaustiveness — the chip row is rendered BEFORE the switch by a
+  > dedicated `FollowUpsRow` component (chips don't belong inside an
+  > Expand modal).
+- [x] **6.3.3** Frontend renderer addition to `InsightsToolCallCard`:
   `kind: "follow_ups"` → row of pill chips. Each chip's onClick fires
   an `onFollowupClick(text)` callback prop. **Plumbing required**:
   `InsightsPanel` → `<TurnBubble onFollowupClick={submitText} />` →
-  `<InsightsToolCallCard onFollowupClick={...} />`. Currently the
-  card doesn't know about the panel's submit handler.
-- [ ] **6.3.4** Prompt rule addition (rule 11 or extend rule 2):
-  "After answering a question, call `suggest_followups` with 2-3
-  short questions the user might ask next. Pick questions answerable
-  by your other tools — never out-of-scope topics. Skip the call
-  when the user's last message indicates they're done."
+  `<InsightsToolCallCard onFollowupClick={...} />`.
+  > **Done 2026-05-22.** Chips render as small pill buttons (same
+  > styling as starter chips for visual consistency) WITHOUT the
+  > usual card chrome — they read as exploration affordance, not
+  > "another data result". Disabled state while `loading` is true
+  > (chip onClick passes through `loading ? undefined : submitText`
+  > so a fast-tapping user can't double-submit). Tap re-enters the
+  > same `submitText` pipeline as the input box, so the agent loop,
+  > spend-cap, audit logger, and range-chip update all just work.
+- [x] **6.3.4** Prompt rule addition (rule 11): "After answering a
+  question, call `suggest_followups` with 2-3 short next questions
+  the user might ask. Pick questions answerable by your other tools —
+  never out-of-scope topics. Skip the call when the user's last
+  message indicates they're done."
+  > **Done 2026-05-22.** Rule 11 added with concrete examples ("After
+  > `revenue_summary({range:'7d'})`, good chips are 'Top customers
+  > this week' / 'Compare to the prior 7 days' / 'Bookings breakdown
+  > this week' — not 'How does Bronze tier work?'"). Includes the
+  > skip-on-"thanks" escape hatch so we don't suggest chips when the
+  > user signals they're done. Reuse-active-range guidance so chip
+  > text naturally inherits the time window.
+
+**Total Phase 6.3 jest delta:** +11 assertions (10 in suggestFollowups
+test + 1 prompt-builder rule check). Suite: **138/138 pass across 13
+files** (was 127/127 across 12).
 - [ ] **6.4 (full)** Prompt-tuning pass — observe real shop-owner
   traffic from the Phase 6.2 deploy. If Claude misroutes
   ("how many gold customers?" → `top_customers` instead of

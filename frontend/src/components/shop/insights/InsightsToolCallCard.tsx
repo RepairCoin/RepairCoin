@@ -40,11 +40,28 @@ import { InsightsToolCall, ToolDisplay } from "@/services/api/aiInsights";
  * panel bubbles; yellow `#FFCC00` reserved for the single most-
  * important value.
  */
-export const InsightsToolCallCard: React.FC<{ toolCall: InsightsToolCall }> = ({
-  toolCall,
-}) => {
+export const InsightsToolCallCard: React.FC<{
+  toolCall: InsightsToolCall;
+  /**
+   * Phase 6.3 — called when the user taps a chip in a
+   * `follow_ups`-kind display. Receives the chip text; the panel
+   * uses it as the next user message. Other display kinds ignore.
+   */
+  onFollowupClick?: (question: string) => void;
+}> = ({ toolCall, onFollowupClick }) => {
   if (!toolCall.display) return null;
   const display = toolCall.display;
+
+  // `follow_ups` chips are an exploration affordance, not a data card
+  // — no tool-name header, no expand-to-modal button, no card chrome.
+  // Render the chip row directly so it visually reads as part of the
+  // assistant's reply, not a separate result.
+  if (display.kind === "follow_ups") {
+    return (
+      <FollowUpsRow display={display} onFollowupClick={onFollowupClick} />
+    );
+  }
+
   const title = humanizeToolName(toolCall.tool);
   return (
     <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 px-4 py-3">
@@ -55,6 +72,30 @@ export const InsightsToolCallCard: React.FC<{ toolCall: InsightsToolCall }> = ({
         <ExpandButton title={title} display={display} />
       </div>
       <DisplayBody display={display} />
+    </div>
+  );
+};
+
+// ---------- follow_ups chip row ----------
+
+const FollowUpsRow: React.FC<{
+  display: Extract<ToolDisplay, { kind: "follow_ups" }>;
+  onFollowupClick?: (question: string) => void;
+}> = ({ display, onFollowupClick }) => {
+  if (display.items.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      {display.items.map((q, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onFollowupClick?.(q)}
+          disabled={!onFollowupClick}
+          className="text-[11px] text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-full px-3 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          {q}
+        </button>
+      ))}
     </div>
   );
 };
@@ -103,6 +144,11 @@ const DisplayBody: React.FC<{ display: ToolDisplay }> = ({ display }) => {
       return <ListDisplay d={display} />;
     case "sparkline":
       return <SparklineDisplay d={display} />;
+    case "follow_ups":
+      // Handled before DisplayBody in InsightsToolCallCard — render
+      // nothing if we somehow get here (e.g. inside the Expand dialog,
+      // where chips don't belong).
+      return null;
   }
 };
 
@@ -198,6 +244,11 @@ const ExpandedDisplayBody: React.FC<{ display: ToolDisplay }> = ({
       return <ExpandedList d={display} />;
     case "sparkline":
       return <ExpandedSparkline d={display} />;
+    case "follow_ups":
+      // No Expand button is rendered for follow_ups cards, so we
+      // shouldn't reach this branch — but type-exhaustiveness requires
+      // it. Render nothing.
+      return null;
   }
 };
 
