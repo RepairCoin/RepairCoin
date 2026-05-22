@@ -64,6 +64,23 @@ export type ToolDisplay =
       // `suggest_followups` meta-tool.
       kind: "follow_ups";
       items: string[];
+    }
+  | {
+      // Phase 7.1 — current-vs-prior comparison rendering. Side-by-side
+      // numbers + a sentiment-colored delta indicator. The tool decides
+      // sentiment (positive=green/negative=red/neutral=gray) so the
+      // renderer doesn't have to know whether "up" is good for the
+      // metric (revenue up = good; no-shows up = bad).
+      kind: "comparison";
+      label: string;
+      current: { value: string; sublabel?: string };
+      prior: { value: string; sublabel?: string };
+      delta: {
+        value: string;
+        direction: "up" | "down" | "flat";
+        sentiment: "positive" | "negative" | "neutral";
+        magnitude?: "small" | "medium" | "large";
+      };
     };
 
 /**

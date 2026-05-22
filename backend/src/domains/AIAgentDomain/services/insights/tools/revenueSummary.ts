@@ -213,24 +213,56 @@ function compareResult(
     prior.totalUsd === 0
       ? null
       : ((current.totalUsd - prior.totalUsd) / prior.totalUsd) * 100;
-  const deltaLabel =
+  const deltaUsd = current.totalUsd - prior.totalUsd;
+
+  // Direction is mathematical (sign of deltaUsd). Sentiment is
+  // contextual — for revenue, up is good news regardless of whether
+  // we can compute a clean percentage. Magnitude tracks |deltaPct|
+  // for visual prominence; defaults to "small" when deltaPct is null
+  // since we have no percentage to size against.
+  const direction: "up" | "down" | "flat" =
+    deltaUsd > 0 ? "up" : deltaUsd < 0 ? "down" : "flat";
+  const sentiment: "positive" | "negative" | "neutral" =
+    deltaUsd > 0 ? "positive" : deltaUsd < 0 ? "negative" : "neutral";
+  const magnitude: "small" | "medium" | "large" =
+    deltaPct === null
+      ? "small"
+      : Math.abs(deltaPct) >= 25
+        ? "large"
+        : Math.abs(deltaPct) >= 5
+          ? "medium"
+          : "small";
+
+  const deltaValueText =
     deltaPct === null
       ? "n/a (no prior revenue)"
       : `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`;
+
   return {
     data: {
       range,
       current: { totalUsd: current.totalUsd, orderCount: current.orderCount },
       prior: { totalUsd: prior.totalUsd, orderCount: prior.orderCount },
       deltaPct,
+      deltaUsd,
     },
     display: {
-      kind: "list",
-      items: [
-        { label: RANGE_LABEL[range], value: fmtUsd(current.totalUsd) },
-        { label: `Prior ${RANGE_LABEL[range]}`, value: fmtUsd(prior.totalUsd) },
-        { label: "Δ", value: deltaLabel },
-      ],
+      kind: "comparison",
+      label: `Revenue (${RANGE_LABEL[range]} vs prior)`,
+      current: {
+        value: fmtUsd(current.totalUsd),
+        sublabel: `${current.orderCount} order${current.orderCount === 1 ? "" : "s"}`,
+      },
+      prior: {
+        value: fmtUsd(prior.totalUsd),
+        sublabel: `${prior.orderCount} order${prior.orderCount === 1 ? "" : "s"}`,
+      },
+      delta: {
+        value: deltaValueText,
+        direction,
+        sentiment,
+        magnitude,
+      },
     },
   };
 }

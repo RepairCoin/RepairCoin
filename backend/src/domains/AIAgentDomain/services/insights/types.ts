@@ -62,6 +62,33 @@ export type ToolDisplay =
       // have answered the original question.
       kind: "follow_ups";
       items: string[];
+    }
+  | {
+      // Phase 7.1 — current-vs-prior comparison rendering. Side-by-side
+      // numbers + delta indicator. Replaces the awkward 3-row `list`
+      // shape that compare='prior' results currently use. Also serves
+      // the Phase 7.2 anomaly banner ("no-shows this week vs last
+      // week: 12 vs 3, +300%").
+      //
+      // `sentiment` lets the TOOL declare whether the change is good
+      // or bad. Renderer maps sentiment → color (positive=green,
+      // negative=red, neutral=gray) without needing to know what the
+      // metric is. e.g. revenue up = positive; no-shows up = negative.
+      //
+      // `direction` is the mathematical sign; `magnitude` is intensity
+      // for visual prominence. Keep these orthogonal to sentiment so
+      // a "small positive uptick" can render differently from a
+      // "large positive jump".
+      kind: "comparison";
+      label: string;
+      current: { value: string; sublabel?: string };
+      prior: { value: string; sublabel?: string };
+      delta: {
+        value: string;
+        direction: "up" | "down" | "flat";
+        sentiment: "positive" | "negative" | "neutral";
+        magnitude?: "small" | "medium" | "large";
+      };
     };
 
 /**
