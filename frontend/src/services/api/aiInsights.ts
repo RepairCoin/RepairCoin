@@ -164,3 +164,53 @@ export const askInsights = async (
   const response = await apiClient.post("/ai/insights", { sessionId, messages });
   return response.data.data || response.data;
 };
+
+// ---------- Phase 7.3 — saved queries ----------
+
+/**
+ * One pinned question. Backed by `ai_insights_pinned_queries`. Tapping
+ * a pinned row in the panel re-submits `questionText` through the
+ * normal chat pipeline + records the run via `recordPinnedRun`.
+ */
+export interface PinnedQuery {
+  id: string;
+  questionText: string;
+  pinnedAt: string;
+  lastRunAt: string | null;
+  lastResponseExcerpt: string | null;
+  displayOrder: number;
+}
+
+/** GET /api/ai/insights/pinned — all pins for this shop. */
+export const listPinnedQueries = async (): Promise<PinnedQuery[]> => {
+  const response = await apiClient.get("/ai/insights/pinned");
+  return response.data?.data?.pinned ?? [];
+};
+
+/**
+ * POST /api/ai/insights/pinned — create (or return existing dedupe row).
+ * 409 means the shop hit MAX_PINS_PER_SHOP (50); 400 = bad text.
+ */
+export const pinQuery = async (questionText: string): Promise<PinnedQuery> => {
+  const response = await apiClient.post("/ai/insights/pinned", { questionText });
+  return response.data?.data ?? response.data;
+};
+
+/** DELETE /api/ai/insights/pinned/:id — remove one pin. */
+export const unpinQuery = async (id: string): Promise<void> => {
+  await apiClient.delete(`/ai/insights/pinned/${encodeURIComponent(id)}`);
+};
+
+/**
+ * PUT /api/ai/insights/pinned/:id/run — record a fresh tap-to-run.
+ * Sets `last_run_at` + `last_response_excerpt` so the Pinned tab can
+ * show a recency hint. Non-blocking; call after the reply renders.
+ */
+export const recordPinnedRun = async (
+  id: string,
+  excerpt: string
+): Promise<void> => {
+  await apiClient.put(`/ai/insights/pinned/${encodeURIComponent(id)}/run`, {
+    excerpt,
+  });
+};

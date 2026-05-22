@@ -21,6 +21,12 @@ import {
   listAnomalies,
   dismissAnomaly,
 } from './controllers/InsightsAnomaliesController';
+import {
+  listPinned,
+  createPinned,
+  deletePinned,
+  recordPinnedRun,
+} from './controllers/InsightsPinnedController';
 
 /**
  * AI Agent domain routes.
@@ -40,6 +46,10 @@ import {
  *   POST /api/ai/insights      — shop: Business-Data Insights assistant (Sonnet + tools)
  *   GET  /api/ai/insights/anomalies         — shop: list active anomaly banners
  *   POST /api/ai/insights/anomalies/:id/dismiss — shop: dismiss one anomaly
+ *   GET    /api/ai/insights/pinned          — shop: list pinned questions
+ *   POST   /api/ai/insights/pinned          — shop: pin a question
+ *   DELETE /api/ai/insights/pinned/:id      — shop: unpin a question
+ *   PUT    /api/ai/insights/pinned/:id/run  — shop: record a fresh tap-to-run
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
@@ -145,6 +155,34 @@ export function initializeRoutes(): Router {
     authMiddleware,
     requireRole(['shop']),
     dismissAnomaly
+  );
+
+  // Phase 7.3 — saved queries (pinned questions). All shop-scoped via
+  // JWT; URL :id never determines scope, so guessing UUIDs can't
+  // touch another shop's pins.
+  router.get(
+    '/insights/pinned',
+    authMiddleware,
+    requireRole(['shop']),
+    listPinned
+  );
+  router.post(
+    '/insights/pinned',
+    authMiddleware,
+    requireRole(['shop']),
+    createPinned
+  );
+  router.delete(
+    '/insights/pinned/:id',
+    authMiddleware,
+    requireRole(['shop']),
+    deletePinned
+  );
+  router.put(
+    '/insights/pinned/:id/run',
+    authMiddleware,
+    requireRole(['shop']),
+    recordPinnedRun
   );
 
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make

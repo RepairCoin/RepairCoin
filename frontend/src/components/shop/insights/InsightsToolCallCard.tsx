@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Pin, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +48,22 @@ export const InsightsToolCallCard: React.FC<{
    * uses it as the next user message. Other display kinds ignore.
    */
   onFollowupClick?: (question: string) => void;
-}> = ({ toolCall, onFollowupClick }) => {
+  /**
+   * Phase 7.3 — the user's question that produced this card. Used
+   * by the Pin button to save the question via POST
+   * /api/ai/insights/pinned. Absent on cards that aren't tied to a
+   * specific user-question turn (shouldn't happen in practice but
+   * makes the prop optional so legacy callers still compile).
+   */
+  originatingQuestion?: string;
+  /**
+   * Phase 7.3 — invoked when the user taps the Pin button.
+   * Receives the question text + a `done` callback to call after
+   * the pin completes (network round-trip happens in the panel).
+   * Undefined while loading or for `follow_ups` rendering.
+   */
+  onPin?: (questionText: string) => Promise<void>;
+}> = ({ toolCall, onFollowupClick, originatingQuestion, onPin }) => {
   if (!toolCall.display) return null;
   const display = toolCall.display;
 
@@ -69,7 +84,12 @@ export const InsightsToolCallCard: React.FC<{
         <p className="text-[10px] uppercase tracking-wide text-gray-500">
           {title}
         </p>
-        <ExpandButton title={title} display={display} />
+        <div className="flex items-center gap-2">
+          {originatingQuestion && onPin && (
+            <PinButton question={originatingQuestion} onPin={onPin} />
+          )}
+          <ExpandButton title={title} display={display} />
+        </div>
       </div>
       <DisplayBody display={display} />
     </div>
@@ -101,6 +121,68 @@ const FollowUpsRow: React.FC<{
 };
 
 // ---------- expand-to-dialog ----------
+
+// ---------- Phase 7.3 — Pin button ----------
+
+/**
+ * Tap to save the user's question to `ai_insights_pinned_queries`.
+ * Optimistic state: shows ✓ briefly after the pin lands. Disabled
+ * while in-flight. Errors set a brief red state then revert.
+ */
+const PinButton: React.FC<{
+  question: string;
+  onPin: (questionText: string) => Promise<void>;
+}> = ({ question, onPin }) => {
+  const [state, setState] = useState<"idle" | "pinning" | "pinned" | "error">(
+    "idle"
+  );
+  const handleClick = async () => {
+    if (state === "pinning" || state === "pinned") return;
+    setState("pinning");
+    try {
+      await onPin(question);
+      setState("pinned");
+      setTimeout(() => setState("idle"), 1500);
+    } catch {
+      // Silent fail — pin caps + dup-handling are server-side, but a
+      // 5xx or network drop shouldn't crash the card. Brief red
+      // indicator + revert.
+      setState("error");
+      setTimeout(() => setState("idle"), 2000);
+    }
+  };
+  const tone =
+    state === "pinned"
+      ? "text-green-400"
+      : state === "error"
+        ? "text-red-400"
+        : "text-gray-500 hover:text-[#FFCC00]";
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={state !== "idle"}
+      title={
+        state === "pinned"
+          ? "Pinned"
+          : state === "error"
+            ? "Couldn't pin — try again"
+            : "Pin this question to your saved list"
+      }
+      aria-label="Pin this question"
+      className={`flex items-center gap-1 text-[10px] transition-colors disabled:cursor-default ${tone}`}
+    >
+      {state === "pinned" ? (
+        <Check className="w-3 h-3" />
+      ) : (
+        <Pin className="w-3 h-3" />
+      )}
+      <span>
+        {state === "pinned" ? "Pinned" : state === "pinning" ? "Pinning…" : "Pin"}
+      </span>
+    </button>
+  );
+};
 
 const ExpandButton: React.FC<{ title: string; display: ToolDisplay }> = ({
   title,

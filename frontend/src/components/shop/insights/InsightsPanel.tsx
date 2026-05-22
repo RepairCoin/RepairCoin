@@ -7,13 +7,18 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Loader2, Send, AlertCircle } from "lucide-react";
+import { Loader2, Send, AlertCircle, MessageSquare, Pin, X } from "lucide-react";
 import ReactMarkdown, { Components } from "react-markdown";
 import {
   askInsights,
   InsightsMessage,
   InsightsToolCall,
   INSIGHTS_LIMITS,
+  PinnedQuery,
+  listPinnedQueries,
+  pinQuery,
+  unpinQuery,
+  recordPinnedRun,
 } from "@/services/api/aiInsights";
 import { InsightsToolCallCard } from "./InsightsToolCallCard";
 
@@ -64,6 +69,16 @@ type Turn =
  *   - Tool-result cards render under each assistant bubble via
  *     `InsightsToolCallCard` (Phase 4.4 — currently a placeholder).
  */
+type TabKey = "chat" | "pinned";
+
+/**
+ * When the user taps a pinned row, we set this to the pin's id so we
+ * can call recordPinnedRun() after the assistant reply lands. Cleared
+ * on every fresh user-typed submit (only counts taps from the Pinned
+ * tab as "pinned runs").
+ */
+type PendingRun = { pinnedId: string } | null;
+
 export const InsightsPanel: React.FC = () => {
   const [sessionId] = useState(() =>
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -74,6 +89,15 @@ export const InsightsPanel: React.FC = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Phase 7.3 — saved-queries state.
+  const [activeTab, setActiveTab] = useState<TabKey>("chat");
+  const [pinned, setPinned] = useState<PinnedQuery[]>([]);
+  const [pinnedLoading, setPinnedLoading] = useState(false);
+  const [pinnedError, setPinnedError] = useState<string | null>(null);
+  // Tracks a pin tap pending its reply, so the Pinned tab can refresh
+  // last_run_at after the chat round-trip completes.
+  const pendingRunRef = useRef<PendingRun>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -138,6 +162,30 @@ export const InsightsPanel: React.FC = () => {
           toolCalls: res.toolCalls ?? [],
         },
       ]);
+
+      // Phase 7.3 — if this submit originated from a pinned-tap,
+      // refresh the pin's last_run_at + excerpt server-side AND
+      // optimistically in local state so the Pinned tab reflects
+      // the recency immediately without a refetch.
+      const pending = pendingRunRef.current;
+      pendingRunRef.current = null;
+      if (pending) {
+        const excerpt = res.reply.slice(0, 500);
+        recordPinnedRun(pending.pinnedId, excerpt).catch(() => {
+          // Non-fatal — the reply already shipped to the user.
+        });
+        setPinned((cur) =>
+          cur.map((p) =>
+            p.id === pending.pinnedId
+              ? {
+                  ...p,
+                  lastRunAt: new Date().toISOString(),
+                  lastResponseExcerpt: excerpt,
+                }
+              : p
+          )
+        );
+      }
     } catch (err) {
       // Keep the user's turn visible so they can retry without retyping.
       const ax = err as {
@@ -177,6 +225,65 @@ export const InsightsPanel: React.FC = () => {
   const handleSend = () => submitText(input);
   const handleStarterClick = (question: string) => submitText(question);
 
+  // ---------- Phase 7.3 — pinned-query handlers ----------
+
+  // Load pins on mount. Failure is non-fatal — the Pinned tab just
+  // shows an inline error; chat keeps working.
+  useEffect(() => {
+    let cancelled = false;
+    setPinnedLoading(true);
+    listPinnedQueries()
+      .then((rows) => {
+        if (!cancelled) setPinned(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPinnedError("Couldn't load pinned queries.");
+      })
+      .finally(() => {
+        if (!cancelled) setPinnedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Card-level Pin button calls this. Network call + optimistic state
+   * update (so the Pinned tab counter ticks without a refetch).
+   * Re-thrown errors bubble to PinButton's local error state.
+   */
+  const handlePin = async (questionText: string) => {
+    const created = await pinQuery(questionText);
+    setPinned((cur) => {
+      // Idempotent — server may have returned an existing row.
+      if (cur.some((p) => p.id === created.id)) return cur;
+      return [created, ...cur];
+    });
+  };
+
+  /** Unpin from the Pinned tab's list. Optimistic remove. */
+  const handleUnpin = async (id: string) => {
+    const prev = pinned;
+    setPinned((cur) => cur.filter((p) => p.id !== id));
+    try {
+      await unpinQuery(id);
+    } catch {
+      // Restore on failure so the user knows it didn't stick.
+      setPinned(prev);
+    }
+  };
+
+  /**
+   * User tapped a pinned row → flip back to Chat tab + submit the
+   * question. Stash the pin id so the post-reply path can refresh
+   * last_run_at.
+   */
+  const handlePinnedTap = (p: PinnedQuery) => {
+    pendingRunRef.current = { pinnedId: p.id };
+    setActiveTab("chat");
+    submitText(p.questionText);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -198,37 +305,60 @@ export const InsightsPanel: React.FC = () => {
   const activeRange = useMemo(() => extractActiveRange(turns), [turns]);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 mt-6">
-      {/* Messages list — scrolls within its own bounds so the input
-          stays anchored at the bottom. */}
-      <div
-        className="flex-1 overflow-y-auto pr-1 space-y-3"
-        aria-live="polite"
-      >
-        {turns.length === 0 && !loading && !error && (
-          <EmptyState onPick={handleStarterClick} disabled={loading} />
-        )}
+    <div className="flex-1 flex flex-col min-h-0 mt-4">
+      {/* Phase 7.3 — tab switcher. Sits ABOVE the messages list so the
+          chat content + pinned list share the same scroll viewport
+          slot below. Chat is default; Pinned shows a count badge. */}
+      <TabSwitcher
+        active={activeTab}
+        onChange={setActiveTab}
+        pinnedCount={pinned.length}
+      />
 
-        {turns.map((t, i) => (
-          <TurnBubble
-            key={i}
-            turn={t}
-            markdownComponents={markdownComponents}
-            // Phase 6.3 — chip taps re-enter the same submit pipeline
-            // as the input box. Disable while loading to avoid double-
-            // submits from a fast-tapping user.
-            onFollowupClick={loading ? undefined : submitText}
-          />
-        ))}
+      {activeTab === "chat" ? (
+        <div
+          className="flex-1 overflow-y-auto pr-1 space-y-3 mt-3"
+          aria-live="polite"
+        >
+          {turns.length === 0 && !loading && !error && (
+            <EmptyState onPick={handleStarterClick} disabled={loading} />
+          )}
 
-        {loading && <TypingBubble />}
+          {turns.map((t, i) => (
+            <TurnBubble
+              key={i}
+              turn={t}
+              markdownComponents={markdownComponents}
+              // Phase 6.3 — chip taps re-enter the same submit pipeline
+              // as the input box. Disable while loading to avoid double-
+              // submits from a fast-tapping user.
+              onFollowupClick={loading ? undefined : submitText}
+              // Phase 7.3 — pass the user's prior turn's question to
+              // each assistant TurnBubble so its tool cards can show
+              // a Pin button targeting that question.
+              originatingQuestion={priorUserQuestion(turns, i)}
+              onPin={handlePin}
+            />
+          ))}
 
-        <div ref={messagesEndRef} />
-      </div>
+          {loading && <TypingBubble />}
+
+          <div ref={messagesEndRef} />
+        </div>
+      ) : (
+        <PinnedTab
+          pinned={pinned}
+          loading={pinnedLoading}
+          error={pinnedError}
+          onTap={handlePinnedTap}
+          onUnpin={handleUnpin}
+        />
+      )}
 
       {/* Inline error — sits ABOVE the input so the user sees it before
-          re-typing. */}
-      {error && (
+          re-typing. Only shown on the Chat tab; Pinned tab has its
+          own inline error state. */}
+      {activeTab === "chat" && error && (
         <div className="mt-3 bg-red-900/30 border border-red-700/60 rounded-lg px-3 py-2 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-red-300 leading-relaxed">{error}</p>
@@ -237,8 +367,9 @@ export const InsightsPanel: React.FC = () => {
 
       {/* Active range chip — only renders when the most recent assistant
           turn invoked a tool with a `range` arg. Tells the shop owner
-          what time window their next follow-up will reuse by default. */}
-      {activeRange && (
+          what time window their next follow-up will reuse by default.
+          Hidden on the Pinned tab. */}
+      {activeTab === "chat" && activeRange && (
         <div className="mt-3 flex justify-end">
           <span
             className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-400 bg-[#1A1A1A] border border-gray-700 rounded-full px-2.5 py-0.5"
@@ -250,7 +381,11 @@ export const InsightsPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Input row */}
+      {/* Input row — hidden on Pinned tab. Tapping a pinned row
+          flips back to Chat tab automatically (handlePinnedTap) so
+          the input reappears with the submitted question already
+          flowing through the pipeline. */}
+      {activeTab === "chat" && (
       <div className="mt-3 flex items-end gap-2">
         <textarea
           ref={textareaRef}
@@ -286,11 +421,14 @@ export const InsightsPanel: React.FC = () => {
           )}
         </button>
       </div>
+      )}
 
-      <p className="mt-2 text-[10px] text-gray-600 text-center">
-        Answers are based on your shop&apos;s live data. The assistant
-        can only see your own shop.
-      </p>
+      {activeTab === "chat" && (
+        <p className="mt-2 text-[10px] text-gray-600 text-center">
+          Answers are based on your shop&apos;s live data. The assistant
+          can only see your own shop.
+        </p>
+      )}
     </div>
   );
 };
@@ -411,7 +549,21 @@ const TurnBubble: React.FC<{
    * avoid double-submits.
    */
   onFollowupClick?: (question: string) => void;
-}> = ({ turn, markdownComponents, onFollowupClick }) => {
+  /**
+   * Phase 7.3 — the user question that triggered this assistant
+   * turn. Used by the card-level Pin button. Undefined for user
+   * turns (no card on them) or when this is somehow the first turn.
+   */
+  originatingQuestion?: string;
+  /** Phase 7.3 — Pin button click handler. Undefined skips the button. */
+  onPin?: (questionText: string) => Promise<void>;
+}> = ({
+  turn,
+  markdownComponents,
+  onFollowupClick,
+  originatingQuestion,
+  onPin,
+}) => {
   const isUser = turn.role === "user";
 
   // User messages: plain text, right-aligned, yellow bubble.
@@ -442,6 +594,8 @@ const TurnBubble: React.FC<{
               key={i}
               toolCall={tc}
               onFollowupClick={onFollowupClick}
+              originatingQuestion={originatingQuestion}
+              onPin={onPin}
             />
           ))}
         </div>
@@ -449,6 +603,178 @@ const TurnBubble: React.FC<{
     </div>
   );
 };
+
+/**
+ * Find the most recent user-turn content BEFORE `assistantIndex`.
+ * Returns undefined if no preceding user turn (shouldn't happen in
+ * practice — the alternation contract guarantees it). Used by
+ * Pin button plumbing.
+ */
+function priorUserQuestion(turns: Turn[], assistantIndex: number): string | undefined {
+  for (let i = assistantIndex - 1; i >= 0; i--) {
+    if (turns[i].role === "user") return turns[i].content;
+  }
+  return undefined;
+}
+
+// ---------- Phase 7.3 — tab switcher + pinned tab body ----------
+
+const TabSwitcher: React.FC<{
+  active: TabKey;
+  onChange: (next: TabKey) => void;
+  pinnedCount: number;
+}> = ({ active, onChange, pinnedCount }) => (
+  <div
+    role="tablist"
+    aria-label="Insights panel sections"
+    className="flex border-b border-gray-800"
+  >
+    <TabButton
+      isActive={active === "chat"}
+      onClick={() => onChange("chat")}
+      icon={<MessageSquare className="w-3.5 h-3.5" />}
+      label="Chat"
+    />
+    <TabButton
+      isActive={active === "pinned"}
+      onClick={() => onChange("pinned")}
+      icon={<Pin className="w-3.5 h-3.5" />}
+      label="Pinned"
+      badge={pinnedCount > 0 ? pinnedCount : undefined}
+    />
+  </div>
+);
+
+const TabButton: React.FC<{
+  isActive: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  badge?: number;
+}> = ({ isActive, onClick, icon, label, badge }) => (
+  <button
+    type="button"
+    role="tab"
+    aria-selected={isActive}
+    onClick={onClick}
+    className={`flex items-center gap-1.5 text-xs px-3 py-2 border-b-2 -mb-px transition-colors ${
+      isActive
+        ? "border-[#FFCC00] text-white"
+        : "border-transparent text-gray-400 hover:text-gray-200"
+    }`}
+  >
+    {icon}
+    <span>{label}</span>
+    {badge !== undefined && (
+      <span className="ml-1 rounded-full bg-[#FFCC00]/20 text-[#FFCC00] text-[10px] px-1.5 py-0.5 tabular-nums">
+        {badge}
+      </span>
+    )}
+  </button>
+);
+
+const PinnedTab: React.FC<{
+  pinned: PinnedQuery[];
+  loading: boolean;
+  error: string | null;
+  onTap: (p: PinnedQuery) => void;
+  onUnpin: (id: string) => void;
+}> = ({ pinned, loading, error, onTap, onUnpin }) => {
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-500 text-sm mt-3">
+        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        Loading pinned questions…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex-1 mt-3 bg-red-900/30 border border-red-700/60 rounded-lg px-3 py-2 flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-red-300 leading-relaxed">{error}</p>
+      </div>
+    );
+  }
+  if (pinned.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500 mt-6 px-4">
+        <Pin className="w-8 h-8 text-gray-700 mb-2" />
+        <p className="text-sm text-gray-300 mb-1">No pinned questions yet.</p>
+        <p className="text-xs text-gray-500">
+          Ask a question in the Chat tab, then tap{" "}
+          <span className="text-gray-300">Pin</span> on the answer to save it
+          here.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex-1 overflow-y-auto pr-1 mt-3 space-y-2" role="tabpanel">
+      {pinned.map((p) => (
+        <PinnedRow key={p.id} pinned={p} onTap={onTap} onUnpin={onUnpin} />
+      ))}
+    </div>
+  );
+};
+
+const PinnedRow: React.FC<{
+  pinned: PinnedQuery;
+  onTap: (p: PinnedQuery) => void;
+  onUnpin: (id: string) => void;
+}> = ({ pinned, onTap, onUnpin }) => (
+  <div className="group relative rounded-lg bg-[#1A1A1A] border border-gray-800 hover:border-gray-700 transition-colors">
+    <button
+      type="button"
+      onClick={() => onTap(pinned)}
+      className="w-full text-left px-3 py-2.5 pr-9"
+      aria-label={`Re-run: ${pinned.questionText}`}
+    >
+      <p className="text-sm text-gray-100 break-words">{pinned.questionText}</p>
+      {pinned.lastRunAt && (
+        <p className="text-[10px] text-gray-500 mt-1">
+          Last run {formatRelative(pinned.lastRunAt)}
+          {pinned.lastResponseExcerpt && (
+            <span className="ml-1 text-gray-400">
+              — {truncate(pinned.lastResponseExcerpt, 80)}
+            </span>
+          )}
+        </p>
+      )}
+    </button>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onUnpin(pinned.id);
+      }}
+      title="Unpin"
+      aria-label="Unpin this question"
+      className="absolute top-2 right-2 p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-gray-800 transition-colors"
+    >
+      <X className="w-3.5 h-3.5" />
+    </button>
+  </div>
+);
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).trimEnd()}…`;
+}
+
+function formatRelative(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return "just now";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 const TypingBubble: React.FC = () => (
   <div className="flex justify-start">
