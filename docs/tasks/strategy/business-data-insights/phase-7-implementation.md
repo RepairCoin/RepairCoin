@@ -341,40 +341,77 @@ existing chat pipeline.
 
 ### 6.1 Migration + endpoints (½ day)
 
-- [ ] **7.3.1** Migration `126_create_ai_insights_pinned_queries.sql`
-  per §3.2.
-- [ ] **7.3.2** `POST /api/ai/insights/pinned` — body `{
-  questionText: string }`, returns created row.
-- [ ] **7.3.3** `DELETE /api/ai/insights/pinned/:id` — unpin.
-- [ ] **7.3.4** `GET /api/ai/insights/pinned` — list this
-  shop's pinned queries ordered by `display_order, pinned_at`.
-- [ ] **7.3.5** `PUT /api/ai/insights/pinned/:id/run` —
-  update `last_run_at` + `last_response_excerpt` after a
-  pinned-query submit. Called by the panel after a successful
-  reply when the question came from a pinned tap.
+- [x] **7.3.1** Migration `126_create_ai_insights_pinned_queries.sql`
+  applied + verified on DO (7 cols, 1 index, FK to shops, INSERT/
+  DELETE round-trip).
+- [x] **7.3.2** `POST /api/ai/insights/pinned` — body `{
+  questionText: string }`. Trim + validate (non-empty, ≤2000 chars).
+  **Dedupes on (shop_id, question_text)** — pinning the same text
+  twice returns the existing row instead of creating a duplicate.
+  **409 at MAX_PINS_PER_SHOP=50** to prevent runaway clients.
+- [x] **7.3.3** `DELETE /api/ai/insights/pinned/:id` — shop-scoped
+  (`WHERE id = $1 AND shop_id = $2`); 404 when row doesn't belong
+  to the requesting shop.
+- [x] **7.3.4** `GET /api/ai/insights/pinned` — list ordered by
+  `display_order ASC, pinned_at DESC` so v1's all-zero `display_order`
+  yields "most-recently-pinned first" naturally.
+- [x] **7.3.5** `PUT /api/ai/insights/pinned/:id/run` — body `{
+  excerpt: string }`. Sets `last_run_at = NOW()` + truncates
+  excerpt to 500 chars before persisting. Non-blocking from the
+  panel's perspective — reply already shipped.
+  > **Done 2026-05-22.** `InsightsPinnedController` with all 4
+  > endpoints + factory pattern matching `HelpAssistantController`.
+  > Jest **20/20 pass** in `InsightsPinnedController.test.ts`
+  > covering: auth 401 on every endpoint, validation 400 paths,
+  > dedupe semantics (same text returns existing), pin cap 409,
+  > shop-scoped DELETE/UPDATE (`WHERE shop_id = $N`), excerpt
+  > truncation to 500 chars.
 
 ### 6.2 Frontend (~1 day)
 
-- [ ] **7.3.6** "📌 Pin" icon on every InsightsToolCallCard
-  (next to the Expand icon — NOT on `follow_ups` chip rows).
-  Tap → calls `POST /api/ai/insights/pinned` with the
-  originating user question.
-- [ ] **7.3.7** Tab switcher in panel header — "Chat" /
-  "Pinned" (n). Adopts the existing expand-toggle button
-  pattern; the expand toggle stays.
-- [ ] **7.3.8** Pinned tab content: list view of pinned
-  queries (question text + last-run timestamp + last-response
-  excerpt preview). Tap to re-run; swipe / menu to unpin.
-- [ ] **7.3.9** Tap-to-run flow: switch back to Chat tab,
-  submit the pinned question via existing submitText pipeline.
-  After the reply lands, call `PUT /pinned/:id/run`.
+- [x] **7.3.6** Pin button on every InsightsToolCallCard sits
+  alongside the Expand button in the card header. Hidden on
+  `follow_ups` chip rows (no `originatingQuestion` prop = no
+  button). Optimistic states: idle → pinning → pinned (✓ for
+  1.5s) → idle. Error state shows red for 2s then reverts.
+- [x] **7.3.7** Tab switcher above the messages list:
+  "Chat" / "Pinned (N)". Pinned count badge ticks up as user
+  pins; counter colored in yellow (`#FFCC00`/20 bg) for
+  scannability. `aria-selected` set correctly; underline border
+  for active tab.
+- [x] **7.3.8** PinnedTab body — empty state, loading state,
+  error state, and list state all handled. Each row: question
+  text + `last_run_at` relative timestamp ("3h ago") + truncated
+  response excerpt preview (80 chars). Unpin via small `X` in
+  top-right corner; tap row body to re-run.
+- [x] **7.3.9** Tap-to-run flow uses a `pendingRunRef` to remember
+  which pin triggered the submit. After the assistant reply
+  lands, `submitText()` calls `recordPinnedRun(id, excerpt)`
+  AND optimistically updates the local pinned-list state (so
+  the Pinned tab reflects the new `lastRunAt` without a refetch).
+  Tap also auto-switches back to Chat tab so the user sees
+  the typing indicator + reply.
+  > **Done 2026-05-22.** Plumbing chain:
+  > `InsightsPanel.handlePin / handleUnpin / handlePinnedTap`
+  > → `TurnBubble` (gets `originatingQuestion` from
+  > `priorUserQuestion(turns, i)` helper that walks back to find
+  > the prior user message) → `InsightsToolCallCard` → `PinButton`.
+  > Range-chip + footer + input row hidden on Pinned tab to keep
+  > the surface clean. `recordPinnedRun` failure is non-fatal —
+  > the reply already shipped to the user; the timestamp just
+  > won't reflect the most recent run.
 
 ### 6.3 Tests (½ day)
 
-- [ ] **7.3.10** Jest tests for the 4 new endpoints (auth,
-  shop-scope, basic CRUD).
-- [ ] **7.3.11** Frontend smoke: pin a query → reload panel
-  → see in Pinned tab → tap → see fresh reply in Chat tab.
+- [x] **7.3.10** Jest tests for the 4 new endpoints. **20/20
+  pass** in `InsightsPinnedController.test.ts` — auth 401 on
+  every endpoint via `.each`, validation 400 branches (missing /
+  empty / non-string / oversized), shop-scoped CRUD assertions
+  (`WHERE shop_id = $N` parameter shape), dedupe semantics,
+  pin cap 409, excerpt truncation, ISO date serialization.
+- [ ] **7.3.11** Frontend smoke (manual browser): pin a query
+  → reload panel → see in Pinned tab → tap → see fresh reply
+  in Chat tab. **Deferred to user post-deploy verification.**
 
 **Acceptance:** Pin "How much did I earn this month?", reload
 the panel, switch to Pinned tab, see the question listed with
