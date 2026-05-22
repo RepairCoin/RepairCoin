@@ -27,9 +27,9 @@ export const CancelledSubscriptionModal: React.FC<CancelledSubscriptionModalProp
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1C1C1C] rounded-2xl max-w-xl w-full border border-gray-800 shadow-2xl">
+      <div className="bg-[#1C1C1C] rounded-2xl max-w-xl w-full max-h-[calc(100dvh-2rem)] flex flex-col border border-gray-800 shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-900/20 to-orange-800/20 border-b border-orange-500/30 px-5 py-3 rounded-t-2xl">
+        <div className="flex-shrink-0 bg-gradient-to-r from-orange-900/20 to-orange-800/20 border-b border-orange-500/30 px-5 py-3 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center">
@@ -44,7 +44,7 @@ export const CancelledSubscriptionModal: React.FC<CancelledSubscriptionModalProp
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto min-h-0">
           <div className="bg-orange-900/10 border border-orange-500/30 rounded-lg p-3">
             <h3 className="font-semibold text-orange-400 text-sm mb-1 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
@@ -146,7 +146,7 @@ export const CancelledSubscriptionModal: React.FC<CancelledSubscriptionModalProp
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-800 flex justify-end gap-3">
+        <div className="flex-shrink-0 px-5 py-3 border-t border-gray-800 flex justify-end gap-3">
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors"
