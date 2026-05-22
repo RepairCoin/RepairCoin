@@ -112,12 +112,41 @@ export class AIAgentDomain implements DomainModule {
       }
     }
 
+    // Phase 7.2 — nightly anomaly detection. Off by default in dev.
+    // Mirror of the AI_FOLLOWUP_ENABLED kill-switch pattern.
+    if (
+      process.env.NODE_ENV === 'production' ||
+      process.env.INSIGHTS_ANOMALY_DETECTION_ENABLED === 'true'
+    ) {
+      try {
+        const { getInsightsAnomalyScheduler } = await import(
+          '../../services/InsightsAnomalyScheduler'
+        );
+        getInsightsAnomalyScheduler().start();
+        logger.info(`${this.name} domain: insights anomaly scheduler started`);
+      } catch (err) {
+        logger.warn(
+          `${this.name} domain: insights anomaly scheduler unavailable`,
+          { error: (err as Error)?.message }
+        );
+      }
+    }
+
     logger.info(`${this.name} domain initialized — AI Sales Agent`);
   }
 
   /** Stop background jobs on graceful shutdown (DomainModule.cleanup). */
   async cleanup(): Promise<void> {
     this.followUpDetector?.stop();
+    // Stop insights anomaly scheduler if it was started.
+    try {
+      const { getInsightsAnomalyScheduler } = await import(
+        '../../services/InsightsAnomalyScheduler'
+      );
+      getInsightsAnomalyScheduler().stop();
+    } catch {
+      // Scheduler wasn't started — nothing to stop.
+    }
   }
 
   /**

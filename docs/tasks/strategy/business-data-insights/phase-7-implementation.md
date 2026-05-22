@@ -211,80 +211,111 @@ phrases them via Claude, surfaces in the panel banner. Dismissible.
 
 ### 5.1 Migration + types (½ day)
 
-- [ ] **7.2.1** Migration `125_create_ai_insights_anomalies.sql`
+- [x] **7.2.1** Migration `125_create_ai_insights_anomalies.sql`
   per §3.3. Apply + verify on DO.
-- [ ] **7.2.2** Backend types — `Anomaly`, `AnomalyMetric`,
+  > **Done 2026-05-22.** 14 columns + 2 indexes + ck_severity CHECK
+  > constraint. Applied + recorded in schema_migrations.
+  > Verification script `scripts/record-and-verify-migration-125.ts`
+  > confirms columns, FK, CHECK constraint rejects bogus severity
+  > values, INSERT + DELETE round-trip works on a real shop.
+- [x] **7.2.2** Backend types — `Anomaly`, `AnomalyMetric`,
   `AnomalySeverity` interfaces.
+  > **Done 2026-05-22.** `services/insights/anomalies/types.ts`
+  > exports `MetricKey` union (5 starter metrics),
+  > `Severity` (low/medium/high), `AnomalySentiment`
+  > (positive/negative/neutral), `MetricDefinition` interface (with
+  > injectable `compute(pool, shopId)`), `DetectedAnomaly` output
+  > shape. Renamed scope-doc's "AnomalyMetric" → "MetricDefinition"
+  > because the interface IS the definition, not the metric itself.
 
 ### 5.2 AnomalyDetector service (1 day)
 
-- [ ] **7.2.3** `services/insights/anomalies/AnomalyDetector.ts`
-  with a `runDetection(shopId: string)` method.
-- [ ] **7.2.4** One `MetricDefinition` per starter metric (see
-  scope Section 5):
-  - `weekly_revenue` → MetricsAggregator + revenue_summary SQL.
-  - `weekly_no_shows` → bookings_breakdown filter to no_show.
-  - `weekly_cancellations` → cancellation_breakdown.
-  - `weekly_ai_conversations` → ai_assistant_impact.
-  - `weekly_bookings` → bookings_breakdown total.
-- [ ] **7.2.5** Detection logic: pull this_week + last_week
-  values, compute delta + delta_pct, classify severity:
-  - `low`: 30% < delta_pct ≤ 60% OR z_score 2-2.5
-  - `medium`: 60% < delta_pct ≤ 150% OR z_score 2.5-3.5
-  - `high`: delta_pct > 150% OR z_score > 3.5
-  - Skip if `last_week` value < MIN_SIGNAL (e.g. revenue < $50)
-    to avoid noise from tiny baselines.
-- [ ] **7.2.6** Insert flagged anomalies into
-  `ai_insights_anomalies` with `dismissed_at = NULL`,
-  `expires_at = detected_at + INTERVAL '14 days'`.
+- [x] **7.2.3** `services/insights/anomalies/AnomalyDetector.ts`
+  with a `runDetection(shopId: string)` + `runForAllShops()`.
+- [x] **7.2.4** 5 MetricDefinitions in
+  `services/insights/anomalies/metrics.ts`. All reuse
+  `windowBoundsFor('this_week' | 'last_week')` from Phase 6.1.
+  Per-metric `minPriorSignal` floor ($50 for revenue, 1 for
+  no-shows/cancellations, 3 for AI conversations/bookings).
+- [x] **7.2.5** Detection logic with severity bands matching the
+  spec (30/60/150% breakpoints). Sentiment mapping respects each
+  metric's `upIsGood` flag — revenue ↑ = positive sentiment;
+  no-shows ↑ = negative sentiment; renderer + phraser stay
+  metric-agnostic.
+- [x] **7.2.6** Persists via `INSERT INTO ai_insights_anomalies` with
+  `expires_at = NOW() + INTERVAL '14 days'`. Per-metric AND per-shop
+  failures are caught + logged without sinking the rest of the batch.
+  > **Done 2026-05-22.** **Made metrics array injectable** for
+  > testing (`new AnomalyDetector({ metrics: [fakeMetric1, ...] })`)
+  > so the production METRIC_DEFINITIONS const stays untouched in
+  > tests. Resulted in 15 jest assertions covering: 4 severity-band
+  > thresholds (high/medium/low/no-flag), negative-direction case,
+  > 2 noise-floor cases (below minPriorSignal + prior=0), 4 sentiment
+  > mappings (upIsGood × direction combinations), 2 persistence
+  > assertions (INSERT shape + no-INSERT when no flags), 2 error-
+  > resilience cases (metric throws, persist throws).
 
 ### 5.3 AnomalyPhraser service (1 day)
 
-- [ ] **7.2.7** `services/insights/anomalies/AnomalyPhraser.ts`
-  with `phraseAnomaly(anomaly): Promise<{phrasing, followUp}>`.
-- [ ] **7.2.8** Per-anomaly Claude call (model: Sonnet,
-  ~150-300 tokens, no tools).
-- [ ] **7.2.9** Prompt template per metric — example for
-  no-shows:
-  ```
-  Shop saw {current_value} no-shows this week vs {prior_value}
-  last week ({delta_pct}% change).
-  Phrase this as one short sentence the shop owner can scan
-  in 2 seconds. Then suggest ONE follow-up question the shop
-  owner might ask to investigate (e.g. "What were last week's
-  cancellation reasons?").
-  Output JSON: {phrasing: "...", followUp: "..."}.
-  ```
-- [ ] **7.2.10** Spend-cap gate via SpendCapEnforcer. Skip
-  phrasing (leave NULL in DB) if budget exhausted; show the
-  anomaly with a fallback template phrase ("No-shows this
-  week: {current} vs {prior} last week").
-- [ ] **7.2.11** Audit-log each phrasing call to
-  `ai_insights_messages` with
-  `request_payload.source = 'anomaly_phrasing'`.
+- [x] **7.2.7** `services/insights/anomalies/AnomalyPhraser.ts`
+  exposes `phraseAnomaly(a)` (single row) and `phraseAllPending()`
+  (walks every NULL-phrasing row).
+- [x] **7.2.8** Single short Sonnet call per anomaly, maxTokens=300.
+- [x] **7.2.9** Prompt asks for strict JSON `{phrasing, followUp}`.
+  System prompt cached. User prompt includes metric label,
+  current+prior values, formatted delta-pct, direction +
+  "good/bad news" framing pulled from `metric.upIsGood`.
+  > **Done 2026-05-22.** JSON parsing tolerates markdown-fence
+  > wrapping (Claude sometimes wraps in ` ```json ... ``` `) via
+  > a strip-then-parse helper. Returns null on shape mismatch;
+  > caller treats null as "phrasing failed" → row stays with
+  > `claude_phrasing = NULL` → banner falls back to template.
+- [x] **7.2.10** Spend-cap gate via `SpendCapEnforcer.canSpend()`.
+  On exhausted: log + leave row's phrasing NULL + return false.
+  `recordSpend` only called after successful Claude reply.
+- [x] **7.2.11** Each phrasing call audit-logged to
+  `ai_insights_messages` with `request_payload.source =
+  'anomaly_phrasing'` + `anomalyId` for post-hoc cost isolation.
+  Failure paths ALSO audit-log (with null response, captured
+  error message) so we can count failure rates separately.
 
 ### 5.4 Nightly job (½ day — pending Decision G)
 
-- [ ] **7.2.12** Scheduled job that iterates every shop with
-  AI enabled, calls `AnomalyDetector.runDetection`, then
-  `AnomalyPhraser` per flagged anomaly.
-- [ ] **7.2.13** Time-of-day choice: 03:00 UTC for first run
-  (off-peak in PH / US time zones the shops operate in).
+- [x] **7.2.12** `services/InsightsAnomalyScheduler.ts` — mirrors
+  the `LowStockAlertScheduler` pattern (node-cron, env-gated
+  start, idempotent start/stop, `getStatus()` snapshot for ops).
+  Pipeline: `AnomalyDetector.runForAllShops()` → `AnomalyPhraser.
+  phraseAllPending()`. Both layers internally non-throwing so
+  a single bad shop / metric / anomaly can't sink the batch.
+  `runNightlyDetection()` exposed publicly for manual triggering
+  during the dry-run period.
+- [x] **7.2.13** Schedule `0 3 * * *` UTC. Boots from
+  `AIAgentDomain/index.ts` initialize() gated on
+  `NODE_ENV === 'production' || INSIGHTS_ANOMALY_DETECTION_ENABLED
+  === 'true'`. Mirror of the existing `AI_FOLLOWUP_ENABLED`
+  kill-switch pattern. Graceful shutdown via `domain.cleanup()`
+  → dynamic-imported stop() call (avoids hard import dependency).
 
 ### 5.5 Endpoints + frontend (1 day)
 
-- [ ] **7.2.14** `GET /api/ai/insights/anomalies` — returns
-  un-dismissed un-expired anomalies for the requesting shop,
-  ordered by detected_at DESC, max 3.
-- [ ] **7.2.15** `POST /api/ai/insights/anomalies/:id/dismiss`
-  — soft dismiss (sets `dismissed_at = now()`).
+- [x] **7.2.14** `GET /api/ai/insights/anomalies` — returns
+  active (un-dismissed, un-expired) anomalies for the requesting
+  shop, max 3, ordered by detected_at DESC.
+  > **Done 2026-05-22.** Shop-scoped via `(req as any).user.shopId`
+  > from the JWT — never trusts URL or body for scope. Returns
+  > `AnomalyDto` shape with `phrasing: string | null` so the
+  > frontend can fall back to template rendering when phrasing is
+  > NULL (spend-cap exhausted or Claude failure case).
+- [x] **7.2.15** `POST /api/ai/insights/anomalies/:id/dismiss`
+  — soft-dismiss. UPDATE shop-scopes via `WHERE shop_id = $2`
+  AND `dismissed_at IS NULL` (idempotent — double-dismissing
+  returns 404 to avoid existence leakage).
 - [ ] **7.2.16** Frontend `InsightsAnomalyBanner` component —
-  top of the panel above the chat area. Each anomaly = a
-  yellow-bordered banner with phrasing + "Tell me more" tap
-  (submits follow-up question via existing submitText
-  pipeline) + "✕ Dismiss" icon.
+  **DEFERRED to follow-up PR** per the dry-run plan (Section 5.6).
+  Ship the backend now; let it accumulate 1 week of detection
+  data on staging; tune thresholds; THEN add the visible banner.
 - [ ] **7.2.17** Fetch on panel mount; refetch when the panel
-  is reopened.
+  is reopened. **DEFERRED with 7.2.16.**
 
 ### 5.6 Dry-run period (no checkbox — operational note)
 
