@@ -144,6 +144,8 @@ const DisplayBody: React.FC<{ display: ToolDisplay }> = ({ display }) => {
       return <ListDisplay d={display} />;
     case "sparkline":
       return <SparklineDisplay d={display} />;
+    case "comparison":
+      return <ComparisonDisplay d={display} />;
     case "follow_ups":
       // Handled before DisplayBody in InsightsToolCallCard — render
       // nothing if we somehow get here (e.g. inside the Expand dialog,
@@ -230,6 +232,90 @@ const SparklineDisplay: React.FC<{
   <SparklineSvg d={d} width={240} height={40} primarySize="text-base" />
 );
 
+const ComparisonDisplay: React.FC<{
+  d: Extract<ToolDisplay, { kind: "comparison" }>;
+}> = ({ d }) => (
+  <div>
+    {d.label && (
+      <p className="text-[11px] text-gray-400 mb-2">{d.label}</p>
+    )}
+    <div className="flex items-baseline gap-4">
+      <ComparisonTile
+        size="compact"
+        label="Current"
+        value={d.current.value}
+        sublabel={d.current.sublabel}
+      />
+      <DeltaBadge size="compact" delta={d.delta} />
+      <ComparisonTile
+        size="compact"
+        label="Prior"
+        value={d.prior.value}
+        sublabel={d.prior.sublabel}
+        muted
+      />
+    </div>
+  </div>
+);
+
+const ComparisonTile: React.FC<{
+  size: "compact" | "expanded";
+  label: string;
+  value: string;
+  sublabel?: string;
+  muted?: boolean;
+}> = ({ size, label, value, sublabel, muted }) => {
+  const valueSize =
+    size === "expanded" ? "text-3xl" : "text-xl";
+  const valueColor = muted ? "text-gray-300" : "text-[#FFCC00]";
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] uppercase tracking-wide text-gray-500">
+        {label}
+      </span>
+      <span className={`${valueSize} font-semibold tabular-nums ${valueColor}`}>
+        {value}
+      </span>
+      {sublabel && (
+        <span className="text-[10px] text-gray-500 mt-0.5">{sublabel}</span>
+      )}
+    </div>
+  );
+};
+
+const DeltaBadge: React.FC<{
+  size: "compact" | "expanded";
+  delta: Extract<ToolDisplay, { kind: "comparison" }>["delta"];
+}> = ({ size, delta }) => {
+  // sentiment → color. Tool decides whether up-is-good for this metric.
+  const tone =
+    delta.sentiment === "positive"
+      ? "text-green-400 bg-green-900/30 border-green-700/40"
+      : delta.sentiment === "negative"
+        ? "text-red-400 bg-red-900/30 border-red-700/40"
+        : "text-gray-400 bg-gray-800 border-gray-700";
+  const arrow =
+    delta.direction === "up" ? "↑" : delta.direction === "down" ? "↓" : "→";
+  // magnitude → padding + font for visual prominence on big jumps.
+  const sizeClass =
+    size === "expanded"
+      ? delta.magnitude === "large"
+        ? "text-base px-3 py-1.5"
+        : "text-sm px-3 py-1"
+      : delta.magnitude === "large"
+        ? "text-xs px-2 py-1"
+        : "text-[11px] px-2 py-0.5";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border tabular-nums font-medium ${tone} ${sizeClass}`}
+      title={`Direction ${delta.direction}, sentiment ${delta.sentiment}`}
+    >
+      <span aria-hidden="true">{arrow}</span>
+      <span>{delta.value}</span>
+    </span>
+  );
+};
+
 // ---------- per-variant: expanded (in-dialog) ----------
 
 const ExpandedDisplayBody: React.FC<{ display: ToolDisplay }> = ({
@@ -244,6 +330,8 @@ const ExpandedDisplayBody: React.FC<{ display: ToolDisplay }> = ({
       return <ExpandedList d={display} />;
     case "sparkline":
       return <ExpandedSparkline d={display} />;
+    case "comparison":
+      return <ExpandedComparison d={display} />;
     case "follow_ups":
       // No Expand button is rendered for follow_ups cards, so we
       // shouldn't reach this branch — but type-exhaustiveness requires
@@ -333,6 +421,30 @@ const ExpandedSparkline: React.FC<{
     <p className="text-[11px] text-gray-600 mt-3">
       {d.series.length} data point{d.series.length === 1 ? "" : "s"}
     </p>
+  </div>
+);
+
+const ExpandedComparison: React.FC<{
+  d: Extract<ToolDisplay, { kind: "comparison" }>;
+}> = ({ d }) => (
+  <div className="py-4">
+    {d.label && <p className="text-sm text-gray-400 mb-4">{d.label}</p>}
+    <div className="flex items-baseline gap-8">
+      <ComparisonTile
+        size="expanded"
+        label="Current"
+        value={d.current.value}
+        sublabel={d.current.sublabel}
+      />
+      <DeltaBadge size="expanded" delta={d.delta} />
+      <ComparisonTile
+        size="expanded"
+        label="Prior"
+        value={d.prior.value}
+        sublabel={d.prior.sublabel}
+        muted
+      />
+    </div>
   </div>
 );
 

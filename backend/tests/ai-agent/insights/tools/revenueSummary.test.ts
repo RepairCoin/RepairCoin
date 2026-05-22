@@ -107,9 +107,21 @@ describe("revenue_summary tool", () => {
       });
       const data = result.data as { deltaPct: number };
       expect(data.deltaPct).toBeCloseTo(111.7, 1);
-      const display = result.display as Extract<typeof result.display, { kind: "list" }>;
-      expect(display?.kind).toBe("list");
-      expect(display?.items).toHaveLength(3);
+      // Phase 7.1 — compareResult now emits 'comparison' kind, not
+      // 'list'. Display has side-by-side current/prior + a sentiment-
+      // colored delta badge.
+      const display = result.display as Extract<typeof result.display, { kind: "comparison" }>;
+      expect(display?.kind).toBe("comparison");
+      expect(display?.current.value).toBe("$2,117.00");
+      expect(display?.current.sublabel).toBe("7 orders");
+      expect(display?.prior.value).toBe("$1,000.00");
+      expect(display?.prior.sublabel).toBe("3 orders");
+      expect(display?.delta.direction).toBe("up");
+      // Revenue up = positive sentiment (good for the shop owner).
+      expect(display?.delta.sentiment).toBe("positive");
+      // +111.7% is large.
+      expect(display?.delta.magnitude).toBe("large");
+      expect(display?.delta.value).toMatch(/^\+111\.\d%$/);
     });
 
     it("deltaPct = null when prior = 0 (no divide-by-zero)", async () => {
@@ -123,6 +135,79 @@ describe("revenue_summary tool", () => {
       );
       const data = result.data as { deltaPct: number | null };
       expect(data.deltaPct).toBeNull();
+      // When deltaPct is null we still need a sensible delta badge —
+      // direction "up" (since current > prior == 0), sentiment "positive"
+      // (current revenue is good news), magnitude "small" (we can't size
+      // a percentage we don't have).
+      const display = result.display as Extract<typeof result.display, { kind: "comparison" }>;
+      expect(display.delta.value).toMatch(/n\/a/);
+      expect(display.delta.sentiment).toBe("positive");
+      expect(display.delta.direction).toBe("up");
+    });
+
+    it("revenue going DOWN emits sentiment=negative direction=down", async () => {
+      const mock = makeMockPool([
+        [{ total: "500.00", n: "2" }], // current — down
+        [{ total: "1000.00", n: "5" }], // prior — was higher
+      ]);
+      const result = await revenueSummary.execute(
+        { range: "30d", compare: "prior" },
+        ctx("peanut", mock)
+      );
+      const display = result.display as Extract<typeof result.display, { kind: "comparison" }>;
+      expect(display.delta.direction).toBe("down");
+      // Revenue down = bad news for the shop owner. Renderer paints red.
+      expect(display.delta.sentiment).toBe("negative");
+      // -50% is large.
+      expect(display.delta.magnitude).toBe("large");
+      expect(display.delta.value).toMatch(/^-50\.\d%$/);
+    });
+
+    it("magnitude buckets: small (<5%), medium (5-25%), large (≥25%)", async () => {
+      // 3% delta → small.
+      const small = await revenueSummary.execute(
+        { range: "30d", compare: "prior" },
+        ctx(
+          "peanut",
+          makeMockPool([
+            [{ total: "1030.00", n: "3" }],
+            [{ total: "1000.00", n: "3" }],
+          ])
+        )
+      );
+      expect(
+        (small.display as Extract<typeof small.display, { kind: "comparison" }>).delta.magnitude
+      ).toBe("small");
+
+      // 10% delta → medium.
+      const medium = await revenueSummary.execute(
+        { range: "30d", compare: "prior" },
+        ctx(
+          "peanut",
+          makeMockPool([
+            [{ total: "1100.00", n: "3" }],
+            [{ total: "1000.00", n: "3" }],
+          ])
+        )
+      );
+      expect(
+        (medium.display as Extract<typeof medium.display, { kind: "comparison" }>).delta.magnitude
+      ).toBe("medium");
+
+      // 100% delta → large.
+      const large = await revenueSummary.execute(
+        { range: "30d", compare: "prior" },
+        ctx(
+          "peanut",
+          makeMockPool([
+            [{ total: "2000.00", n: "5" }],
+            [{ total: "1000.00", n: "3" }],
+          ])
+        )
+      );
+      expect(
+        (large.display as Extract<typeof large.display, { kind: "comparison" }>).delta.magnitude
+      ).toBe("large");
     });
 
     it("range='all' + compare='prior' returns comparisonUnsupported flag", async () => {

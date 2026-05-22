@@ -17,6 +17,10 @@ import {
   getHelpArticle,
 } from './controllers/HelpArticleController';
 import { askInsights } from './controllers/InsightsController';
+import {
+  listAnomalies,
+  dismissAnomaly,
+} from './controllers/InsightsAnomaliesController';
 
 /**
  * AI Agent domain routes.
@@ -34,6 +38,8 @@ import { askInsights } from './controllers/InsightsController';
  *   GET  /api/ai/help/articles — shop: list help-article index (filename + title)
  *   GET  /api/ai/help/articles/:filename — shop: one help article body
  *   POST /api/ai/insights      — shop: Business-Data Insights assistant (Sonnet + tools)
+ *   GET  /api/ai/insights/anomalies         — shop: list active anomaly banners
+ *   POST /api/ai/insights/anomalies/:id/dismiss — shop: dismiss one anomaly
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
  */
 
@@ -124,6 +130,22 @@ export function initializeRoutes(): Router {
   // from Claude args). Spend-capped against the shared monthly budget
   // and audited into ai_insights_messages with the tool_calls JSONB.
   router.post('/insights', authMiddleware, requireRole(['shop']), askInsights);
+
+  // Phase 7.2 — nightly anomaly detection. Banner reads via GET on
+  // panel mount; "Dismiss" tap soft-dismisses via POST. Both shop-
+  // scoped via JWT — the controller never trusts URL/body for scope.
+  router.get(
+    '/insights/anomalies',
+    authMiddleware,
+    requireRole(['shop']),
+    listAnomalies
+  );
+  router.post(
+    '/insights/anomalies/:id/dismiss',
+    authMiddleware,
+    requireRole(['shop']),
+    dismissAnomaly
+  );
 
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
   // the auth boundary explicit. Pure read — safe for admin dashboards.
