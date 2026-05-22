@@ -214,6 +214,10 @@ export const InsightsPanel: React.FC = () => {
             key={i}
             turn={t}
             markdownComponents={markdownComponents}
+            // Phase 6.3 — chip taps re-enter the same submit pipeline
+            // as the input box. Disable while loading to avoid double-
+            // submits from a fast-tapping user.
+            onFollowupClick={loading ? undefined : submitText}
           />
         ))}
 
@@ -400,7 +404,14 @@ function buildMarkdownComponents(): Components {
 const TurnBubble: React.FC<{
   turn: Turn;
   markdownComponents: Components;
-}> = ({ turn, markdownComponents }) => {
+  /**
+   * Phase 6.3 — chip tap handler. Threaded through to
+   * InsightsToolCallCard so `follow_ups`-kind cards can submit chips
+   * as new user messages. Undefined while a request is in flight to
+   * avoid double-submits.
+   */
+  onFollowupClick?: (question: string) => void;
+}> = ({ turn, markdownComponents, onFollowupClick }) => {
   const isUser = turn.role === "user";
 
   // User messages: plain text, right-aligned, yellow bubble.
@@ -415,7 +426,8 @@ const TurnBubble: React.FC<{
   }
 
   // Assistant: markdown prose bubble + a card per tool call directly
-  // underneath. Card renderer (Phase 4.4) replaces ToolCallCardStub.
+  // underneath. follow_ups cards render as inline chip rows rather
+  // than bordered data cards (see InsightsToolCallCard).
   return (
     <div className="flex justify-start flex-col items-start gap-2">
       <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
@@ -426,7 +438,11 @@ const TurnBubble: React.FC<{
       {turn.toolCalls.length > 0 && (
         <div className="w-full max-w-[85%] space-y-2">
           {turn.toolCalls.map((tc, i) => (
-            <InsightsToolCallCard key={i} toolCall={tc} />
+            <InsightsToolCallCard
+              key={i}
+              toolCall={tc}
+              onFollowupClick={onFollowupClick}
+            />
           ))}
         </div>
       )}

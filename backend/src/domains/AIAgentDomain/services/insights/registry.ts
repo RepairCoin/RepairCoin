@@ -24,6 +24,8 @@ import { rcnBalanceSummary } from "./tools/rcnBalanceSummary";
 import { cancellationBreakdown } from "./tools/cancellationBreakdown";
 import { repeatCustomerAnalysis } from "./tools/repeatCustomerAnalysis";
 import { timeOfDayPattern } from "./tools/timeOfDayPattern";
+// Phase 6.3 — meta-tool for AI-suggested follow-up chips.
+import { suggestFollowups } from "./tools/suggestFollowups";
 
 const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   // v1 (Phase 2)
@@ -38,6 +40,8 @@ const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   cancellationBreakdown,
   repeatCustomerAnalysis,
   timeOfDayPattern,
+  // Phase 6.3 — meta-tools (no DB access; Claude orchestration).
+  suggestFollowups,
 ]);
 
 const INSIGHTS_TOOLS_BY_NAME: ReadonlyMap<string, BusinessInsightsTool> =

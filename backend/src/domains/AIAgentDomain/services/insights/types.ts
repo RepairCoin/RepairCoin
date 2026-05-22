@@ -53,6 +53,15 @@ export type ToolDisplay =
       label: string;
       series: number[];
       primary?: string;
+    }
+  | {
+      // Phase 6.3 — AI-suggested next questions. Rendered as a row of
+      // tap-able chips below the assistant bubble. Each item submits
+      // its text as a fresh user message when tapped. Emitted by the
+      // `suggest_followups` meta-tool after the data-fetching tool(s)
+      // have answered the original question.
+      kind: "follow_ups";
+      items: string[];
     };
 
 /**

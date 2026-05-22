@@ -99,6 +99,16 @@ describe("buildInsightsSystemPrompt", () => {
     it("rule: don't ask the user to re-authenticate", () => {
       expect(prompt).toMatch(/already authenticated/);
     });
+
+    it("rule: call suggest_followups after answering (Phase 6.3)", () => {
+      // Tool name explicitly mentioned so Claude knows what to call.
+      expect(prompt).toMatch(/suggest_followups/);
+      // Constraints on the chips — must be answerable + naturally phrased.
+      expect(prompt).toMatch(/answerable by one of your other tools/i);
+      expect(prompt).toMatch(/phrase them naturally/i);
+      // Skip-on-done escape hatch so we don't suggest chips after "thanks".
+      expect(prompt.toLowerCase()).toContain("thanks");
+    });
   });
 
   describe("style guidance", () => {
