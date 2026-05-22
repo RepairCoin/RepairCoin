@@ -342,15 +342,29 @@ export const ServiceOrdersTab: React.FC = () => {
           description: "This booking was cancelled.",
           color: "text-gray-300"
         };
-      default:
+      case "no_show":
+        return {
+          icon: <AlertTriangle className="w-5 h-5" />,
+          text: "No-Show",
+          badge: "⚠️ No-Show",
+          badgeColor: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+          description: "This booking was marked as a no-show by the shop.",
+          color: "text-orange-300"
+        };
+      default: {
+        const formatted = status
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join("-");
         return {
           icon: <Clock className="w-5 h-5" />,
-          text: status,
-          badge: status,
+          text: formatted,
+          badge: formatted,
           badgeColor: "bg-gray-500/20 text-gray-300 border-gray-500/30",
           description: "",
           color: "text-gray-300"
         };
+      }
     }
   };
 
