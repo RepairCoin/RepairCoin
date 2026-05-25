@@ -460,55 +460,83 @@ component tests in this codebase pattern (matches BookingSuggestionCard).
 
 ## 9. Phase 5 — Event-bus subscribers + new event (1 day)
 
-### 9.1 Publish `service.reschedule_request_created`
+### 9.1 Publish `reschedule:request_created`
 
-- [ ] **5.1** Emit from `RescheduleService.createRescheduleRequest`
-  after successful insert. Payload per §3 above.
-- [ ] **5.2** Confirm `AppointmentController.createRescheduleRequest`
-  doesn't already publish a competing event.
+- [x] **5.1** Event already published.
+  > **Done — pre-existing.** Discovered at the start of Phase 5:
+  > `RescheduleService.createRescheduleRequest:241-260` already
+  > publishes `reschedule:request_created` with a rich payload
+  > (requestId, orderId, shopId, shopName, customerName,
+  > serviceName, originalDate/Time, requestedDate/Time, reason).
+  > No new event-publish work needed.
+- [x] **5.2** Confirmed no competing publish on the controller.
+  > **Done.** `AppointmentController.createRescheduleRequest` only
+  > calls `rescheduleService.createRescheduleRequest` which owns
+  > the publish — no duplicate emission.
 
 ### 9.2 New handler classes in AIAgentDomain
 
-- [ ] **5.3** `services/CancellationConfirmationHandler.ts` —
-  mirrors `BookingConfirmationHandler`. On
-  `service.order_cancelled` for orders that originated from an AI
-  booking card OR were proposed by the AI (detect via
-  `conversation_id` linkage on the order), post a chat message
-  ("Your X on Y is cancelled.") into the originating conversation.
-- [ ] **5.4** `services/RescheduleRequestConfirmationHandler.ts` —
-  on `service.reschedule_request_created`, post "Reschedule
-  request submitted. The shop will approve it shortly." into the
-  conversation.
+- [x] **5.3** `CancellationConfirmationHandler.ts`.
+  > **Done 2026-05-25.** Mirror of `BookingConfirmationHandler`.
+  > Subscribes to `service.order_cancelled`. Scope: only orders
+  > with a `conversation_id` (i.e. originated from AI chat).
+  > Templated message — "Got it {name} — your appointment at
+  > {shop} on {slot} has been cancelled." Idempotent on
+  > `metadata.source='cancellation_confirmed' + order_id`. WS
+  > broadcast to both customer + shop.
+- [x] **5.4** `RescheduleRequestConfirmationHandler.ts`.
+  > **Done 2026-05-25.** Subscribes to
+  > `reschedule:request_created`. Same conversation_id scope.
+  > Templated message — "Your reschedule request for {service}
+  > is in — {shop} will review the move to {newSlot} shortly."
+  > Idempotent on `metadata.source='reschedule_request_submitted'
+  > + request_id`. Prefers payload-supplied customer/shop/service
+  > names (RescheduleService enriches the event) to avoid extra
+  > repo lookups; falls back when fields are missing.
 
 ### 9.3 Subscribe in domain init
 
-- [ ] **5.5** `AIAgentDomain/index.ts` — add two more
-  `eventBus.subscribe(...)` calls following the existing
-  `service.order_completed` + `service.order_paid` pattern.
-- [ ] **5.6** Guard: skip the auto-message if the cancellation
-  source wasn't AI-initiated. Look at the
-  `event.payload.cancelledBy` field (already set —
-  `AppointmentController.ts:620`). Only post if the order
-  originated from a chat conversation that's still alive.
+- [x] **5.5** Two new `eventBus.subscribe(...)` calls in
+  `AIAgentDomain/index.ts`.
+  > **Done 2026-05-25.** Added directly after the existing
+  > `service.order_paid` subscription. Each handler is
+  > constructed unconditionally in the constructor (no
+  > ANTHROPIC_API_KEY dependency — templated messages, no
+  > Claude calls).
+- [x] **5.6** Source guard.
+  > **Done — by design.** The `event.payload.cancelledBy` check
+  > the original plan proposed isn't needed. Each handler's
+  > `if (!order.conversationId) return` is the precise filter
+  > we want: "post the message only when this order came from
+  > AI chat." Cancellations from dashboard / shop-side
+  > naturally skip because those orders carry no conversation_id.
+  > Cleaner than a who-cancelled-where check.
 
 ### 9.4 QA fixtures
 
-- [ ] **5.7** `docs/tasks/strategy/ai-sales-agent/qa-fixtures/`
-  — mirror the Business-Data Insights pattern:
-  - `setup-cancellable-appointment.ts` — creates an upcoming order
-    24h+ out for the test customer + shop
-  - `setup-within-window-appointment.ts` — creates an order <24h
-    out to verify the guard path
-  - `setup-pending-reschedule-request.ts` — creates a pending
-    request to test the Q2 refuse path
-  - `cleanup.ts` — hard-deletes test orders/requests by marker
-- [ ] **5.8** Mirror the `tsconfig.json` + `README.md` pattern
-  from the Business-Insights qa-fixtures so the scripts run
-  via `cd backend && npx ts-node ...`.
+- [x] **5.7** Three setup scripts + cleanup at
+  `docs/tasks/strategy/ai-sales-agent/qa-fixtures/`.
+  > **Done 2026-05-25.** `setup-cancellable-appointment.ts`
+  > (48h out, joins to existing conversation for confirmation-
+  > message test), `setup-within-window-appointment.ts` (~12h
+  > out for 24h-guard test), `setup-pending-reschedule-request.ts`
+  > (Q2 collision test). All rows tagged with
+  > `AISA-RC-QA-<timestamp>` marker in
+  > `service_orders.notes` and (for reschedule requests)
+  > `customer_reason`. Each script picks an available service +
+  > looks up an existing conversation rather than hardcoding.
+- [x] **5.8** Nested `tsconfig.json` + README mirroring the
+  Business-Insights pattern.
+  > **Done 2026-05-25.** `tsconfig.json` extends
+  > `backend/tsconfig.json` for ts-node resolution. README has
+  > the script table, end-to-end test path, and cleanup safety
+  > notes. Run with
+  > `cd backend && npx ts-node ../docs/.../qa-fixtures/<script>.ts`.
 
-**Acceptance:** end-to-end smoke test on staging — book a fixture,
-cancel via AI chat, see confirmation message; reschedule-request
-via AI chat, see confirmation message.
+**Acceptance:** end-to-end manual smoke per
+`qa-fixtures/README.md` — book a fixture, cancel via AI chat, see
+both the card transition AND the AI confirmation message land in
+the chat thread; repeat for reschedule-request and 24h-guard paths.
 
 ---
 
