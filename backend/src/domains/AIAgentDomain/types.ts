@@ -460,6 +460,40 @@ export interface AgentUpcomingAppointment {
 }
 
 /**
+ * Validated reschedule proposal extracted from a Claude
+ * `propose_reschedule_request` tool_use block. Persisted to
+ * `messages.metadata.reschedule_proposals` for the frontend to render a
+ * tap-to-request-reschedule card. The customer's tap fires
+ * `POST /api/services/appointments/reschedule-request` (creates a request
+ * the shop must approve — non-destructive). Per Q4 of the scope doc,
+ * reschedule confirmation is inline (single tap commits) rather than a
+ * modal, because the action is reversible by the customer via the
+ * pending-request flow.
+ *
+ * Phase 2.9-2.11 of the reschedule + cancel chat work.
+ */
+export interface RescheduleProposal {
+  orderId: string;
+  serviceId: string;
+  serviceName: string;
+  /** The booking's current date — YYYY-MM-DD. */
+  currentBookingDate: string;
+  /** The booking's current time — HH:MM or HH:MM:SS. */
+  currentBookingTime: string;
+  /** Requested new date — YYYY-MM-DD. */
+  requestedDate: string;
+  /** Requested new time — HH:MM 24-hour. */
+  requestedTime: string;
+  /**
+   * Server-resolved human-readable label for the new slot, e.g.
+   * "Friday, May 30 at 1:00 PM". Sourced from the matched availability
+   * slot's humanLabel so the card doesn't have to locale-render the
+   * timestamp client-side.
+   */
+  requestedLabel: string;
+}
+
+/**
  * Validated cancellation proposal extracted from a Claude `propose_cancellation`
  * tool_use block. Persisted to `messages.metadata.cancellation_proposals` for
  * the frontend to render a tap-to-cancel card. The customer's tap opens a

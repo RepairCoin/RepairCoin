@@ -286,16 +286,30 @@ Tradeoff accepted: prompt grows by ~1 KB (max 10 appointments ×
 
 ### 6.3 `propose_reschedule_request` tool
 
-- [ ] **2.9** Define tool. Input schema per scope §3.3.
-- [ ] **2.10** Server-side validation:
-  - `order_id` owned + cancellable status.
-  - `requested_date` / `requested_time_slot` pair must be on
-    the availability set the prompt sent Claude.
-  - No `pendingRescheduleRequestId` on this order (Q2 refuse
-    path — return structured error, prompt the model to point
-    customer at the dashboard).
-- [ ] **2.11** Emit `ReschedulePropoosal` to
+- [x] **2.9** Define tool in `AgentOrchestrator.ts`.
+  > **Done 2026-05-25.** `buildRescheduleTool(upcomingAppointments,
+  > availabilitySlots)`. Uses a combined `requested_slot_iso` enum
+  > (simpler than separate date/time-slot enums for the JSON schema).
+  > order_id enum is the **eligible-only** subset — appointments
+  > with a pending reschedule request are excluded at the schema
+  > layer per Q2. Tool only emitted when both eligible-appointments
+  > AND availability-slots are non-empty.
+- [x] **2.10** Server-side validation in the orchestrator.
+  > **Done 2026-05-25.** Five guards: (1) order_id ∈ upcoming
+  > appointments; (2) order NOT pending reschedule (defense-in-depth
+  > vs the schema-level exclusion); (3) requested_slot_iso ∈
+  > availability slots; (4) matched slot's serviceId == order's
+  > serviceId (reschedule stays on the same service — moving to a
+  > different service would be a bug); (5) reply_text non-empty.
+  > Plus dedup on order_id. All rejected blocks log a drop reason.
+- [x] **2.11** Emit `RescheduleProposal` to
   `messages.metadata.reschedule_proposals[]`.
+  > **Done 2026-05-25.** Empty array → metadata key omitted, same
+  > pattern as cancellation_proposals + booking_suggestions.
+  > reschedule_proposal_dropped counter captures forensic data on
+  > rejected blocks. RescheduleProposal carries both current and
+  > requested slot info plus the server-resolved humanLabel so the
+  > frontend card doesn't have to locale-render the timestamp.
 
 ### 6.4 Multi-call + ordering safety
 
