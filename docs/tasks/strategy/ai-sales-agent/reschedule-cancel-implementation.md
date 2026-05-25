@@ -257,17 +257,32 @@ Tradeoff accepted: prompt grows by ~1 KB (max 10 appointments ×
 
 ### 6.2 `propose_cancellation` tool
 
-- [ ] **2.6** Define tool. Input schema per scope §3.2.
-- [ ] **2.7** Server-side validation in
-  `AgentOrchestrator.handlePropoaseCancellationCall`:
-  - `order_id` owned by `customerAddress` (lookup).
-  - Order status in `{paid, scheduled}` — not completed,
-    cancelled, or no-show.
-  - Compute `withinCancellationWindow` (≥24h ahead).
-  - Reject the tool_use with a structured error if the order
-    is invalid; Claude phrases the failure.
-- [ ] **2.8** Emit `CancellationProposal` to
+- [x] **2.6** Define tool in `AgentOrchestrator.ts` next to
+  `buildBookingSuggestionTool`.
+  > **Done 2026-05-25.** `buildCancellationTool(upcomingAppointments)`.
+  > order_id is enum-constrained to the customer's upcoming order
+  > IDs (preloaded into context). reply_text capped at
+  > BOOKING_REPLY_MAX_CHARS for visual consistency with booking.
+  > Tool description tells Claude when to call (explicit cancel
+  > requests), when NOT to call (policy questions, ambiguous
+  > targets, within-24h windows), and that the order_id must match
+  > one of the listed appointments.
+- [x] **2.7** Server-side validation in the orchestrator.
+  > **Done 2026-05-25.** Three guards: (1) order_id ∈ preloaded
+  > appointment enum (defense-in-depth — Anthropic schema also
+  > enforces); (2) `withinCancellationWindow` true (rejects
+  > stale-context slip-through where Claude proposes a cancellation
+  > the endpoint would 400 on); (3) reply_text non-empty. Plus
+  > dedup on order_id (one card per appointment per turn). All
+  > rejected blocks log a drop reason for forensic queries.
+- [x] **2.8** Emit `CancellationProposal` to
   `messages.metadata.cancellation_proposals[]`.
+  > **Done 2026-05-25.** Empty array → metadata key omitted, same
+  > convention as booking_suggestions. Also stamps
+  > cancellation_proposal_dropped diagnostic counters when blocks
+  > fail validation. Tool is gated independently of the booking
+  > tool — either can be present in the tools array without the
+  > other.
 
 ### 6.3 `propose_reschedule_request` tool
 

@@ -460,6 +460,33 @@ export interface AgentUpcomingAppointment {
 }
 
 /**
+ * Validated cancellation proposal extracted from a Claude `propose_cancellation`
+ * tool_use block. Persisted to `messages.metadata.cancellation_proposals` for
+ * the frontend to render a tap-to-cancel card. The customer's tap opens a
+ * confirmation modal that calls `POST /api/services/appointments/cancel/:orderId`
+ * with their auth — server-side auth never lives in the AI agent's context.
+ *
+ * `withinCancellationWindow` is pre-computed at context-load time and carried
+ * through here so the card can show the right framing without a second DB
+ * query (and so a stale-context client can't surprise the user with a tap
+ * that 400s due to the 24h guard).
+ *
+ * Mirrors the BookingSuggestion shape: one card per validated tool_use block,
+ * deduped by orderId. Phase 2.6-2.8 of the reschedule + cancel chat work.
+ */
+export interface CancellationProposal {
+  orderId: string;
+  serviceId: string;
+  serviceName: string;
+  /** YYYY-MM-DD, formatted local-date — same convention as bookingDate elsewhere. */
+  bookingDate: string;
+  /** HH:MM or HH:MM:SS, whichever the underlying order has. */
+  bookingTime: string;
+  /** True iff ≥24h ahead. Card refuses to commit when false (server also re-checks). */
+  withinCancellationWindow: boolean;
+}
+
+/**
  * Validated booking suggestion extracted from a Claude reply
  * (Phase 3 Task 10). Persisted to messages.metadata.booking_suggestions for
  * the frontend to render as a tappable card.
