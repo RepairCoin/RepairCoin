@@ -12,6 +12,12 @@ ones (e.g. follow-up carryover assumes a prior tool call exists).
 Skip with intent — if you skip a scenario, write down which one and
 why, since downstream scenarios may behave unexpectedly without it.
 
+**Synthetic-data scripts:** §10 + §11 scenarios that need rigged
+test data have ready-to-run TypeScript fixtures in `./qa-fixtures/`.
+See `./qa-fixtures/README.md` for the script-per-scenario table and
+run instructions. Each scenario below also documents the inline SQL
+if you'd rather paste it into a DB client.
+
 ---
 
 ## 0. Setup
