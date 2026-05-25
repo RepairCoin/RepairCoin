@@ -652,11 +652,25 @@ const TurnBubble: React.FC<{
   // Assistant: markdown prose bubble + a card per tool call directly
   // underneath. follow_ups cards render as inline chip rows rather
   // than bordered data cards (see InsightsToolCallCard).
+  //
+  // Belt + suspenders: when a follow_ups toolCall is present in this
+  // turn, strip a trailing in-prose chip list before rendering.
+  // Primary defense is the prompt rule under InsightsPromptBuilder
+  // rule #11; this guard catches the occasional leak where Claude
+  // re-lists the chips in the bubble (would render the same questions
+  // twice — once as flat text, once as the tappable chip row below).
+  const hasFollowupsCard = turn.toolCalls.some(
+    (tc) => tc.display?.kind === "follow_ups"
+  );
+  const renderedContent = hasFollowupsCard
+    ? stripTrailingFollowupList(turn.content)
+    : turn.content;
+
   return (
     <div className="flex justify-start flex-col items-start gap-2">
       <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
         <ReactMarkdown components={markdownComponents}>
-          {turn.content}
+          {renderedContent}
         </ReactMarkdown>
       </div>
       {turn.toolCalls.length > 0 && (
@@ -675,6 +689,81 @@ const TurnBubble: React.FC<{
     </div>
   );
 };
+
+/**
+ * Strip a trailing bullet/numbered list from an assistant reply when
+ * a `follow_ups` card is going to render the same questions as chips
+ * below. The prompt explicitly forbids in-prose listing, so this only
+ * fires on the rare leak. Conservative on multiple axes:
+ *
+ *  - Only operates on the TAIL of the content; lists in the middle
+ *    are left alone.
+ *  - Only strips when the trailing list *looks like* follow-up
+ *    questions (majority of items end with `?`) — preventing
+ *    accidental removal of legitimate label:value data lists like
+ *    `- Completed: 5\n- Cancelled: 1` from bookings_breakdown.
+ *  - Optional preamble line is only dropped when it ends with `:`
+ *    AND contains a follow-up keyword (follow-up / next / more / …).
+ *
+ * Exported for ad-hoc testing in browser devtools if needed.
+ */
+export function stripTrailingFollowupList(content: string): string {
+  if (!content) return content;
+
+  const lines = content.split("\n");
+  let end = lines.length - 1;
+
+  // Skip trailing blank lines.
+  while (end >= 0 && lines[end].trim() === "") end--;
+  if (end < 0) return content;
+
+  // Walk backwards while lines are list items.
+  let listStart = end;
+  while (listStart > 0 && isMarkdownListItem(lines[listStart - 1])) {
+    listStart--;
+  }
+  // If the line at listStart isn't itself a list item, no trailing list.
+  if (!isMarkdownListItem(lines[listStart])) return content;
+
+  // Bail out if the trailing list doesn't look like follow-up
+  // questions. Real chip questions end with `?`; data lists are
+  // label:value pairs that don't.
+  const items = lines.slice(listStart, end + 1);
+  if (!looksLikeFollowupQuestions(items)) return content;
+
+  // Optional preamble line above the list.
+  let cutPoint = listStart;
+  while (cutPoint > 0 && lines[cutPoint - 1].trim() === "") cutPoint--;
+  if (cutPoint > 0 && isFollowupPreamble(lines[cutPoint - 1])) {
+    cutPoint--;
+  }
+
+  return lines.slice(0, cutPoint).join("\n").replace(/\s+$/, "");
+}
+
+function isMarkdownListItem(line: string): boolean {
+  return /^[ \t]*(?:[-*•+]|\d+\.)\s+\S/.test(line);
+}
+
+function looksLikeFollowupQuestions(items: string[]): boolean {
+  if (items.length === 0) return false;
+  let questionCount = 0;
+  for (const item of items) {
+    const text = item.replace(/^[ \t]*(?:[-*•+]|\d+\.)\s+/, "").trim();
+    if (text.endsWith("?")) questionCount++;
+  }
+  // Majority-ends-in-? heuristic. With Claude's typical 2-3 follow-up
+  // chips, this is 2/2, 2/3, or 3/3 — never a tie with label:value
+  // rows which have 0 question marks.
+  return questionCount / items.length >= 0.5;
+}
+
+function isFollowupPreamble(line: string): boolean {
+  if (!/:\s*$/.test(line)) return false;
+  return /\b(follow.?up|next|more|consider|might|could|also|here are|you can ask|questions?)\b/i.test(
+    line
+  );
+}
 
 /**
  * Find the most recent user-turn content BEFORE `assistantIndex`.
