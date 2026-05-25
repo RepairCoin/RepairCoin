@@ -205,26 +205,55 @@ showing the customer-provided text.
 
 ---
 
-## 6. Phase 2 — New tools + orchestrator wiring (2-3 days)
+## 6. Phase 2 — Context preload + new propose-* tools (2 days)
 
-### 6.1 `lookup_my_appointments` tool
+**Design correction (2026-05-25 pre-coding):** the original plan
+called for a `lookup_my_appointments` tool that Claude would invoke
+to fetch appointments, then call `propose_cancellation` /
+`propose_reschedule_request` in a follow-up iteration. But the
+existing `AgentOrchestrator` does **a single Claude call** — no
+tool-result agent loop like `InsightsController` has. Adding one
+would be a significant restructure of the orchestrator's request
+flow and risk regressions in the booking path.
 
-- [ ] **2.1** Define tool in `AgentOrchestrator.ts` next to
-  `BOOKING_TOOL_NAME`. Input schema per scope §3.1.
-- [ ] **2.2** Execute against
-  `appointmentRepo.getCustomerAppointmentsInRange(customerAddress,
-  startDate, endDate)`. Default range = today through
-  +30 days when `status_filter="upcoming"`.
-- [ ] **2.3** Enrich each row with
-  `pendingRescheduleRequestId` (one query to
-  `reschedule_requests` table filtered by `customer_address` +
-  `status='pending'`).
-- [ ] **2.4** Apply optional hints (`service_name_hint`,
-  `day_hint`) as a server-side filter so Claude gets a narrowed
-  set. Day-hint accepts loose strings ("thursday", "tomorrow") —
-  use a small parser; unknown hints fall through (no filter).
-- [ ] **2.5** Tool result shape per scope §3.1. Hard cap at 10
-  rows returned to keep prompt size bounded.
+**Simpler approach:** pre-load the customer's upcoming appointments
+at this shop into the system prompt via `ContextBuilder` (same way
+service info + history are already loaded). Claude reads the
+appointment list directly from the prompt; no lookup tool needed.
+The propose-* tools still validate that the proposed `order_id`
+matches one of the pre-loaded appointments — preserves the
+security boundary.
+
+Tradeoff accepted: prompt grows by ~1 KB (max 10 appointments ×
+~100 chars). Cost negligible vs the Claude-loop alternative.
+
+### 6.1 Context preload — upcoming appointments
+
+- [ ] **2.1** Add `getUpcomingAppointmentsForShop(customerAddress,
+  shopId)` to `AppointmentRepository`. Returns rows with
+  `orderId`, `serviceId`, `serviceName`, `bookingDate`,
+  `bookingTime`, `status`, `withinCancellationWindow` (boolean,
+  computed server-side from `booking_date + booking_time` ≥ 24h
+  ahead). Filters to `status IN ('paid', 'scheduled')` and
+  `booking_date >= CURRENT_DATE`. Hard cap at 10 rows.
+- [ ] **2.2** Add `getPendingRescheduleRequestsForOrders(orderIds)`
+  to `RescheduleRepository`. Returns a Map of `orderId →
+  requestId` for rows with `status='pending'`. Used to enrich the
+  appointment list with `pendingRescheduleRequestId`.
+- [ ] **2.3** Add `upcomingAppointments` to
+  `AgentContextSnapshot` (the type returned by
+  `ContextBuilder.build`). Builder fetches both queries and merges.
+- [ ] **2.4** Render the list into the system prompt via a new
+  `PromptTemplates.renderUpcomingAppointmentsBlock(appointments)`.
+  Show only when the list is non-empty. Each line: `- {serviceName}
+  on {bookingDate} at {bookingTime} (status: {status}, order:
+  {orderId.slice(0,8)}…){pending-marker}`.
+- [ ] **2.5** Add to prompt the rule that the **`order_id`
+  argument to propose_cancellation / propose_reschedule_request
+  MUST match one of the order IDs listed above** — same enum-style
+  constraint as `service_id` for booking, but enforced server-side
+  in the orchestrator (Anthropic JSON schemas can't reference
+  context-dependent enums easily).
 
 ### 6.2 `propose_cancellation` tool
 

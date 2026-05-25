@@ -421,6 +421,42 @@ export interface AgentContext {
    * cards when this is non-empty.
    */
   availabilitySlots: AgentAvailabilitySlot[];
+  /**
+   * Customer's upcoming PAID bookings at THIS shop. Powers the AI sales-
+   * agent's reschedule + cancel propose-* tools — Claude reads from this
+   * list (rendered into the prompt) instead of needing a `lookup_my_appointments`
+   * tool call. `withinCancellationWindow` is pre-computed server-side so
+   * the prompt can render the 24h-guard cue without arithmetic on
+   * Claude's side. `pendingRescheduleRequestId` is non-null when the
+   * order already has a pending reschedule request — Claude uses it to
+   * refuse a second request (per Q2 in reschedule-cancel-scope.md).
+   * Capped at 10 in the repo to bound prompt size.
+   */
+  upcomingAppointments: AgentUpcomingAppointment[];
+}
+
+/**
+ * One row in `AgentContext.upcomingAppointments`. Lightweight — only
+ * what the prompt needs to render the line + what the propose-* tools
+ * need to validate the proposed `order_id` against.
+ */
+export interface AgentUpcomingAppointment {
+  orderId: string;
+  serviceId: string;
+  serviceName: string;
+  /** YYYY-MM-DD, formatted local-date to avoid timezone shift. */
+  bookingDate: string;
+  /** HH:MM:SS or HH:MM (from booking_time_slot or booking_time). */
+  bookingTime: string;
+  /** Order status — always 'paid' in v1 (the repo filters to it). */
+  status: string;
+  /** True iff booking is ≥24h away. Server-computed in the repo. */
+  withinCancellationWindow: boolean;
+  /**
+   * Reschedule-request id if a request for this order is in `pending`
+   * status. Null otherwise. Drives the Q2 "refuse second request" path.
+   */
+  pendingRescheduleRequestId: string | null;
 }
 
 /**

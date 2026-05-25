@@ -204,6 +204,39 @@ export class RescheduleRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Batch variant of `getPendingRequestForOrder` for the AI sales-agent
+   * context preload. Given a set of order IDs, returns a Map of
+   * `orderId → requestId` for any with a pending reschedule request.
+   * Orders with no pending request are simply absent from the map.
+   *
+   * One query for N orders instead of N round-trips. Non-throwing —
+   * returns an empty map on error so the context-build path keeps
+   * working (without the pending-request markers).
+   */
+  async getPendingRescheduleRequestsForOrders(
+    orderIds: string[]
+  ): Promise<Map<string, string>> {
+    if (orderIds.length === 0) return new Map();
+    try {
+      const result = await this.pool.query<{ order_id: string; request_id: string }>(
+        `SELECT order_id, request_id
+         FROM appointment_reschedule_requests
+         WHERE status = 'pending'
+           AND order_id = ANY($1::text[])`,
+        [orderIds]
+      );
+      const map = new Map<string, string>();
+      for (const row of result.rows) {
+        map.set(row.order_id, row.request_id);
+      }
+      return map;
+    } catch (error) {
+      logger.error('Error getting pending reschedule requests for orders:', error);
+      return new Map();
+    }
+  }
+
   async getShopRescheduleRequests(
     shopId: string,
     status?: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled' | 'all'

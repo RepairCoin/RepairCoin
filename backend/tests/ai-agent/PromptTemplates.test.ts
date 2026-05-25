@@ -58,6 +58,8 @@ const baseContext = (overrides: Partial<AgentContext> = {}): AgentContext => ({
   conversationHistory: [],
   siblingServices: [],
   availabilitySlots: [],
+  upcomingAppointments: [],
+
   shopServiceMenu: [],
   ...overrides,
 });
@@ -368,6 +370,8 @@ describe("PromptTemplates — booking suggestions block (Phase 3 Task 10)", () =
     // turn, so the claim is false and confuses Claude into stalling.
     const ctx = baseContext({
       availabilitySlots: [],
+      upcomingAppointments: [],
+
       shopServiceMenu: [
         {
           serviceId: "srv_newly",
@@ -702,6 +706,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
   };
   const ctxWithMenu = (overrides: any = {}): AgentContext =>
     baseContext({
+      upcomingAppointments: [],
+
       shopServiceMenu: [
         {
           serviceId: "srv_aqua",
@@ -756,6 +762,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
 
   it("renders menu service without duration when durationMinutes is missing", () => {
     const ctx = baseContext({
+      upcomingAppointments: [],
+
       shopServiceMenu: [
         {
           serviceId: "srv_x",
@@ -775,6 +783,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
 
   it("renders menu service without blurb when shortBlurb is null", () => {
     const ctx = baseContext({
+      upcomingAppointments: [],
+
       shopServiceMenu: [
         {
           serviceId: "srv_x",
@@ -800,6 +810,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("renders bookable items in the 'Other AI-bookable' block", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_bookable",
@@ -823,6 +835,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("renders describe-only items in a separate block with MUST NOT propose a slot wording", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_describe",
@@ -846,6 +860,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("renders BOTH blocks when the menu has a mix", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_bookable",
@@ -887,6 +903,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("renders the FAQ block under the menu item when entries are present", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_newly",
@@ -922,6 +940,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("does NOT render an FAQ block when the menu item's faqEntries is empty", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_newly",
@@ -945,6 +965,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("skips half-filled entries defensively (empty question or empty answer)", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_newly",
@@ -972,6 +994,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
     it("renders FAQ blocks for multiple menu items independently", () => {
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_newly",
@@ -1005,6 +1029,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
       const longAnswer = "x".repeat(800);
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_newly",
@@ -1037,6 +1063,8 @@ describe("PromptTemplates — Phase 1 multi-service shop menu", () => {
       // booking mode.
       const prompt = professionalPrompt(
         baseContext({
+          upcomingAppointments: [],
+
           shopServiceMenu: [
             {
               serviceId: "srv_describe",
@@ -1219,6 +1247,8 @@ describe("PromptTemplates — focused-service-default fix (anchor wins over hist
     const prompt = professionalPrompt(
       baseContext({
         availabilitySlots: [aquaSlot, newlySlot],
+        upcomingAppointments: [],
+
         shopServiceMenu: [
           {
             serviceId: "srv_newly",

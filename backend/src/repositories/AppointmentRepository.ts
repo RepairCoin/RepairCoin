@@ -515,6 +515,92 @@ export class AppointmentRepository extends BaseRepository {
   }
 
   /**
+   * Slim "upcoming bookings at this shop" lookup for the AI sales-agent
+   * context preload. Read-only, scoped to (customer × shop) — the chat
+   * is a single shop conversation, so out-of-shop appointments are not
+   * relevant. Cancel-only states (paid + future date) are the universe
+   * of bookings Claude can propose to cancel or reschedule on.
+   *
+   * `withinCancellationWindow` is computed server-side so the prompt
+   * can render the "this is within 24h, can't direct-cancel" framing
+   * without arithmetic on Claude's side (the 24h guard is also
+   * re-checked at the cancel endpoint — this is just for the UX cue).
+   *
+   * Hard 10-row cap so the prompt block stays bounded even for power
+   * customers. Sort newest-first so the most-relevant bookings (those
+   * happening sooner) land first.
+   */
+  async getUpcomingAppointmentsForShop(
+    customerAddress: string,
+    shopId: string
+  ): Promise<Array<{
+    orderId: string;
+    serviceId: string;
+    serviceName: string;
+    bookingDate: string;
+    bookingTime: string;
+    status: string;
+    withinCancellationWindow: boolean;
+  }>> {
+    try {
+      const query = `
+        SELECT
+          so.order_id AS "orderId",
+          so.service_id AS "serviceId",
+          ss.service_name AS "serviceName",
+          so.booking_date AS "bookingDate",
+          COALESCE(so.booking_time_slot, so.booking_time) AS "bookingTime",
+          so.status,
+          -- Server-computed: booking_date + booking_time is ≥24h away.
+          -- NULL booking_time falls through as false (defensive).
+          CASE
+            WHEN so.booking_date IS NULL OR COALESCE(so.booking_time_slot, so.booking_time) IS NULL
+              THEN false
+            ELSE
+              (so.booking_date::timestamp + COALESCE(so.booking_time_slot, so.booking_time)::time)
+                >= (NOW() + INTERVAL '24 hours')
+          END AS "withinCancellationWindow"
+        FROM service_orders so
+        LEFT JOIN shop_services ss ON ss.service_id = so.service_id
+        WHERE so.customer_address = $1
+          AND so.shop_id = $2
+          AND so.status = 'paid'
+          AND so.booking_date IS NOT NULL
+          AND so.booking_date >= CURRENT_DATE
+        ORDER BY so.booking_date ASC,
+                 COALESCE(so.booking_time_slot, so.booking_time) ASC
+        LIMIT 10
+      `;
+
+      const result = await this.pool.query(query, [
+        customerAddress.toLowerCase(),
+        shopId,
+      ]);
+
+      return result.rows.map((row) => ({
+        orderId: row.orderId,
+        serviceId: row.serviceId,
+        // shop_services rows can drop their name if a service is deleted —
+        // fall back to a stable placeholder rather than crashing the
+        // prompt render with `null`.
+        serviceName: row.serviceName ?? `(service ${String(row.serviceId).slice(0, 8)})`,
+        bookingDate:
+          row.bookingDate instanceof Date
+            ? formatLocalDate(row.bookingDate)
+            : row.bookingDate,
+        bookingTime: row.bookingTime,
+        status: row.status,
+        withinCancellationWindow: Boolean(row.withinCancellationWindow),
+      }));
+    } catch (error) {
+      logger.error('Error getting upcoming appointments for shop:', error);
+      // Empty array is the right "no data" answer for the AI prompt —
+      // never throw into the orchestrator's context-build path.
+      return [];
+    }
+  }
+
+  /**
    * Customer-side cancellation. Verifies ownership, applies the 24h
    * cancellation policy, then UPDATEs the order to cancelled status.
    *

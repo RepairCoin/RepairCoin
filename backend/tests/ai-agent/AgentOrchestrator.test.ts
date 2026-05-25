@@ -806,6 +806,8 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
       shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
       conversationHistory: [],
       siblingServices: [],
+      upcomingAppointments: [],
+
       shopServiceMenu: [],
       availabilitySlots: [
         {
@@ -1070,6 +1072,8 @@ describe("AgentOrchestrator — Phase 3 multi tool_use blocks", () => {
       shop: { shopId: "shop_test", shopName: "Test Shop", category: "test", hoursSummary: null, timezone: null },
       conversationHistory: [],
       siblingServices: [],
+      upcomingAppointments: [],
+
       shopServiceMenu: [],
       availabilitySlots: [
         {
@@ -1228,6 +1232,8 @@ describe("AgentOrchestrator — focused-default server enforcement", () => {
     },
     conversationHistory: [],
     siblingServices: [],
+    upcomingAppointments: [],
+
     shopServiceMenu: [
       {
         serviceId: otherServiceId,
@@ -1550,6 +1556,8 @@ describe("AgentOrchestrator — same-slot loop guard", () => {
       },
     ],
     siblingServices: [],
+    upcomingAppointments: [],
+
     shopServiceMenu: [],
     availabilitySlots: [
       {
@@ -2036,6 +2044,8 @@ describe("AgentOrchestrator — cross-service offer follow-up integration", () =
       },
     ],
     siblingServices: [],
+    upcomingAppointments: [],
+
     shopServiceMenu: [
       {
         serviceId: otherServiceId,
@@ -2123,8 +2133,7 @@ describe("AgentOrchestrator — cross-service offer follow-up integration", () =
     );
 
     const messages = mocks.anthropicClient.complete.mock.calls[0][0].messages;
-    // Expect: [..., assistant cross-offer reminder, user "yes please"]
-    expect(messages.length).toBeGreaterThanOrEqual(2);
+    // Expect: [..., assistant cross-offer reminder, user "yes please"]    expect(messages.length).toBeGreaterThanOrEqual(2);
     const lastTwo = messages.slice(-2);
     expect(lastTwo[0].role).toBe("assistant");
     // Reminder must reference the OFFERED service, not the anchor.
@@ -2354,6 +2363,8 @@ describe("AgentOrchestrator — near-duplicate extraText suppression", () => {
       },
       conversationHistory: [],
       siblingServices: [],
+      upcomingAppointments: [],
+
       shopServiceMenu: [],
       availabilitySlots: [
         {
@@ -2707,6 +2718,8 @@ describe("PromptTemplates rule #9 — current-message-only disclosure (Bug B fix
       },
       conversationHistory: [],
       siblingServices: [],
+      upcomingAppointments: [],
+
       shopServiceMenu: [],
       availabilitySlots: [],
     };
@@ -2751,6 +2764,8 @@ describe("PromptTemplates rule #9 — current-message-only disclosure (Bug B fix
       },
       conversationHistory: [],
       siblingServices: [],
+      upcomingAppointments: [],
+
       shopServiceMenu: [],
       availabilitySlots: [],
     };
