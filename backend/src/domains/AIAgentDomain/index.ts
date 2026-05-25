@@ -6,6 +6,8 @@ import { logger } from '../../utils/logger';
 import { eventBus } from '../../events/EventBus';
 import { OrderConfirmationHandler } from './services/OrderConfirmationHandler';
 import { BookingConfirmationHandler } from './services/BookingConfirmationHandler';
+import { CancellationConfirmationHandler } from './services/CancellationConfirmationHandler';
+import { RescheduleRequestConfirmationHandler } from './services/RescheduleRequestConfirmationHandler';
 import { AISalesFollowUpHandler } from './services/AISalesFollowUpHandler';
 import { AISalesFollowUpDetector } from './services/AISalesFollowUpDetector';
 import { WebSocketManager } from '../../services/WebSocketManager';
@@ -34,6 +36,11 @@ export class AIAgentDomain implements DomainModule {
   // Booking-confirmation handler (templated, no Claude call) — constructed
   // unconditionally since it has no ANTHROPIC_API_KEY dependency.
   private bookingConfirmationHandler: BookingConfirmationHandler;
+  // Cancellation + reschedule-request confirmation handlers (Phase 5 of the
+  // reschedule + cancel chat work). Both templated, no Claude call, so they
+  // construct unconditionally — no ANTHROPIC_API_KEY dependency.
+  private cancellationConfirmationHandler: CancellationConfirmationHandler;
+  private rescheduleRequestConfirmationHandler: RescheduleRequestConfirmationHandler;
   // AI sales follow-up nudge (Claude-backed) — lazily constructed since it
   // needs ANTHROPIC_API_KEY. The detector polls; the handler sends.
   private followUpHandler: AISalesFollowUpHandler | null = null;
@@ -42,6 +49,9 @@ export class AIAgentDomain implements DomainModule {
   constructor() {
     this.routes = initializeRoutes();
     this.bookingConfirmationHandler = new BookingConfirmationHandler();
+    this.cancellationConfirmationHandler = new CancellationConfirmationHandler();
+    this.rescheduleRequestConfirmationHandler =
+      new RescheduleRequestConfirmationHandler();
   }
 
   /**
@@ -54,6 +64,8 @@ export class AIAgentDomain implements DomainModule {
     const handler = this.getOrCreateOrderConfirmationHandler();
     handler?.setWebSocketManager(wsManager);
     this.bookingConfirmationHandler.setWebSocketManager(wsManager);
+    this.cancellationConfirmationHandler.setWebSocketManager(wsManager);
+    this.rescheduleRequestConfirmationHandler.setWebSocketManager(wsManager);
     // followUpHandler is constructed in initialize() (runs before this).
     this.followUpHandler?.setWebSocketManager(wsManager);
   }
@@ -87,6 +99,32 @@ export class AIAgentDomain implements DomainModule {
       'AIAgentDomain'
     );
     logger.info(`${this.name} domain: subscribed to service.order_paid`);
+
+    // Phase 5 of the reschedule + cancel chat work: cancellation +
+    // reschedule-request confirmation hooks. Each handler scopes itself to
+    // orders that carry a conversation_id (i.e. originated from AI chat),
+    // so dashboard / marketplace cancels + reschedules don't double-message.
+    eventBus.subscribe(
+      'service.order_cancelled',
+      (event) =>
+        this.cancellationConfirmationHandler.handleOrderCancelled(event),
+      'AIAgentDomain'
+    );
+    logger.info(
+      `${this.name} domain: subscribed to service.order_cancelled`
+    );
+
+    eventBus.subscribe(
+      'reschedule:request_created',
+      (event) =>
+        this.rescheduleRequestConfirmationHandler.handleRescheduleRequestCreated(
+          event
+        ),
+      'AIAgentDomain'
+    );
+    logger.info(
+      `${this.name} domain: subscribed to reschedule:request_created`
+    );
 
     // Start the AI sales follow-up detector — polls every 5 minutes for
     // customers who went quiet mid-conversation and nudges them. Per-shop

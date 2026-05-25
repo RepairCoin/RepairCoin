@@ -1,6 +1,6 @@
 # AI Sales Agent — Status
 
-_Last updated: 2026-05-25_
+_Last updated: 2026-05-25 (reschedule + cancel implementation landed on branch)_
 
 This doc is the running status of in-flight AI Sales Agent work. Update it when the situation changes so a fresh Claude session (or anyone picking up the thread) can resume without re-discovering state.
 
@@ -12,7 +12,7 @@ This doc is the running status of in-flight AI Sales Agent work. Update it when 
 |---|---|---|
 | Multi-turn topic drift + duplicate-card fixes | `deo/ai-mike-tool-overeager-fix` | ✅ Merged (PR #347, commit `7c62c76b`) — live on staging |
 | Menu-item FAQ surfacing | `deo/ai-menu-item-faq` | ✅ Merged (PR #348, merge commit `547b1b26`) — deployed on staging 2026-05-13 evening |
-| **Reschedule + cancel via chat** | (planning) | 🆕 Strategy + impl plan drafted 2026-05-25. Scope locked (5 decisions), 5-phase impl plan, ~6-8d effort. No code yet. See `reschedule-cancel-scope.md` + `reschedule-cancel-implementation.md`. |
+| **Reschedule + cancel via chat** | `deo/ai-sales-reschedule-cancel` | 🟢 **Implementation complete — awaiting PR review.** 8 commits on branch, all 5 phases done in one session 2026-05-25. ~3.5d of estimated 6-8d. 835/835 ai-agent tests green. Frontend tsc clean. End-to-end smoke pending — use the new `qa-fixtures/` to set up test data. See "Reschedule + cancel implementation" section below. |
 | "Currently discussing" chip dynamic update | `deo/ai-menu-item-faq` (extended) | 🟡 Implemented locally — stamps `discussed_service_id`/`discussed_service_name` on every AI message; chip reads latest AI message's value with prop fallback. 10 unit tests passing. Not yet committed. |
 | Slot-taken explicit awareness | — | ⏸ Parked (current "closest available" UX is acceptable) |
 
@@ -43,6 +43,42 @@ Jaccard-style token-overlap check (≥70% of significant tokens after lowercase 
 `AgentMessageContext.metadata` carries through from DB to the orchestrator. Used by the loop guard (read prior `booking_suggestions`) and the cross-service detector (read prior `anchor_service_id`). Strictly internal — never sent to Anthropic.
 
 **Tests:** 30 new unit tests on `deo/ai-mike-tool-overeager-fix`. Full ai-agent suite 409 passing post-merge.
+
+---
+
+## In-flight: Reschedule + Cancel via Chat (branch `deo/ai-sales-reschedule-cancel`)
+
+**Status:** Implementation complete — 8 commits, awaiting PR + review + manual smoke. All five phases of `reschedule-cancel-implementation.md` resolved in one session 2026-05-25 (~3.5d actual against an estimated 6-8d).
+
+**Commits on branch (in order):**
+
+| Commit | Phase | What |
+|---|---|---|
+| `73858a96` | Phase 1 | Customer cancellation reason wiring + pre-existing data-quality fixes (`cancelled_at` was missing on customer cancels; `ServiceOrder` interface was silently dropping the cancellation fields) |
+| `953723f9` | Phase 2.1-2.4 | Upcoming-appointments context preload (new `AppointmentRepository.getUpcomingAppointmentsForShop` + `RescheduleRepository.getPendingRescheduleRequestsForOrders` + `AgentContext.upcomingAppointments` + prompt block render) |
+| `3fbecc47` | Phase 2.6-2.8 | `propose_cancellation` tool — schema, validation (order_id ∈ context + within-24h guard + dedup), `cancellation_proposals` metadata stamping |
+| `9e34eaf9` | Phase 2.9-2.11 | `propose_reschedule_request` tool — schema, validation (order_id ∈ eligible + slot ∈ availability + service-match + pending-collision guard + dedup), `reschedule_proposals` metadata stamping |
+| `79f01c17` | Phase 2.12 | Multi-call safety guard — destructive cancel + constructive booking/reschedule in same turn drops the constructive ones |
+| `43b0b106` | Phase 3 | Prompt rule 14 (six sub-bullets) + 14 new unit tests (6 orchestrator + 9 prompt) |
+| `60a6ddc6` | Phase 4 | Frontend — `CancellationConfirmCard`, `CancellationConfirmModal`, `RescheduleRequestCard`, `ConversationThread` wiring, `appointmentsApi.cancelAppointment(reason)` extension |
+| `c80e73e1` | Phase 5 | Two confirmation-message handlers (`CancellationConfirmationHandler` for `service.order_cancelled`, `RescheduleRequestConfirmationHandler` for the pre-existing `reschedule:request_created` event) + 4 QA fixture scripts |
+
+**Design pivots vs the original plan worth knowing:**
+
+1. **Migration 127 was never needed.** `service_orders.cancellation_reason` + `cancellation_notes` already existed since migration 051 (2025-12-26). Scope doc Q1's "new column" framing was wrong; the wiring just hooked the customer cancel path into existing columns.
+2. **`lookup_my_appointments` tool dropped in favor of context preload.** Adding an agent-loop pattern to `AgentOrchestrator` (it currently does one Claude call, not multi-iteration like InsightsController) would have been a large restructure. Pre-loading the appointments into the system prompt via `ContextBuilder` is simpler — one Claude call per turn, ~1 KB prompt overhead, no orchestrator surgery.
+3. **No new `reschedule:request_created` event needed** — already published from `RescheduleService:241` for non-AI notifications.
+4. **Source-guard simplified.** The original plan called for a `cancelledBy` check to skip dashboard cancellations. The actual guard `if (!order.conversationId) return` in each handler is the precise filter — only chat-originated orders carry a conversation_id, so dashboard cancellations naturally skip without per-source branching.
+
+**Test counts:**
+- AgentOrchestrator: 100 → 106 (added cancellation/reschedule happy paths, 24h drop, pending-collision drop, service-mismatch drop, multi-call guard)
+- PromptTemplates: 128 → 137 (rule 14 coverage + upcoming-appointments block render)
+- Full ai-agent suite: 835/835 across 40 suites
+- Frontend `tsc --noEmit` clean for all 3 new components + 2 modified files
+
+**End-to-end smoke not yet run.** QA fixtures in `docs/tasks/strategy/ai-sales-agent/qa-fixtures/` handle the data setup (`setup-cancellable-appointment.ts` is the happy-path entry). Manual flow is documented in `qa-fixtures/README.md`.
+
+**Backend-safe to deploy in isolation.** Both new propose-* tools are gated on context (no upcoming appointments → no tools emitted). Without the frontend deploying alongside, the AI never proposes anything cancel/reschedule-related (no `cancellation_proposals` metadata for the frontend to render). Zero user-visible effect from a backend-only deploy.
 
 ---
 

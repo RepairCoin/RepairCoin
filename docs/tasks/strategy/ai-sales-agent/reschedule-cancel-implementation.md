@@ -286,25 +286,50 @@ Tradeoff accepted: prompt grows by ~1 KB (max 10 appointments ×
 
 ### 6.3 `propose_reschedule_request` tool
 
-- [ ] **2.9** Define tool. Input schema per scope §3.3.
-- [ ] **2.10** Server-side validation:
-  - `order_id` owned + cancellable status.
-  - `requested_date` / `requested_time_slot` pair must be on
-    the availability set the prompt sent Claude.
-  - No `pendingRescheduleRequestId` on this order (Q2 refuse
-    path — return structured error, prompt the model to point
-    customer at the dashboard).
-- [ ] **2.11** Emit `ReschedulePropoosal` to
+- [x] **2.9** Define tool in `AgentOrchestrator.ts`.
+  > **Done 2026-05-25.** `buildRescheduleTool(upcomingAppointments,
+  > availabilitySlots)`. Uses a combined `requested_slot_iso` enum
+  > (simpler than separate date/time-slot enums for the JSON schema).
+  > order_id enum is the **eligible-only** subset — appointments
+  > with a pending reschedule request are excluded at the schema
+  > layer per Q2. Tool only emitted when both eligible-appointments
+  > AND availability-slots are non-empty.
+- [x] **2.10** Server-side validation in the orchestrator.
+  > **Done 2026-05-25.** Five guards: (1) order_id ∈ upcoming
+  > appointments; (2) order NOT pending reschedule (defense-in-depth
+  > vs the schema-level exclusion); (3) requested_slot_iso ∈
+  > availability slots; (4) matched slot's serviceId == order's
+  > serviceId (reschedule stays on the same service — moving to a
+  > different service would be a bug); (5) reply_text non-empty.
+  > Plus dedup on order_id. All rejected blocks log a drop reason.
+- [x] **2.11** Emit `RescheduleProposal` to
   `messages.metadata.reschedule_proposals[]`.
+  > **Done 2026-05-25.** Empty array → metadata key omitted, same
+  > pattern as cancellation_proposals + booking_suggestions.
+  > reschedule_proposal_dropped counter captures forensic data on
+  > rejected blocks. RescheduleProposal carries both current and
+  > requested slot info plus the server-resolved humanLabel so the
+  > frontend card doesn't have to locale-render the timestamp.
 
 ### 6.4 Multi-call + ordering safety
 
-- [ ] **2.12** Reject mixed cancel + book in the same turn at the
-  validator. Combining destructive + non-destructive actions in one
-  reply is too confusing; force separate turns.
-- [ ] **2.13** Allow `lookup_my_appointments` + `propose_*` in the
-  same turn (lookup first, propose second) — mirrors how Claude
-  uses availability fetch + booking in one turn today.
+- [x] **2.12** Reject mixed cancel + constructive in the same turn.
+  > **Done 2026-05-25.** Guard runs after all three dispatch blocks.
+  > Rule: when `cancellation_proposals.length > 0` AND either
+  > `bookingSuggestions.length > 0` OR `rescheduleProposals.length > 0`,
+  > the constructive (booking/reschedule) proposals are cleared and a
+  > `dropped_for_destructive_action_in_same_turn` reason is appended
+  > to the matching drop-reasons counter. Destructive (cancel) wins
+  > because a mis-cancel is irrecoverable; a missed booking just means
+  > the customer can re-ask. Cancellation card is the only one that
+  > renders in mixed-mode turns.
+- [x] ~~2.13 Allow `lookup_my_appointments` + `propose_*` in same
+  turn~~ — **N/A.** This task assumed a tool-based lookup pattern
+  (the original design). The design pivot in Phase 2.1-2.4 moved the
+  appointment lookup to a system-prompt preload, so there's no
+  `lookup_my_appointments` tool to order against `propose_*`. The
+  multi-call concern reduces to 2.12's mixed-cancel-and-constructive
+  rule, which is implemented.
 
 **Acceptance:** unit-tested orchestrator can dispatch all three
 tools end-to-end; reject paths return structured errors; metadata
@@ -316,39 +341,54 @@ emits the right shape.
 
 ### 7.1 Prompt additions in `PromptTemplates.ts`
 
-Append to the system prompt under a new "Lifecycle actions"
-section. Five rules from scope §5:
+Added as rule 14 under UNIVERSAL_RULES. Replaces the lookup-first
+framing from the original plan with a context-first framing (the
+appointments are in the prompt, not behind a tool call).
 
-- [ ] **3.1** Capability statement: "You can also help with
-  rescheduling and cancelling existing bookings."
-- [ ] **3.2** Lookup-first rule: "For reschedule or cancel, always
-  call `lookup_my_appointments` FIRST. Never propose a cancel or
-  reschedule from memory."
-- [ ] **3.3** Disambiguation rule: "If multiple appointments match,
-  ASK in plain text — do not guess."
-- [ ] **3.4** 24h guard rule: "If the matched booking is within
-  24h, do NOT call `propose_cancellation` (endpoint rejects);
-  offer reschedule-request as an alternative."
-- [ ] **3.5** Pending-request rule: "If lookup returns a
-  `pendingRescheduleRequestId`, mention it and route the customer
-  to the dashboard. Do NOT submit a second request."
+- [x] **3.1** Capability statement.
+  > **Done 2026-05-25.** Rule 14 opens with "LIFECYCLE ACTIONS —
+  > reschedule and cancel existing bookings" + mentions both tool
+  > names so Claude knows they exist.
+- [x] **3.2** ~~Lookup-first~~ → **Context-first** rule.
+  > **Done 2026-05-25.** Rule 14(a). "Never propose a cancel or
+  > reschedule for an order_id you don't see in the upcoming-
+  > bookings block above."
+- [x] **3.3** Disambiguation rule.
+  > **Done 2026-05-25.** Rule 14(b). "If multiple bookings could
+  > match, ASK in plain text — never guess."
+- [x] **3.4** 24h guard rule.
+  > **Done 2026-05-25.** Rule 14(c). Anchors to the "within 24h"
+  > marker rendered in the appointments block; offers the
+  > reschedule-request alternative in the same breath.
+- [x] **3.5** Pending-request rule.
+  > **Done 2026-05-25.** Rule 14(d). Anchors to the "pending
+  > reschedule request" marker; routes the customer to the
+  > dashboard. Plus rule 14(e) for "stay on the same service" on
+  > reschedule and 14(f) for don't-mix-destructive-and-constructive.
 
 ### 7.2 Tests
 
-- [ ] **3.6** `AgentOrchestrator.test.ts` — 6 new tests:
-  - cancellation happy path (lookup → propose → metadata emit)
-  - reschedule happy path
-  - cancellation within 24h → tool rejected with structured error
-  - reschedule when pending request exists → tool rejected
-  - lookup with day-hint resolves correctly
-  - multi-appointment lookup result narrowing
-- [ ] **3.7** `PromptTemplates.test.ts` — 4 new tests:
-  - capability section appears
-  - lookup-first rule appears
-  - 24h guard rule appears
-  - pending-request rule appears
-- [ ] **3.8** Full ai-agent suite must stay green
-  (currently ~417 passing).
+- [x] **3.6** `AgentOrchestrator.test.ts` — 6 new tests.
+  > **Done 2026-05-25.** Repurposed for the context-preload design:
+  > cancellation happy path, reschedule happy path, cancellation
+  > within 24h → `cancellation_tool_within_24h_window` drop reason,
+  > reschedule with pending request →
+  > `reschedule_tool_pending_request_exists` drop reason, reschedule
+  > with slot from different service →
+  > `reschedule_tool_service_mismatch` drop reason, multi-call guard
+  > drops booking when cancellation lands in the same turn. 100 →
+  > 106 tests in the suite. The original "lookup with day-hint" /
+  > "multi-appointment narrowing" tests are N/A under the
+  > context-preload design.
+- [x] **3.7** `PromptTemplates.test.ts` — 4 new tests + 4 bonus.
+  > **Done 2026-05-25.** Five rule-14 tests (capability statement,
+  > context-first, 24h guard, pending-request, no-mixing) + four
+  > tests for the rendered upcoming-appointments block (omit when
+  > empty, render when populated, within-24h marker, pending marker).
+  > 128 → 137 tests in the suite.
+- [x] **3.8** Full ai-agent suite green.
+  > **Done 2026-05-25.** 835/835 passing across 40 suites
+  > (was ~821 before Phase 3 — gained 14 from the new tests).
 
 **Acceptance:** all new tests pass + suite intact.
 
@@ -358,99 +398,145 @@ section. Five rules from scope §5:
 
 ### 8.1 Components — new
 
-- [ ] **4.1** `frontend/src/components/messaging/CancellationConfirmCard.tsx`
-  — mirrors `BookingSuggestionCard` shape, red-ish accent, "Tap
-  to cancel" CTA. Read-only audit variant for shop-side rendering.
-- [ ] **4.2** `frontend/src/components/messaging/CancellationConfirmModal.tsx`
-  — shadcn `Dialog` per Q4. Appointment summary + optional reason
-  textarea + "Cancel appointment" destructive-styled Confirm
-  button. Closing the modal abandons the action.
-- [ ] **4.3** `frontend/src/components/messaging/RescheduleRequestCard.tsx`
-  — inline-confirm variant per Q4. Single tap commits. Shows
-  current slot + requested slot. Optimistic state pattern matching
-  the `PinButton` 1.5s green-check.
-- [ ] **4.4** Read-only audit variants for both cards (shop-side
-  dashboard rendering, no click handlers).
+- [x] **4.1** `frontend/src/components/messaging/CancellationConfirmCard.tsx`.
+  > **Done 2026-05-25.** Red-accented card with XCircle icon. Tap
+  > opens the modal. Special "Cancellation unavailable" state for
+  > within-24h appointments (defense-in-depth — orchestrator
+  > should already drop these but a stale client could render one).
+  > Post-confirm state shows the same card with emerald + check.
+- [x] **4.2** `frontend/src/components/messaging/CancellationConfirmModal.tsx`.
+  > **Done 2026-05-25.** shadcn Dialog. Appointment summary, optional
+  > reason textarea (500-char cap matching backend), destructive
+  > red Confirm button. Submit-in-flight blocks modal close. 4 error
+  > status handlers: 400 (within 24h), 401 (expired session), 404
+  > (already cancelled), 500. Closing without confirming abandons +
+  > resets form state.
+- [x] **4.3** `frontend/src/components/messaging/RescheduleRequestCard.tsx`.
+  > **Done 2026-05-25.** Blue-accented inline-confirm card per Q4 —
+  > single tap fires the API call. Four states: idle, submitting
+  > (spinner), submitted (emerald + check, sticky), error (red, 2s
+  > then revert to idle). 4 error status handlers: 400, 401, 409
+  > (pending request collision — defensive). No modal.
+- [x] **4.4** Read-only audit variants on both cards.
+  > **Done 2026-05-25.** Gray palette + no click handlers. Inline
+  > on each component (no separate file) — same pattern as
+  > BookingSuggestionCard's readOnly prop.
 
 ### 8.2 ConversationThread wiring
 
-- [ ] **4.5** Read `message.metadata.cancellation_proposals` and
-  `reschedule_proposals` in `ConversationThread.tsx`; render the
-  matching card under the AI bubble (just like
-  `BookingSuggestionCard` rendering does today).
+- [x] **4.5** Read both proposal arrays + render the matching cards.
+  > **Done 2026-05-25.** Two new conditional blocks inserted directly
+  > after the existing booking_suggestions render. `isOwnMessage` →
+  > readOnly on shop-side. Same `space-y-1` wrapper convention as
+  > the existing booking cards.
 
 ### 8.3 API client
 
-- [ ] **4.6** Add `cancelAppointment(orderId, reason?)` and
-  `requestReschedule(orderId, requestedDate, requestedTimeSlot,
-  reason?)` to `frontend/src/services/api/appointments.ts` (create
-  this file if not present — verify first).
+- [x] **4.6** `cancelAppointment(orderId, reason?)` + reschedule.
+  > **Done 2026-05-25.** Existing `appointmentsApi` already had
+  > `createRescheduleRequest(orderId, requestedDate, requestedTimeSlot, reason)`
+  > with the right shape. `cancelAppointment` extended to accept
+  > optional `reason` and POST it when non-empty (omitted from body
+  > otherwise to preserve the legacy no-reason path).
 
 ### 8.4 Confirmation flow
 
-- [ ] **4.7** Modal Confirm → POST `/cancel/:orderId` with optional
-  reason → on success, close modal; the event-bus subscriber from
-  Phase 5 will deliver the in-chat confirmation message.
-- [ ] **4.8** Inline tap → POST `/reschedule-request` →
-  optimistic UI update (card becomes "Request submitted ✓");
-  event-bus subscriber from Phase 5 posts the chat message.
+- [x] **4.7** Modal Confirm flow.
+  > **Done 2026-05-25.** Calls `appointmentsApi.cancelAppointment`
+  > with the orderId + reason. On success: parent's `onCancelled`
+  > flips the card to "Cancelled" emerald state, then closes the
+  > modal. Phase 5's event-bus subscriber will additionally post an
+  > AI confirmation message into the chat thread.
+- [x] **4.8** Inline tap flow.
+  > **Done 2026-05-25.** Card calls `createRescheduleRequest` on
+  > tap; transitions to a sticky "Request submitted" state on
+  > success. Phase 5's subscriber posts the in-chat message.
 
-**Acceptance:** click-through of both flows shows the right
-confirmation message in the chat thread after the tap.
+**Acceptance:** end-to-end tap-through verified by typecheck +
+manual browser smoke during Phase 5 QA fixtures. No automated
+component tests in this codebase pattern (matches BookingSuggestionCard).
 
 ---
 
 ## 9. Phase 5 — Event-bus subscribers + new event (1 day)
 
-### 9.1 Publish `service.reschedule_request_created`
+### 9.1 Publish `reschedule:request_created`
 
-- [ ] **5.1** Emit from `RescheduleService.createRescheduleRequest`
-  after successful insert. Payload per §3 above.
-- [ ] **5.2** Confirm `AppointmentController.createRescheduleRequest`
-  doesn't already publish a competing event.
+- [x] **5.1** Event already published.
+  > **Done — pre-existing.** Discovered at the start of Phase 5:
+  > `RescheduleService.createRescheduleRequest:241-260` already
+  > publishes `reschedule:request_created` with a rich payload
+  > (requestId, orderId, shopId, shopName, customerName,
+  > serviceName, originalDate/Time, requestedDate/Time, reason).
+  > No new event-publish work needed.
+- [x] **5.2** Confirmed no competing publish on the controller.
+  > **Done.** `AppointmentController.createRescheduleRequest` only
+  > calls `rescheduleService.createRescheduleRequest` which owns
+  > the publish — no duplicate emission.
 
 ### 9.2 New handler classes in AIAgentDomain
 
-- [ ] **5.3** `services/CancellationConfirmationHandler.ts` —
-  mirrors `BookingConfirmationHandler`. On
-  `service.order_cancelled` for orders that originated from an AI
-  booking card OR were proposed by the AI (detect via
-  `conversation_id` linkage on the order), post a chat message
-  ("Your X on Y is cancelled.") into the originating conversation.
-- [ ] **5.4** `services/RescheduleRequestConfirmationHandler.ts` —
-  on `service.reschedule_request_created`, post "Reschedule
-  request submitted. The shop will approve it shortly." into the
-  conversation.
+- [x] **5.3** `CancellationConfirmationHandler.ts`.
+  > **Done 2026-05-25.** Mirror of `BookingConfirmationHandler`.
+  > Subscribes to `service.order_cancelled`. Scope: only orders
+  > with a `conversation_id` (i.e. originated from AI chat).
+  > Templated message — "Got it {name} — your appointment at
+  > {shop} on {slot} has been cancelled." Idempotent on
+  > `metadata.source='cancellation_confirmed' + order_id`. WS
+  > broadcast to both customer + shop.
+- [x] **5.4** `RescheduleRequestConfirmationHandler.ts`.
+  > **Done 2026-05-25.** Subscribes to
+  > `reschedule:request_created`. Same conversation_id scope.
+  > Templated message — "Your reschedule request for {service}
+  > is in — {shop} will review the move to {newSlot} shortly."
+  > Idempotent on `metadata.source='reschedule_request_submitted'
+  > + request_id`. Prefers payload-supplied customer/shop/service
+  > names (RescheduleService enriches the event) to avoid extra
+  > repo lookups; falls back when fields are missing.
 
 ### 9.3 Subscribe in domain init
 
-- [ ] **5.5** `AIAgentDomain/index.ts` — add two more
-  `eventBus.subscribe(...)` calls following the existing
-  `service.order_completed` + `service.order_paid` pattern.
-- [ ] **5.6** Guard: skip the auto-message if the cancellation
-  source wasn't AI-initiated. Look at the
-  `event.payload.cancelledBy` field (already set —
-  `AppointmentController.ts:620`). Only post if the order
-  originated from a chat conversation that's still alive.
+- [x] **5.5** Two new `eventBus.subscribe(...)` calls in
+  `AIAgentDomain/index.ts`.
+  > **Done 2026-05-25.** Added directly after the existing
+  > `service.order_paid` subscription. Each handler is
+  > constructed unconditionally in the constructor (no
+  > ANTHROPIC_API_KEY dependency — templated messages, no
+  > Claude calls).
+- [x] **5.6** Source guard.
+  > **Done — by design.** The `event.payload.cancelledBy` check
+  > the original plan proposed isn't needed. Each handler's
+  > `if (!order.conversationId) return` is the precise filter
+  > we want: "post the message only when this order came from
+  > AI chat." Cancellations from dashboard / shop-side
+  > naturally skip because those orders carry no conversation_id.
+  > Cleaner than a who-cancelled-where check.
 
 ### 9.4 QA fixtures
 
-- [ ] **5.7** `docs/tasks/strategy/ai-sales-agent/qa-fixtures/`
-  — mirror the Business-Data Insights pattern:
-  - `setup-cancellable-appointment.ts` — creates an upcoming order
-    24h+ out for the test customer + shop
-  - `setup-within-window-appointment.ts` — creates an order <24h
-    out to verify the guard path
-  - `setup-pending-reschedule-request.ts` — creates a pending
-    request to test the Q2 refuse path
-  - `cleanup.ts` — hard-deletes test orders/requests by marker
-- [ ] **5.8** Mirror the `tsconfig.json` + `README.md` pattern
-  from the Business-Insights qa-fixtures so the scripts run
-  via `cd backend && npx ts-node ...`.
+- [x] **5.7** Three setup scripts + cleanup at
+  `docs/tasks/strategy/ai-sales-agent/qa-fixtures/`.
+  > **Done 2026-05-25.** `setup-cancellable-appointment.ts`
+  > (48h out, joins to existing conversation for confirmation-
+  > message test), `setup-within-window-appointment.ts` (~12h
+  > out for 24h-guard test), `setup-pending-reschedule-request.ts`
+  > (Q2 collision test). All rows tagged with
+  > `AISA-RC-QA-<timestamp>` marker in
+  > `service_orders.notes` and (for reschedule requests)
+  > `customer_reason`. Each script picks an available service +
+  > looks up an existing conversation rather than hardcoding.
+- [x] **5.8** Nested `tsconfig.json` + README mirroring the
+  Business-Insights pattern.
+  > **Done 2026-05-25.** `tsconfig.json` extends
+  > `backend/tsconfig.json` for ts-node resolution. README has
+  > the script table, end-to-end test path, and cleanup safety
+  > notes. Run with
+  > `cd backend && npx ts-node ../docs/.../qa-fixtures/<script>.ts`.
 
-**Acceptance:** end-to-end smoke test on staging — book a fixture,
-cancel via AI chat, see confirmation message; reschedule-request
-via AI chat, see confirmation message.
+**Acceptance:** end-to-end manual smoke per
+`qa-fixtures/README.md` — book a fixture, cancel via AI chat, see
+both the card transition AND the AI confirmation message land in
+the chat thread; repeat for reschedule-request and 24h-guard paths.
 
 ---
 

@@ -44,7 +44,9 @@ import {
   ClaudeTool,
   BookingSuggestion,
   CancellationProposal,
+  RescheduleProposal,
   AgentUpcomingAppointment,
+  AgentAvailabilitySlot,
 } from "../types";
 
 /**
@@ -57,9 +59,10 @@ import {
  * (no rambling "$99 and 30 minutes" prefix).
  */
 const BOOKING_TOOL_NAME = "propose_booking_slot";
-// Phase 2.6-2.8 of the reschedule + cancel chat work
+// Phase 2.6-2.8 + 2.9-2.11 of the reschedule + cancel chat work
 // (docs/tasks/strategy/ai-sales-agent/reschedule-cancel-*).
 const CANCELLATION_TOOL_NAME = "propose_cancellation";
+const RESCHEDULE_TOOL_NAME = "propose_reschedule_request";
 // Lowered from 200 to 130 in fix-7. Empirical observation: Claude with a
 // 200-char ceiling still fit the "Hi Lee Ann! The Newly Baker service is
 // $99.00 and runs about 30 minutes..." boilerplate (175+ chars) before the
@@ -501,20 +504,37 @@ export class AgentOrchestrator {
         slotLabelsByIsoForCall[slot.slotIso] = slot.humanLabel;
         serviceIdBySlotIso[slot.slotIso] = slot.serviceId;
       }
-      // Build the tools array. Both tools are independently gated:
+      // Build the tools array. Three tools, each independently gated:
       //   - propose_booking_slot: included when there are bookable slots.
       //   - propose_cancellation: included when the customer has ≥1
-      //     upcoming paid booking at this shop (preloaded into context).
-      // Either can be absent and the other still works — they're independent
-      // surfaces. Empty array becomes undefined so the Anthropic call doesn't
-      // get a malformed empty-array tools field.
+      //     upcoming paid booking at this shop.
+      //   - propose_reschedule_request: included when ≥1 booking is
+      //     eligible to reschedule (no pending request already) AND there
+      //     is ≥1 availability slot to move to.
+      // Any combination can be empty and the others still work. Empty
+      // array becomes undefined so the Anthropic call doesn't get a
+      // malformed empty-array tools field.
       const upcomingAppointmentsForCall = ctx.upcomingAppointments ?? [];
+      const reschedulableAppointmentsForCall = upcomingAppointmentsForCall.filter(
+        (a) => !a.pendingRescheduleRequestId
+      );
       const toolsArray: ClaudeTool[] = [];
       if (availabilitySlotsForCall.length > 0) {
         toolsArray.push(buildBookingSuggestionTool(availabilitySlotsForCall));
       }
       if (upcomingAppointmentsForCall.length > 0) {
         toolsArray.push(buildCancellationTool(upcomingAppointmentsForCall));
+      }
+      if (
+        reschedulableAppointmentsForCall.length > 0 &&
+        availabilitySlotsForCall.length > 0
+      ) {
+        toolsArray.push(
+          buildRescheduleTool(
+            upcomingAppointmentsForCall,
+            availabilitySlotsForCall
+          )
+        );
       }
       const tools: ClaudeTool[] | undefined =
         toolsArray.length > 0 ? toolsArray : undefined;
@@ -853,6 +873,139 @@ export class AgentOrchestrator {
         });
       }
 
+      // 6.7 Reschedule-request dispatch (Phase 2.9-2.11). Filter for
+      // propose_reschedule_request blocks, validate, accumulate.
+      // Validations:
+      //   - order_id ∈ eligible upcoming appointments (not just any upcoming —
+      //     the enum already excluded pending-request orders, but defense-in-
+      //     depth re-checks)
+      //   - requested_slot_iso ∈ availabilitySlots
+      //   - matched slot's serviceId == order's serviceId (reschedule moves
+      //     a service to a new time, never to a different service)
+      //   - reply_text non-empty
+      //   - dedup on order_id (one card per appointment per turn)
+      const rescheduleToolBlocks = (claudeResponse.toolUses ?? []).filter(
+        (t) => t.toolName === RESCHEDULE_TOOL_NAME
+      );
+      const rescheduleProposals: RescheduleProposal[] = [];
+      const rescheduleDropReasons: string[] = [];
+      if (rescheduleToolBlocks.length > 0) {
+        const seenOrderIds = new Set<string>();
+        const appointmentsByOrderId = new Map<string, AgentUpcomingAppointment>();
+        for (const a of upcomingAppointmentsForCall) {
+          appointmentsByOrderId.set(a.orderId, a);
+        }
+
+        for (const toolBlock of rescheduleToolBlocks) {
+          const orderId = String(toolBlock.input.order_id ?? "");
+          const requestedSlotIso = String(toolBlock.input.requested_slot_iso ?? "");
+          const replyText = String(toolBlock.input.reply_text ?? "").trim();
+
+          const appointment = appointmentsByOrderId.get(orderId);
+          if (!appointment) {
+            rescheduleDropReasons.push("reschedule_tool_returned_invalid_order_id");
+            logger.warn(
+              "AgentOrchestrator: reschedule block rejected — order_id not in upcoming-appointments",
+              { orderId }
+            );
+            continue;
+          }
+          if (appointment.pendingRescheduleRequestId) {
+            // Q2 refuse path: a second request for the same order is rejected.
+            // Tool enum should have already excluded these, but if Claude
+            // somehow bypasses (e.g., schema cache lag), reject here.
+            rescheduleDropReasons.push("reschedule_tool_pending_request_exists");
+            logger.warn(
+              "AgentOrchestrator: reschedule block rejected — pending request already exists",
+              { orderId }
+            );
+            continue;
+          }
+          const matchingSlot = availabilitySlotsForCall.find(
+            (s) => s.slotIso === requestedSlotIso
+          );
+          if (!matchingSlot) {
+            rescheduleDropReasons.push("reschedule_tool_returned_invalid_slot");
+            continue;
+          }
+          if (matchingSlot.serviceId !== appointment.serviceId) {
+            // Reschedule must stay within the same service. Moving a
+            // different service's slot to this order would be a bug.
+            rescheduleDropReasons.push("reschedule_tool_service_mismatch");
+            logger.warn(
+              "AgentOrchestrator: reschedule block rejected — slot service != order service",
+              {
+                orderId,
+                orderServiceId: appointment.serviceId,
+                slotServiceId: matchingSlot.serviceId,
+              }
+            );
+            continue;
+          }
+          if (replyText.length === 0) {
+            rescheduleDropReasons.push("reschedule_tool_empty_reply_text");
+            continue;
+          }
+          if (seenOrderIds.has(orderId)) {
+            rescheduleDropReasons.push("reschedule_tool_duplicate_order_id");
+            continue;
+          }
+          seenOrderIds.add(orderId);
+          rescheduleProposals.push({
+            orderId: appointment.orderId,
+            serviceId: appointment.serviceId,
+            serviceName: appointment.serviceName,
+            currentBookingDate: appointment.bookingDate,
+            currentBookingTime: appointment.bookingTime,
+            requestedDate: matchingSlot.date,
+            requestedTime: matchingSlot.time,
+            requestedLabel: matchingSlot.humanLabel,
+          });
+        }
+        logger.debug("AgentOrchestrator: reschedule-proposal dispatch resolved", {
+          proposalCount: rescheduleProposals.length,
+          droppedCount: rescheduleDropReasons.length,
+        });
+      }
+
+      // 6.8 Multi-call safety guard (Phase 2.12 of reschedule/cancel work).
+      // Rule: mixing a DESTRUCTIVE action (cancellation) with a CONSTRUCTIVE
+      // one (booking or reschedule-request) in the same turn is too
+      // confusing — the customer would see a "cancel this" card next to a
+      // "book this" card with no clear order of operations. When Claude
+      // emits both kinds in one reply, prefer the destructive action
+      // (it's the most urgent intent to honor accurately) and drop the
+      // constructive proposals with a forensic counter.
+      //
+      // Why prefer cancellation: a mis-cancel is irrecoverable for the
+      // customer, while a missed booking just means the customer can
+      // re-ask next turn. Dropping cancellation in favor of booking would
+      // let an ambiguous reply silently commit the wrong action when the
+      // customer tapped.
+      if (
+        cancellationProposals.length > 0 &&
+        (bookingSuggestions.length > 0 || rescheduleProposals.length > 0)
+      ) {
+        const droppedBookingCount = bookingSuggestions.length;
+        const droppedRescheduleCount = rescheduleProposals.length;
+        if (droppedBookingCount > 0) {
+          bookingSuggestions = [];
+          bookingSuggestionDropReasons.push(
+            "dropped_for_destructive_action_in_same_turn"
+          );
+        }
+        if (droppedRescheduleCount > 0) {
+          rescheduleProposals.length = 0;
+          rescheduleDropReasons.push(
+            "dropped_for_destructive_action_in_same_turn"
+          );
+        }
+        logger.warn(
+          "AgentOrchestrator: dropped constructive proposals — cancellation present in same turn",
+          { droppedBookingCount, droppedRescheduleCount }
+        );
+      }
+
       // 7. Insert AI reply into messages table
       const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
       // Active topic for this turn — separate from anchor_service_id below.
@@ -928,6 +1081,17 @@ export class AgentOrchestrator {
             : {}),
           ...(cancellationDropReasons.length > 0
             ? { cancellation_proposal_dropped: cancellationDropReasons }
+            : {}),
+          // Reschedule-request proposal cards (Phase 2.9-2.11). Empty when
+          // no propose_reschedule_request blocks landed or all failed
+          // validation. Frontend renders inline tap-to-request-reschedule
+          // cards per Q4 (no modal — single tap commits the REQUEST, shop
+          // still has to approve).
+          ...(rescheduleProposals.length > 0
+            ? { reschedule_proposals: rescheduleProposals }
+            : {}),
+          ...(rescheduleDropReasons.length > 0
+            ? { reschedule_proposal_dropped: rescheduleDropReasons }
             : {}),
         },
       });
@@ -1193,6 +1357,99 @@ function buildCancellationTool(
         },
       },
       required: ["order_id", "reply_text"],
+      additionalProperties: false,
+    },
+  };
+}
+
+/**
+ * Build the propose_reschedule_request tool. Only emitted when BOTH (a) the
+ * customer has ≥1 upcoming PAID booking eligible to reschedule AND (b) there
+ * is ≥1 available slot the AI can propose moving to. With either side empty
+ * the tool is omitted; Claude will explain in plain text.
+ *
+ * "Eligible to reschedule" = no `pendingRescheduleRequestId` set. The
+ * existing pending-request flow at the dashboard is the management surface
+ * for those; we explicitly REFUSE to submit a second request in chat (Q2
+ * decision in reschedule-cancel-scope.md). The eligible-only filter on the
+ * enum ensures Claude can't even attempt a second request — Anthropic's
+ * schema rejects the out-of-enum order_id.
+ *
+ * Tool inputs:
+ *   - order_id: enum of eligible upcoming order IDs.
+ *   - requested_slot_iso: enum of available slot ISOs. Server-side
+ *     additionally validates that the matched slot's serviceId equals the
+ *     order's serviceId (rescheduling moves a service to a new slot, not to
+ *     a different service).
+ *   - reply_text: short conversational message; ≤130 char cap.
+ *
+ * Unlike cancellation (which is destructive and modal-gated per Q4),
+ * reschedule confirmation is INLINE — single tap on the card commits the
+ * reschedule REQUEST (not the actual reschedule; shop still has to approve).
+ * Reversible via the existing customer "cancel pending request" flow.
+ */
+function buildRescheduleTool(
+  upcomingAppointments: AgentUpcomingAppointment[],
+  availabilitySlots: AgentAvailabilitySlot[]
+): ClaudeTool {
+  const eligible = upcomingAppointments.filter(
+    (a) => !a.pendingRescheduleRequestId
+  );
+  const orderIdEnum = eligible.map((a) => a.orderId);
+  const slotIsoEnum = availabilitySlots.map((s) => s.slotIso);
+
+  const eligibleLabels = eligible
+    .map(
+      (a) =>
+        `${a.orderId} → ${a.serviceName} (currently ${a.bookingDate} at ${a.bookingTime})`
+    )
+    .join("; ");
+  const sampleSlots = availabilitySlots
+    .slice(0, 5)
+    .map((s) => `${s.serviceName} — ${s.humanLabel} (${s.slotIso})`)
+    .join("; ");
+
+  return {
+    name: RESCHEDULE_TOOL_NAME,
+    description: [
+      `Propose moving one of the customer's upcoming bookings to a new time slot. This renders a tap-to-request-reschedule card. The card commits a RESCHEDULE REQUEST — the shop must approve before the move is final. (Direct reschedule without approval is a separate shop-side flow, not exposed here.)`,
+      `CALL THE TOOL when the customer explicitly asks to move or reschedule a booking: "can I move my Thursday session to Friday?", "reschedule the newly baker to next week", "Thursday at 2 doesn't work — can we do Friday morning?".`,
+      `DO NOT CALL when the customer asks about reschedule policy ("how do I reschedule?", "can I reschedule?") — answer in plain text.`,
+      `DO NOT CALL when the booking already has a pending reschedule request — the eligible-orders enum excludes those, so the tool input schema will reject it, but you should also avoid attempting in the first place. If the customer asks to reschedule a booking that has "pending reschedule" tagged in the upcoming-bookings block, tell them in plain text that a request is already pending and route them to the dashboard.`,
+      `The customer must agree on a NEW slot before you propose. If they just say "I want to reschedule" without naming a target time, ASK in plain text what time works for them. The new slot you supply must come from the availability list in the system prompt.`,
+      `The order_id MUST match one of the eligible upcoming-booking IDs (those WITHOUT "pending reschedule" markers). The requested_slot_iso MUST match one of the availability slots above AND that slot's service must be the SAME as the order's service (rescheduling moves a service to a new time, not to a different service).`,
+      `Eligible bookings: ${eligibleLabels || "(none — every upcoming booking either has a pending request or there are no upcoming bookings)"}.`,
+      `Sample available slots: ${sampleSlots}.`,
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        order_id: {
+          type: "string",
+          enum: orderIdEnum,
+          description:
+            "The order_id of the booking to reschedule. MUST be one of the eligible upcoming-booking IDs (those without pending reschedule requests).",
+        },
+        requested_slot_iso: {
+          type: "string",
+          enum: slotIsoEnum,
+          description:
+            "The ISO timestamp of the requested new slot. MUST match exactly one of the availability slots in the system prompt. The matched slot's service must equal the order's service — rescheduling stays within the same service.",
+        },
+        reply_text: {
+          type: "string",
+          maxLength: BOOKING_REPLY_MAX_CHARS,
+          description: [
+            "Short message the customer sees above the reschedule-request card.",
+            "HARD RULES:",
+            "(1) Mention the new day/time naturally — 'Move Newly Baker to Friday at 1 PM? Tap to send the request.'",
+            "(2) Under 130 characters.",
+            "(3) Mention this is a REQUEST (the shop has to approve), so the customer isn't surprised when the booking doesn't immediately flip in their dashboard.",
+            "(4) MUST NOT preface with 'Hi {name}!' unless this is the very first AI reply in the conversation.",
+          ].join(" "),
+        },
+      },
+      required: ["order_id", "requested_slot_iso", "reply_text"],
       additionalProperties: false,
     },
   };

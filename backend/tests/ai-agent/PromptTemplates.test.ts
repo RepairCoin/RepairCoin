@@ -1720,3 +1720,120 @@ describe("PromptTemplates — payment info block", () => {
     expect(prompt).toMatch(/1 RCN = \$0\.10 USD discount/i);
   });
 });
+
+describe("PromptTemplates — lifecycle actions (Phase 14, reschedule + cancel)", () => {
+  it("rule 14 capability statement appears", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/LIFECYCLE ACTIONS/i);
+    expect(prompt).toMatch(/reschedule or cancel/i);
+    // Both tool names should be mentioned so Claude knows they're available.
+    expect(prompt).toContain("propose_cancellation");
+    expect(prompt).toContain("propose_reschedule_request");
+  });
+
+  it("rule 14 context-first rule appears", () => {
+    const prompt = professionalPrompt(baseContext());
+    // The phrasing "NEVER propose a cancel or reschedule for an order_id you
+    // don't see in the upcoming-bookings block above" — anchors Claude to the
+    // preloaded list rather than memory.
+    expect(prompt).toMatch(/Context-first/i);
+    expect(prompt).toMatch(/order_id you don't see in the upcoming-bookings/i);
+  });
+
+  it("rule 14 24h-guard rule references the within-24h marker", () => {
+    const prompt = professionalPrompt(baseContext());
+    // The 24h guard tells Claude to read the "within 24h" tag from the
+    // appointments block. Without that anchor, Claude would try to do the
+    // math from booking time which it shouldn't.
+    expect(prompt).toMatch(/24-hour cancellation window/i);
+    expect(prompt).toMatch(/within 24h/i);
+    expect(prompt).toMatch(/cannot be cancelled/i);
+  });
+
+  it("rule 14 pending-request rule references the pending marker + routes to dashboard", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/pending reschedule request/i);
+    expect(prompt).toMatch(/route them to their dashboard|appointments dashboard/i);
+  });
+
+  it("rule 14 forbids mixing destructive + constructive in one reply", () => {
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).toMatch(/Don't mix destructive and constructive/i);
+  });
+});
+
+describe("PromptTemplates — upcoming appointments block", () => {
+  it("omits the rendered block entirely when upcomingAppointments is empty", () => {
+    // The phrase "Customer's upcoming bookings at this shop" appears in
+    // rule 14's prose too (referring to where the data lives), so the
+    // assertion needs a tighter match on a string that only appears in the
+    // actually-rendered block. The parenthesized hint after the heading
+    // is unique to the rendered block.
+    const prompt = professionalPrompt(baseContext());
+    expect(prompt).not.toMatch(
+      /Customer's upcoming bookings at this shop \(use these when the customer asks to reschedule/i
+    );
+  });
+
+  it("renders the appointment block when upcomingAppointments is populated", () => {
+    const ctx = baseContext({
+      upcomingAppointments: [
+        {
+          orderId: "ord_abcd1234efgh5678",
+          serviceId: "srv_test",
+          serviceName: "Oil Change",
+          bookingDate: "2026-06-05",
+          bookingTime: "14:00",
+          status: "paid",
+          withinCancellationWindow: true,
+          pendingRescheduleRequestId: null,
+        },
+      ],
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/Customer's upcoming bookings at this shop/i);
+    expect(prompt).toContain("Oil Change");
+    expect(prompt).toContain("2026-06-05");
+    expect(prompt).toContain("14:00");
+    // Short order-id prefix renders, not the full UUID-looking string.
+    expect(prompt).toContain("ord_abcd");
+  });
+
+  it("tags appointments with 'within 24h' marker when window is breached", () => {
+    const ctx = baseContext({
+      upcomingAppointments: [
+        {
+          orderId: "ord_tooclose1234",
+          serviceId: "srv_test",
+          serviceName: "Oil Change",
+          bookingDate: "2026-05-26",
+          bookingTime: "09:00",
+          status: "paid",
+          withinCancellationWindow: false, // ← within the 24h window
+          pendingRescheduleRequestId: null,
+        },
+      ],
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/within 24h cancellation window — cannot direct-cancel/i);
+  });
+
+  it("tags appointments with pending reschedule request marker", () => {
+    const ctx = baseContext({
+      upcomingAppointments: [
+        {
+          orderId: "ord_pendingreq5678",
+          serviceId: "srv_test",
+          serviceName: "Oil Change",
+          bookingDate: "2026-06-10",
+          bookingTime: "10:00",
+          status: "paid",
+          withinCancellationWindow: true,
+          pendingRescheduleRequestId: "req_abc123",
+        },
+      ],
+    });
+    const prompt = professionalPrompt(ctx);
+    expect(prompt).toMatch(/pending reschedule request/i);
+  });
+});

@@ -34,6 +34,14 @@ import {
   type BookingSuggestion,
 } from "@/components/messaging/BookingSuggestionCard";
 import {
+  CancellationConfirmCard,
+  type CancellationProposal,
+} from "@/components/messaging/CancellationConfirmCard";
+import {
+  RescheduleRequestCard,
+  type RescheduleProposal,
+} from "@/components/messaging/RescheduleRequestCard";
+import {
   findRecentHumanShopMessageAt,
   shouldAwaitAiReply,
 } from "@/components/messaging/typingIndicator";
@@ -1032,6 +1040,50 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                                     servicePriceUsd={
                                       message.metadata?.servicePrice as number | undefined
                                     }
+                                    readOnly={isOwnMessage}
+                                    conversationId={conversationId}
+                                  />
+                                )
+                              )}
+                            </div>
+                          )}
+
+                        {/* Cancellation-proposal cards (Phase 4.5 of the
+                            reschedule + cancel chat work). Sourced from
+                            messages.metadata.cancellation_proposals[] —
+                            stamped server-side after the orchestrator
+                            validates propose_cancellation tool_use blocks.
+                            Read-only when isOwnMessage so shop staff see
+                            "the AI proposed this" without being able to
+                            cancel on the customer's behalf. */}
+                        {Array.isArray(message.metadata?.cancellation_proposals) &&
+                          message.metadata.cancellation_proposals.length > 0 && (
+                            <div className="space-y-1">
+                              {(message.metadata.cancellation_proposals as CancellationProposal[]).map(
+                                (p, i) => (
+                                  <CancellationConfirmCard
+                                    key={`cancel-${p.orderId}-${i}`}
+                                    proposal={p}
+                                    readOnly={isOwnMessage}
+                                    conversationId={conversationId}
+                                  />
+                                )
+                              )}
+                            </div>
+                          )}
+
+                        {/* Reschedule-request proposal cards (Phase 4.5).
+                            Sourced from messages.metadata.reschedule_proposals[].
+                            Same shop-side read-only treatment as the
+                            cancellation cards. */}
+                        {Array.isArray(message.metadata?.reschedule_proposals) &&
+                          message.metadata.reschedule_proposals.length > 0 && (
+                            <div className="space-y-1">
+                              {(message.metadata.reschedule_proposals as RescheduleProposal[]).map(
+                                (p, i) => (
+                                  <RescheduleRequestCard
+                                    key={`resched-${p.orderId}-${i}`}
+                                    proposal={p}
                                     readOnly={isOwnMessage}
                                     conversationId={conversationId}
                                   />

@@ -2775,3 +2775,289 @@ describe("PromptTemplates rule #9 — current-message-only disclosure (Bug B fix
     expect(prompt).toMatch(/im looking for bread training/);
   });
 });
+
+describe("AgentOrchestrator — propose_cancellation + propose_reschedule_request (Phase 2.6-2.12)", () => {
+  // Helper: stub a context with one upcoming appointment + one availability
+  // slot so both propose-* tools are present, plus a Claude response carrying
+  // whatever tool_use blocks the test wants to exercise.
+  const ORDER_A = "ord_aaaaaaaa1111";
+  const ORDER_B = "ord_bbbbbbbb2222";
+  const SLOT_ISO_A = "2026-06-05T18:00:00.000Z";
+  const SLOT_ISO_OTHER_SERVICE = "2026-06-06T18:00:00.000Z";
+
+  const buildCtxOverride = (overrides: any = {}) => ({
+    service: {
+      serviceId: "srv_test",
+      serviceName: "Test Service",
+      priceUsd: 50,
+      category: "test",
+      description: "test",
+      customInstructions: null,
+      bookingAssistance: true,
+      suggestUpsells: false,
+      faqEntries: [],
+    },
+    customer: {
+      address: "0xabc",
+      name: "Test",
+      tier: "BRONZE",
+      rcnBalance: 0,
+      joinedAt: null,
+    },
+    shop: {
+      shopId: "shop_test",
+      shopName: "Test Shop",
+      category: "test",
+      hoursSummary: null,
+      timezone: null,
+    },
+    conversationHistory: [],
+    siblingServices: [],
+    shopServiceMenu: [],
+    availabilitySlots: [
+      {
+        date: "2026-06-05",
+        time: "14:00",
+        slotIso: SLOT_ISO_A,
+        humanLabel: "Friday at 2:00 PM",
+        serviceId: "srv_test",
+        serviceName: "Test Service",
+      },
+      {
+        date: "2026-06-06",
+        time: "14:00",
+        slotIso: SLOT_ISO_OTHER_SERVICE,
+        humanLabel: "Saturday at 2:00 PM",
+        serviceId: "srv_other",
+        serviceName: "Other Service",
+      },
+    ],
+    upcomingAppointments: [
+      {
+        orderId: ORDER_A,
+        serviceId: "srv_test",
+        serviceName: "Test Service",
+        bookingDate: "2026-06-10",
+        bookingTime: "10:00",
+        status: "paid",
+        withinCancellationWindow: true,
+        pendingRescheduleRequestId: null,
+      },
+    ],
+    ...overrides,
+  });
+
+  const buildMocks = (toolUses: any[], ctxOverrides: any = {}) => {
+    const mocks = makeMocks({
+      claudeResponse: {
+        text: "",
+        model: "claude-sonnet-4-6",
+        stopReason: "tool_use",
+        usage: {
+          inputTokens: 800,
+          outputTokens: 60,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+        },
+        costUsd: 0.003,
+        latencyMs: 1500,
+        toolUses,
+      },
+    });
+    mocks.contextBuilder.build = jest
+      .fn()
+      .mockResolvedValue(buildCtxOverride(ctxOverrides));
+    return mocks;
+  };
+
+  it("happy path — propose_cancellation emits a CancellationProposal in message metadata", async () => {
+    const { orch, messageRepo } = buildMocks([
+      {
+        toolName: "propose_cancellation",
+        toolUseId: "tool_cancel_1",
+        input: {
+          order_id: ORDER_A,
+          reply_text: "Cancel Test Service on June 10? Tap to confirm.",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const callArgs = messageRepo.createMessage.mock.calls[0][0];
+    expect(callArgs.metadata.cancellation_proposals).toBeDefined();
+    expect(callArgs.metadata.cancellation_proposals).toHaveLength(1);
+    expect(callArgs.metadata.cancellation_proposals[0]).toMatchObject({
+      orderId: ORDER_A,
+      serviceId: "srv_test",
+      serviceName: "Test Service",
+      bookingDate: "2026-06-10",
+      bookingTime: "10:00",
+      withinCancellationWindow: true,
+    });
+    // No reschedule or booking metadata on a pure-cancel turn.
+    expect(callArgs.metadata.booking_suggestions).toBeUndefined();
+    expect(callArgs.metadata.reschedule_proposals).toBeUndefined();
+  });
+
+  it("happy path — propose_reschedule_request emits a RescheduleProposal in message metadata", async () => {
+    const { orch, messageRepo } = buildMocks([
+      {
+        toolName: "propose_reschedule_request",
+        toolUseId: "tool_resched_1",
+        input: {
+          order_id: ORDER_A,
+          requested_slot_iso: SLOT_ISO_A,
+          reply_text: "Move Test Service to Friday at 2 PM? Tap to send.",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const callArgs = messageRepo.createMessage.mock.calls[0][0];
+    expect(callArgs.metadata.reschedule_proposals).toBeDefined();
+    expect(callArgs.metadata.reschedule_proposals).toHaveLength(1);
+    expect(callArgs.metadata.reschedule_proposals[0]).toMatchObject({
+      orderId: ORDER_A,
+      serviceId: "srv_test",
+      serviceName: "Test Service",
+      currentBookingDate: "2026-06-10",
+      currentBookingTime: "10:00",
+      requestedDate: "2026-06-05",
+      requestedTime: "14:00",
+      requestedLabel: "Friday at 2:00 PM",
+    });
+  });
+
+  it("rejects propose_cancellation when the appointment is within the 24h window", async () => {
+    const { orch, messageRepo } = buildMocks(
+      [
+        {
+          toolName: "propose_cancellation",
+          toolUseId: "tool_cancel_1",
+          input: {
+            order_id: ORDER_A,
+            reply_text: "Cancel today's slot?",
+          },
+        },
+      ],
+      {
+        upcomingAppointments: [
+          {
+            orderId: ORDER_A,
+            serviceId: "srv_test",
+            serviceName: "Test Service",
+            bookingDate: "2026-05-26",
+            bookingTime: "09:00",
+            status: "paid",
+            withinCancellationWindow: false, // ← within 24h
+            pendingRescheduleRequestId: null,
+          },
+        ],
+      }
+    );
+    await orch.handleCustomerMessage(sampleInput());
+
+    const callArgs = messageRepo.createMessage.mock.calls[0][0];
+    expect(callArgs.metadata.cancellation_proposals).toBeUndefined();
+    expect(callArgs.metadata.cancellation_proposal_dropped).toContain(
+      "cancellation_tool_within_24h_window"
+    );
+  });
+
+  it("rejects propose_reschedule_request when a pending request already exists", async () => {
+    const { orch, messageRepo } = buildMocks(
+      [
+        {
+          toolName: "propose_reschedule_request",
+          toolUseId: "tool_resched_1",
+          input: {
+            order_id: ORDER_A,
+            requested_slot_iso: SLOT_ISO_A,
+            reply_text: "Reschedule to Friday at 2 PM?",
+          },
+        },
+      ],
+      {
+        upcomingAppointments: [
+          {
+            orderId: ORDER_A,
+            serviceId: "srv_test",
+            serviceName: "Test Service",
+            bookingDate: "2026-06-10",
+            bookingTime: "10:00",
+            status: "paid",
+            withinCancellationWindow: true,
+            pendingRescheduleRequestId: "req_already_pending", // ← Q2 path
+          },
+        ],
+      }
+    );
+    await orch.handleCustomerMessage(sampleInput());
+
+    const callArgs = messageRepo.createMessage.mock.calls[0][0];
+    expect(callArgs.metadata.reschedule_proposals).toBeUndefined();
+    expect(callArgs.metadata.reschedule_proposal_dropped).toContain(
+      "reschedule_tool_pending_request_exists"
+    );
+  });
+
+  it("rejects propose_reschedule_request when the slot belongs to a different service", async () => {
+    const { orch, messageRepo } = buildMocks([
+      {
+        toolName: "propose_reschedule_request",
+        toolUseId: "tool_resched_1",
+        input: {
+          order_id: ORDER_A,
+          requested_slot_iso: SLOT_ISO_OTHER_SERVICE, // ← srv_other, not srv_test
+          reply_text: "Reschedule to Saturday at 2 PM?",
+        },
+      },
+    ]);
+    // The customer message names "Test Service" so the orchestrator's
+    // focused-default filter (AgentOrchestrator.ts:348-370) doesn't strip
+    // the other-service slot from availabilitySlots before dispatch — we
+    // want the server-side service-mismatch check at the reschedule
+    // dispatch to be the one that fires.
+    await orch.handleCustomerMessage(
+      sampleInput({ customerMessageText: "I want to reschedule my Test Service appointment" })
+    );
+
+    const callArgs = messageRepo.createMessage.mock.calls[0][0];
+    expect(callArgs.metadata.reschedule_proposals).toBeUndefined();
+    expect(callArgs.metadata.reschedule_proposal_dropped).toContain(
+      "reschedule_tool_service_mismatch"
+    );
+  });
+
+  it("multi-call guard — drops the booking suggestion when a cancellation lands in the same turn", async () => {
+    const { orch, messageRepo } = buildMocks([
+      {
+        toolName: "propose_booking_slot",
+        toolUseId: "tool_book_1",
+        input: {
+          service_id: "srv_test",
+          slot_iso: SLOT_ISO_A,
+          reply_text: "Friday at 2 PM works.",
+        },
+      },
+      {
+        toolName: "propose_cancellation",
+        toolUseId: "tool_cancel_1",
+        input: {
+          order_id: ORDER_A,
+          reply_text: "Cancel Test Service on June 10? Tap to confirm.",
+        },
+      },
+    ]);
+    await orch.handleCustomerMessage(sampleInput());
+
+    const callArgs = messageRepo.createMessage.mock.calls[0][0];
+    // Cancellation wins (destructive action stands alone).
+    expect(callArgs.metadata.cancellation_proposals).toHaveLength(1);
+    // Booking was dropped + reason logged.
+    expect(callArgs.metadata.booking_suggestions).toBeUndefined();
+    expect(callArgs.metadata.booking_suggestion_dropped).toContain(
+      "dropped_for_destructive_action_in_same_turn"
+    );
+  });
+});
