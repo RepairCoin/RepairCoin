@@ -127,9 +127,24 @@ export const InsightsPanel: React.FC = () => {
    * API call. Drops `toolCalls` since the backend ignores it on input
    * (the model gets the same info via tool_result blocks the backend
    * threads in itself).
+   *
+   * Defensive substitution: the backend validator rejects any message
+   * with empty content (`messages[i].content must be a non-empty
+   * string`), so an occasional Claude reply with an empty prose body
+   * would otherwise poison every subsequent request in the session.
+   * We use a single space " " specifically because any visible
+   * placeholder (ellipsis, "(no prose summary)", etc.) gets MIMICKED
+   * — Claude reads the conversation history each turn and adopts
+   * whatever style it sees. A single space is invisible to Claude as
+   * a style cue, and even if it does mirror it, the `hasProse` check
+   * downstream hides whitespace-only bubbles. Validator passes
+   * because length is 1, not 0.
    */
   const toWireMessages = (ts: Turn[]): InsightsMessage[] =>
-    ts.map((t) => ({ role: t.role, content: t.content }));
+    ts.map((t) => ({
+      role: t.role,
+      content: t.content.trim().length > 0 ? t.content : " ",
+    }));
 
   /**
    * Core submit path used by both manual send + starter chips. Trims,
@@ -665,14 +680,23 @@ const TurnBubble: React.FC<{
   const renderedContent = hasFollowupsCard
     ? stripTrailingFollowupList(turn.content)
     : turn.content;
+  // Skip the bubble chrome entirely when the prose is empty OR
+  // effectively-empty (just punctuation / ellipsis / dashes — no
+  // actual letters or digits). Otherwise we'd render a hollow box
+  // where the prose should be, or worse, a bubble containing only
+  // "..." which is what the regression screenshot showed. The data
+  // cards below still render.
+  const hasProse = /[a-zA-Z0-9]/.test(renderedContent);
 
   return (
     <div className="flex justify-start flex-col items-start gap-2">
-      <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
-        <ReactMarkdown components={markdownComponents}>
-          {renderedContent}
-        </ReactMarkdown>
-      </div>
+      {hasProse && (
+        <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
+          <ReactMarkdown components={markdownComponents}>
+            {renderedContent}
+          </ReactMarkdown>
+        </div>
+      )}
       {turn.toolCalls.length > 0 && (
         <div className="w-full max-w-[85%] space-y-2">
           {turn.toolCalls.map((tc, i) => (

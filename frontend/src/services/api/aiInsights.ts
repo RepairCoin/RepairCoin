@@ -183,8 +183,15 @@ export interface PinnedQuery {
 
 /** GET /api/ai/insights/pinned — all pins for this shop. */
 export const listPinnedQueries = async (): Promise<PinnedQuery[]> => {
+  // The axios response interceptor in `./client.ts` already returns
+  // `response.data` directly, so `apiClient.get(...)` resolves to the
+  // backend envelope `{ success, data: { pinned } }`. The first `.data`
+  // unwraps to `{ pinned }`, then `.pinned` is the array. The previous
+  // `response.data.data.pinned` was one level too deep and silently
+  // returned `[]` for every call — Pinned tab + banner both went dark
+  // across panel reopens despite real DB rows.
   const response = await apiClient.get("/ai/insights/pinned");
-  return response.data?.data?.pinned ?? [];
+  return response.data?.pinned ?? [];
 };
 
 /**
@@ -247,8 +254,11 @@ export interface Anomaly {
 
 /** GET /api/ai/insights/anomalies — active (un-dismissed, un-expired), max 3. */
 export const listAnomalies = async (): Promise<Anomaly[]> => {
+  // See note on listPinnedQueries — the axios interceptor pre-unwraps
+  // `response.data`, so we read `.pinned`/`.anomalies` one level
+  // shallower than a naive call site would.
   const response = await apiClient.get("/ai/insights/anomalies");
-  return response.data?.data?.anomalies ?? [];
+  return response.data?.anomalies ?? [];
 };
 
 /**
