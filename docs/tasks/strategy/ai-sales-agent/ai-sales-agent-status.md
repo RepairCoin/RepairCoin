@@ -12,7 +12,7 @@ This doc is the running status of in-flight AI Sales Agent work. Update it when 
 |---|---|---|
 | Multi-turn topic drift + duplicate-card fixes | `deo/ai-mike-tool-overeager-fix` | ✅ Merged (PR #347, commit `7c62c76b`) — live on staging |
 | Menu-item FAQ surfacing | `deo/ai-menu-item-faq` | ✅ Merged (PR #348, merge commit `547b1b26`) — deployed on staging 2026-05-13 evening |
-| **Reschedule + cancel via chat** | `deo/ai-sales-reschedule-cancel` | 🟢 **Implementation complete — awaiting PR review.** 8 commits on branch, all 5 phases done in one session 2026-05-25. ~3.5d of estimated 6-8d. 835/835 ai-agent tests green. Frontend tsc clean. End-to-end smoke pending — use the new `qa-fixtures/` to set up test data. See "Reschedule + cancel implementation" section below. |
+| **Reschedule + cancel via chat** | `deo/ai-sales-reschedule-cancel` | ✅ **Merged (PR #384, merge `fe584af4`)** — shipped 2026-05-25. 9 commits, all 5 phases. ~3.5d actual against an estimated 6-8d. 835/835 ai-agent tests green. End-to-end smoke optional — `qa-fixtures/` ready when wanted. See "Reschedule + cancel implementation" section below. |
 | "Currently discussing" chip dynamic update | `deo/ai-menu-item-faq` (extended) | 🟡 Implemented locally — stamps `discussed_service_id`/`discussed_service_name` on every AI message; chip reads latest AI message's value with prop fallback. 10 unit tests passing. Not yet committed. |
 | Slot-taken explicit awareness | — | ⏸ Parked (current "closest available" UX is acceptable) |
 
@@ -46,9 +46,11 @@ Jaccard-style token-overlap check (≥70% of significant tokens after lowercase 
 
 ---
 
-## In-flight: Reschedule + Cancel via Chat (branch `deo/ai-sales-reschedule-cancel`)
+## Shipped: Reschedule + Cancel via Chat
 
-**Status:** Implementation complete — 8 commits, awaiting PR + review + manual smoke. All five phases of `reschedule-cancel-implementation.md` resolved in one session 2026-05-25 (~3.5d actual against an estimated 6-8d).
+**Branch:** `deo/ai-sales-reschedule-cancel` (9 commits)
+**PR:** #384, merged 2026-05-25, merge commit `fe584af4`
+**Effort:** ~3.5d actual against an estimated 6-8d.
 
 **Commits on branch (in order):**
 
@@ -76,9 +78,7 @@ Jaccard-style token-overlap check (≥70% of significant tokens after lowercase 
 - Full ai-agent suite: 835/835 across 40 suites
 - Frontend `tsc --noEmit` clean for all 3 new components + 2 modified files
 
-**End-to-end smoke not yet run.** QA fixtures in `docs/tasks/strategy/ai-sales-agent/qa-fixtures/` handle the data setup (`setup-cancellable-appointment.ts` is the happy-path entry). Manual flow is documented in `qa-fixtures/README.md`.
-
-**Backend-safe to deploy in isolation.** Both new propose-* tools are gated on context (no upcoming appointments → no tools emitted). Without the frontend deploying alongside, the AI never proposes anything cancel/reschedule-related (no `cancellation_proposals` metadata for the frontend to render). Zero user-visible effect from a backend-only deploy.
+**End-to-end smoke** is optional but available. QA fixtures in `docs/tasks/strategy/ai-sales-agent/qa-fixtures/` handle data setup (`setup-cancellable-appointment.ts` is the happy-path entry). Manual flow documented in `qa-fixtures/README.md`. Same fixture pattern as Business-Data Insights' `qa-fixtures/`.
 
 ---
 
