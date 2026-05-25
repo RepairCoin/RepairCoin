@@ -19,8 +19,12 @@ import {
   pinQuery,
   unpinQuery,
   recordPinnedRun,
+  Anomaly,
+  listAnomalies,
+  dismissAnomaly,
 } from "@/services/api/aiInsights";
 import { InsightsToolCallCard } from "./InsightsToolCallCard";
+import { InsightsAnomalyBanner } from "./InsightsAnomalyBanner";
 
 /**
  * Suggested first-time-user questions per impl-doc Phase 4.3. Each maps
@@ -95,6 +99,10 @@ export const InsightsPanel: React.FC = () => {
   const [pinned, setPinned] = useState<PinnedQuery[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
   const [pinnedError, setPinnedError] = useState<string | null>(null);
+
+  // Phase 7.2.16 — anomaly banner state. Failure to load is silent —
+  // we just don't show the banner. Same pattern is reused on dismiss.
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   // Tracks a pin tap pending its reply, so the Pinned tab can refresh
   // last_run_at after the chat round-trip completes.
   const pendingRunRef = useRef<PendingRun>(null);
@@ -284,6 +292,60 @@ export const InsightsPanel: React.FC = () => {
     submitText(p.questionText);
   };
 
+  // ---------- Phase 7.2.16 — anomaly banner handlers ----------
+
+  // Load anomalies on mount (and therefore on every panel reopen, since
+  // the shadcn Sheet remounts InsightsPanel each open — same lifecycle
+  // already relied on by the sessionId-per-mount and pinned-fetch
+  // patterns above). Silent on failure: no banner is preferable to a
+  // second error chrome on top of chat + pinned errors.
+  useEffect(() => {
+    let cancelled = false;
+    listAnomalies()
+      .then((rows) => {
+        if (!cancelled) setAnomalies(rows);
+      })
+      .catch(() => {
+        /* swallow — banner is non-critical */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Dismiss button → optimistic remove + network call. Restore on
+   * failure so the user knows it didn't stick. Server returns 404 for
+   * already-dismissed rows (existence-leak prevention); treat that as
+   * success — the optimistic remove was correct.
+   */
+  const handleDismissAnomaly = async (id: string) => {
+    const prev = anomalies;
+    setAnomalies((cur) => cur.filter((a) => a.id !== id));
+    try {
+      await dismissAnomaly(id);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 404) return; // already dismissed server-side — keep our optimistic remove
+      setAnomalies(prev);
+    }
+  };
+
+  /**
+   * "Tell me more" → submit the anomaly's followUpQuestion through the
+   * regular chat pipeline (reuses Phase 6.3 chip path) and auto-dismiss
+   * the banner row. The user has engaged with the anomaly — keeping it
+   * around would just be visual noise on the next reopen.
+   */
+  const handleAskAnomalyFollowup = (anomaly: Anomaly) => {
+    if (!anomaly.followUpQuestion) return;
+    setActiveTab("chat");
+    // Fire-and-forget the dismiss; we don't block the submit on it.
+    handleDismissAnomaly(anomaly.id);
+    submitText(anomaly.followUpQuestion);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -320,6 +382,16 @@ export const InsightsPanel: React.FC = () => {
           className="flex-1 overflow-y-auto pr-1 space-y-3 mt-3"
           aria-live="polite"
         >
+          {/* Phase 7.2.16 — anomaly banner. Sits ABOVE the messages
+              list so it's the first thing the shop owner sees on
+              panel open. Renders nothing when there are no active
+              anomalies, so an empty fresh-shop state is unchanged. */}
+          <InsightsAnomalyBanner
+            anomalies={anomalies}
+            onAskFollowup={handleAskAnomalyFollowup}
+            onDismiss={handleDismissAnomaly}
+          />
+
           {turns.length === 0 && !loading && !error && (
             <EmptyState onPick={handleStarterClick} disabled={loading} />
           )}
