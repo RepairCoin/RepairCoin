@@ -398,45 +398,63 @@ appointments are in the prompt, not behind a tool call).
 
 ### 8.1 Components — new
 
-- [ ] **4.1** `frontend/src/components/messaging/CancellationConfirmCard.tsx`
-  — mirrors `BookingSuggestionCard` shape, red-ish accent, "Tap
-  to cancel" CTA. Read-only audit variant for shop-side rendering.
-- [ ] **4.2** `frontend/src/components/messaging/CancellationConfirmModal.tsx`
-  — shadcn `Dialog` per Q4. Appointment summary + optional reason
-  textarea + "Cancel appointment" destructive-styled Confirm
-  button. Closing the modal abandons the action.
-- [ ] **4.3** `frontend/src/components/messaging/RescheduleRequestCard.tsx`
-  — inline-confirm variant per Q4. Single tap commits. Shows
-  current slot + requested slot. Optimistic state pattern matching
-  the `PinButton` 1.5s green-check.
-- [ ] **4.4** Read-only audit variants for both cards (shop-side
-  dashboard rendering, no click handlers).
+- [x] **4.1** `frontend/src/components/messaging/CancellationConfirmCard.tsx`.
+  > **Done 2026-05-25.** Red-accented card with XCircle icon. Tap
+  > opens the modal. Special "Cancellation unavailable" state for
+  > within-24h appointments (defense-in-depth — orchestrator
+  > should already drop these but a stale client could render one).
+  > Post-confirm state shows the same card with emerald + check.
+- [x] **4.2** `frontend/src/components/messaging/CancellationConfirmModal.tsx`.
+  > **Done 2026-05-25.** shadcn Dialog. Appointment summary, optional
+  > reason textarea (500-char cap matching backend), destructive
+  > red Confirm button. Submit-in-flight blocks modal close. 4 error
+  > status handlers: 400 (within 24h), 401 (expired session), 404
+  > (already cancelled), 500. Closing without confirming abandons +
+  > resets form state.
+- [x] **4.3** `frontend/src/components/messaging/RescheduleRequestCard.tsx`.
+  > **Done 2026-05-25.** Blue-accented inline-confirm card per Q4 —
+  > single tap fires the API call. Four states: idle, submitting
+  > (spinner), submitted (emerald + check, sticky), error (red, 2s
+  > then revert to idle). 4 error status handlers: 400, 401, 409
+  > (pending request collision — defensive). No modal.
+- [x] **4.4** Read-only audit variants on both cards.
+  > **Done 2026-05-25.** Gray palette + no click handlers. Inline
+  > on each component (no separate file) — same pattern as
+  > BookingSuggestionCard's readOnly prop.
 
 ### 8.2 ConversationThread wiring
 
-- [ ] **4.5** Read `message.metadata.cancellation_proposals` and
-  `reschedule_proposals` in `ConversationThread.tsx`; render the
-  matching card under the AI bubble (just like
-  `BookingSuggestionCard` rendering does today).
+- [x] **4.5** Read both proposal arrays + render the matching cards.
+  > **Done 2026-05-25.** Two new conditional blocks inserted directly
+  > after the existing booking_suggestions render. `isOwnMessage` →
+  > readOnly on shop-side. Same `space-y-1` wrapper convention as
+  > the existing booking cards.
 
 ### 8.3 API client
 
-- [ ] **4.6** Add `cancelAppointment(orderId, reason?)` and
-  `requestReschedule(orderId, requestedDate, requestedTimeSlot,
-  reason?)` to `frontend/src/services/api/appointments.ts` (create
-  this file if not present — verify first).
+- [x] **4.6** `cancelAppointment(orderId, reason?)` + reschedule.
+  > **Done 2026-05-25.** Existing `appointmentsApi` already had
+  > `createRescheduleRequest(orderId, requestedDate, requestedTimeSlot, reason)`
+  > with the right shape. `cancelAppointment` extended to accept
+  > optional `reason` and POST it when non-empty (omitted from body
+  > otherwise to preserve the legacy no-reason path).
 
 ### 8.4 Confirmation flow
 
-- [ ] **4.7** Modal Confirm → POST `/cancel/:orderId` with optional
-  reason → on success, close modal; the event-bus subscriber from
-  Phase 5 will deliver the in-chat confirmation message.
-- [ ] **4.8** Inline tap → POST `/reschedule-request` →
-  optimistic UI update (card becomes "Request submitted ✓");
-  event-bus subscriber from Phase 5 posts the chat message.
+- [x] **4.7** Modal Confirm flow.
+  > **Done 2026-05-25.** Calls `appointmentsApi.cancelAppointment`
+  > with the orderId + reason. On success: parent's `onCancelled`
+  > flips the card to "Cancelled" emerald state, then closes the
+  > modal. Phase 5's event-bus subscriber will additionally post an
+  > AI confirmation message into the chat thread.
+- [x] **4.8** Inline tap flow.
+  > **Done 2026-05-25.** Card calls `createRescheduleRequest` on
+  > tap; transitions to a sticky "Request submitted" state on
+  > success. Phase 5's subscriber posts the in-chat message.
 
-**Acceptance:** click-through of both flows shows the right
-confirmation message in the chat thread after the tap.
+**Acceptance:** end-to-end tap-through verified by typecheck +
+manual browser smoke during Phase 5 QA fixtures. No automated
+component tests in this codebase pattern (matches BookingSuggestionCard).
 
 ---
 

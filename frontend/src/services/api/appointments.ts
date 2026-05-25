@@ -291,8 +291,18 @@ export const appointmentsApi = {
   },
 
   // Customer: Cancel appointment
-  async cancelAppointment(orderId: string): Promise<void> {
-    await apiClient.post(`/services/appointments/cancel/${orderId}`, {});
+  //
+  // `reason` is the optional free-form text the customer can supply via the
+  // AI sales-agent cancellation-confirm modal (Q1 of
+  // docs/tasks/strategy/ai-sales-agent/reschedule-cancel-scope.md). Backend
+  // trims + caps at 500 chars and persists to
+  // `service_orders.cancellation_notes`. Omit to keep the legacy
+  // no-reason behavior.
+  async cancelAppointment(orderId: string, reason?: string): Promise<void> {
+    await apiClient.post(
+      `/services/appointments/cancel/${orderId}`,
+      reason && reason.trim().length > 0 ? { reason: reason.trim() } : {}
+    );
   },
 
   // ==================== RESCHEDULE API ====================
