@@ -514,7 +514,32 @@ export class AppointmentRepository extends BaseRepository {
     }
   }
 
-  async cancelAppointment(orderId: string, customerAddress: string): Promise<boolean> {
+  /**
+   * Customer-side cancellation. Verifies ownership, applies the 24h
+   * cancellation policy, then UPDATEs the order to cancelled status.
+   *
+   * `reasonCode` defaults to 'customer_cancelled' — the categorical
+   * code the shop dashboard's "Cancelled — '<reason>'" display reads
+   * from `cancellation_reason`. AI-chat-initiated cancels currently
+   * always use this single code; future work could expose more codes
+   * (e.g. 'schedule_conflict') if Claude can classify.
+   *
+   * `notes` is free-form text. The AI chat surface accepts an
+   * optional reason field in the cancel modal (Q1 decision in
+   * reschedule-cancel-scope.md) and threads it through here. Lands
+   * in `cancellation_notes` — visible to the shop in the dashboard.
+   *
+   * Also sets `cancelled_at` (a small pre-existing gap — the prior
+   * single-line UPDATE only set `status` + `updated_at` and the
+   * cancellation-analytics index on `cancelled_at` saw zero rows
+   * from customer cancels).
+   */
+  async cancelAppointment(
+    orderId: string,
+    customerAddress: string,
+    reasonCode: string = 'customer_cancelled',
+    notes: string | null = null
+  ): Promise<boolean> {
     try {
       // First, check if the order belongs to the customer and get booking details
       const checkQuery = `
@@ -561,14 +586,19 @@ export class AppointmentRepository extends BaseRepository {
         }
       }
 
-      // Cancel the appointment
+      // Cancel the appointment — write all cancellation fields in one UPDATE.
       const cancelQuery = `
         UPDATE service_orders
-        SET status = 'cancelled', updated_at = NOW()
+        SET
+          status = 'cancelled',
+          cancelled_at = NOW(),
+          cancellation_reason = $2,
+          cancellation_notes = $3,
+          updated_at = NOW()
         WHERE order_id = $1
       `;
 
-      await this.pool.query(cancelQuery, [orderId]);
+      await this.pool.query(cancelQuery, [orderId, reasonCode, notes]);
 
       return true;
     } catch (error) {

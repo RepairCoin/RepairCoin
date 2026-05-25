@@ -602,7 +602,28 @@ export class AppointmentController {
 
       const { orderId } = req.params;
 
-      await this.appointmentRepo.cancelAppointment(orderId, customerAddress);
+      // Optional reason text from the customer (typically passed by the AI
+      // sales-agent cancellation-confirm modal — Q1 in
+      // docs/tasks/strategy/ai-sales-agent/reschedule-cancel-scope.md).
+      // Trimmed + length-capped defensively. Lands in
+      // `service_orders.cancellation_notes`. The categorical
+      // `cancellation_reason` code stays 'customer_cancelled' for all
+      // customer-initiated cancels (repo default).
+      const rawReason = (req.body as { reason?: unknown })?.reason;
+      let notes: string | null = null;
+      if (typeof rawReason === 'string') {
+        const trimmed = rawReason.trim();
+        if (trimmed.length > 0) {
+          notes = trimmed.slice(0, 500);
+        }
+      }
+
+      await this.appointmentRepo.cancelAppointment(
+        orderId,
+        customerAddress,
+        'customer_cancelled',
+        notes
+      );
 
       // Emit order cancelled event for auto-messages
       try {

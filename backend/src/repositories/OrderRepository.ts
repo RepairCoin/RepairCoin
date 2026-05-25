@@ -37,6 +37,12 @@ export interface ServiceOrder {
   // Expired fields (24h past appointment without completion)
   expiredAt?: Date;
   expiredBy?: string;
+  // Cancellation fields (migration 051). Pre-existing: shop-cancel path writes
+  // all three via updateCancellationData. Customer-cancel path also writes
+  // them as of the chat-reschedule/cancel work (see AppointmentRepository).
+  cancelledAt?: Date;
+  cancellationReason?: string; // code, e.g. 'customer_cancelled', 'schedule_conflict'
+  cancellationNotes?: string;  // free-form text the customer provided
   // AI chat conversation this order was booked from (conv_*). Set only when
   // the customer booked via an AI booking card; undefined for marketplace
   // bookings. Drives the AI booking-confirmation message.
@@ -666,6 +672,12 @@ export class OrderRepository extends BaseRepository {
       // Expired fields
       expiredAt: row.expired_at,
       expiredBy: row.expired_by,
+      // Cancellation fields (migration 051) — previously dropped by mapOrderRow
+      // even though shop-cancel writes them via updateCancellationData. Fixed
+      // as a side-effect of the AI chat reschedule/cancel work.
+      cancelledAt: row.cancelled_at,
+      cancellationReason: row.cancellation_reason || undefined,
+      cancellationNotes: row.cancellation_notes || undefined,
       conversationId: row.conversation_id || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
