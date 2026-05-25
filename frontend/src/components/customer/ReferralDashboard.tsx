@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCustomer } from "@/hooks/useCustomer";
 import { toast } from "react-hot-toast";
 import {
@@ -11,6 +11,8 @@ import {
   Copy,
   Link,
   HelpCircle,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import Tooltip from "../ui/tooltip";
 
@@ -22,9 +24,14 @@ export function ReferralDashboard() {
     customerData,
     isLoading: dataLoading,
     fetchCustomerData,
+    error: customerError,
   } = useCustomer();
 
   const [copying, setCopying] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const generateAttemptedRef = useRef(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [referralStats, setReferralStats] = useState<{
     totalReferrals: number;
     successfulReferrals: number;
@@ -62,7 +69,96 @@ export function ReferralDashboard() {
     }
   }, [customerData?.address]);
 
-  const referralCode = customerData?.referralCode || "Generating...";
+  // Reset the generate-attempt guard whenever the wallet changes
+  useEffect(() => {
+    generateAttemptedRef.current = false;
+    setGenerateError(null);
+  }, [customerData?.address]);
+
+  // If the customer record exists but has no referral code yet, request the
+  // backend to generate one and then refresh customer data so the UI updates.
+  useEffect(() => {
+    if (
+      !customerData?.address ||
+      customerData?.referralCode ||
+      generateAttemptedRef.current ||
+      generatingCode
+    ) {
+      return;
+    }
+
+    generateAttemptedRef.current = true;
+    let cancelled = false;
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+    (async () => {
+      try {
+        setGeneratingCode(true);
+        setGenerateError(null);
+
+        const GENERATE_TIMEOUT_MS = 15_000;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "Referral code generation timed out. Please try again."
+                )
+              ),
+            GENERATE_TIMEOUT_MS
+          );
+        });
+
+        const resp: any = await Promise.race([
+          apiClient.post("/referrals/generate"),
+          timeoutPromise,
+        ]);
+
+        const generatedCode: string | undefined =
+          resp?.data?.referralCode ?? resp?.referralCode;
+
+        if (cancelled) return;
+
+        if (!generatedCode) {
+          throw new Error(
+            resp?.error || "Server did not return a referral code"
+          );
+        }
+
+        await fetchCustomerData(true);
+      } catch (error: any) {
+        if (cancelled) return;
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          "Failed to generate referral code. Please try again.";
+        console.error("Error generating referral code:", error);
+        setGenerateError(message);
+        toast.error(message);
+      } finally {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        if (!cancelled) setGeneratingCode(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    };
+  }, [
+    customerData?.address,
+    customerData?.referralCode,
+    generatingCode,
+    fetchCustomerData,
+    retryNonce,
+  ]);
+
+  const retryGenerateReferralCode = () => {
+    generateAttemptedRef.current = false;
+    setGenerateError(null);
+    setRetryNonce((n) => n + 1);
+  };
+
   const referralLink = customerData?.referralCode
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/register/customer?ref=${customerData.referralCode}`
     : "";
@@ -81,10 +177,10 @@ export function ReferralDashboard() {
   };
 
   const copyReferralCode = async () => {
-    if (!referralCode) return;
+    if (!customerData?.referralCode) return;
     try {
       setCopying(true);
-      await navigator.clipboard.writeText(referralCode);
+      await navigator.clipboard.writeText(customerData.referralCode);
       toast.success("Referral code copied to clipboard!");
     } catch (error) {
       toast.error("Failed to copy code");
@@ -131,14 +227,19 @@ export function ReferralDashboard() {
   if (!customerData && !dataLoading) {
     return (
       <div className="bg-[#1A1A1A] rounded-2xl p-8 border border-gray-800 text-center">
-        <p className="text-gray-400 mb-4">
-          Unable to load referral data. Please try again later.
+        <AlertCircle className="w-10 h-10 mx-auto mb-3 text-red-400" />
+        <p className="text-white font-medium mb-1">
+          Unable to load referral data
+        </p>
+        <p className="text-gray-400 text-sm mb-4">
+          {customerError || "Please try again in a moment."}
         </p>
         <button
           onClick={() => fetchCustomerData(true)}
-          className="px-6 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-yellow-400 transition-colors"
+          disabled={dataLoading}
+          className="px-6 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Retry
+          {dataLoading ? "Retrying..." : "Retry"}
         </button>
       </div>
     );
@@ -271,18 +372,58 @@ export function ReferralDashboard() {
                   Your Referral Code
                 </p>
                 <div className="flex items-center gap-2 bg-[#2A2A2A] border border-gray-700 rounded-lg px-4 py-3">
-                  <span className="text-2xl sm:text-3xl font-mono font-bold text-white flex-1">
-                    {referralCode}
-                  </span>
-                  <button
-                    onClick={copyReferralCode}
-                    disabled={copying}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Copy referral code"
+                  <span
+                    className={`text-2xl sm:text-3xl font-mono font-bold flex-1 ${
+                      customerData?.referralCode
+                        ? "text-white"
+                        : generateError
+                          ? "text-red-400 text-base sm:text-lg"
+                          : "text-gray-500"
+                    }`}
                   >
-                    <Copy className="w-5 h-5 text-gray-400" />
-                  </button>
+                    {customerData?.referralCode
+                      ? customerData.referralCode
+                      : generateError
+                        ? "Unavailable"
+                        : "Generating..."}
+                  </span>
+                  {generateError ? (
+                    <button
+                      onClick={retryGenerateReferralCode}
+                      disabled={generatingCode}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Retry generating referral code"
+                    >
+                      <RefreshCw
+                        className={`w-5 h-5 text-gray-400 ${generatingCode ? "animate-spin" : ""}`}
+                      />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={copyReferralCode}
+                      disabled={copying || !customerData?.referralCode}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Copy referral code"
+                    >
+                      <Copy className="w-5 h-5 text-gray-400" />
+                    </button>
+                  )}
                 </div>
+                {generateError && (
+                  <div className="mt-2 flex items-start gap-2 text-xs text-red-400">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p>{generateError}</p>
+                      <button
+                        onClick={retryGenerateReferralCode}
+                        disabled={generatingCode}
+                        className="mt-1 text-red-300 hover:text-red-200 underline disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+                      >
+                        {generatingCode ? "Retrying..." : "Try again"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Share Referral Link */}
@@ -292,8 +433,8 @@ export function ReferralDashboard() {
                 </p>
                 <button
                   onClick={copyReferralLink}
-                  disabled={copying}
-                  className="w-full bg-[#FFCC00] text-black font-semibold py-3 px-4 rounded-lg hover:bg-yellow-400 transition-colors flex items-center justify-center gap-2"
+                  disabled={copying || !customerData?.referralCode}
+                  className="w-full bg-[#FFCC00] text-black font-semibold py-3 px-4 rounded-lg hover:bg-yellow-400 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#FFCC00]"
                 >
                   <Link className="w-4 h-4" />
                   {copying ? "Copying..." : "Copy Referral Link"}

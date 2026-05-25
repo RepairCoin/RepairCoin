@@ -132,6 +132,10 @@ export const useCustomerStore = create<CustomerStore>()(
 
       // Fetch customer data
       fetchCustomerData: async (address: string, force: boolean = false) => {
+        // Watchdog timeout — UI gets a clean error instead of an infinite spinner
+        // if the server is slow or unreachable. axios has its own 30s timeout but
+        // this is a faster, friendlier fallback.
+        const FETCH_TIMEOUT_MS = 20_000;
         // Block fetches during account switch to prevent requests with wrong wallet
         if (useAuthStore.getState().switchingAccount) {
           console.log('[customerStore] Account switch in progress, skipping fetch');
@@ -163,13 +167,30 @@ export const useCustomerStore = create<CustomerStore>()(
         console.log('[customerStore] Fetching data for address:', newAddress);
         set({ isLoading: true, fetchingAddress: newAddress, error: null });
 
+        let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
         try {
           // Fetch all data in PARALLEL for better performance
-          const [customerResponse, balanceResponse, transactionsResponse] = await Promise.all([
+          const dataPromise = Promise.all([
             apiClient.get(`/customers/${address}`),
             apiClient.get(`/tokens/balance/${address}`),
             apiClient.get(`/customers/${address}/transactions?limit=10`)
           ]);
+
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutHandle = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'Loading customer data is taking longer than expected. Please check your connection and try again.'
+                  )
+                ),
+              FETCH_TIMEOUT_MS
+            );
+          });
+
+          const [customerResponse, balanceResponse, transactionsResponse] =
+            (await Promise.race([dataPromise, timeoutPromise])) as [any, any, any];
 
           // Process customer data
           if (customerResponse.success && customerResponse.data) {
@@ -211,15 +232,22 @@ export const useCustomerStore = create<CustomerStore>()(
           if (transactionsResponse.success) {
             set({ transactions: transactionsResponse.data?.transactions || [] });
           }
-        } catch (err) {
+        } catch (err: any) {
           // Silently ignore errors during account switching
           if (isAccountSwitchError(err)) {
             console.log("[customerStore] Request cancelled due to account switch - ignoring");
             return;
           }
           console.log("[customerStore] Error fetching customer data:", err);
-          set({ error: "Failed to load customer data" });
+          // Surface the real message (already unwrapped from the backend by the
+          // apiClient interceptor) rather than a generic placeholder.
+          set({
+            error:
+              err?.message ||
+              "Failed to load customer data. Please try again.",
+          });
         } finally {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
           set({ isLoading: false, fetchingAddress: null });
         }
       },

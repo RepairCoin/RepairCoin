@@ -557,7 +557,8 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                               type="time"
                               value={editingValues.openTime}
                               onChange={(e) => setEditingValues({ ...editingValues, openTime: e.target.value })}
-                              className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                              onClick={(e) => e.currentTarget.showPicker?.()}
+                              className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm cursor-pointer focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                             />
                           </div>
                           <div>
@@ -566,7 +567,8 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                               type="time"
                               value={editingValues.closeTime}
                               onChange={(e) => setEditingValues({ ...editingValues, closeTime: e.target.value })}
-                              className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                              onClick={(e) => e.currentTarget.showPicker?.()}
+                              className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm cursor-pointer focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                             />
                           </div>
                         </div>
@@ -580,8 +582,9 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                                 type="time"
                                 value={editingValues.breakStartTime}
                                 onChange={(e) => setEditingValues({ ...editingValues, breakStartTime: e.target.value })}
+                                onClick={(e) => e.currentTarget.showPicker?.()}
                                 placeholder="Start"
-                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm cursor-pointer focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                               />
                             </div>
                             <div>
@@ -589,8 +592,9 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                                 type="time"
                                 value={editingValues.breakEndTime}
                                 onChange={(e) => setEditingValues({ ...editingValues, breakEndTime: e.target.value })}
+                                onClick={(e) => e.currentTarget.showPicker?.()}
                                 placeholder="End"
-                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm cursor-pointer focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                               />
                             </div>
                           </div>
