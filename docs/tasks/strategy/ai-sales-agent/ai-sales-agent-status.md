@@ -1,6 +1,6 @@
 # AI Sales Agent — Status
 
-_Last updated: 2026-05-14_
+_Last updated: 2026-05-25_
 
 This doc is the running status of in-flight AI Sales Agent work. Update it when the situation changes so a fresh Claude session (or anyone picking up the thread) can resume without re-discovering state.
 
@@ -12,6 +12,7 @@ This doc is the running status of in-flight AI Sales Agent work. Update it when 
 |---|---|---|
 | Multi-turn topic drift + duplicate-card fixes | `deo/ai-mike-tool-overeager-fix` | ✅ Merged (PR #347, commit `7c62c76b`) — live on staging |
 | Menu-item FAQ surfacing | `deo/ai-menu-item-faq` | ✅ Merged (PR #348, merge commit `547b1b26`) — deployed on staging 2026-05-13 evening |
+| **Reschedule + cancel via chat** | (planning) | 🆕 Strategy + impl plan drafted 2026-05-25. Scope locked (5 decisions), 5-phase impl plan, ~6-8d effort. No code yet. See `reschedule-cancel-scope.md` + `reschedule-cancel-implementation.md`. |
 | "Currently discussing" chip dynamic update | `deo/ai-menu-item-faq` (extended) | 🟡 Implemented locally — stamps `discussed_service_id`/`discussed_service_name` on every AI message; chip reads latest AI message's value with prop fallback. 10 unit tests passing. Not yet committed. |
 | Slot-taken explicit awareness | — | ⏸ Parked (current "closest available" UX is acceptable) |
 
