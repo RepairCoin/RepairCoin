@@ -277,6 +277,17 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
         };
         let lastResponse: ClaudeResponse | null = null;
         let errorMessage: string | null = null;
+        // Capture text from every iteration of the agent loop, not just
+        // the last one. Claude typically writes its prose summary in the
+        // SAME iteration as the `suggest_followups` tool_use (per prompt
+        // rule #11 "after answering, call suggest_followups"). The
+        // iteration that breaks the loop (no tool_use blocks) often has
+        // empty or trivial text because Claude has nothing left to say
+        // after suggest_followups. Using only `lastResponse.text` would
+        // silently drop the actual prose. Join all non-empty text
+        // chunks from every iteration so we surface whichever
+        // iteration Claude wrote in.
+        const responseTexts: string[] = [];
 
         try {
           for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
@@ -296,6 +307,10 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
             cumulative.costUsd += response.costUsd;
             cumulative.latencyMs += response.latencyMs;
             lastResponse = response;
+
+            if (response.text && response.text.trim().length > 0) {
+              responseTexts.push(response.text);
+            }
 
             // No tool calls → Claude wrote prose → we're done.
             if (response.toolUses.length === 0) break;
@@ -403,8 +418,20 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
 
         // 10. Final response. `toolCalls` is the slim per-card payload
         // the Phase 4 frontend renders directly under the assistant bubble.
+        // `reply` is the joined text from EVERY iteration of the agent
+        // loop, not just the last — Claude typically writes its prose
+        // in the same iteration as `suggest_followups`, and the loop
+        // runs one more iteration past that to clear the tool. Joining
+        // with a blank line preserves any natural paragraph break Claude
+        // emitted; fallback to lastResponse.text only when every
+        // iteration emitted empty text (rare — usually means the model
+        // declined or errored).
+        const aggregatedReply =
+          responseTexts.length > 0
+            ? responseTexts.join("\n\n")
+            : lastResponse.text;
         const data: InsightsResponseData = {
-          reply: lastResponse.text,
+          reply: aggregatedReply,
           model: lastResponse.model,
           cached: cumulative.cachedInputTokens > 0,
           latencyMs: cumulative.latencyMs,
