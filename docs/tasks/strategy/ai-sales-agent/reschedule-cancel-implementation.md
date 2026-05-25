@@ -341,39 +341,54 @@ emits the right shape.
 
 ### 7.1 Prompt additions in `PromptTemplates.ts`
 
-Append to the system prompt under a new "Lifecycle actions"
-section. Five rules from scope §5:
+Added as rule 14 under UNIVERSAL_RULES. Replaces the lookup-first
+framing from the original plan with a context-first framing (the
+appointments are in the prompt, not behind a tool call).
 
-- [ ] **3.1** Capability statement: "You can also help with
-  rescheduling and cancelling existing bookings."
-- [ ] **3.2** Lookup-first rule: "For reschedule or cancel, always
-  call `lookup_my_appointments` FIRST. Never propose a cancel or
-  reschedule from memory."
-- [ ] **3.3** Disambiguation rule: "If multiple appointments match,
-  ASK in plain text — do not guess."
-- [ ] **3.4** 24h guard rule: "If the matched booking is within
-  24h, do NOT call `propose_cancellation` (endpoint rejects);
-  offer reschedule-request as an alternative."
-- [ ] **3.5** Pending-request rule: "If lookup returns a
-  `pendingRescheduleRequestId`, mention it and route the customer
-  to the dashboard. Do NOT submit a second request."
+- [x] **3.1** Capability statement.
+  > **Done 2026-05-25.** Rule 14 opens with "LIFECYCLE ACTIONS —
+  > reschedule and cancel existing bookings" + mentions both tool
+  > names so Claude knows they exist.
+- [x] **3.2** ~~Lookup-first~~ → **Context-first** rule.
+  > **Done 2026-05-25.** Rule 14(a). "Never propose a cancel or
+  > reschedule for an order_id you don't see in the upcoming-
+  > bookings block above."
+- [x] **3.3** Disambiguation rule.
+  > **Done 2026-05-25.** Rule 14(b). "If multiple bookings could
+  > match, ASK in plain text — never guess."
+- [x] **3.4** 24h guard rule.
+  > **Done 2026-05-25.** Rule 14(c). Anchors to the "within 24h"
+  > marker rendered in the appointments block; offers the
+  > reschedule-request alternative in the same breath.
+- [x] **3.5** Pending-request rule.
+  > **Done 2026-05-25.** Rule 14(d). Anchors to the "pending
+  > reschedule request" marker; routes the customer to the
+  > dashboard. Plus rule 14(e) for "stay on the same service" on
+  > reschedule and 14(f) for don't-mix-destructive-and-constructive.
 
 ### 7.2 Tests
 
-- [ ] **3.6** `AgentOrchestrator.test.ts` — 6 new tests:
-  - cancellation happy path (lookup → propose → metadata emit)
-  - reschedule happy path
-  - cancellation within 24h → tool rejected with structured error
-  - reschedule when pending request exists → tool rejected
-  - lookup with day-hint resolves correctly
-  - multi-appointment lookup result narrowing
-- [ ] **3.7** `PromptTemplates.test.ts` — 4 new tests:
-  - capability section appears
-  - lookup-first rule appears
-  - 24h guard rule appears
-  - pending-request rule appears
-- [ ] **3.8** Full ai-agent suite must stay green
-  (currently ~417 passing).
+- [x] **3.6** `AgentOrchestrator.test.ts` — 6 new tests.
+  > **Done 2026-05-25.** Repurposed for the context-preload design:
+  > cancellation happy path, reschedule happy path, cancellation
+  > within 24h → `cancellation_tool_within_24h_window` drop reason,
+  > reschedule with pending request →
+  > `reschedule_tool_pending_request_exists` drop reason, reschedule
+  > with slot from different service →
+  > `reschedule_tool_service_mismatch` drop reason, multi-call guard
+  > drops booking when cancellation lands in the same turn. 100 →
+  > 106 tests in the suite. The original "lookup with day-hint" /
+  > "multi-appointment narrowing" tests are N/A under the
+  > context-preload design.
+- [x] **3.7** `PromptTemplates.test.ts` — 4 new tests + 4 bonus.
+  > **Done 2026-05-25.** Five rule-14 tests (capability statement,
+  > context-first, 24h guard, pending-request, no-mixing) + four
+  > tests for the rendered upcoming-appointments block (omit when
+  > empty, render when populated, within-24h marker, pending marker).
+  > 128 → 137 tests in the suite.
+- [x] **3.8** Full ai-agent suite green.
+  > **Done 2026-05-25.** 835/835 passing across 40 suites
+  > (was ~821 before Phase 3 — gained 14 from the new tests).
 
 **Acceptance:** all new tests pass + suite intact.
 
