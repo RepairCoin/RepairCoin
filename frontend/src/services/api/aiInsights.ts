@@ -214,3 +214,50 @@ export const recordPinnedRun = async (
     excerpt,
   });
 };
+
+// ---------- Phase 7.2 — anomaly banner ----------
+
+/** One of the 5 starter metrics watched by the nightly cron. */
+export type AnomalyMetricKey =
+  | "weekly_revenue"
+  | "weekly_no_shows"
+  | "weekly_cancellations"
+  | "weekly_ai_conversations"
+  | "weekly_bookings";
+
+/**
+ * One active anomaly. Backed by `ai_insights_anomalies`. Surfaced at
+ * the top of the InsightsPanel as a banner row. `phrasing` is Claude's
+ * one-sentence summary; when null (spend-cap exhausted or Claude
+ * failure) the banner falls back to a template. `followUpQuestion` is
+ * the chip target for "Tell me more" — submitting it routes through
+ * the same pipeline as Phase 6.3 follow-up chips.
+ */
+export interface Anomaly {
+  id: string;
+  metricKey: AnomalyMetricKey;
+  detectedAt: string;
+  severity: "low" | "medium" | "high";
+  currentValue: number;
+  priorValue: number;
+  deltaPct: number | null;
+  phrasing: string | null;
+  followUpQuestion: string | null;
+}
+
+/** GET /api/ai/insights/anomalies — active (un-dismissed, un-expired), max 3. */
+export const listAnomalies = async (): Promise<Anomaly[]> => {
+  const response = await apiClient.get("/ai/insights/anomalies");
+  return response.data?.data?.anomalies ?? [];
+};
+
+/**
+ * POST /api/ai/insights/anomalies/:id/dismiss — soft-dismiss. Idempotent
+ * server-side: a row already dismissed returns 404 (existence-leak
+ * prevention), so swallow that case at the call-site.
+ */
+export const dismissAnomaly = async (id: string): Promise<void> => {
+  await apiClient.post(
+    `/ai/insights/anomalies/${encodeURIComponent(id)}/dismiss`
+  );
+};

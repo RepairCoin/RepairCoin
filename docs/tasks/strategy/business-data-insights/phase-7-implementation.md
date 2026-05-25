@@ -310,12 +310,35 @@ phrases them via Claude, surfaces in the panel banner. Dismissible.
   — soft-dismiss. UPDATE shop-scopes via `WHERE shop_id = $2`
   AND `dismissed_at IS NULL` (idempotent — double-dismissing
   returns 404 to avoid existence leakage).
-- [ ] **7.2.16** Frontend `InsightsAnomalyBanner` component —
-  **DEFERRED to follow-up PR** per the dry-run plan (Section 5.6).
-  Ship the backend now; let it accumulate 1 week of detection
-  data on staging; tune thresholds; THEN add the visible banner.
-- [ ] **7.2.17** Fetch on panel mount; refetch when the panel
-  is reopened. **DEFERRED with 7.2.16.**
+- [x] **7.2.16** Frontend `InsightsAnomalyBanner` component.
+  > **Done 2026-05-25.** New component
+  > `frontend/src/components/shop/insights/InsightsAnomalyBanner.tsx`.
+  > Up to 3 anomaly rows stacked at the top of the chat tab (above
+  > messages list, hidden on Pinned tab). Each row: severity-toned
+  > border + left bar (low=amber / medium=orange / high=red),
+  > AlertTriangle icon, Claude's `phrasing` text (or a neutral
+  > template fallback when phrasing is null — spend-cap or Claude
+  > failure path), "Tell me more" chip wired to `followUpQuestion`,
+  > "Detected Xh ago" recency hint, dismiss `X` in top-right.
+  > Severity colors lean alert-toned regardless of sentiment because
+  > the phrasing already carries good/bad framing in words — the
+  > banner's job is "this is worth attention," not "this is bad."
+  > Template fallback formats revenue as currency and counts as
+  > integers; deltaPct shown as `+/-NN%` when present.
+- [x] **7.2.17** Fetch on panel mount; refetch when the panel
+  is reopened.
+  > **Done 2026-05-25.** Standard `useEffect(..., [])` on
+  > `InsightsPanel` mount. The shadcn `Sheet` remounts the panel on
+  > every reopen (same lifecycle the sessionId-per-mount + pinned-
+  > queries fetch already rely on), so this single mount-effect
+  > satisfies the "refetch when panel reopened" requirement
+  > naturally. Failure to load is silent — chat + pinned keep
+  > working; the banner just doesn't render. Dismiss is optimistic
+  > with a restore-on-failure branch that treats a server 404 as
+  > "already dismissed" (existence-leak prevention path) and keeps
+  > the optimistic remove. "Tell me more" auto-dismisses the
+  > anomaly before reusing `submitText()` so the banner doesn't
+  > re-nag after the user has engaged with it.
 
 ### 5.6 Dry-run period (no checkbox — operational note)
 
