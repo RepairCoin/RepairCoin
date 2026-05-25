@@ -473,9 +473,21 @@ month", text appears in input, hit send.
 - [ ] **7.5.2** Pipeline integration smoke — synthetic anomaly
   inserted → fetched via GET endpoint → frontend renders banner
   → "Tell me more" tap → real follow-up question reaches Claude.
-- [ ] **7.5.3** Update `qa-test-guide.md` with Phase 7 sections:
+- [x] **7.5.3** Update `qa-test-guide.md` with Phase 7 sections:
   - Section 10: Banner appearance + dismiss flow.
   - Section 11: Pinned queries (pin, list, run, unpin).
+  > **Done 2026-05-25.** §10 covers 13 scenarios (10.0 synthetic-
+  > insert setup, 10.1 hidden state, 10.2 fresh-anomaly render,
+  > 10.3 severity color matrix, 10.4 template fallback when
+  > phrasing NULL, 10.5 "Tell me more" + auto-dismiss, 10.6
+  > dismiss-X optimistic, 10.7 restore-on-failure, 10.8 404-as-
+  > success, 10.9 max-3 cap, 10.10 14-day expiry, 10.11 shop
+  > isolation, 10.12 banner hidden on Pinned tab, 10.13 refetch
+  > on reopen). §11 covers 12 scenarios for pinned queries
+  > including the dedupe-on-`(shop_id, question_text)` guarantee,
+  > the 50-pin 409 cap, and cross-session persistence. Acceptance
+  > summary block updated to call out which §10/§11 scenarios are
+  > load-bearing for ship-readiness.
 - [ ] **7.5.4** Cost review of nightly phrasing: after 1 week
   of staging, sum `ai_insights_messages.cost_usd` WHERE
   `request_payload->>'source' = 'anomaly_phrasing'`. Decide
