@@ -116,63 +116,173 @@ No new DB columns needed for the metadata — it's a JSONB blob.
 
 ---
 
-## 5. Phase 1 — Schema migration (½ day)
+## 5. Phase 1 — Customer-cancel reason wiring (½ day)
 
-- [ ] **1.1** Migration `127_add_cancellation_reason_to_service_orders.sql`:
-  ```sql
-  ALTER TABLE service_orders
-    ADD COLUMN cancellation_reason TEXT NULL;
+**Schema state correction (discovered 2026-05-25 pre-coding):**
+Migration `051_add_cancellation_fields_to_service_orders.sql`
+(2025-12-26) already added the columns we need to
+`service_orders`:
+
+- `cancellation_reason VARCHAR(100)` — reason CODE (e.g.
+  `customer_cancelled`, `schedule_conflict`).
+- `cancellation_notes TEXT` — free-form text (e.g. the customer's
+  typed reason from the modal).
+- `cancelled_at TIMESTAMP` (+ index).
+
+Plus `OrderRepository.updateCancellationData(orderId,
+cancellationReason, cancellationNotes?)` already writes all three
++ sets `status='cancelled'`. The shop-side cancel path uses it.
+
+**The actual gap:** the customer-side
+`AppointmentRepository.cancelAppointment(orderId, customerAddress)`
+does NOT use any of these — it only sets `status='cancelled'` and
+`updated_at`. Notably it doesn't even set `cancelled_at`, which is
+a small pre-existing data-quality bug we'll fix as a side effect.
+
+So Phase 1 collapses to **one wiring task**, not a migration.
+
+- [x] ~~1.1 Migration 127~~ — **not needed**. Columns already
+  added by migration 051.
+- [x] ~~1.2 Apply on DO~~ — **not needed**. Already applied
+  2025-12-26.
+- [x] **1.3** Verify `ServiceOrder` interface already carries the
+  cancellation fields.
+  > **Done 2026-05-25.** Discovered the interface was MISSING
+  > `cancelledAt`, `cancellationReason`, `cancellationNotes` even
+  > though the DB columns existed (migration 051). `mapOrderRow`
+  > was also dropping them on read. Fixed both as a side-effect —
+  > added the three fields to `ServiceOrder` and wired the
+  > row→object mapping. Shop-side
+  > `OrderRepository.updateCancellationData` was writing them, so
+  > the dropped-on-read silent gap had been there since 051.
+- [x] **1.4** Update
+  `AppointmentRepository.cancelAppointment` to accept + persist
+  reason + notes.
+  > **Done 2026-05-25.** Signature now
+  > `(orderId, customerAddress, reasonCode='customer_cancelled',
+  > notes=null)`. Backward compatible — existing 2-arg callers
+  > keep working. UPDATE now sets `cancelled_at`, `cancellation_reason`,
+  > `cancellation_notes` alongside `status` + `updated_at`. Also
+  > closed a pre-existing data gap: customer cancels never set
+  > `cancelled_at`, so the analytics index on that column saw
+  > zero customer-side rows.
+
+  ```ts
+  async cancelAppointment(
+    orderId: string,
+    customerAddress: string,
+    reasonCode?: string,    // defaults to 'customer_cancelled'
+    notes?: string | null,  // free-form text from modal (Q1)
+  ): Promise<boolean>
   ```
-  No backfill needed — historical cancellations stay NULL.
-- [ ] **1.2** Apply on DO via the standard
-  `scripts/record-and-verify-migration-NNN.ts` pattern.
-- [ ] **1.3** Add `cancellationReason: string | null` to the
-  `ServiceOrder` interface in
-  `backend/src/repositories/OrderRepository.ts` (or wherever the
-  type lives — verify).
-- [ ] **1.4** Update `OrderRepository.cancelOrder` /
-  `AppointmentRepository.cancelAppointment` to accept an optional
-  `reason: string | null` argument; persist via UPDATE.
 
-**Acceptance:** column exists on DO, `cancelAppointment(orderId,
-customerAddress, reason)` round-trips a reason cleanly.
+  Update SET clause: `status='cancelled', cancelled_at=NOW(),
+  cancellation_reason=$reason, cancellation_notes=$notes,
+  updated_at=NOW()`. Keeps the existing 24h guard + ownership
+  check intact.
+
+- [x] **1.5** Update
+  `AppointmentController.cancelCustomerAppointment` to accept +
+  thread the reason.
+  > **Done 2026-05-25.** Controller reads optional `reason` from
+  > request body, defensively trims + caps at 500 chars, threads
+  > it through to the repo as `notes`. Always passes
+  > `'customer_cancelled'` as the `reasonCode`. Reason omitted is
+  > still valid — the existing customer-cancel path keeps working
+  > with no client changes required.
+
+- [x] ~~1.6 Repo unit test~~ — **deferred to Phase 5 QA fixtures**.
+  Setting up an isolated AppointmentRepository test file from
+  scratch for a 4-line SQL-shape change is more overhead than
+  value. Phase 3.6 orchestrator tests + Phase 5 staging fixtures
+  exercise the same path end-to-end against a real DB.
+
+**Acceptance:** existing customer-cancel path keeps working
+(reason omitted is fine); when the AI's modal Confirm flow passes
+a reason, it lands in `cancellation_notes`. Shop dashboard's
+"cancelled — '<reason>'" display already exists and will start
+showing the customer-provided text.
 
 ---
 
-## 6. Phase 2 — New tools + orchestrator wiring (2-3 days)
+## 6. Phase 2 — Context preload + new propose-* tools (2 days)
 
-### 6.1 `lookup_my_appointments` tool
+**Design correction (2026-05-25 pre-coding):** the original plan
+called for a `lookup_my_appointments` tool that Claude would invoke
+to fetch appointments, then call `propose_cancellation` /
+`propose_reschedule_request` in a follow-up iteration. But the
+existing `AgentOrchestrator` does **a single Claude call** — no
+tool-result agent loop like `InsightsController` has. Adding one
+would be a significant restructure of the orchestrator's request
+flow and risk regressions in the booking path.
 
-- [ ] **2.1** Define tool in `AgentOrchestrator.ts` next to
-  `BOOKING_TOOL_NAME`. Input schema per scope §3.1.
-- [ ] **2.2** Execute against
-  `appointmentRepo.getCustomerAppointmentsInRange(customerAddress,
-  startDate, endDate)`. Default range = today through
-  +30 days when `status_filter="upcoming"`.
-- [ ] **2.3** Enrich each row with
-  `pendingRescheduleRequestId` (one query to
-  `reschedule_requests` table filtered by `customer_address` +
-  `status='pending'`).
-- [ ] **2.4** Apply optional hints (`service_name_hint`,
-  `day_hint`) as a server-side filter so Claude gets a narrowed
-  set. Day-hint accepts loose strings ("thursday", "tomorrow") —
-  use a small parser; unknown hints fall through (no filter).
-- [ ] **2.5** Tool result shape per scope §3.1. Hard cap at 10
-  rows returned to keep prompt size bounded.
+**Simpler approach:** pre-load the customer's upcoming appointments
+at this shop into the system prompt via `ContextBuilder` (same way
+service info + history are already loaded). Claude reads the
+appointment list directly from the prompt; no lookup tool needed.
+The propose-* tools still validate that the proposed `order_id`
+matches one of the pre-loaded appointments — preserves the
+security boundary.
+
+Tradeoff accepted: prompt grows by ~1 KB (max 10 appointments ×
+~100 chars). Cost negligible vs the Claude-loop alternative.
+
+### 6.1 Context preload — upcoming appointments
+
+- [ ] **2.1** Add `getUpcomingAppointmentsForShop(customerAddress,
+  shopId)` to `AppointmentRepository`. Returns rows with
+  `orderId`, `serviceId`, `serviceName`, `bookingDate`,
+  `bookingTime`, `status`, `withinCancellationWindow` (boolean,
+  computed server-side from `booking_date + booking_time` ≥ 24h
+  ahead). Filters to `status IN ('paid', 'scheduled')` and
+  `booking_date >= CURRENT_DATE`. Hard cap at 10 rows.
+- [ ] **2.2** Add `getPendingRescheduleRequestsForOrders(orderIds)`
+  to `RescheduleRepository`. Returns a Map of `orderId →
+  requestId` for rows with `status='pending'`. Used to enrich the
+  appointment list with `pendingRescheduleRequestId`.
+- [ ] **2.3** Add `upcomingAppointments` to
+  `AgentContextSnapshot` (the type returned by
+  `ContextBuilder.build`). Builder fetches both queries and merges.
+- [ ] **2.4** Render the list into the system prompt via a new
+  `PromptTemplates.renderUpcomingAppointmentsBlock(appointments)`.
+  Show only when the list is non-empty. Each line: `- {serviceName}
+  on {bookingDate} at {bookingTime} (status: {status}, order:
+  {orderId.slice(0,8)}…){pending-marker}`.
+- [ ] **2.5** Add to prompt the rule that the **`order_id`
+  argument to propose_cancellation / propose_reschedule_request
+  MUST match one of the order IDs listed above** — same enum-style
+  constraint as `service_id` for booking, but enforced server-side
+  in the orchestrator (Anthropic JSON schemas can't reference
+  context-dependent enums easily).
 
 ### 6.2 `propose_cancellation` tool
 
-- [ ] **2.6** Define tool. Input schema per scope §3.2.
-- [ ] **2.7** Server-side validation in
-  `AgentOrchestrator.handlePropoaseCancellationCall`:
-  - `order_id` owned by `customerAddress` (lookup).
-  - Order status in `{paid, scheduled}` — not completed,
-    cancelled, or no-show.
-  - Compute `withinCancellationWindow` (≥24h ahead).
-  - Reject the tool_use with a structured error if the order
-    is invalid; Claude phrases the failure.
-- [ ] **2.8** Emit `CancellationProposal` to
+- [x] **2.6** Define tool in `AgentOrchestrator.ts` next to
+  `buildBookingSuggestionTool`.
+  > **Done 2026-05-25.** `buildCancellationTool(upcomingAppointments)`.
+  > order_id is enum-constrained to the customer's upcoming order
+  > IDs (preloaded into context). reply_text capped at
+  > BOOKING_REPLY_MAX_CHARS for visual consistency with booking.
+  > Tool description tells Claude when to call (explicit cancel
+  > requests), when NOT to call (policy questions, ambiguous
+  > targets, within-24h windows), and that the order_id must match
+  > one of the listed appointments.
+- [x] **2.7** Server-side validation in the orchestrator.
+  > **Done 2026-05-25.** Three guards: (1) order_id ∈ preloaded
+  > appointment enum (defense-in-depth — Anthropic schema also
+  > enforces); (2) `withinCancellationWindow` true (rejects
+  > stale-context slip-through where Claude proposes a cancellation
+  > the endpoint would 400 on); (3) reply_text non-empty. Plus
+  > dedup on order_id (one card per appointment per turn). All
+  > rejected blocks log a drop reason for forensic queries.
+- [x] **2.8** Emit `CancellationProposal` to
   `messages.metadata.cancellation_proposals[]`.
+  > **Done 2026-05-25.** Empty array → metadata key omitted, same
+  > convention as booking_suggestions. Also stamps
+  > cancellation_proposal_dropped diagnostic counters when blocks
+  > fail validation. Tool is gated independently of the booking
+  > tool — either can be present in the tools array without the
+  > other.
 
 ### 6.3 `propose_reschedule_request` tool
 

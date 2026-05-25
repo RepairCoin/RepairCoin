@@ -119,6 +119,9 @@ function buildPreviewContext(
     // focused on the single service the shop owner is configuring. The
     // multi-service prompt block only renders when this is non-empty.
     shopServiceMenu: [],
+    // Preview has no customer + no order history, so the reschedule/cancel
+    // context block stays empty — the propose-* tools are inert.
+    upcomingAppointments: [],
   };
 }
 

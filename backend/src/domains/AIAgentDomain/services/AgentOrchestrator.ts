@@ -40,7 +40,12 @@ import { EscalationDetector } from "./EscalationDetector";
 import { parseBookingSuggestions } from "./BookingSuggestionParser";
 import { reorderSlotsByPreference } from "./TimePreferenceMatcher";
 import { scrubAssistantHistory } from "./ConversationHistoryScrubber";
-import { ClaudeTool, BookingSuggestion } from "../types";
+import {
+  ClaudeTool,
+  BookingSuggestion,
+  CancellationProposal,
+  AgentUpcomingAppointment,
+} from "../types";
 
 /**
  * Tool name for the booking-suggestion path. Phase 3 Task 10 fix-6 — replaces
@@ -52,6 +57,9 @@ import { ClaudeTool, BookingSuggestion } from "../types";
  * (no rambling "$99 and 30 minutes" prefix).
  */
 const BOOKING_TOOL_NAME = "propose_booking_slot";
+// Phase 2.6-2.8 of the reschedule + cancel chat work
+// (docs/tasks/strategy/ai-sales-agent/reschedule-cancel-*).
+const CANCELLATION_TOOL_NAME = "propose_cancellation";
 // Lowered from 200 to 130 in fix-7. Empirical observation: Claude with a
 // 200-char ceiling still fit the "Hi Lee Ann! The Newly Baker service is
 // $99.00 and runs about 30 minutes..." boilerplate (175+ chars) before the
@@ -493,10 +501,23 @@ export class AgentOrchestrator {
         slotLabelsByIsoForCall[slot.slotIso] = slot.humanLabel;
         serviceIdBySlotIso[slot.slotIso] = slot.serviceId;
       }
+      // Build the tools array. Both tools are independently gated:
+      //   - propose_booking_slot: included when there are bookable slots.
+      //   - propose_cancellation: included when the customer has ≥1
+      //     upcoming paid booking at this shop (preloaded into context).
+      // Either can be absent and the other still works — they're independent
+      // surfaces. Empty array becomes undefined so the Anthropic call doesn't
+      // get a malformed empty-array tools field.
+      const upcomingAppointmentsForCall = ctx.upcomingAppointments ?? [];
+      const toolsArray: ClaudeTool[] = [];
+      if (availabilitySlotsForCall.length > 0) {
+        toolsArray.push(buildBookingSuggestionTool(availabilitySlotsForCall));
+      }
+      if (upcomingAppointmentsForCall.length > 0) {
+        toolsArray.push(buildCancellationTool(upcomingAppointmentsForCall));
+      }
       const tools: ClaudeTool[] | undefined =
-        availabilitySlotsForCall.length > 0
-          ? [buildBookingSuggestionTool(availabilitySlotsForCall)]
-          : undefined;
+        toolsArray.length > 0 ? toolsArray : undefined;
 
       const requestPayload = {
         model,
@@ -761,6 +782,77 @@ export class AgentOrchestrator {
         suggestionCount: bookingSuggestions.length,
       });
 
+      // 6.6 Cancellation dispatch (Phase 2.6-2.8 of the reschedule/cancel
+      // chat work). Filter for propose_cancellation tool_use blocks, validate
+      // each against the preloaded upcomingAppointments list, accumulate
+      // CancellationProposal entries for the message metadata. Validations:
+      //   - order_id must be one of the customer's upcoming appointment IDs
+      //   - the matched appointment must be ≥24h ahead (withinCancellationWindow)
+      //   - reply_text must be non-empty
+      //   - duplicate order_ids deduped (one card per appointment per turn)
+      // Invalid blocks dropped with a reason; the customer-facing text stays
+      // as resolved by the booking dispatch above (cancellation cards render
+      // alongside whatever prose Claude wrote).
+      const cancellationToolBlocks = (claudeResponse.toolUses ?? []).filter(
+        (t) => t.toolName === CANCELLATION_TOOL_NAME
+      );
+      const cancellationProposals: CancellationProposal[] = [];
+      const cancellationDropReasons: string[] = [];
+      if (cancellationToolBlocks.length > 0) {
+        const seenOrderIds = new Set<string>();
+        const appointmentsByOrderId = new Map<string, AgentUpcomingAppointment>();
+        for (const a of upcomingAppointmentsForCall) {
+          appointmentsByOrderId.set(a.orderId, a);
+        }
+
+        for (const toolBlock of cancellationToolBlocks) {
+          const orderId = String(toolBlock.input.order_id ?? "");
+          const replyText = String(toolBlock.input.reply_text ?? "").trim();
+          const appointment = appointmentsByOrderId.get(orderId);
+          if (!appointment) {
+            cancellationDropReasons.push("cancellation_tool_returned_invalid_order_id");
+            logger.warn(
+              "AgentOrchestrator: cancellation block rejected — order_id not in upcoming-appointments enum",
+              { orderId }
+            );
+            continue;
+          }
+          if (!appointment.withinCancellationWindow) {
+            // Defense-in-depth: the tool description tells Claude not to
+            // propose cancellations within 24h, but if it slips through we
+            // refuse to render the card. The customer-cancel endpoint also
+            // rejects, but catching it here avoids a stale-tap 400.
+            cancellationDropReasons.push("cancellation_tool_within_24h_window");
+            logger.warn(
+              "AgentOrchestrator: cancellation block rejected — appointment within 24h cancellation window",
+              { orderId }
+            );
+            continue;
+          }
+          if (replyText.length === 0) {
+            cancellationDropReasons.push("cancellation_tool_empty_reply_text");
+            continue;
+          }
+          if (seenOrderIds.has(orderId)) {
+            cancellationDropReasons.push("cancellation_tool_duplicate_order_id");
+            continue;
+          }
+          seenOrderIds.add(orderId);
+          cancellationProposals.push({
+            orderId: appointment.orderId,
+            serviceId: appointment.serviceId,
+            serviceName: appointment.serviceName,
+            bookingDate: appointment.bookingDate,
+            bookingTime: appointment.bookingTime,
+            withinCancellationWindow: appointment.withinCancellationWindow,
+          });
+        }
+        logger.debug("AgentOrchestrator: cancellation-proposal dispatch resolved", {
+          proposalCount: cancellationProposals.length,
+          droppedCount: cancellationDropReasons.length,
+        });
+      }
+
       // 7. Insert AI reply into messages table
       const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
       // Active topic for this turn — separate from anchor_service_id below.
@@ -826,6 +918,16 @@ export class AgentOrchestrator {
           // never tried" without needing log access — see the DB to debug.
           ...(bookingSuggestionDropReasons.length > 0
             ? { booking_suggestion_dropped: bookingSuggestionDropReasons }
+            : {}),
+          // Cancellation proposal cards (Phase 2.6-2.8 of reschedule/cancel
+          // chat work). Empty when no propose_cancellation tool_use blocks
+          // landed or all of them failed validation. Frontend renders one
+          // tap-to-cancel card per entry.
+          ...(cancellationProposals.length > 0
+            ? { cancellation_proposals: cancellationProposals }
+            : {}),
+          ...(cancellationDropReasons.length > 0
+            ? { cancellation_proposal_dropped: cancellationDropReasons }
             : {}),
         },
       });
@@ -1020,6 +1122,77 @@ function buildBookingSuggestionTool(
         },
       },
       required: ["service_id", "slot_iso", "reply_text"],
+      additionalProperties: false,
+    },
+  };
+}
+
+/**
+ * Build the propose_cancellation tool. Only included in the tools array when
+ * the customer has ≥1 upcoming PAID booking at this shop (the
+ * `upcomingAppointments` enum must be non-empty). With no appointments the
+ * tool is omitted entirely and Claude has nothing to call — it'll answer
+ * "you don't have any upcoming bookings here" in plain text.
+ *
+ * Tool stays narrow:
+ *   - order_id: enum-constrained to the customer's upcoming order IDs.
+ *     Server-side reject if an out-of-enum value somehow lands here.
+ *   - reply_text: short conversational message; same 130-char cap as
+ *     booking's reply_text for visual consistency.
+ *
+ * The 24h cancellation window is NOT enforced at the tool-schema layer
+ * (Anthropic JSON schemas can't reference dynamic context). The tool
+ * description tells Claude not to propose when the appointment is within
+ * 24h, and the orchestrator validator double-checks below.
+ */
+function buildCancellationTool(
+  upcomingAppointments: AgentUpcomingAppointment[]
+): ClaudeTool {
+  const orderIdEnum = upcomingAppointments.map((a) => a.orderId);
+  const labelLines = upcomingAppointments
+    .map((a) => {
+      const markers: string[] = [];
+      if (a.pendingRescheduleRequestId) markers.push("pending reschedule");
+      if (!a.withinCancellationWindow) markers.push("within 24h — cannot cancel");
+      const markerPart = markers.length > 0 ? ` [${markers.join("; ")}]` : "";
+      return `${a.orderId} → ${a.serviceName} on ${a.bookingDate} at ${a.bookingTime}${markerPart}`;
+    })
+    .join("; ");
+
+  return {
+    name: CANCELLATION_TOOL_NAME,
+    description: [
+      `Propose cancelling one of the customer's upcoming bookings at this shop. This renders a tap-to-cancel card that opens a confirmation modal — the customer commits the cancellation by tapping Confirm, not by you calling this tool. Tapping triggers a customer-authenticated POST to the existing cancel endpoint.`,
+      `CALL THE TOOL when the customer explicitly asks to cancel: "cancel my booking", "I can't make Thursday", "I need to cancel the newly baker session", "scratch the appointment".`,
+      `DO NOT CALL when the customer is just asking about cancellation policy ("what's your cancellation policy?", "can I cancel if I need to?") — answer in plain text. The tool is for an actual cancellation request, not policy questions.`,
+      `DO NOT CALL if the appointment in question is WITHIN 24 HOURS of now — the customer-cancel endpoint enforces a 24h advance-notice policy and will reject the request. Look at the customer's upcoming-bookings block in the system prompt: bookings tagged with "within 24h" cannot be cancelled this way. Tell the customer in plain text that the appointment is too close to cancel directly and offer to send a reschedule request or contact the shop instead.`,
+      `If the customer is ambiguous about WHICH booking they want to cancel (multiple upcoming bookings, no service named, no day named), ASK in plain text — never guess. A wrong cancellation is expensive for the customer.`,
+      `The order_id you supply MUST be one of the IDs listed in the customer's upcoming-bookings block above — those are the only bookings you can act on. Mixing order IDs from history or guesses is rejected server-side.`,
+      `Available bookings (the only valid order_id values): ${labelLines}.`,
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      properties: {
+        order_id: {
+          type: "string",
+          enum: orderIdEnum,
+          description:
+            "The order_id of the booking to cancel. MUST be one of the customer's upcoming-bookings IDs from the system prompt context.",
+        },
+        reply_text: {
+          type: "string",
+          maxLength: BOOKING_REPLY_MAX_CHARS,
+          description: [
+            "Short, conversational message the customer sees above the cancellation card.",
+            "HARD RULES:",
+            "(1) Reference the appointment naturally — service name + day/time. Example: 'Cancel the Newly Baker on Thursday at 2 PM? Tap to confirm.'",
+            "(2) Under 130 characters.",
+            "(3) MUST NOT preface with 'Hi {name}!' unless this is the very first AI reply in the conversation.",
+            "(4) Don't apologize — keep it neutral. The customer is in control.",
+          ].join(" "),
+        },
+      },
+      required: ["order_id", "reply_text"],
       additionalProperties: false,
     },
   };

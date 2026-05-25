@@ -19,6 +19,8 @@ import { ShopRepository } from "../../../repositories/ShopRepository";
 import { ServiceRepository } from "../../../repositories/ServiceRepository";
 import { MessageRepository } from "../../../repositories/MessageRepository";
 import { ServiceAIFaqRepository } from "../../../repositories/ServiceAIFaqRepository";
+import { AppointmentRepository } from "../../../repositories/AppointmentRepository";
+import { RescheduleRepository } from "../../../repositories/RescheduleRepository";
 import { NoShowPolicyService } from "../../../services/NoShowPolicyService";
 import { AvailabilityFetcher } from "./AvailabilityFetcher";
 import {
@@ -31,6 +33,7 @@ import {
   AgentAvailabilitySlot,
   AgentShopServiceMenuItem,
   AgentServiceFaqEntry,
+  AgentUpcomingAppointment,
 } from "../types";
 
 /**
@@ -137,7 +140,12 @@ export class ContextBuilder {
     private readonly faqRepo: ServiceAIFaqRepository = new ServiceAIFaqRepository(),
     // No-show policy: drives the per-customer advance-notice floor on
     // proposed slots + the restriction lines in the prompt.
-    private readonly noShowPolicyService: NoShowPolicyService = new NoShowPolicyService()
+    private readonly noShowPolicyService: NoShowPolicyService = new NoShowPolicyService(),
+    // Reschedule + cancel context preload. Both repos are queried in
+    // parallel via fetchUpcomingAppointments; the result powers the
+    // propose-* tools and the in-prompt appointment block.
+    private readonly appointmentRepo: AppointmentRepository = new AppointmentRepository(),
+    private readonly rescheduleRepo: RescheduleRepository = new RescheduleRepository()
   ) {}
 
   /**
@@ -209,7 +217,7 @@ export class ContextBuilder {
     ];
 
     // Phase 2: pull everything else in parallel
-    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy, faqEntriesResult] = await Promise.all([
+    const [customerRow, shopRow, messagesResult, siblingsResult, availabilitySlots, weeklyHours, bookingPolicy, faqEntriesResult, upcomingAppointments] = await Promise.all([
       this.customerRepo.getCustomer(customerAddress),
       this.shopRepo.getShop(serviceRow.shopId),
       // The RECENT window, oldest-first. Must NOT use
@@ -260,6 +268,11 @@ export class ContextBuilder {
       // when empty, the prompt is unchanged from pre-FAQ behavior.
       // Strategy doc: ai-knowledge-base-strategy.md
       this.faqRepo.getEntriesForService(serviceId),
+      // Customer's upcoming paid bookings at THIS shop, with pending-
+      // reschedule-request markers merged in. Drives the propose_cancellation
+      // + propose_reschedule_request tools (reschedule-cancel-scope.md).
+      // Empty array on any error so the orchestrator path stays alive.
+      this.fetchUpcomingAppointments(customerAddress, serviceRow.shopId),
     ]);
 
     if (!customerRow) {
@@ -279,7 +292,47 @@ export class ContextBuilder {
       siblingServices: siblingsResult,
       availabilitySlots,
       shopServiceMenu,
+      upcomingAppointments,
     };
+  }
+
+  /**
+   * Pull the customer's upcoming PAID bookings at this shop, then
+   * annotate each with `pendingRescheduleRequestId`. Two queries in
+   * parallel; merge by `orderId`. Empty arrays/maps on error so the
+   * orchestrator never sees a context-build failure from this path.
+   */
+  private async fetchUpcomingAppointments(
+    customerAddress: string,
+    shopId: string
+  ): Promise<AgentUpcomingAppointment[]> {
+    try {
+      const rows = await this.appointmentRepo.getUpcomingAppointmentsForShop(
+        customerAddress,
+        shopId
+      );
+      if (rows.length === 0) return [];
+
+      const orderIds = rows.map((r) => r.orderId);
+      const pendingMap =
+        await this.rescheduleRepo.getPendingRescheduleRequestsForOrders(
+          orderIds
+        );
+
+      return rows.map((r) => ({
+        orderId: r.orderId,
+        serviceId: r.serviceId,
+        serviceName: r.serviceName,
+        bookingDate: r.bookingDate,
+        bookingTime: r.bookingTime,
+        status: r.status,
+        withinCancellationWindow: r.withinCancellationWindow,
+        pendingRescheduleRequestId: pendingMap.get(r.orderId) ?? null,
+      }));
+    } catch (error) {
+      logger.error("ContextBuilder.fetchUpcomingAppointments failed:", error);
+      return [];
+    }
   }
 
   /**

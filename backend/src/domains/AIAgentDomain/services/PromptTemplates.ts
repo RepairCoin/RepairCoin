@@ -18,7 +18,7 @@
 //
 // Used by AgentOrchestrator (Task 5). Not yet wired to any HTTP route.
 
-import { AgentContext, AITone } from "../types";
+import { AgentContext, AITone, AgentUpcomingAppointment } from "../types";
 
 /**
  * Hard rules baked into every system prompt regardless of tone.
@@ -318,6 +318,15 @@ ${describeOnlyMenuItems.map(renderMenuLine).join("\n")}`
   // confused. Empty for unrestricted customers.
   const customerRestrictionBlock = buildCustomerRestrictionBlock(ctx.customer);
 
+  // Upcoming appointments at THIS shop (Phase 2.4 of the reschedule/cancel
+  // chat work). Drives Claude's awareness of bookings the customer can
+  // reference. When the propose-* tools land (Phase 2.6+), the block also
+  // becomes the enum-source for the `order_id` argument validation.
+  // Empty appointments → empty string → block is omitted entirely.
+  const upcomingAppointmentsBlock = buildUpcomingAppointmentsBlock(
+    ctx.upcomingAppointments ?? []
+  );
+
   const bookingBlock = buildBookingBlock(ctx);
 
   // Today's date anchor — computed at prompt-build time in the shop's
@@ -355,10 +364,56 @@ About this service (THE ACTIVE TOPIC — this is the service the customer most r
 About the customer:
   Name: ${customerName}
   Loyalty tier: ${tier}${balanceLine}${customerRestrictionBlock}
-${shopServiceMenuBlock}${upsellsBlock}
+${shopServiceMenuBlock}${upsellsBlock}${upcomingAppointmentsBlock}
 
 ${PAYMENT_INFO_BLOCK}${bookingBlock}
 `.trim();
+}
+
+/**
+ * Phase 2.4 of the reschedule + cancel chat work. Renders the customer's
+ * upcoming PAID bookings at THIS shop as a prompt section. Empty appointments
+ * → empty string, so the prompt is unchanged from pre-feature behavior when
+ * the customer has no bookings to reference.
+ *
+ * Section format (mirrors the multi-service menu's "Other services..."
+ * heading style):
+ *
+ *   Customer's upcoming bookings at this shop:
+ *     - {serviceName} on {bookingDate} at {bookingTime} — order {short-id}
+ *       [pending reschedule request]
+ *       [within 24h cancellation window]
+ *
+ * The `order {short-id}` is the first 8 chars of the order_id, matching the
+ * receipt/dashboard display convention. Markers are inline so the AI doesn't
+ * have to scan multiple lines to know "can I propose a cancellation here?"
+ * Used by propose_cancellation + propose_reschedule_request tools (Phase 2.6+):
+ * the `order_id` argument MUST match one of the IDs listed in this block.
+ *
+ * Exported for tests.
+ */
+export function buildUpcomingAppointmentsBlock(
+  appointments: AgentUpcomingAppointment[]
+): string {
+  if (!appointments || appointments.length === 0) return "";
+
+  const lines = appointments.map((a) => {
+    const shortId = a.orderId.slice(0, 8);
+    const markers: string[] = [];
+    if (a.pendingRescheduleRequestId) {
+      markers.push("pending reschedule request");
+    }
+    if (!a.withinCancellationWindow) {
+      markers.push("within 24h cancellation window — cannot direct-cancel");
+    }
+    const markerSuffix = markers.length > 0 ? ` [${markers.join("; ")}]` : "";
+    return `  - ${a.serviceName} on ${a.bookingDate} at ${a.bookingTime} — order ${shortId}${markerSuffix}`;
+  });
+
+  return `
+
+Customer's upcoming bookings at this shop (use these when the customer asks to reschedule or cancel — reference them by service name + day/time, never by raw order id):
+${lines.join("\n")}`;
 }
 
 /**
