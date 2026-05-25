@@ -313,12 +313,23 @@ Tradeoff accepted: prompt grows by ~1 KB (max 10 appointments ×
 
 ### 6.4 Multi-call + ordering safety
 
-- [ ] **2.12** Reject mixed cancel + book in the same turn at the
-  validator. Combining destructive + non-destructive actions in one
-  reply is too confusing; force separate turns.
-- [ ] **2.13** Allow `lookup_my_appointments` + `propose_*` in the
-  same turn (lookup first, propose second) — mirrors how Claude
-  uses availability fetch + booking in one turn today.
+- [x] **2.12** Reject mixed cancel + constructive in the same turn.
+  > **Done 2026-05-25.** Guard runs after all three dispatch blocks.
+  > Rule: when `cancellation_proposals.length > 0` AND either
+  > `bookingSuggestions.length > 0` OR `rescheduleProposals.length > 0`,
+  > the constructive (booking/reschedule) proposals are cleared and a
+  > `dropped_for_destructive_action_in_same_turn` reason is appended
+  > to the matching drop-reasons counter. Destructive (cancel) wins
+  > because a mis-cancel is irrecoverable; a missed booking just means
+  > the customer can re-ask. Cancellation card is the only one that
+  > renders in mixed-mode turns.
+- [x] ~~2.13 Allow `lookup_my_appointments` + `propose_*` in same
+  turn~~ — **N/A.** This task assumed a tool-based lookup pattern
+  (the original design). The design pivot in Phase 2.1-2.4 moved the
+  appointment lookup to a system-prompt preload, so there's no
+  `lookup_my_appointments` tool to order against `propose_*`. The
+  multi-call concern reduces to 2.12's mixed-cancel-and-constructive
+  rule, which is implemented.
 
 **Acceptance:** unit-tested orchestrator can dispatch all three
 tools end-to-end; reject paths return structured errors; metadata

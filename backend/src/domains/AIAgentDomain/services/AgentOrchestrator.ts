@@ -968,6 +968,44 @@ export class AgentOrchestrator {
         });
       }
 
+      // 6.8 Multi-call safety guard (Phase 2.12 of reschedule/cancel work).
+      // Rule: mixing a DESTRUCTIVE action (cancellation) with a CONSTRUCTIVE
+      // one (booking or reschedule-request) in the same turn is too
+      // confusing — the customer would see a "cancel this" card next to a
+      // "book this" card with no clear order of operations. When Claude
+      // emits both kinds in one reply, prefer the destructive action
+      // (it's the most urgent intent to honor accurately) and drop the
+      // constructive proposals with a forensic counter.
+      //
+      // Why prefer cancellation: a mis-cancel is irrecoverable for the
+      // customer, while a missed booking just means the customer can
+      // re-ask next turn. Dropping cancellation in favor of booking would
+      // let an ambiguous reply silently commit the wrong action when the
+      // customer tapped.
+      if (
+        cancellationProposals.length > 0 &&
+        (bookingSuggestions.length > 0 || rescheduleProposals.length > 0)
+      ) {
+        const droppedBookingCount = bookingSuggestions.length;
+        const droppedRescheduleCount = rescheduleProposals.length;
+        if (droppedBookingCount > 0) {
+          bookingSuggestions = [];
+          bookingSuggestionDropReasons.push(
+            "dropped_for_destructive_action_in_same_turn"
+          );
+        }
+        if (droppedRescheduleCount > 0) {
+          rescheduleProposals.length = 0;
+          rescheduleDropReasons.push(
+            "dropped_for_destructive_action_in_same_turn"
+          );
+        }
+        logger.warn(
+          "AgentOrchestrator: dropped constructive proposals — cancellation present in same turn",
+          { droppedBookingCount, droppedRescheduleCount }
+        );
+      }
+
       // 7. Insert AI reply into messages table
       const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
       // Active topic for this turn — separate from anchor_service_id below.
