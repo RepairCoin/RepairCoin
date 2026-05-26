@@ -17,6 +17,7 @@ import {
   getHelpArticle,
 } from './controllers/HelpArticleController';
 import { askInsights } from './controllers/InsightsController';
+import { askMarketing } from './controllers/MarketingChatController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -44,6 +45,7 @@ import {
  *   GET  /api/ai/help/articles — shop: list help-article index (filename + title)
  *   GET  /api/ai/help/articles/:filename — shop: one help article body
  *   POST /api/ai/insights      — shop: Business-Data Insights assistant (Sonnet + tools)
+ *   POST /api/ai/marketing-chat — shop: AI Marketing Assistant (Sonnet + tools, propose-then-tap drafts)
  *   GET  /api/ai/insights/anomalies         — shop: list active anomaly banners
  *   POST /api/ai/insights/anomalies/:id/dismiss — shop: dismiss one anomaly
  *   GET    /api/ai/insights/pinned          — shop: list pinned questions
@@ -140,6 +142,22 @@ export function initializeRoutes(): Router {
   // from Claude args). Spend-capped against the shared monthly budget
   // and audited into ai_insights_messages with the tool_calls JSONB.
   router.post('/insights', authMiddleware, requireRole(['shop']), askInsights);
+
+  // AI Marketing Assistant — shop-owner "compose + send a campaign by
+  // chat" AI. Sibling to /insights. Sonnet + tool-use with the four
+  // marketing tools: lookup_audience_count (read), propose_campaign_draft
+  // (persists draft), propose_campaign_send (validates draft for send),
+  // suggest_campaign_strategies (empty-panel chips). Mass-send is gated
+  // by the shop tapping confirm on the frontend draft card; this
+  // endpoint never sends directly.
+  // Body: { sessionId, messages: [{ role, content }, ...] }.
+  // Shop-scoped via JWT; audited into ai_marketing_messages.
+  router.post(
+    '/marketing-chat',
+    authMiddleware,
+    requireRole(['shop']),
+    askMarketing
+  );
 
   // Phase 7.2 — nightly anomaly detection. Banner reads via GET on
   // panel mount; "Dismiss" tap soft-dismisses via POST. Both shop-
