@@ -114,19 +114,23 @@ export function CancellationConfirmModal({
         }
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Cancel this appointment?</DialogTitle>
-          <DialogDescription className="space-y-1 pt-2">
-            <span className="block font-medium text-foreground">
-              {proposal.serviceName}
-            </span>
-            <span className="block text-sm">{timeLabel}</span>
-            <span className="block text-xs pt-2">
-              The slot will be freed and you'll need to re-book if you change your mind.
-            </span>
+          <DialogDescription>
+            The slot will be freed and you'll need to re-book if you change your mind.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Appointment summary — rendered outside DialogDescription so the
+            multi-line block-level content doesn't sit inside the <p> element
+            Radix renders for descriptions. Cleaner DOM + cleaner styling. */}
+        <div className="rounded-md border bg-muted/30 px-3 py-2 space-y-0.5">
+          <div className="font-medium text-foreground">
+            {proposal.serviceName}
+          </div>
+          <div className="text-sm text-muted-foreground">{timeLabel}</div>
+        </div>
 
         <div className="space-y-2">
           <label
@@ -159,14 +163,19 @@ export function CancellationConfirmModal({
           </div>
         )}
 
-        <DialogFooter>
+        {/* Tighter button labels — original "Cancel appointment" was wider
+            than the chat-thread-embedded modal could render cleanly (button
+            text truncated to "Cancel app..."). Shorter, parseable labels
+            survive even constrained widths. flex-wrap on the footer covers
+            any edge where the constrained parent narrows further. */}
+        <DialogFooter className="flex-wrap gap-2 sm:gap-0">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
-            Keep appointment
+            Keep it
           </Button>
           <Button
             type="button"
@@ -181,7 +190,7 @@ export function CancellationConfirmModal({
                 Cancelling…
               </>
             ) : (
-              "Cancel appointment"
+              "Yes, cancel"
             )}
           </Button>
         </DialogFooter>
