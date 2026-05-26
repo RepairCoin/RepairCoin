@@ -1,0 +1,136 @@
+// frontend/src/services/api/aiMarketing.ts
+//
+// Shop-side AI Marketing Assistant. Backed by POST /api/ai/marketing-chat.
+// See backend:
+//   backend/src/domains/AIAgentDomain/controllers/MarketingChatController.ts
+//
+// The assistant drafts and proposes marketing email campaigns by natural
+// language ("send a Black Friday campaign", "bring back lapsed
+// customers", "tell my top 100 about our new service"). It NEVER sends
+// directly — every send is shop-confirmed via the CampaignReviewModal.
+//
+// Multi-turn shape mirrors aiInsights. The caller holds the conversation
+// in local state and passes the whole `messages` array (alternating
+// user/assistant, starting with user, last message must be user).
+//
+// Response includes a `toolCalls` array; each entry has a `display` hint
+// the panel renders inline under the assistant bubble. Branch on
+// `display.kind` to pick the renderer — see MarketingToolCallCard.
+
+import apiClient from "./client";
+
+export type MarketingMessageRole = "user" | "assistant";
+
+export interface MarketingMessage {
+  role: MarketingMessageRole;
+  content: string;
+}
+
+/**
+ * Frontend rendering hint for a marketing tool's result. Mirror of the
+ * backend's `MarketingToolDisplay` discriminated union.
+ */
+export type MarketingToolDisplay =
+  | {
+      // Resolved audience preview. Rendered as a compact inline card —
+      // "23 customers who haven't booked in 90+ days" with a sample
+      // name strip. Emitted by `lookup_audience_count`.
+      kind: "audience_summary";
+      label: string;
+      resolvedCount: number;
+      audienceType: string;
+      audienceFilters: Record<string, unknown>;
+      sampleNames?: string[];
+    }
+  | {
+      // A persisted draft campaign. Rendered as the primary tap-to-open
+      // card — tapping opens CampaignReviewModal where the shop can
+      // edit subject/body and confirm send. Emitted by
+      // `propose_campaign_draft`.
+      kind: "campaign_draft";
+      campaignId: string;
+      subject: string;
+      bodyPreview: string;
+      channel: "email";
+      audienceLabel: string;
+      recipientCount: number;
+    }
+  | {
+      // Inline send-confirm chip for an existing draft. Tap fires the
+      // existing POST /api/marketing/campaigns/:id/send endpoint.
+      // Emitted by `propose_campaign_send` — only when the shop has
+      // already reviewed the draft.
+      kind: "campaign_send";
+      campaignId: string;
+      recipientCount: number;
+    }
+  | {
+      // Strategy chips for the empty-panel state. Rendered as a row of
+      // tap-able pills below the assistant bubble; tapping submits the
+      // chip text as a new user message. Emitted by
+      // `suggest_campaign_strategies`.
+      kind: "strategy_chips";
+      items: string[];
+    };
+
+/**
+ * One tool the model invoked. `display` is absent when the tool errored
+ * (unknown tool name or args validation failed) — render nothing in
+ * that case; Claude's prose will mention the failure.
+ */
+export interface MarketingToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+  display?: MarketingToolDisplay;
+}
+
+export interface MarketingResponse {
+  /** Claude's prose reply, ready to display under the assistant bubble. */
+  reply: string;
+  /** The Sonnet model id Claude reported (e.g. `claude-sonnet-4-6`). */
+  model: string;
+  cached: boolean;
+  latencyMs: number;
+  /** Tools the model called in order. Render one card per entry. */
+  toolCalls: MarketingToolCall[];
+}
+
+/**
+ * Validation bounds the backend enforces. Mirror of
+ * MarketingChatController.MAX_* constants.
+ */
+export const MARKETING_LIMITS = {
+  maxMessages: 30,
+  maxContentChars: 8000,
+  maxSessionIdChars: 64,
+} as const;
+
+/**
+ * Ask the AI Marketing Assistant. Reuse the same `sessionId` for every
+ * call within one panel session — the backend groups audit rows by it.
+ *
+ * `messages` must:
+ *   - alternate user → assistant → user → … (strict)
+ *   - start with `user`
+ *   - end with `user`
+ *   - total ≤ MARKETING_LIMITS.maxMessages
+ *
+ * Errors the panel should be ready to render:
+ *   - 401 → shop session expired; nudge re-login.
+ *   - 400 → validation failure; the message will say what.
+ *   - 429 → AI monthly budget exhausted OR 50-drafts/day limit hit.
+ *   - 503 → AI service degraded; retry later.
+ */
+export const askMarketing = async (
+  sessionId: string,
+  messages: MarketingMessage[]
+): Promise<MarketingResponse> => {
+  const response = await apiClient.post("/ai/marketing-chat", {
+    sessionId,
+    messages,
+  });
+  // Axios interceptor pre-unwraps response.data — call sites should read
+  // response.data.X not response.data.data.X. The `|| response.data`
+  // fallback covers any interceptor-bypass edge case.
+  return response.data.data || response.data;
+};

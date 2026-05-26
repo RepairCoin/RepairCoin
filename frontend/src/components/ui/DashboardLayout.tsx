@@ -8,6 +8,7 @@ import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { CartIcon } from "@/components/ui/CartIcon";
 import { HelpAssistantLauncher } from "@/components/shop/help/HelpAssistantLauncher";
 import { InsightsLauncher } from "@/components/shop/insights/InsightsLauncher";
+import { MarketingAILauncher } from "@/components/shop/marketing-ai/MarketingAILauncher";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -134,6 +135,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <NotificationBell />
           {userRole === "shop" && <HelpAssistantLauncher />}
           {userRole === "shop" && <InsightsLauncher />}
+          {userRole === "shop" && <MarketingAILauncher />}
         </div>
       )}
 
