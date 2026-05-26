@@ -162,6 +162,11 @@ export function initializeRoutes(): Router {
   // Expire old suggestions (admin/scheduler)
   router.post('/suggestions/expire', adminAuth, poSuggestionController.expireOldSuggestions);
 
+  // Accuracy tracking routes (v2.1)
+  router.post('/suggestions/:id/assess-accuracy', shopAuth, poSuggestionController.assessSuggestionAccuracy);
+  router.get('/suggestions/:shopId/accuracy-metrics', shopAuth, poSuggestionController.getAccuracyMetrics);
+  router.post('/suggestions/auto-assess-accuracy', adminAuth, poSuggestionController.autoAssessSuggestionAccuracy);
+
   // ============================================================================
   // ANALYTICS ROUTES
   // ============================================================================

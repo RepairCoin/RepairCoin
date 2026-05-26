@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { MarketingService } from '../../../services/MarketingService';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { ContactRepository } from '../../../repositories/ContactRepository';
+import { campaignEmailService } from '../../../services/CampaignEmailService';
 import { logger } from '../../../utils/logger';
 
 export class MarketingController {
@@ -710,6 +711,164 @@ export class MarketingController {
         res.status(500).json({ success: false, error: message });
       } else {
         res.status(500).json({ success: false, error: 'Failed to delete contact' });
+      }
+    }
+  };
+
+  /**
+   * Send email campaign to imported contacts
+   */
+  sendContactEmailCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+      const { subject, htmlContent, contactIds } = req.body;
+
+      // Verify shop ownership
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      // Validate inputs
+      if (!subject || !htmlContent) {
+        res.status(400).json({ success: false, error: 'Subject and HTML content are required' });
+        return;
+      }
+
+      // Check if SendGrid is configured
+      if (!campaignEmailService.isReady()) {
+        res.status(500).json({
+          success: false,
+          error: 'Email service is not configured. Please set SENDGRID_API_KEY in environment variables.'
+        });
+        return;
+      }
+
+      // Get contacts to send to
+      let contacts;
+      if (contactIds && Array.isArray(contactIds) && contactIds.length > 0) {
+        // Send to specific contacts
+        contacts = await this.contactRepo.getContactsByIds(contactIds);
+      } else {
+        // Send to all active contacts
+        contacts = await this.contactRepo.getActiveContacts(shopId);
+      }
+
+      // Filter contacts with valid email addresses
+      const emailRecipients = contacts
+        .filter(c => c.email && c.status === 'active')
+        .map(c => ({
+          email: c.email!,
+          fullName: c.fullName,
+          contactId: c.id
+        }));
+
+      if (emailRecipients.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'No valid email recipients found'
+        });
+        return;
+      }
+
+      // Send bulk emails
+      const results = await campaignEmailService.sendBulkCampaignEmails({
+        subject,
+        htmlContent,
+        recipients: emailRecipients
+      });
+
+      // Update contact send counts
+      const sentContactIds = results
+        .filter(r => r.status === 'sent')
+        .map(r => r.contactId);
+
+      if (sentContactIds.length > 0) {
+        await this.contactRepo.incrementEmailSentCount(sentContactIds);
+      }
+
+      const successCount = results.filter(r => r.status === 'sent').length;
+      const failedCount = results.filter(r => r.status === 'failed').length;
+
+      res.json({
+        success: true,
+        data: {
+          totalRecipients: emailRecipients.length,
+          sent: successCount,
+          failed: failedCount,
+          results
+        }
+      });
+    } catch (error: unknown) {
+      logger.error('Error sending contact email campaign:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({ success: false, error: (error as { message: string }).message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to send email campaign' });
+      }
+    }
+  };
+
+  /**
+   * Send test email to shop owner
+   */
+  sendTestEmail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const shopId = req.params.shopId;
+      const { subject, htmlContent, testEmail } = req.body;
+
+      // Verify shop ownership
+      const userShopId = req.user?.shopId;
+      if (!userShopId || userShopId !== shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+
+      // Validate inputs
+      if (!subject || !htmlContent) {
+        res.status(400).json({ success: false, error: 'Subject and HTML content are required' });
+        return;
+      }
+
+      if (!testEmail) {
+        res.status(400).json({ success: false, error: 'Test email address is required' });
+        return;
+      }
+
+      // Check if SendGrid is configured
+      if (!campaignEmailService.isReady()) {
+        res.status(500).json({
+          success: false,
+          error: 'Email service is not configured. Please set SENDGRID_API_KEY in environment variables.'
+        });
+        return;
+      }
+
+      // Send test email
+      const result = await campaignEmailService.sendTestEmail(
+        testEmail,
+        subject,
+        htmlContent
+      );
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: `Test email sent successfully to ${testEmail}`
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: result.error || 'Failed to send test email'
+        });
+      }
+    } catch (error: unknown) {
+      logger.error('Error sending test email:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({ success: false, error: (error as { message: string }).message });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to send test email' });
       }
     }
   };

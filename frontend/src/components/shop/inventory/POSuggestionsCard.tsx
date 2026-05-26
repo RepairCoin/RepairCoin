@@ -17,6 +17,11 @@ import {
   ThumbsDown,
   ChevronDown,
   ChevronUp,
+  DollarSign,
+  Truck,
+  Star,
+  Award,
+  Zap,
 } from "lucide-react";
 
 interface POSuggestionsCardProps {
@@ -33,6 +38,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected">("pending");
+  const [expandedVendors, setExpandedVendors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadSuggestions();
@@ -155,6 +161,25 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
       default:
         return null;
     }
+  };
+
+  const toggleVendorComparison = (suggestionId: string) => {
+    setExpandedVendors((prev) => {
+      const next = new Set(prev);
+      if (next.has(suggestionId)) {
+        next.delete(suggestionId);
+      } else {
+        next.add(suggestionId);
+      }
+      return next;
+    });
+  };
+
+  const getPerformanceColor = (score?: number) => {
+    if (!score) return "text-gray-400";
+    if (score >= 80) return "text-green-400";
+    if (score >= 60) return "text-yellow-400";
+    return "text-orange-400";
   };
 
   if (loading) {
@@ -313,6 +338,149 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                   {suggestion.vendorName && (
                     <div className="mt-2 text-xs text-gray-500">
                       Vendor: <span className="font-medium text-gray-400">{suggestion.vendorName}</span>
+                    </div>
+                  )}
+
+                  {/* Vendor Comparison Section */}
+                  {suggestion.vendorComparisons && suggestion.vendorComparisons.length > 1 && (
+                    <div className="mt-3 border-t border-gray-800 pt-3">
+                      <button
+                        onClick={() => toggleVendorComparison(suggestion.id)}
+                        className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                      >
+                        {expandedVendors.has(suggestion.id) ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                        Compare {suggestion.vendorComparisons.length} Vendors
+                        <Zap className="w-3 h-3" />
+                      </button>
+
+                      {expandedVendors.has(suggestion.id) && (
+                        <div className="mt-3 space-y-2">
+                          {suggestion.vendorComparisons.map((vendor) => {
+                            const isRecommended = vendor.vendorId === suggestion.recommendedVendorId;
+
+                            return (
+                              <div
+                                key={vendor.vendorId}
+                                className={`relative bg-[#252525] rounded-lg border p-3 transition-colors ${
+                                  isRecommended
+                                    ? "border-purple-500 bg-purple-900/10"
+                                    : "border-gray-700 hover:border-gray-600"
+                                }`}
+                              >
+                                {/* Recommended Badge */}
+                                {isRecommended && (
+                                  <div className="absolute -top-2 -right-2">
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full shadow-lg">
+                                      <Star className="w-3 h-3 fill-current" />
+                                      Recommended
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                  {/* Vendor Name */}
+                                  <div className="md:col-span-2">
+                                    <p className="text-xs text-gray-500 mb-1">Vendor</p>
+                                    <p className="font-semibold text-white flex items-center gap-2">
+                                      {vendor.vendorName}
+                                      {vendor.isPreferred && (
+                                        <Award className="w-3 h-3 text-yellow-400" title="Preferred Vendor" />
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  {/* Unit Cost & Total */}
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Unit Cost</p>
+                                    <p className="text-sm font-semibold text-white">
+                                      ${vendor.unitCost.toFixed(2)}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                      Total: ${vendor.totalCost.toFixed(2)}
+                                    </p>
+                                    {vendor.isBestValue && (
+                                      <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-green-900/30 text-green-400 text-xs rounded">
+                                        <DollarSign className="w-3 h-3" />
+                                        Best Value
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Lead Time */}
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Lead Time</p>
+                                    <p className="text-sm font-semibold text-white flex items-center gap-1">
+                                      <Truck className="w-3 h-3" />
+                                      {vendor.leadTimeDays} days
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                      {new Date(vendor.estimatedDeliveryDate).toLocaleDateString()}
+                                    </p>
+                                    {vendor.isFastestDelivery && (
+                                      <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-blue-900/30 text-blue-400 text-xs rounded">
+                                        <Zap className="w-3 h-3" />
+                                        Fastest
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Performance Score */}
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Performance</p>
+                                    {vendor.historicalPerformanceScore ? (
+                                      <>
+                                        <div className="flex items-center gap-2">
+                                          <div className="flex-1 bg-gray-700 rounded-full h-2">
+                                            <div
+                                              className={`h-2 rounded-full transition-all ${
+                                                vendor.historicalPerformanceScore >= 80
+                                                  ? "bg-green-500"
+                                                  : vendor.historicalPerformanceScore >= 60
+                                                  ? "bg-yellow-500"
+                                                  : "bg-orange-500"
+                                              }`}
+                                              style={{ width: `${vendor.historicalPerformanceScore}%` }}
+                                            />
+                                          </div>
+                                          <span
+                                            className={`text-sm font-semibold ${getPerformanceColor(
+                                              vendor.historicalPerformanceScore
+                                            )}`}
+                                          >
+                                            {vendor.historicalPerformanceScore}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">Based on history</p>
+                                      </>
+                                    ) : (
+                                      <p className="text-xs text-gray-400">No history</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Notes */}
+                                {vendor.notes && (
+                                  <div className="mt-2 pt-2 border-t border-gray-700">
+                                    <p className="text-xs text-gray-400">{vendor.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* Comparison Footer */}
+                          <div className="mt-2 pt-2 border-t border-gray-700">
+                            <p className="text-xs text-gray-500">
+                              <strong className="text-gray-400">Performance scores</strong> are calculated from the last 12 months:
+                              on-time delivery (40%), order completion (30%), and cancellation rate penalty (-20%).
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

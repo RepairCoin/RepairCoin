@@ -382,4 +382,38 @@ export const inventoryApi = {
     const response = await apiClient.post(`/inventory/suggestions/${suggestionId}/reject`, data);
     return response.data;
   },
+
+  // Get accuracy metrics for PO suggestions
+  async getAccuracyMetrics(
+    shopId: string,
+    periodStart: string,
+    periodEnd: string
+  ): Promise<{
+    data: {
+      metrics: {
+        totalSuggestions: number;
+        approvedSuggestions: number;
+        rejectedSuggestions: number;
+        expiredSuggestions: number;
+        suggestionsWithPO: number;
+        accurateSuggestions: number;
+        inaccurateSuggestions: number;
+        pendingAssessment: number;
+        averageAccuracyScore: number;
+        trend: 'improving' | 'stable' | 'declining';
+      };
+      period: {
+        start: string;
+        end: string;
+      };
+    };
+  }> {
+    const params = new URLSearchParams({
+      periodStart,
+      periodEnd,
+    });
+
+    const response = await apiClient.get(`/inventory/suggestions/${shopId}/accuracy-metrics?${params}`);
+    return response;
+  },
 };

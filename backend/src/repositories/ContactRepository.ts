@@ -463,4 +463,56 @@ export class ContactRepository extends BaseRepository {
 
     await this.pool.query(query, [contactId]);
   }
+
+  /**
+   * Get contacts by array of IDs
+   */
+  async getContactsByIds(contactIds: string[]): Promise<Contact[]> {
+    if (contactIds.length === 0) {
+      return [];
+    }
+
+    const query = `
+      SELECT * FROM contact_imports
+      WHERE id = ANY($1)
+      ORDER BY full_name ASC
+    `;
+
+    const result = await this.pool.query(query, [contactIds]);
+    return result.rows.map(row => this.mapSnakeToCamel(row));
+  }
+
+  /**
+   * Get all active contacts for a shop
+   */
+  async getActiveContacts(shopId: string): Promise<Contact[]> {
+    const query = `
+      SELECT * FROM contact_imports
+      WHERE shop_id = $1
+        AND status = 'active'
+        AND email IS NOT NULL
+      ORDER BY full_name ASC
+    `;
+
+    const result = await this.pool.query(query, [shopId]);
+    return result.rows.map(row => this.mapSnakeToCamel(row));
+  }
+
+  /**
+   * Increment email sent count for multiple contacts
+   */
+  async incrementEmailSentCount(contactIds: string[]): Promise<void> {
+    if (contactIds.length === 0) {
+      return;
+    }
+
+    const query = `
+      UPDATE contact_imports
+      SET email_sent_count = email_sent_count + 1,
+          last_email_sent_at = CURRENT_TIMESTAMP
+      WHERE id = ANY($1)
+    `;
+
+    await this.pool.query(query, [contactIds]);
+  }
 }

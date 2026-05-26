@@ -571,6 +571,93 @@ export function initializeRoutes(): Router {
     controller.deleteContact
   );
 
+  /**
+   * @swagger
+   * /api/marketing/shops/{shopId}/contacts/send-email:
+   *   post:
+   *     summary: Send email campaign to imported contacts
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - subject
+   *               - htmlContent
+   *             properties:
+   *               subject:
+   *                 type: string
+   *               htmlContent:
+   *                 type: string
+   *               contactIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *                 description: Optional array of contact IDs to send to (sends to all active if not provided)
+   *     responses:
+   *       200:
+   *         description: Email campaign sent
+   */
+  router.post(
+    '/shops/:shopId/contacts/send-email',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.sendContactEmailCampaign
+  );
+
+  /**
+   * @swagger
+   * /api/marketing/shops/{shopId}/contacts/test-email:
+   *   post:
+   *     summary: Send test email
+   *     tags: [Marketing]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - subject
+   *               - htmlContent
+   *               - testEmail
+   *             properties:
+   *               subject:
+   *                 type: string
+   *               htmlContent:
+   *                 type: string
+   *               testEmail:
+   *                 type: string
+   *                 format: email
+   *     responses:
+   *       200:
+   *         description: Test email sent
+   */
+  router.post(
+    '/shops/:shopId/contacts/test-email',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.sendTestEmail
+  );
+
   // ==================== TEMPLATE ROUTES ====================
 
   /**

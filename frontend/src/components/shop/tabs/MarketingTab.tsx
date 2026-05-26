@@ -48,7 +48,9 @@ import {
   cancelCampaign,
 } from "@/services/api/marketing";
 import { CampaignBuilderModal } from "../marketing/CampaignBuilderModal";
+import { ContactListView } from "../marketing/ContactListView";
 import { CardCarousel } from "@/components/ui/CardCarousel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface MarketingTabProps {
   shopId: string;
@@ -243,6 +245,27 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Tabs for Campaigns and Contacts */}
+      <Tabs defaultValue="campaigns" className="w-full">
+        <TabsList className="bg-gray-800 border border-gray-700 p-1">
+          <TabsTrigger
+            value="campaigns"
+            className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+          >
+            <Megaphone className="w-4 h-4 mr-2" />
+            Campaigns
+          </TabsTrigger>
+          <TabsTrigger
+            value="contacts"
+            className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+          >
+            <Users className="w-4 h-4 mr-2" />
+            Contacts
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns" className="space-y-6 mt-6">
       {/* Stats Summary - Modern card design */}
       {stats && (
         <CardCarousel gridClassName="sm:grid-cols-2 lg:grid-cols-4">
@@ -663,6 +686,14 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+        </TabsContent>
+
+        {/* Contacts Tab */}
+        <TabsContent value="contacts" className="space-y-6 mt-6">
+          <ContactListView shopId={shopId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Campaign Builder Modal */}
       {showBuilder && selectedCampaignType && (

@@ -472,6 +472,20 @@ export interface ServiceUsingItem {
 export type POSuggestionUrgency = 'low' | 'medium' | 'high' | 'critical';
 export type POSuggestionStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'ordered';
 
+export interface VendorComparison {
+  vendorId: string;
+  vendorName: string;
+  unitCost: number;
+  totalCost: number;
+  leadTimeDays: number;
+  estimatedDeliveryDate: string;
+  historicalPerformanceScore?: number; // 0-100
+  isPreferred: boolean;
+  isBestValue: boolean;
+  isFastestDelivery: boolean;
+  notes?: string;
+}
+
 export interface POSuggestion {
   id: string;
   shopId: string;
@@ -501,6 +515,9 @@ export interface POSuggestion {
   approvedBy?: string;
   rejectedBy?: string;
   purchaseOrderId?: string;
+  // NEW: Vendor comparison data
+  vendorComparisons?: VendorComparison[];
+  recommendedVendorId?: string;
 }
 
 export interface POSuggestionFilters {

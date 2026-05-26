@@ -1207,7 +1207,7 @@ export function CampaignBuilderModal({
 
   return (
     <Dialog open={open} onOpenChange={() => onClose(false)}>
-      <DialogContent className="bg-[#1a1a1a] border-gray-800 z-[1100] w-screen h-[100dvh] max-w-full max-h-[100dvh] sm:w-full sm:max-w-6xl sm:h-auto sm:max-h-[95vh] p-0 overflow-hidden rounded-none sm:rounded-lg flex flex-col gap-0 [&>button.absolute]:hidden" aria-describedby={undefined}>
+      <DialogContent className="bg-[#1a1a1a] border-gray-800 z-[1210] w-screen h-[100dvh] max-w-full max-h-[100dvh] sm:w-full sm:max-w-6xl sm:h-auto sm:max-h-[95vh] p-0 overflow-hidden rounded-none sm:rounded-lg flex flex-col gap-0 [&>button.absolute]:hidden" aria-describedby={undefined}>
         <VisuallyHidden>
           <DialogTitle>Campaign Builder</DialogTitle>
         </VisuallyHidden>
