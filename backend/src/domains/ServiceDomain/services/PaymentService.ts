@@ -706,28 +706,6 @@ export class PaymentService {
         }
       }
 
-      // Send notification to shop about new booking
-      try {
-        const service = await this.serviceRepository.getServiceById(order.serviceId);
-        const customer = await customerRepository.getCustomer(order.customerAddress);
-        const shop = await shopRepository.getShop(order.shopId);
-
-        if (service && shop && shop.walletAddress) {
-          await this.notificationService.createServiceBookingReceivedNotification(
-            order.customerAddress,
-            shop.walletAddress,
-            customer?.name || 'Customer',
-            service.serviceName,
-            order.totalAmount,
-            order.orderId
-          );
-          logger.info('Booking notification sent to shop', { shopId: order.shopId, orderId: order.orderId });
-        }
-      } catch (notifError) {
-        logger.error('Failed to send booking notification:', notifError);
-        // Don't fail the payment if notification fails
-      }
-
       // Send new-booking and payment-received emails to shop.
       // Both are preference-gated via sendEmailWithPreferenceCheck — will auto-
       // suppress if the shop has the respective toggle off.
