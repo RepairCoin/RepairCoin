@@ -27,6 +27,7 @@ export interface MarketingCampaign {
   emailsClicked: number;
   inAppSent: number;
   inAppRead: number;
+  createdBySource: 'manual' | 'ai_agent';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,6 +74,7 @@ export interface CreateCampaignParams {
   couponType?: 'fixed' | 'percentage';
   couponExpiresAt?: Date;
   serviceId?: string;
+  createdBySource?: 'manual' | 'ai_agent';
 }
 
 export interface UpdateCampaignParams {
@@ -101,9 +103,9 @@ export class MarketingCampaignRepository extends BaseRepository {
         shop_id, name, campaign_type, subject, preview_text,
         design_content, template_id, audience_type, audience_filters,
         delivery_method, scheduled_at, promo_code_id, coupon_value,
-        coupon_type, coupon_expires_at, service_id
+        coupon_type, coupon_expires_at, service_id, created_by_source
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
       )
       RETURNING *
     `;
@@ -124,7 +126,8 @@ export class MarketingCampaignRepository extends BaseRepository {
       params.couponValue || null,
       params.couponType || null,
       params.couponExpiresAt || null,
-      params.serviceId || null
+      params.serviceId || null,
+      params.createdBySource || 'manual'
     ];
 
     try {
@@ -655,6 +658,7 @@ export class MarketingCampaignRepository extends BaseRepository {
       emailsClicked: row.emails_clicked || 0,
       inAppSent: row.in_app_sent || 0,
       inAppRead: row.in_app_read || 0,
+      createdBySource: row.created_by_source || 'manual',
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
