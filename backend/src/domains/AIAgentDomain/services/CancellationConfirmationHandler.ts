@@ -154,9 +154,26 @@ export class CancellationConfirmationHandler {
     const shopName = shop?.name ?? "the shop";
     const slotLabel = this.formatSlot(order.bookingDate, order.bookingTime);
 
-    const messageText = slotLabel
-      ? `Got it ${customerName} — your appointment at ${shopName} on ${slotLabel} has been cancelled.`
-      : `Got it ${customerName} — your appointment at ${shopName} has been cancelled.`;
+    // Branch wording on who initiated the cancellation. The customer
+    // self-cancel path ("Got it...") reads like an acknowledgement of the
+    // customer's own action. The shop-initiated path needs different
+    // framing so the customer understands the shop changed plans on them.
+    // Free-form `cancellation_notes` (if the shop typed any) is the most
+    // useful "why" — the categorical `cancellation_reason` code is too
+    // techie ("schedule_conflict") to put in a customer-facing message.
+    const cancelledByShop = payload.cancelledBy === "shop";
+    let messageText: string;
+    if (cancelledByShop) {
+      const notes = (order.cancellationNotes ?? "").trim();
+      const reasonSuffix = notes ? ` Reason: ${notes}.` : "";
+      messageText = slotLabel
+        ? `${shopName} had to cancel your appointment on ${slotLabel}.${reasonSuffix}`
+        : `${shopName} had to cancel your appointment.${reasonSuffix}`;
+    } else {
+      messageText = slotLabel
+        ? `Got it ${customerName} — your appointment at ${shopName} on ${slotLabel} has been cancelled.`
+        : `Got it ${customerName} — your appointment at ${shopName} has been cancelled.`;
+    }
 
     const aiMessageId = `msg_${Date.now()}_${uuidv4().slice(0, 8)}`;
     try {

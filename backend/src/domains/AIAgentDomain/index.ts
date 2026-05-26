@@ -167,6 +167,18 @@ export class AIAgentDomain implements DomainModule {
       `${this.name} domain: subscribed to reschedule:request_expired`
     );
 
+    // Phase 7 — direct shop reschedule (no customer request involved).
+    // Distinct event published by RescheduleService.directRescheduleOrder.
+    eventBus.subscribe(
+      'booking:rescheduled_by_shop',
+      (event) =>
+        this.rescheduleRequestOutcomeHandler.handleDirectReschedule(event),
+      'AIAgentDomain'
+    );
+    logger.info(
+      `${this.name} domain: subscribed to booking:rescheduled_by_shop`
+    );
+
     // Start the AI sales follow-up detector — polls every 5 minutes for
     // customers who went quiet mid-conversation and nudges them. Per-shop
     // gated by ai_shop_settings.ai_followup_enabled (staged rollout: OFF
