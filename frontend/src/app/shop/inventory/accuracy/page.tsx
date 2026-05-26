@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { inventoryApi } from "@/services/api/inventory";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "react-hot-toast";
 import {
   TrendingUp,
