@@ -8,6 +8,7 @@ import { OrderConfirmationHandler } from './services/OrderConfirmationHandler';
 import { BookingConfirmationHandler } from './services/BookingConfirmationHandler';
 import { CancellationConfirmationHandler } from './services/CancellationConfirmationHandler';
 import { RescheduleRequestConfirmationHandler } from './services/RescheduleRequestConfirmationHandler';
+import { RescheduleRequestOutcomeHandler } from './services/RescheduleRequestOutcomeHandler';
 import { AISalesFollowUpHandler } from './services/AISalesFollowUpHandler';
 import { AISalesFollowUpDetector } from './services/AISalesFollowUpDetector';
 import { WebSocketManager } from '../../services/WebSocketManager';
@@ -41,6 +42,11 @@ export class AIAgentDomain implements DomainModule {
   // construct unconditionally — no ANTHROPIC_API_KEY dependency.
   private cancellationConfirmationHandler: CancellationConfirmationHandler;
   private rescheduleRequestConfirmationHandler: RescheduleRequestConfirmationHandler;
+  // Outcome handler — fires on shop approve / reject / auto-expire of a
+  // reschedule request. Three subscriptions, one class. Phase 6 of the
+  // reschedule + cancel chat work — closes the loop after the customer's
+  // initial submission ack from Phase 5.
+  private rescheduleRequestOutcomeHandler: RescheduleRequestOutcomeHandler;
   // AI sales follow-up nudge (Claude-backed) — lazily constructed since it
   // needs ANTHROPIC_API_KEY. The detector polls; the handler sends.
   private followUpHandler: AISalesFollowUpHandler | null = null;
@@ -52,6 +58,8 @@ export class AIAgentDomain implements DomainModule {
     this.cancellationConfirmationHandler = new CancellationConfirmationHandler();
     this.rescheduleRequestConfirmationHandler =
       new RescheduleRequestConfirmationHandler();
+    this.rescheduleRequestOutcomeHandler =
+      new RescheduleRequestOutcomeHandler();
   }
 
   /**
@@ -66,6 +74,7 @@ export class AIAgentDomain implements DomainModule {
     this.bookingConfirmationHandler.setWebSocketManager(wsManager);
     this.cancellationConfirmationHandler.setWebSocketManager(wsManager);
     this.rescheduleRequestConfirmationHandler.setWebSocketManager(wsManager);
+    this.rescheduleRequestOutcomeHandler.setWebSocketManager(wsManager);
     // followUpHandler is constructed in initialize() (runs before this).
     this.followUpHandler?.setWebSocketManager(wsManager);
   }
@@ -124,6 +133,38 @@ export class AIAgentDomain implements DomainModule {
     );
     logger.info(
       `${this.name} domain: subscribed to reschedule:request_created`
+    );
+
+    // Phase 6 outcome subscriptions — close the loop after the shop
+    // responds (or doesn't). One handler class, three event names.
+    eventBus.subscribe(
+      'reschedule:request_approved',
+      (event) =>
+        this.rescheduleRequestOutcomeHandler.handleRequestApproved(event),
+      'AIAgentDomain'
+    );
+    logger.info(
+      `${this.name} domain: subscribed to reschedule:request_approved`
+    );
+
+    eventBus.subscribe(
+      'reschedule:request_rejected',
+      (event) =>
+        this.rescheduleRequestOutcomeHandler.handleRequestRejected(event),
+      'AIAgentDomain'
+    );
+    logger.info(
+      `${this.name} domain: subscribed to reschedule:request_rejected`
+    );
+
+    eventBus.subscribe(
+      'reschedule:request_expired',
+      (event) =>
+        this.rescheduleRequestOutcomeHandler.handleRequestExpired(event),
+      'AIAgentDomain'
+    );
+    logger.info(
+      `${this.name} domain: subscribed to reschedule:request_expired`
     );
 
     // Start the AI sales follow-up detector — polls every 5 minutes for
