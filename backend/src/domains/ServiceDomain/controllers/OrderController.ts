@@ -811,7 +811,11 @@ export class OrderController {
         cancellationNotes
       );
 
-      // Emit order cancelled event for auto-messages and other subscribers
+      // Emit order cancelled event for auto-messages and other subscribers.
+      // `cancelledBy: 'shop'` matches the customer-cancel path's
+      // `cancelledBy: 'customer'` convention so downstream handlers can
+      // pick the right wording (AI chat confirmation message in particular
+      // — see CancellationConfirmationHandler).
       try {
         await eventBus.publish(createDomainEvent(
           'service.order_cancelled',
@@ -822,6 +826,7 @@ export class OrderController {
             shopId: order.shopId,
             serviceId: order.serviceId,
             cancellationReason,
+            cancelledBy: 'shop',
           },
           'ServiceDomain'
         ));
