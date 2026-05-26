@@ -114,31 +114,41 @@ export function CancellationConfirmModal({
         }
       }}
     >
-      <DialogContent className="sm:max-w-lg">
+      {/*
+        Solid-dark background + explicit light text colors throughout.
+        The previous version relied on shadcn theme tokens (bg-background,
+        text-muted-foreground) which read as very low contrast against the
+        dashboard's dark backdrop — title + description + summary card were
+        all near-invisible. Switched to a hard-coded gray-900 surface with
+        gray-100 / gray-300 / gray-400 text so the modal is readable
+        regardless of the theme variables resolved at runtime.
+      */}
+      <DialogContent className="sm:max-w-lg bg-gray-900 border-gray-700 text-gray-100">
         <DialogHeader>
-          <DialogTitle>Cancel this appointment?</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-white">
+            Cancel this appointment?
+          </DialogTitle>
+          <DialogDescription className="text-gray-300">
             The slot will be freed and you'll need to re-book if you change your mind.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Appointment summary — rendered outside DialogDescription so the
-            multi-line block-level content doesn't sit inside the <p> element
-            Radix renders for descriptions. Cleaner DOM + cleaner styling. */}
-        <div className="rounded-md border bg-muted/30 px-3 py-2 space-y-0.5">
-          <div className="font-medium text-foreground">
+        {/* Appointment summary — solid lighter surface so it pops against
+            the gray-900 modal body. */}
+        <div className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 space-y-0.5">
+          <div className="font-semibold text-white">
             {proposal.serviceName}
           </div>
-          <div className="text-sm text-muted-foreground">{timeLabel}</div>
+          <div className="text-sm text-gray-300">{timeLabel}</div>
         </div>
 
         <div className="space-y-2">
           <label
             htmlFor="cancel-reason"
-            className="text-sm font-medium text-foreground"
+            className="text-sm font-medium text-gray-100"
           >
             Reason{" "}
-            <span className="text-xs text-muted-foreground font-normal">
+            <span className="text-xs text-gray-400 font-normal">
               (optional)
             </span>
           </label>
@@ -150,7 +160,7 @@ export function CancellationConfirmModal({
             rows={3}
             maxLength={500}
             disabled={submitting}
-            className="resize-none"
+            className="resize-none bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500"
           />
         </div>
 
@@ -174,6 +184,7 @@ export function CancellationConfirmModal({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
+            className="bg-gray-800 border-gray-700 text-gray-100 hover:bg-gray-700 hover:text-white"
           >
             Keep it
           </Button>
@@ -183,6 +194,7 @@ export function CancellationConfirmModal({
             onClick={handleConfirm}
             disabled={submitting}
             aria-label="Confirm cancellation"
+            className="bg-red-600 hover:bg-red-700 text-white"
           >
             {submitting ? (
               <>
