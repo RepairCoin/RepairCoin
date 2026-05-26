@@ -1,6 +1,6 @@
 # AI Sales Agent — Status
 
-_Last updated: 2026-05-25 (reschedule + cancel implementation landed on branch)_
+_Last updated: 2026-05-26 (Phase 7 shop-initiated notifications shipped PR #392)_
 
 This doc is the running status of in-flight AI Sales Agent work. Update it when the situation changes so a fresh Claude session (or anyone picking up the thread) can resume without re-discovering state.
 
@@ -13,6 +13,8 @@ This doc is the running status of in-flight AI Sales Agent work. Update it when 
 | Multi-turn topic drift + duplicate-card fixes | `deo/ai-mike-tool-overeager-fix` | ✅ Merged (PR #347, commit `7c62c76b`) — live on staging |
 | Menu-item FAQ surfacing | `deo/ai-menu-item-faq` | ✅ Merged (PR #348, merge commit `547b1b26`) — deployed on staging 2026-05-13 evening |
 | **Reschedule + cancel via chat** | `deo/ai-sales-reschedule-cancel` | ✅ **Merged (PR #384, merge `fe584af4`)** — shipped 2026-05-25. 9 commits, all 5 phases. ~3.5d actual against an estimated 6-8d. 835/835 ai-agent tests green. End-to-end smoke optional — `qa-fixtures/` ready when wanted. See "Reschedule + cancel implementation" section below. |
+| **Phase 6 — outcome confirmations (approve/reject/expire)** | `deo/ai-sales-reschedule-outcome-handlers` | ✅ **Merged (PR #387, merge `33370671`)** — shipped 2026-05-26. RescheduleRequestOutcomeHandler subscribes to 3 events from RescheduleService and posts in-chat AI messages after the shop responds. Closes the loop on PR #384's "request submitted" beat. |
+| **Phase 7 — shop-initiated cancel + direct-reschedule** | `deo/ai-sales-shop-initiated-notifications` | ✅ **Merged (PR #392, merge `bf0b6346`)** — shipped 2026-05-26. Two gaps closed: (a) shop-cancel via dashboard now uses shop-initiated wording instead of the misleading "Got it..." customer-self-cancel template, gated on `payload.cancelledBy`; (b) shop direct-reschedule (no customer request) now posts a chat message via a new subscription to `booking:rescheduled_by_shop`. 6 distinct event paths feed the AI-chat reschedule/cancel pipeline. |
 | "Currently discussing" chip dynamic update | `deo/ai-menu-item-faq` (extended) | 🟡 Implemented locally — stamps `discussed_service_id`/`discussed_service_name` on every AI message; chip reads latest AI message's value with prop fallback. 10 unit tests passing. Not yet committed. |
 | Slot-taken explicit awareness | — | ⏸ Parked (current "closest available" UX is acceptable) |
 
