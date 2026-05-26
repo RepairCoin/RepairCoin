@@ -12,6 +12,7 @@ import { ServiceRepository } from '../repositories/ServiceRepository';
 import { EmailService } from './EmailService';
 import { WebSocketManager } from './WebSocketManager';
 import { PaginatedResult, PaginationParams } from '../repositories/BaseRepository';
+import { eventBus, createDomainEvent } from '../events/EventBus';
 
 interface ShopInfo {
   id: string;
@@ -204,6 +205,33 @@ export class MarketingService {
 
     logger.info(`Campaign ${campaignId} sent successfully`, result);
 
+    // Publish campaign-sent event so downstream subscribers (e.g., the AI
+    // Marketing thread's CampaignSentConfirmationHandler in Phase 4) can
+    // post a confirmation message back into the originating chat. Event
+    // payload carries `source` so the handler can scope itself to
+    // AI-originated sends and ignore manual builds.
+    try {
+      await eventBus.publish(createDomainEvent(
+        'marketing.campaign_sent',
+        campaign.shopId,
+        {
+          campaignId,
+          shopId: campaign.shopId,
+          audienceType: campaign.audienceType,
+          deliveryMethod: campaign.deliveryMethod,
+          recipientCount: result.totalRecipients,
+          emailsSent: result.emailsSent,
+          emailsFailed: result.emailsFailed,
+          inAppSent: result.inAppSent,
+          inAppFailed: result.inAppFailed,
+          source: campaign.createdBySource,
+        },
+        'MarketingDomain'
+      ));
+    } catch (eventError) {
+      logger.error('Error publishing marketing.campaign_sent event:', eventError);
+    }
+
     return result;
   }
 
@@ -328,6 +356,17 @@ export class MarketingService {
           cutoffDate.setDate(cutoffDate.getDate() - audienceFilters.lastVisitDays);
           filtered = filtered.filter(c =>
             c.lastVisit && new Date(c.lastVisit) >= cutoffDate
+          );
+        }
+        // Lapsed-customer filter — keep customers whose last visit was at
+        // least N days ago (the inverse of lastVisitDays). Customers with
+        // no recorded lastVisit are excluded — they never engaged, so they
+        // are not "lapsed" in any meaningful sense.
+        if (audienceFilters?.minDaysSinceLastVisit) {
+          const lapsedCutoff = new Date();
+          lapsedCutoff.setDate(lapsedCutoff.getDate() - audienceFilters.minDaysSinceLastVisit);
+          filtered = filtered.filter(c =>
+            c.lastVisit && new Date(c.lastVisit) <= lapsedCutoff
           );
         }
 
