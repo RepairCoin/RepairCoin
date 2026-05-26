@@ -287,10 +287,13 @@ export function CampaignBuilderModal({
         let servicesList: ShopService[] = [];
         if (result) {
           // Response could be { success, data: [...], pagination } or { items: [...] }
+          // Both branches use `as any` because the static PaginatedResponse
+          // type doesn't model these runtime-fallback shapes — they're
+          // defensive for older API responses that may still be in flight.
           if (Array.isArray((result as any).data)) {
             servicesList = (result as any).data;
-          } else if (result.items && Array.isArray(result.items)) {
-            servicesList = result.items;
+          } else if ((result as any).items && Array.isArray((result as any).items)) {
+            servicesList = (result as any).items;
           } else if (Array.isArray(result)) {
             servicesList = result as unknown as ShopService[];
           }

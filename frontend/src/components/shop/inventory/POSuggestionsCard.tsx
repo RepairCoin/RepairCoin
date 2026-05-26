@@ -69,7 +69,7 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
         toast.success(`Generated ${response.count} new purchase order suggestions!`);
         setExpanded(true);
       } else {
-        toast.info("No purchase order suggestions needed at this time");
+        toast("No purchase order suggestions needed at this time");
       }
     } catch (error) {
       console.error("Error generating suggestions:", error);
@@ -388,7 +388,9 @@ export function POSuggestionsCard({ shopId, onSuggestionActioned }: POSuggestion
                                     <p className="font-semibold text-white flex items-center gap-2">
                                       {vendor.vendorName}
                                       {vendor.isPreferred && (
-                                        <Award className="w-3 h-3 text-yellow-400" title="Preferred Vendor" />
+                                        <span title="Preferred Vendor" aria-label="Preferred Vendor">
+                                          <Award className="w-3 h-3 text-yellow-400" />
+                                        </span>
                                       )}
                                     </p>
                                   </div>
