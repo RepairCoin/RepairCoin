@@ -258,22 +258,19 @@ Branch: `deo/ai-marketing-phase-3-frontend`.
 
 ---
 
-### Phase 4 — Campaign-sent event handler (0.5d)
+### Phase 4 — Campaign-sent event handler — **SKIPPED (2026-05-26)**
 
-Branch: `deo/ai-marketing-phase-4-confirmation-handler`.
+**Why skipped:** Original plan was a `CancellationConfirmationHandler`-style backend subscriber that posts a "Campaign sent. N emails queued" message into the AI chat thread. But the marketing surface doesn't share the `conversations` / `messages` persistence the customer chat uses — Phase 2 writes to `ai_marketing_messages` (one row per Claude call, session-grouped), and Phase 3 holds turns in local React state (session-bound, cleared on Sheet close).
 
-- [ ] `CampaignSentConfirmationHandler.ts` in `AIMarketingDomain/services/`
-  - Mirror `CancellationConfirmationHandler` pattern
-  - Subscribe to `campaign:sent`
-  - Post templated message back into the shop's marketing thread:
-    - Success: "Campaign sent. {recipientCount} emails queued, {failedCount} failed at handoff."
-    - Failure mode: "Campaign send hit an error — {error}. Open the Marketing tab to retry."
-  - Idempotency: `metadata.source='campaign_sent_confirmed' + campaign_id`
-  - Skip if `source !== 'ai_agent'` (manual sends shouldn't trigger AI-thread messages)
-- [ ] Register handler in `AIMarketingDomain.init()`
-- [ ] WebSocket broadcast to shop wallet for live update
+So a server-side handler posting "into the chat thread" has nowhere to post. The two options were:
+1. Add a `marketing_chat_conversations` persistence layer first — breaks the deliberate "session-bound, lost on close" design from Phase 3
+2. Skip the handler entirely — the frontend already shows confirmation via `CampaignDraftCard`'s emerald "Sent" transition (`MarketingToolCallCard.tsx:96-112`) and `CampaignSendCard`'s post-confirm state. The shop just tapped Send; a re-confirm message would be redundant.
 
-**Acceptance:** Send campaign via AI → confirmation message appears in same thread within ~2s of send.
+**Decision:** Skip — UI surface already covers the user need.
+
+`marketing.campaign_sent` event still fires (Phase 1's MarketingService.sendCampaign emit) — left in place for future subscribers (analytics, cron-driven recommendations, etc.). It's just unsubscribed from the AI chat surface for now.
+
+The Phase 1 `created_by_source='ai_agent'` column tagging on `marketing_campaigns` is still useful for the 50-drafts/day guard (Phase 2 already uses it) and for audit / analytics queries.
 
 ---
 
