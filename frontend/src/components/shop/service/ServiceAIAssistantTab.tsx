@@ -15,6 +15,7 @@ import {
   type FaqEntry,
 } from "@/components/shop/service/AIFaqEditor";
 import type { AITone } from "@/utils/aiPreviewMocks";
+import { getShopAiSettings } from "@/services/api/aiSettings";
 
 /**
  * ServiceAIAssistantTab
@@ -129,6 +130,27 @@ export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
   // currentState reflects live edits.
   const [initialState, setInitialState] = useState<AIEditorState | null>(null);
   const [currentState, setCurrentState] = useState<AIEditorState | null>(null);
+
+  // Shop-level AI gate state — when false, we surface a banner at the
+  // top of the tab explaining that the shop-level master switch is off
+  // so the per-service edits won't actually fire. See
+  // docs/tasks/ai-ux-shop-gate-clarity.md. undefined = still loading or
+  // fetch failed; we only render the banner when explicitly false.
+  const [shopAiEnabled, setShopAiEnabled] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    getShopAiSettings()
+      .then((s) => {
+        if (!cancelled) setShopAiEnabled(s.aiGlobalEnabled);
+      })
+      .catch(() => {
+        // Silent — leave undefined. Banner just won't show.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // `hasChanges` drives the Save button's disabled state. Memo so the
   // FAQ-normalize comparison only re-runs when state references change.
@@ -267,6 +289,31 @@ export const ServiceAIAssistantTab: React.FC<ServiceAIAssistantTabProps> = ({
 
   return (
     <div>
+      {/* Shop-level AI gate banner — only when explicitly off (not
+          undefined, which means loading or fetch errored). Yellow tone
+          signals "configuration is fine, but it's not active yet" —
+          softer than red (which would imply error). The shop owner can
+          still configure their AI settings on this page; the banner
+          just communicates that those settings won't fire until the
+          shop-level master is activated by RepairCoin. */}
+      {shopAiEnabled === false && (
+        <div className="mb-4 rounded-xl bg-yellow-900/20 border border-yellow-700/60 px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-yellow-300">
+              Your shop&apos;s AI Sales Agent isn&apos;t activated yet
+            </p>
+            <p className="text-sm text-yellow-200/80 mt-1 leading-relaxed">
+              Any AI settings you save here won&apos;t take effect until
+              RepairCoin activates AI for your shop. You can still
+              configure your preferences — they&apos;ll start working
+              automatically once your shop is approved. Contact
+              RepairCoin support to request activation.
+            </p>
+          </div>
+        </div>
+      )}
+
       <AISalesAssistantSection
         enabled={currentState.enabled}
         tone={currentState.tone}
