@@ -304,21 +304,34 @@ export class MarketingService {
       case 'all_customers':
         return shopCustomers;
 
-      case 'top_spenders':
-        // Filter by total spent (top 20%)
+      case 'top_spenders': {
+        // Sort by total spent descending.
         const sortedBySpent = shopCustomers.sort((a, b) =>
           (b.totalSpent || 0) - (a.totalSpent || 0)
         );
-        const topCount = Math.max(1, Math.ceil(sortedBySpent.length * 0.2));
-        return sortedBySpent.slice(0, topCount);
+        // Honor explicit `limit` from natural-language "top N" requests
+        // (AI marketing prompt rule 5 — "top 100" means literal 100, not
+        // top 20%). Falls back to top 20% when no limit is supplied —
+        // preserves the existing manual-builder behavior.
+        const topLimit = typeof audienceFilters?.limit === 'number' && audienceFilters.limit > 0
+          ? audienceFilters.limit
+          : Math.max(1, Math.ceil(sortedBySpent.length * 0.2));
+        return sortedBySpent.slice(0, topLimit);
+      }
 
-      case 'frequent_visitors':
-        // Filter by visit count (top 20%)
+      case 'frequent_visitors': {
+        // Sort by visit count descending. Same limit-honoring pattern as
+        // top_spenders — natural-language "top N visitors" resolves to
+        // audienceFilters.limit; manual-builder uses no limit and falls
+        // back to top 20%.
         const sortedByVisits = shopCustomers.sort((a, b) =>
           (b.visitCount || 0) - (a.visitCount || 0)
         );
-        const frequentCount = Math.max(1, Math.ceil(sortedByVisits.length * 0.2));
-        return sortedByVisits.slice(0, frequentCount);
+        const frequentLimit = typeof audienceFilters?.limit === 'number' && audienceFilters.limit > 0
+          ? audienceFilters.limit
+          : Math.max(1, Math.ceil(sortedByVisits.length * 0.2));
+        return sortedByVisits.slice(0, frequentLimit);
+      }
 
       case 'active_customers':
         // Customers who visited in the last 30 days
