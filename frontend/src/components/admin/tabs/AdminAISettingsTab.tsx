@@ -206,6 +206,7 @@ const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
           checked={shop.aiGlobalEnabled}
           disabled={saving}
           onCheckedChange={(v) => onUpdate(shop.shopId, { aiGlobalEnabled: v })}
+          className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
         />
       </td>
       <td className="px-4 py-3">
@@ -216,6 +217,7 @@ const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
             onCheckedChange={(v) =>
               onUpdate(shop.shopId, { aiFollowupEnabled: v })
             }
+            className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
           />
           {!shop.aiGlobalEnabled && (
             <span className="text-[11px] text-gray-600">Enable AI first</span>
