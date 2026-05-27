@@ -5,8 +5,8 @@ import {
   UpdateAvailabilityRequest,
   TimeSlotConfig,
   CreateDateOverrideRequest,
-} from "@/feature/appointment/services/appointment.interface";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+} from "@/feature/services/services/service.interface";
+import { appointmentApi } from "@/feature/services/services/service.services";
 
 export function useUpdateShopAvailabilityMutation() {
   const queryClient = useQueryClient();

@@ -3,9 +3,9 @@ import {
   ShopAvailability,
   TimeSlotConfig,
   DateOverride,
-} from "@/feature/appointment/services/appointment.interface";
+} from "@/feature/services/services/service.interface";
 import { useAppToast } from "@/shared/hooks";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/feature/services/services/service.services";
 import { PendingAvailabilityChanges, AvailabilityTab } from "@/feature/services/services/service.interface";
 import { TIME_OPTIONS } from "@/shared/constants/services";
 

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { router } from "expo-router";
 import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/feature/services/booking/hooks";
 import { useAppToast } from "@/shared/hooks";
-import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
+import { MyAppointment } from "@/feature/services/services/service.interface";
 import { BookingFilterTab, BookingStatusFilter } from "@/feature/services/services/service.interface";
 import { getBookingDateRange, TIME_FILTERS, STATUS_FILTERS } from "@/shared/constants/services";
 

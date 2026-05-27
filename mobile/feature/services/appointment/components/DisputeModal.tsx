@@ -11,10 +11,8 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  NoShowHistoryEntry,
-  disputeApi,
-} from "../services/dispute.services";
+import { NoShowHistoryEntry } from "@/feature/services/services/service.interface";
+import { disputeApi } from "@/feature/services/services/service.services";
 import { useAppToast } from "@/shared/hooks/useAppToast";
 
 interface DisputeModalProps {

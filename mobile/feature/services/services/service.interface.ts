@@ -1,9 +1,10 @@
 import { ServiceCategory } from "@/shared/constants/service-categories";
 import { BaseResponse } from "@/shared/interfaces/base.interface";
-import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
-import { TimeSlot, ShopAvailability } from "@/feature/appointment/services/appointment.interface";
 import { DateData } from "react-native-calendars";
 
+export type AppointmentStep = "schedule" | "discount";
+export type AppointmentFilterStatus = "all" | "approved" | BookingStatus;
+export type NoShowTier = 'normal' | 'warning' | 'caution' | 'deposit_required' | 'suspended';
 export type PaymentType = "subscription" | "token_purchase";
 export type TrendDays = 7 | 30 | 90;
 export type BookingStep = "schedule" | "discount";
@@ -25,6 +26,119 @@ export type ServiceSortOption =
   | "duration_short"
   | "duration_long"
   | "newest";
+export type RescheduleRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired"
+  | "cancelled";
+  
+export interface TimeSlot { time: string; available: boolean; bookedCount: number; maxBookings: number; }
+export interface ShopAvailability { availabilityId: string; shopId: string; dayOfWeek: number; isOpen: boolean; openTime: string | null; closeTime: string | null; breakStartTime: string | null; breakEndTime: string | null; createdAt: string; updatedAt: string; }
+export interface TimeSlotConfig { configId: string; shopId: string; slotDurationMinutes: number; bufferTimeMinutes: number; maxConcurrentBookings: number; bookingAdvanceDays: number; minBookingHours: number; allowWeekendBooking: boolean; createdAt: string; updatedAt: string; }
+export interface DateOverride { overrideId: string; shopId: string; overrideDate: string; isClosed: boolean; customOpenTime: string | null; customCloseTime: string | null; reason: string | null; createdAt: string; }
+export interface CalendarBooking { orderId: string; shopId: string; serviceId: string; serviceName: string; customerAddress: string; customerName: string | null; bookingDate: string; bookingTimeSlot: string | null; bookingEndTime: string | null; status: string; totalAmount: number; notes: string | null; createdAt: string; }
+export interface UpdateAvailabilityRequest { dayOfWeek: number; isOpen: boolean; openTime?: string; closeTime?: string; breakStartTime?: string; breakEndTime?: string; }
+export interface CreateDateOverrideRequest { overrideDate: string; isClosed?: boolean; customOpenTime?: string; customCloseTime?: string; reason?: string; }
+export interface MyAppointment { orderId: string; shopId: string; shopName: string; shopAddress: string | null; shopPhone: string | null; serviceId: string; serviceName: string; serviceImage: string | null; bookingDate: string; bookingTimeSlot: string | null; bookingEndTime: string | null; status: string; totalAmount: number; notes: string | null; createdAt: string; hasReview?: boolean; }
+export interface ServiceFilters { shopId?: string; category?: ServiceCategory; search?: string; minPrice?: number; maxPrice?: number; page?: number; limit?: number; }
+export interface ServiceData { active: boolean; category: ServiceCategory; createdAt: string; description: string; durationMinutes: number; imageUrl: string; priceUsd: number; serviceId: string; serviceName: string; shopId: string; tags: string[]; updatedAt: string; avgRating?: number; reviewCount?: number; shopName?: string; shopAddress?: string; shopPhone?: string; shopEmail?: string; }
+export interface CreateServiceRequest { serviceName: string; description?: string; category?: string; priceUsd: number; durationMinutes?: number; imageUrl?: string; tags?: string[]; active?: boolean; }
+export interface UpdateServiceData { serviceName?: string; description?: string; priceUsd?: number; durationMinutes?: number; category?: ServiceCategory; imageUrl?: string; tags?: string[]; active?: boolean; }
+
+export interface CustomerNoShowStatus {
+  customerAddress: string;
+  noShowCount: number;
+  tier: NoShowTier;
+  depositRequired: boolean;
+  lastNoShowAt?: string;
+  bookingSuspendedUntil?: string;
+  successfulAppointmentsSinceTier3: number;
+  canBook: boolean;
+  requiresDeposit: boolean;
+  minimumAdvanceHours: number;
+  restrictions: string[];
+  isHomeShop?: boolean;
+  maxRcnRedemptionPercent?: number;
+}
+
+export interface NoShowHistoryEntry {
+  id: string;
+  customerAddress: string;
+  orderId: string;
+  serviceId: string;
+  shopId: string;
+  scheduledTime: string;
+  markedNoShowAt: string;
+  markedBy?: string;
+  notes?: string;
+  gracePeriodMinutes: number;
+  customerTierAtTime?: string;
+  disputed: boolean;
+  disputeStatus?: "pending" | "approved" | "rejected";
+  disputeReason?: string;
+  disputeSubmittedAt?: string;
+  disputeResolvedAt?: string;
+  createdAt: string;
+}
+
+export interface DisputeResponse {
+  dispute: NoShowHistoryEntry;
+  autoApproved: boolean;
+  message: string;
+}
+
+export interface NoShowPolicy {
+  shopId: string;
+  enabled: boolean;
+  gracePeriodMinutes: number;
+  minimumCancellationHours: number;
+  autoDetectionEnabled: boolean;
+  autoDetectionDelayHours: number;
+  cautionThreshold: number;
+  cautionAdvanceBookingHours: number;
+  depositThreshold: number;
+  depositAmount: number;
+  depositAdvanceBookingHours: number;
+  depositResetAfterSuccessful: number;
+  maxRcnRedemptionPercent: number;
+  suspensionThreshold: number;
+  suspensionDurationDays: number;
+  sendEmailTier1: boolean;
+  sendEmailTier2: boolean;
+  sendEmailTier3: boolean;
+  sendEmailTier4: boolean;
+  sendSmsTier2: boolean;
+  sendSmsTier3: boolean;
+  sendSmsTier4: boolean;
+  sendPushNotifications: boolean;
+  allowDisputes: boolean;
+  disputeWindowDays: number;
+  autoApproveFirstOffense: boolean;
+  requireShopReview: boolean;
+}
+
+export interface ServiceGroupLink {
+  id: number;
+  serviceId: string;
+  groupId: string;
+  tokenRewardPercentage: number;
+  bonusMultiplier: number;
+  active: boolean;
+  groupName?: string;
+  customTokenName?: string;
+  customTokenSymbol?: string;
+  icon?: string;
+}
+
+export interface CustomerSearchResult {
+  customerAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  totalBookings?: number;
+  lastVisit?: string;
+}
 
 export type PaymentParams = {
   clientSecret: string;
@@ -41,11 +155,6 @@ export type PaymentSuccessParams = {
   purchaseId?: string;
   totalCost?: string;
 };
-  
-export interface ServiceFilters { shopId?: string; category?: ServiceCategory; search?: string; minPrice?: number; maxPrice?: number; page?: number; limit?: number; }
-export interface ServiceData { active: boolean; category: ServiceCategory; createdAt: string; description: string; durationMinutes: number; imageUrl: string; priceUsd: number; serviceId: string; serviceName: string; shopId: string; tags: string[]; updatedAt: string; avgRating?: number; reviewCount?: number; shopName?: string; shopAddress?: string; shopPhone?: string; shopEmail?: string; }
-export interface CreateServiceRequest { serviceName: string; description?: string; category?: string; priceUsd: number; durationMinutes?: number; imageUrl?: string; tags?: string[]; active?: boolean; }
-export interface UpdateServiceData { serviceName?: string; description?: string; priceUsd?: number; durationMinutes?: number; category?: ServiceCategory; imageUrl?: string; tags?: string[]; active?: boolean; }
 
 export interface TierConfig {
   color: string;
@@ -78,7 +187,6 @@ export interface TrendingParams {
   days?: number;
 }
 
-// Service form types
 export interface ServiceFormData {
   serviceName: string;
   category: string;
@@ -211,10 +319,14 @@ export interface FilterChipProps {
 }
 
 export interface AppointmentCardProps {
-  appointment: MyAppointment;
-  onPress: () => void;
-  onCancel: () => void;
-  onReview: () => void;
+  serviceName: string;
+  customerAddress: string;
+  customerName: string | null;
+  status: BookingStatus;
+  totalAmount: number;
+  createdAt: string;
+  appointmentDate?: string | null;
+  onPress?: () => void;
 }
 
 export interface CancelModalProps {
@@ -335,7 +447,7 @@ export interface PriceSummaryCardProps {
   serviceName?: string;
 }
 
-export interface BookingPaymentScreenProps {
+export interface AppointmentPaymentScreenProps {
   selectedDate: string;
   selectedTime: string;
   serviceName: string;
@@ -347,18 +459,20 @@ export interface BookingPaymentScreenProps {
   onCardChange: (complete: boolean) => void;
 }
 
-export interface BookingScheduleScreenProps {
+export interface AppointmentScheduleScreenProps {
   selectedDate: string;
   selectedTime: string | null;
   timeSlots: TimeSlot[] | undefined;
   isLoadingSlots: boolean;
   slotsError: Error | null;
   shopAvailability: ShopAvailability[] | undefined;
+  bookingAdvanceDays?: number;
+  allowWeekendBooking?: boolean;
   onDateSelect: (day: DateData) => void;
   onTimeSelect: (time: string) => void;
 }
 
-export interface BookingDiscountScreenProps {
+export interface AppointmentDiscountScreenProps {
   selectedDate: string;
   selectedTime: string;
   availableRcn: number;
@@ -371,6 +485,7 @@ export interface BookingDiscountScreenProps {
   finalPrice: number;
   onRcnChange: (value: string) => void;
   onMaxRcn: () => void;
+  redemptionMessage?: string;
 }
 
 export interface StripeCheckoutResponse {
@@ -477,21 +592,6 @@ export interface DisputeListResponse {
   pendingCount: number;
 }
 
-export interface BookingResponse extends BaseResponse<BookingData[]> {}
-export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
-export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}
-
-// ============================================
-// Reschedule Types
-// ============================================
-
-export type RescheduleRequestStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "expired"
-  | "cancelled";
-
 export interface RescheduleRequest {
   requestId: string;
   orderId: string;
@@ -513,10 +613,6 @@ export interface RescheduleRequest {
   serviceId?: string;
   totalAmount?: number;
 }
-
-// ============================================
-// Manual Booking Types
-// ============================================
 
 export interface ManualBookingData {
   customerAddress: string;
@@ -542,3 +638,16 @@ export interface ManualBookingResponse {
   };
   message: string;
 }
+
+export interface TimeSlotsResponse extends BaseResponse<TimeSlot[]> {}
+export interface ShopAvailabilityResponse extends BaseResponse<ShopAvailability[]> {}
+export interface ShopAvailabilityDetailResponse extends BaseResponse<ShopAvailability> {}
+export interface TimeSlotConfigResponse extends BaseResponse<TimeSlotConfig | null> {}
+export interface TimeSlotConfigDetailResponse extends BaseResponse<TimeSlotConfig> {}
+export interface DateOverridesResponse extends BaseResponse<DateOverride[]> {}
+export interface DateOverrideDetailResponse extends BaseResponse<DateOverride> {}
+export interface CalendarBookingsResponse extends BaseResponse<CalendarBooking[]> {}
+export interface MyAppointmentsResponse extends BaseResponse<MyAppointment[]> {}
+export interface BookingResponse extends BaseResponse<BookingData[]> {}
+export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
+export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}

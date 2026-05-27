@@ -13,9 +13,9 @@ import {
 import { Calendar, DateData } from "react-native-calendars";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { appointmentApi, CustomerSearchResult, ManualBookingData } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi, CustomerSearchResult, ManualBookingData } from "@/feature/services/services/service.services";
 import { serviceApi } from "@/feature/services/services/service.services";
-import { TimeSlot, ShopAvailability } from "@/feature/appointment/services/appointment.interface";
+import { TimeSlot, ShopAvailability } from "@/feature/services/services/service.interface";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import CustomerSearchInput from "./CustomerSearchInput";
 import { useManualBookingMutation } from "../hooks";

@@ -11,8 +11,8 @@ import {
 import { Calendar, DateData } from "react-native-calendars";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
-import { TimeSlot, ShopAvailability } from "@/feature/appointment/services/appointment.interface";
+import { appointmentApi } from "@/feature/services/services/service.services";
+import { TimeSlot, ShopAvailability } from "@/feature/services/services/service.interface";
 
 interface RescheduleModalProps {
   visible: boolean;

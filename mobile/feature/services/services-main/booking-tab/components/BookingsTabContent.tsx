@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
+import { MyAppointment } from "@/feature/services/services/service.interface";
 import { FilterButton } from "@/shared/components/shared/FilterButton";
 import { FilterModal } from "@/shared/components/shared/FilterModal";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";

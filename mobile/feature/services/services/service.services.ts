@@ -18,6 +18,20 @@ import {
   DisputeListResponse,
   ManualBookingData,
   ManualBookingResponse,
+  TimeSlot,
+  ShopAvailability,
+  TimeSlotConfig,
+  DateOverride,
+  CalendarBooking,
+  MyAppointment,
+  UpdateAvailabilityRequest,
+  CreateDateOverrideRequest,
+  CustomerNoShowStatus,
+  CustomerSearchResult,
+  NoShowHistoryEntry,
+  DisputeResponse,
+  NoShowPolicy,
+  ServiceGroupLink,
 } from "@/feature/services/services/service.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
@@ -397,10 +411,6 @@ class ServiceApi {
     }
   }
 
-  // ============================================
-  // Reschedule Endpoints
-  // ============================================
-
   async getShopRescheduleRequests(
     status?: RescheduleRequestStatus | "all"
   ): Promise<RescheduleRequest[]> {
@@ -545,6 +555,61 @@ class ServiceApi {
     }
   }
 
+  async getCustomerNoShowStatus(
+    customerAddress: string
+  ): Promise<CustomerNoShowStatus | null> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/overall-no-show-status`
+      );
+      return response.data || response;
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get no-show status:", error.message);
+      return null;
+    }
+  }
+
+  async getCustomerNoShowStatusForShop(
+    customerAddress: string,
+    shopId: string
+  ): Promise<CustomerNoShowStatus | null> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/no-show-status`,
+        { params: { shopId } }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null;
+      console.error("Failed to get shop no-show status:", error.message);
+      return null;
+    }
+  }
+
+  async searchCustomers(
+    shopId: string,
+    query: string
+  ): Promise<CustomerSearchResult[]> {
+    try {
+      const queryString = buildQueryString({ q: query });
+      const response = await apiClient.get(
+        `/services/shops/${shopId}/customers/search${queryString}`
+      );
+      return (response.customers || []).map((c: any) => ({
+        customerAddress: c.address,
+        customerName: c.name,
+        customerEmail: c.email,
+        customerPhone: c.phone,
+        totalBookings: 0,
+        lastVisit: c.createdAt,
+      }));
+    } catch (error: any) {
+      console.error("Failed to search customers:", error.message);
+      throw error;
+    }
+  }
+
   async createManualBooking(
     shopId: string,
     bookingData: ManualBookingData
@@ -564,6 +629,302 @@ class ServiceApi {
       throw error;
     }
   }
+
+  async getAvailableTimeSlots(
+    shopId: string,
+    serviceId: string,
+    date: string
+  ): Promise<TimeSlot[]> {
+    try {
+      const queryString = buildQueryString({ shopId, serviceId, date });
+      const response = await apiClient.get(
+        `/services/appointments/available-slots${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get available time slots:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopAvailability(shopId: string): Promise<ShopAvailability[]> {
+    try {
+      const response = await apiClient.get(
+        `/services/appointments/shop-availability/${shopId}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get shop availability:", error.message);
+      throw error;
+    }
+  }
+
+  async getTimeSlotConfig(shopId?: string): Promise<TimeSlotConfig | null> {
+    try {
+      const url = shopId
+        ? `/services/appointments/time-slot-config/${shopId}`
+        : `/services/appointments/time-slot-config`;
+      const response = await apiClient.get(url);
+      return response.data || response || null;
+    } catch (error: any) {
+      console.error("Failed to get time slot config:", error.message);
+      throw error;
+    }
+  }
+
+  async updateShopAvailability(
+    data: UpdateAvailabilityRequest
+  ): Promise<ShopAvailability> {
+    try {
+      const response = await apiClient.put(
+        `/services/appointments/shop-availability`,
+        data
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to update shop availability:", error.message);
+      throw error;
+    }
+  }
+
+  async updateTimeSlotConfig(
+    data: Partial<TimeSlotConfig>
+  ): Promise<TimeSlotConfig> {
+    try {
+      const response = await apiClient.put(
+        `/services/appointments/time-slot-config`,
+        data
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to update time slot config:", error.message);
+      throw error;
+    }
+  }
+
+  async getDateOverrides(
+    startDate?: string,
+    endDate?: string
+  ): Promise<DateOverride[]> {
+    try {
+      const queryString = buildQueryString({ startDate, endDate });
+      const response = await apiClient.get(
+        `/services/appointments/date-overrides${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get date overrides:", error.message);
+      throw error;
+    }
+  }
+
+  async createDateOverride(
+    data: CreateDateOverrideRequest
+  ): Promise<DateOverride> {
+    try {
+      const response = await apiClient.post(
+        `/services/appointments/date-overrides`,
+        data
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to create date override:", error.message);
+      throw error;
+    }
+  }
+
+  async deleteDateOverride(
+    overrideDate: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.delete(
+        `/services/appointments/date-overrides/${overrideDate}`
+      );
+    } catch (error: any) {
+      console.error("Failed to delete date override:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopCalendar(
+    startDate: string,
+    endDate: string
+  ): Promise<CalendarBooking[]> {
+    try {
+      const queryString = buildQueryString({ startDate, endDate });
+      const response = await apiClient.get(
+        `/services/appointments/calendar${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get shop calendar:", error.message);
+      throw error;
+    }
+  }
+
+  async updateServiceDuration(
+    serviceId: string,
+    durationMinutes: number
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.put(`/services/${serviceId}/duration`, {
+        durationMinutes,
+      });
+    } catch (error: any) {
+      console.error("Failed to update service duration:", error.message);
+      throw error;
+    }
+  }
+
+  async getMyAppointments(
+    startDate: string,
+    endDate: string
+  ): Promise<MyAppointment[]> {
+    try {
+      const queryString = buildQueryString({ startDate, endDate });
+      const response = await apiClient.get(
+        `/services/appointments/my-appointments${queryString}`
+      );
+      return response.data || response || [];
+    } catch (error: any) {
+      console.error("Failed to get my appointments:", error.message);
+      throw error;
+    }
+  }
+
+  async submitDispute(
+    orderId: string,
+    reason: string
+  ): Promise<DisputeResponse> {
+    try {
+      const response = await apiClient.post(
+        `/services/orders/${orderId}/dispute`,
+        { reason }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to submit dispute:", error.message);
+      throw error;
+    }
+  }
+
+  async getDisputeStatus(orderId: string): Promise<NoShowHistoryEntry> {
+    try {
+      const response = await apiClient.get(
+        `/services/orders/${orderId}/dispute`
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to get dispute status:", error.message);
+      throw error;
+    }
+  }
+
+  async getCustomerNoShowHistory(
+    customerAddress: string,
+    limit: number = 10
+  ): Promise<{ history: NoShowHistoryEntry[] }> {
+    try {
+      const response = await apiClient.get(
+        `/customers/${customerAddress}/no-show-history`,
+        { params: { limit } }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to get no-show history:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopPolicy(shopId: string): Promise<NoShowPolicy> {
+    try {
+      const response = await apiClient.get(
+        `/services/shops/${shopId}/no-show-policy`
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to get no-show policy:", error.message);
+      throw error;
+    }
+  }
+
+  async updateShopPolicy(
+    shopId: string,
+    policy: Partial<NoShowPolicy>
+  ): Promise<NoShowPolicy> {
+    try {
+      const response = await apiClient.put(
+        `/services/shops/${shopId}/no-show-policy`,
+        policy
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to update no-show policy:", error.message);
+      throw error;
+    }
+  }
+
+  async getServiceGroups(serviceId: string): Promise<ServiceGroupLink[]> {
+    try {
+      const response = await apiClient.get(`/services/${serviceId}/groups`);
+      return response.data || [];
+    } catch (error: any) {
+      console.error("Failed to get service groups:", error.message);
+      throw error;
+    }
+  }
+
+  async linkServiceToGroup(
+    serviceId: string,
+    groupId: string,
+    tokenRewardPercentage: number = 100,
+    bonusMultiplier: number = 1.0
+  ): Promise<ServiceGroupLink> {
+    try {
+      const response = await apiClient.post(
+        `/services/${serviceId}/groups/${groupId}`,
+        { tokenRewardPercentage, bonusMultiplier }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to link service to group:", error.message);
+      throw error;
+    }
+  }
+
+  async unlinkServiceFromGroup(
+    serviceId: string,
+    groupId: string
+  ): Promise<void> {
+    try {
+      await apiClient.delete(`/services/${serviceId}/groups/${groupId}`);
+    } catch (error: any) {
+      console.error("Failed to unlink service from group:", error.message);
+      throw error;
+    }
+  }
+
+  async updateServiceGroupRewards(
+    serviceId: string,
+    groupId: string,
+    tokenRewardPercentage?: number,
+    bonusMultiplier?: number
+  ): Promise<ServiceGroupLink> {
+    try {
+      const response = await apiClient.put(
+        `/services/${serviceId}/groups/${groupId}/rewards`,
+        { tokenRewardPercentage, bonusMultiplier }
+      );
+      return response.data || response;
+    } catch (error: any) {
+      console.error("Failed to update service group rewards:", error.message);
+      throw error;
+    }
+  }
 }
 
 export const serviceApi = new ServiceApi();
+export const appointmentApi = serviceApi;
+export const disputeApi = serviceApi;
+export const noShowPolicyApi = serviceApi;
+export const serviceGroupApi = serviceApi;

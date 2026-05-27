@@ -13,4 +13,4 @@ export type {
   AppointmentStep,
   AppointmentFilterStatus,
   StripeCheckoutResponse,
-} from "./services/appointment.interface";
+} from "@/feature/services/services/service.interface";

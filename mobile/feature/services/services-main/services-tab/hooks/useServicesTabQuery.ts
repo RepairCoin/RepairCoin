@@ -10,7 +10,7 @@ import {
   CreateServiceRequest,
   UpdateServiceData,
 } from "@/feature/services/services/service.interface";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/feature/services/services/service.services";
 import { ReviewData } from "@/feature/services/services/service.interface";
 
 // ============================================

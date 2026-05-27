@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useCustomerSearchQuery } from "../hooks";
-import { CustomerSearchResult } from "@/feature/appointment/services/appointment.services";
+import { CustomerSearchResult } from "@/feature/services/services/service.services";
 
 interface CustomerSearchInputProps {
   shopId: string;

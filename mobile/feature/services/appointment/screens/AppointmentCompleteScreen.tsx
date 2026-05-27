@@ -22,7 +22,7 @@ import {
 } from "../hooks";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useQuery } from "@tanstack/react-query";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/feature/services/services/service.services";
 import { StepIndicator } from "../components";
 import AppointmentScheduleScreen from "./AppointmentScheduleScreen";
 import AppointmentDiscountScreen from "./AppointmentDiscountScreen";

@@ -13,10 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks/useAppToast";
-import {
-  NoShowPolicy,
-  noShowPolicyApi,
-} from "../services/noShowPolicy.services";
+import { NoShowPolicy } from "@/feature/services/services/service.interface";
+import { noShowPolicyApi } from "@/feature/services/services/service.services";
 
 const DEFAULT_POLICY: Omit<NoShowPolicy, "shopId"> = {
   enabled: true,

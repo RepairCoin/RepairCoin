@@ -31,6 +31,8 @@ export default function ConnectWalletScreen() {
   const [demoEnabled, setDemoEnabled] = useState(false);
   const isCancelledRef = useRef(false);
 
+  console.log("EXPO_PUBLIC_API_URL: ", process.env.EXPO_PUBLIC_API_URL)
+
   useEffect(() => {
     authApi.getDemoStatus().then((res) => setDemoEnabled(res.enabled));
   }, []);

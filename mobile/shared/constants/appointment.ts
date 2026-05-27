@@ -1,4 +1,4 @@
-import { AppointmentFilterStatus } from "@/feature/appointment/types";
+import { AppointmentFilterStatus } from "@/feature/services/appointment/types";
 export { DAYS, MONTHS, YEARS } from "@/shared/utilities/calendar";
 
 export const APPOINTMENT_STATUS_FILTERS: {

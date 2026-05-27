@@ -5,11 +5,11 @@ import {
   BookingFilters,
   BookingResponse,
 } from "@/feature/services/services/service.interface";
-import { MyAppointment } from "@/feature/appointment/services/appointment.interface";
+import { MyAppointment } from "@/feature/services/services/service.interface";
 import {
   appointmentApi,
   CustomerSearchResult,
-} from "@/feature/appointment/services/appointment.services";
+} from "@/feature/services/services/service.services";
 import { TrendDays } from "@/feature/services/services/service.interface";
 
 interface QueryOptions {

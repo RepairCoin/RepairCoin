@@ -6,7 +6,7 @@ import { UpdateServiceData } from "@/feature/services/services/service.interface
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { queryKeys } from "@/shared/config/queryClient";
-import { appointmentApi } from "@/feature/appointment/services/appointment.services";
+import { appointmentApi } from "@/feature/services/services/service.services";
 import {
   PendingAvailabilityChanges,
   ServiceFormData,
