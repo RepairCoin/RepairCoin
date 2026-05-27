@@ -92,13 +92,17 @@ export const lookupAudienceCount: MarketingTool = {
       segment.audienceFilters
     );
 
-    // Sample names — small set for the audience card. Use the customer
-    // repo to pull recent shop-interacting customers; not perfectly
-    // segment-filtered (would require duplicating the audience query),
-    // but representative enough for a preview.
+    // Pull the shop's full customer list once — used for two things:
+    //   1. sampleNames (a 5-name preview for the audience card)
+    //   2. totalShopCustomers (the all_customers count, so the card +
+    //      Claude can flag degenerate cases: "top 50" against a 4-customer
+    //      shop should say "you have 4 in total — let's send to all 4"
+    //      instead of presenting a meaningless 1-customer "top spender".)
     let sampleNames: string[] = [];
+    let totalShopCustomers = 0;
     try {
       const shopCustomers = await customerRepo.findByShopInteraction(ctx.shopId);
+      totalShopCustomers = shopCustomers.length;
       sampleNames = shopCustomers
         .slice(0, 5)
         .map((c) => (c.name && c.name.trim()) || shortAddress(c.walletAddress))
@@ -113,6 +117,7 @@ export const lookupAudienceCount: MarketingTool = {
         audience_filters: segment.audienceFilters,
         resolved_label: segment.label,
         resolved_count: count,
+        total_shop_customers: totalShopCustomers,
         sample_names: sampleNames,
       },
       display: {
@@ -122,6 +127,7 @@ export const lookupAudienceCount: MarketingTool = {
         audienceType: segment.audienceType,
         audienceFilters: segment.audienceFilters,
         sampleNames,
+        totalShopCustomers,
       },
     };
   },

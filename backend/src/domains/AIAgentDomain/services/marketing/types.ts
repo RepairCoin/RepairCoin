@@ -45,6 +45,13 @@ export type MarketingToolDisplay =
       audienceType: string;
       audienceFilters: Record<string, unknown>;
       sampleNames?: string[];
+      /**
+       * Total customers this shop has (the all_customers count). Lets the
+       * frontend flag degenerate cases — e.g. shop asked for "top 50"
+       * but only has 4 customers, so the answer is the whole list, not
+       * a meaningful "top". Optional so older clients don't crash.
+       */
+      totalShopCustomers?: number;
     }
   | {
       // Phase 2.2 — a fully-drafted but unsent campaign. Renders as a
