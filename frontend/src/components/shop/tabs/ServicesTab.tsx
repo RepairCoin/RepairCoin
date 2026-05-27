@@ -38,6 +38,7 @@ import { ServiceQRModal } from "@/components/shop/ServiceQRModal";
 import { ServiceImportModal } from "@/components/shop/modals/ServiceImportModal";
 import { ServiceExportModal } from "@/components/shop/modals/ServiceExportModal";
 import { AIAssistantBadge } from "@/components/shared/AIAssistantBadge";
+import { getShopAiSettings, type ShopAiSettings } from "@/services/api/aiSettings";
 
 interface ShopData {
   shopName?: string;
@@ -132,9 +133,35 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Shop-level AI gate state — used to mute the per-service AI badge
+  // when the admin-controlled shop-level master switch is off. See
+  // docs/tasks/ai-ux-shop-gate-clarity.md. Failure is silent — when
+  // the fetch fails we leave shopAiEnabled undefined, which preserves
+  // the legacy badge rendering (don't punish shop owners with a
+  // confusing gray state on a fetch hiccup).
+  const [shopAiEnabled, setShopAiEnabled] = useState<boolean | undefined>(undefined);
+
   useEffect(() => {
     loadServices();
   }, [shopId, currentPage]);
+
+  // Fetch shop AI settings once on mount. Doesn't depend on shopId
+  // because the endpoint is JWT-scoped (always returns the requesting
+  // shop's settings).
+  useEffect(() => {
+    let cancelled = false;
+    getShopAiSettings()
+      .then((s: ShopAiSettings) => {
+        if (!cancelled) setShopAiEnabled(s.aiGlobalEnabled);
+      })
+      .catch(() => {
+        // Silent — leave undefined so the badge falls back to legacy
+        // rendering. The shop owner still sees their per-service intent.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadServices = async () => {
     setLoading(true);
@@ -419,6 +446,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                         <AIAssistantBadge
                           variant="default"
                           tooltip="AI Sales Assistant is enabled for this service. Customers booking this service will get AI replies."
+                          shopAiEnabled={shopAiEnabled}
                         />
                       )}
                     </div>
