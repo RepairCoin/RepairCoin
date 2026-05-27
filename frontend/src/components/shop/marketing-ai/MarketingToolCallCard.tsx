@@ -47,40 +47,68 @@ export const MarketingToolCallCard: React.FC<{
 
 const AudienceSummaryCard: React.FC<{
   d: Extract<MarketingToolDisplay, { kind: "audience_summary" }>;
-}> = ({ d }) => (
-  <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 px-4 py-3">
-    <div className="flex items-center gap-2 mb-2">
-      <Users className="w-4 h-4 text-[#FFCC00]" />
-      <p className="text-[10px] uppercase tracking-wide text-gray-500">
-        Audience
-      </p>
-    </div>
-    <p className="text-sm text-white">
-      <span className="text-[#FFCC00] font-semibold">
-        {d.resolvedCount.toLocaleString()}
-      </span>{" "}
-      {d.resolvedCount === 1 ? "customer" : "customers"} match
-    </p>
-    <p className="text-xs text-gray-400 mt-0.5">{d.label}</p>
-    {d.sampleNames && d.sampleNames.length > 0 && (
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {d.sampleNames.slice(0, 5).map((n, i) => (
-          <span
-            key={i}
-            className="text-[10px] text-gray-300 bg-[#1A1A1A] border border-gray-700 rounded-full px-2 py-0.5"
-          >
-            {n}
-          </span>
-        ))}
-        {d.resolvedCount > (d.sampleNames?.length ?? 0) && (
-          <span className="text-[10px] text-gray-500">
-            +{d.resolvedCount - (d.sampleNames?.length ?? 0)} more
-          </span>
-        )}
+}> = ({ d }) => {
+  // Detect the degenerate case — shop asked for "top N" via
+  // audienceFilters.limit, but their total customer base is smaller
+  // than N. The card should make this explicit so the shop doesn't
+  // wonder why the segment count is so small.
+  //
+  // Only fires when:
+  //   - shop literally asked for a numeric limit ("top 50" → limit=50)
+  //   - we know the total (totalShopCustomers populated)
+  //   - the total is smaller than what the shop asked for
+  //
+  // Heuristic deliberately conservative — doesn't fire for "top spenders"
+  // (no numeric limit) or for lapsed/active segments (those are
+  // self-explanatory at any size).
+  const askedFor =
+    typeof d.audienceFilters?.limit === "number" ? d.audienceFilters.limit : null;
+  const total = d.totalShopCustomers;
+  const showSmallShopNote =
+    askedFor != null && total != null && total < askedFor;
+
+  return (
+    <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 px-4 py-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Users className="w-4 h-4 text-[#FFCC00]" />
+        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+          Audience
+        </p>
       </div>
-    )}
-  </div>
-);
+      <p className="text-sm text-white">
+        <span className="text-[#FFCC00] font-semibold">
+          {d.resolvedCount.toLocaleString()}
+        </span>{" "}
+        {d.resolvedCount === 1 ? "customer" : "customers"} match
+      </p>
+      <p className="text-xs text-gray-400 mt-0.5">{d.label}</p>
+      {showSmallShopNote && (
+        <p className="mt-1.5 text-[11px] text-amber-400">
+          Your shop has {total!.toLocaleString()}{" "}
+          {total === 1 ? "customer" : "customers"} total — that&apos;s why this
+          is smaller than the {askedFor!.toLocaleString()} you asked for.
+        </p>
+      )}
+      {d.sampleNames && d.sampleNames.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {d.sampleNames.slice(0, 5).map((n, i) => (
+            <span
+              key={i}
+              className="text-[10px] text-gray-300 bg-[#1A1A1A] border border-gray-700 rounded-full px-2 py-0.5"
+            >
+              {n}
+            </span>
+          ))}
+          {d.resolvedCount > (d.sampleNames?.length ?? 0) && (
+            <span className="text-[10px] text-gray-500">
+              +{d.resolvedCount - (d.sampleNames?.length ?? 0)} more
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ----- campaign_draft (primary tap-to-open card) -----
 

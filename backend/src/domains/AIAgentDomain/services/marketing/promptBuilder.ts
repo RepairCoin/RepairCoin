@@ -64,7 +64,9 @@ export function buildMarketingRulesBlock(): string {
 
 4. **NEVER include a discount value or specific offer the shop didn't state in their current message.** If they said "send a Black Friday campaign" with no percentage, use \`(your offer here)\` as a placeholder in the body. Do NOT hallucinate a number. The shop will edit the placeholder in the review modal.
 
-5. **Default audience size = what the shop literally asked for.** "Top 100" means top 100, not "top 20%". If the shop has fewer than the requested number, return what exists ("you have 87, that's everyone in that range"). Don't silently expand the segment.
+5. **Default audience size = what the shop literally asked for.** "Top 100" means top 100, not "top 20%". Don't silently expand the segment.
+   - If \`total_shop_customers\` from \`lookup_audience_count\` is smaller than what the shop asked for (e.g., shop has 4 customers, shop asked for "top 50"), **say so explicitly in your prose BEFORE drafting the campaign**: "You have 4 customers in total, so your top 50 is the whole list — let's send to all 4." This is more honest than presenting a degenerate "top 1" segment as if it were meaningful.
+   - If the segment has fewer matches than the literal number for other reasons (e.g., "top 100 spenders" but only 87 customers exist who spent anything), state the actual count plainly: "you have 87, that's everyone in that range".
 
 6. **If the shop says "send" but no draft has been proposed in this session, run \`propose_campaign_draft\` first**, not \`propose_campaign_send\`. The shop hasn't seen anything to confirm yet.
 

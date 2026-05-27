@@ -41,6 +41,13 @@ export type MarketingToolDisplay =
       audienceType: string;
       audienceFilters: Record<string, unknown>;
       sampleNames?: string[];
+      /**
+       * Total customers this shop has (all_customers count). Lets the
+       * AudienceSummaryCard render a degenerate-case note — e.g. shop
+       * asked for "top 50" but only has 4 customers. Optional so older
+       * backend responses still type-check.
+       */
+      totalShopCustomers?: number;
     }
   | {
       // A persisted draft campaign. Rendered as the primary tap-to-open
