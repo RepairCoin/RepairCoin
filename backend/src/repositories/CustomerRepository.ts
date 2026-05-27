@@ -1053,30 +1053,53 @@ export class CustomerRepository extends BaseRepository {
     lastVisit?: Date;
   }>> {
     try {
-      // Get customers who have transactions with this shop
+      // Get customers who have transactions with this shop.
+      //
+      // visit_count + last_visit come from `transactions` (any token
+      // activity counts as a "visit"). total_spent comes from
+      // `service_orders.total_amount` for paid + completed orders —
+      // matches what ShopMetricsService.getTopCustomers uses for
+      // analytics. Old query summed `transactions.type='redemption'`
+      // amounts, which was a misleading proxy for spend (redemptions
+      // are token consumption, not dollars spent) and broke the AI
+      // Marketing top_spenders ranking on shops without redemption
+      // activity. See docs/tasks/ai-marketing-audience-fixes.md Item 3.
+      //
+      // INNER JOIN on transactions preserves the existing "is this
+      // customer of this shop" gate (any token activity qualifies).
+      // LEFT JOIN on service_orders so customers with token activity
+      // but no completed orders still appear with total_spent=0.
       const query = `
         SELECT DISTINCT
           c.address as wallet_address,
           c.email,
           c.name,
           c.tier,
-          COALESCE(stats.total_spent, 0) as total_spent,
-          COALESCE(stats.visit_count, 0) as visit_count,
-          stats.last_visit
+          COALESCE(orders.total_spent, 0) as total_spent,
+          COALESCE(tx.visit_count, 0) as visit_count,
+          tx.last_visit
         FROM customers c
         INNER JOIN (
           SELECT
             customer_address,
-            SUM(CASE WHEN type = 'redemption' THEN amount ELSE 0 END) as total_spent,
             COUNT(DISTINCT DATE(created_at)) as visit_count,
             MAX(created_at) as last_visit
           FROM transactions
           WHERE shop_id = $1
           GROUP BY customer_address
-        ) stats ON c.address = stats.customer_address
+        ) tx ON c.address = tx.customer_address
+        LEFT JOIN (
+          SELECT
+            customer_address,
+            SUM(total_amount) as total_spent
+          FROM service_orders
+          WHERE shop_id = $1
+            AND status IN ('paid', 'completed')
+          GROUP BY customer_address
+        ) orders ON c.address = orders.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
-        ORDER BY stats.last_visit DESC
+        ORDER BY tx.last_visit DESC
       `;
 
       const result = await this.pool.query(query, [shopId]);
@@ -1122,19 +1145,31 @@ export class CustomerRepository extends BaseRepository {
       const { page = 1, limit = 10, search } = options;
       const offset = (page - 1) * limit;
 
-      // Base query for customers with shop interaction
+      // Base query for customers with shop interaction.
+      // Same shape as findByShopInteraction — see comment there for the
+      // total_spent / visit_count split rationale. Briefly: visit_count
+      // + last_visit from transactions; total_spent from
+      // service_orders.total_amount for paid+completed orders.
       let baseQuery = `
         FROM customers c
         INNER JOIN (
           SELECT
             customer_address,
-            SUM(CASE WHEN type = 'redemption' THEN amount ELSE 0 END) as total_spent,
             COUNT(DISTINCT DATE(created_at)) as visit_count,
             MAX(created_at) as last_visit
           FROM transactions
           WHERE shop_id = $1
           GROUP BY customer_address
-        ) stats ON c.address = stats.customer_address
+        ) tx ON c.address = tx.customer_address
+        LEFT JOIN (
+          SELECT
+            customer_address,
+            SUM(total_amount) as total_spent
+          FROM service_orders
+          WHERE shop_id = $1
+            AND status IN ('paid', 'completed')
+          GROUP BY customer_address
+        ) orders ON c.address = orders.customer_address
         WHERE c.is_active = true
           AND (c.suspended_at IS NULL)
       `;
@@ -1165,11 +1200,11 @@ export class CustomerRepository extends BaseRepository {
           c.email,
           c.name,
           c.tier,
-          COALESCE(stats.total_spent, 0) as total_spent,
-          COALESCE(stats.visit_count, 0) as visit_count,
-          stats.last_visit
+          COALESCE(orders.total_spent, 0) as total_spent,
+          COALESCE(tx.visit_count, 0) as visit_count,
+          tx.last_visit
         ${baseQuery}
-        ORDER BY stats.last_visit DESC
+        ORDER BY tx.last_visit DESC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
       params.push(limit, offset);
