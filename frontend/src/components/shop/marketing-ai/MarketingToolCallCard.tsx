@@ -89,7 +89,14 @@ const AudienceSummaryCard: React.FC<{
           is smaller than the {askedFor!.toLocaleString()} you asked for.
         </p>
       )}
-      {d.sampleNames && d.sampleNames.length > 0 && (
+      {/* Sample chips — only render when the segment actually has
+          matches. The chips come from the shop's full customer list
+          (not segment-filtered), so when resolvedCount=0 they'd show
+          customers who EXPLICITLY don't match the segment — actively
+          misleading. Hiding the row entirely is the honest fallback;
+          a fully-correct fix would query segment recipients
+          separately, but that's a heavier change for a small UX gain. */}
+      {d.resolvedCount > 0 && d.sampleNames && d.sampleNames.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {d.sampleNames.slice(0, 5).map((n, i) => (
             <span
