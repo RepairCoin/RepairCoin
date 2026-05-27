@@ -84,6 +84,12 @@ export function buildMarketingRulesBlock(): string {
 
 Use these for recognized categories. They're starting points — adapt freely. For asks that don't match any scaffold, free-draft using shop context.
 
+**Placeholder convention — important.** Scaffolds use \`{variable}\` syntax (\`{shop}\`, \`{offer}\`, \`{service_name}\`, \`{deadline}\`, etc.) as fill-in slots YOU complete before emitting the draft. Replace every \`{X}\` with concrete content drawn from shop context or the user's message.
+
+**NEVER pass any \`{variable}\` token through to the body you send to \`propose_campaign_draft\`** — there is no runtime substitution layer, so customers would literally receive \`Hi {first_name},\` or \`The {shop} team\` in their inbox.
+
+For greetings, use a generic opener like "Hi there," — we cannot personalize per-recipient. If a draft would feel impersonal without a name, lean on warmth in the body content instead of synthetic personalization.
+
 ${renderScaffoldsForPrompt()}
 
 # Reply style

@@ -34,7 +34,7 @@ export const CAMPAIGN_SCAFFOLDS: CampaignScaffold[] = [
       "{offer} this Black Friday only",
       "Our biggest sale of the year",
     ],
-    bodyShape: `Hi {first_name},
+    bodyShape: `Hi there,
 
 Black Friday is here, and {shop} is going big.
 
@@ -66,9 +66,9 @@ The {shop} team`,
     subjectPatterns: [
       "We miss you at {shop}",
       "It's been a while — come back and {offer}",
-      "{first_name}, we'd love to see you again",
+      "We'd love to see you again at {shop}",
     ],
-    bodyShape: `Hi {first_name},
+    bodyShape: `Hi there,
 
 It's been a while since we've seen you at {shop} — we miss you.
 
@@ -99,7 +99,7 @@ The {shop} team`,
       "Something new at {shop} — {service}",
       "Just launched: {service}",
     ],
-    bodyShape: `Hi {first_name},
+    bodyShape: `Hi there,
 
 We've added something new at {shop}: **{service_name}**.
 
@@ -130,7 +130,7 @@ The {shop} team`,
       "Weekend special: {offer}",
       "{shop} weekend deal — {offer}",
     ],
-    bodyShape: `Hi {first_name},
+    bodyShape: `Hi there,
 
 Quick one — {shop} is running a weekend-only special.
 
