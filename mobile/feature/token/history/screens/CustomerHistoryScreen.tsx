@@ -16,24 +16,18 @@ import { FilterChip, TransactionHistoryCard } from "../components";
 
 export default function CustomerHistoryScreen() {
   const {
-    // Data
     transactions,
     transactionCount,
-    // Query state
     isLoading,
     error,
     refetch,
-    // Pagination
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    // Refresh
     refreshing,
     handleRefresh,
-    // Search
     searchQuery,
     setSearchQuery,
-    // Filters
     transactionFilter,
     setTransactionFilter,
     dateFilter,
@@ -108,7 +102,7 @@ export default function CustomerHistoryScreen() {
       <FlatList
         className="px-4"
         data={isLoading || error ? [] : transactions}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => (item.id ?? index).toString()}
         renderItem={({ item }) => (
           <TransactionHistoryCard
             variant="customer"

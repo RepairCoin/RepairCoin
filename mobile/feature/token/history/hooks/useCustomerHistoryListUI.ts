@@ -40,15 +40,15 @@ export function useCustomerHistoryListUI() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((tx) =>
-        tx.shopName?.toLowerCase().includes(query) ||
-        tx.type?.toLowerCase().includes(query) ||
-        tx.description?.toLowerCase().includes(query)
+        (tx.shopName || "").toLowerCase().includes(query) ||
+        (tx.type || "").toLowerCase().includes(query) ||
+        (tx.description || "").toLowerCase().includes(query)
       );
     }
 
     if (transactionFilter !== "all") {
       filtered = filtered.filter((tx) => {
-        const type = tx.type?.toLowerCase();
+        const type = (tx.type || "").toLowerCase();
         switch (transactionFilter) {
           case "earned":
             return ["earned", "bonus", "referral", "tier_bonus", "mint"].includes(type);
@@ -90,13 +90,13 @@ export function useCustomerHistoryListUI() {
   const stats = useMemo(() => {
     const earned = rawTransactions
       .filter((tx) =>
-        ["earned", "bonus", "referral", "tier_bonus", "transfer_in", "mint"].includes(tx.type?.toLowerCase())
+        ["earned", "bonus", "referral", "tier_bonus", "transfer_in", "mint"].includes((tx.type || "").toLowerCase())
       )
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     const redeemed = rawTransactions
       .filter((tx) =>
-        ["redeemed", "redemption", "service_redemption", "transfer_out"].includes(tx.type?.toLowerCase())
+        ["redeemed", "redemption", "service_redemption", "transfer_out"].includes((tx.type || "").toLowerCase())
       )
       .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
