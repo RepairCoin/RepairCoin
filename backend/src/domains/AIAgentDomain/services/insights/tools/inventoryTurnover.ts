@@ -166,10 +166,16 @@ async function fetchTurnover(
   // Estimated days remaining = stock_quantity / (units_used / window_days)
   // Returns NULL when units_used = 0 (Claude phrases as "—" / "no
   // recent movement").
+  //
+  // ORDER BY uses the underlying numeric expression, NOT the
+  // `units_used_in_window` text-cast alias from the SELECT. Sorting on
+  // the text alias would do lexical comparison ("8" > "25" because '8'
+  // > '2' alphabetically), which previously caused 8-units items to
+  // outrank 25-units items in the "fastest" output.
   const sortClause =
     by === "fastest"
-      ? "ORDER BY units_used_in_window DESC NULLS LAST, i.name ASC"
-      : "ORDER BY units_used_in_window ASC NULLS FIRST, i.name ASC";
+      ? "ORDER BY COALESCE(u.units_used, 0) DESC, i.name ASC"
+      : "ORDER BY COALESCE(u.units_used, 0) ASC, i.name ASC";
 
   const res = await pool.query<{
     id: string;

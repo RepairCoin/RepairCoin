@@ -3,7 +3,7 @@
 **Feature:** POST /api/ai/insights + frontend Insights panel.
 **Target:** local dev (`npm run dev`), shop role on the `peanut` shop
 (or any shop with at least some service_orders + transactions).
-**Last updated:** 2026-05-25 (added §10 anomaly banner + §11 pinned queries).
+**Last updated:** 2026-05-28 (added §12 inventory toolkit — Phase 8.1).
 
 This guide walks every contract the feature promises. Run the
 scenarios in order — later ones depend on data set up by earlier
@@ -819,6 +819,216 @@ DELETE FROM ai_insights_pinned_queries WHERE shop_id = 'peanut';
 
 ---
 
+## 12. Inventory toolkit (Phase 8.1)
+
+Four new tools answer inventory questions inside the same Insights
+chat panel. Run the seeder first; expectations below assume the
+seeded QA-INV-* dataset is present on the `peanut` shop.
+
+**Setup:**
+```bash
+cd backend && npx ts-node ../docs/tasks/strategy/business-data-insights/qa-fixtures/qa-12-inventory-setup.ts
+```
+The seeder prints a sanity-check summary at the end. Read it — those
+are the numbers each scenario below cross-checks against.
+
+**Teardown when done:**
+```bash
+cd backend && npx ts-node ../docs/tasks/strategy/business-data-insights/qa-fixtures/qa-12-inventory-cleanup.ts
+```
+
+If `peanut` has its own real inventory rows alongside the QA fixtures,
+totals below will be HIGHER than the QA-only figures — verify against
+the seeder's read-back output, not the raw expected numbers.
+
+### 12.1 `inventory_summary` — list display
+
+**Ask:** "How much inventory do I have?" (or "What's my stock value?")
+
+**Expect:**
+- Single-turn answer. Claude leads with the headline (in-stock count or
+  total value) + one context sentence.
+- Data card: `list` kind with 4 rows in order:
+  - `Items in stock` — at least 8 (the QA fixtures contribute 8)
+  - `Items running low` — at least 3 (charging-port, back-glass, display-adhesive)
+  - `Items out of stock` — at least 1 (ipad-screen)
+  - `Total inventory value` — at least `$1,445.50` for the QA fixtures
+- Discontinued items (`QA-INV-iphone7-screen`) are EXCLUDED from both
+  the in-stock count AND the total value calculation.
+- No range chip flip — inventory_summary takes no `range` arg.
+
+**DB:**
+```sql
+SELECT tool_calls FROM ai_insights_messages
+WHERE shop_id = 'peanut' ORDER BY created_at DESC LIMIT 1;
+-- tool_calls[0].tool = 'inventory_summary'
+-- tool_calls[0].args = {} (empty object)
+```
+
+### 12.2 `low_stock_items` — table display + deficit-ratio sort
+
+**Ask:** "What's running low?" (or "What do I need to reorder?")
+
+**Expect:**
+- Single-turn answer. Claude phrases this as a list of items to
+  reorder, sorted by urgency.
+- Data card: `table` kind with columns `Item`, `In stock`, `Threshold`,
+  `Vendor`.
+- The QA fixtures contribute **4 rows** in this exact order
+  (most-urgent first by deficit ratio = `stock / threshold`):
+  1. `QA-INV-ipad-screen (QA-IPADSC)` — 0 / 2 (ratio 0.0, **OOS items
+     intentionally appear here at the top** — out-of-stock = most urgent
+     to reorder; this is semantically distinct from `inventory_summary`,
+     which counts OOS items separately from "running low")
+  2. `QA-INV-back-glass (QA-BKGLS)` — 1 / 6 (ratio 0.167)
+  3. `QA-INV-display-adhesive (QA-DSPADH)` — 2 / 4 (ratio 0.50)
+  4. `QA-INV-charging-port (QA-CHGPRT)` — 4 / 5 (ratio 0.80)
+- Vendor column shows `—` for all QA rows (fixtures don't seed an
+  inventory_vendors row).
+- `QA-INV-iphone7-screen` (discontinued) MUST NOT appear — even though
+  stock_quantity (5) exceeds threshold (1), the SQL filter excludes
+  discontinued status outright.
+
+**DB:**
+```sql
+-- tool_calls[0].tool = 'low_stock_items'
+-- tool_calls[0].args.limit defaults to 10 (or whatever Claude picks)
+```
+
+### 12.3 `inventory_turnover` — table display + fastest/slowest sort
+
+**Ask (fastest variant):** "What's selling fastest in the last 30 days?"
+
+**Expect:**
+- Data card: `table` kind with columns `Item`, `Used (last 30 days)`,
+  `In stock`, `Days remaining`.
+- QA fixtures contribute these rows in this order (fastest first):
+  1. `QA-INV-screen-protector` — used 25, stock 80, ~96 days remaining
+  2. `QA-INV-iphone-12-screen` — used 8 (last 30d only; the 70-day-ago
+     sale is excluded), stock 25, ~93.8 days remaining
+  3. `QA-INV-battery-12pro` — used 5 (4 sales + 1 damage), stock 12,
+     ~72 days remaining
+  4. `QA-INV-back-glass` — used 2, stock 1, ~15 days remaining
+  5. `QA-INV-charging-port` — used 1, stock 4, ~120 days remaining
+  6. `QA-INV-display-adhesive` — used 1, stock 2, ~60 days remaining
+  7. Zero-usage items (`QA-INV-screwdriver-set`, `QA-INV-suction-cup`,
+     `QA-INV-ipad-screen`) appear at the tail with `Days remaining = —`
+- `QA-INV-iphone7-screen` (discontinued) MUST NOT appear.
+- Purchases are excluded from "used" (the SQL filters
+  `adjustment_type IN ('sale', 'damage', 'loss')`).
+
+**Ask (slowest variant):** "What inventory isn't moving?"
+
+**Expect:**
+- Same table, sorted ASC. The zero-usage items lead. Tie-break by
+  name ASC, so the order is:
+  1. `QA-INV-ipad-screen` — 0 used, stock 0, days `—`
+  2. `QA-INV-screwdriver-set` — 0 used, stock 8, days `—`
+  3. `QA-INV-suction-cup` — 0 used, stock 15, days `—`
+  4. `QA-INV-charging-port` — 1 used
+  5. `QA-INV-display-adhesive` — 1 used
+  ...
+
+**Ask (90d range):** "What's selling fastest in the last 90 days?"
+
+**Expect:**
+- iPhone-12 screen total rises to 14 (8 from current 30d + 5 from
+  prior 30-60d + 1 from 60-89d window).
+- Battery rises to 7 (5 from current 30d + 2 from prior 30-60d).
+- Screen-protector rises to 35 (25 + 10).
+
+**DB:**
+```sql
+-- tool_calls[0].tool = 'inventory_turnover'
+-- tool_calls[0].args.range in {'7d','30d','90d'}
+-- tool_calls[0].args.by in {'fastest','slowest'}
+```
+
+### 12.4 `inventory_value_trend` — comparison display
+
+**Ask:** "Is my inventory value up or down this month?" (or
+"How is my stock value trending?")
+
+**Expect:**
+- Data card: `comparison` kind (the Phase 7.1 variant).
+- Label: `Inventory value change (last 30 days vs prior 30 days)`
+- Current value figure (QA-only contribution): `+$294.75`
+  - Made up of: +$760 in restocking (iPhone-12 + screen-protector
+    purchases) minus $443.25 in stock-removing adjustments
+    (sales + 1 battery damage) + 22 battery damage cost adjustment.
+- Prior value figure (QA-only contribution): `−$231.00`
+  - Pure sales depletion in days 30-60 with no purchases.
+- Delta badge: `+$525.75`, direction `up`, sentiment **`neutral`**
+  (not green-positive — the tool intentionally reports neutral
+  because restocking vs sell-through is ambiguous in v1).
+- Magnitude `medium` (>= $100 and < $1000).
+
+**Empty-window guard:**
+- Set `range` to `7d` (no QA adjustments fall inside the last 7 days
+  in the seed — sales start at day 1 ago but most cluster days 2-28).
+  If both windows happen to be empty in your run, the tool returns a
+  one-line `list` with "No movement in last 7 days or prior 7 days."
+
+**DB:**
+```sql
+-- tool_calls[0].tool = 'inventory_value_trend'
+-- tool_calls[0].args.range in {'7d','30d','90d'}
+```
+
+### 12.5 Routing — "how do I add an item" must DECLINE
+
+**Ask:** "How do I add an item to my inventory?"
+
+**Expect:**
+- **Single-turn refusal.** Claude does NOT call any inventory tool —
+  this is a HOW-TO question (Help assistant's job), not a data
+  question.
+- Reply is the exact decline copy from rule #4:
+  *"I can answer questions about your shop's revenue, bookings,
+  customers, services, inventory, and AI assistant impact. For
+  other questions, try the **Help** assistant."*
+- No data card. No follow-up chips. One short line.
+
+**Why this matters:** when Phase 8.1 added inventory as an in-scope
+topic, the risk was that Claude would route ANY mention of
+"inventory" to an inventory tool, including how-to questions that
+belong to the Help assistant. This scenario catches that drift.
+
+**Counter-test (Ask):** "How much did I earn last week?"
+
+**Expect:**
+- Claude calls `revenue_summary` with `range='7d'` (no change in
+  behavior from §2.1) — adding the inventory toolkit did not confuse
+  Claude on non-inventory questions.
+
+**DB:**
+```sql
+-- For the decline path: the audit row exists but tool_calls is []
+-- and the response text equals the decline copy.
+SELECT response_text, tool_calls
+FROM ai_insights_messages
+WHERE shop_id = 'peanut'
+ORDER BY created_at DESC
+LIMIT 1;
+```
+
+### 12.6 Audit row — input-token delta
+
+After firing one inventory-tool question (e.g. §12.1), open the audit
+row and verify:
+- `model` = `claude-sonnet-4-6`
+- `input_tokens` is roughly **~800 tokens HIGHER** than the same
+  question against a pre-Phase-8 baseline. The new 4 tool descriptions
+  + the expanded "What you can answer" prompt section pushed up the
+  system prompt size. This is the expected cost bump from
+  `phase-8-implementation.md` §6.
+- `cache_read_input_tokens` > 0 on the SECOND consecutive inventory
+  question in the same session (prompt cache hit). On a cold session
+  the first request pays full input-token price; subsequent requests
+  in the 5-minute cache window should show cache reads dominating.
+
+---
+
 ## Acceptance summary
 
 Phase 4 ships when:
@@ -844,6 +1054,20 @@ Phase 7.3 pinned queries ships when (already in prod since
 - §11.6 confirms tap-to-run drops back to Chat AND records the run.
 - §11.8 confirms dedupe — re-pinning is silent, never duplicates.
 - §11.11 + 11.12 confirm shop scope + cross-session persistence.
+
+Phase 8.1 inventory toolkit ships when (in prod since 2026-05-28):
+- §12.1 confirms `inventory_summary` returns correct in-stock /
+  low / OOS / discontinued counts + total value (discontinued
+  excluded from value).
+- §12.2 confirms `low_stock_items` sorts by deficit ratio (ASC)
+  and excludes discontinued items.
+- §12.3 confirms `inventory_turnover` filters adjustments to
+  `('sale','damage','loss')`, supports fastest/slowest sort, and
+  handles zero-usage items gracefully (NULL days-remaining).
+- §12.4 confirms `inventory_value_trend` returns the
+  `comparison` display variant with neutral sentiment.
+- §12.5 confirms Claude declines HOW-TO inventory questions
+  (routes to Help, not inventory tools).
 
 Phase 5 (next) will turn these scenarios into automated Jest tests
 under `backend/tests/ai-agent/insights/` and a Playwright spec for
