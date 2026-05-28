@@ -264,6 +264,7 @@ These need answers before an implementation plan. Recommendations in **bold**.
 - **Subject A/B testing**, click-tracking dashboard — exists in some form; AI v1 reads existing stats via Insights tools but doesn't generate A/B variants.
 - **Cross-shop benchmarks** ("your open rate is below average") — Phase 8 / privacy implications.
 - **AI-generated images / brand visuals** — text-only for v1.
+- **Voice input on the Marketing chat panel** — handled at the platform level via `docs/tasks/strategy/voice-ai-dispatcher/scope.md`. v1 of that workstream's Phase 5.5 ships a shared `<InlineVoiceMic />` component that mounts inside the Marketing panel's input area (alongside the send button). Do NOT build a Marketing-specific voice input — wait for the platform component.
 
 ---
 
