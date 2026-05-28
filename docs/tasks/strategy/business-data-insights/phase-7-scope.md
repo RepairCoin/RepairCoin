@@ -53,7 +53,7 @@ Phase 7 closes that gap.
 
 **Stretch (only if anomaly detection lands cleanly + has time):**
 
-- **Voice input** — Web Speech API for input. ~2 days.
+- ~~**Voice input** — Web Speech API for input. ~2 days.~~ **SUPERSEDED 2026-05-28** by the platform-wide voice strategy at `docs/tasks/strategy/voice-ai-dispatcher/scope.md`. Voice input for Insights will land via Phase 5.5 of that workstream (per-panel inline mic, shared `<InlineVoiceMic />` component, Whisper-backed STT instead of Web Speech API). Do NOT build per-panel voice as part of Insights Phase 7.
 
 **Out of scope (Phase 8 candidates):**
 
@@ -182,7 +182,7 @@ Light DB work — one new table (`ai_insights_pinned_queries`)
 | G | Nightly job platform | Use whatever DigitalOcean App Platform offers OR fall back to `node-cron` in the existing backend process. **Decision needed** — let me know what's already wired. |
 | H | Anomaly thresholds — per-shop configurable? | **No for v1.** Single global threshold per metric. Per-shop tuning lands in Phase 8 if needed (shop-side noise complaints). |
 | I | Banner persistence | Stored anomalies survive across panel-opens until dismissed or expired. NOT stored in client state. |
-| J | Voice input | **Stretch only.** Land if anomaly detection ships under budget; otherwise defer to Phase 8. |
+| J | Voice input | ~~**Stretch only.** Land if anomaly detection ships under budget; otherwise defer to Phase 8.~~ **SUPERSEDED 2026-05-28** — voice input for Insights now lands via the platform-wide voice strategy (`docs/tasks/strategy/voice-ai-dispatcher/scope.md` Phase 5.5). Do NOT build per-panel voice in Insights Phase 7. |
 
 ---
 
@@ -246,10 +246,20 @@ Light DB work — one new table (`ai_insights_pinned_queries`)
 - New "Pinned" tab in the panel (or expand the existing
   expand-toggle pattern into a tab switcher).
 
-### Phase 7.4 — Stretch: voice input (~2 days, only if budget remains)
-- Web Speech API integration in the input area.
-- Mic button alongside the send button.
-- Skip text-to-speech for replies (incremental value).
+### Phase 7.4 — Stretch: voice input — **SUPERSEDED 2026-05-28**
+
+This phase is no longer part of the Insights workstream. Voice input for the Insights panel now lands via the platform-wide voice strategy: `docs/tasks/strategy/voice-ai-dispatcher/scope.md` Phase 5.5 (per-panel inline mic).
+
+Key differences from the original plan:
+- Whisper-backed STT instead of Web Speech API (better quality, consistent across browsers, costs ~$0.006/min counted toward the shop's existing spend cap)
+- Shared `<InlineVoiceMic />` component reused across Insights / Marketing / Help panels (build once, mount three places)
+- Edit-confirm step before send fires (STT can mistranscribe; mandatory safety valve)
+
+Original Phase 7.4 contents preserved below for historical context (do NOT implement):
+
+> - Web Speech API integration in the input area.
+> - Mic button alongside the send button.
+> - Skip text-to-speech for replies (incremental value).
 
 ### Phase 7.5 — Tests + polish
 - Jest tests for AnomalyDetector + AnomalyPhraser.
