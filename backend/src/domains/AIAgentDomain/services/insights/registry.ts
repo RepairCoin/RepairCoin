@@ -26,6 +26,11 @@ import { repeatCustomerAnalysis } from "./tools/repeatCustomerAnalysis";
 import { timeOfDayPattern } from "./tools/timeOfDayPattern";
 // Phase 6.3 — meta-tool for AI-suggested follow-up chips.
 import { suggestFollowups } from "./tools/suggestFollowups";
+// Phase 8.1 — inventory tools.
+import { inventoryStockSummary } from "./tools/inventoryStockSummary";
+import { lowStockItems } from "./tools/lowStockItems";
+import { inventoryTurnover } from "./tools/inventoryTurnover";
+import { inventoryValueTrend } from "./tools/inventoryValueTrend";
 
 const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   // v1 (Phase 2)
@@ -40,6 +45,11 @@ const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   cancellationBreakdown,
   repeatCustomerAnalysis,
   timeOfDayPattern,
+  // Phase 8.1 — inventory tools.
+  inventoryStockSummary,
+  lowStockItems,
+  inventoryTurnover,
+  inventoryValueTrend,
   // Phase 6.3 — meta-tools (no DB access; Claude orchestration).
   suggestFollowups,
 ]);
