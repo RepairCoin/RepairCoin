@@ -96,7 +96,8 @@ export class MarketingController {
         couponValue,
         couponType,
         couponExpiresAt,
-        serviceId
+        serviceId,
+        manualEmails
       } = req.body;
 
       // Verify shop ownership using shopId from JWT (works for both wallet and social login)
@@ -111,6 +112,50 @@ export class MarketingController {
         return;
       }
 
+      // Process manual emails if provided
+      let processedManualEmails: string[] = [];
+      if (manualEmails && typeof manualEmails === 'string' && manualEmails.trim()) {
+        // Parse emails from the string (split by newline or comma, trim, validate)
+        const emailList = manualEmails
+          .split(/[\n,]+/)
+          .map(email => email.trim().toLowerCase())
+          .filter(email => email && email.includes('@'));
+
+        // Create contacts for emails that don't exist
+        for (const email of emailList) {
+          try {
+            // Extract name from email (part before @) or use generic name
+            const emailPrefix = email.split('@')[0];
+            const fullName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+
+            await this.contactRepo.createContact({
+              shopId,
+              fullName,
+              email,
+              source: 'manual',
+              tags: ['campaign-invite']
+            });
+          } catch (error: unknown) {
+            // Contact already exists or validation error - continue
+            if (error && typeof error === 'object' && 'message' in error) {
+              const errorMessage = (error as { message: string }).message;
+              // Only log if it's not a duplicate error
+              if (!errorMessage.includes('already exists')) {
+                logger.warn(`Error creating contact for ${email}:`, errorMessage);
+              }
+            }
+          }
+        }
+
+        processedManualEmails = emailList;
+      }
+
+      // Merge manual emails into audienceFilters
+      const updatedAudienceFilters = {
+        ...audienceFilters,
+        ...(processedManualEmails.length > 0 && { manualEmails: processedManualEmails })
+      };
+
       const campaign = await this.marketingService.createCampaign({
         shopId,
         name,
@@ -120,7 +165,7 @@ export class MarketingController {
         designContent,
         templateId,
         audienceType,
-        audienceFilters,
+        audienceFilters: updatedAudienceFilters,
         deliveryMethod,
         promoCodeId,
         couponValue,
@@ -129,14 +174,26 @@ export class MarketingController {
         serviceId
       });
 
-      res.status(201).json({ success: true, data: campaign });
-    } catch (error: any) {
-      logger.error('Error creating campaign:', error);
-      // Return a more descriptive error message
-      res.status(500).json({
-        success: false,
-        error: error.message || 'Failed to create campaign'
+      res.status(201).json({
+        success: true,
+        data: campaign,
+        meta: processedManualEmails.length > 0
+          ? { manualEmailsAdded: processedManualEmails.length }
+          : undefined
       });
+    } catch (error: unknown) {
+      logger.error('Error creating campaign:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        res.status(500).json({
+          success: false,
+          error: (error as { message: string }).message || 'Failed to create campaign'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create campaign'
+        });
+      }
     }
   };
 

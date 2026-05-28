@@ -499,6 +499,29 @@ export class ContactRepository extends BaseRepository {
   }
 
   /**
+   * Get contacts by email addresses for a shop
+   */
+  async getContactsByEmails(shopId: string, emails: string[]): Promise<Contact[]> {
+    if (emails.length === 0) {
+      return [];
+    }
+
+    // Lowercase all emails for case-insensitive matching
+    const lowerEmails = emails.map(e => e.toLowerCase());
+
+    const query = `
+      SELECT * FROM contact_imports
+      WHERE shop_id = $1
+        AND LOWER(email) = ANY($2)
+        AND status = 'active'
+      ORDER BY full_name ASC
+    `;
+
+    const result = await this.pool.query(query, [shopId, lowerEmails]);
+    return result.rows.map(row => this.mapSnakeToCamel(row));
+  }
+
+  /**
    * Increment email sent count for multiple contacts
    */
   async incrementEmailSentCount(contactIds: string[]): Promise<void> {

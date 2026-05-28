@@ -44,6 +44,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -262,6 +263,7 @@ export function CampaignBuilderModal({
   const [customerFilter, setCustomerFilter] = useState<'all' | 'most_transactions' | 'active'>('all');
   const [customerSort, setCustomerSort] = useState<'recent' | 'transactions_high' | 'transactions_low'>('recent');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [manualEmails, setManualEmails] = useState<string>('');
 
   // DnD sensors
   const sensors = useSensors(
@@ -603,6 +605,7 @@ export function CampaignBuilderModal({
         deliveryMethod: deliveryMethod as any,
         audienceFilters: { selectedAddresses: Array.from(selectedCustomers) },
         ...(selectedServiceId && { serviceId: selectedServiceId }),
+        ...(manualEmails.trim() && { manualEmails: manualEmails.trim() }),
       };
 
       if (campaignType === 'offer_coupon' && selectedPromoCodeId) {
@@ -1210,7 +1213,7 @@ export function CampaignBuilderModal({
 
   return (
     <Dialog open={open} onOpenChange={() => onClose(false)}>
-      <DialogContent className="bg-[#1a1a1a] border-gray-800 z-[1210] w-screen h-[100dvh] max-w-full max-h-[100dvh] sm:w-full sm:max-w-6xl sm:h-auto sm:max-h-[95vh] p-0 overflow-hidden rounded-none sm:rounded-lg flex flex-col gap-0 [&>button.absolute]:hidden" aria-describedby={undefined}>
+      <DialogContent className="bg-[#1a1a1a] border-gray-800 w-screen h-[100dvh] max-w-full max-h-[100dvh] sm:w-full sm:max-w-6xl sm:h-auto sm:max-h-[95vh] p-0 overflow-hidden rounded-none sm:rounded-lg flex flex-col gap-0 [&>button.absolute]:hidden" aria-describedby={undefined}>
         <VisuallyHidden>
           <DialogTitle>Campaign Builder</DialogTitle>
         </VisuallyHidden>
@@ -1492,6 +1495,42 @@ export function CampaignBuilderModal({
             <div className="p-4 sm:p-6 max-w-3xl mx-auto overflow-auto h-full lg:h-[calc(95vh-140px)]">
               <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Select Your Audience</h3>
               <p className="text-gray-400 text-xs sm:text-sm mb-4 sm:mb-6">All customers are selected by default. Uncheck customers you don&apos;t want to include.</p>
+
+              {/* Manual Email Entry */}
+              {!viewOnly && (
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
+                  <h4 className="text-white font-medium text-sm mb-2 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-[#FFCC00]" />
+                    Invite New Users
+                  </h4>
+                  <p className="text-gray-400 text-xs mb-3">
+                    Enter email addresses of people not in your contact list (one per line or comma-separated)
+                  </p>
+                  <Textarea
+                    value={manualEmails}
+                    onChange={(e) => setManualEmails(e.target.value)}
+                    placeholder="email1@example.com&#10;email2@example.com&#10;or comma-separated: email1@example.com, email2@example.com"
+                    className="bg-gray-900 border-gray-600 text-white min-h-[100px] font-mono text-sm"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>These email addresses will be added to your contact list after sending</span>
+                    </div>
+                    {manualEmails.trim() && (
+                      <span className="text-xs text-[#FFCC00]">
+                        {manualEmails.split(/[\n,]+/).filter(e => e.trim() && e.includes('@')).length} email(s) entered
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Existing Customers Section Header */}
+              <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#FFCC00]" />
+                Select from Existing Customers
+              </h4>
 
               {/* Filter and Sort Controls */}
               {!viewOnly && (

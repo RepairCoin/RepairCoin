@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { ContactImportModal } from "./ContactImportModal";
 import { EmailCampaignComposerModal } from "./EmailCampaignComposerModal";
+import apiClient from "@/services/api/client";
 
 interface Contact {
   id: string;
@@ -97,10 +98,9 @@ export function ContactListView({ shopId }: ContactListViewProps) {
         ...(searchQuery && { search: searchQuery }),
       });
 
-      const contactsResponse = await fetch(
-        `/api/marketing/shops/${shopId}/contacts?${params}`
+      const contactsData = await apiClient.get(
+        `/marketing/shops/${shopId}/contacts?${params}`
       );
-      const contactsData = await contactsResponse.json();
 
       if (contactsData.success) {
         setContacts(contactsData.data.contacts);
@@ -108,8 +108,7 @@ export function ContactListView({ shopId }: ContactListViewProps) {
       }
 
       // Fetch stats
-      const statsResponse = await fetch(`/api/marketing/shops/${shopId}/contacts/stats`);
-      const statsData = await statsResponse.json();
+      const statsData = await apiClient.get(`/marketing/shops/${shopId}/contacts/stats`);
 
       if (statsData.success) {
         setStats(statsData.data);
@@ -131,11 +130,7 @@ export function ContactListView({ shopId }: ContactListViewProps) {
     if (!confirm("Are you sure you want to delete this contact?")) return;
 
     try {
-      const response = await fetch(`/api/marketing/shops/${shopId}/contacts/${contactId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Delete failed");
+      await apiClient.delete(`/marketing/contacts/${contactId}`);
 
       toast.success("Contact deleted");
       loadData();
@@ -225,15 +220,15 @@ export function ContactListView({ shopId }: ContactListViewProps) {
 
           {/* Status Filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] bg-gray-800 border-gray-700">
+            <SelectTrigger variant="dark" className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="unsubscribed">Unsubscribed</SelectItem>
-              <SelectItem value="bounced">Bounced</SelectItem>
-              <SelectItem value="invalid">Invalid</SelectItem>
+            <SelectContent variant="dark">
+              <SelectItem variant="dark" value="all">All Status</SelectItem>
+              <SelectItem variant="dark" value="active">Active</SelectItem>
+              <SelectItem variant="dark" value="unsubscribed">Unsubscribed</SelectItem>
+              <SelectItem variant="dark" value="bounced">Bounced</SelectItem>
+              <SelectItem variant="dark" value="invalid">Invalid</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -244,7 +239,7 @@ export function ContactListView({ shopId }: ContactListViewProps) {
             variant="outline"
             onClick={exportContacts}
             disabled={contacts.length === 0}
-            className="border-gray-700"
+            className="border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white hover:border-gray-500"
           >
             <Download className="w-4 h-4 mr-2" />
             Export

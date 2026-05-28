@@ -67,6 +67,7 @@ export interface CreateCampaignData {
   couponType?: 'fixed' | 'percentage';
   couponExpiresAt?: string;
   serviceId?: string;
+  manualEmails?: string;
 }
 
 export interface CampaignDeliveryResult {

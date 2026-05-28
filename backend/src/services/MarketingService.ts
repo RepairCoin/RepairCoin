@@ -134,32 +134,47 @@ export class MarketingService {
       audienceType: campaign.audienceType
     });
 
-    // Get target audience
+    // Get target audience (existing customers)
     const recipients = await this.getTargetAudience(
       campaign.shopId,
       campaign.audienceType,
       campaign.audienceFilters
     );
 
-    if (recipients.length === 0) {
+    // Get manual email contacts if present
+    const manualEmailContacts: Array<{ email: string; name: string }> = [];
+    if (campaign.audienceFilters?.manualEmails && Array.isArray(campaign.audienceFilters.manualEmails)) {
+      const contactRepo = new (require('../repositories/ContactRepository').ContactRepository)();
+      const contacts = await contactRepo.getContactsByEmails(
+        campaign.shopId,
+        campaign.audienceFilters.manualEmails
+      );
+      manualEmailContacts.push(...contacts.map(c => ({ email: c.email!, name: c.fullName })));
+    }
+
+    const totalRecipientCount = recipients.length + manualEmailContacts.length;
+
+    if (totalRecipientCount === 0) {
       throw new Error('No recipients found for this campaign');
     }
 
-    // Add recipients to tracking table
-    await this.campaignRepo.addRecipients(
-      campaignId,
-      recipients.map(r => ({ customerAddress: r.walletAddress, customerEmail: r.email }))
-    );
+    // Add customer recipients to tracking table
+    if (recipients.length > 0) {
+      await this.campaignRepo.addRecipients(
+        campaignId,
+        recipients.map(r => ({ customerAddress: r.walletAddress, customerEmail: r.email }))
+      );
+    }
 
     const result: CampaignDeliveryResult = {
-      totalRecipients: recipients.length,
+      totalRecipients: totalRecipientCount,
       emailsSent: 0,
       emailsFailed: 0,
       inAppSent: 0,
       inAppFailed: 0
     };
 
-    // Send via selected delivery method
+    // Send to existing customers via selected delivery method
     for (const recipient of recipients) {
       try {
         if (campaign.deliveryMethod === 'email' || campaign.deliveryMethod === 'both') {
@@ -187,11 +202,34 @@ export class MarketingService {
             result.inAppFailed++;
           }
         }
-      } catch (error: any) {
-        logger.error(`Error sending campaign to ${recipient.walletAddress}:`, error);
-        await this.campaignRepo.updateRecipientStatus(campaignId, recipient.walletAddress, {
-          deliveryError: error.message
-        });
+      } catch (error: unknown) {
+        logger.error('Error sending campaign to customer:', error);
+        if (error && typeof error === 'object' && 'message' in error) {
+          await this.campaignRepo.updateRecipientStatus(campaignId, recipient.walletAddress, {
+            deliveryError: (error as { message: string }).message
+          });
+        }
+      }
+    }
+
+    // Send to manual email contacts (email only)
+    if (manualEmailContacts.length > 0 && (campaign.deliveryMethod === 'email' || campaign.deliveryMethod === 'both')) {
+      for (const contact of manualEmailContacts) {
+        try {
+          const emailSent = await this.sendEmailCampaign(
+            campaign,
+            { walletAddress: '', email: contact.email, name: contact.name },
+            shopInfo
+          );
+          if (emailSent) {
+            result.emailsSent++;
+          } else {
+            result.emailsFailed++;
+          }
+        } catch (error: unknown) {
+          logger.error(`Error sending campaign to ${contact.email}:`, error);
+          result.emailsFailed++;
+        }
       }
     }
 

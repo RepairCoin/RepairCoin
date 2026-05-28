@@ -250,14 +250,14 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
         <TabsList className="bg-gray-800 border border-gray-700 p-1">
           <TabsTrigger
             value="campaigns"
-            className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+            className="text-gray-400 data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
           >
             <Megaphone className="w-4 h-4 mr-2" />
             Campaigns
           </TabsTrigger>
           <TabsTrigger
             value="contacts"
-            className="data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
+            className="text-gray-400 data-[state=active]:bg-yellow-500 data-[state=active]:text-black"
           >
             <Users className="w-4 h-4 mr-2" />
             Contacts
@@ -329,7 +329,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full sm:w-auto justify-between bg-transparent border-gray-600 text-white hover:bg-gray-800 hover:text-white"
+                  className="w-full sm:w-auto justify-between bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white hover:border-gray-500"
                 >
                   <span className="truncate">
                     {statusFilterOptions.find((opt) => opt.value === statusFilter)?.label || "All Status"}
@@ -572,7 +572,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
       {/* Campaign Type Picker Dialog */}
       <Dialog open={showCampaignPicker} onOpenChange={setShowCampaignPicker}>
-        <DialogContent className="bg-[#1a1a1a] border-gray-800 z-[1100] w-screen h-[100dvh] max-w-full max-h-[100dvh] rounded-none p-0 sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:h-auto sm:max-h-[80vh] sm:rounded-lg flex flex-col gap-0">
+        <DialogContent className="bg-[#1a1a1a] border-gray-800 w-screen h-[100dvh] max-w-full max-h-[100dvh] rounded-none p-0 sm:w-[calc(100vw-2rem)] sm:max-w-2xl sm:h-auto sm:max-h-[80vh] sm:rounded-lg flex flex-col gap-0">
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-gray-800 sm:border-b-0 shrink-0">
             <DialogTitle className="text-white text-lg sm:text-xl">Choose a campaign</DialogTitle>
           </DialogHeader>
@@ -656,6 +656,29 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Invite new users */}
+            <div>
+              <h3 className="text-gray-400 text-sm font-medium mb-2 sm:mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Invite new users
+              </h3>
+              <p className="text-gray-500 text-xs sm:text-sm mb-3">
+                Send campaigns to people not yet in your contact list by entering their email addresses
+              </p>
+              <button
+                onClick={() => handleSelectCampaignType("custom")}
+                className="w-full flex items-center justify-between gap-2 p-3.5 sm:p-3 bg-gray-800/50 active:bg-gray-700 hover:bg-gray-700/50 rounded-lg transition-colors border border-gray-700/50 text-left min-h-[52px]"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="text-[#FFCC00] flex-shrink-0">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <span className="text-white text-sm sm:text-base truncate">Add email addresses manually</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              </button>
             </div>
 
             {/* Templates */}
