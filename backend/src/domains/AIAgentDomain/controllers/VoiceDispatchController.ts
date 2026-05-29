@@ -54,6 +54,8 @@ interface ParsedRequest {
   transcript: string;
   sessionId: string;
   source: DispatchTranscriptSource;
+  /** Whisper STT output BEFORE user edit, or null when unedited. */
+  originalTranscript: string | null;
 }
 
 export function createVoiceDispatchController(deps: VoiceDispatchDeps = {}) {
@@ -73,7 +75,7 @@ export function createVoiceDispatchController(deps: VoiceDispatchDeps = {}) {
       res.status(400).json({ success: false, error: parsed.error });
       return;
     }
-    const { transcript, sessionId, source } = parsed.value;
+    const { transcript, sessionId, source, originalTranscript } = parsed.value;
 
     // 1. Spend-cap pre-flight (same monthly budget as the other AI surfaces).
     const spendCheck = await spendCap.canSpend(shopId);
@@ -112,6 +114,7 @@ export function createVoiceDispatchController(deps: VoiceDispatchDeps = {}) {
       shopId,
       sessionId,
       transcript,
+      originalTranscript,
       transcriptSource: source,
       routerDecision: classification?.domain ?? "error",
       routerInputTokens: classification?.inputTokens ?? 0,
@@ -179,7 +182,25 @@ function parseRequest(
   const source: DispatchTranscriptSource =
     rawSource === "inline_mic" ? "inline_mic" : "voice";
 
-  return { ok: true, value: { transcript, sessionId, source } };
+  // Phase 5 — optional. When the client provides it, the user edited the
+  // STT output before tapping Send. Trim + cap length the same way as
+  // transcript so a malicious client can't inflate audit storage.
+  let originalTranscript: string | null = null;
+  if (typeof b.originalTranscript === "string") {
+    const trimmed = b.originalTranscript.trim();
+    if (trimmed.length > 0 && trimmed.length <= MAX_TRANSCRIPT_CHARS) {
+      // Only record when actually different — clients should already
+      // omit it when unchanged, but be defensive.
+      if (trimmed !== transcript) {
+        originalTranscript = trimmed;
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    value: { transcript, sessionId, source, originalTranscript },
+  };
 }
 
 export const dispatchVoice = createVoiceDispatchController();
