@@ -1,7 +1,10 @@
 // backend/src/domains/AIAgentDomain/routes.ts
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { audioUploadMiddleware } from '../../middleware/audioUpload';
 import { previewAIReply } from './controllers/PreviewController';
+import { transcribeVoice } from './controllers/VoiceTranscribeController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
 import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
 import {
@@ -203,6 +206,21 @@ export function initializeRoutes(): Router {
     recordPinnedRun
   );
 
+  // Voice AI Dispatcher Phase 1 — speech-to-text via OpenAI Whisper.
+  // Multipart upload: `audio` (file), `durationMs` (string), `sessionId`
+  // (string), optional `language`. Returns { transcript, durationMs,
+  // sessionId }. Shop-scoped via JWT; spend-capped against the shared
+  // monthly budget; audited into ai_voice_transcriptions. See
+  // docs/tasks/strategy/voice-ai-dispatcher/implementation.md Phase 1.
+  router.post(
+    '/voice/transcribe',
+    authMiddleware,
+    requireRole(['shop']),
+    audioUploadMiddleware.single('audio'),
+    handleMulterErrors,
+    transcribeVoice
+  );
+
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make
   // the auth boundary explicit. Pure read — safe for admin dashboards.
   router.get(
@@ -229,4 +247,35 @@ export function initializeRoutes(): Router {
   );
 
   return router;
+}
+
+/**
+ * Convert multer-thrown errors into clean JSON 400 responses. Without
+ * this, multer errors fall through to the global error handler and
+ * render as 500s. Voice upload failures are user input problems, not
+ * server failures — surface them as 400 with a useful message.
+ */
+function handleMulterErrors(
+  err: unknown,
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (err instanceof multer.MulterError) {
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    res.status(status).json({
+      success: false,
+      error: `Upload rejected: ${err.message}`,
+      code: err.code,
+    });
+    return;
+  }
+  if (err instanceof Error) {
+    res.status(400).json({
+      success: false,
+      error: err.message,
+    });
+    return;
+  }
+  next(err);
 }
