@@ -262,11 +262,16 @@ function handleMulterErrors(
   next: NextFunction
 ): void {
   if (err instanceof multer.MulterError) {
-    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    // Some @types/multer versions don't narrow `unknown` after
+    // `instanceof multer.MulterError` (DO's pinned version is one of
+    // them — broke the first deploy attempt with TS2339). Defensive
+    // structural cast so this compiles against any @types/multer.
+    const e = err as { code?: string; message: string };
+    const status = e.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
     res.status(status).json({
       success: false,
-      error: `Upload rejected: ${err.message}`,
-      code: err.code,
+      error: `Upload rejected: ${e.message}`,
+      code: e.code,
     });
     return;
   }
