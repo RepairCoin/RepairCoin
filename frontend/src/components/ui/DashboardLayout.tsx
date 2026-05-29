@@ -10,6 +10,7 @@ import { HelpAssistantLauncher } from "@/components/shop/help/HelpAssistantLaunc
 import { InsightsLauncher } from "@/components/shop/insights/InsightsLauncher";
 import { MarketingAILauncher } from "@/components/shop/marketing-ai/MarketingAILauncher";
 import { HeaderVoiceMic } from "@/components/voice/HeaderVoiceMic";
+import { MobileBottomNavMic } from "@/components/voice/MobileBottomNavMic";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -140,6 +141,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {userRole === "shop" && <MarketingAILauncher />}
         </div>
       )}
+
+      {/* Voice AI Dispatcher Phase 4 — mobile bottom-nav mic. The
+          component itself is lg:hidden, so this mount is a no-op on
+          desktop. Shop-only mirrors the other voice surfaces. */}
+      {userRole === "shop" && <MobileBottomNavMic />}
 
       {/* Main Content Area. In fullHeight mode, becomes a flex column that
           bounds children to the remaining viewport height — required for
