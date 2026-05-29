@@ -16,6 +16,7 @@ import {
   MARKETING_LIMITS,
 } from "@/services/api/aiMarketing";
 import { MarketingToolCallCard } from "./MarketingToolCallCard";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 
 /**
  * Static starter prompts for the empty-panel state. Each covers a
@@ -63,6 +64,9 @@ export const MarketingAIPanel: React.FC = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const voicePendingDispatchId = useVoiceDispatchStore(
+    (s) => s.pending?.dispatchId
+  );
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -76,6 +80,22 @@ export const MarketingAIPanel: React.FC = () => {
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Voice AI Dispatcher Phase 3 — see InsightsPanel for the pattern
+  // rationale. When voice routed to MARKETING, seed input + auto-submit
+  // + consume the dispatch entry.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const pending = useVoiceDispatchStore.getState().pending;
+    if (pending && pending.domain === "marketing") {
+      const transcript = pending.transcript;
+      useVoiceDispatchStore.getState().consume();
+      const timer = setTimeout(() => {
+        void submitText(transcript);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [voicePendingDispatchId]);
 
   const atMessageLimit = turns.length >= MARKETING_LIMITS.maxMessages;
 

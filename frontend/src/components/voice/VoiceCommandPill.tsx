@@ -1,11 +1,13 @@
 // frontend/src/components/voice/VoiceCommandPill.tsx
 //
-// Voice AI Dispatcher Phase 2 — the headline mic affordance.
+// Voice AI Dispatcher — the headline mic affordance.
 //
 // Matches the design in c:/dev/voice.jpeg: a rounded yellow pill
 // centered on the shop dashboard home, with a mic icon and a rotating
 // example placeholder. Tap → records → shows transcript → user taps
-// Send (Phase 3 will dispatch; for now Send only toasts).
+// Send → backend router (Haiku) classifies → matching panel opens
+// with the transcript pre-filled and the conversation already in
+// flight.
 //
 // State rendering:
 //   idle                  → Pill with "Ask AI Anything" + mic icon
@@ -13,6 +15,8 @@
 //   listening             → Pulsing red dot + "Listening… Tap to stop"
 //   transcribing          → Spinner + "Transcribing…"
 //   transcribed           → Editable transcript + Send button
+//   dispatching           → Spinner + "Routing your question…"
+//   out_of_scope          → Templated decline + Dismiss button
 //   error                 → Error message + Try Again button
 
 "use client";
@@ -23,6 +27,17 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { dispatchTranscript } from "@/services/api/voice";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
+
+const DOMAIN_LABEL: Record<string, string> = {
+  insights: "Insights",
+  marketing: "Marketing",
+  help: "Help",
+};
+
+const OUT_OF_SCOPE_COPY =
+  "I can't help with that yet — try opening the Insights, Marketing, or Help panel directly.";
 
 const EXAMPLE_PROMPTS = [
   "Create a campaign for slow days",
@@ -43,6 +58,13 @@ export const VoiceCommandPill: React.FC = () => {
   );
 
   const recorder = useVoiceRecorder({ sessionId, language: "en" });
+  const dispatch = useVoiceDispatchStore((s) => s.dispatch);
+
+  // Dispatch sub-state (after Send, before the router responds).
+  // Lives alongside recorder.state — the pill renders these separately
+  // so a long Haiku call doesn't get visually conflated with STT.
+  const [dispatching, setDispatching] = useState(false);
+  const [outOfScope, setOutOfScope] = useState(false);
 
   // Rotate the placeholder text every 4s while idle so the user sees
   // multiple example prompts. Frozen during any active state.
@@ -62,21 +84,72 @@ export const VoiceCommandPill: React.FC = () => {
     } else if (recorder.state === "listening") {
       recorder.stop();
     } else if (recorder.state === "transcribed") {
-      handleSend();
+      void handleSend();
     }
   };
 
-  const handleSend = () => {
-    // Phase 3 will replace this with /api/ai/dispatch + open-target-panel.
-    // For Phase 2, surface a toast so we can validate the STT round-trip
-    // end-to-end without needing the router yet.
-    toast(
-      `Got it: "${recorder.transcript.slice(0, 80)}${recorder.transcript.length > 80 ? "…" : ""}"\n` +
-        `Routing will wire up in Phase 3.`,
-      { duration: 5000 }
-    );
+  const handleSend = async () => {
+    const text = recorder.transcript.trim();
+    if (text.length === 0) return;
+    setDispatching(true);
+    try {
+      const result = await dispatchTranscript(text, sessionId, "voice");
+      if (result.domain === "out_of_scope") {
+        setOutOfScope(true);
+        return;
+      }
+      // Hand off to the matching panel via the Zustand store. The
+      // launcher subscribed to the store opens its Sheet; the panel
+      // seeds its input + triggers send.
+      dispatch(result.domain, text);
+      toast.success(`Asked ${DOMAIN_LABEL[result.domain]}`, {
+        duration: 2500,
+      });
+      recorder.reset();
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Voice routing temporarily unavailable.";
+      toast.error(msg, { duration: 4000 });
+    } finally {
+      setDispatching(false);
+    }
+  };
+
+  const handleDismissOutOfScope = () => {
+    setOutOfScope(false);
     recorder.reset();
   };
+
+  // ----- OUT_OF_SCOPE — router rejected the question -----
+  if (outOfScope) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-[#1e1f22] rounded-3xl p-5 shadow-lg border border-gray-800">
+        <p className="text-sm text-gray-300 mb-3">{OUT_OF_SCOPE_COPY}</p>
+        <div className="flex justify-end">
+          <Button
+            onClick={handleDismissOutOfScope}
+            className="bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] font-semibold"
+          >
+            Got it
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ----- DISPATCHING — Haiku router is classifying -----
+  if (dispatching) {
+    return (
+      <div className="w-full max-w-2xl mx-auto px-6 py-5 rounded-full bg-[#1e1f22] text-white text-center shadow-lg">
+        <span className="inline-flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-[#FFCC00]" />
+          <span className="text-sm">Routing your question…</span>
+        </span>
+      </div>
+    );
+  }
 
   // ----- IDLE — the headline pill -----
   if (recorder.state === "idle") {

@@ -23,9 +23,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { dispatchTranscript } from "@/services/api/voice";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
+
+const DOMAIN_LABEL: Record<string, string> = {
+  insights: "Insights",
+  marketing: "Marketing",
+  help: "Help",
+};
+
+const OUT_OF_SCOPE_COPY =
+  "I can't help with that yet — try opening the Insights, Marketing, or Help panel directly.";
 
 export const HeaderVoiceMic: React.FC = () => {
   const [open, setOpen] = useState(false);
+  const [dispatching, setDispatching] = useState(false);
+  const [outOfScope, setOutOfScope] = useState(false);
+  const dispatch = useVoiceDispatchStore((s) => s.dispatch);
 
   // One session id per popover-open. Resets when popover closes so a
   // new open is a fresh conversation in audit terms.
@@ -44,16 +58,43 @@ export const HeaderVoiceMic: React.FC = () => {
   // Closing the popover should also stop any in-flight recording so the
   // mic indicator doesn't stay on after dismissal.
   const handleOpenChange = (next: boolean) => {
-    if (!next) recorder.reset();
+    if (!next) {
+      recorder.reset();
+      setDispatching(false);
+      setOutOfScope(false);
+    }
     setOpen(next);
   };
 
-  const handleSend = () => {
-    toast(
-      `Got it: "${recorder.transcript.slice(0, 80)}${recorder.transcript.length > 80 ? "…" : ""}"\n` +
-        `Routing will wire up in Phase 3.`,
-      { duration: 5000 }
-    );
+  const handleSend = async () => {
+    const text = recorder.transcript.trim();
+    if (text.length === 0) return;
+    setDispatching(true);
+    try {
+      const result = await dispatchTranscript(text, sessionId, "voice");
+      if (result.domain === "out_of_scope") {
+        setOutOfScope(true);
+        return;
+      }
+      dispatch(result.domain, text);
+      toast.success(`Asked ${DOMAIN_LABEL[result.domain]}`, {
+        duration: 2500,
+      });
+      recorder.reset();
+      setOpen(false);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Voice routing temporarily unavailable.";
+      toast.error(msg, { duration: 4000 });
+    } finally {
+      setDispatching(false);
+    }
+  };
+
+  const handleDismissOutOfScope = () => {
+    setOutOfScope(false);
     recorder.reset();
     setOpen(false);
   };
@@ -89,6 +130,27 @@ export const HeaderVoiceMic: React.FC = () => {
   );
 
   function renderBody() {
+    if (outOfScope) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-300">{OUT_OF_SCOPE_COPY}</p>
+          <Button
+            onClick={handleDismissOutOfScope}
+            className="w-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] font-semibold"
+          >
+            Got it
+          </Button>
+        </div>
+      );
+    }
+    if (dispatching) {
+      return (
+        <div className="flex items-center gap-3 py-2">
+          <Loader2 className="w-5 h-5 animate-spin text-[#FFCC00]" />
+          <p className="text-sm text-gray-300">Routing your question…</p>
+        </div>
+      );
+    }
     if (recorder.state === "idle" || recorder.state === "error") {
       return (
         <div className="space-y-3">

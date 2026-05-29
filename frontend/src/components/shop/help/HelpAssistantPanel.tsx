@@ -18,6 +18,7 @@ import {
   HelpMessage,
   HELP_LIMITS,
 } from "@/services/api/aiHelp";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 
 /**
  * Suggested first-time-user questions. Each maps to an article in
@@ -61,6 +62,9 @@ export const HelpAssistantPanel: React.FC = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const voicePendingDispatchId = useVoiceDispatchStore(
+    (s) => s.pending?.dispatchId
+  );
 
   // Article-expansion state. `articleIndex` is the title→filename map
   // fetched once on mount; `viewedArticle` switches the panel into
@@ -82,6 +86,21 @@ export const HelpAssistantPanel: React.FC = () => {
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Voice AI Dispatcher Phase 3 — when routed to HELP, seed input +
+  // auto-submit + consume. Pattern matches Insights + Marketing panels.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const pending = useVoiceDispatchStore.getState().pending;
+    if (pending && pending.domain === "help") {
+      const transcript = pending.transcript;
+      useVoiceDispatchStore.getState().consume();
+      const timer = setTimeout(() => {
+        void submitText(transcript);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [voicePendingDispatchId]);
 
   // When an article opens (or the user clicks an inline cross-reference
   // and a NEW article replaces the current one), reset the article-view
