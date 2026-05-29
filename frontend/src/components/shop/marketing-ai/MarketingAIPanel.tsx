@@ -17,6 +17,7 @@ import {
 } from "@/services/api/aiMarketing";
 import { MarketingToolCallCard } from "./MarketingToolCallCard";
 import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
+import { InlineVoiceMic } from "@/components/voice/InlineVoiceMic";
 
 /**
  * Static starter prompts for the empty-panel state. Each covers a
@@ -241,6 +242,13 @@ export const MarketingAIPanel: React.FC = () => {
           }
           className="flex-1 bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Tell the Marketing Assistant what campaign to send"
+        />
+        {/* Voice AI Dispatcher Phase 5.5 — per-panel inline mic. */}
+        <InlineVoiceMic
+          currentPanel="marketing"
+          sessionId={sessionId}
+          onTranscriptReady={(text) => void submitText(text)}
+          disabled={loading || atMessageLimit}
         />
         <button
           type="button"

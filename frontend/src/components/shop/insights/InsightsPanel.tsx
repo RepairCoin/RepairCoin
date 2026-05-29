@@ -26,6 +26,7 @@ import {
 import { InsightsToolCallCard } from "./InsightsToolCallCard";
 import { InsightsAnomalyBanner } from "./InsightsAnomalyBanner";
 import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
+import { InlineVoiceMic } from "@/components/voice/InlineVoiceMic";
 
 /**
  * Suggested first-time-user questions per impl-doc Phase 4.3. Each maps
@@ -513,6 +514,16 @@ export const InsightsPanel: React.FC = () => {
           }
           className="flex-1 bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Ask the Insights Assistant"
+        />
+        {/* Voice AI Dispatcher Phase 5.5 — per-panel inline mic with
+            D3 hybrid handoff. Tapping records a follow-up; the
+            client-side classifier decides whether to skip the router
+            (in-domain) or confirm cross-domain with /api/ai/dispatch. */}
+        <InlineVoiceMic
+          currentPanel="insights"
+          sessionId={sessionId}
+          onTranscriptReady={(text) => void submitText(text)}
+          disabled={loading || atMessageLimit}
         />
         <button
           type="button"
