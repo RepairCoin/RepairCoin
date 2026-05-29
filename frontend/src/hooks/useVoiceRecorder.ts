@@ -56,6 +56,14 @@ interface UseVoiceRecorderReturn {
   /** Latest transcript (editable via setTranscript). */
   transcript: string;
   setTranscript: (next: string) => void;
+  /**
+   * Phase 5 — the STT output before any user edit. Frozen the moment
+   * transcription completes; never mutates after that. Empty string
+   * when no recording has completed yet. Components compare
+   * `transcript !== originalTranscript` to detect an edit and pass
+   * the original to /api/ai/dispatch for audit purposes.
+   */
+  originalTranscript: string;
   /** User-friendly error string when state === 'error'. */
   error: string | null;
   /** Duration of the most-recent recording. */
@@ -104,6 +112,9 @@ export function useVoiceRecorder(
 
   const [state, setState] = useState<VoiceRecorderState>("idle");
   const [transcript, setTranscript] = useState("");
+  // Frozen after STT completes — never re-set on edit. Phase 5 lets
+  // the dispatch endpoint distinguish "user edited" from "verbatim STT".
+  const [originalTranscript, setOriginalTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState(0);
 
@@ -173,6 +184,7 @@ export function useVoiceRecorder(
   const start = useCallback(async (): Promise<void> => {
     // Reset prior state so re-recording starts clean.
     setTranscript("");
+    setOriginalTranscript("");
     setError(null);
     setDurationMs(0);
     chunksRef.current = [];
@@ -213,11 +225,19 @@ export function useVoiceRecorder(
       const name = err instanceof Error ? err.name : "";
       setState("error");
       if (name === "NotAllowedError" || name === "SecurityError") {
+        // Covers both "user clicked Deny" and "browser blocked by
+        // default policy" — UX-wise the recovery action is the same:
+        // open the URL-bar permission popover.
         setError(
-          "Mic permission needed. Enable in your browser settings and try again."
+          "Mic access blocked. Click the lock icon in your browser's URL bar to allow the microphone, then try again."
         );
       } else if (name === "NotFoundError") {
         setError("No microphone detected on this device.");
+      } else if (name === "NotReadableError") {
+        // Mic is in use by another tab / app — common on shared laptops.
+        setError(
+          "The microphone is in use by another tab or app. Close it and try again."
+        );
       } else {
         setError("Couldn't access the microphone. Try again.");
       }
@@ -273,6 +293,7 @@ export function useVoiceRecorder(
           return;
         }
         setTranscript(safeTranscript);
+        setOriginalTranscript(safeTranscript);
         setState("transcribed");
         onTranscribed?.(result);
       } catch (err) {
@@ -356,6 +377,7 @@ export function useVoiceRecorder(
     teardown();
     setState("idle");
     setTranscript("");
+    setOriginalTranscript("");
     setError(null);
     setDurationMs(0);
   }, [teardown]);
@@ -364,6 +386,7 @@ export function useVoiceRecorder(
     state,
     transcript,
     setTranscript,
+    originalTranscript,
     error,
     durationMs,
     start,

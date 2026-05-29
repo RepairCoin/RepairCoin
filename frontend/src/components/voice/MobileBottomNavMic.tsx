@@ -53,6 +53,7 @@ export const MobileBottomNavMic: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [outOfScope, setOutOfScope] = useState(false);
+  const [dispatchFailed, setDispatchFailed] = useState(false);
   const dispatch = useVoiceDispatchStore((s) => s.dispatch);
 
   // Fresh session id per drawer-open. Mirrors HeaderVoiceMic's pattern.
@@ -74,6 +75,7 @@ export const MobileBottomNavMic: React.FC = () => {
       recorder.reset();
       setDispatching(false);
       setOutOfScope(false);
+      setDispatchFailed(false);
     }
     setDrawerOpen(next);
   };
@@ -91,7 +93,12 @@ export const MobileBottomNavMic: React.FC = () => {
     if (text.length === 0) return;
     setDispatching(true);
     try {
-      const result = await dispatchTranscript(text, sessionId, "voice");
+      const result = await dispatchTranscript(
+        text,
+        sessionId,
+        "voice",
+        recorder.originalTranscript
+      );
       if (result.domain === "out_of_scope") {
         setOutOfScope(true);
         return;
@@ -101,18 +108,19 @@ export const MobileBottomNavMic: React.FC = () => {
         duration: 2500,
       });
       handleDrawerOpenChange(false);
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Voice routing temporarily unavailable.";
-      toast.error(msg, { duration: 4000 });
+    } catch {
+      setDispatchFailed(true);
     } finally {
       setDispatching(false);
     }
   };
 
   const handleDismissOutOfScope = () => {
+    handleDrawerOpenChange(false);
+  };
+
+  const handleManualOpen = (domain: "insights" | "marketing" | "help") => {
+    dispatch(domain, "");
     handleDrawerOpenChange(false);
   };
 
@@ -152,6 +160,38 @@ export const MobileBottomNavMic: React.FC = () => {
   );
 
   function renderBody() {
+    if (dispatchFailed) {
+      return (
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-gray-300">
+            Voice routing is having trouble. Open a panel manually:
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleManualOpen("insights")}
+              className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+            >
+              Insights
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleManualOpen("marketing")}
+              className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+            >
+              Marketing
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleManualOpen("help")}
+              className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+            >
+              Help
+            </Button>
+          </div>
+        </div>
+      );
+    }
     if (outOfScope) {
       return (
         <div className="space-y-4 py-2">

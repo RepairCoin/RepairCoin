@@ -65,6 +65,9 @@ export const VoiceCommandPill: React.FC = () => {
   // so a long Haiku call doesn't get visually conflated with STT.
   const [dispatching, setDispatching] = useState(false);
   const [outOfScope, setOutOfScope] = useState(false);
+  // Phase 5 — when the dispatch call itself fails (network / 503), we
+  // render an inline fallback offering manual panel-open buttons.
+  const [dispatchFailed, setDispatchFailed] = useState(false);
 
   // Rotate the placeholder text every 4s while idle so the user sees
   // multiple example prompts. Frozen during any active state.
@@ -93,7 +96,12 @@ export const VoiceCommandPill: React.FC = () => {
     if (text.length === 0) return;
     setDispatching(true);
     try {
-      const result = await dispatchTranscript(text, sessionId, "voice");
+      const result = await dispatchTranscript(
+        text,
+        sessionId,
+        "voice",
+        recorder.originalTranscript
+      );
       if (result.domain === "out_of_scope") {
         setOutOfScope(true);
         return;
@@ -106,12 +114,10 @@ export const VoiceCommandPill: React.FC = () => {
         duration: 2500,
       });
       recorder.reset();
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Voice routing temporarily unavailable.";
-      toast.error(msg, { duration: 4000 });
+    } catch {
+      // Don't echo internal error details — surface the inline
+      // fallback with manual panel-open options instead.
+      setDispatchFailed(true);
     } finally {
       setDispatching(false);
     }
@@ -121,6 +127,49 @@ export const VoiceCommandPill: React.FC = () => {
     setOutOfScope(false);
     recorder.reset();
   };
+
+  const handleManualOpen = (domain: "insights" | "marketing" | "help") => {
+    // Dispatch with empty transcript — launcher opens the Sheet, the
+    // panel's auto-submit guard (`if (!text) return`) prevents an empty
+    // send, so the user lands in an empty panel ready to type.
+    dispatch(domain, "");
+    setDispatchFailed(false);
+    recorder.reset();
+  };
+
+  // ----- DISPATCH FAILED — router unreachable, offer manual fallback -----
+  if (dispatchFailed) {
+    return (
+      <div className="w-full max-w-2xl mx-auto bg-[#1e1f22] rounded-3xl p-5 shadow-lg border border-gray-800">
+        <p className="text-sm text-gray-300 mb-3">
+          Voice routing is having trouble. Open a panel manually:
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handleManualOpen("insights")}
+            className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+          >
+            Insights
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleManualOpen("marketing")}
+            className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+          >
+            Marketing
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleManualOpen("help")}
+            className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+          >
+            Help
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // ----- OUT_OF_SCOPE — router rejected the question -----
   if (outOfScope) {

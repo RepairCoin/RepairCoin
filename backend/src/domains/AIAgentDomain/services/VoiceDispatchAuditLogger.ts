@@ -20,6 +20,13 @@ export interface VoiceDispatchAuditRecord {
   shopId: string;
   sessionId: string;
   transcript: string;
+  /**
+   * Phase 5 — STT (Whisper) output before any user edit.
+   * NULL when the user did NOT edit (transcript IS the original).
+   * Populated when the user changed the textarea before tapping Send.
+   * Migration 131 added the column.
+   */
+  originalTranscript: string | null;
   transcriptSource: DispatchTranscriptSource;
   routerDecision: DispatchRouterDecision;
   routerInputTokens: number;
@@ -36,14 +43,15 @@ export class VoiceDispatchAuditLogger {
     try {
       await this.pool.query(
         `INSERT INTO ai_dispatch_audit
-           (shop_id, session_id, transcript, transcript_source,
-            router_decision, router_input_tokens, router_output_tokens,
-            router_cost_usd, latency_ms, error_message)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+           (shop_id, session_id, transcript, original_transcript,
+            transcript_source, router_decision, router_input_tokens,
+            router_output_tokens, router_cost_usd, latency_ms, error_message)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           record.shopId,
           record.sessionId,
           record.transcript,
+          record.originalTranscript,
           record.transcriptSource,
           record.routerDecision,
           record.routerInputTokens,

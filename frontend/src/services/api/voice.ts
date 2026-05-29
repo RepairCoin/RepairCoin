@@ -69,6 +69,19 @@ export interface DispatchResponse {
  * POST a transcript to the cross-domain router. Returns the domain
  * decision (insights / marketing / help / out_of_scope).
  *
+ * @param transcript          What to send to the router. May be edited
+ *                            by the user from the raw STT output.
+ * @param sessionId           Per-panel-open id; ties dispatch audit to
+ *                            the matching transcription audit row.
+ * @param source              Where the request came from. Defaults to
+ *                            'voice' (global mic surfaces); Phase 5.5
+ *                            inline-mic surfaces pass 'inline_mic'.
+ * @param originalTranscript  Phase 5 — the raw STT output before any
+ *                            user edit. Omit (or pass null) when the
+ *                            user didn't edit. Captured on
+ *                            ai_dispatch_audit.original_transcript for
+ *                            STT-accuracy review.
+ *
  * 429 → monthly AI budget exhausted.
  * 503 → router (Haiku) failed; frontend should fall back to opening
  *       a panel manually.
@@ -76,12 +89,16 @@ export interface DispatchResponse {
 export const dispatchTranscript = async (
   transcript: string,
   sessionId: string,
-  source: "voice" | "inline_mic" = "voice"
+  source: "voice" | "inline_mic" = "voice",
+  originalTranscript?: string | null
 ): Promise<DispatchResponse> => {
   const response = await apiClient.post("/ai/dispatch", {
     transcript,
     sessionId,
     source,
+    ...(originalTranscript && originalTranscript !== transcript
+      ? { originalTranscript }
+      : {}),
   });
   return response.data.data || response.data;
 };
