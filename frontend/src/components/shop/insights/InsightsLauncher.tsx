@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BarChart3, Maximize2, Minimize2 } from "lucide-react";
 import {
   Sheet,
@@ -9,6 +9,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { InsightsPanel } from "./InsightsPanel";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 
 /**
  * InsightsLauncher
@@ -29,9 +30,23 @@ import { InsightsPanel } from "./InsightsPanel";
  */
 export const InsightsLauncher: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Voice AI Dispatcher Phase 3 — open this panel when the cross-domain
+  // router classifies a voice command as "insights". Subscribe to the
+  // dispatch store; on a matching pending entry, force the Sheet open.
+  // We DON'T consume the entry here — InsightsPanel reads it next to
+  // seed its input + auto-send, then consumes it.
+  const pendingDomain = useVoiceDispatchStore((s) => s.pending?.domain);
+  const pendingDispatchId = useVoiceDispatchStore((s) => s.pending?.dispatchId);
+  useEffect(() => {
+    if (pendingDomain === "insights") {
+      setOpen(true);
+    }
+  }, [pendingDomain, pendingDispatchId]);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
           type="button"

@@ -25,6 +25,7 @@ import {
 } from "@/services/api/aiInsights";
 import { InsightsToolCallCard } from "./InsightsToolCallCard";
 import { InsightsAnomalyBanner } from "./InsightsAnomalyBanner";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 
 /**
  * Suggested first-time-user questions per impl-doc Phase 4.3. Each maps
@@ -93,6 +94,10 @@ export const InsightsPanel: React.FC = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Voice dispatch — single subscription for the useEffect below.
+  const voicePendingDispatchId = useVoiceDispatchStore(
+    (s) => s.pending?.dispatchId
+  );
 
   // Phase 7.3 — saved-queries state.
   const [activeTab, setActiveTab] = useState<TabKey>("chat");
@@ -119,6 +124,25 @@ export const InsightsPanel: React.FC = () => {
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Voice AI Dispatcher Phase 3 — when a voice command was routed to
+  // INSIGHTS, the launcher opens this panel and the dispatch store has
+  // the transcript. Seed the chat input and auto-submit, then consume
+  // the store entry so re-opens of the panel don't re-fire the same
+  // transcript. dispatchId is the stable key — same id never re-fires.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const pending = useVoiceDispatchStore.getState().pending;
+    if (pending && pending.domain === "insights") {
+      const transcript = pending.transcript;
+      useVoiceDispatchStore.getState().consume();
+      // Let mount-time state settle (textarea focus etc.) before submit.
+      const timer = setTimeout(() => {
+        void submitText(transcript);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [voicePendingDispatchId]);
 
   const atMessageLimit = turns.length >= INSIGHTS_LIMITS.maxMessages;
 

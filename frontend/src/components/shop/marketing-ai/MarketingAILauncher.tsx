@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Megaphone, Maximize2, Minimize2 } from "lucide-react";
 import {
   Sheet,
@@ -9,6 +9,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { MarketingAIPanel } from "./MarketingAIPanel";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 
 /**
  * MarketingAILauncher
@@ -26,9 +27,21 @@ import { MarketingAIPanel } from "./MarketingAIPanel";
  */
 export const MarketingAILauncher: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Voice AI Dispatcher Phase 3 — open when router classifies a voice
+  // command as "marketing". Panel reads + consumes the dispatch on
+  // mount.
+  const pendingDomain = useVoiceDispatchStore((s) => s.pending?.domain);
+  const pendingDispatchId = useVoiceDispatchStore((s) => s.pending?.dispatchId);
+  useEffect(() => {
+    if (pendingDomain === "marketing") {
+      setOpen(true);
+    }
+  }, [pendingDomain, pendingDispatchId]);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
           type="button"

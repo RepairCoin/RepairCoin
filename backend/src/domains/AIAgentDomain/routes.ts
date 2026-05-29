@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../../middleware/auth';
 import { audioUploadMiddleware } from '../../middleware/audioUpload';
 import { previewAIReply } from './controllers/PreviewController';
 import { transcribeVoice } from './controllers/VoiceTranscribeController';
+import { dispatchVoice } from './controllers/VoiceDispatchController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
 import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
 import {
@@ -219,6 +220,20 @@ export function initializeRoutes(): Router {
     audioUploadMiddleware.single('audio'),
     handleMulterErrors,
     transcribeVoice
+  );
+
+  // Voice AI Dispatcher Phase 3 — cross-domain router. Takes a
+  // transcript, asks Haiku to classify it (INSIGHTS / MARKETING /
+  // HELP / OUT_OF_SCOPE), returns the decision. Frontend opens the
+  // matching panel with the transcript pre-filled. Shop-scoped via
+  // JWT; spend-capped against the shared monthly budget; audited
+  // into ai_dispatch_audit. See
+  // docs/tasks/strategy/voice-ai-dispatcher/implementation.md Phase 3.
+  router.post(
+    '/dispatch',
+    authMiddleware,
+    requireRole(['shop']),
+    dispatchVoice
   );
 
   // Admin endpoint: platform-wide aggregate. Mounted under /admin to make

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { HelpCircle, Maximize2, Minimize2 } from "lucide-react";
 import {
   Sheet,
@@ -9,6 +9,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { HelpAssistantPanel } from "./HelpAssistantPanel";
+import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
 
 /**
  * HelpAssistantLauncher
@@ -31,9 +32,20 @@ import { HelpAssistantPanel } from "./HelpAssistantPanel";
  */
 export const HelpAssistantLauncher: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Voice AI Dispatcher Phase 3 — open when router classifies a voice
+  // command as "help". Panel reads + consumes the dispatch on mount.
+  const pendingDomain = useVoiceDispatchStore((s) => s.pending?.domain);
+  const pendingDispatchId = useVoiceDispatchStore((s) => s.pending?.dispatchId);
+  useEffect(() => {
+    if (pendingDomain === "help") {
+      setOpen(true);
+    }
+  }, [pendingDomain, pendingDispatchId]);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
           type="button"

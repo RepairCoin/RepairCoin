@@ -54,3 +54,34 @@ export const transcribeAudio = async (
 
   return response.data.data || response.data;
 };
+
+// ----- Phase 3 — cross-domain dispatch -----
+
+export interface DispatchResponse {
+  domain: "insights" | "marketing" | "help" | "out_of_scope";
+  transcript: string;
+  sessionId: string;
+  /** Reserved for Phase 5.5 — always false from global-voice dispatch. */
+  routerSkipped: false;
+}
+
+/**
+ * POST a transcript to the cross-domain router. Returns the domain
+ * decision (insights / marketing / help / out_of_scope).
+ *
+ * 429 → monthly AI budget exhausted.
+ * 503 → router (Haiku) failed; frontend should fall back to opening
+ *       a panel manually.
+ */
+export const dispatchTranscript = async (
+  transcript: string,
+  sessionId: string,
+  source: "voice" | "inline_mic" = "voice"
+): Promise<DispatchResponse> => {
+  const response = await apiClient.post("/ai/dispatch", {
+    transcript,
+    sessionId,
+    source,
+  });
+  return response.data.data || response.data;
+};
