@@ -62,7 +62,7 @@ export default function PrivacyPolicyPage() {
             <li>Calendar events</li>
             <li>Files or documents from your device</li>
             <li>Browsing history</li>
-            <li>Audio or video recordings</li>
+            <li>Video recordings</li>
             <li>Device IDs or advertising identifiers</li>
           </ul>
         </Section>
@@ -89,6 +89,7 @@ export default function PrivacyPolicyPage() {
             <li><strong>Stripe</strong> — Payment processing (payment details only)</li>
             <li><strong>Thirdweb</strong> — Blockchain wallet connection and token transactions</li>
             <li><strong>DigitalOcean</strong> — Cloud hosting and image storage</li>
+            <li><strong>OpenAI</strong> — Voice command audio is sent to OpenAI&apos;s Whisper service to convert speech to text when you use the voice command feature</li>
             <li><strong>Service providers (shops)</strong> — Your name and booking details when you book a service</li>
           </ul>
           <p className="mt-3">
@@ -156,6 +157,7 @@ export default function PrivacyPolicyPage() {
             <li><strong>Stripe</strong> — Payment processing</li>
             <li><strong>Thirdweb</strong> — Blockchain wallet and smart contract interactions</li>
             <li><strong>DigitalOcean Spaces</strong> — Image and file storage</li>
+            <li><strong>OpenAI (Whisper API)</strong> — Speech-to-text transcription for voice commands. Audio retained up to 30 days for abuse-monitoring then deleted; not used to train OpenAI models. Voice commands are optional — a typed equivalent is available for every voice-enabled feature.</li>
             <li><strong>Expo / React Native</strong> — App framework and push notifications</li>
           </ul>
         </Section>
