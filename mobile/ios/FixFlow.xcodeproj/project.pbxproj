@@ -8,11 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		2F8E6AF6E06ABE1EEED7061E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DD56CE94BDD6846586C52A4C /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		58BE580FF8643A9ECDE8555D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7F4E34E486403546E9A89496 /* PrivacyInfo.xcprivacy */; };
-		7C5D2E4FB8B5251449C41885 /* libPods-FixFlow.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 596B015A0B522DBF0255174F /* libPods-FixFlow.a */; };
+		658371171826D81FA0C291FF /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30A0680E0CEDC7948039D8D /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		DB91D1B323B30AC628FACE27 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 802449C10AAD4B32928B6AB1 /* ExpoModulesProvider.swift */; };
+		E786735F7266559221C5A8BD /* libPods-FixFlow.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F2624A74F1ABA41F2045E352 /* libPods-FixFlow.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* FixFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FixFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = FixFlow/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FixFlow/Info.plist; sourceTree = "<group>"; };
-		3706B0893832773431F38C34 /* Pods-FixFlow.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FixFlow.debug.xcconfig"; path = "Target Support Files/Pods-FixFlow/Pods-FixFlow.debug.xcconfig"; sourceTree = "<group>"; };
-		596B015A0B522DBF0255174F /* libPods-FixFlow.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FixFlow.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		7F4E34E486403546E9A89496 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = FixFlow/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		802449C10AAD4B32928B6AB1 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FixFlow/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		5879F792103DFEE1BCD0FA75 /* Pods-FixFlow.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FixFlow.release.xcconfig"; path = "Target Support Files/Pods-FixFlow/Pods-FixFlow.release.xcconfig"; sourceTree = "<group>"; };
+		A95E4E5DA3C80F7D70180188 /* Pods-FixFlow.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FixFlow.debug.xcconfig"; path = "Target Support Files/Pods-FixFlow/Pods-FixFlow.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = FixFlow/SplashScreen.storyboard; sourceTree = "<group>"; };
-		AA867B3A252E7E64871ABA28 /* Pods-FixFlow.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FixFlow.release.xcconfig"; path = "Target Support Files/Pods-FixFlow/Pods-FixFlow.release.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		DD56CE94BDD6846586C52A4C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = FixFlow/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		E30A0680E0CEDC7948039D8D /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FixFlow/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = FixFlow/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* FixFlow-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "FixFlow-Bridging-Header.h"; path = "FixFlow/FixFlow-Bridging-Header.h"; sourceTree = "<group>"; };
+		F2624A74F1ABA41F2045E352 /* libPods-FixFlow.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FixFlow.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,13 +37,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7C5D2E4FB8B5251449C41885 /* libPods-FixFlow.a in Frameworks */,
+				E786735F7266559221C5A8BD /* libPods-FixFlow.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		039E695CF1E9BD41976A5E7C /* FixFlow */ = {
+			isa = PBXGroup;
+			children = (
+				E30A0680E0CEDC7948039D8D /* ExpoModulesProvider.swift */,
+			);
+			name = FixFlow;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* FixFlow */ = {
 			isa = PBXGroup;
 			children = (
@@ -53,26 +61,28 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				7F4E34E486403546E9A89496 /* PrivacyInfo.xcprivacy */,
+				DD56CE94BDD6846586C52A4C /* PrivacyInfo.xcprivacy */,
 			);
 			name = FixFlow;
-			sourceTree = "<group>";
-		};
-		26DD33047CA02485FF79F135 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				C6C7B2811D0417F76CE74A51 /* FixFlow */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				596B015A0B522DBF0255174F /* libPods-FixFlow.a */,
+				F2624A74F1ABA41F2045E352 /* libPods-FixFlow.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		69313556FA8123DB864261D1 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				A95E4E5DA3C80F7D70180188 /* Pods-FixFlow.debug.xcconfig */,
+				5879F792103DFEE1BCD0FA75 /* Pods-FixFlow.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -89,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				B785852E2D3E3683713C2ABD /* Pods */,
-				26DD33047CA02485FF79F135 /* ExpoModulesProviders */,
+				69313556FA8123DB864261D1 /* Pods */,
+				88272C4F0CF86CA2DBC2EB64 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -105,14 +115,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		B785852E2D3E3683713C2ABD /* Pods */ = {
+		88272C4F0CF86CA2DBC2EB64 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				3706B0893832773431F38C34 /* Pods-FixFlow.debug.xcconfig */,
-				AA867B3A252E7E64871ABA28 /* Pods-FixFlow.release.xcconfig */,
+				039E695CF1E9BD41976A5E7C /* FixFlow */,
 			);
-			name = Pods;
-			path = Pods;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -124,14 +132,6 @@
 			path = FixFlow/Supporting;
 			sourceTree = "<group>";
 		};
-		C6C7B2811D0417F76CE74A51 /* FixFlow */ = {
-			isa = PBXGroup;
-			children = (
-				802449C10AAD4B32928B6AB1 /* ExpoModulesProvider.swift */,
-			);
-			name = FixFlow;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "FixFlow" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				67023E1399845721E9F6E703 /* [Expo] Configure project */,
+				79FF7D2488CB300D36C0F3E6 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				7594297CFFB0BF218EE3B7F8 /* [CP] Embed Pods Frameworks */,
+				FE1ADC580FAE94AA35C647AA /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				58BE580FF8643A9ECDE8555D /* PrivacyInfo.xcprivacy in Resources */,
+				2F8E6AF6E06ABE1EEED7061E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,7 +240,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		67023E1399845721E9F6E703 /* [Expo] Configure project */ = {
+		79FF7D2488CB300D36C0F3E6 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -258,26 +258,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-FixFlow/expo-configure-project.sh\"\n";
-		};
-		7594297CFFB0BF218EE3B7F8 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-FixFlow/Pods-FixFlow-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FixFlow/Pods-FixFlow-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -351,6 +331,26 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FixFlow/Pods-FixFlow-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		FE1ADC580FAE94AA35C647AA /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-FixFlow/Pods-FixFlow-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/OpenSSL-Universal/OpenSSL.framework/OpenSSL",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/OpenSSL.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FixFlow/Pods-FixFlow-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -359,7 +359,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				DB91D1B323B30AC628FACE27 /* ExpoModulesProvider.swift in Sources */,
+				658371171826D81FA0C291FF /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -368,7 +368,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3706B0893832773431F38C34 /* Pods-FixFlow.debug.xcconfig */;
+			baseConfigurationReference = A95E4E5DA3C80F7D70180188 /* Pods-FixFlow.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -393,7 +393,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.repaircoin.staging;
+				PRODUCT_BUNDLE_IDENTIFIER = com.repaircoin.app;
 				PRODUCT_NAME = FixFlow;
 				SWIFT_OBJC_BRIDGING_HEADER = "FixFlow/FixFlow-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -405,7 +405,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = AA867B3A252E7E64871ABA28 /* Pods-FixFlow.release.xcconfig */;
+			baseConfigurationReference = 5879F792103DFEE1BCD0FA75 /* Pods-FixFlow.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -425,7 +425,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.repaircoin.staging;
+				PRODUCT_BUNDLE_IDENTIFIER = com.repaircoin.app;
 				PRODUCT_NAME = FixFlow;
 				SWIFT_OBJC_BRIDGING_HEADER = "FixFlow/FixFlow-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
