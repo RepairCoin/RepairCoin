@@ -96,6 +96,7 @@ export default function FirstSlide({
               value={value}
               onChangePhone={onChange}
               defaultCountryCode="US"
+              error={errors.phone?.message}
             />
           )}
         />
