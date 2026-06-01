@@ -178,6 +178,12 @@ export class PaymentService {
         throw new Error('Service is not available for booking');
       }
 
+      // Check if the shop is suspended
+      const shop = await shopRepository.getShop(service.shopId);
+      if (shop?.suspendedAt) {
+        throw new Error('This shop is currently suspended and cannot accept new bookings.');
+      }
+
       // Check if customer is blocked by this shop
       const moderationRepo = new ModerationRepository();
       const isBlocked = await moderationRepo.isCustomerBlocked(service.shopId, request.customerAddress);
@@ -390,6 +396,12 @@ export class PaymentService {
 
       if (!service.active) {
         throw new Error('Service is not available for booking');
+      }
+
+      // Check if the shop is suspended
+      const shopCheckout = await shopRepository.getShop(service.shopId);
+      if (shopCheckout?.suspendedAt) {
+        throw new Error('This shop is currently suspended and cannot accept new bookings.');
       }
 
       // Check if customer is blocked by this shop
