@@ -6,6 +6,7 @@ import { CustomerSidebar, ShopSidebar, AdminSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { CartIcon } from "@/components/ui/CartIcon";
+import { UnifiedAssistantLauncher } from "@/components/shop/unified/UnifiedAssistantLauncher";
 import { HelpAssistantLauncher } from "@/components/shop/help/HelpAssistantLauncher";
 import { InsightsLauncher } from "@/components/shop/insights/InsightsLauncher";
 import { MarketingAILauncher } from "@/components/shop/marketing-ai/MarketingAILauncher";
@@ -136,6 +137,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <MessageIcon />
           <NotificationBell />
           {userRole === "shop" && <HeaderVoiceMic />}
+          {userRole === "shop" && <UnifiedAssistantLauncher />}
           {userRole === "shop" && <HelpAssistantLauncher />}
           {userRole === "shop" && <InsightsLauncher />}
           {userRole === "shop" && <MarketingAILauncher />}
