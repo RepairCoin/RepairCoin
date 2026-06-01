@@ -1,9 +1,10 @@
-import CustomFooter from "@/shared/components/ui/CustomFooter";
 import { Stack } from "expo-router";
 import React from "react";
-import { View } from "react-native";
+import { useShopSuspensionGuard } from "@/feature/auth/hooks/useShopSuspensionGuard";
 
 export default function ShopDashboardLayout() {
+  useShopSuspensionGuard();
+
   return (
     <React.Fragment>
       <Stack screenOptions={{ headerShown: false }} />
