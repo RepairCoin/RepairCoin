@@ -122,6 +122,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             fontSize: '15px'
           }
         });
+        // Disconnect wallet so Thirdweb doesn't auto-reconnect on reload,
+        // which would create an infinite revoked → reload → revoked loop.
+        setTimeout(async () => {
+          console.log('[AuthProvider] Disconnecting wallet after revoked error');
+          try { await disconnect(wallet!); } catch { /* ignore */ }
+          window.location.reload();
+        }, 3000);
+        return;
       } else if (type === 'unverified' || type === 'inactive') {
         // Don't show error for unverified/inactive - handled by dashboard UI
         console.log('[AuthProvider] Skipping toast for unverified/inactive shop - handled in UI');

@@ -31,11 +31,22 @@ export class ReferralService {
       // Check if customer already has a referral code
       const existingReferral = await this.referralRepository.getReferralByReferrer(customerAddress);
       if (existingReferral) {
+        // Sync to customers table in case it was never written there
+        if (!customer.referralCode) {
+          await this.customerRepository.updateCustomer(customerAddress, {
+            referralCode: existingReferral.referralCode
+          });
+        }
         return existingReferral.referralCode;
       }
 
       // Create new referral
       const referral = await this.referralRepository.createReferral(customerAddress);
+
+      // Sync the generated code to the customers table so GET /customers/:address returns it
+      await this.customerRepository.updateCustomer(customerAddress, {
+        referralCode: referral.referralCode
+      });
 
       logger.info('Referral code generated', {
         customerAddress,

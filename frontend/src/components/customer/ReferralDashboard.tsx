@@ -115,7 +115,7 @@ export function ReferralDashboard() {
         ]);
 
         const generatedCode: string | undefined =
-          resp?.data?.referralCode ?? resp?.referralCode;
+          resp?.data?.data?.referralCode ?? resp?.data?.referralCode ?? resp?.referralCode;
 
         if (cancelled) return;
 
