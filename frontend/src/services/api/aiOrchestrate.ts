@@ -28,8 +28,32 @@ export interface OrchestrateMessage {
   content: string;
 }
 
-/** Union of both domains' display hints — reuses the existing card renderers. */
-export type OrchestrateToolDisplay = ToolDisplay | MarketingToolDisplay;
+/**
+ * Orchestrator-own ACTION proposal: a purchase order awaiting the owner's tap.
+ * Rendered by PurchaseOrderProposalCard; confirm hits
+ * POST /api/inventory/suggestions/:id/approve { autoCreatePO: true }.
+ */
+export type OrchestratePurchaseOrderDisplay = {
+  kind: "purchase_order_proposal";
+  suggestionId: string;
+  itemName: string;
+  itemSku?: string;
+  quantity: number;
+  vendorName?: string;
+  hasVendor: boolean;
+  urgency: "low" | "medium" | "high" | "critical";
+  currentStock: number;
+  daysUntilStockout?: number;
+  estimatedTotalCost?: number;
+  reason: string;
+};
+
+/** Union across all three tool groups — reuses the existing card renderers
+ *  plus the new PO proposal card. */
+export type OrchestrateToolDisplay =
+  | ToolDisplay
+  | MarketingToolDisplay
+  | OrchestratePurchaseOrderDisplay;
 
 /**
  * One tool the orchestrator invoked this turn (across domains). `display` is

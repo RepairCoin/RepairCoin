@@ -49,6 +49,10 @@ import {
 } from "../services/marketing/registry";
 import { dispatchMarketingTool } from "../services/marketing/dispatcher";
 import {
+  getOrchestratorOwnTools,
+  getOrchestratorOwnToolByName,
+} from "../services/orchestrator/registry";
+import {
   ChatMessage,
   ChatMessageContentBlock,
   ClaudeModel,
@@ -68,16 +72,16 @@ const ORCHESTRATE_MODEL_CHEAP: ClaudeModel = "claude-haiku-4-5-20251001";
 const ORCHESTRATE_MAX_TOKENS = 1024;
 const MAX_TOOL_ITERATIONS = 6; // a "fix it" turn can chain lookup → draft
 
-// Phase 1: expose the FULL insights + marketing registries (the spike used a
-// curated 5). propose_campaign_send is WITHHELD — sending is a financial /
-// outward-facing action gated behind an explicit owner confirm (G2 default;
-// the actual send tool lands in Phase 4). The orchestrator only DRAFTS.
-const WITHHELD_TOOLS = new Set<string>(["propose_campaign_send"]);
-
+// Full tool set across all three registries: insights (read) + marketing
+// (incl. propose_campaign_send, un-withheld in Phase 4) + orchestrator-own
+// actions (propose_purchase_order). Every ACTION is confirm-gated — the tool
+// PROPOSES, the owner taps the card to execute (G2). Nothing is withheld.
 function getOrchestratorTools(): ClaudeTool[] {
-  return [...getInsightsTools(), ...getMarketingTools()].filter(
-    (t) => !WITHHELD_TOOLS.has(t.name)
-  );
+  return [
+    ...getInsightsTools(),
+    ...getMarketingTools(),
+    ...getOrchestratorOwnTools(),
+  ];
 }
 
 /** Normalized dispatch result — both registries share this shape. */
@@ -97,6 +101,31 @@ async function dispatchUnified(
   input: unknown,
   ctx: { shopId: string; pool: Pool }
 ): Promise<UnifiedDispatch> {
+  // Orchestrator-own action tools (e.g. propose_purchase_order) — executed
+  // directly (they validate their own args); they never throw past here.
+  const ownTool = getOrchestratorOwnToolByName(name);
+  if (ownTool) {
+    const started = Date.now();
+    try {
+      const r = await ownTool.execute(input, ctx);
+      return {
+        ok: true,
+        tool: name,
+        args: (input ?? {}) as Record<string, unknown>,
+        data: r.data,
+        display: r.display,
+        latencyMs: Date.now() - started,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        tool: name,
+        args: (input ?? {}) as Record<string, unknown>,
+        error: err instanceof Error ? err.message : String(err),
+        latencyMs: Date.now() - started,
+      };
+    }
+  }
   const insightsTool = getInsightsToolByName(name);
   if (insightsTool) {
     const r = await dispatchTool(insightsTool, input, ctx);
@@ -134,15 +163,16 @@ async function dispatchUnified(
 
 const ORCHESTRATE_SYSTEM_PROMPT = `You are the shop owner's unified business assistant for RepairCoin (a brandable, Siri-like helper — the owner may name you). In ONE conversation you both ANSWER questions about the owner's business and TAKE marketing actions, without the owner switching screens. Your style is Information → Recommendation → Action: state the number, then what it means, then offer the next step.
 
-Your tools fall into two groups (full schemas are provided to you separately):
+Your tools fall into three groups (full schemas are provided to you separately):
 - INSIGHTS (read) — revenue, customers, repeat-visit health, bookings, services, and inventory / low-stock for a given range. Use these to answer "how are we doing?" questions.
-- MARKETING (action) — size a customer segment (lookup_audience_count) and create a DRAFT campaign for it (propose_campaign_draft).
+- MARKETING — size a customer segment (lookup_audience_count), draft a campaign (propose_campaign_draft), and propose sending a draft (propose_campaign_send).
+- INVENTORY ACTION — propose a purchase order to restock a low / running-out item (propose_purchase_order). Use when the owner says "order more", "restock", or "reorder".
 
 Rules:
 - For "how did we do?" / performance questions, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull the most relevant 1-3 metrics — don't dump every tool.
 - When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or similar, FIRST call lookup_audience_count to size the segment, THEN call propose_campaign_draft. Echo the audience_type / audience_filters returned by the lookup into the draft.
 - REUSE what's already in this conversation. Do NOT re-call a tool for a metric, range, or segment you already fetched earlier in the thread — read it from the conversation instead. Only call a tool for data you don't have yet (a new metric, a different range, a not-yet-sized segment). On a "fix it" / win-back turn, go STRAIGHT to lookup_audience_count + propose_campaign_draft — do not re-pull numbers you already reported.
-- You NEVER send, create purchase orders, issue refunds, or take any other money-moving or customer-facing action directly. You only DRAFT / propose. The owner reviews and confirms (taps Send) — the confirmation is theirs, not yours. If asked to "send it", explain they confirm via the draft.
+- You can PROPOSE actions — draft or send a campaign, or order/restock inventory (propose_purchase_order) — but you NEVER execute them yourself. Every proposal renders a card the owner taps to confirm; the tap performs the action, not you. Never claim something was sent or ordered — say it's drafted/proposed and ready for their confirmation.
 - Ground EVERY number in tool output. Never invent figures. If a tool returns zero or no data, say so plainly.
 - ALWAYS respond in English (the shop dashboard is English). If the user's message looks garbled or contains non-English text — e.g. a voice transcription that mis-detected the language — do NOT switch languages or guess; reply in English and ask them to rephrase.
 - Be concise — a sentence or two per turn, like a sharp ops manager, not a report.`;

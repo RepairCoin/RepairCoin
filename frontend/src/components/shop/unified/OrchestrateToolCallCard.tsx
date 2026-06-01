@@ -3,6 +3,7 @@
 import React from "react";
 import { InsightsToolCallCard } from "../insights/InsightsToolCallCard";
 import { MarketingToolCallCard } from "../marketing-ai/MarketingToolCallCard";
+import { PurchaseOrderProposalCard } from "./PurchaseOrderProposalCard";
 import { OrchestrateToolCall } from "@/services/api/aiOrchestrate";
 import { InsightsToolCall } from "@/services/api/aiInsights";
 import { MarketingToolCall } from "@/services/api/aiMarketing";
@@ -36,6 +37,11 @@ export const OrchestrateToolCallCard: React.FC<{
   onChipClick?: (prompt: string) => void;
 }> = ({ toolCall, onChipClick }) => {
   if (!toolCall.display) return null;
+
+  // Orchestrator-own action card (Phase 4).
+  if (toolCall.display.kind === "purchase_order_proposal") {
+    return <PurchaseOrderProposalCard d={toolCall.display} />;
+  }
 
   // Cast is safe: the kind check below discriminates which union the display
   // belongs to; the underlying card re-narrows on the same kind.
