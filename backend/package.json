@@ -50,6 +50,7 @@
     "_comment_voice_qa": "# Voice Dispatcher Phase 6 QA — readiness check + replay harness. Run from backend/. Knobs: VOICE_QA_SHOP_ID, VOICE_QA_API_BASE, VOICE_QA_JWT, VOICE_QA_SKIP_AUDIT.",
     "voice:qa:seed": "ts-node -T -r dotenv/config ../docs/tasks/strategy/voice-ai-dispatcher/qa-fixtures/seed-test-shop.ts",
     "voice:qa": "ts-node -T -r dotenv/config ../docs/tasks/strategy/voice-ai-dispatcher/qa-fixtures/replay-fixtures.ts",
+    "ai:spike-demo": "ts-node -T -r dotenv/config ../docs/tasks/strategy/unified-assistant/spike-demo.ts",
     "mint:rcg": "ts-node scripts/mint-rcg-tokens.ts",
     "seed:inventory": "ts-node scripts/seed-inventory.ts",
     "logger": "bash scripts/logger.sh",

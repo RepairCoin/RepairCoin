@@ -22,6 +22,7 @@ import {
 } from './controllers/HelpArticleController';
 import { askInsights } from './controllers/InsightsController';
 import { askMarketing } from './controllers/MarketingChatController';
+import { askOrchestrator } from './controllers/UnifiedAssistantController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -146,6 +147,15 @@ export function initializeRoutes(): Router {
   // from Claude args). Spend-capped against the shared monthly budget
   // and audited into ai_insights_messages with the tool_calls JSONB.
   router.post('/insights', authMiddleware, requireRole(['shop']), askInsights);
+
+  // ⚠️ SPIKE — Unified "Talk To My Business" assistant. ONE conversation
+  // that answers business questions (insights tools) AND takes marketing
+  // actions (draft a win-back) in a single thread — the flagship demo of
+  // the unified-assistant vision. Reuses the insights agent loop with a
+  // merged, curated cross-domain tool set; draft-only (never sends).
+  // Body: { sessionId, messages: [{ role, content }, ...] }. Shop-scoped via JWT.
+  // See docs/tasks/strategy/voice-ai-dispatcher/unified-assistant-vision.md.
+  router.post('/orchestrate', authMiddleware, requireRole(['shop']), askOrchestrator);
 
   // AI Marketing Assistant — shop-owner "compose + send a campaign by
   // chat" AI. Sibling to /insights. Sonnet + tool-use with the four
