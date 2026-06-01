@@ -13,7 +13,7 @@ export default function FourthSlide({
   handleSubmit,
   isLoading = false,
 }: FourthSlideProps) {
-  const { control } = useFormContext<ShopRegisterData>();
+  const { control, formState: { errors } } = useFormContext<ShopRegisterData>();
   const acceptTerms = useWatch({ control, name: "acceptTerms" });
 
   return (
@@ -24,7 +24,28 @@ export default function FourthSlide({
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <SectionHeader
-          title="Additional Details "
+          title="Shop Identification"
+          customClassName="text-[#FFCC00]"
+        />
+
+        <Controller
+          control={control}
+          name="shopId"
+          render={({ field: { onChange, value } }) => (
+            <FormInput
+              label="Shop ID"
+              value={value}
+              onChangeText={onChange}
+              placeholder="Enter your unique Shop ID"
+              maxLength={50}
+              error={errors.shopId?.message}
+              helperText="A unique identifier for your shop (required)"
+            />
+          )}
+        />
+
+        <SectionHeader
+          title="Additional Details"
           customClassName="text-[#FFCC00]"
           optional={true}
         />

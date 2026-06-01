@@ -22,19 +22,13 @@ import { normalizeUrl } from "@/shared/utilities/normalizeUrl";
 
 const { width } = Dimensions.get("window");
 
-const generateShopId = () => {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `SHOP-${timestamp}-${random}`;
-};
-
 // Fields to validate per slide
 const SLIDE_FIELDS: Record<string, (keyof ShopRegisterData)[]> = {
   "1": ["firstName", "lastName", "email", "phone"],
   "2": ["name", "companySize", "monthlyRevenue"],
   "3": ["address", "city", "country"],
   "4": ["facebook", "twitter", "instagram"],
-  "5": ["acceptTerms"],
+  "5": ["shopId", "acceptTerms"],
 };
 
 export const useShopRegister = () => {
@@ -70,7 +64,6 @@ export const useShopRegister = () => {
     resolver: zodResolver(ShopRegisterDto),
     defaultValues: {
       ...INITIAL_SHOP_FORM_DATA,
-      shopId: generateShopId(),
       walletAddress: account?.address || "",
       email: storeAccount?.email || "",
     },
