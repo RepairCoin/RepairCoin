@@ -29,6 +29,15 @@ by design. The manifest that names them and their expected routing lives in
 The production capture path is `useVoiceRecorder` → WebM/Opus. To match what
 real users send, record WebM/Opus mono, ~16 kHz, 5–12 seconds, under 5 MB.
 
+**Quickest — regenerate all 10 via Windows SAPI (no mic, no ffmpeg):**
+```powershell
+powershell -ExecutionPolicy Bypass -File generate-clips.ps1
+```
+Produces deterministic 16 kHz mono WAVs from the manifest phrases. Synthetic
+but clear — Whisper transcribes them accurately (verified 2026-06-01). Good for
+a functional router-accuracy + cost smoke test; supplement with natural-voice
+clips over time for drift realism.
+
 **Easiest — capture from the app itself (closest to production):**
 1. Open the shop dashboard, tap the voice pill, speak the phrase.
 2. In DevTools → Network, find the `transcribe` request, right-click the

@@ -35,19 +35,19 @@ export interface VoiceFixture {
 export const VOICE_FIXTURES: VoiceFixture[] = [
   // ---- Insights (questions about the shop's own data) ----
   {
-    file: "insights-revenue-last-week.webm",
+    file: "insights-revenue-last-week.wav",
     phrase: "What was my revenue last week?",
     expectedDomain: "insights",
     expectTranscriptIncludes: "revenue",
   },
   {
-    file: "insights-top-customers.webm",
+    file: "insights-top-customers.wav",
     phrase: "Who are my top customers?",
     expectedDomain: "insights",
     expectTranscriptIncludes: "customers",
   },
   {
-    file: "insights-low-stock-items.webm",
+    file: "insights-low-stock-items.wav",
     phrase: "Which items are low on stock?",
     expectedDomain: "insights",
     expectTranscriptIncludes: "stock",
@@ -55,19 +55,19 @@ export const VOICE_FIXTURES: VoiceFixture[] = [
 
   // ---- Marketing (campaigns / outreach / promotions) ----
   {
-    file: "marketing-black-friday-campaign.webm",
+    file: "marketing-black-friday-campaign.wav",
     phrase: "Make a Black Friday campaign, twenty percent off all services.",
     expectedDomain: "marketing",
     expectTranscriptIncludes: "campaign",
   },
   {
-    file: "marketing-winback-email.webm",
+    file: "marketing-winback-email.wav",
     phrase: "Email the customers who haven't booked in ninety days.",
     expectedDomain: "marketing",
     expectTranscriptIncludes: "email",
   },
   {
-    file: "marketing-slow-day-promo.webm",
+    file: "marketing-slow-day-promo.wav",
     phrase: "Create a promotion for our slow weekdays.",
     expectedDomain: "marketing",
     expectTranscriptIncludes: "promotion",
@@ -75,13 +75,13 @@ export const VOICE_FIXTURES: VoiceFixture[] = [
 
   // ---- Help ("how do I…" / "where is…" product questions) ----
   {
-    file: "help-export-bookings.webm",
+    file: "help-export-bookings.wav",
     phrase: "How do I export my bookings?",
     expectedDomain: "help",
     expectTranscriptIncludes: "export",
   },
   {
-    file: "help-add-a-service.webm",
+    file: "help-add-a-service.wav",
     phrase: "Where do I add a new service?",
     expectedDomain: "help",
     expectTranscriptIncludes: "service",
@@ -89,13 +89,13 @@ export const VOICE_FIXTURES: VoiceFixture[] = [
 
   // ---- OUT_OF_SCOPE (anything the router declines) ----
   {
-    file: "oos-weather.webm",
+    file: "oos-weather.wav",
     phrase: "What's the weather today?",
     expectedDomain: "out_of_scope",
     expectTranscriptIncludes: "weather",
   },
   {
-    file: "oos-book-appointment.webm",
+    file: "oos-book-appointment.wav",
     phrase: "Book Alex for a screen repair at two PM.",
     expectedDomain: "out_of_scope",
     expectTranscriptIncludes: "book",

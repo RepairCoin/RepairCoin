@@ -43,9 +43,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
+import { createRequire } from "module";
 import * as dotenv from "dotenv";
-import jwt from "jsonwebtoken";
 import type { Pool } from "pg";
+
+// This script lives under docs/, so a bare `require('jsonwebtoken')` resolves
+// from the docs tree and can't see backend/node_modules. Resolve it (and any
+// other backend dep) against the backend package instead.
+const backendRequire = createRequire(
+  path.resolve(__dirname, "../../../../../backend/package.json")
+);
+const jwt = backendRequire("jsonwebtoken");
 import {
   getSharedPool,
   closeSharedPool,
@@ -54,7 +62,11 @@ import { VOICE_FIXTURES, VoiceFixture, VoiceDomain } from "./fixtures";
 
 dotenv.config(); // CWD=backend → loads backend/.env
 
-const API_BASE = process.env.VOICE_QA_API_BASE ?? "http://localhost:4000";
+// Local backend port comes from backend/.env PORT (loaded via -r dotenv/config);
+// it's 3002 in this repo, not the 4000 in CLAUDE.md. Honor it so local runs work
+// without passing VOICE_QA_API_BASE. Override with VOICE_QA_API_BASE for staging.
+const API_BASE =
+  process.env.VOICE_QA_API_BASE ?? `http://localhost:${process.env.PORT || 4000}`;
 const SHOP_ID = process.env.VOICE_QA_SHOP_ID ?? "peanut";
 const AUDIO_DIR = path.resolve(__dirname, "pre-recorded-audio");
 const ROUTER_ACCURACY_TARGET = 0.95; // implementation.md §4 Phase 6 acceptance
@@ -104,23 +116,78 @@ async function mintToken(pool: Pool | null): Promise<string> {
   return jwt.sign(
     { address, role: "shop", shopId: SHOP_ID, type: "access" },
     secret,
-    { expiresIn: "1h", issuer: "repaircoin-api", audience: "repaircoin-users" } as jwt.SignOptions
+    { expiresIn: "1h", issuer: "repaircoin-api", audience: "repaircoin-users" }
   );
+}
+
+/** Content-type for a clip from its extension. OpenAI Whisper detects the
+ *  format from the uploaded filename, so the extension + mime must match the
+ *  real bytes. The transcribe endpoint accepts webm/ogg/mp4/wav/mp3. */
+function mimeFor(file: string): string {
+  const ext = file.slice(file.lastIndexOf(".")).toLowerCase();
+  switch (ext) {
+    case ".wav":
+      return "audio/wav";
+    case ".webm":
+      return "audio/webm";
+    case ".ogg":
+      return "audio/ogg";
+    case ".mp3":
+      return "audio/mpeg";
+    case ".mp4":
+    case ".m4a":
+      return "audio/mp4";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+/** Duration of a PCM WAV by walking its RIFF chunks (byteRate from `fmt `,
+ *  byte count from `data`). Fixed offsets don't work — SAPI and others insert
+ *  extra chunks (e.g. `fact`) that shift `data`. Returns null for non-WAV or
+ *  an implausible result so the caller falls back to an estimate. The backend
+ *  bills Whisper off the durationMs we send, so this keeps the cost honest. */
+function wavDurationMs(buffer: Buffer): number | null {
+  if (
+    buffer.length < 12 ||
+    buffer.toString("ascii", 0, 4) !== "RIFF" ||
+    buffer.toString("ascii", 8, 12) !== "WAVE"
+  ) {
+    return null;
+  }
+  let offset = 12;
+  let byteRate = 0;
+  let dataSize = 0;
+  while (offset + 8 <= buffer.length) {
+    const id = buffer.toString("ascii", offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    const body = offset + 8;
+    if (id === "fmt " && body + 12 <= buffer.length) {
+      byteRate = buffer.readUInt32LE(body + 8); // avg bytes/sec
+    } else if (id === "data") {
+      dataSize = size;
+    }
+    offset = body + size + (size % 2); // chunks are word-aligned
+  }
+  if (!byteRate || !dataSize) return null;
+  const ms = Math.round((dataSize / byteRate) * 1000);
+  return ms > 0 && ms <= 600_000 ? ms : null;
 }
 
 async function transcribe(
   token: string,
   buffer: Buffer,
   sessionId: string,
-  durationMs: number
+  durationMs: number,
+  filename: string
 ): Promise<string> {
   const form = new FormData();
   form.append(
     "audio",
     // Wrap in a fresh Uint8Array so the type is a clean BlobPart (Buffer's
     // backing ArrayBufferLike doesn't satisfy the DOM Blob typing).
-    new Blob([new Uint8Array(buffer)], { type: "audio/webm" }),
-    "recording.webm"
+    new Blob([new Uint8Array(buffer)], { type: mimeFor(filename) }),
+    filename
   );
   form.append("durationMs", String(durationMs));
   form.append("sessionId", sessionId);
@@ -207,12 +274,17 @@ async function runClip(
   const sessionId = randomUUID();
   try {
     const buffer = fs.readFileSync(filePath);
-    // Rough duration estimate from file size is unreliable; the backend only
-    // uses durationMs for cost calc + spend-cap pre-check, so an honest
-    // upper-ish estimate is fine for QA. Assume ~10s clips.
-    const durationMs = 10_000;
+    // Prefer the real WAV duration (drives the audited Whisper cost). Fall
+    // back to a ~10s estimate for non-WAV / non-canonical clips.
+    const durationMs = wavDurationMs(buffer) ?? 10_000;
 
-    const transcript = await transcribe(token, buffer, sessionId, durationMs);
+    const transcript = await transcribe(
+      token,
+      buffer,
+      sessionId,
+      durationMs,
+      fx.file
+    );
     const got = await dispatch(token, transcript, sessionId);
 
     const transcriptOk = fx.expectTranscriptIncludes
