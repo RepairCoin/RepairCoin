@@ -1,29 +1,33 @@
 // backend/src/domains/AIAgentDomain/controllers/UnifiedAssistantController.ts
 //
-// ⚠️ SPIKE — Unified "Talk To My Business" assistant (the flagship demo).
-//
-// Proves the exec vision (docs/tasks/strategy/voice-ai-dispatcher/
-// unified-assistant-vision.md): ONE conversation that does
-// Information → Recommendation → Action across domains, without the owner
-// picking a panel. e.g.
+// Unified "Talk To My Business" assistant (v2). Owner-facing orchestrator:
+// ONE conversation that does Information → Recommendation → Action across
+// domains, without the owner picking a panel. e.g.
 //   "How did we do this month?" → revenue/top-customer/repeat metrics
 //   "Fix it"                    → finds lapsed customers + drafts a win-back
 //
-// HOW IT WORKS: this is the Insights agent loop (copied from
-// InsightsController) with ONE change — the tool array is a *merged, curated*
-// set drawn from BOTH the insights and marketing registries, and dispatch
-// routes each tool_use to whichever registry owns it. No new tool logic is
-// written: it reuses the existing insights read tools and marketing
-// draft/lookup tools verbatim (they all implement ClaudeTool + execute({shopId,
-// pool})). This is the orchestrator pattern the scope-delta calls the "central
-// new build," kept deliberately small here to validate the thesis cheaply.
+// Greenlit 2026-06-01 (exec approved G1 architecture reversal + G2 autonomy
+// line). Phase 1 of the plan in docs/tasks/strategy/unified-assistant/
+// implementation.md. Strategy: ../../../../docs/tasks/strategy/
+// voice-ai-dispatcher/unified-assistant-vision.md.
 //
-// SCOPE GUARDRAILS (spike):
-//   - DRAFT only. propose_campaign_send is intentionally NOT exposed — the
-//     assistant never sends; the draft card is the human-in-the-loop confirm.
-//   - Curated 5-tool set, not the full ~19, to keep the demo on-script.
-//   - No dedicated audit table (no migration); spend still flows through the
-//     shared SpendCapEnforcer.
+// HOW IT WORKS: this is the Insights agent loop (copied from
+// InsightsController) with ONE change — the tool array is a *merged* set drawn
+// from BOTH the insights and marketing registries, and dispatch routes each
+// tool_use to whichever registry owns it. No new tool logic: it reuses the
+// existing insights read tools and marketing draft/lookup tools verbatim (they
+// all implement ClaudeTool + execute({shopId, pool})).
+//
+// SCOPE GUARDRAILS:
+//   - DRAFT only. propose_campaign_send is WITHHELD (see WITHHELD_TOOLS) — per
+//     G2, sending / POs / refunds are confirm-before-execute; the actual
+//     send tool with a confirm step lands in Phase 4. The assistant proposes;
+//     the owner taps to send.
+//   - Phase 1 exposes the full insights + marketing registry (send withheld).
+//   - Stateless for now (client passes history, like InsightsController);
+//     server-side conversation persistence is Phase 2 (D2). Each turn is
+//     audited into ai_orchestrate_messages (migration 132); spend flows
+//     through the shared SpendCapEnforcer.
 //
 // Route: POST /api/ai/orchestrate (authMiddleware, requireRole(['shop'])).
 
@@ -33,6 +37,7 @@ import { logger } from "../../../utils/logger";
 import { getSharedPool } from "../../../utils/database-pool";
 import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
+import { OrchestrateAuditLogger } from "../services/OrchestrateAuditLogger";
 import {
   getInsightsTools,
   getInsightsToolByName,
@@ -56,25 +61,22 @@ import {
   InsightsMessage,
 } from "./InsightsController";
 
-const ORCHESTRATE_MODEL: ClaudeModel = "claude-sonnet-4-6";
+// Sonnet for the reasoning + tool-use; drop to Haiku when the shared budget is
+// ≥70% used (SpendCapEnforcer.useCheaperModel), matching the Sales Agent.
+const ORCHESTRATE_MODEL_DEFAULT: ClaudeModel = "claude-sonnet-4-6";
+const ORCHESTRATE_MODEL_CHEAP: ClaudeModel = "claude-haiku-4-5-20251001";
 const ORCHESTRATE_MAX_TOKENS = 1024;
 const MAX_TOOL_ITERATIONS = 6; // a "fix it" turn can chain lookup → draft
 
-// Curated cross-domain tool set for the flagship demo. Names must match the
-// existing registries; anything not found is simply omitted.
-const SPIKE_TOOL_NAMES = new Set<string>([
-  // Insights (Information)
-  "revenue_summary",
-  "top_customers",
-  "repeat_customer_analysis",
-  // Marketing (Action) — draft path only, no send
-  "lookup_audience_count",
-  "propose_campaign_draft",
-]);
+// Phase 1: expose the FULL insights + marketing registries (the spike used a
+// curated 5). propose_campaign_send is WITHHELD — sending is a financial /
+// outward-facing action gated behind an explicit owner confirm (G2 default;
+// the actual send tool lands in Phase 4). The orchestrator only DRAFTS.
+const WITHHELD_TOOLS = new Set<string>(["propose_campaign_send"]);
 
-function getSpikeTools(): ClaudeTool[] {
-  return [...getInsightsTools(), ...getMarketingTools()].filter((t) =>
-    SPIKE_TOOL_NAMES.has(t.name)
+function getOrchestratorTools(): ClaudeTool[] {
+  return [...getInsightsTools(), ...getMarketingTools()].filter(
+    (t) => !WITHHELD_TOOLS.has(t.name)
   );
 }
 
@@ -130,26 +132,24 @@ async function dispatchUnified(
   };
 }
 
-const ORCHESTRATE_SYSTEM_PROMPT = `You are the shop owner's unified business assistant for RepairCoin (a brandable, Siri-like helper — the owner may name you). In ONE conversation you both ANSWER questions about the owner's business and TAKE marketing actions. Your style is Information → Recommendation → Action: state the number, then what it means, then offer the next step.
+const ORCHESTRATE_SYSTEM_PROMPT = `You are the shop owner's unified business assistant for RepairCoin (a brandable, Siri-like helper — the owner may name you). In ONE conversation you both ANSWER questions about the owner's business and TAKE marketing actions, without the owner switching screens. Your style is Information → Recommendation → Action: state the number, then what it means, then offer the next step.
 
-You have these tools:
-- revenue_summary — revenue for a range; pass compare:"prior" to get the trend vs the previous period.
-- top_customers — the shop's highest-value customers for a range.
-- repeat_customer_analysis — new vs repeat customer split (repeat-visit health) for a range.
-- lookup_audience_count — size a customer segment from a free-text hint (e.g. "haven't booked in 60 days").
-- propose_campaign_draft — create a DRAFT marketing campaign for a resolved audience. Echo the audience_type / audience_filters returned by lookup_audience_count into the draft.
+Your tools fall into two groups (full schemas are provided to you separately):
+- INSIGHTS (read) — revenue, customers, repeat-visit health, bookings, services, and inventory / low-stock for a given range. Use these to answer "how are we doing?" questions.
+- MARKETING (action) — size a customer segment (lookup_audience_count) and create a DRAFT campaign for it (propose_campaign_draft).
 
 Rules:
-- For "how did we do?" / performance questions, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull repeat-visit health and the top customer too when relevant.
-- When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or similar, FIRST call lookup_audience_count to size the segment, THEN call propose_campaign_draft to create the win-back draft.
-- REUSE what's already in this conversation. Do NOT re-call a tool for a metric, range, or segment you already fetched earlier in the thread — read it from the conversation instead. Only call a tool when you genuinely need data you don't have yet (a new metric, a different range, or a not-yet-sized segment). Concretely: on a "fix it" / win-back turn, go STRAIGHT to lookup_audience_count + propose_campaign_draft — do not re-pull the revenue, top-customer, or repeat-visit numbers you already reported.
-- You NEVER send. You only DRAFT. After drafting, tell the owner the draft is ready and they can review and send it — the send is their confirmation, not yours. If asked to "send it", explain they confirm via the draft.
+- For "how did we do?" / performance questions, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull the most relevant 1-3 metrics — don't dump every tool.
+- When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or similar, FIRST call lookup_audience_count to size the segment, THEN call propose_campaign_draft. Echo the audience_type / audience_filters returned by the lookup into the draft.
+- REUSE what's already in this conversation. Do NOT re-call a tool for a metric, range, or segment you already fetched earlier in the thread — read it from the conversation instead. Only call a tool for data you don't have yet (a new metric, a different range, a not-yet-sized segment). On a "fix it" / win-back turn, go STRAIGHT to lookup_audience_count + propose_campaign_draft — do not re-pull numbers you already reported.
+- You NEVER send, create purchase orders, issue refunds, or take any other money-moving or customer-facing action directly. You only DRAFT / propose. The owner reviews and confirms (taps Send) — the confirmation is theirs, not yours. If asked to "send it", explain they confirm via the draft.
 - Ground EVERY number in tool output. Never invent figures. If a tool returns zero or no data, say so plainly.
 - Be concise — a sentence or two per turn, like a sharp ops manager, not a report.`;
 
 export interface UnifiedAssistantDeps {
   anthropic?: AnthropicClient;
   spendCap?: SpendCapEnforcer;
+  auditLogger?: OrchestrateAuditLogger;
   pool?: Pool;
 }
 
@@ -169,6 +169,7 @@ export interface UnifiedResponseData {
 
 export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) {
   const spendCap = deps.spendCap ?? new SpendCapEnforcer();
+  const auditLogger = deps.auditLogger ?? new OrchestrateAuditLogger();
   const pool = deps.pool ?? getSharedPool();
   let anthropic: AnthropicClient | null = deps.anthropic ?? null;
 
@@ -186,7 +187,7 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           res.status(400).json({ success: false, error: parsed.error });
           return;
         }
-        const { messages } = parsed.value;
+        const { sessionId, messages } = parsed.value;
 
         const spendCheck = await spendCap.canSpend(shopId);
         if (!spendCheck.allowed) {
@@ -205,29 +206,44 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
 
         if (!anthropic) anthropic = new AnthropicClient();
 
-        const tools = getSpikeTools();
+        const model: ClaudeModel = spendCheck.useCheaperModel
+          ? ORCHESTRATE_MODEL_CHEAP
+          : ORCHESTRATE_MODEL_DEFAULT;
+        const tools = getOrchestratorTools();
         const loopMessages: ChatMessage[] = messages.map((m: InsightsMessage) => ({
           role: m.role,
           content: m.content,
         }));
         const toolCalls: UnifiedToolCallSummary[] = [];
-        const cumulative = { costUsd: 0, latencyMs: 0, cachedInputTokens: 0 };
+        const cumulative = {
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedInputTokens: 0,
+          costUsd: 0,
+          latencyMs: 0,
+        };
         const responseTexts: string[] = [];
         let lastResponse: ClaudeResponse | null = null;
+        let errorMessage: string | null = null;
 
+        // Wrap the agent loop so a Claude failure still writes an audit row
+        // (mirrors InsightsController). Loop-body indentation is unchanged.
+        try {
         for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
           const response = await anthropic.complete({
             systemPrompt: [{ text: ORCHESTRATE_SYSTEM_PROMPT, cache: true }],
             messages: loopMessages,
-            model: ORCHESTRATE_MODEL,
+            model,
             maxTokens: ORCHESTRATE_MAX_TOKENS,
             tools,
             toolChoice: { type: "auto" },
           });
 
+          cumulative.inputTokens += response.usage.inputTokens;
+          cumulative.outputTokens += response.usage.outputTokens;
+          cumulative.cachedInputTokens += response.usage.cacheReadInputTokens;
           cumulative.costUsd += response.costUsd;
           cumulative.latencyMs += response.latencyMs;
-          cumulative.cachedInputTokens += response.usage.cacheReadInputTokens;
           lastResponse = response;
 
           if (response.text && response.text.trim().length > 0) {
@@ -272,6 +288,26 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           }
           loopMessages.push({ role: "user", content: toolResultBlocks });
         }
+        } catch (err) {
+          errorMessage = err instanceof Error ? err.message : String(err);
+          logger.error("UnifiedAssistantController: Claude call failed", err);
+        }
+
+        // Audit — ALWAYS (success AND failure), cumulative across the loop.
+        await auditLogger.log({
+          shopId,
+          sessionId,
+          requestPayload: { messages },
+          responsePayload: lastResponse,
+          model: lastResponse?.model ?? model,
+          inputTokens: cumulative.inputTokens,
+          outputTokens: cumulative.outputTokens,
+          cachedInputTokens: cumulative.cachedInputTokens,
+          costUsd: cumulative.costUsd,
+          toolCalls,
+          latencyMs: cumulative.latencyMs || null,
+          errorMessage,
+        });
 
         if (!lastResponse) {
           res.status(503).json({
@@ -282,13 +318,6 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         }
 
         await spendCap.recordSpend(shopId, cumulative.costUsd);
-
-        logger.info("UnifiedAssistant(spike) turn", {
-          shopId,
-          tools: toolCalls.map((t) => t.tool),
-          costUsd: cumulative.costUsd,
-          latencyMs: cumulative.latencyMs,
-        });
 
         const data: UnifiedResponseData = {
           reply:

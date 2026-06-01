@@ -64,6 +64,34 @@ without the owner picking a panel:
   (NOT `AgentOrchestrator`, which is the customer-facing Sales Agent and makes a
   single non-iterating call).
 
+## Phase 1 progress (2026-06-01, branch `deo/unified-assistant-phase-1-orchestrator`)
+
+Exec approved G1 (Q1 reversal) + G2 (autonomy = confirm-before-execute on all
+financial/outward actions). Generalized the spike:
+- Full insights + marketing registry exposed (`getOrchestratorTools`),
+  `propose_campaign_send` withheld (G2 — send lands in Phase 4 with a confirm).
+- Registry-agnostic system prompt (describes tool *groups*, broadened the
+  never-execute rule to sends/POs/refunds).
+- Model selection: Sonnet default, Haiku at ≥70% budget (`useCheaperModel`).
+- Typecheck clean; verified end-to-end against the full registry — thesis holds
+  (cross-domain in one conversation, drafted, grounded, no wandering into
+  irrelevant tools).
+
+**KNOWN ISSUE — redundant re-pull regressed at full-registry scale.** The
+no-redundant-pull prompt tune held at 5 tools but broke at ~18: turn 2 re-pulled
+the turn-1 insights tools (revenue/bookings/top_services) before the
+lookup+draft, for a pure win-back request (6 tools, 22s vs tuned 3 tools/19s).
+**Correctness is fine** (grounded, draft correct, guardrail respected) — it's a
+latency/cost wart. Prompt-only control is nondeterministic across toolset sizes,
+so this is logged as a **Phase-1 hardening item** to tune against REAL shop data
+with a multi-run eval set (not one-shot tweaks on zero-data peanut). Candidate
+fixes: stronger prompt rule (cheap, unreliable) and/or dispatch-level dedupe of
+identical tool+args already answered in the conversation (cuts DB load, not the
+model round-trip).
+
+**Phase 1 still to do:** dedicated `ai_orchestrate_messages` audit table +
+logger; then the re-pull hardening above. Persistence deferred to Phase 2 (D2).
+
 ## If the demo fails / next steps
 
 - Re-run: `cd backend && npm run dev` (boots on :3002), then
