@@ -167,6 +167,10 @@ export const UnifiedAssistantPanel: React.FC = () => {
   // reply back (spoke-to-it → speaks-back, Siri-style), regardless of toggle.
   const recorder = useVoiceRecorder({
     sessionId,
+    // Pin STT to English — the shop dashboard is English; without a hint
+    // Whisper can mis-detect the language on accented/unclear audio and
+    // return a non-English transcript (which then flips the whole reply).
+    language: "en",
     onTranscribed: (r) => {
       if (r.transcript && r.transcript.trim()) {
         void submitText(r.transcript, { speak: true });
