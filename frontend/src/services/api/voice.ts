@@ -10,6 +10,7 @@
 // reach the inner payload, NOT `response.data.data.<field>`.
 
 import apiClient from "./client";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 
 export interface TranscribeResponse {
   transcript: string;
@@ -101,4 +102,31 @@ export const dispatchTranscript = async (
       : {}),
   });
   return response.data.data || response.data;
+};
+
+// ----- Unified Assistant Phase 3 — voice-out (TTS) -----
+
+/**
+ * Synthesize an assistant reply to speech via POST /api/ai/voice/speak.
+ * Returns an audio Blob (mp3); play with
+ * `new Audio(URL.createObjectURL(blob))`.
+ *
+ * Uses raw `fetch` (not apiClient) because the SUCCESS response is binary
+ * audio, not the JSON envelope the axios interceptor expects. Cookie auth via
+ * `credentials: "include"`. Callers should treat TTS as best-effort — fall
+ * back to text silently on throw.
+ *
+ * 429 → monthly AI budget exhausted. 503 → synthesis temporarily unavailable.
+ */
+export const speakText = async (text: string, voice?: string): Promise<Blob> => {
+  const res = await fetch(`${getApiBaseUrl()}/ai/voice/speak`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(voice ? { text, voice } : { text }),
+  });
+  if (!res.ok) {
+    throw new Error(`Voice synthesis failed (${res.status})`);
+  }
+  return await res.blob();
 };

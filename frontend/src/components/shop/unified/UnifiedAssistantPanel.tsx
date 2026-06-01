@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Loader2, Send, AlertCircle } from "lucide-react";
+import { Loader2, Send, AlertCircle, Mic, Volume2, VolumeX } from "lucide-react";
 import ReactMarkdown, { Components } from "react-markdown";
 import {
   askOrchestrate,
@@ -16,6 +16,8 @@ import {
   ORCHESTRATE_LIMITS,
 } from "@/services/api/aiOrchestrate";
 import { OrchestrateToolCallCard } from "./OrchestrateToolCallCard";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { speakText } from "@/services/api/voice";
 
 /**
  * UnifiedAssistantPanel (v2)
@@ -53,9 +55,11 @@ export const UnifiedAssistantPanel: React.FC = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voiceOut, setVoiceOut] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,7 +79,7 @@ export const UnifiedAssistantPanel: React.FC = () => {
       content: t.content.trim().length > 0 ? t.content : " ",
     }));
 
-  const submitText = async (rawText: string) => {
+  const submitText = async (rawText: string, opts?: { speak?: boolean }) => {
     if (loading) return;
     const text = rawText.trim();
     if (!text) return;
@@ -109,6 +113,9 @@ export const UnifiedAssistantPanel: React.FC = () => {
           toolCalls: res.toolCalls ?? [],
         },
       ]);
+      if ((opts?.speak ?? voiceOut) && res.reply && res.reply.trim()) {
+        void playSpeech(res.reply);
+      }
     } catch (err) {
       const ax = err as {
         response?: { status?: number; data?: { error?: string } };
@@ -141,6 +148,32 @@ export const UnifiedAssistantPanel: React.FC = () => {
     }
   };
 
+  // Voice-out: speak an assistant reply (best-effort; falls back to text).
+  const playSpeech = async (text: string) => {
+    try {
+      const blob = await speakText(text);
+      const url = URL.createObjectURL(blob);
+      if (audioRef.current) audioRef.current.pause();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch {
+      // TTS is an enhancement — silently keep the on-screen text reply.
+    }
+  };
+
+  // Voice-in: reuse the shared mic→STT recorder. Speaking auto-speaks the
+  // reply back (spoke-to-it → speaks-back, Siri-style), regardless of toggle.
+  const recorder = useVoiceRecorder({
+    sessionId,
+    onTranscribed: (r) => {
+      if (r.transcript && r.transcript.trim()) {
+        void submitText(r.transcript, { speak: true });
+      }
+    },
+  });
+
   const handleSend = () => submitText(input);
   const handleStarterClick = (prompt: string) => submitText(prompt);
 
@@ -152,6 +185,10 @@ export const UnifiedAssistantPanel: React.FC = () => {
   };
 
   const canSend = input.trim().length > 0 && !loading && !atMessageLimit;
+  const listening = recorder.state === "listening";
+  const transcribing = recorder.state === "transcribing";
+  const displayError =
+    error ?? (recorder.state === "error" ? recorder.error : null);
   const markdownComponents = useMemo(() => buildMarkdownComponents(), []);
 
   return (
@@ -175,10 +212,10 @@ export const UnifiedAssistantPanel: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {error && (
+      {displayError && (
         <div className="mt-3 bg-red-900/30 border border-red-700/60 rounded-lg px-3 py-2 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-red-300 leading-relaxed">{error}</p>
+          <p className="text-xs text-red-300 leading-relaxed">{displayError}</p>
         </div>
       )}
 
@@ -199,6 +236,47 @@ export const UnifiedAssistantPanel: React.FC = () => {
           className="flex-1 bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Ask your business assistant anything"
         />
+        {/* Voice-in: tap to talk; auto-stops on silence → transcribes → sends. */}
+        <button
+          type="button"
+          onClick={() => {
+            if (listening) recorder.stop();
+            else void recorder.start();
+          }}
+          disabled={loading || atMessageLimit || transcribing}
+          aria-label={listening ? "Stop recording" : "Speak to the assistant"}
+          title={listening ? "Listening — tap to stop" : "Tap to talk"}
+          className={`flex-shrink-0 p-2.5 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            listening
+              ? "bg-red-600 border-red-600 text-white animate-pulse"
+              : "bg-[#1A1A1A] border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white"
+          }`}
+        >
+          {transcribing ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Mic className="w-4 h-4" />
+          )}
+        </button>
+        {/* Voice-out toggle: when on, replies are spoken (typed or voiced). */}
+        <button
+          type="button"
+          onClick={() => setVoiceOut((v) => !v)}
+          aria-label={voiceOut ? "Turn off spoken replies" : "Turn on spoken replies"}
+          aria-pressed={voiceOut}
+          title={voiceOut ? "Spoken replies: on" : "Spoken replies: off"}
+          className={`flex-shrink-0 p-2.5 rounded-lg border transition-colors ${
+            voiceOut
+              ? "bg-[#FFCC00]/15 border-[#FFCC00] text-[#FFCC00]"
+              : "bg-[#1A1A1A] border-gray-700 text-gray-400 hover:text-white"
+          }`}
+        >
+          {voiceOut ? (
+            <Volume2 className="w-4 h-4" />
+          ) : (
+            <VolumeX className="w-4 h-4" />
+          )}
+        </button>
         <button
           type="button"
           onClick={handleSend}

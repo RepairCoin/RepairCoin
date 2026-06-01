@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../../middleware/auth';
 import { audioUploadMiddleware } from '../../middleware/audioUpload';
 import { previewAIReply } from './controllers/PreviewController';
 import { transcribeVoice } from './controllers/VoiceTranscribeController';
+import { speakVoice } from './controllers/VoiceSpeakController';
 import { dispatchVoice } from './controllers/VoiceDispatchController';
 import { suggestServiceFaqs } from './controllers/FaqSuggestionController';
 import { getOwnShopSpend, getAdminCostSummary } from './controllers/SpendController';
@@ -231,6 +232,13 @@ export function initializeRoutes(): Router {
     handleMulterErrors,
     transcribeVoice
   );
+
+  // Unified Assistant Phase 3 — voice-OUT (TTS / the "Siri" reply). Body:
+  // { text, voice? }. Returns raw audio/mpeg on success (JSON error envelope
+  // otherwise). Reuses OPENAI_API_KEY (same vendor as Whisper); spend-capped
+  // against the shared monthly budget. See
+  // docs/tasks/strategy/unified-assistant/implementation.md Phase 3.
+  router.post('/voice/speak', authMiddleware, requireRole(['shop']), speakVoice);
 
   // Voice AI Dispatcher Phase 3 — cross-domain router. Takes a
   // transcript, asks Haiku to classify it (INSIGHTS / MARKETING /
