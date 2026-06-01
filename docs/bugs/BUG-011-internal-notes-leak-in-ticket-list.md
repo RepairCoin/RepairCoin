@@ -5,8 +5,10 @@
 **Priority:** P1
 **Component:** Backend - Support Chat Repository
 **Labels:** bug, backend, security, support
-**Status:** OPEN
+**Status:** FIXED
 **Date Found:** 2026-04-04
+**Date Fixed:** 2026-06-01
+**Fixed By:** Pre-existing fix (verified June 1, 2026)
 
 ---
 
@@ -118,3 +120,37 @@ cd backend && npm run test
 
 1. Always filter `is_internal = false` in any query that returns message content to shops
 2. Consider adding a shared SQL fragment for shop-visible message queries
+
+---
+
+## Fix Verification (June 1, 2026)
+
+**Status:** ✅ ALREADY FIXED
+
+The bug described in this document was found to be already fixed when verified on June 1, 2026.
+
+**Verification Results:**
+
+1. **Shop ticket list query** (`SupportChatRepository.ts:165`):
+   ```sql
+   SELECT m.message
+   FROM support_messages m
+   WHERE m.ticket_id = t.id
+     AND m.is_internal = false  -- ✅ Filter present
+   ORDER BY m.created_at DESC
+   LIMIT 1
+   ```
+
+2. **Admin ticket list query** (`SupportChatRepository.ts:256`):
+   ```sql
+   SELECT m.message
+   FROM support_messages m
+   WHERE m.ticket_id = t.id
+     AND m.is_internal = false  -- ✅ Filter present
+   ORDER BY m.created_at DESC
+   LIMIT 1
+   ```
+
+Both queries correctly filter out internal notes using `AND m.is_internal = false`.
+
+**Conclusion:** Internal admin notes are properly hidden from shops in both ticket list previews and chat views. The security issue has been resolved.

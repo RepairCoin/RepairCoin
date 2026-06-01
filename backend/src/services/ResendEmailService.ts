@@ -1,6 +1,5 @@
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 import { logger } from '../utils/logger';
-import { resendEmailService } from './ResendEmailService';
 
 interface EmailRecipient {
   email: string;
@@ -27,34 +26,46 @@ interface SendCampaignOptions {
   delayBetweenBatches?: number;
 }
 
-export class CampaignEmailService {
-  private sendgridInitialized: boolean = false;
-  private useResend: boolean = true; // Primary: Resend, Fallback: SendGrid
+interface SimpleEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  from?: {
+    email: string;
+    name: string;
+  };
+}
+
+export class ResendEmailService {
+  private client: Resend | null = null;
+  private initialized: boolean = false;
+  private defaultFrom: { email: string; name: string };
 
   constructor() {
+    this.defaultFrom = {
+      email: process.env.RESEND_FROM_EMAIL || 'noreply@repaircoin.com',
+      name: process.env.RESEND_FROM_NAME || 'RepairCoin',
+    };
     this.initialize();
   }
 
   private initialize(): void {
-    // Check if Resend is available (primary)
-    if (resendEmailService.isReady()) {
-      this.useResend = true;
-      logger.info('CampaignEmailService initialized with Resend (primary)');
-    } else {
-      // Fall back to SendGrid
-      const apiKey = process.env.SENDGRID_API_KEY;
+    const apiKey = process.env.RESEND_API_KEY;
 
-      if (!apiKey) {
-        logger.warn('Neither Resend nor SendGrid API keys configured - campaign emails will not be sent');
-        this.sendgridInitialized = false;
-        this.useResend = false;
-        return;
-      }
+    if (!apiKey) {
+      logger.warn('Resend API key not configured - emails will fall back to Gmail SMTP');
+      this.initialized = false;
+      return;
+    }
 
-      sgMail.setApiKey(apiKey);
-      this.sendgridInitialized = true;
-      this.useResend = false;
-      logger.info('CampaignEmailService initialized with SendGrid (fallback)');
+    try {
+      this.client = new Resend(apiKey);
+      this.initialized = true;
+      logger.info('ResendEmailService initialized successfully');
+    } catch (error: unknown) {
+      logger.error('Failed to initialize Resend client:', error);
+      this.initialized = false;
     }
   }
 
@@ -62,7 +73,56 @@ export class CampaignEmailService {
    * Check if the service is properly initialized
    */
   public isReady(): boolean {
-    return this.useResend ? resendEmailService.isReady() : this.sendgridInitialized;
+    return this.initialized && this.client !== null;
+  }
+
+  /**
+   * Send a simple email to a single recipient
+   */
+  public async sendEmail(options: SimpleEmailOptions): Promise<{ success: boolean; error?: string; messageId?: string }> {
+    if (!this.isReady()) {
+      return {
+        success: false,
+        error: 'Resend is not configured. Please set RESEND_API_KEY in environment variables.',
+      };
+    }
+
+    try {
+      const fromAddress = options.from || this.defaultFrom;
+
+      const result = await this.client!.emails.send({
+        from: `${fromAddress.name} <${fromAddress.email}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text || this.htmlToText(options.html),
+      });
+
+      if (result.error) {
+        logger.error('Resend API returned error:', result.error);
+        return {
+          success: false,
+          error: result.error.message || 'Failed to send email',
+        };
+      }
+
+      logger.info(`Email sent successfully to ${options.to}`, { messageId: result.data?.id });
+      return {
+        success: true,
+        messageId: result.data?.id,
+      };
+    } catch (error: unknown) {
+      logger.error('Failed to send email via Resend:', error);
+
+      let errorMessage = 'Failed to send email';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+
+      return { success: false, error: errorMessage };
+    }
   }
 
   /**
@@ -73,50 +133,13 @@ export class CampaignEmailService {
     subject: string,
     htmlContent: string,
     textContent?: string
-  ): Promise<{ success: boolean; error?: string }> {
-    if (!this.isReady()) {
-      return {
-        success: false,
-        error: 'Email service is not configured. Please set RESEND_API_KEY or SENDGRID_API_KEY in environment variables.',
-      };
-    }
-
-    // Use Resend if available
-    if (this.useResend) {
-      const result = await resendEmailService.sendTestEmail(to, subject, htmlContent, textContent);
-      if (result.success) {
-        logger.info(`Test email sent successfully to ${to} via Resend`);
-      }
-      return result;
-    }
-
-    // Fall back to SendGrid
-    try {
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@repaircoin.com';
-      const fromName = process.env.SENDGRID_FROM_NAME || 'RepairCoin';
-
-      await sgMail.send({
-        to,
-        from: { email: fromEmail, name: fromName },
-        subject,
-        html: htmlContent,
-        text: textContent || this.htmlToText(htmlContent),
-      });
-
-      logger.info(`Test email sent successfully to ${to} via SendGrid`);
-      return { success: true };
-    } catch (error: unknown) {
-      logger.error('Failed to send test email via SendGrid:', error);
-
-      if (error && typeof error === 'object' && 'response' in error) {
-        const sgError = error as { response?: { body?: { errors?: Array<{ message: string }> } } };
-        const errorMessage =
-          sgError.response?.body?.errors?.[0]?.message || 'Failed to send test email';
-        return { success: false, error: errorMessage };
-      }
-
-      return { success: false, error: 'Failed to send test email' };
-    }
+  ): Promise<{ success: boolean; error?: string; messageId?: string }> {
+    return this.sendEmail({
+      to,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    });
   }
 
   /**
@@ -127,25 +150,17 @@ export class CampaignEmailService {
   ): Promise<CampaignEmailResult[]> {
     if (!this.isReady()) {
       throw new Error(
-        'Email service is not configured. Please set RESEND_API_KEY or SENDGRID_API_KEY in environment variables.'
+        'Resend is not configured. Please set RESEND_API_KEY in environment variables.'
       );
     }
 
-    // Use Resend if available
-    if (this.useResend) {
-      logger.info('Using Resend for bulk campaign emails');
-      return resendEmailService.sendBulkCampaignEmails(options);
-    }
-
-    // Fall back to SendGrid
-    logger.info('Using SendGrid for bulk campaign emails');
     const {
       subject,
       htmlContent,
       textContent,
       recipients,
-      fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@repaircoin.com',
-      fromName = process.env.SENDGRID_FROM_NAME || 'RepairCoin',
+      fromEmail = this.defaultFrom.email,
+      fromName = this.defaultFrom.name,
       batchSize = 100,
       delayBetweenBatches = 1000, // 1 second delay between batches
     } = options;
@@ -154,7 +169,7 @@ export class CampaignEmailService {
     const batches = this.chunkArray(recipients, batchSize);
 
     logger.info(
-      `Starting bulk campaign email send via SendGrid: ${recipients.length} recipients in ${batches.length} batches`
+      `Starting bulk campaign email send via Resend: ${recipients.length} recipients in ${batches.length} batches`
     );
 
     for (let i = 0; i < batches.length; i++) {
@@ -204,13 +219,23 @@ export class CampaignEmailService {
     // Send emails individually to track per-recipient results
     const sendPromises = recipients.map(async (recipient) => {
       try {
-        await sgMail.send({
+        const result = await this.client!.emails.send({
+          from: `${fromName} <${fromEmail}>`,
           to: recipient.email,
-          from: { email: fromEmail, name: fromName },
           subject,
           html: htmlContent,
           text: textContent,
         });
+
+        if (result.error) {
+          logger.error(`Resend API error for ${recipient.email}:`, result.error);
+          return {
+            contactId: recipient.contactId,
+            email: recipient.email,
+            status: 'failed' as const,
+            errorMessage: result.error.message || 'Resend API error',
+          };
+        }
 
         return {
           contactId: recipient.contactId,
@@ -222,11 +247,10 @@ export class CampaignEmailService {
         logger.error(`Failed to send email to ${recipient.email}:`, error);
 
         let errorMessage = 'Unknown error';
-        if (error && typeof error === 'object' && 'response' in error) {
-          const sgError = error as { response?: { body?: { errors?: Array<{ message: string }> } } };
-          errorMessage = sgError.response?.body?.errors?.[0]?.message || 'SendGrid error';
-        } else if (error instanceof Error) {
+        if (error instanceof Error) {
           errorMessage = error.message;
+        } else if (error && typeof error === 'object' && 'message' in error) {
+          errorMessage = String(error.message);
         }
 
         return {
@@ -248,11 +272,6 @@ export class CampaignEmailService {
    * Generate unsubscribe token for a contact
    */
   public generateUnsubscribeToken(contactId: string, shopId: string): string {
-    // Use Resend's method if available, otherwise use local implementation
-    if (this.useResend) {
-      return resendEmailService.generateUnsubscribeToken(contactId, shopId);
-    }
-
     // Simple base64 encoding for now - in production, use JWT or encrypted tokens
     const payload = JSON.stringify({ contactId, shopId, timestamp: Date.now() });
     return Buffer.from(payload).toString('base64url');
@@ -262,11 +281,6 @@ export class CampaignEmailService {
    * Add unsubscribe footer to email HTML content
    */
   public addUnsubscribeFooter(htmlContent: string, unsubscribeToken: string): string {
-    // Use Resend's method if available, otherwise use local implementation
-    if (this.useResend) {
-      return resendEmailService.addUnsubscribeFooter(htmlContent, unsubscribeToken);
-    }
-
     const unsubscribeUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/api/marketing/unsubscribe/${unsubscribeToken}`;
 
     const footer = `
@@ -326,4 +340,4 @@ export class CampaignEmailService {
 }
 
 // Export singleton instance
-export const campaignEmailService = new CampaignEmailService();
+export const resendEmailService = new ResendEmailService();

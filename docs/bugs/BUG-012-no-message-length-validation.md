@@ -5,8 +5,10 @@
 **Priority:** P3
 **Component:** Backend - Support Chat Service
 **Labels:** bug, backend, validation, support
-**Status:** OPEN
+**Status:** FIXED
 **Date Found:** 2026-04-04
+**Date Fixed:** 2026-06-01
+**Fixed By:** Pre-existing fix (verified June 1, 2026)
 
 ---
 
@@ -64,5 +66,30 @@ Manual: attempt to send a message > 10,000 chars -> should receive error respons
 
 | File | Role |
 |------|------|
-| `backend/src/services/SupportChatService.ts` | Lines 117-119 (missing validation) |
+| `backend/src/services/SupportChatService.ts` | Lines 133-139 (validation implemented) |
 | `backend/src/services/SupportChatService.ts` | Lines 32-34 (subject length validation - good example) |
+
+---
+
+## Fix Verification (June 1, 2026)
+
+**Status:** ✅ ALREADY FIXED
+
+The bug described in this document was found to be already fixed when verified on June 1, 2026.
+
+**Verification Result:**
+
+`SupportChatService.ts` lines 133-139:
+```typescript
+if (!params.message || params.message.trim().length === 0) {
+  throw new Error('Message content is required');
+}
+
+if (params.message.length > 10000) {
+  throw new Error('Message cannot exceed 10,000 characters');
+}
+```
+
+The 10,000 character maximum length validation is properly implemented and enforced.
+
+**Conclusion:** Support messages are properly validated with a reasonable character limit to prevent database bloat and performance issues.

@@ -108,6 +108,7 @@
     "nodemailer": "^6.9.13",
     "ora": "^8.2.0",
     "pg": "^8.11.3",
+    "resend": "^6.12.4",
     "stripe": "^18.5.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",

@@ -5,6 +5,9 @@
 **Priority:** P2
 **Component:** Frontend - Shop Services
 **Labels:** bug, frontend, validation, ui-overflow
+**Status:** OPEN - Requires Frontend Work
+**Date Found:** 2026-01-05
+**Requires:** React component updates + backend validation
 
 ---
 

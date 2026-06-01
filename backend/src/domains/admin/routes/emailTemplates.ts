@@ -221,12 +221,31 @@ router.post('/:key/test', asyncHandler(async (req: Request, res: Response) => {
 
   const rendered = await emailTemplateService.renderTemplate(key, sampleData);
 
-  // TODO: Integrate with actual email service (SendGrid, SMTP, etc.)
-  // For now, just log and return success
-  logger.info('Test email would be sent:', {
+  // Send test email via Resend
+  const { resendEmailService } = await import('../../../services/ResendEmailService');
+
+  const emailResult = await resendEmailService.sendEmail({
     to: recipientEmail,
     subject: rendered.subject,
-    templateKey: key
+    html: rendered.bodyHtml,
+    text: rendered.bodyText,
+  });
+
+  if (!emailResult.success) {
+    logger.error('Failed to send test email:', emailResult.error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send test email',
+      error: emailResult.error
+    });
+    return;
+  }
+
+  logger.info('Test email sent successfully:', {
+    to: recipientEmail,
+    subject: rendered.subject,
+    templateKey: key,
+    messageId: emailResult.messageId
   });
 
   // Mark template as sent
@@ -235,7 +254,7 @@ router.post('/:key/test', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: `Test email sent to ${recipientEmail}`,
-    note: 'Email service integration pending - email was logged but not actually sent'
+    messageId: emailResult.messageId
   });
 }));
 
