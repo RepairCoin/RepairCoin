@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuthMethod } from "@/contexts/AuthMethodContext";
 import { useCustomer } from "@/hooks/useCustomer";
 import { getUserEmail } from "thirdweb/wallets";
+import { getProfiles } from "thirdweb/wallets/in-app";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
 
 const client = createThirdwebClient({
@@ -33,18 +34,41 @@ export default function CustomerRegisterClient() {
     clearMessages,
   } = useCustomer();
 
-  // Fetch user email if available
+  // Pre-fill email and name from the social/email login profile if available
   useEffect(() => {
-    const fetchEmail = async () => {
-      if (account?.address) {
-        const email = await getUserEmail({ client });
+    const fetchProfile = async () => {
+      if (!account?.address) return;
 
-        if (email) {
-          updateRegistrationFormField("email", email);
+      const email = await getUserEmail({ client });
+      if (email) {
+        updateRegistrationFormField("email", email);
+      }
+
+      // Pre-fill name from the social (Google/Apple) profile so customers
+      // aren't stored as "Anonymous". External wallets have no profile here,
+      // which is fine — the user can still type their name manually.
+      try {
+        const profiles = await getProfiles({ client });
+        const social = profiles.find(
+          (p) => p.type === "google" || p.type === "apple"
+        );
+        const details = social?.details as
+          | { name?: string; givenName?: string; familyName?: string }
+          | undefined;
+
+        if (details) {
+          const nameParts = details.name?.trim().split(/\s+/) ?? [];
+          const firstName = details.givenName || nameParts[0];
+          const lastName = details.familyName || nameParts.slice(1).join(" ");
+
+          if (firstName) updateRegistrationFormField("first_name", firstName);
+          if (lastName) updateRegistrationFormField("last_name", lastName);
         }
+      } catch {
+        // No social profile available (e.g. external wallet) — ignore
       }
     };
-    fetchEmail();
+    fetchProfile();
   }, [account?.address, updateRegistrationFormField]);
 
   // Handle form submission
