@@ -232,7 +232,8 @@ export class CustomerRepository extends BaseRepository {
         suspendedAt: 'suspended_at',
         suspensionReason: 'suspension_reason',
         referredBy: 'referred_by',
-        profile_image_url: 'profile_image_url'
+        profile_image_url: 'profile_image_url',
+        referralCode: 'referral_code'
       };
 
       for (const [key, value] of Object.entries(updates)) {
