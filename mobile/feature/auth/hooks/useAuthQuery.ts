@@ -130,7 +130,8 @@ export const useConnectWallet = () => {
           apiClient.setAuthToken(getTokenResult.token);
 
           if (userType === "customer") {
-            router.replace("/customer/tabs/home");
+            const isCustomerSuspended = !!user?.isSuspended || !!user?.suspended_at || !!user?.suspendedAt;
+            router.replace(isCustomerSuspended ? "/register/customer-suspended" : "/customer/tabs/home");
           } else if (userType === "shop") {
             router.replace("/shop/tabs/home");
           } else {

@@ -31,7 +31,8 @@ export const useSplashNavigation = () => {
     apiClient.setAuthToken(accessToken);
 
     if (userType === "customer") {
-      router.replace("/customer/tabs/home");
+      const isCustomerSuspended = !!userProfile?.isSuspended || !!userProfile?.suspended_at || !!userProfile?.suspendedAt;
+      router.replace(isCustomerSuspended ? "/register/customer-suspended" : "/customer/tabs/home");
     } else if (userType === "shop") {
       const isActive = userProfile?.isActive ?? userProfile?.active;
       const isApprovedShop = userProfile?.verified && isActive !== false;
