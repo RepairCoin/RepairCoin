@@ -102,6 +102,20 @@ class CustomerApi {
     }
   }
 
+  async generateReferralCode(): Promise<string> {
+    try {
+      const response = await apiClient.post<any>("/referrals/generate");
+      return (
+        response?.data?.data?.referralCode ??
+        response?.data?.referralCode ??
+        response?.referralCode
+      );
+    } catch (error) {
+      console.error("Failed to generate referral code:", error);
+      throw error;
+    }
+  }
+
   async register(payload: CustomerFormData) {
     try {
       return await apiClient.post("/customers/register", payload);
