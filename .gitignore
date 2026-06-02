@@ -141,6 +141,10 @@ dist
 
 backend/.env.test
 
+# Database backups / dumps (never commit; migrations live in backend/migrations)
+*backup*.sql
+*.dump
+
 # Claude Code temporary files
 tmpclaude-*
 **/tmpclaude-*
