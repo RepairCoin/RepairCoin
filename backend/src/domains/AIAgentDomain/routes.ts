@@ -18,6 +18,7 @@ import {
 } from './controllers/HelpArticleController';
 import { askInsights } from './controllers/InsightsController';
 import { askMarketing } from './controllers/MarketingChatController';
+import { generateImage } from './controllers/ImageGenerateController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -142,6 +143,13 @@ export function initializeRoutes(): Router {
   // from Claude args). Spend-capped against the shared monthly budget
   // and audited into ai_insights_messages with the tool_calls JSONB.
   router.post('/insights', authMiddleware, requireRole(['shop']), askInsights);
+
+  // AI Image Generation — Phase 1. Text → branded PNG persisted to DO Spaces.
+  // Body: { prompt, dimensions?, quality?, useCase? }. shopId from the JWT.
+  // Gated by the per-shop ai_images_enabled kill switch (default off),
+  // spend-capped + daily-rate-limited + prompt-moderated; every call audited
+  // into ai_image_generations. See docs/tasks/strategy/ai-image-generation/.
+  router.post('/images/generate', authMiddleware, requireRole(['shop']), generateImage);
 
   // AI Marketing Assistant — shop-owner "compose + send a campaign by
   // chat" AI. Sibling to /insights. Sonnet + tool-use with the four

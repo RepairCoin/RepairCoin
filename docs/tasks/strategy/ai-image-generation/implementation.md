@@ -12,7 +12,13 @@
 
 Shared **image infrastructure** in `AIAgentDomain`, consumed first by **AI Marketing** (banners + editing) and later by the **Ads System** (creative variants — separate workstream):
 
-- **Generate** (text→image) — OpenAI **DALL·E 3**
+- **Generate** (text→image) — OpenAI **`gpt-image-1`**
+  > **Model note (2026-06-03):** "DALL·E 3" throughout this doc resolves in
+  > practice to **`gpt-image-1`** — `dall-e-3` is *not available on the account*
+  > and gpt-image-1 supersedes it (newer, better, ~same cost at `medium`). The
+  > client is `OpenAIImageClient.ts`. Verified live on staging (Phase 1 PASS).
+  > gpt-image-1 differs: sizes `1024x1024`/`1536x1024`/`1024x1536`, quality
+  > `low`/`medium`/`high`, returns base64, and **rejects `response_format`**.
 - **See** (image→analysis) — **Claude Sonnet 4.6 vision** (already integrated; no new vendor)
 - **Edit** (image→image) — **Stability AI** Stable Diffusion 3.5 (img2img + inpainting)
 
@@ -42,7 +48,7 @@ Everything follows the established invariants: **shop-scoped from the JWT** (nev
 Mirrors `backend/src/domains/AIAgentDomain` + `backend/src/services/openai/*`:
 
 ```
-backend/src/services/openai/DallE3Client.ts        ← NEW (mirror WhisperClient/OpenAITtsClient)
+backend/src/services/openai/OpenAIImageClient.ts   ← NEW (gpt-image-1; mirror WhisperClient/OpenAITtsClient)
 backend/src/services/openai/OpenAIModerationClient.ts ← NEW (prompt safety pre-check)
 backend/src/services/stability/StabilityClient.ts  ← NEW (Phase 6; SD 3.5 img2img + inpaint)
 backend/src/services/ImageStorageService.ts         ← EXTEND: add uploadBuffer()
@@ -83,7 +89,7 @@ CREATE TABLE IF NOT EXISTS ai_image_generations (
   shop_id         VARCHAR(255) NOT NULL,
   operation_type  VARCHAR(16)  NOT NULL,         -- 'generate' | 'edit'
   vendor          VARCHAR(32)  NOT NULL,         -- 'openai' | 'stability'
-  model           VARCHAR(64)  NOT NULL,         -- 'dall-e-3' | 'sd3.5-large'
+  model           VARCHAR(64)  NOT NULL,         -- 'gpt-image-1' | 'sd3.5-large'
   prompt          TEXT         NOT NULL,
   source_image_url TEXT,                          -- edits only
   image_url       TEXT,                           -- persisted DO Spaces URL (null on failure)
@@ -122,8 +128,8 @@ Both applied to staging via the existing `record-and-verify-migration` script fl
 
 ## 5. Vendor clients
 
-### DALL·E 3 (`DallE3Client.ts`) — mirror `OpenAITtsClient`
-- `POST https://api.openai.com/v1/images/generations`, body `{ model: "dall-e-3", prompt, size, quality: "hd", n: 1, response_format: "url" }`
+### Image generation (`OpenAIImageClient.ts`, gpt-image-1) — mirror `OpenAITtsClient`
+- `POST https://api.openai.com/v1/images/generations`, body `{ model: "gpt-image-1", prompt, size, quality, n: 1 }` — **no `response_format`** (API rejects it; returns base64). Sizes `1024x1024`/`1536x1024`/`1024x1536`; quality `low`/`medium`/`high`.
 - Sizes/pricing (scope §3.1): **HD square `1024x1024` = $0.040; HD wide/tall `1792x1024` / `1024x1792` = $0.080.** Map marketing banner → `1792x1024`, ad square → `1024x1024`.
 - Returns a URL valid ~60 min → **caller must download immediately** (G5).
 - Reads `OPENAI_API_KEY` at call time; never logs it; sanitized errors. Cost computed locally for the audit row.

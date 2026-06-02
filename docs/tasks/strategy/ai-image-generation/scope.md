@@ -52,6 +52,8 @@ Filing this under one product would force the other to reach across folders for 
 
 **Recommendation: DALL-E 3 for v1.** Clean terms, reliable API, decent quality, well-known cost. Evaluate Imagen 3 in v1.5 if specific use cases (heavy text-in-image, like coupon graphics) need it.
 
+> **Implementation note (2026-06-03):** `dall-e-3` is not available on the OpenAI account, so Phase 1 uses OpenAI's current **`gpt-image-1`** — it supersedes DALL-E 3 (newer/better, ~$0.042/image at `medium`, matching the cost projections). Verified live on staging. See `implementation.md` §5.
+
 ### 3.2 See (image-as-input / vision)
 
 **Use cases:**
