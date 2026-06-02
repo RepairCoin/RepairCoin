@@ -50,6 +50,10 @@ const BASELINE_MAX = 1440;
 const BUDGET_MIN = 0;
 const BUDGET_MAX = 1000;
 
+// Phase 6 branding — shop-settable assistant display name. Empty/blank clears
+// it (→ NULL → UI shows "Assistant"). 40 chars matches the DB column.
+const ASSISTANT_NAME_MAX = 40;
+
 export interface ShopAiSettings {
   // Admin-gated (read-only for the shop)
   aiGlobalEnabled: boolean;
@@ -60,13 +64,21 @@ export interface ShopAiSettings {
   escalationThreshold: number;
   aiFollowupDelayMinutes: number;
   humanReplyBaselineMinutes: number;
+  /** Phase 6 branding — unified assistant display name; null when unset. */
+  assistantName?: string | null;
 }
 
+/**
+ * All fields optional — a partial update. The shop UI may PUT just the
+ * assistant name, just the tuning fields, or any subset. At least one must be
+ * present (validator enforces).
+ */
 export interface ShopAiSettingsUpdate {
-  escalationThreshold: number;
-  aiFollowupDelayMinutes: number;
-  /** Optional — only written when present. Defaults stay untouched if absent. */
+  escalationThreshold?: number;
+  aiFollowupDelayMinutes?: number;
   humanReplyBaselineMinutes?: number;
+  /** Trimmed name; empty/blank → null (clears it). */
+  assistantName?: string | null;
 }
 
 export interface ValidationResult {
@@ -84,31 +96,31 @@ export function validateShopAiSettingsUpdate(body: any): ValidationResult {
   if (!body || typeof body !== "object") {
     return { ok: false, error: "Request body is required" };
   }
-  const esc = body.escalationThreshold;
-  const delay = body.aiFollowupDelayMinutes;
-  const baseline = body.humanReplyBaselineMinutes;
+  // Partial update — validate each field only when present, require ≥1.
+  const value: ShopAiSettingsUpdate = {};
 
-  if (!Number.isInteger(esc) || esc < ESCALATION_MIN || esc > ESCALATION_MAX) {
-    return {
-      ok: false,
-      error: `escalationThreshold must be an integer between ${ESCALATION_MIN} and ${ESCALATION_MAX}`,
-    };
+  if (body.escalationThreshold !== undefined) {
+    const esc = body.escalationThreshold;
+    if (!Number.isInteger(esc) || esc < ESCALATION_MIN || esc > ESCALATION_MAX) {
+      return {
+        ok: false,
+        error: `escalationThreshold must be an integer between ${ESCALATION_MIN} and ${ESCALATION_MAX}`,
+      };
+    }
+    value.escalationThreshold = esc;
   }
-  if (!Number.isInteger(delay) || delay < DELAY_MIN || delay > DELAY_MAX) {
-    return {
-      ok: false,
-      error: `aiFollowupDelayMinutes must be an integer between ${DELAY_MIN} and ${DELAY_MAX}`,
-    };
+  if (body.aiFollowupDelayMinutes !== undefined) {
+    const delay = body.aiFollowupDelayMinutes;
+    if (!Number.isInteger(delay) || delay < DELAY_MIN || delay > DELAY_MAX) {
+      return {
+        ok: false,
+        error: `aiFollowupDelayMinutes must be an integer between ${DELAY_MIN} and ${DELAY_MAX}`,
+      };
+    }
+    value.aiFollowupDelayMinutes = delay;
   }
-
-  const value: ShopAiSettingsUpdate = {
-    escalationThreshold: esc,
-    aiFollowupDelayMinutes: delay,
-  };
-
-  // Baseline is optional. Validate only when the field is explicitly present
-  // so older clients that don't send it continue to work.
-  if (baseline !== undefined) {
+  if (body.humanReplyBaselineMinutes !== undefined) {
+    const baseline = body.humanReplyBaselineMinutes;
     if (!Number.isInteger(baseline) || baseline < BASELINE_MIN || baseline > BASELINE_MAX) {
       return {
         ok: false,
@@ -116,6 +128,30 @@ export function validateShopAiSettingsUpdate(body: any): ValidationResult {
       };
     }
     value.humanReplyBaselineMinutes = baseline;
+  }
+  if (body.assistantName !== undefined) {
+    if (body.assistantName === null) {
+      value.assistantName = null;
+    } else if (typeof body.assistantName !== "string") {
+      return { ok: false, error: "assistantName must be a string or null" };
+    } else {
+      const name = body.assistantName.trim();
+      if (name.length > ASSISTANT_NAME_MAX) {
+        return {
+          ok: false,
+          error: `assistantName must be ${ASSISTANT_NAME_MAX} characters or fewer`,
+        };
+      }
+      value.assistantName = name.length === 0 ? null : name; // blank clears
+    }
+  }
+
+  if (Object.keys(value).length === 0) {
+    return {
+      ok: false,
+      error:
+        "Provide at least one editable field: escalationThreshold, aiFollowupDelayMinutes, humanReplyBaselineMinutes, or assistantName",
+    };
   }
 
   return { ok: true, value };
@@ -194,10 +230,11 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     monthly_budget_usd: string;
     current_month_spend_usd: string;
     human_reply_baseline_minutes: number | null;
+    assistant_name: string | null;
   }>(
     `SELECT ai_global_enabled, ai_followup_enabled, ai_followup_delay_minutes,
             escalation_threshold, monthly_budget_usd, current_month_spend_usd,
-            human_reply_baseline_minutes
+            human_reply_baseline_minutes, assistant_name
      FROM ai_shop_settings WHERE shop_id = $1`,
     [shopId]
   );
@@ -211,6 +248,7 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
       escalationThreshold: DEFAULT_ESCALATION_THRESHOLD,
       aiFollowupDelayMinutes: DEFAULT_FOLLOWUP_DELAY_MINUTES,
       humanReplyBaselineMinutes: DEFAULT_HUMAN_REPLY_BASELINE_MINUTES,
+      assistantName: null,
     };
   }
   const row = r.rows[0];
@@ -224,6 +262,7 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
       row.ai_followup_delay_minutes ?? DEFAULT_FOLLOWUP_DELAY_MINUTES,
     humanReplyBaselineMinutes:
       row.human_reply_baseline_minutes ?? DEFAULT_HUMAN_REPLY_BASELINE_MINUTES,
+    assistantName: row.assistant_name ?? null,
   };
 }
 
@@ -297,17 +336,22 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
         // Dynamic columns so optional fields (humanReplyBaselineMinutes) are
         // only written when the client sent them — mirrors the admin upsert.
         const v = validation.value;
-        const cols: string[] = ["shop_id", "escalation_threshold", "ai_followup_delay_minutes"];
-        const vals: any[] = [shopId, v.escalationThreshold, v.aiFollowupDelayMinutes];
-        const setClauses: string[] = [
-          "escalation_threshold = EXCLUDED.escalation_threshold",
-          "ai_followup_delay_minutes = EXCLUDED.ai_followup_delay_minutes",
-        ];
-        if (v.humanReplyBaselineMinutes !== undefined) {
-          cols.push("human_reply_baseline_minutes");
-          vals.push(v.humanReplyBaselineMinutes);
-          setClauses.push("human_reply_baseline_minutes = EXCLUDED.human_reply_baseline_minutes");
-        }
+        const cols: string[] = ["shop_id"];
+        const vals: any[] = [shopId];
+        const setClauses: string[] = [];
+        const addCol = (col: string, val: any) => {
+          cols.push(col);
+          vals.push(val);
+          setClauses.push(`${col} = EXCLUDED.${col}`);
+        };
+        if (v.escalationThreshold !== undefined)
+          addCol("escalation_threshold", v.escalationThreshold);
+        if (v.aiFollowupDelayMinutes !== undefined)
+          addCol("ai_followup_delay_minutes", v.aiFollowupDelayMinutes);
+        if (v.humanReplyBaselineMinutes !== undefined)
+          addCol("human_reply_baseline_minutes", v.humanReplyBaselineMinutes);
+        if (v.assistantName !== undefined)
+          addCol("assistant_name", v.assistantName); // null clears it
         const placeholders = vals.map((_, i) => `$${i + 1}`);
         await pool.query(
           `INSERT INTO ai_shop_settings (${cols.join(", ")})

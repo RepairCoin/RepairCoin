@@ -84,6 +84,23 @@ function getOrchestratorTools(): ClaudeTool[] {
   ];
 }
 
+/** Phase 6 branding — the owner's chosen assistant name (null when unset).
+ *  Non-critical: never blocks a turn, so failures fall back to no name. */
+async function fetchAssistantName(
+  pool: Pool,
+  shopId: string
+): Promise<string | null> {
+  try {
+    const r = await pool.query<{ assistant_name: string | null }>(
+      `SELECT assistant_name FROM ai_shop_settings WHERE shop_id = $1`,
+      [shopId]
+    );
+    return r.rows[0]?.assistant_name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Normalized dispatch result — both registries share this shape. */
 interface UnifiedDispatch {
   ok: boolean;
@@ -241,6 +258,18 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           ? ORCHESTRATE_MODEL_CHEAP
           : ORCHESTRATE_MODEL_DEFAULT;
         const tools = getOrchestratorTools();
+        // Branding: inject the owner's chosen name as a SEPARATE, uncached
+        // block so the big rules block keeps hitting the prompt cache.
+        const assistantName = await fetchAssistantName(pool, shopId);
+        const systemPrompt = assistantName
+          ? [
+              { text: ORCHESTRATE_SYSTEM_PROMPT, cache: true },
+              {
+                text: `The shop owner has named you "${assistantName}". Use that name when you refer to yourself.`,
+                cache: false,
+              },
+            ]
+          : [{ text: ORCHESTRATE_SYSTEM_PROMPT, cache: true }];
         const loopMessages: ChatMessage[] = messages.map((m: InsightsMessage) => ({
           role: m.role,
           content: m.content,
@@ -262,7 +291,7 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         try {
         for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
           const response = await anthropic.complete({
-            systemPrompt: [{ text: ORCHESTRATE_SYSTEM_PROMPT, cache: true }],
+            systemPrompt,
             messages: loopMessages,
             model,
             maxTokens: ORCHESTRATE_MAX_TOKENS,

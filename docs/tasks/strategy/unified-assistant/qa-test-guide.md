@@ -160,10 +160,42 @@ ORDER BY created_at DESC LIMIT 5;
 
 ---
 
+## Part H — Phase 6 branding (name the assistant)
+
+The assistant has a per-shop, owner-settable display name (the exec's "name it
+Adam / Cain"). Set via the ✏️ rename in the panel header; persisted on
+`ai_shop_settings.assistant_name`; injected into the orchestrator's prompt so it
+refers to itself by that name.
+
+**Data note:** during verification the test shop `peanut` was named **"Adam"**.
+To test the empty/default state, clear the name first (H5).
+
+| # | Step | Expect | Pass? |
+|---|---|---|---|
+| H1 | Open ✨ → look at the panel header | Shows the set name (peanut → **"Adam"**); a shop with no name shows **"Assistant"** | |
+| H2 | Click the **✏️** next to the title → type *"Cain"* → press Enter (or ✓) | Header updates to **"Cain"** | |
+| H3 | Close the panel, reopen it | Header still shows **"Cain"** (persisted) | |
+| H4 | Ask *"What's your name?"* | Reply says it's **"Cain"**; it refers to itself by that name in answers | |
+| H5 | ✏️ → clear the field → save (blank) | Header reverts to **"Assistant"**; asking its name → it no longer claims a specific name | |
+| H6 | ✏️ → type something → press **Escape** or tap **✕** | No change (edit cancelled) | |
+
+**Backend verification:**
+```sql
+SELECT assistant_name FROM ai_shop_settings WHERE shop_id='peanut';
+-- matches whatever you last saved; NULL after H5
+```
+`GET /api/ai/settings` also returns `assistantName`.
+
+**Note:** the other Phase 6 deliverable — the **cost report** (`cost-report.md`)
+— is a doc, not a UI test; it's already populated from real audit data.
+
+---
+
 ## Sign-off
 
 - [ ] Part A (text + cards) pass
 - [ ] Part G (actions: PO + send, confirm-gated) pass
+- [ ] Part H (branding: name + rename + persist + orchestrator uses it) pass
 - [ ] Part B (voice-in + auto-spoken reply) pass
 - [ ] Part C (speaker toggle) pass
 - [ ] Part D (turn-based loop) pass
