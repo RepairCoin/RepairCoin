@@ -29,6 +29,13 @@ import {
 import { CreatePurchaseOrderModal } from "./modals/CreatePurchaseOrderModal";
 import { PurchaseOrderDetailModal } from "./modals/PurchaseOrderDetailModal";
 import { ReceiveItemsModal } from "./modals/ReceiveItemsModal";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface PurchaseOrdersTabProps {
   shopId: string;
@@ -47,7 +54,6 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -81,13 +87,11 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
   const handleViewDetails = (po: PurchaseOrder) => {
     setSelectedPO(po);
     setShowDetailModal(true);
-    setDropdownOpen(null);
   };
 
   const handleReceiveItems = (po: PurchaseOrder) => {
     setSelectedPO(po);
     setShowReceiveModal(true);
-    setDropdownOpen(null);
   };
 
   const handleReceiveSuccess = () => {
@@ -108,7 +112,6 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
       console.error("Error cancelling PO:", error);
       toast.error("Failed to cancel purchase order");
     }
-    setDropdownOpen(null);
   };
 
   const handleDeletePO = async (po: PurchaseOrder) => {
@@ -127,7 +130,6 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
       console.error("Error deleting PO:", error);
       toast.error("Failed to delete purchase order");
     }
-    setDropdownOpen(null);
   };
 
   const getStatusBadge = (status: PurchaseOrderStatus) => {
@@ -186,7 +188,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Total Spending</p>
-                <p className="text-2xl font-bold text-white">${parseFloat(stats.totalSpending || '0').toFixed(2)}</p>
+                <p className="text-2xl font-bold text-white">${parseFloat(String(stats.totalSpending || 0)).toFixed(2)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
@@ -216,7 +218,7 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Avg Order Value</p>
-                <p className="text-2xl font-bold text-white">${parseFloat(stats.averageOrderValue || '0').toFixed(2)}</p>
+                <p className="text-2xl font-bold text-white">${parseFloat(String(stats.averageOrderValue || 0)).toFixed(2)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-500" />
             </div>
@@ -349,56 +351,57 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="relative inline-block">
-                        <button
-                          onClick={() => setDropdownOpen(dropdownOpen === po.id ? null : po.id)}
-                          className="p-2 hover:bg-[#252525] rounded-lg transition-colors"
-                        >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="p-2 hover:bg-[#252525] rounded-lg transition-colors outline-none">
                           <MoreVertical className="w-5 h-5 text-gray-400" />
-                        </button>
+                        </DropdownMenuTrigger>
 
-                        {dropdownOpen === po.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] rounded-lg shadow-lg border border-gray-700 z-10">
-                            <button
-                              onClick={() => handleViewDetails(po)}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-[#252525]"
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-48 bg-[#1a1a1a] border border-gray-700 text-gray-300 p-0"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => handleViewDetails(po)}
+                            className="gap-2 px-4 py-2 text-sm text-gray-300 rounded-none cursor-pointer focus:bg-[#252525] focus:text-gray-300"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Details
+                          </DropdownMenuItem>
+
+                          {(po.status === "confirmed" || po.status === "partially_received") && (
+                            <DropdownMenuItem
+                              onClick={() => handleReceiveItems(po)}
+                              className="gap-2 px-4 py-2 text-sm text-green-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-green-400"
                             >
-                              <Eye className="w-4 h-4" />
-                              View Details
-                            </button>
+                              <PackageCheck className="w-4 h-4" />
+                              Receive Items
+                            </DropdownMenuItem>
+                          )}
 
-                            {(po.status === "confirmed" || po.status === "partially_received") && (
-                              <button
-                                onClick={() => handleReceiveItems(po)}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-400 hover:bg-[#252525]"
-                              >
-                                <PackageCheck className="w-4 h-4" />
-                                Receive Items
-                              </button>
-                            )}
+                          {po.status !== "received" && po.status !== "cancelled" && (
+                            <DropdownMenuItem
+                              onClick={() => handleCancelPO(po)}
+                              className="gap-2 px-4 py-2 text-sm text-orange-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-orange-400"
+                            >
+                              <Ban className="w-4 h-4" />
+                              Cancel Order
+                            </DropdownMenuItem>
+                          )}
 
-                            {po.status !== "received" && po.status !== "cancelled" && (
-                              <button
-                                onClick={() => handleCancelPO(po)}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-orange-400 hover:bg-[#252525]"
-                              >
-                                <Ban className="w-4 h-4" />
-                                Cancel Order
-                              </button>
-                            )}
-
-                            {po.status === "draft" && (
-                              <button
+                          {po.status === "draft" && (
+                            <>
+                              <DropdownMenuSeparator className="bg-gray-700 my-0" />
+                              <DropdownMenuItem
                                 onClick={() => handleDeletePO(po)}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-[#252525] border-t border-gray-700"
+                                className="gap-2 px-4 py-2 text-sm text-red-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-red-400"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}

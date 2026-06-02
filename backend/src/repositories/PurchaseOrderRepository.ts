@@ -1,4 +1,5 @@
 // backend/src/repositories/PurchaseOrderRepository.ts
+import { PoolClient } from 'pg';
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
 
@@ -70,31 +71,56 @@ export class PurchaseOrderRepository extends BaseRepository {
   }
 
   /**
-   * Generate a unique PO number
+   * Generate a per-shop PO number (format: PO-YYYY-####).
+   *
+   * Scoped per shop (unique on shop_id + po_number, see migration 132), so two
+   * shops can both hold PO-2026-0001. Uses MAX(seq)+1 not COUNT(*)+1 so gaps from
+   * deletions never reuse a number; createPurchaseOrder retries on collision.
+   * Runs on the transaction client so the read shares the insert's transaction.
    */
-  private async generatePONumber(shopId: string): Promise<string> {
+  private async generatePONumber(client: PoolClient, shopId: string): Promise<string> {
     const year = new Date().getFullYear();
+    const prefix = `PO-${year}-`;
+
+    // SPLIT_PART(po_number, '-', 3) extracts #### from PO-YYYY-####; LIKE limits to valid rows.
     const query = `
-      SELECT COUNT(*) as count
+      SELECT COALESCE(MAX(CAST(SPLIT_PART(po_number, '-', 3) AS INTEGER)), 0) AS max_seq
       FROM purchase_orders
       WHERE shop_id = $1
-        AND EXTRACT(YEAR FROM order_date) = $2
+        AND po_number LIKE $2
     `;
 
-    const result = await this.pool.query(query, [shopId, year]);
-    const count = parseInt(result.rows[0].count) + 1;
-    const paddedCount = count.toString().padStart(4, '0');
+    const result = await client.query(query, [shopId, `${prefix}%`]);
+    const nextSeq = parseInt(result.rows[0].max_seq, 10) + 1;
 
-    return `PO-${year}-${paddedCount}`;
+    return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
   }
 
   /**
    * Create a new purchase order with items
    */
   async createPurchaseOrder(data: CreatePurchaseOrderData): Promise<PurchaseOrder> {
+    // Retry on the (rare) race where two concurrent inserts generate the same PO number.
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.createPurchaseOrderOnce(data);
+      } catch (error: any) {
+        // 23505 = unique_violation; only the po_number collision is retryable.
+        if (error?.code === '23505' && attempt < maxAttempts) {
+          logger.warn(`PO number collision, retrying (${attempt}/${maxAttempts})`, { shopId: data.shopId });
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Failed to generate a unique purchase order number after multiple attempts');
+  }
+
+  private async createPurchaseOrderOnce(data: CreatePurchaseOrderData): Promise<PurchaseOrder> {
     return await this.withTransaction(async (client) => {
       // Generate PO number
-      const poNumber = await this.generatePONumber(data.shopId);
+      const poNumber = await this.generatePONumber(client, data.shopId);
 
       // Calculate totals
       const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
