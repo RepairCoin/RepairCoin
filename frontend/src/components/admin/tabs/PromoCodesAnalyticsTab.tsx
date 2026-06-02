@@ -409,7 +409,7 @@ export default function PromoCodesAnalyticsTab() {
             {/* Filter and Refresh */}
             <div className="flex gap-2 sm:gap-3">
               <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
-                <SelectTrigger variant="dark" className="flex-1 sm:flex-none text-sm">
+                <SelectTrigger variant="dark" className="flex-1 sm:flex-none sm:w-auto text-sm">
                   <SelectValue placeholder="All Codes" />
                 </SelectTrigger>
                 <SelectContent variant="dark">
