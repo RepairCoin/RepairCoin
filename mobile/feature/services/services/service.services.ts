@@ -445,6 +445,18 @@ class ServiceApi {
     }
   }
 
+  async getShopAnalytics(trendDays: number = 30): Promise<import("./service.interface").ShopAnalyticsSummary> {
+    try {
+      const response = await apiClient.get(
+        `/services/analytics/shop?trendDays=${trendDays}&topServicesLimit=5`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Failed to get shop analytics:", error.message);
+      throw error;
+    }
+  }
+
   async getBookingAnalytics(trendDays: number = 30): Promise<BookingAnalytics> {
     try {
       const response = await apiClient.get(

@@ -4,6 +4,7 @@ export {
   useMyAppointmentsQuery,
   useServiceOrdersQuery,
   useBookingAnalyticsQuery,
+  useServiceAnalyticsQuery,
   useCustomerSearchQuery,
 } from "./useBookingQueries";
 

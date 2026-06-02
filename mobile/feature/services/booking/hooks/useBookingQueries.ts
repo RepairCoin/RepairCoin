@@ -45,6 +45,14 @@ export function useServiceOrdersQuery() {
   });
 }
 
+export function useServiceAnalyticsQuery(trendDays: TrendDays) {
+  return useQuery({
+    queryKey: ["repaircoin", "serviceAnalytics", trendDays],
+    queryFn: () => serviceApi.getShopAnalytics(trendDays),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useBookingAnalyticsQuery(trendDays: TrendDays) {
   return useQuery({
     queryKey: ["repaircoin", "bookingAnalytics", trendDays],

@@ -25,7 +25,7 @@ import {
 // Feature
 import ServicesTab from "../../services-tab/components/ServicesTab";
 import { BookingShopTab } from "@/feature/services/booking/components";
-import { BookingAnalyticsTab } from "@/feature/services/booking/components";
+import { ServiceAnalyticsTab } from "@/feature/services/booking/components";
 
 // Constants
 import { SERVICE_TABS } from "@/shared/constants/services";
@@ -101,7 +101,7 @@ export default function ShopServiceScreen() {
           />
         )}
         {activeTab === "Booking" && <BookingShopTab />}
-        {activeTab === "Analytics" && <BookingAnalyticsTab />}
+        {activeTab === "Analytics" && <ServiceAnalyticsTab />}
       </View>
 
       {/* Add Service FAB - show when Services tab */}
