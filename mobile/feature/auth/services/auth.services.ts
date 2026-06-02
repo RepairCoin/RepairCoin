@@ -10,9 +10,9 @@ class AuthApi {
     }
   }
 
-  async checkUserExists(address: string) {
+  async checkUserExists(address: string, email?: string) {
     try {
-      return await apiClient.post("/auth/check-user", { address });
+      return await apiClient.post("/auth/check-user", { address, ...(email ? { email } : {}) });
     } catch (error) {
       console.error("Failed to check user exists:", error);
       throw error;
