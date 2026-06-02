@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Share, Linking } from "react-native";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
@@ -6,16 +6,43 @@ import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "@/shared/constants/referral";
 import { useCustomer } from "../../profile/hooks/useCustomer";
+import { customerApi } from "../../profile/services/customer.services";
 
 export function useReferral() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
+  const { data: customerData, refetch } = useGetCustomerByWalletAddress(account?.address);
   const { showWarning } = useAppToast();
 
   const [codeCopied, setCodeCopied] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
 
-  const referralCode = customerData?.customer?.referralCode || "LOADING...";
+  const profileCode = customerData?.customer?.referralCode;
+  const referralCode = profileCode || generatedCode || "Generating...";
+
+  // Auto-generate code for new accounts that don't have one yet
+  const generateCode = useCallback(async () => {
+    if (profileCode || generatingCode || !account?.address) return;
+    setGeneratingCode(true);
+    try {
+      const code = await customerApi.generateReferralCode();
+      if (code) {
+        setGeneratedCode(code);
+        refetch();
+      }
+    } catch (error) {
+      console.error("Failed to generate referral code:", error);
+    } finally {
+      setGeneratingCode(false);
+    }
+  }, [profileCode, generatingCode, account?.address, refetch]);
+
+  useEffect(() => {
+    if (customerData && !profileCode) {
+      generateCode();
+    }
+  }, [customerData, profileCode, generateCode]);
   const totalReferrals = customerData?.customer?.referralCount || 0;
   const totalEarned = totalReferrals * REFERRER_REWARD;
 
