@@ -268,7 +268,7 @@ This is the strongest "AI bundled in subscription" argument the platform can mak
 If decisions in §6 land roughly where recommendations point:
 
 1. Procure OpenAI DALL-E 3 access (already part of OpenAI account from `voice-ai-dispatcher` scope — same account covers Whisper + DALL-E 3)
-2. **Procure Stability AI account** (NEW — required for Phase 6 image editing). Create account at `platform.stability.ai`, add payment, generate API key, set spend cap. Hand `STABILITY_API_KEY` env var to engineering.
+2. ~~**Procure Stability AI account** (NEW — required for Phase 6 image editing).~~ ✅ **DONE** — `STABILITY_API_KEY` is already set in `.env` (2026-06-02). Phase 6 is unblocked.
 3. Lock the 7 decisions in §6
 4. Write `ai-image-generation-implementation.md` mirroring AI Marketing + Voice doc patterns
 5. Phase 1 first — backend endpoint, no UI changes, smallest blast radius
