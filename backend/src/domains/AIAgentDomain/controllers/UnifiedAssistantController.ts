@@ -52,6 +52,8 @@ import {
   getOrchestratorOwnTools,
   getOrchestratorOwnToolByName,
 } from "../services/orchestrator/registry";
+import { getDefaultHelpCorpusLoader } from "../services/HelpCorpusLoader";
+import { SUPPORT_FALLBACK_COPY } from "../services/HelpPromptBuilder";
 import {
   ChatMessage,
   ChatMessageContentBlock,
@@ -82,6 +84,58 @@ function getOrchestratorTools(): ClaudeTool[] {
     ...getMarketingTools(),
     ...getOrchestratorOwnTools(),
   ];
+}
+
+/**
+ * HELP KNOWLEDGE — folded in from the standalone How-To assistant so the
+ * unified assistant is the ONE door (the separate Help launcher is retired).
+ * The How-To assistant was never tool-based: it's RAG, answering "how do I…"
+ * product-usage questions from a ~6K-token corpus injected into the system
+ * prompt. We mirror that here as a SEPARATE cached system block (stable across
+ * calls → high cache-hit), rather than a tool — no sub-call, no extra round
+ * trip, and how-to answers blend inline with the owner's data.
+ *
+ * Reframed vs the standalone prompt: the standalone Help assistant DECLINES
+ * business-data questions and actions (rule 5) — the orchestrator does the
+ * opposite (it has the data/action tools), so those decline rules are dropped.
+ * What's kept: answer how-to ONLY from the articles, cite *Related:* titles,
+ * never invent UI, copy labels verbatim, support-fallback when uncovered.
+ */
+function buildHelpKnowledgeBlock(corpusBlock: string): string {
+  return `# HELP KNOWLEDGE — using the RepairCoin shop dashboard
+
+When the owner asks a HOW-TO / product-usage question — "how do I create a service?", "where do I set my appointment hours?", "how do I configure the AI sales agent?" — answer it from the help articles below. Do NOT reach for a data tool for a "how do I…" question.
+
+Rules for how-to answers (these do NOT apply to data/action turns):
+- Answer ONLY from these articles. Never invent UI elements, button labels, settings, fields, or steps that aren't written here. If no article covers it, reply exactly: "${SUPPORT_FALLBACK_COPY}"
+- Copy UI labels VERBATIM in bold, exactly as they appear in the article; use numbered steps for procedures.
+- End a how-to answer with ONE italic line citing the source article TITLE(s) — the "# How do I X?" heading — e.g. *Related: How do I create a service?* Use titles, never filenames.
+- The "--- ARTICLE: <filename> ---" separators are delimiters for you only; never show them to the owner.
+
+The articles are your only source of truth for product-usage questions:
+
+${corpusBlock}`;
+}
+
+// Lazy + cached + failure-tolerant: corpus load is filesystem I/O that can
+// throw (missing docs/help dir in odd deploys). Help is an enhancement to the
+// orchestrator — a load failure must NOT take a turn down, so we memo null and
+// the assistant simply runs without the help block.
+let _helpBlock: string | null | undefined;
+function getHelpKnowledgeBlock(): string | null {
+  if (_helpBlock !== undefined) return _helpBlock;
+  try {
+    _helpBlock = buildHelpKnowledgeBlock(
+      getDefaultHelpCorpusLoader().getCorpusBlock()
+    );
+  } catch (err) {
+    logger.warn(
+      "UnifiedAssistantController: help corpus unavailable — orchestrator will run without how-to knowledge",
+      { error: err instanceof Error ? err.message : String(err) }
+    );
+    _helpBlock = null;
+  }
+  return _helpBlock;
 }
 
 /** Phase 6 branding — the owner's chosen assistant name (null when unset).
@@ -185,6 +239,8 @@ Your tools fall into three groups (full schemas are provided to you separately):
 - MARKETING — size a customer segment (lookup_audience_count), draft a campaign (propose_campaign_draft), and propose sending a draft (propose_campaign_send).
 - INVENTORY ACTION — propose a purchase order to restock a low / running-out item (propose_purchase_order). Use when the owner says "order more", "restock", or "reorder".
 
+You also have HELP KNOWLEDGE (a section of product help articles, provided separately) for HOW-TO / product-usage questions about operating the dashboard ("how do I create a service?", "where do I set my hours?"). Answer those directly from that knowledge — do NOT call a data tool for a "how do I…" question — and follow its citation rules.
+
 Rules:
 - For "how did we do?" / performance questions, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull the most relevant 1-3 metrics — don't dump every tool.
 - When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or similar, FIRST call lookup_audience_count to size the segment, THEN call propose_campaign_draft. Echo the audience_type / audience_filters returned by the lookup into the draft.
@@ -258,18 +314,23 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           ? ORCHESTRATE_MODEL_CHEAP
           : ORCHESTRATE_MODEL_DEFAULT;
         const tools = getOrchestratorTools();
-        // Branding: inject the owner's chosen name as a SEPARATE, uncached
-        // block so the big rules block keeps hitting the prompt cache.
+        // System prompt is assembled as ordered blocks, cache-stable prefix
+        // first so the prompt cache stays warm:
+        //   1. main rules         (cache: true — stable)
+        //   2. help knowledge     (cache: true — stable; folded-in How-To corpus)
+        //   3. branding name      (cache: false — varies per shop, kept LAST)
+        const helpBlock = getHelpKnowledgeBlock();
         const assistantName = await fetchAssistantName(pool, shopId);
-        const systemPrompt = assistantName
-          ? [
-              { text: ORCHESTRATE_SYSTEM_PROMPT, cache: true },
-              {
-                text: `The shop owner has named you "${assistantName}". Use that name when you refer to yourself.`,
-                cache: false,
-              },
-            ]
-          : [{ text: ORCHESTRATE_SYSTEM_PROMPT, cache: true }];
+        const systemPrompt: { text: string; cache: boolean }[] = [
+          { text: ORCHESTRATE_SYSTEM_PROMPT, cache: true },
+        ];
+        if (helpBlock) systemPrompt.push({ text: helpBlock, cache: true });
+        if (assistantName) {
+          systemPrompt.push({
+            text: `The shop owner has named you "${assistantName}". Use that name when you refer to yourself.`,
+            cache: false,
+          });
+        }
         const loopMessages: ChatMessage[] = messages.map((m: InsightsMessage) => ({
           role: m.role,
           content: m.content,
