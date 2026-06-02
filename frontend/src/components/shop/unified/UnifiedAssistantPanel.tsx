@@ -7,7 +7,16 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Loader2, Send, AlertCircle, Mic, Volume2, VolumeX } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  AlertCircle,
+  Mic,
+  Volume2,
+  VolumeX,
+  Pin,
+  X,
+} from "lucide-react";
 import ReactMarkdown, { Components } from "react-markdown";
 import {
   askOrchestrate,
@@ -15,6 +24,13 @@ import {
   OrchestrateToolCall,
   ORCHESTRATE_LIMITS,
 } from "@/services/api/aiOrchestrate";
+import {
+  listPinnedQueries,
+  pinQuery,
+  unpinQuery,
+  recordPinnedRun,
+  PinnedQuery,
+} from "@/services/api/aiInsights";
 import { OrchestrateToolCallCard } from "./OrchestrateToolCallCard";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { speakText } from "@/services/api/voice";
@@ -57,6 +73,11 @@ export const UnifiedAssistantPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [voiceOut, setVoiceOut] = useState(false);
 
+  // v2.5 pinned questions — shared per-shop "saved questions" store (reused
+  // from Insights). Pins only attach to pinnable insights read turns.
+  const [pinned, setPinned] = useState<PinnedQuery[]>([]);
+  const pendingRunRef = useRef<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -67,6 +88,21 @@ export const UnifiedAssistantPanel: React.FC = () => {
 
   useEffect(() => {
     textareaRef.current?.focus();
+  }, []);
+
+  // Load the shop's pinned questions once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    listPinnedQueries()
+      .then((p) => {
+        if (!cancelled) setPinned(p);
+      })
+      .catch(() => {
+        /* pins are non-critical — chat works without them */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const atMessageLimit = turns.length >= ORCHESTRATE_LIMITS.maxMessages;
@@ -115,6 +151,12 @@ export const UnifiedAssistantPanel: React.FC = () => {
       ]);
       if ((opts?.speak ?? voiceOut) && res.reply && res.reply.trim()) {
         void playSpeech(res.reply);
+      }
+      // If this turn was a re-run of a pinned question, record the run.
+      if (pendingRunRef.current) {
+        const pid = pendingRunRef.current;
+        pendingRunRef.current = null;
+        void recordPinnedRun(pid, (res.reply || "").slice(0, 500)).catch(() => {});
       }
     } catch (err) {
       const ax = err as {
@@ -181,6 +223,29 @@ export const UnifiedAssistantPanel: React.FC = () => {
   const handleSend = () => submitText(input);
   const handleStarterClick = (prompt: string) => submitText(prompt);
 
+  // Pin the question that produced a card (delegated from the insights card's
+  // Pin button). Idempotent — the backend de-dupes on (shop, question).
+  const handlePin = async (questionText: string) => {
+    const created = await pinQuery(questionText);
+    setPinned((cur) =>
+      cur.some((p) => p.id === created.id) ? cur : [created, ...cur]
+    );
+  };
+  const handleUnpin = async (id: string) => {
+    const prev = pinned;
+    setPinned((cur) => cur.filter((p) => p.id !== id)); // optimistic
+    try {
+      await unpinQuery(id);
+    } catch {
+      setPinned(prev); // restore on failure
+    }
+  };
+  const handlePinnedTap = (p: PinnedQuery) => {
+    if (loading) return;
+    pendingRunRef.current = p.id; // submitText records the run after the reply
+    void submitText(p.questionText);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -197,6 +262,37 @@ export const UnifiedAssistantPanel: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 mt-4">
+      {pinned.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wide text-gray-500 flex items-center gap-1">
+            <Pin className="w-3 h-3" /> Pinned
+          </span>
+          {pinned.map((p) => (
+            <span
+              key={p.id}
+              className="inline-flex items-center gap-1 bg-[#1A1A1A] border border-gray-700 rounded-full pl-2.5 pr-1 py-1 text-xs text-gray-300 hover:border-[#FFCC00] transition-colors"
+            >
+              <button
+                type="button"
+                onClick={() => handlePinnedTap(p)}
+                disabled={loading}
+                title={p.questionText}
+                className="max-w-[160px] truncate hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {p.questionText}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleUnpin(p.id)}
+                aria-label="Unpin question"
+                className="text-gray-500 hover:text-red-400 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto pr-1 space-y-3" aria-live="polite">
         {turns.length === 0 && !loading && !error && (
           <EmptyState onPick={handleStarterClick} disabled={loading} />
@@ -208,6 +304,8 @@ export const UnifiedAssistantPanel: React.FC = () => {
             turn={t}
             markdownComponents={markdownComponents}
             onChipClick={loading ? undefined : submitText}
+            onPin={handlePin}
+            originatingQuestion={priorUserQuestion(turns, i)}
           />
         ))}
 
@@ -382,11 +480,22 @@ function buildMarkdownComponents(): Components {
   };
 }
 
+/** The most recent user turn before assistant turn `i` — the question that
+ *  produced it, used as the pin's `originatingQuestion`. */
+function priorUserQuestion(turns: Turn[], i: number): string | undefined {
+  for (let j = i - 1; j >= 0; j--) {
+    if (turns[j].role === "user") return turns[j].content;
+  }
+  return undefined;
+}
+
 const TurnBubble: React.FC<{
   turn: Turn;
   markdownComponents: Components;
   onChipClick?: (prompt: string) => void;
-}> = ({ turn, markdownComponents, onChipClick }) => {
+  onPin?: (questionText: string) => Promise<void>;
+  originatingQuestion?: string;
+}> = ({ turn, markdownComponents, onChipClick, onPin, originatingQuestion }) => {
   if (turn.role === "user") {
     return (
       <div className="flex justify-end">
@@ -417,6 +526,8 @@ const TurnBubble: React.FC<{
               key={i}
               toolCall={tc}
               onChipClick={onChipClick}
+              onPin={onPin}
+              originatingQuestion={originatingQuestion}
             />
           ))}
         </div>

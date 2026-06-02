@@ -279,6 +279,51 @@ Backend + frontend can parallelize after Phase 1 (Phase 2 frontend vs Phase
 
 ---
 
+## 9a. v2.5 backlog (post-launch enhancements)
+
+Not for the initial launch — slot after the core v2 ships + the exec's
+token/affiliate launch-simplification. Captured so they're not lost.
+
+### Pinned questions (daily-driver pins)
+
+**What:** let the owner "pin" a question they ask often (e.g. "how did we do
+this month?", "what's low in stock?") so it shows in a **pinned row** in the
+unified panel and re-runs in one tap — turning the assistant into a daily
+check-in surface.
+
+**The key design rule:** the **Pin control appears ONLY on *pinnable* turns** —
+i.e. turns answered by **insights / help READ tools**, never on **action** turns
+(campaign send/draft, purchase order). You must never one-tap re-fire an
+outward/financial action. Pinnability = the turn produced a read/Q&A answer
+(insights display kinds `number/table/list/sparkline/comparison/follow_ups`, or
+a help prose answer) with **no action display** (`campaign_draft/campaign_send/
+purchase_order_proposal`).
+
+**Value tiers:**
+- Insights pins — **high** (re-running gives *fresh data* each time).
+- Help pins — **moderate** (more of a saved bookmark / quick re-ask; answer is
+  fairly static).
+- Actions — **excluded by design**.
+
+**Mostly reuse (low effort):**
+- The pin store + controller already exist: `ai_insights_pinned_queries` +
+  `POST /api/ai/insights/pinned` (and the Pin button already lives on
+  `InsightsToolCallCard`). For v2.5, reuse this store as a generic
+  "saved questions" list (insights + help both pin a *question string*).
+- New work: (1) a **pinnable gate** in `OrchestrateToolCallCard` /
+  the panel — only render the pin when the turn is a read (no action display);
+  (2) wire `onPin` + `originatingQuestion` through the unified panel (currently
+  the panel reuses `InsightsToolCallCard` but does NOT pass `onPin`, so pinning
+  isn't functional there yet); (3) a **pinned-questions row** in the panel's
+  empty/top state that re-asks on tap (reuse the starter-chip pattern).
+- Help answers are prose (no card), so their pin attaches to the **turn /
+  question**, not a card — same "save the question" store.
+
+**Why deferred:** daily-driver polish, not a launch blocker; the exec's revenue
+launch (token/affiliate simplification) comes first.
+
+---
+
 ## 10. Next step
 
 1. **Get exec sign-off on G1 + G2** — show the working spike (`npm run

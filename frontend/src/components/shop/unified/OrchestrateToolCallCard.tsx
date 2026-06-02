@@ -35,7 +35,11 @@ const MARKETING_KINDS = new Set([
 export const OrchestrateToolCallCard: React.FC<{
   toolCall: OrchestrateToolCall;
   onChipClick?: (prompt: string) => void;
-}> = ({ toolCall, onChipClick }) => {
+  /** Pin support — only insights read cards expose the Pin button, so this is
+   *  automatically gated to pinnable turns (marketing/PO cards have no pin). */
+  onPin?: (questionText: string) => Promise<void>;
+  originatingQuestion?: string;
+}> = ({ toolCall, onChipClick, onPin, originatingQuestion }) => {
   if (!toolCall.display) return null;
 
   // Orchestrator-own action card (Phase 4).
@@ -57,6 +61,8 @@ export const OrchestrateToolCallCard: React.FC<{
     <InsightsToolCallCard
       toolCall={toolCall as unknown as InsightsToolCall}
       onFollowupClick={onChipClick}
+      onPin={onPin}
+      originatingQuestion={originatingQuestion}
     />
   );
 };
