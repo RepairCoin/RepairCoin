@@ -7,11 +7,9 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MessageIcon } from "@/components/messaging/MessageIcon";
 import { CartIcon } from "@/components/ui/CartIcon";
 import { UnifiedAssistantLauncher } from "@/components/shop/unified/UnifiedAssistantLauncher";
-import { HelpAssistantLauncher } from "@/components/shop/help/HelpAssistantLauncher";
-import { InsightsLauncher } from "@/components/shop/insights/InsightsLauncher";
-import { MarketingAILauncher } from "@/components/shop/marketing-ai/MarketingAILauncher";
 import { HeaderVoiceMic } from "@/components/voice/HeaderVoiceMic";
 import { MobileBottomNavMic } from "@/components/voice/MobileBottomNavMic";
+import { VoiceCommandPill } from "@/components/voice/VoiceCommandPill";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -136,11 +134,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {userRole === "shop" && <CartIcon />}
           <MessageIcon />
           <NotificationBell />
+          {/* The Unified Assistant is the single AI "door" — the per-domain
+              Insights / Marketing / Help launchers were retired into it
+              (Help folded into the orchestrator's knowledge). The header mic
+              is a quick voice trigger that opens this same assistant. */}
           {userRole === "shop" && <HeaderVoiceMic />}
           {userRole === "shop" && <UnifiedAssistantLauncher />}
-          {userRole === "shop" && <HelpAssistantLauncher />}
-          {userRole === "shop" && <InsightsLauncher />}
-          {userRole === "shop" && <MarketingAILauncher />}
         </div>
       )}
 
@@ -148,6 +147,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           component itself is lg:hidden, so this mount is a no-op on
           desktop. Shop-only mirrors the other voice surfaces. */}
       {userRole === "shop" && <MobileBottomNavMic />}
+
+      {/* Floating "Ask AI Anything" pill on the shop Profile tab — fixed at the
+          bottom, centered within the content area (offset for the sidebar so
+          it's not pulled left by the viewport-centered default). Desktop only;
+          mobile uses the bottom-nav mic. */}
+      {userRole === "shop" && activeTab === "profile" && (
+        <VoiceCommandPill floating sidebarCollapsed={isSidebarCollapsed} />
+      )}
 
       {/* Main Content Area. In fullHeight mode, becomes a flex column that
           bounds children to the remaining viewport height — required for

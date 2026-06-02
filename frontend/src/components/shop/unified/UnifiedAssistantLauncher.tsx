@@ -13,6 +13,7 @@ import {
   getShopAiSettings,
   updateAssistantName,
 } from "@/services/api/aiSettings";
+import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
 
 /**
  * UnifiedAssistantLauncher (v2 — "the one door")
@@ -28,7 +29,10 @@ import {
  */
 export const UnifiedAssistantLauncher: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [open, setOpen] = useState(false);
+  // Open state lives in the shared store so the global voice triggers
+  // (HeaderVoiceMic / MobileBottomNavMic) can open this same panel.
+  const open = useUnifiedAssistantStore((s) => s.isOpen);
+  const setOpen = useUnifiedAssistantStore((s) => s.setOpen);
   // `undefined` = not loaded yet (show a skeleton, NOT the "Assistant" default,
   // to avoid the name flashing "Assistant" → saved name on first open/refresh).
   // `null` = loaded, no name set. string = the name.
@@ -174,7 +178,7 @@ export const UnifiedAssistantLauncher: React.FC = () => {
           </button>
         </div>
 
-        <UnifiedAssistantPanel />
+        <UnifiedAssistantPanel assistantName={assistantName ?? null} />
       </SheetContent>
     </Sheet>
   );
