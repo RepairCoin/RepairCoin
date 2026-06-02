@@ -87,8 +87,7 @@ export const useConnectWallet = () => {
       }
       setIsLoading(true);
       setAccount({ address, email });
-
-      return await authApi.checkUserExists(address);
+      return await authApi.checkUserExists(address, email);
     },
     onSuccess: async (result, params) => {
       const { address } = params;
