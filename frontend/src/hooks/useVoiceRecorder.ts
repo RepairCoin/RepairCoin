@@ -71,6 +71,14 @@ interface UseVoiceRecorderReturn {
   start: () => Promise<void>;
   stop: () => void;
   reset: () => void;
+  /**
+   * Live mic loudness in [0,1], sampled from the same AnalyserNode the
+   * silence detector already runs. Stable identity — call it from an
+   * animation loop (e.g. a listening visualization) to read the current
+   * amplitude WITHOUT triggering React re-renders. Returns 0 when not
+   * actively listening.
+   */
+  getAmplitude: () => number;
 }
 
 // ----- Silence detection tuning -----
@@ -87,6 +95,11 @@ const MAX_RECORDING_MS = 5 * 60 * 1000;
 // Don't fire auto-stop in the very first window — gives the user a moment
 // to start speaking after pressing the mic.
 const SILENCE_GRACE_MS = 800;
+// Peak RMS a recording must reach to count as containing real speech. Well
+// above SILENCE_THRESHOLD (which only gates auto-stop). If a recording never
+// crosses this, we skip the Whisper call entirely — the user didn't actually
+// speak, and sending it would just invite a hallucinated transcript.
+const SPEECH_PEAK_THRESHOLD = 0.05;
 
 const PREFERRED_MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -127,6 +140,14 @@ export function useVoiceRecorder(
   const lastLoudAtRef = useRef<number>(0);
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string>("audio/webm");
+  // Latest RMS (0-1-ish) from the silence-detection tick; read by the
+  // listening visualization. Ref, not state — updated ~60fps.
+  const currentRmsRef = useRef<number>(0);
+  // Peak RMS across the current recording (speech-presence gate). Reset on
+  // start. `measuredRef` tracks whether the analyser ran at all — if the
+  // browser lacked AudioContext we can't measure, so we skip the gate.
+  const maxRmsRef = useRef<number>(0);
+  const measuredRef = useRef<boolean>(false);
 
   /** Aggressively clean up every resource so the mic indicator goes away. */
   const teardown = useCallback(() => {
@@ -154,6 +175,7 @@ export function useVoiceRecorder(
     audioCtxRef.current = null;
     analyserRef.current = null;
     chunksRef.current = [];
+    currentRmsRef.current = 0; // bars rest at zero once we stop listening
   }, []);
 
   useEffect(() => {
@@ -188,6 +210,8 @@ export function useVoiceRecorder(
     setError(null);
     setDurationMs(0);
     chunksRef.current = [];
+    maxRmsRef.current = 0;
+    measuredRef.current = false;
 
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setState("error");
@@ -266,6 +290,11 @@ export function useVoiceRecorder(
       const finalDurationMs = Date.now() - startedAtRef.current;
       setDurationMs(finalDurationMs);
 
+      // Snapshot the speech-presence signals BEFORE teardown (which clears
+      // the live RMS). peakRms is the loudest frame seen this recording.
+      const peakRms = maxRmsRef.current;
+      const measured = measuredRef.current;
+
       // Pull the chunks NOW, then release the mic so the browser
       // indicator clears before the (potentially several-second) upload.
       const chunks = chunksRef.current;
@@ -275,6 +304,16 @@ export function useVoiceRecorder(
       if (audioBlob.size === 0) {
         setState("error");
         setError("Didn't catch any audio. Try again.");
+        return;
+      }
+
+      // Layer 1 guard: if the analyser ran and never heard real speech (only
+      // silence / background noise), skip the Whisper call entirely. Sending it
+      // would just invite a hallucinated transcript. Skipped when we couldn't
+      // measure (no AudioContext) — the server-side gate still backstops that.
+      if (measured && peakRms < SPEECH_PEAK_THRESHOLD) {
+        setState("error");
+        setError("Didn't catch any speech. Tap the mic and try again.");
         return;
       }
 
@@ -329,6 +368,7 @@ export function useVoiceRecorder(
     analyser.fftSize = 2048;
     source.connect(analyser);
     analyserRef.current = analyser;
+    measuredRef.current = true; // analyser active → speech-presence gate valid
 
     recorder.start();
     startedAtRef.current = Date.now();
@@ -349,6 +389,8 @@ export function useVoiceRecorder(
         sumSquares += v * v;
       }
       const rms = Math.sqrt(sumSquares / buffer.length);
+      currentRmsRef.current = rms; // surfaced via getAmplitude()
+      if (rms > maxRmsRef.current) maxRmsRef.current = rms; // speech-presence peak
 
       const now = Date.now();
       if (rms >= SILENCE_THRESHOLD) {
@@ -382,6 +424,14 @@ export function useVoiceRecorder(
     setDurationMs(0);
   }, [teardown]);
 
+  // Normalize raw RMS into a punchy 0-1 range for visualization. Speech RMS
+  // typically sits ~0.03-0.2; mapping 0.22 → full height keeps the bars lively
+  // without clipping. Clamped both ends.
+  const getAmplitude = useCallback(
+    () => Math.max(0, Math.min(1, currentRmsRef.current / 0.22)),
+    []
+  );
+
   return {
     state,
     transcript,
@@ -392,5 +442,6 @@ export function useVoiceRecorder(
     start,
     stop,
     reset,
+    getAmplitude,
   };
 }

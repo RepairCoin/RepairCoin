@@ -16,6 +16,7 @@ import {
   VolumeX,
   Pin,
   X,
+  Square,
 } from "lucide-react";
 import ReactMarkdown, { Components } from "react-markdown";
 import {
@@ -33,7 +34,10 @@ import {
 } from "@/services/api/aiInsights";
 import { OrchestrateToolCallCard } from "./OrchestrateToolCallCard";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { ListeningBars } from "@/components/voice/ListeningBars";
 import { speakText } from "@/services/api/voice";
+import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
+import { unlockAudioPlayback, getPrimedAudio } from "@/lib/audioUnlock";
 
 /**
  * UnifiedAssistantPanel (v2)
@@ -50,6 +54,10 @@ import { speakText } from "@/services/api/voice";
  * component memory only (sessionId minted per mount); server-side persistence
  * is Phase 2/D2 follow-up.
  */
+// localStorage key — once the owner has seen/used the voice coach-mark, never
+// show it again.
+const COACH_SEEN_KEY = "rc_unified_talk_coach_seen";
+
 const STARTER_PROMPTS: readonly string[] = [
   "How did we do this month?",
   "Why does it feel slower lately?",
@@ -61,7 +69,10 @@ type Turn =
   | { role: "user"; content: string }
   | { role: "assistant"; content: string; toolCalls: OrchestrateToolCall[] };
 
-export const UnifiedAssistantPanel: React.FC = () => {
+export const UnifiedAssistantPanel: React.FC<{
+  /** The shop's chosen assistant name, for the spoken greeting. */
+  assistantName?: string | null;
+}> = ({ assistantName }) => {
   const [sessionId] = useState(() =>
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -72,6 +83,14 @@ export const UnifiedAssistantPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voiceOut, setVoiceOut] = useState(false);
+  // The assistant's opening line (shown as a bubble + spoken) when a mic opens
+  // the panel for the first time this session. UI-only — never sent to the
+  // orchestrator (it would break the user-first message alternation).
+  const [greeting, setGreeting] = useState<string | null>(null);
+  // First-run coach-mark on the "Tap to talk" button — for owners who don't
+  // know they can speak to it. Shows until they use voice or dismiss it, then
+  // never again (persisted in localStorage).
+  const [showCoach, setShowCoach] = useState(false);
 
   // v2.5 pinned questions — shared per-shop "saved questions" store (reused
   // from Insights). Pins only attach to pinnable insights read turns.
@@ -81,6 +100,13 @@ export const UnifiedAssistantPanel: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Bumped to cancel an in-flight speech sequence (new reply, stop, unmount).
+  const speechSeqRef = useRef(0);
+  // False once the panel unmounts (Sheet closed). Async work (TTS fetch,
+  // orchestrate reply, late transcription) checks this before playing audio or
+  // setting state, so closing the panel can't leave a reply speaking — or stack
+  // overlapping voices when it's reopened and asked again.
+  const aliveRef = useRef(true);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,6 +114,22 @@ export const UnifiedAssistantPanel: React.FC = () => {
 
   useEffect(() => {
     textareaRef.current?.focus();
+  }, []);
+
+  // Show the "Tap to talk" coach-mark on first ever open (guard for SSR +
+  // blocked storage). Set in an effect, not initial state, to avoid a
+  // server/client hydration mismatch.
+  useEffect(() => {
+    try {
+      if (
+        typeof window !== "undefined" &&
+        !window.localStorage.getItem(COACH_SEEN_KEY)
+      ) {
+        setShowCoach(true);
+      }
+    } catch {
+      /* localStorage unavailable (private mode / blocked) — just skip the coach */
+    }
   }, []);
 
   // Load the shop's pinned questions once on mount.
@@ -141,6 +183,9 @@ export const UnifiedAssistantPanel: React.FC = () => {
 
     try {
       const res = await askOrchestrate(sessionId, toWireMessages(nextTurns));
+      // Panel was closed while the reply was in flight — drop it silently so we
+      // don't speak into a torn-down panel (the source of overlapping voices).
+      if (!aliveRef.current) return;
       setTurns([
         ...nextTurns,
         {
@@ -190,18 +235,66 @@ export const UnifiedAssistantPanel: React.FC = () => {
     }
   };
 
-  // Voice-out: speak an assistant reply (best-effort; falls back to text).
+  // Stop any reply currently speaking / queued (new answer, or unmount).
+  const stopSpeech = () => {
+    speechSeqRef.current++; // invalidates any running sequence
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+  };
+
+  // Voice-out: speak an assistant reply, best-effort.
+  //
+  // To make the voice start ~when the text appears (instead of waiting for the
+  // WHOLE clip to synthesize — the source of the multi-second lag), we split
+  // the reply into chunks, fire all the TTS requests in PARALLEL, and play them
+  // strictly IN ORDER as they resolve. The short first sentence comes back in
+  // ~1s and starts playing while later sentences are still generating.
   const playSpeech = async (text: string) => {
-    try {
-      const blob = await speakText(text);
-      const url = URL.createObjectURL(blob);
-      if (audioRef.current) audioRef.current.pause();
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(url);
-      await audio.play();
-    } catch {
-      // TTS is an enhancement — silently keep the on-screen text reply.
+    stopSpeech(); // never overlap a previous reply
+    const myToken = speechSeqRef.current;
+    const chunks = chunkForSpeech(text);
+    if (chunks.length === 0) return;
+
+    // Kick off every chunk's synthesis at once; each resolves to a playable
+    // object URL (or null if that chunk failed — we skip it, keep the rest).
+    const pending = chunks.map((c) =>
+      speakText(c)
+        .then((b) => URL.createObjectURL(b))
+        .catch(() => null)
+    );
+    const cancelled = () =>
+      myToken !== speechSeqRef.current || !aliveRef.current;
+
+    for (let i = 0; i < pending.length; i++) {
+      const url = await pending[i];
+      if (cancelled()) {
+        if (url) URL.revokeObjectURL(url);
+        // Release any later chunks that are still synthesizing.
+        pending
+          .slice(i + 1)
+          .forEach((p) => p.then((u) => u && URL.revokeObjectURL(u)));
+        return;
+      }
+      if (!url) continue; // this chunk failed — keep going with the rest
+      await new Promise<void>((resolve) => {
+        if (cancelled()) {
+          URL.revokeObjectURL(url);
+          resolve();
+          return;
+        }
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        const done = () => {
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audio.onended = done;
+        audio.onerror = done;
+        audio.play().catch(done);
+      });
     }
   };
 
@@ -220,8 +313,120 @@ export const UnifiedAssistantPanel: React.FC = () => {
     },
   });
 
+  // When opened via a voice trigger (HeaderVoiceMic / MobileBottomNavMic), the
+  // store carries a one-shot "start the mic" flag. The Sheet mounts this panel
+  // fresh on each open, so we consume the flag on mount and auto-start the
+  // recorder — turning those buttons into "tap → talk to the unified assistant"
+  // instead of the old route-to-panels dispatcher.
+  // Speak a short, name-branded greeting, THEN start listening once it finishes
+  // (never both at once — the mic would record the greeting = echo). Shows the
+  // greeting text instantly, and caps the wait so a slow/blocked TTS doesn't
+  // delay listening.
+  const greetThenListen = (text: string) => {
+    setGreeting(text);
+    let advanced = false;
+    const beginListening = () => {
+      if (advanced || !aliveRef.current) return;
+      advanced = true;
+      void recorder.start();
+    };
+    // Safety net only for a HUNG fetch: a broken TTS rejects fast (the .catch
+    // below starts listening immediately), and a slow-but-working one should
+    // still be allowed to play — so this is generous, not a 3s race that would
+    // skip a cold first-call greeting.
+    const fallback = setTimeout(beginListening, 12000);
+    speakText(text)
+      .then(async (blob) => {
+        // Timed out (already listening) or panel closed — don't play (echo).
+        if (advanced || !aliveRef.current) {
+          clearTimeout(fallback);
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = "";
+        }
+        // Reuse the gesture-primed element so autoplay doesn't block the
+        // greeting (it plays BEFORE any getUserMedia that would unlock audio).
+        const audio = getPrimedAudio() ?? new Audio();
+        audio.src = url;
+        audio.volume = 1; // primed at volume 0 for the silent unlock
+        audioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          beginListening();
+        };
+        audio.onerror = () => beginListening();
+        await audio.play(); // throws if autoplay is blocked
+        clearTimeout(fallback); // playing — onended will start the mic
+      })
+      .catch(() => {
+        clearTimeout(fallback);
+        beginListening(); // TTS failed / autoplay blocked → just listen
+      });
+  };
+
+  // When a voice trigger sets the one-shot mic flag — on first open (flag set
+  // before mount) AND when a mic is tapped while the panel is already open —
+  // either greet-then-listen (first voice open this session) or go straight to
+  // listening. Consuming flips the flag false so it fires once per tap; ignored
+  // if a recording is already in flight (mashing mics can't stack recordings).
+  const pendingMic = useUnifiedAssistantStore((s) => s.pendingMic);
+  useEffect(() => {
+    if (!pendingMic) return;
+    if (!useUnifiedAssistantStore.getState().consumePendingMic()) return;
+    if (recorder.state === "listening" || recorder.state === "transcribing") {
+      return;
+    }
+    const store = useUnifiedAssistantStore.getState();
+    if (!store.hasGreeted) {
+      store.markGreeted();
+      greetThenListen(pickGreeting(assistantName ?? null));
+    } else {
+      void recorder.start();
+    }
+    // recorder.start / .state read at fire time; flag drives the single run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingMic]);
+
+  // Teardown on unmount (Sheet close): mark dead, kill any playing/queued TTS,
+  // and release the mic. This is the core fix for overlapping spoken replies —
+  // without it, closing the panel mid-reply leaves the Audio playing and a
+  // late transcription can fire a fresh reply, so reopening stacks voices.
+  useEffect(() => {
+    // Set true on (re)mount so a StrictMode unmount/remount in dev doesn't
+    // leave the panel permanently marked dead (which would silence TTS).
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      speechSeqRef.current++; // cancel any in-flight speech sequence
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+      try {
+        recorder.reset();
+      } catch {
+        /* recorder may already be idle */
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSend = () => submitText(input);
   const handleStarterClick = (prompt: string) => submitText(prompt);
+
+  // Permanently dismiss the "Tap to talk" coach-mark (on first use or close).
+  const dismissCoach = () => {
+    setShowCoach(false);
+    try {
+      window.localStorage.setItem(COACH_SEEN_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  };
 
   // Pin the question that produced a card (delegated from the insights card's
   // Pin button). Idempotent — the backend de-dupes on (shop, question).
@@ -294,8 +499,17 @@ export const UnifiedAssistantPanel: React.FC = () => {
         </div>
       )}
       <div className="flex-1 overflow-y-auto pr-1 space-y-3" aria-live="polite">
-        {turns.length === 0 && !loading && !error && (
+        {turns.length === 0 && !loading && !error && !greeting && (
           <EmptyState onPick={handleStarterClick} disabled={loading} />
+        )}
+
+        {/* Assistant's spoken greeting (voice opens, first time per session). */}
+        {greeting && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
+              {greeting}
+            </div>
+          </div>
         )}
 
         {turns.map((t, i) => (
@@ -321,7 +535,27 @@ export const UnifiedAssistantPanel: React.FC = () => {
         </div>
       )}
 
-      <div className="mt-3 flex items-end gap-2">
+      {listening ? (
+        // Listening takeover — the plain input bar becomes a live, voice-
+        // reactive equalizer (Siri-style). Auto-stops on silence, or tap Stop.
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-purple-500/40 bg-[#1A1A1A] px-4 py-3 shadow-[0_0_24px_rgba(168,85,247,0.22)]">
+          <span className="flex items-center gap-2 text-sm font-medium text-purple-300 whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            Listening…
+          </span>
+          <ListeningBars getAmplitude={recorder.getAmplitude} className="flex-1" />
+          <button
+            type="button"
+            onClick={() => recorder.stop()}
+            aria-label="Stop and send"
+            title="Stop"
+            className="flex-shrink-0 p-2.5 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors"
+          >
+            <Square className="w-4 h-4 fill-current" />
+          </button>
+        </div>
+      ) : (
+      <div className="mt-3">
         <textarea
           ref={textareaRef}
           value={input}
@@ -333,70 +567,114 @@ export const UnifiedAssistantPanel: React.FC = () => {
           placeholder={
             atMessageLimit
               ? "Conversation full — close to start fresh"
-              : "Ask about your business, or tell me what to do…"
+              : "Type your question, or tap “Talk” to speak…"
           }
-          className="flex-1 bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Ask your business assistant anything"
         />
-        {/* Voice-in: tap to talk; auto-stops on silence → transcribes → sends. */}
-        <button
-          type="button"
-          onClick={() => {
-            if (listening) recorder.stop();
-            else void recorder.start();
-          }}
-          disabled={loading || atMessageLimit || transcribing}
-          aria-label={listening ? "Stop recording" : "Speak to the assistant"}
-          title={listening ? "Listening — tap to stop" : "Tap to talk"}
-          className={`flex-shrink-0 p-2.5 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-            listening
-              ? "bg-red-600 border-red-600 text-white animate-pulse"
-              : "bg-[#1A1A1A] border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white"
-          }`}
-        >
-          {transcribing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Mic className="w-4 h-4" />
-          )}
-        </button>
-        {/* Voice-out toggle: when on, replies are spoken (typed or voiced). */}
-        <button
-          type="button"
-          onClick={() => setVoiceOut((v) => !v)}
-          aria-label={voiceOut ? "Turn off spoken replies" : "Turn on spoken replies"}
-          aria-pressed={voiceOut}
-          title={voiceOut ? "Spoken replies: on" : "Spoken replies: off"}
-          className={`flex-shrink-0 p-2.5 rounded-lg border transition-colors ${
-            voiceOut
-              ? "bg-[#FFCC00]/15 border-[#FFCC00] text-[#FFCC00]"
-              : "bg-[#1A1A1A] border-gray-700 text-gray-400 hover:text-white"
-          }`}
-        >
-          {voiceOut ? (
-            <Volume2 className="w-4 h-4" />
-          ) : (
-            <VolumeX className="w-4 h-4" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!canSend}
-          aria-label="Send"
-          className={`flex-shrink-0 p-2.5 rounded-lg transition-colors ${
-            canSend
-              ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
-              : "bg-[#1A1A1A] border border-gray-800 text-gray-600 cursor-not-allowed"
-          }`}
-        >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </button>
+        {/* Labeled action buttons — icon + always-visible text so the controls
+            are self-explanatory (no hover-only tooltips). Bigger tap targets
+            for accessibility. */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {/* Talk — the headline voice affordance, given a warm yellow outline
+              so it reads as "you can just speak to me". */}
+          <div className="relative">
+            {/* First-run coach-mark: an always-visible bubble (not a hover
+                tooltip) pointing at the Talk button, for owners who don't know
+                they can speak. Dismisses on first use or the × — then never
+                shows again. */}
+            {showCoach && (
+              <div className="absolute bottom-full left-0 mb-2 z-20 w-max max-w-[230px]">
+                <div className="relative bg-gradient-to-br from-purple-600 to-violet-700 text-white text-xs font-medium leading-snug rounded-lg px-3 py-2 shadow-[0_4px_20px_rgba(168,85,247,0.5)]">
+                  <button
+                    type="button"
+                    onClick={dismissCoach}
+                    aria-label="Dismiss tip"
+                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 shadow-md ring-2 ring-[#101010]"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  👋 New here? Tap <span className="font-bold">Talk</span> and
+                  just speak — ask anything by voice.
+                  {/* downward pointer toward the Talk button */}
+                  <span className="absolute top-full left-6 w-0 h-0 border-l-[7px] border-l-transparent border-r-[7px] border-r-transparent border-t-[7px] border-t-purple-600" />
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                dismissCoach();
+                if (listening) recorder.stop();
+                else void recorder.start();
+              }}
+              disabled={loading || atMessageLimit || transcribing}
+              aria-label="Tap to talk to the assistant"
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-purple-500/10 border-purple-400/60 text-purple-300 hover:bg-purple-500/20 ${
+                showCoach ? "ring-2 ring-purple-400/60" : ""
+              }`}
+            >
+              {transcribing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+              <span>{transcribing ? "Working…" : "Tap to talk"}</span>
+            </button>
+          </div>
+
+          {/* Voice on/off — state shown in words, not just an icon. */}
+          <button
+            type="button"
+            onClick={() => {
+              // Turning spoken replies ON: unlock audio in this gesture so a
+              // deferred reply play() (typed question → spoken answer, no mic
+              // grant beforehand) isn't blocked by the autoplay policy.
+              if (!voiceOut) unlockAudioPlayback();
+              setVoiceOut((v) => !v);
+            }}
+            aria-pressed={voiceOut}
+            aria-label={
+              voiceOut
+                ? "Spoken replies are on — tap to mute"
+                : "Spoken replies are off — tap to hear answers"
+            }
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              voiceOut
+                ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
+                : "bg-[#1A1A1A] border-gray-700 text-gray-400 hover:text-white"
+            }`}
+          >
+            {voiceOut ? (
+              <Volume2 className="w-4 h-4" />
+            ) : (
+              <VolumeX className="w-4 h-4" />
+            )}
+            <span>{voiceOut ? "Voice on" : "Voice off"}</span>
+          </button>
+
+          {/* Send — primary action, pushed to the right. */}
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!canSend}
+            aria-label="Send"
+            className={`ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              canSend
+                ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                : "bg-[#1A1A1A] border border-gray-800 text-gray-600 cursor-not-allowed"
+            }`}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            <span>Send</span>
+          </button>
+        </div>
       </div>
+      )}
 
       <p className="mt-2 text-[10px] text-gray-600 text-center">
         I answer and draft — I never send, order, or charge anything without your
@@ -407,6 +685,55 @@ export const UnifiedAssistantPanel: React.FC = () => {
 };
 
 // ----- internals -----
+
+/** Split a reply for streaming-ish TTS: a SHORT first chunk (just the first
+ *  sentence) so the voice can start fast, then the remaining sentences merged
+ *  into ~300-char chunks. Falls back to the whole string when there are no
+ *  sentence breaks. Whitespace-normalized; content otherwise unchanged. */
+function chunkForSpeech(text: string): string[] {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length === 0) return [];
+  const sentences =
+    clean.match(/[^.!?]+[.!?]*/g)?.map((s) => s.trim()).filter(Boolean) ?? [
+      clean,
+    ];
+  if (sentences.length <= 1) return [clean];
+
+  const chunks: string[] = [sentences[0]]; // first sentence alone = fast start
+  let buf = "";
+  for (let i = 1; i < sentences.length; i++) {
+    const next = (buf ? buf + " " : "") + sentences[i];
+    if (next.length > 300 && buf) {
+      chunks.push(buf);
+      buf = sentences[i];
+    } else {
+      buf = next;
+    }
+  }
+  if (buf) chunks.push(buf);
+  return chunks;
+}
+
+/** A short, varied opening line. Uses the assistant's name when set so the
+ *  greeting reinforces the brand ("Hi, I'm Cain — …"). Pure; randomized per
+ *  call (browser-only, no SSR concern since it's invoked from an effect). */
+function pickGreeting(name: string | null): string {
+  const n = name?.trim();
+  const lines = n
+    ? [
+        `Hi, I'm ${n} — what can I help with?`,
+        `Hey, ${n} here. What do you need?`,
+        `${n} ready — what's on your mind?`,
+        `Hi! ${n} here — how can I help today?`,
+      ]
+    : [
+        `Hi — what can I help with?`,
+        `Hey there — what do you need?`,
+        `Ready when you are — what's up?`,
+        `How can I help today?`,
+      ];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
 
 const EmptyState: React.FC<{
   onPick: (prompt: string) => void;
@@ -435,11 +762,17 @@ const EmptyState: React.FC<{
   </div>
 );
 
+// Three bouncing dots — matches the AI Sales Agent's "typing" indicator
+// (ConversationThread). Staggered animation-delays give the classic
+// left-to-right typing ripple. Brand-yellow to fit the unified panel's theme.
 const TypingBubble: React.FC = () => (
-  <div className="flex justify-start">
-    <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-[#1A1A1A] border border-gray-800 text-gray-400 flex items-center gap-2">
-      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-      <span>Thinking…</span>
+  <div className="flex justify-start" aria-live="polite" aria-label="Assistant is typing">
+    <div className="rounded-lg px-3 py-2.5 bg-[#1A1A1A] border border-gray-800 flex items-center">
+      <div className="flex items-center gap-1">
+        <span className="w-2 h-2 bg-[#FFCC00] rounded-full animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 bg-[#FFCC00] rounded-full animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 bg-[#FFCC00] rounded-full animate-bounce" />
+      </div>
     </div>
   </div>
 );
