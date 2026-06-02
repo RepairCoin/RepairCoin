@@ -19,6 +19,13 @@
 .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
 .thin-scrollbar { scrollbar-width: thin; scrollbar-color: #333 transparent; }
 
+/* Keep the scrollbar when Radix overlays open so the page doesn't shift or show
+   a white strip. `html body` specificity overrides react-remove-scroll. */
+html body[data-scroll-locked] {
+  overflow: auto !important;
+  margin-right: 0 !important;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
