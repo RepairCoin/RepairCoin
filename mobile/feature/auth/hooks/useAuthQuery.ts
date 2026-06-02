@@ -129,8 +129,16 @@ export const useConnectWallet = () => {
           apiClient.setAuthToken(getTokenResult.token);
 
           if (userType === "customer") {
-            const isCustomerSuspended = !!user?.isSuspended || !!user?.suspended_at || !!user?.suspendedAt;
-            router.replace(isCustomerSuspended ? "/register/customer-suspended" : "/customer/tabs/home");
+            const isActive = user?.isActive ?? user?.active;
+            const isSuspended =
+              !!user?.suspendedAt ||
+              !!user?.suspended_at ||
+              isActive === false;
+            if (isSuspended) {
+              router.replace("/register/customer-suspended");
+            } else {
+              router.replace("/customer/tabs/home");
+            }
           } else if (userType === "shop") {
             router.replace("/shop/tabs/home");
           } else {

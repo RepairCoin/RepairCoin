@@ -165,10 +165,19 @@ export class CustomerService {
 
       // Role conflict validation is handled by middleware
 
+      // Derive a display name when one isn't supplied directly. The
+      // registration form and social logins (Google/Apple) only provide
+      // first/last name or email, so without this the `name` column stays
+      // null and the customer shows up as "Anonymous"/"Guest" everywhere.
+      const derivedName =
+        data.name?.trim() ||
+        [data.first_name, data.last_name].filter(Boolean).join(' ').trim() ||
+        undefined;
+
       // Create new customer
       const newCustomer = TierManager.createNewCustomer(
         data.walletAddress,
-        data.name,
+        derivedName,
         data.email,
         data.phone,
         data.fixflowCustomerId,
@@ -261,6 +270,20 @@ export class CustomerService {
       if (updates.email !== undefined) profileUpdates.email = updates.email;
       if (updates.phone !== undefined) profileUpdates.phone = updates.phone;
       if (updates.profile_image_url !== undefined) profileUpdates.profileImageUrl = updates.profile_image_url;
+
+      // Keep the derived display name in sync when first/last change but no
+      // explicit name is provided, so the stored `name` doesn't go stale.
+      if (
+        updates.name === undefined &&
+        (updates.first_name !== undefined || updates.last_name !== undefined)
+      ) {
+        const firstName =
+          updates.first_name !== undefined ? updates.first_name : customer.first_name;
+        const lastName =
+          updates.last_name !== undefined ? updates.last_name : customer.last_name;
+        const derived = [firstName, lastName].filter(Boolean).join(' ').trim();
+        if (derived) profileUpdates.name = derived;
+      }
 
       await customerRepository.updateCustomerProfile(address, profileUpdates);
 

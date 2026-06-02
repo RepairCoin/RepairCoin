@@ -31,8 +31,16 @@ export const useSplashNavigation = () => {
     apiClient.setAuthToken(accessToken);
 
     if (userType === "customer") {
-      const isCustomerSuspended = !!userProfile?.isSuspended || !!userProfile?.suspended_at || !!userProfile?.suspendedAt;
-      router.replace(isCustomerSuspended ? "/register/customer-suspended" : "/customer/tabs/home");
+      const isActive = userProfile?.isActive ?? userProfile?.active;
+      const isSuspended =
+        !!userProfile?.suspendedAt ||
+        !!userProfile?.suspended_at ||
+        isActive === false;
+      if (isSuspended) {
+        router.replace("/register/customer-suspended");
+      } else {
+        router.replace("/customer/tabs/home");
+      }
     } else if (userType === "shop") {
       const isActive = userProfile?.isActive ?? userProfile?.active;
       const isApprovedShop = userProfile?.verified && isActive !== false;

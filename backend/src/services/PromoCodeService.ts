@@ -293,13 +293,13 @@ export class PromoCodeService {
         pc.code as name,
         pc.shop_id,
         s.name as shop_name,
-        pc.discount_type as bonus_type,
-        pc.discount_value as bonus_value,
-        pc.status = 'active' as is_active,
-        pc.used_count as times_used,
-        (pc.discount_value * pc.used_count) as total_bonus_issued,
-        pc.valid_from as start_date,
-        pc.valid_until as end_date,
+        pc.bonus_type as bonus_type,
+        pc.bonus_value as bonus_value,
+        pc.is_active as is_active,
+        pc.times_used as times_used,
+        (pc.bonus_value * pc.times_used) as total_bonus_issued,
+        pc.start_date as start_date,
+        pc.end_date as end_date,
         pc.created_at
       FROM promo_codes pc
       JOIN shops s ON pc.shop_id = s.shop_id
@@ -315,11 +315,11 @@ export class PromoCodeService {
     const query = `
       SELECT 
         COUNT(DISTINCT pc.id) as total_codes,
-        COUNT(DISTINCT CASE WHEN pc.status = 'active' THEN pc.id END) as active_codes,
+        COUNT(DISTINCT CASE WHEN pc.is_active THEN pc.id END) as active_codes,
         COUNT(DISTINCT pc.shop_id) as shops_with_codes,
-        SUM(pc.used_count) as total_uses,
-        COALESCE(SUM(pc.discount_value * pc.used_count), 0) as total_bonus_issued,
-        AVG(pc.used_count) as avg_uses_per_code
+        SUM(pc.times_used) as total_uses,
+        COALESCE(SUM(pc.bonus_value * pc.times_used), 0) as total_bonus_issued,
+        AVG(pc.times_used) as avg_uses_per_code
       FROM promo_codes pc
     `;
 
@@ -329,11 +329,11 @@ export class PromoCodeService {
         pc.code as name,
         pc.shop_id,
         s.name as shop_name,
-        pc.used_count as times_used,
-        (pc.discount_value * pc.used_count) as total_bonus_issued
+        pc.times_used as times_used,
+        (pc.bonus_value * pc.times_used) as total_bonus_issued
       FROM promo_codes pc
       JOIN shops s ON pc.shop_id = s.shop_id
-      ORDER BY pc.used_count DESC
+      ORDER BY pc.times_used DESC
       LIMIT 10
     `;
 

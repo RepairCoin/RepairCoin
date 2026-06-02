@@ -11,7 +11,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
-import { useShop } from "../../../account/hooks";
+import { useShop } from "../hooks";
 
 const COLORS = {
   primary: "#FFCC00",
@@ -29,8 +29,12 @@ export default function ShopAccountScreen() {
   const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
 
   const getSubscriptionStatus = () => {
-    if (shopData?.operational_status === "subscription_qualified") {
-      return { label: "Active", color: COLORS.success, bgColor: "bg-green-500/20" };
+    if (shopData?.operational_status === "subscription_qualified" || shopData?.operational_status === "rcg_qualified") {
+      return {
+        label: "Active",
+        color: COLORS.success,
+        bgColor: "bg-green-500/20",
+      };
     }
     return { label: "Inactive", color: COLORS.error, bgColor: "bg-red-500/20" };
   };
@@ -90,7 +94,7 @@ export default function ShopAccountScreen() {
           >
             <Ionicons name="settings-outline" size={22} color="#fff" />
           </TouchableOpacity>
-        <TouchableOpacity
+          <TouchableOpacity
             onPress={() => router.push("/shop/profile/edit-profile")}
             className="absolute top-12 right-16 w-10 h-10 rounded-full bg-black/50 items-center justify-center"
           >
@@ -101,7 +105,11 @@ export default function ShopAccountScreen() {
           <View className="flex-row items-end">
             <View
               className="w-28 h-28 rounded-full border-4 border-zinc-950 overflow-hidden"
-              style={{ backgroundColor: shopData?.logoUrl ? "transparent" : COLORS.card }}
+              style={{
+                backgroundColor: shopData?.logoUrl
+                  ? "transparent"
+                  : COLORS.card,
+              }}
             >
               {shopData?.logoUrl ? (
                 <Image
@@ -111,13 +119,20 @@ export default function ShopAccountScreen() {
                 />
               ) : (
                 <View className="w-full h-full items-center justify-center bg-[#FFCC00]/20">
-                  <Ionicons name="storefront" size={44} color={COLORS.primary} />
+                  <Ionicons
+                    name="storefront"
+                    size={44}
+                    color={COLORS.primary}
+                  />
                 </View>
               )}
             </View>
             <View className="flex-1 ml-4 pb-2">
               <View className="flex-row items-center">
-                <Text className="text-white text-xl font-bold flex-shrink" numberOfLines={1}>
+                <Text
+                  className="text-white text-xl font-bold flex-shrink"
+                  numberOfLines={1}
+                >
                   {shopData?.name || "Shop"}
                 </Text>
                 {shopData?.verified && (
@@ -132,7 +147,9 @@ export default function ShopAccountScreen() {
               <View className="flex-row items-center mt-2 gap-2">
                 <View
                   className="px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: `${getTierColor(shopData?.rcg_tier || "")}20` }}
+                  style={{
+                    backgroundColor: `${getTierColor(shopData?.rcg_tier || "")}20`,
+                  }}
                 >
                   <Text
                     className="text-xs font-semibold capitalize"
@@ -141,8 +158,13 @@ export default function ShopAccountScreen() {
                     {shopData?.rcg_tier || "Standard"}
                   </Text>
                 </View>
-                <View className={`${subscriptionStatus.bgColor} px-2.5 py-1 rounded-full`}>
-                  <Text style={{ color: subscriptionStatus.color }} className="text-xs font-semibold">
+                <View
+                  className={`${subscriptionStatus.bgColor} px-2.5 py-1 rounded-full`}
+                >
+                  <Text
+                    style={{ color: subscriptionStatus.color }}
+                    className="text-xs font-semibold"
+                  >
                     {subscriptionStatus.label}
                   </Text>
                 </View>
@@ -202,29 +224,45 @@ export default function ShopAccountScreen() {
           {shopData?.email && (
             <View className="flex-row items-center px-4 py-3 border-b border-zinc-800">
               <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="mail-outline" size={18} color={COLORS.primary} />
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
               </View>
               <View className="flex-1 ml-3">
                 <Text className="text-zinc-500 text-xs">Email</Text>
-                <Text className="text-white text-sm mt-0.5">{shopData.email}</Text>
+                <Text className="text-white text-sm mt-0.5">
+                  {shopData.email}
+                </Text>
               </View>
             </View>
           )}
           {shopData?.phone && (
             <View className="flex-row items-center px-4 py-3 border-b border-zinc-800">
               <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="call-outline" size={18} color={COLORS.primary} />
+                <Ionicons
+                  name="call-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
               </View>
               <View className="flex-1 ml-3">
                 <Text className="text-zinc-500 text-xs">Phone</Text>
-                <Text className="text-white text-sm mt-0.5">{shopData.phone}</Text>
+                <Text className="text-white text-sm mt-0.5">
+                  {shopData.phone}
+                </Text>
               </View>
             </View>
           )}
           {shopData?.address && (
             <View className="flex-row items-center px-4 py-3 border-b border-zinc-800">
               <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="location-outline" size={18} color={COLORS.primary} />
+                <Ionicons
+                  name="location-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
               </View>
               <View className="flex-1 ml-3">
                 <Text className="text-zinc-500 text-xs">Address</Text>
@@ -241,11 +279,17 @@ export default function ShopAccountScreen() {
               className="flex-row items-center px-4 py-3"
             >
               <View className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center">
-                <Ionicons name="globe-outline" size={18} color={COLORS.primary} />
+                <Ionicons
+                  name="globe-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
               </View>
               <View className="flex-1 ml-3">
                 <Text className="text-zinc-500 text-xs">Website</Text>
-                <Text className="text-[#FFCC00] text-sm mt-0.5">{shopData.website}</Text>
+                <Text className="text-[#FFCC00] text-sm mt-0.5">
+                  {shopData.website}
+                </Text>
               </View>
               <Ionicons name="open-outline" size={18} color="#71717a" />
             </TouchableOpacity>
