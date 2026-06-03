@@ -7,6 +7,7 @@ import {
   mockBookings,
   MockBooking,
   transformApiOrder,
+  mapApiStatus,
   formatTime12Hour,
 } from "./mockData";
 import { BookingStatsCards } from "./BookingStatsCards";
@@ -22,6 +23,7 @@ import {
   getShopOrderCounts,
   updateOrderStatus,
   approveBooking,
+  markOrderAsPaid,
   ServiceOrderWithDetails,
 } from "@/services/api/services";
 import { appointmentsApi } from "@/services/api/appointments";
@@ -46,13 +48,14 @@ const BookingCardList: React.FC<{
   onComplete: (id: string) => void;
   onCancel: (id: string) => void;
   onMarkNoShow: (booking: MockBooking) => void;
+  onMarkPaid: (id: string) => void;
   isBlocked?: boolean;
   blockReason?: string;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   loading?: boolean;
-}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, onMarkNoShow, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
+}> = ({ bookings, searchQuery, selectedBookingId, onSelect, onApprove, onReschedule, onSchedule, onComplete, onCancel, onMarkNoShow, onMarkPaid, isBlocked, blockReason, currentPage, totalPages, onPageChange, loading }) => {
   if (bookings.length === 0) {
     return (
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-8 text-center">
@@ -81,6 +84,7 @@ const BookingCardList: React.FC<{
           onComplete={() => onComplete(booking.bookingId)}
           onCancel={() => onCancel(booking.bookingId)}
           onMarkNoShow={() => onMarkNoShow(booking)}
+          onMarkPaid={() => onMarkPaid(booking.bookingId)}
           isBlocked={isBlocked}
           blockReason={blockReason}
         />
@@ -273,9 +277,14 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
 
     try {
       // Call the API to approve the booking
-      await approveBooking(booking.orderId);
+      const updatedOrder = await approveBooking(booking.orderId);
 
-      // Update local state after successful API call
+      // Derive the new status from the returned order using the same mapping
+      // the list uses, so the optimistic state matches a refresh exactly.
+      const newStatus = updatedOrder
+        ? mapApiStatus(updatedOrder.status, updatedOrder.shopApproved)
+        : booking.status;
+
       setBookings((prev) =>
         prev.map((b) => {
           if (b.bookingId === bookingId) {
@@ -288,7 +297,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
                 description: "Booking approved by shop",
               },
             ];
-            return { ...b, status: "approved" as const, timeline: newTimeline };
+            return { ...b, status: newStatus, timeline: newTimeline };
           }
           return b;
         }),
@@ -300,6 +309,40 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to approve booking: ${errorMessage}`);
+    }
+  };
+
+  const handleMarkPaid = async (bookingId: string) => {
+    const booking = bookings.find((b) => b.bookingId === bookingId);
+    if (!booking) return;
+
+    try {
+      await markOrderAsPaid(booking.orderId);
+
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.bookingId === bookingId) {
+            const newTimeline = [
+              ...b.timeline,
+              {
+                id: `tl-${Date.now()}`,
+                type: "approved" as const,
+                timestamp: new Date().toISOString(),
+                description: "Payment marked as received by shop",
+              },
+            ];
+            return { ...b, status: "paid" as const, timeline: newTimeline };
+          }
+          return b;
+        }),
+      );
+      toast.success("Payment marked as received");
+      loadCounts();
+    } catch (error: unknown) {
+      console.error("Error marking booking as paid:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Failed to mark as paid: ${errorMessage}`);
     }
   };
 
@@ -561,6 +604,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
                 onComplete={handleComplete}
                 onCancel={handleCancel}
                 onMarkNoShow={(booking) => setNoShowModalBooking(booking)}
+                onMarkPaid={handleMarkPaid}
                 isBlocked={isBlocked}
                 blockReason={blockReason}
                 currentPage={currentPage}

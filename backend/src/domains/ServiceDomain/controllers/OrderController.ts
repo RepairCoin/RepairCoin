@@ -1098,6 +1098,44 @@ export class OrderController {
   };
 
   /**
+   * Mark a pending order as paid (e.g. cash collected for a manual booking)
+   * POST /api/services/orders/:id/mark-paid
+   */
+  markOrderPaid = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      if (order.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
+      }
+
+      if (order.status !== 'pending') {
+        return res.status(400).json({ success: false, error: 'Only pending orders can be marked as paid' });
+      }
+
+      const updated = await this.orderRepository.markAsPaid(id);
+
+      res.json({ success: true, data: updated });
+    } catch (error: unknown) {
+      logger.error('Error in markOrderPaid controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark order as paid'
+      });
+    }
+  };
+
+  /**
    * Helper method to issue group tokens when a service is completed
    */
   private async issueGroupTokensForService(order: { orderId: string; serviceId: string; customerAddress: string; totalAmount: number; shopId: string }): Promise<void> {

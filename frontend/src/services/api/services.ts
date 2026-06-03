@@ -581,6 +581,19 @@ export const markOrderAsNoShow = async (
 };
 
 /**
+ * Mark a pending order as paid (Shop only)
+ */
+export const markOrderAsPaid = async (orderId: string): Promise<boolean> => {
+  try {
+    await apiClient.post(`/services/orders/${orderId}/mark-paid`);
+    return true;
+  } catch (error) {
+    console.error('Error marking order as paid:', error);
+    throw error;
+  }
+};
+
+/**
  * Get expired unpaid bookings (Shop only)
  */
 export const getExpiredUnpaidBookings = async (): Promise<ServiceOrderWithDetails[]> => {
@@ -1118,6 +1131,7 @@ export const servicesApi = {
   cancelOrder,
   cancelOrderByShop,
   markOrderAsNoShow,
+  markOrderAsPaid,
   approveBooking,
   rescheduleBooking,
   getPendingApprovalBookings,

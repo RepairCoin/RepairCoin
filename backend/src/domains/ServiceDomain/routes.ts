@@ -1073,6 +1073,13 @@ export function initializeRoutes(stripe: StripeService): Router {
     orderController.markNoShow
   );
 
+  router.post(
+    '/orders/:id/mark-paid',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.markOrderPaid
+  );
+
   /**
    * @swagger
    * /api/services/orders/{id}/approve:

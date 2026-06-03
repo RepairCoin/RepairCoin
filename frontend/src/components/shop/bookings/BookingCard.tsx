@@ -14,6 +14,7 @@ interface BookingCardProps {
   onComplete: () => void;
   onCancel: () => void;
   onMarkNoShow: () => void;
+  onMarkPaid: () => void;
   isBlocked?: boolean;
   blockReason?: string;
 }
@@ -31,6 +32,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onComplete,
   onCancel,
   onMarkNoShow,
+  onMarkPaid,
   isBlocked = false,
   blockReason = "Action blocked"
 }) => {
@@ -222,9 +224,28 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       </button>
     );
 
+    const markPaidButton = (
+      <button
+        onClick={onMarkPaid}
+        disabled={isBlocked}
+        title={isBlocked ? blockReason : "Mark payment as received"}
+        className={`${baseButtonClass} text-white bg-green-600 ${
+          isBlocked ? disabledClass : "hover:bg-green-700"
+        }`}
+      >
+        <CheckCircle className="w-4 h-4 flex-shrink-0" />
+        <span className="truncate">Mark as Paid</span>
+      </button>
+    );
+
     switch (booking.status) {
       case 'requested':
-        return cancelButton;
+        return (
+          <>
+            {cancelButton}
+            {markPaidButton}
+          </>
+        );
       case 'paid':
         return (
           <>
@@ -299,6 +320,9 @@ export const BookingCard: React.FC<BookingCardProps> = ({
     const actions: { label: string; icon: React.ReactNode; onClick: () => void; variant: 'primary' | 'secondary' | 'danger' }[] = [];
 
     switch (booking.status) {
+      case 'requested':
+        actions.push({ label: 'Mark as Paid', icon: <CheckCircle className="w-4 h-4" />, onClick: onMarkPaid, variant: 'primary' });
+        break;
       case 'paid':
         actions.push({ label: 'Approve', icon: <CheckCircle className="w-4 h-4" />, onClick: onApprove, variant: 'primary' });
         actions.push({ label: 'Reschedule', icon: <RefreshCw className="w-4 h-4" />, onClick: onReschedule, variant: 'secondary' });

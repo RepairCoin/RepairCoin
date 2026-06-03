@@ -222,7 +222,7 @@ export const createManualBooking = async (req: Request, res: Response): Promise<
     // 'send_link' and 'qr_code' create order in 'pending' status until customer pays
     // Note: Valid statuses are: pending, paid, completed, cancelled, refunded, no_show, expired
     const requiresPayment = paymentStatus === 'send_link' || paymentStatus === 'qr_code';
-    const orderStatus = requiresPayment ? 'pending' : 'paid';
+    const orderStatus = paymentStatus === 'paid' ? 'paid' : 'pending';
     const dbPaymentStatus = requiresPayment ? 'pending' : paymentStatus;
     console.log('Step 10: Order status will be:', orderStatus, ', dbPaymentStatus:', dbPaymentStatus);
 
