@@ -78,6 +78,19 @@ export type MarketingToolDisplay =
       // `suggest_campaign_strategies`.
       kind: "strategy_chips";
       items: string[];
+    }
+  | {
+      // AI Image Generation Phase 2 — a generated, brand-applied marketing
+      // image the shop reviews before using it in a campaign. The image is
+      // already generated + stored (DO Spaces URL). Emitted by
+      // `propose_campaign_image`.
+      kind: "campaign_image_proposal";
+      imageUrl: string;
+      imageKey: string | null;
+      altText: string;
+      prompt: string;
+      operationType: "generate" | "edit";
+      dimensions: string;
     };
 
 /**
