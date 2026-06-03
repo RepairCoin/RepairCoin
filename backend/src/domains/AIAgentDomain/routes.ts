@@ -19,6 +19,7 @@ import {
 import { askInsights } from './controllers/InsightsController';
 import { askMarketing } from './controllers/MarketingChatController';
 import { generateImage } from './controllers/ImageGenerateController';
+import { getOwnBrandKit, updateOwnBrandKit } from './controllers/BrandKitController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -150,6 +151,12 @@ export function initializeRoutes(): Router {
   // spend-capped + daily-rate-limited + prompt-moderated; every call audited
   // into ai_image_generations. See docs/tasks/strategy/ai-image-generation/.
   router.post('/images/generate', authMiddleware, requireRole(['shop']), generateImage);
+
+  // Brand kit (AI Image Generation Phase 3) — per-shop colors + tone + logo URL
+  // injected into image-generation prompts. shopId from the JWT (read/write own
+  // only). PUT is a full replace; the image generator reads it via BrandKitService.
+  router.get('/brand-kit', authMiddleware, requireRole(['shop']), getOwnBrandKit);
+  router.put('/brand-kit', authMiddleware, requireRole(['shop']), updateOwnBrandKit);
 
   // AI Marketing Assistant — shop-owner "compose + send a campaign by
   // chat" AI. Sibling to /insights. Sonnet + tool-use with the four
