@@ -389,7 +389,7 @@ export class PurchaseOrderRepository extends BaseRepository {
           const adjustmentQuery = `
             INSERT INTO inventory_adjustments (
               item_id, shop_id, quantity_change,
-              previous_quantity, new_quantity,
+              quantity_before, quantity_after,
               adjustment_type, reason, reference_type, reference_id,
               adjusted_by
             )
@@ -399,7 +399,7 @@ export class PurchaseOrderRepository extends BaseRepository {
               $2,
               i.stock_quantity - $2,
               i.stock_quantity,
-              'restock',
+              'purchase',
               'Received from purchase order',
               'purchase_order',
               $3,
@@ -497,14 +497,16 @@ export class PurchaseOrderRepository extends BaseRepository {
    */
   async getPurchaseOrderStats(shopId: string): Promise<{
     totalOrders: number;
-    totalSpent: number;
+    totalSpending: number;
     pendingOrders: number;
     receivedOrders: number;
+    averageOrderValue: number;
   }> {
     const query = `
       SELECT
         COUNT(*) as total_orders,
-        COALESCE(SUM(total), 0) as total_spent,
+        COALESCE(SUM(total) FILTER (WHERE status != 'cancelled'), 0) as total_spending,
+        COUNT(*) FILTER (WHERE status != 'cancelled') as billable_orders,
         COUNT(*) FILTER (WHERE status IN ('sent', 'confirmed', 'partially_received')) as pending_orders,
         COUNT(*) FILTER (WHERE status = 'received') as received_orders
       FROM purchase_orders
@@ -514,11 +516,15 @@ export class PurchaseOrderRepository extends BaseRepository {
     const result = await this.pool.query(query, [shopId]);
     const stats = result.rows[0];
 
+    const billableOrders = parseInt(stats.billable_orders);
+    const totalSpending = parseFloat(stats.total_spending);
+
     return {
       totalOrders: parseInt(stats.total_orders),
-      totalSpent: parseFloat(stats.total_spent),
+      totalSpending,
       pendingOrders: parseInt(stats.pending_orders),
-      receivedOrders: parseInt(stats.received_orders)
+      receivedOrders: parseInt(stats.received_orders),
+      averageOrderValue: billableOrders > 0 ? totalSpending / billableOrders : 0
     };
   }
 }

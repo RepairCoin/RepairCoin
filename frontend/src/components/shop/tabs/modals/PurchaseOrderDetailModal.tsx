@@ -1,22 +1,170 @@
 "use client";
 
 import { useState } from "react";
-import type { PurchaseOrder } from "@/types/inventory";
-import { X, Package, Calendar, Truck, FileText, DollarSign, CheckCircle, Clock, Download } from "lucide-react";
+import { inventoryApi } from "@/services/api/inventory";
+import type { PurchaseOrder, PurchaseOrderStatus, InventoryVendor } from "@/types/inventory";
+import { X, Package, Calendar, Truck, FileText, DollarSign, CheckCircle, Clock, Download, Send, Ban, Pencil, PackageCheck } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "react-hot-toast";
+import { ReceiveItemsModal } from "./ReceiveItemsModal";
 
 interface PurchaseOrderDetailModalProps {
   purchaseOrder: PurchaseOrder;
-  onClose: () => void;
-  onRefresh: () => void;
+  vendors: InventoryVendor[];
+  onClose: (changed?: boolean) => void;
 }
+
+const toDateInput = (value?: string) => (value ? new Date(value).toISOString().slice(0, 10) : "");
 
 export function PurchaseOrderDetailModal({
   purchaseOrder,
+  vendors,
   onClose,
 }: PurchaseOrderDetailModalProps) {
+  const [po, setPo] = useState<PurchaseOrder>(purchaseOrder);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [changed, setChanged] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [form, setForm] = useState({
+    vendorId: purchaseOrder.vendorId || "",
+    expectedDeliveryDate: toDateInput(purchaseOrder.expectedDeliveryDate),
+    trackingNumber: purchaseOrder.trackingNumber || "",
+    notes: purchaseOrder.notes || "",
+  });
+
+  const isLocked = po.status === "received" || po.status === "cancelled";
+  const canCancel = po.status === "draft" || po.status === "sent" || po.status === "confirmed";
+  const canReceive = po.status === "confirmed" || po.status === "partially_received";
+  const advance =
+    po.status === "draft"
+      ? { to: "sent" as PurchaseOrderStatus, label: "Mark as Sent", successMessage: "Purchase order marked as sent" }
+      : po.status === "sent"
+      ? { to: "confirmed" as PurchaseOrderStatus, label: "Mark as Confirmed", successMessage: "Purchase order confirmed" }
+      : null;
+
+  const busy = saving || updatingStatus;
+
+  const statusRank: Record<PurchaseOrderStatus, number> = {
+    draft: 0,
+    sent: 1,
+    confirmed: 2,
+    partially_received: 3,
+    received: 4,
+    cancelled: 0,
+  };
+
+  const timelineSteps =
+    po.status === "cancelled"
+      ? [
+          { label: "Created", icon: FileText, date: po.createdAt, reached: true, danger: false },
+          { label: "Cancelled", icon: Ban, date: po.updatedAt, reached: true, danger: true },
+        ]
+      : [
+          { label: "Created", icon: FileText, date: po.createdAt, reached: true, danger: false },
+          { label: "Sent", icon: Send, date: undefined, reached: statusRank[po.status] >= 1, danger: false },
+          { label: "Confirmed", icon: CheckCircle, date: undefined, reached: statusRank[po.status] >= 2, danger: false },
+          {
+            label: po.status === "partially_received" ? "Partially Received" : "Received",
+            icon: Package,
+            date: po.updatedAt,
+            reached: statusRank[po.status] >= 3,
+            danger: false,
+          },
+        ];
+
+  const lastReachedIndex = timelineSteps.reduce((acc, step, i) => (step.reached ? i : acc), 0);
+
+  const applyUpdate = (updated: PurchaseOrder) => {
+    setPo(updated);
+    setForm({
+      vendorId: updated.vendorId || "",
+      expectedDeliveryDate: toDateInput(updated.expectedDeliveryDate),
+      trackingNumber: updated.trackingNumber || "",
+      notes: updated.notes || "",
+    });
+    setChanged(true);
+  };
+
+  const handleAdvanceStatus = async () => {
+    if (!advance) return;
+    try {
+      setUpdatingStatus(true);
+      const updated = await inventoryApi.updatePurchaseOrder(po.shopId, po.id, { status: advance.to });
+      applyUpdate(updated);
+      toast.success(advance.successMessage);
+    } catch (error) {
+      console.error("Error updating purchase order status:", error);
+      toast.error("Failed to update purchase order");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleReceiveSuccess = async () => {
+    setShowReceiveModal(false);
+    try {
+      const fresh = await inventoryApi.getPurchaseOrder(po.shopId, po.id);
+      applyUpdate(fresh);
+    } catch (error) {
+      console.error("Error refreshing purchase order:", error);
+      setChanged(true);
+    }
+    toast.success("Items received successfully");
+  };
+
+  const handleCancelOrder = async () => {
+    if (!confirm(`Are you sure you want to cancel PO ${po.poNumber}?`)) return;
+    try {
+      setUpdatingStatus(true);
+      const updated = await inventoryApi.cancelPurchaseOrder(po.shopId, po.id);
+      applyUpdate(updated);
+      toast.success("Purchase order cancelled");
+    } catch (error) {
+      console.error("Error cancelling purchase order:", error);
+      toast.error("Failed to cancel purchase order");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const selectedVendor = vendors.find((v) => v.id === form.vendorId);
+    if (!selectedVendor) {
+      toast.error("Please select a vendor");
+      return;
+    }
+    try {
+      setSaving(true);
+      const updated = await inventoryApi.updatePurchaseOrder(po.shopId, po.id, {
+        vendorId: selectedVendor.id,
+        vendorName: selectedVendor.name,
+        expectedDeliveryDate: form.expectedDeliveryDate || undefined,
+        trackingNumber: form.trackingNumber || undefined,
+        notes: form.notes || undefined,
+      });
+      applyUpdate(updated);
+      setIsEditing(false);
+      toast.success("Purchase order updated");
+    } catch (error) {
+      console.error("Error updating purchase order:", error);
+      toast.error("Failed to update purchase order");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setForm({
+      vendorId: po.vendorId || "",
+      expectedDeliveryDate: toDateInput(po.expectedDeliveryDate),
+      trackingNumber: po.trackingNumber || "",
+      notes: po.notes || "",
+    });
+    setIsEditing(false);
+  };
 
   const getStatusBadge = () => {
     const styles: Record<string, { bg: string; text: string }> = {
@@ -28,11 +176,11 @@ export function PurchaseOrderDetailModal({
       cancelled: { bg: "bg-red-900/50", text: "text-red-400" },
     };
 
-    const style = styles[purchaseOrder.status];
+    const style = styles[po.status];
 
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${style.bg} ${style.text}`}>
-        {purchaseOrder.status.replace("_", " ").toUpperCase()}
+        {po.status.replace("_", " ").toUpperCase()}
       </span>
     );
   };
@@ -52,13 +200,13 @@ export function PurchaseOrderDetailModal({
 
       yPos += 15;
       doc.setFontSize(16);
-      doc.text(purchaseOrder.poNumber, pageWidth / 2, yPos, { align: "center" });
+      doc.text(po.poNumber, pageWidth / 2, yPos, { align: "center" });
 
       // Status
       yPos += 10;
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Status: ${purchaseOrder.status.replace("_", " ").toUpperCase()}`, pageWidth / 2, yPos, { align: "center" });
+      doc.text(`Status: ${po.status.replace("_", " ").toUpperCase()}`, pageWidth / 2, yPos, { align: "center" });
 
       // Vendor and Dates Section
       yPos += 15;
@@ -69,22 +217,22 @@ export function PurchaseOrderDetailModal({
       yPos += 8;
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Vendor: ${purchaseOrder.vendorName || "N/A"}`, 15, yPos);
+      doc.text(`Vendor: ${po.vendorName || "N/A"}`, 15, yPos);
 
       yPos += 6;
-      doc.text(`Order Date: ${purchaseOrder.orderDate ? new Date(purchaseOrder.orderDate).toLocaleDateString() : new Date(purchaseOrder.createdAt).toLocaleDateString()}`, 15, yPos);
+      doc.text(`Order Date: ${po.orderDate ? new Date(po.orderDate).toLocaleDateString() : new Date(po.createdAt).toLocaleDateString()}`, 15, yPos);
 
       yPos += 6;
-      doc.text(`Expected Delivery: ${purchaseOrder.expectedDeliveryDate ? new Date(purchaseOrder.expectedDeliveryDate).toLocaleDateString() : "Not set"}`, 15, yPos);
+      doc.text(`Expected Delivery: ${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : "Not set"}`, 15, yPos);
 
-      if (purchaseOrder.receivedDate) {
+      if (po.receivedDate) {
         yPos += 6;
-        doc.text(`Received Date: ${new Date(purchaseOrder.receivedDate).toLocaleDateString()}`, 15, yPos);
+        doc.text(`Received Date: ${new Date(po.receivedDate).toLocaleDateString()}`, 15, yPos);
       }
 
-      if (purchaseOrder.trackingNumber) {
+      if (po.trackingNumber) {
         yPos += 6;
-        doc.text(`Tracking Number: ${purchaseOrder.trackingNumber}`, 15, yPos);
+        doc.text(`Tracking Number: ${po.trackingNumber}`, 15, yPos);
       }
 
       // Items Section
@@ -110,7 +258,7 @@ export function PurchaseOrderDetailModal({
       doc.setFont("helvetica", "normal");
 
       // Items
-      for (const item of purchaseOrder.items) {
+      for (const item of po.items) {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
@@ -146,28 +294,28 @@ export function PurchaseOrderDetailModal({
 
       doc.setFontSize(10);
       doc.text("Subtotal:", 140, yPos);
-      doc.text(`$${Number(purchaseOrder.subtotal || 0).toFixed(2)}`, 185, yPos);
+      doc.text(`$${Number(po.subtotal || 0).toFixed(2)}`, 185, yPos);
 
-      if (Number(purchaseOrder.tax || 0) > 0) {
+      if (Number(po.tax || 0) > 0) {
         yPos += 6;
         doc.text("Tax:", 140, yPos);
-        doc.text(`$${Number(purchaseOrder.tax || 0).toFixed(2)}`, 185, yPos);
+        doc.text(`$${Number(po.tax || 0).toFixed(2)}`, 185, yPos);
       }
 
-      if (Number(purchaseOrder.shipping || 0) > 0) {
+      if (Number(po.shipping || 0) > 0) {
         yPos += 6;
         doc.text("Shipping:", 140, yPos);
-        doc.text(`$${Number(purchaseOrder.shipping || 0).toFixed(2)}`, 185, yPos);
+        doc.text(`$${Number(po.shipping || 0).toFixed(2)}`, 185, yPos);
       }
 
       yPos += 8;
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text("Total:", 140, yPos);
-      doc.text(`$${Number(purchaseOrder.total || 0).toFixed(2)}`, 185, yPos);
+      doc.text(`$${Number(po.total || 0).toFixed(2)}`, 185, yPos);
 
       // Notes Section
-      if (purchaseOrder.notes) {
+      if (po.notes) {
         yPos += 15;
         if (yPos > 250) {
           doc.addPage();
@@ -181,7 +329,7 @@ export function PurchaseOrderDetailModal({
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
 
-        const splitNotes = doc.splitTextToSize(purchaseOrder.notes, pageWidth - 30);
+        const splitNotes = doc.splitTextToSize(po.notes, pageWidth - 30);
         doc.text(splitNotes, 15, yPos);
       }
 
@@ -200,7 +348,7 @@ export function PurchaseOrderDetailModal({
       }
 
       // Save PDF
-      doc.save(`${purchaseOrder.poNumber}.pdf`);
+      doc.save(`${po.poNumber}.pdf`);
       toast.success("PDF downloaded successfully!");
     } catch (error: unknown) {
       console.error("PDF generation failed:", error);
@@ -216,21 +364,35 @@ export function PurchaseOrderDetailModal({
     }
   };
 
+  const inputClass =
+    "w-full h-10 px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent";
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-[#1a1a1a] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-800">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800 sticky top-0 bg-[#1a1a1a]">
           <div>
-            <h2 className="text-xl font-bold text-white">{purchaseOrder.poNumber}</h2>
+            <h2 className="text-xl font-bold text-white">{po.poNumber}</h2>
             <p className="text-sm text-gray-400 mt-1">Purchase Order Details</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-[#252525] rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!isLocked && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-[#252525] text-gray-200 rounded-lg hover:bg-[#303030] transition-colors text-sm font-medium"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
+              </button>
+            )}
+            <button
+              onClick={() => onClose(changed)}
+              className="p-2 hover:bg-[#252525] rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-6">
@@ -243,7 +405,22 @@ export function PurchaseOrderDetailModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">Vendor</label>
-              <p className="text-base font-medium text-white">{purchaseOrder.vendorName || "N/A"}</p>
+              {isEditing ? (
+                <select
+                  value={form.vendorId}
+                  onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="" disabled>Select a vendor</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-base font-medium text-white">{po.vendorName || "N/A"}</p>
+              )}
             </div>
 
             <div>
@@ -252,9 +429,9 @@ export function PurchaseOrderDetailModal({
                 Order Date
               </label>
               <p className="text-base text-gray-300">
-                {purchaseOrder.orderDate
-                  ? new Date(purchaseOrder.orderDate).toLocaleDateString()
-                  : new Date(purchaseOrder.createdAt).toLocaleDateString()}
+                {po.orderDate
+                  ? new Date(po.orderDate).toLocaleDateString()
+                  : new Date(po.createdAt).toLocaleDateString()}
               </p>
             </div>
 
@@ -263,46 +440,75 @@ export function PurchaseOrderDetailModal({
                 <Truck className="w-4 h-4" />
                 Expected Delivery
               </label>
-              <p className="text-base text-gray-300">
-                {purchaseOrder.expectedDeliveryDate
-                  ? new Date(purchaseOrder.expectedDeliveryDate).toLocaleDateString()
-                  : "Not set"}
-              </p>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={form.expectedDeliveryDate}
+                  onChange={(e) => setForm({ ...form, expectedDeliveryDate: e.target.value })}
+                  className={inputClass}
+                />
+              ) : (
+                <p className="text-base text-gray-300">
+                  {po.expectedDeliveryDate
+                    ? new Date(po.expectedDeliveryDate).toLocaleDateString()
+                    : "Not set"}
+                </p>
+              )}
             </div>
 
-            {purchaseOrder.receivedDate && (
+            {po.receivedDate && (
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" />
                   Received Date
                 </label>
                 <p className="text-base text-gray-300">
-                  {new Date(purchaseOrder.receivedDate).toLocaleDateString()}
+                  {new Date(po.receivedDate).toLocaleDateString()}
                 </p>
               </div>
             )}
 
-            {purchaseOrder.trackingNumber && (
+            {(isEditing || po.trackingNumber) && (
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
                   <Package className="w-4 h-4" />
                   Tracking Number
                 </label>
-                <p className="text-base text-white font-mono">{purchaseOrder.trackingNumber}</p>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={form.trackingNumber}
+                    onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })}
+                    placeholder="Tracking number"
+                    className={inputClass}
+                  />
+                ) : (
+                  <p className="text-base text-white font-mono">{po.trackingNumber}</p>
+                )}
               </div>
             )}
           </div>
 
           {/* Notes */}
-          {purchaseOrder.notes && (
+          {(isEditing || po.notes) && (
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Notes
               </label>
-              <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                <p className="text-sm text-gray-300">{purchaseOrder.notes}</p>
-              </div>
+              {isEditing ? (
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Optional notes"
+                  className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent resize-none"
+                />
+              ) : (
+                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+                  <p className="text-sm text-gray-300">{po.notes}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -310,7 +516,7 @@ export function PurchaseOrderDetailModal({
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
               <Package className="w-4 h-4" />
-              Order Items ({purchaseOrder.items.length})
+              Order Items ({po.items.length})
             </label>
 
             <div className="border border-gray-800 rounded-lg overflow-hidden">
@@ -335,7 +541,7 @@ export function PurchaseOrderDetailModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                  {purchaseOrder.items.map((item) => (
+                  {po.items.map((item) => (
                     <tr key={item.id}>
                       <td className="px-4 py-3">
                         <div className="text-sm font-medium text-white">{item.itemName}</div>
@@ -378,18 +584,18 @@ export function PurchaseOrderDetailModal({
           <div className="bg-[#0a0a0a] p-4 rounded-lg space-y-2 border border-gray-800">
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Subtotal:</span>
-              <span className="text-white font-medium">${Number(purchaseOrder.subtotal || 0).toFixed(2)}</span>
+              <span className="text-white font-medium">${Number(po.subtotal || 0).toFixed(2)}</span>
             </div>
-            {Number(purchaseOrder.tax || 0) > 0 && (
+            {Number(po.tax || 0) > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Tax:</span>
-                <span className="text-white font-medium">${Number(purchaseOrder.tax || 0).toFixed(2)}</span>
+                <span className="text-white font-medium">${Number(po.tax || 0).toFixed(2)}</span>
               </div>
             )}
-            {Number(purchaseOrder.shipping || 0) > 0 && (
+            {Number(po.shipping || 0) > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Shipping:</span>
-                <span className="text-white font-medium">${Number(purchaseOrder.shipping || 0).toFixed(2)}</span>
+                <span className="text-white font-medium">${Number(po.shipping || 0).toFixed(2)}</span>
               </div>
             )}
             <div className="pt-2 border-t border-gray-800 flex justify-between text-base">
@@ -398,7 +604,7 @@ export function PurchaseOrderDetailModal({
                 Total:
               </span>
               <span className="text-[#FFCC00] font-bold text-lg">
-                ${Number(purchaseOrder.total || 0).toFixed(2)}
+                ${Number(po.total || 0).toFixed(2)}
               </span>
             </div>
           </div>
@@ -409,59 +615,118 @@ export function PurchaseOrderDetailModal({
               <Clock className="w-4 h-4" />
               Timeline
             </label>
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center border border-green-700">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                  </div>
-                  <div className="w-0.5 h-full bg-gray-800 mt-1"></div>
-                </div>
-                <div className="flex-1 pb-3">
-                  <p className="text-sm font-medium text-white">Created</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(purchaseOrder.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {purchaseOrder.receivedDate && (
-                <div className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center border border-green-700">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
+            <div>
+              {timelineSteps.map((step, i) => {
+                const isLast = i === timelineSteps.length - 1;
+                const displayDate = step.date ?? (i === lastReachedIndex ? po.updatedAt : undefined);
+                const StepIcon = step.icon;
+                return (
+                  <div key={step.label} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center border shrink-0 ${
+                          step.reached
+                            ? step.danger
+                              ? "bg-red-900/30 border-red-700"
+                              : "bg-green-900/30 border-green-700"
+                            : "bg-[#0a0a0a] border-gray-700"
+                        }`}
+                      >
+                        <StepIcon
+                          className={`w-4 h-4 ${
+                            step.danger ? "text-red-400" : step.reached ? "text-green-400" : "text-gray-600"
+                          }`}
+                        />
+                      </div>
+                      {!isLast && <div className="w-px flex-1 bg-gray-800 my-1"></div>}
+                    </div>
+                    <div className={`flex-1 pt-1 ${isLast ? "" : "pb-6"}`}>
+                      <p className={`text-sm font-medium ${step.reached ? "text-white" : "text-gray-500"}`}>
+                        {step.label}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 min-h-[1rem]">
+                        {step.reached && displayDate ? new Date(displayDate).toLocaleString() : ""}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-white">Received</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(purchaseOrder.receivedDate).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
-            <button
-              onClick={handleDownloadPDF}
-              disabled={isGeneratingPDF}
-              className="px-6 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download className="w-4 h-4" />
-              {isGeneratingPDF ? "Generating..." : "Download PDF"}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-[#252525] text-gray-300 rounded-lg hover:bg-[#303030] transition-colors font-medium"
-            >
-              Close
-            </button>
+          <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-800">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={busy}
+                  className="px-6 py-2 bg-[#252525] text-gray-300 rounded-lg hover:bg-[#303030] transition-colors font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={busy}
+                  className="px-6 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </>
+            ) : (
+              <>
+                {canCancel && (
+                  <button
+                    onClick={handleCancelOrder}
+                    disabled={busy}
+                    className="px-6 py-2 bg-red-900/40 text-red-400 rounded-lg hover:bg-red-900/60 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Cancel Order
+                  </button>
+                )}
+                <button
+                  onClick={handleDownloadPDF}
+                  disabled={isGeneratingPDF}
+                  className="px-6 py-2 bg-[#252525] text-gray-200 rounded-lg hover:bg-[#303030] transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" />
+                  {isGeneratingPDF ? "Generating..." : "Download PDF"}
+                </button>
+                {advance && (
+                  <button
+                    onClick={handleAdvanceStatus}
+                    disabled={busy}
+                    className="px-6 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" />
+                    {updatingStatus ? "Updating..." : advance.label}
+                  </button>
+                )}
+                {canReceive && (
+                  <button
+                    onClick={() => setShowReceiveModal(true)}
+                    disabled={busy}
+                    className="px-6 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                    Receive Items
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {showReceiveModal && (
+        <ReceiveItemsModal
+          shopId={po.shopId}
+          purchaseOrder={po}
+          onClose={() => setShowReceiveModal(false)}
+          onSuccess={handleReceiveSuccess}
+        />
+      )}
     </div>
   );
 }
