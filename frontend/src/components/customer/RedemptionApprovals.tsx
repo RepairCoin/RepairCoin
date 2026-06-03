@@ -53,9 +53,6 @@ export function RedemptionApprovals() {
   // For showing approved session QR
   const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
 
-  // Check if using embedded wallet (social login: Google, Email, Apple)
-  const isEmbeddedWallet = wallet?.id === 'inApp' || wallet?.id === 'embedded' || wallet?.id?.includes('inApp');
-
   // Derived data
   const pendingSessions = sessions.filter(s => s.status === "pending");
   const completedSessions = sessions.filter(s => s.status === "used" || s.status === "approved" || s.status === "rejected");
@@ -101,18 +98,6 @@ export function RedemptionApprovals() {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard!`);
-  };
-
-  const createSignatureMessage = (session: RedemptionSession): string => {
-    return `RepairCoin Redemption Request
-
-Session ID: ${session.sessionId}
-Customer: ${session.customerAddress || account?.address}
-Shop: ${session.shopId}
-Amount: ${session.maxAmount} RCN
-Expires: ${new Date(session.expiresAt).toISOString()}
-
-By signing this message, I approve the redemption of ${session.maxAmount} RCN tokens at the specified shop.`;
   };
 
   useEffect(() => {
@@ -166,8 +151,8 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
   };
 
   const approveSession = async (sessionId: string) => {
-    if (!wallet || !account?.address) {
-      toast.error("Please ensure your wallet is connected");
+    if (isSuspended) {
+      setShowSuspendedModal(true);
       return;
     }
 
@@ -180,33 +165,12 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
         return;
       }
 
-      if (isEmbeddedWallet) {
-        toast.loading("Processing approval...", { id: "approval-process" });
-      } else {
-        toast.loading("Please sign the message in your wallet...", { id: "approval-process" });
-      }
-
-      const message = createSignatureMessage(session);
-
-      let signature: string;
-      try {
-        if (!account) {
-          throw new Error("No account connected");
-        }
-        signature = await account.signMessage({ message });
-      } catch (signError) {
-        console.error("Signature error:", signError);
-        toast.error("Signature was cancelled or failed. Please try again.", { id: "approval-process" });
-        return;
-      }
-
       toast.loading("Processing redemption approval...", { id: "approval-process" });
 
       await apiClient.post(
         '/tokens/redemption-session/approve',
         {
-          sessionId,
-          signature,
+          sessionId
         }
       );
 

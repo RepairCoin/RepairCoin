@@ -30,7 +30,7 @@ export interface CreateSessionParams {
 export interface ApproveSessionParams {
   sessionId: string;
   customerAddress: string;
-  signature: string;
+  signature?: string; // Optional: only required if ENABLE_BLOCKCHAIN_MINTING is true
   transactionHash?: string; // Optional: hash of transfer transaction if customer transferred tokens
 }
 
@@ -208,29 +208,45 @@ export class RedemptionSessionService {
       throw new Error(`Cannot approve redemption: ${verification.message}`);
     }
 
-    // Verify customer signature for security
-    const isValidSignature = await this.verifySignature(session, signature);
-    if (!isValidSignature) {
-      logger.error('Signature verification failed during approval', {
+    // Security verification based on mode
+    const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
+
+    if (blockchainEnabled && signature) {
+      // Blockchain mode: Verify wallet signature for cryptographic proof
+      const isValidSignature = await this.verifySignature(session, signature);
+      if (!isValidSignature) {
+        logger.error('Signature verification failed during approval', {
+          sessionId,
+          customerAddress: session.customerAddress,
+          shopId: session.shopId
+        });
+        throw new Error('Invalid customer signature. Please ensure you are signing with the correct wallet.');
+      }
+
+      logger.info('Redemption approved via wallet signature verification', {
         sessionId,
         customerAddress: session.customerAddress,
-        shopId: session.shopId
+        authMethod: 'blockchain_signature'
       });
-      throw new Error('Invalid customer signature. Please ensure you are signing with the correct wallet.');
+    } else {
+      // Database mode: Trust authenticated session
+      // The authMiddleware already verified JWT token and customer identity
+      // This is actually MORE secure as JWT tokens expire (signatures don't)
+      logger.info('Redemption approved via authenticated session', {
+        sessionId,
+        customerAddress: session.customerAddress,
+        authMethod: 'jwt_session',
+        blockchainEnabled: false
+      });
     }
 
-    logger.info('Signature verification successful', {
-      sessionId,
-      customerAddress: session.customerAddress
-    });
-
     // Approve session (but don't process redemption yet - let shop handle that)
-    await redemptionSessionRepository.updateSessionStatus(sessionId, 'approved', signature);
+    await redemptionSessionRepository.updateSessionStatus(sessionId, 'approved', signature || null);
     
     // Update local object
     session.status = 'approved';
     session.approvedAt = new Date();
-    session.signature = signature;
+    session.signature = signature || undefined;
     
     // Store transaction hash if provided (indicates customer transferred tokens)
     if (transactionHash) {

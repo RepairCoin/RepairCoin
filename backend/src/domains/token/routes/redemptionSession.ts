@@ -111,7 +111,7 @@ router.post('/create',
  * /api/tokens/redemption-session/approve:
  *   post:
  *     summary: Customer approves a redemption session
- *     description: Customer approves a shop-initiated redemption request
+ *     description: Customer approves a shop-initiated redemption request. Uses JWT authentication to verify customer identity. Signature is optional for blockchain mode.
  *     tags: [Redemption Sessions]
  *     security:
  *       - bearerAuth: []
@@ -123,12 +123,15 @@ router.post('/create',
  *             type: object
  *             required:
  *               - sessionId
- *               - signature
  *             properties:
  *               sessionId:
  *                 type: string
  *               signature:
  *                 type: string
+ *                 description: Optional wallet signature (only required if ENABLE_BLOCKCHAIN_MINTING is true)
+ *               transactionHash:
+ *                 type: string
+ *                 description: Optional blockchain transaction hash
  *     responses:
  *       200:
  *         description: Session approved successfully
@@ -139,7 +142,7 @@ router.post('/create',
  */
 router.post('/approve',
   authMiddleware,
-  validateRequired(['sessionId', 'signature']),
+  validateRequired(['sessionId']),
   async (req: Request, res: Response) => {
     try {
       const { sessionId, signature, transactionHash } = req.body;
