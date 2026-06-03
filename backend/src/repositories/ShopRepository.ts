@@ -1,6 +1,7 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
+import { getShopStatus, ShopStatus } from '../utils/shopStatus';
 
 interface ShopData {
   shopId: string;
@@ -12,6 +13,8 @@ interface ShopData {
   reimbursementAddress?: string;
   verified: boolean;
   active: boolean;
+  /** Computed lifecycle status — single source of truth via getShopStatus(). */
+  status?: ShopStatus;
   crossShopEnabled: boolean;
   totalTokensIssued: number;
   totalRedemptions: number;
@@ -107,6 +110,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),
@@ -463,6 +467,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),
@@ -577,6 +582,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),
@@ -663,6 +669,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),
@@ -729,6 +736,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),
@@ -771,6 +779,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),
@@ -833,6 +842,7 @@ export class ShopRepository extends BaseRepository {
         reimbursementAddress: row.reimbursement_address,
         verified: row.verified,
         active: row.active,
+        status: getShopStatus({ verified: row.verified, active: row.active, suspendedAt: row.suspended_at }),
         crossShopEnabled: row.cross_shop_enabled,
         totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
         totalRedemptions: parseFloat(row.total_redemptions || 0),

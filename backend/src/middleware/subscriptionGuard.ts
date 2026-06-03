@@ -9,15 +9,14 @@ import { Request, Response, NextFunction } from 'express';
 import { shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { getSharedPool } from '../utils/database-pool';
+import { getShopStatus } from '../utils/shopStatus';
 
 export interface SubscriptionGuardOptions {
   allowRcgQualified?: boolean;  // Allow RCG-qualified shops (default: true)
-  allowCancelledInPeriod?: boolean;  // Allow cancelled but still in billing period (default: true)
 }
 
 const DEFAULT_OPTIONS: SubscriptionGuardOptions = {
-  allowRcgQualified: true,
-  allowCancelledInPeriod: true
+  allowRcgQualified: true
 };
 
 /**
@@ -25,8 +24,14 @@ const DEFAULT_OPTIONS: SubscriptionGuardOptions = {
  */
 function getBlockedMessage(status: string): string {
   switch (status) {
+    // Shop lifecycle statuses (see utils/shopStatus.ts)
     case 'suspended':
       return 'Your shop account has been suspended by the administrator. Please contact support or submit an unsuspend request.';
+    case 'pending_verification':
+      return 'Your shop is awaiting admin approval. You will be notified once your account is verified.';
+    case 'rejected':
+      return 'Your shop account is inactive. Please contact support.';
+    // Subscription/operational_status keys (distinct from shop lifecycle above)
     case 'paused':
       return 'Your subscription is paused by the administrator. Operations are temporarily disabled until the subscription is resumed.';
     case 'not_qualified':
@@ -74,26 +79,16 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
         });
       }
 
-      // Check if shop is RCG qualified (bypass subscription check)
-      if (opts.allowRcgQualified) {
-        const rcgBalance = shop.rcg_balance ? parseFloat(shop.rcg_balance.toString()) : 0;
-        const isRcgQualified = shop.operational_status === 'rcg_qualified' || rcgBalance >= 10000;
+      // Shop-level blocks (separate from subscription status). Status resolved
+      // via the shared getShopStatus() helper so BE/FE/mobile share one convention.
+      const shopStatus = getShopStatus(shop);
 
-        if (isRcgQualified) {
-          logger.debug('Subscription guard: RCG qualified, allowing operation', {
-            shopId,
-            rcgBalance,
-            operationalStatus: shop.operational_status
-          });
-          return next();
-        }
-      }
-
-      // Check if shop is suspended (shop-level block, separate from subscription status)
-      if (shop.active === false || shop.suspendedAt) {
+      // Suspension is an explicit admin action and must override every other
+      // access path — including RCG qualification — so it is evaluated before the
+      // RCG bypass below. A suspended shop can never operate, regardless of RCG.
+      if (shopStatus === 'suspended') {
         logger.warn('Subscription guard: Shop suspended', {
           shopId,
-          active: shop.active,
           suspendedAt: shop.suspendedAt,
           suspensionReason: shop.suspensionReason,
           endpoint: req.path,
@@ -109,6 +104,57 @@ export const requireActiveSubscription = (options: SubscriptionGuardOptions = {}
             suspendedAt: shop.suspendedAt,
             reason: shop.suspensionReason,
             message: getBlockedMessage('suspended')
+          }
+        });
+      }
+
+      // Check if shop is RCG qualified (bypass subscription check)
+      if (opts.allowRcgQualified) {
+        const rcgBalance = shop.rcg_balance ? parseFloat(shop.rcg_balance.toString()) : 0;
+        const isRcgQualified = shop.operational_status === 'rcg_qualified' || rcgBalance >= 10000;
+
+        if (isRcgQualified) {
+          logger.debug('Subscription guard: RCG qualified, allowing operation', {
+            shopId,
+            rcgBalance,
+            operationalStatus: shop.operational_status
+          });
+          return next();
+        }
+      }
+
+      if (shopStatus === 'pending') {
+        logger.warn('Subscription guard: Shop pending verification', {
+          shopId,
+          endpoint: req.path,
+          method: req.method
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Shop pending verification',
+          code: 'SHOP_NOT_VERIFIED',
+          details: {
+            status: 'pending',
+            message: getBlockedMessage('pending_verification')
+          }
+        });
+      }
+
+      if (shopStatus === 'rejected') {
+        logger.warn('Subscription guard: Shop rejected/inactive', {
+          shopId,
+          endpoint: req.path,
+          method: req.method
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Shop inactive',
+          code: 'SHOP_INACTIVE',
+          details: {
+            status: 'rejected',
+            message: getBlockedMessage('rejected')
           }
         });
       }

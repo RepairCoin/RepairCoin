@@ -33,6 +33,7 @@ import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
 import { useAuthStore } from "@/stores/authStore";
+import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import * as messagingApi from "@/services/api/messaging";
 import BookingAnalyticsTab from "@/components/shop/tabs/BookingAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
@@ -75,6 +76,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [shopInfo, setShopInfo] = useState<ShopInfo | null>(null);
+  const [shopData, setShopData] = useState<any>(null);
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [selectedService, setSelectedService] = useState<ShopServiceWithShopInfo | null>(null);
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
@@ -94,6 +96,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
   const [reviewTotal, setReviewTotal] = useState(0);
   const [reviewRatingFilter, setReviewRatingFilter] = useState<number | undefined>(undefined);
   const { userProfile } = useAuthStore();
+  const subscriptionStatus = useSubscriptionStatus(shopData);
 
   useEffect(() => {
     loadShopData();
@@ -151,6 +154,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
       if (shopData) {
         // Backend returns 'twitter', frontend uses 'x'
         setShopInfo({ ...shopData, x: shopData.twitter || shopData.x });
+        // Keep the raw shop object for subscription/operational status checks
+        setShopData(shopData);
       }
 
       if (servicesData && servicesData.data && shopData) {
@@ -735,7 +740,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
         {activeTab === "services" && (
           <div>
             {/* Header with Add Service Button */}
-            {isPreviewMode && (
+            {isPreviewMode && subscriptionStatus.canPerformOperations && (
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-white">My Services</h3>
                 <button
@@ -755,7 +760,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId, is
                   No Services Available
                 </h3>
                 <p className="text-gray-400">This shop hasn't added any services yet.</p>
-                {isPreviewMode && (
+                {isPreviewMode && subscriptionStatus.canPerformOperations && (
                   <button
                     onClick={() => router.push('/shop/services/new')}
                     className="mt-6 px-6 py-3 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg font-semibold transition-colors"

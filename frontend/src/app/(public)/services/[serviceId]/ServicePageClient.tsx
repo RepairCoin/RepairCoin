@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
-import { DollarSign, Clock, MapPin, Store, Loader2 } from "lucide-react";
+import { DollarSign, Clock, MapPin, Store } from "lucide-react";
 
 interface ServicePageClientProps {
   serviceId: string;
@@ -12,16 +11,6 @@ interface ServicePageClientProps {
 
 export function ServicePageClient({ serviceId, service }: ServicePageClientProps) {
   const router = useRouter();
-
-  useEffect(() => {
-    // Redirect to marketplace after a brief delay
-    // This allows the page to render with meta tags first
-    const timer = setTimeout(() => {
-      router.replace(`/customer?tab=marketplace&service=${serviceId}`);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [serviceId, router]);
 
   // If service not found, show error
   if (!service) {
@@ -41,19 +30,8 @@ export function ServicePageClient({ serviceId, service }: ServicePageClientProps
     );
   }
 
-  // Render a preview page that also serves as content for social media crawlers
-  // Users will be redirected quickly, but crawlers will see this content
   return (
     <div className="min-h-screen bg-[#0D0D0D]">
-      {/* Loading overlay for users */}
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#FFCC00] animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Loading service details...</p>
-        </div>
-      </div>
-
-      {/* Content for crawlers (hidden behind overlay for users) */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Service Card */}

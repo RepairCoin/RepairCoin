@@ -90,8 +90,10 @@ export function useSubscriptionStatus(shopData?: ShopData | null): SubscriptionS
 
     // Can perform operations if:
     // 1. NOT suspended (suspended blocks everything, even RCG qualified)
-    // 2. AND (RCG qualified OR has active subscription and not paused/expired)
-    const canPerformOperations = !isSuspended && (isRcgQualified || (isOperational && !isExpired && !isPaused));
+    // 2. NOT pending verification (an unverified shop cannot operate even if it
+    //    has subscribed or is RCG qualified — verification gates everything)
+    // 3. AND (RCG qualified OR has active subscription and not paused/expired)
+    const canPerformOperations = !isSuspended && !isPending && (isRcgQualified || (isOperational && !isExpired && !isPaused));
 
     let statusMessage: string | null = null;
     if (isSuspended) {

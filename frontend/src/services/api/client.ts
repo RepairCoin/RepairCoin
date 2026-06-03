@@ -1,6 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import toast from "react-hot-toast";
 import { recordAuthFailure } from "@/utils/authRecovery";
 import { getApiBaseUrl } from "@/utils/apiUrl";
+import {
+  getShopAccessMessage,
+  isShopAccessErrorCode,
+} from "@/utils/shopAccessErrors";
 
 const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
@@ -310,6 +315,27 @@ apiClient.interceptors.response.use(
 
       // Return a user-friendly error
       return Promise.reject(new Error('Your session has been revoked. Please login again.'));
+    }
+
+    // Shop-access errors from requireActiveSubscription middleware get a tailored
+    // toast here so every endpoint behind the guard surfaces consistent copy
+    // without per-component changes. The `id` de-dupes if multiple requests race.
+    if (isShopAccessErrorCode(errorCode)) {
+      const { message } = getShopAccessMessage(errorCode);
+      toast.error(message, {
+        id: `shop-access-${errorCode}`,
+        duration: 5000,
+        position: 'top-right',
+      });
+      const enhancedError = new Error(message) as Error & {
+        response?: unknown;
+        status?: number;
+        code?: string;
+      };
+      enhancedError.response = error.response;
+      enhancedError.status = error.response?.status;
+      enhancedError.code = errorCode;
+      return Promise.reject(enhancedError);
     }
 
     // Extract user-friendly error message from backend response
