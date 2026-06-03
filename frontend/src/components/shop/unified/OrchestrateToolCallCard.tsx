@@ -30,6 +30,12 @@ const MARKETING_KINDS = new Set([
   "campaign_draft",
   "campaign_send",
   "strategy_chips",
+  // AI Image Generation (deo/ai-image-generation branch): propose_campaign_image
+  // / propose_image_edit emit this kind — route it to MarketingToolCallCard.
+  // Lives here so the unified assistant renders the image card once that branch
+  // merges (it brings the display variant + the CampaignImageProposalCard
+  // renderer in aiMarketing.ts / MarketingToolCallCard).
+  "campaign_image_proposal",
 ]);
 
 export const OrchestrateToolCallCard: React.FC<{
