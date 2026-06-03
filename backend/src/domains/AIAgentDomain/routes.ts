@@ -24,6 +24,9 @@ import {
 import { askInsights } from './controllers/InsightsController';
 import { askMarketing } from './controllers/MarketingChatController';
 import { askOrchestrator } from './controllers/UnifiedAssistantController';
+import { generateImage } from './controllers/ImageGenerateController';
+import { editImage } from './controllers/ImageEditController';
+import { getOwnBrandKit, updateOwnBrandKit, analyzeLogoColors } from './controllers/BrandKitController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -157,6 +160,26 @@ export function initializeRoutes(): Router {
   // Body: { sessionId, messages: [{ role, content }, ...] }. Shop-scoped via JWT.
   // See docs/tasks/strategy/voice-ai-dispatcher/unified-assistant-vision.md.
   router.post('/orchestrate', authMiddleware, requireRole(['shop']), askOrchestrator);
+
+  // AI Image Generation — Phase 1. Text → branded PNG persisted to DO Spaces.
+  // Body: { prompt, dimensions?, quality?, useCase? }. shopId from the JWT.
+  // Gated by the per-shop ai_images_enabled kill switch (default off),
+  // spend-capped + daily-rate-limited + prompt-moderated; every call audited
+  // into ai_image_generations. See docs/tasks/strategy/ai-image-generation/.
+  router.post('/images/generate', authMiddleware, requireRole(['shop']), generateImage);
+
+  // AI Image Editing — Phase 6 (Stability img2img). Edit an existing image
+  // from a prompt. Body: { sourceImageUrl, prompt, strength?, overlayLogo? }.
+  // Same gates/audit/spend as generate; audited operation_type='edit'.
+  router.post('/images/edit', authMiddleware, requireRole(['shop']), editImage);
+
+  // Brand kit (AI Image Generation Phase 3) — per-shop colors + tone + logo URL
+  // injected into image-generation prompts. shopId from the JWT (read/write own
+  // only). PUT is a full replace; the image generator reads it via BrandKitService.
+  router.get('/brand-kit', authMiddleware, requireRole(['shop']), getOwnBrandKit);
+  router.put('/brand-kit', authMiddleware, requireRole(['shop']), updateOwnBrandKit);
+  // Phase 4 vision — extract a brand palette from a logo to auto-fill colors.
+  router.post('/brand-kit/analyze-logo', authMiddleware, requireRole(['shop']), analyzeLogoColors);
 
   // AI Marketing Assistant — shop-owner "compose + send a campaign by
   // chat" AI. Sibling to /insights. Sonnet + tool-use with the four

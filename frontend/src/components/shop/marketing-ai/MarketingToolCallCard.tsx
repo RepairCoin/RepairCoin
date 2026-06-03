@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Users, Mail, Megaphone, Send, Loader2, Check } from "lucide-react";
+import {
+  Users,
+  Mail,
+  Megaphone,
+  Send,
+  Loader2,
+  Check,
+  Image as ImageIcon,
+  Copy,
+  RefreshCw,
+} from "lucide-react";
 import {
   MarketingToolCall,
   MarketingToolDisplay,
@@ -40,6 +50,10 @@ export const MarketingToolCallCard: React.FC<{
       return <CampaignSendCard d={toolCall.display} />;
     case "strategy_chips":
       return <StrategyChipsRow d={toolCall.display} onPick={onChipClick} />;
+    case "campaign_image_proposal":
+      return (
+        <CampaignImageProposalCard d={toolCall.display} onRegenerate={onChipClick} />
+      );
   }
 };
 
@@ -298,6 +312,86 @@ const StrategyChipsRow: React.FC<{
           {s}
         </button>
       ))}
+    </div>
+  );
+};
+
+// ----- campaign_image_proposal (AI-generated marketing image) -----
+
+const CampaignImageProposalCard: React.FC<{
+  d: Extract<MarketingToolDisplay, { kind: "campaign_image_proposal" }>;
+  onRegenerate?: (prompt: string) => void;
+}> = ({ d, onRegenerate }) => {
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(d.imageUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked — no-op */
+    }
+  };
+
+  return (
+    <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 p-3 max-w-sm">
+      <div className="flex items-center gap-2 mb-2">
+        <ImageIcon className="w-4 h-4 text-[#FFCC00]" />
+        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+          {d.operationType === "edit" ? "Edited image" : "Image proposal"}
+        </p>
+        <span className="ml-auto text-[10px] text-gray-500">{d.dimensions}</span>
+      </div>
+
+      {/* Preview — click to open full size. */}
+      <a
+        href={d.imageUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open full size"
+        className="block"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={d.imageUrl}
+          alt={d.altText}
+          loading="lazy"
+          className="w-full rounded-md border border-gray-800 hover:border-gray-700 transition-colors"
+        />
+      </a>
+
+      <p className="mt-2 text-[11px] text-gray-400 line-clamp-2">{d.prompt}</p>
+      <p className="mt-1 text-[10px] text-gray-600">
+        Brand colors + logo applied automatically.
+      </p>
+
+      <div className="mt-2.5 flex gap-2">
+        <button
+          type="button"
+          onClick={copyLink}
+          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#FFCC00] text-black hover:bg-[#FFD700] transition-colors"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5" /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" /> Copy link
+            </>
+          )}
+        </button>
+        {onRegenerate && (
+          <button
+            type="button"
+            onClick={() => onRegenerate(`Regenerate that image — ${d.prompt}`)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Regenerate
+          </button>
+        )}
+      </div>
     </div>
   );
 };

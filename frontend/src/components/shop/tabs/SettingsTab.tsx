@@ -11,6 +11,7 @@ import { ModerationSettings } from "../ModerationSettings";
 import { ShopFAQSection } from "../ShopFAQSection";
 import CalendarIntegrationSettings from "../CalendarIntegrationSettings";
 import { AISalesAgentSettings } from "../AISalesAgentSettings";
+import { BrandKitSettings } from "../BrandKitSettings";
 import {
   Store,
   Mail,
@@ -32,6 +33,7 @@ import {
   Ban,
   Calendar,
   Bot,
+  Palette,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -97,6 +99,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     | "moderation"
     | "faq"
     | "ai-assistant"
+    | "brand-kit"
   >("shop-profile");
   // crossShopEnabled state removed - universal redemption is now always enabled
   const [error] = useState<string | null>(null);
@@ -117,7 +120,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       section === "calendar" ||
       section === "moderation" ||
       section === "faq" ||
-      section === "ai-assistant"
+      section === "ai-assistant" ||
+      section === "brand-kit"
     )) {
       setActiveTab(section);
     }
@@ -317,6 +321,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     { id: "social-media" as const, label: "Social Media", icon: MessageSquare },
     { id: "calendar" as const, label: "Calendar Integration", icon: Calendar },
     { id: "ai-assistant" as const, label: "AI Assistant", icon: Bot },
+    { id: "brand-kit" as const, label: "Brand Kit", icon: Palette },
     { id: "moderation" as const, label: "Moderation", icon: Shield },
     { id: "faq" as const, label: "FAQ & Help", icon: HelpCircle },
   ];
@@ -779,6 +784,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {activeTab === "ai-assistant" && (
             <div>
               <AISalesAgentSettings />
+            </div>
+          )}
+
+          {/* Brand Kit Tab Content */}
+          {activeTab === "brand-kit" && (
+            <div>
+              <BrandKitSettings />
             </div>
           )}
 

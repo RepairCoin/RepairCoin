@@ -52,6 +52,8 @@ Filing this under one product would force the other to reach across folders for 
 
 **Recommendation: DALL-E 3 for v1.** Clean terms, reliable API, decent quality, well-known cost. Evaluate Imagen 3 in v1.5 if specific use cases (heavy text-in-image, like coupon graphics) need it.
 
+> **Implementation note (2026-06-03):** `dall-e-3` is not available on the OpenAI account, so Phase 1 uses OpenAI's current **`gpt-image-1`** — it supersedes DALL-E 3 (newer/better, ~$0.042/image at `medium`, matching the cost projections). Verified live on staging. See `implementation.md` §5.
+
 ### 3.2 See (image-as-input / vision)
 
 **Use cases:**
@@ -268,7 +270,7 @@ This is the strongest "AI bundled in subscription" argument the platform can mak
 If decisions in §6 land roughly where recommendations point:
 
 1. Procure OpenAI DALL-E 3 access (already part of OpenAI account from `voice-ai-dispatcher` scope — same account covers Whisper + DALL-E 3)
-2. **Procure Stability AI account** (NEW — required for Phase 6 image editing). Create account at `platform.stability.ai`, add payment, generate API key, set spend cap. Hand `STABILITY_API_KEY` env var to engineering.
+2. ~~**Procure Stability AI account** (NEW — required for Phase 6 image editing).~~ ✅ **DONE** — `STABILITY_API_KEY` is already set in `.env` (2026-06-02). Phase 6 is unblocked.
 3. Lock the 7 decisions in §6
 4. Write `ai-image-generation-implementation.md` mirroring AI Marketing + Voice doc patterns
 5. Phase 1 first — backend endpoint, no UI changes, smallest blast radius

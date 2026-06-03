@@ -215,6 +215,64 @@ export class ImageStorageService {
   }
 
   /**
+   * Upload a raw buffer (not a Multer upload) to DigitalOcean Spaces.
+   *
+   * Used by AI image generation: a generated/edited image arrives as bytes
+   * (downloaded from the vendor's temporary URL) rather than an HTTP upload,
+   * so it has no MulterFile wrapper. Mirrors uploadImage's storage settings
+   * (public-read, 1-year cache, path-style/CDN URL).
+   */
+  async uploadBuffer(
+    buffer: Buffer,
+    contentType: string,
+    folder: string = 'ai-images',
+    ext: string = 'png'
+  ): Promise<UploadResult> {
+    try {
+      if (!buffer || buffer.length === 0) {
+        return { success: false, error: 'Empty image buffer.' };
+      }
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (buffer.length > maxSize) {
+        return { success: false, error: 'Image exceeds 10MB limit.' };
+      }
+
+      const fileName = this.generateFileName(`image.${ext}`, folder);
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileName,
+        Body: buffer,
+        ContentType: contentType,
+        ACL: 'public-read',
+        CacheControl: 'max-age=31536000',
+      });
+
+      await this.s3Client.send(command);
+
+      const publicUrl = this.cdnEndpoint
+        ? `${this.cdnEndpoint}/${fileName}`
+        : `https://${this.region}.digitaloceanspaces.com/${this.bucketName}/${fileName}`;
+
+      logger.info('Buffer uploaded successfully', {
+        fileName,
+        size: buffer.length,
+        contentType,
+        url: publicUrl,
+      });
+
+      return { success: true, url: publicUrl, key: fileName };
+    } catch (error: any) {
+      logger.error('Error uploading buffer:', {
+        message: error.message,
+        code: error.code,
+        bucket: this.bucketName,
+      });
+      return { success: false, error: `Failed to upload image: ${error.message}` };
+    }
+  }
+
+  /**
    * Upload a file (images + PDF) to DigitalOcean Spaces.
    * Used for message attachments where PDFs are also allowed.
    */

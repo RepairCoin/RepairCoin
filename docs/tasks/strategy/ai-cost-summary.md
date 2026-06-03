@@ -2,14 +2,21 @@
 
 **Audience:** exec / pricing decisions.
 **Purpose:** plain-English breakdown of what the platform's AI features cost per shop, per month, so the team can decide if AI is bundled in the subscription or sold as a paid add-on.
-**Last updated:** 2026-05-28.
-**Empirical basis:** 24 real audit rows from `ai_marketing_messages` across 3 days of QA testing (see `docs/tasks/strategy/ai-marketing-campaigns/v1-cost-report.md`).
+**Last updated:** 2026-06-03 (image-gen actuals).
+**Empirical basis:** 24 real audit rows from `ai_marketing_messages` across 3 days of QA testing (see `docs/tasks/strategy/ai-marketing-campaigns/v1-cost-report.md`), plus live image-gen/edit/vision runs on staging 2026-06-03.
+
+> **🟢 Image generation v1 BUILT + verified live (2026-06-03).** Actuals replace the earlier projections throughout this doc:
+> - **Generation:** OpenAI **`gpt-image-1`** (dall-e-3 is *not available* on the account; gpt-image-1 supersedes it) — **$0.042** square `1024×1024` / **$0.063** landscape `1536×1024` (medium quality). `high` quality costs ~$0.17/$0.25.
+> - **Editing:** **Stability SD3.5 img2img** — **~$0.065/edit** (measured; higher than the earlier $0.045 estimate).
+> - **Logo overlay:** local `jimp` compositing — **~$0** (no vendor call).
+> - **Vision** (logo → brand colors): Claude Sonnet — **~$0.0015/logo** (measured; *cheaper* than the $0.005 estimate — logos are small).
+> Both OpenAI + Stability keys are in `.env`. See `ai-image-generation/implementation.md`.
 
 ---
 
 ## TL;DR (one-paragraph answer)
 
-The platform uses three AI vendors: **Anthropic** (Claude Sonnet 4.6 + Haiku 4.5 + Sonnet vision input — already integrated), **OpenAI** (Whisper voice STT + DALL-E 3 image generation — both planned, single account procurement covers both), and **Stability AI** (Stable Diffusion 3.5 image editing — promoted to v1 per exec requirement). Per-shop monthly cost ranges **~$3 (light, no image use) to ~$150 (heavy ads-enabled shop)** depending on adoption. **NOT-on-ads shops** land at $3-$42/month. **ON-ads shops** land at $45-$150/month because every ad-driven lead triggers an AI conversation — but those shops also generate $600/month ad margin to FixFlow, so AI is still only 9-14% of per-shop revenue. **Spend cap must be TIERED** ($50/month base, $250/month for Plan B/C ads shops) — flat $50 cap would cause ad-driven AI to fail mid-month for active ads shops, breaking the conversion engine exactly when ad spend is highest. Bundling math works comfortably for ads-enabled shops at any subscription price; non-ads shops bundle comfortably at $250+/month subscription, need overage billing or add-on tier below that.
+The platform uses three AI vendors: **Anthropic** (Claude Sonnet 4.6 + Haiku 4.5 + Sonnet vision input — integrated), **OpenAI** (Whisper voice STT — planned; **`gpt-image-1`** image generation — BUILT + verified; single OpenAI account), and **Stability AI** (SD3.5 image editing — BUILT + verified, v1). Per-shop monthly cost ranges **~$3 (light, no image use) to ~$150 (heavy ads-enabled shop)** depending on adoption. **NOT-on-ads shops** land at $3-$42/month. **ON-ads shops** land at $45-$150/month because every ad-driven lead triggers an AI conversation — but those shops also generate $600/month ad margin to FixFlow, so AI is still only 9-14% of per-shop revenue. **Spend cap must be TIERED** ($50/month base, $250/month for Plan B/C ads shops) — flat $50 cap would cause ad-driven AI to fail mid-month for active ads shops, breaking the conversion engine exactly when ad spend is highest. Bundling math works comfortably for ads-enabled shops at any subscription price; non-ads shops bundle comfortably at $250+/month subscription, need overage billing or add-on tier below that.
 
 ---
 
@@ -20,11 +27,12 @@ The platform uses three AI vendors: **Anthropic** (Claude Sonnet 4.6 + Haiku 4.5
 | **Anthropic** | Claude Sonnet 4.6 | All "real work" AI — AI Sales Agent customer chat, Business-Data Insights answers, Marketing campaign drafting, Help assistant | ✅ Integrated | $3.00 / 1M input tokens · $15.00 / 1M output · $0.30 / 1M cached read · $3.75 / 1M cache write |
 | **Anthropic** | Claude Haiku 4.5 | Lightweight classification — voice dispatcher router, intent routing | ✅ Integrated | $0.80 / 1M input · $4.00 / 1M output · $0.08 / 1M cached read · $1.00 / 1M cache write |
 | **OpenAI** | Whisper API | Voice-to-text for the voice dispatcher (planned, not yet built) | ❌ **Not procured** | $0.006 / minute of audio |
-| **OpenAI** | DALL-E 3 (image generation) | AI-generated banner images for Marketing emails + ad creative for the Ads System (planned, not yet built) | ❌ **Not procured** (same OpenAI account as Whisper — single procurement covers both) | $0.040 / image (1024×1024 HD square) · $0.080 / image (HD wide or tall) |
-| **Anthropic** | Claude Sonnet 4.6 — vision input | Shop uploads logo / branding photo, AI analyzes for color extraction or brand-consistency hints | ✅ Already in Sonnet pricing | ~$0.005 / image (image counts as ~1,500 input tokens at standard rate) |
-| **Stability AI** | Stable Diffusion 3.5 — image editing (img2img + inpainting) | Edit existing images with prompts ("replace the background", "add a Black Friday overlay") — promoted to v1 per exec requirement | ❌ **Not procured** (3rd vendor relationship — separate from OpenAI) | ~$0.045 / edit (average; ranges $0.03-$0.06 depending on operation) |
+| **OpenAI** | **`gpt-image-1`** (image generation) | AI-generated banner images for Marketing emails + ad creative for the Ads System | ✅ **Built + verified** (key in `.env`; dall-e-3 unavailable → gpt-image-1) | **$0.042** / square `1024²` · **$0.063** / landscape `1536×1024` (medium) · ~$0.17-0.25 (high) |
+| **Anthropic** | Claude Sonnet 4.6 — vision input | Shop uploads logo, AI extracts brand colors to pre-fill the Brand Kit | ✅ **Built + verified** (in Sonnet pricing) | **~$0.0015 / logo** (measured — logos are small) |
+| **Stability AI** | Stable Diffusion 3.5 — image editing (img2img + inpainting) | Edit existing images with prompts ("replace the background", "add a Black Friday overlay") — v1 per exec requirement | ✅ **Built + verified** (`STABILITY_API_KEY` in `.env`) | **~$0.065 / edit** (SD3.5 img2img, measured) |
+| **(local)** | `jimp` logo overlay | Stamp the shop's real logo onto generated/edited images | ✅ **Built** (no vendor) | **~$0** (local compositing) |
 
-Five vendor capabilities total across **three** vendors: Anthropic (already integrated), OpenAI (Whisper + DALL-E 3, single account), Stability AI (image editing — new 3rd vendor). The two OpenAI items are a single procurement; Stability AI is a separate one. No long-term contracts; all three vendors are pay-as-you-go.
+Capabilities across **three** vendors + one local lib: Anthropic (integrated), OpenAI (Whisper planned + gpt-image-1 built, single account), Stability AI (image editing — built), and local `jimp` (logo overlay — no vendor). Both OpenAI + Stability keys are now in `.env` (procurement done). No long-term contracts; all pay-as-you-go.
 
 ---
 
@@ -41,10 +49,11 @@ These are real per-action costs measured from production audit data (Anthropic s
 | One voice command (transcription) | **$0.001** | Whisper for a 10-second utterance. |
 | One voice command (router classification, Haiku) | **$0.0002** | Tiny — used by the voice dispatcher only. |
 | Full voice-to-response flow (STT + router + AI response) | **~$0.019** | Whisper + Haiku + Sonnet response. |
-| One AI-generated marketing image (DALL-E 3 HD square) | **$0.040** | Email banner, promo graphic, single ad creative. |
-| One AI-generated wide/tall image (DALL-E 3 HD landscape/portrait) | **$0.080** | Used for ad formats requiring wider aspect (Meta carousel, story/reel). |
-| One vision analysis (shop uploads logo / asset for AI to inspect) | **~$0.005** | Claude Sonnet vision input — folds into existing Anthropic spend. |
-| One image edit (Stability AI img2img or inpainting) | **~$0.045** | "Replace the background", "add a Black Friday overlay", etc. New v1 capability. |
+| One AI-generated square image (gpt-image-1, `1024²`, medium) | **$0.042** | Social/ad creative. Measured. |
+| One AI-generated landscape image (gpt-image-1, `1536×1024`, medium) | **$0.063** | Email banner, wide ad. Measured. (`high` quality ~$0.17-0.25.) |
+| One vision analysis (logo → brand colors) | **~$0.0015** | Claude Sonnet vision — measured, folds into Anthropic spend. |
+| One image edit (Stability SD3.5 img2img) | **~$0.065** | "Replace the background", "add a Black Friday overlay", etc. Measured. |
+| One logo overlay (jimp, local) | **~$0** | Deterministic compositing — no vendor call. |
 
 Key insight: **prompt caching cuts Sonnet cost ~3x.** The static system prompt + scaffolds (~7-12K tokens) cache effectively. Empirical Marketing flows came in at $0.018 vs the original $0.03-$0.05 projection.
 
@@ -75,9 +84,9 @@ Three usage profiles modeled against the per-action costs above. Sales Agent vol
 | Marketing (text drafts) | 4 drafts | $0.07 |
 | Help | 8 questions/mo | $0.08 |
 | Voice (if used) | 200 commands/mo | $0.24 |
-| Image generation | 4 banners | $0.16 |
-| Image edits | 5 edits | $0.23 |
-| **Total** | | **~$11.80/month** |
+| Image generation | 4 banners × $0.063 | $0.25 |
+| Image edits | 5 edits × $0.065 | $0.33 |
+| **Total** | | **~$12.00/month** |
 
 ### Heavy shop — 15 customer chats/day, daily Insights, weekly Marketing + light ads testing
 
@@ -88,11 +97,11 @@ Three usage profiles modeled against the per-action costs above. Sales Agent vol
 | Marketing (text drafts) | 8 drafts/mo | $0.14 |
 | Help | 15 questions/mo | $0.15 |
 | Voice (if used) | 500 commands/mo | $0.60 |
-| Marketing image banners | 10 banners/mo × $0.04 | $0.40 |
-| Ad creative variants | 50 variants/mo × $0.04 | $2.00 |
-| Image edits (Stability AI) | 20 edits/mo × $0.045 | $0.90 |
-| Vision (logo / brand analysis) | 5 uploads/mo × $0.005 | $0.03 |
-| **Total** | | **~$37.10/month** |
+| Marketing image banners | 10 banners/mo × $0.063 | $0.63 |
+| Ad creative variants | 50 variants/mo × $0.042 | $2.10 |
+| Image edits (Stability SD3.5) | 20 edits/mo × $0.065 | $1.30 |
+| Vision (logo → brand colors) | 5 uploads/mo × $0.0015 | $0.01 |
+| **Total** | | **~$37.80/month** |
 
 ### Power user — heavy ads-creative testing (200 image variants/mo, 60 edits/mo)
 
@@ -100,15 +109,15 @@ Three usage profiles modeled against the per-action costs above. Sales Agent vol
 |---|---|---|
 | Sales Agent | 1,800 calls (same as heavy) | $32.40 |
 | Insights + Marketing + Help + Voice | combined | $1.42 |
-| Marketing image banners | 20 banners/mo | $0.80 |
-| Ad creative variants | 200 variants/mo × $0.04 | $8.00 |
-| Image edits (Stability AI) | 60 edits/mo × $0.045 | $2.70 |
-| Vision | 10 uploads/mo | $0.05 |
-| **Total** | | **~$45.40/month** |
+| Marketing image banners | 20 banners/mo × $0.063 | $1.26 |
+| Ad creative variants | 200 variants/mo × $0.042 | $8.40 |
+| Image edits (Stability SD3.5) | 60 edits/mo × $0.065 | $3.90 |
+| Vision | 10 uploads/mo × $0.0015 | $0.02 |
+| **Total** | | **~$47.40/month** |
 
 **The Sales Agent is still the cost driver (75-95% of monthly spend), but image generation becomes the second-largest line item at heavy use.** Insights, Marketing text, Help, and voice remain rounding errors by comparison.
 
-**Net effect of adding image generation:** roughly +$2-9/shop/month for users who use it actively. Pushes heavy-shop monthly from ~$33 to ~$36; power-user with active ads-creative testing to ~$42.
+**Net effect of adding image generation (actuals):** roughly +$4-15/shop/month for users who use it actively. Pushes heavy-shop monthly to **~$38**; power-user with active ads-creative testing to **~$47** — now close enough to the $50 base cap that a very aggressive image tester could brush it (see §5). Editing (Stability, ~$0.065) is the priciest per-unit image op; generation (gpt-image-1) and vision are cheaper than originally projected.
 
 ### ADS-ENABLED SHOP PROFILES (significantly different cost picture)
 
@@ -157,12 +166,12 @@ The existing `ai_shop_settings.monthly_budget_usd` defaults to **$20/shop/month*
 
 | Cap | Recommended value | Why |
 |---|---|---|
-| **Per-shop monthly AI cap — no ads** | **$50** (raise from current $20) | Covers heavy non-ads users (~$36 modeled with image gen) AND power users running active ads-creative testing (~$42). Headroom for one bad month without 429s. |
+| **Per-shop monthly AI cap — no ads** | **$50** (raise from current $20) | Covers heavy non-ads users (~$38 measured with image gen) AND power users running active ads-creative testing (~$47 measured). Headroom is now thinner — a very aggressive image tester could approach the cap; monitor and raise to $60 if real usage warrants. |
 | **Per-shop monthly AI cap — Plan A** ($299/mo software, shop runs own ad spend) | **$80** | Light ads volume — shop is conservative if managing their own ad budget. |
 | **Per-shop monthly AI cap — Plan B** ($120/day FixFlow-managed) | **$250** | Heavy ads use up to ~$150/month; $250 gives headroom for power users. FixFlow earns $600/month ad margin per Plan B shop, so the cap is affordable. |
 | **Per-shop monthly AI cap — Plan C** (pay-per-result) | **$250** | Same as Plan B — FixFlow is running ads at its own risk, AI volume similar. |
-| **Platform-wide OpenAI cap (Whisper + DALL-E 3)** | **$300/month** initially | DALL-E 3 image generation + Whisper voice run on the same OpenAI account. Covers ~33K voice commands + ~5K image generations. Raise after 1-2 months of adoption data. |
-| **Platform-wide Stability AI cap (image editing)** | **$100/month** initially | New 3rd vendor for image editing. Covers ~2,200 edits/month. Raise as adoption grows. |
+| **Platform-wide OpenAI cap (Whisper + gpt-image-1)** | **$300/month** initially | gpt-image-1 image generation + Whisper voice on the same OpenAI account. Covers ~33K voice commands + ~5-7K images. Raise after 1-2 months of adoption data. |
+| **Platform-wide Stability AI cap (image editing)** | **$100/month** initially | 3rd vendor for image editing (~$0.065/edit). Covers ~1,500 edits/month. Raise as adoption grows. |
 | **Platform-wide Anthropic cap** | Configured at the Anthropic dashboard level — recommend **$5,000/month initially** (raised from $3,500 because Plan B shops drive higher Anthropic spend) | Anthropic spend = sum of per-shop Sonnet costs. 100 active shops mix: 70 non-ads ($35 avg) + 30 ads-enabled ($100 avg) = $5,450. Adjust based on actual mix. |
 | **Voice rate limit per shop** | **100 voice commands/day** (per shop) | Anti-abuse guard separate from the dollar cap. Mirrors the existing 50-AI-drafts/day pattern in Marketing. |
 | **Image generation rate limit per shop** | **50 images/day** (per shop) | Anti-abuse + cost protection for AI-generated visuals. A heavy ads tester might genuinely want 20-30 variants/day; 50 covers normal use without enabling runaway spend. |
@@ -173,7 +182,7 @@ The existing `ai_shop_settings.monthly_budget_usd` defaults to **$20/shop/month*
 
 ## 6. Decision matrix — bundle AI in subscription, or charge on top?
 
-The $500/mo subscription price is **not yet final** (per exec note). The decision on whether AI is bundled depends on the final price. Below: AI cost as a % of subscription revenue at heavy use including image generation (~$40/shop/month).
+The $500/mo subscription price is **not yet final** (per exec note). The decision on whether AI is bundled depends on the final price. Below: AI cost as a % of subscription revenue at heavy use including image generation (**~$42/shop/month** — heavy measured at ~$38, power-user image testers ~$47; the $40 column figures below are illustrative within that band).
 
 | Subscription price | AI cost / mo (heavy w/ images) | AI as % of subscription | Recommendation |
 |---|---|---|---|
@@ -239,8 +248,8 @@ Based on the matrix above, three concrete pricing structures for the exec to wei
 
 ## 10. Bottom-line summary (one-paragraph version for the exec)
 
-> *"AI uses three vendors: Anthropic (Sonnet + Haiku + vision, already integrated), OpenAI (Whisper voice + DALL-E 3 image generation, single account procurement, not yet done), and Stability AI (image editing, promoted to v1 per exec requirement, separate account procurement). Per-shop cost varies by ads-program participation: NON-ads shops $3-$45/month, ADS-enabled shops $45-$150/month because every ad lead triggers an AI conversation. The Sales Agent dominates non-ads cost (75-95%); ad-driven chat dominates ads-enabled cost (60-70%); image editing adds $1-3/shop/month at typical use. Spend cap MUST be tiered: $50/month for non-ads, $250/month for Plan B/C ads shops — a flat cap would cause AI to fail mid-month for ads shops exactly when ad spend is highest. Ads-enabled shops bundle AI comfortably at any subscription price (AI is 9-14% of $1,100/month per-shop revenue on Plan B); non-ads shops bundle comfortably at $250+/month subscription. Below $200/month subscription for non-ads shops, need overage billing (~1 week to build, currently absent — see `docs/tasks/ai-subscription-billing-verification.md`)."*
+> *"AI uses three vendors: Anthropic (Sonnet + Haiku + vision, integrated), OpenAI (Whisper voice STT — planned; gpt-image-1 image generation — BUILT + verified; single account), and Stability AI (SD3.5 image editing — BUILT + verified, v1). Per-shop cost varies by ads-program participation: NON-ads shops $3-$47/month, ADS-enabled shops $45-$150/month because every ad lead triggers an AI conversation. The Sales Agent dominates non-ads cost (75-95%); ad-driven chat dominates ads-enabled cost (60-70%); image editing (Stability ~$0.065/edit) adds $1-4/shop/month at typical use. Spend cap MUST be tiered: $50/month for non-ads, $250/month for Plan B/C ads shops — a flat cap would cause AI to fail mid-month for ads shops exactly when ad spend is highest. Ads-enabled shops bundle AI comfortably at any subscription price (AI is 9-14% of $1,100/month per-shop revenue on Plan B); non-ads shops bundle comfortably at $250+/month subscription. Below $200/month subscription for non-ads shops, need overage billing (~1 week to build, currently absent — see `docs/tasks/ai-subscription-billing-verification.md`)."*
 
 **See also:**
-- `docs/tasks/strategy/ai-image-generation/scope.md` for the image generation product scope (DALL-E 3 vendor choice, brand-consistency, ads pipeline, phasing).
+- `docs/tasks/strategy/ai-image-generation/scope.md` + `implementation.md` for the image generation product scope (gpt-image-1 + Stability vendor choices, brand-consistency, ads pipeline, phasing) — **v1 BUILT + verified live 2026-06-03**.
 - `docs/tasks/strategy/ads-system/` for the Ads program design — particularly `ads-system-narrative-walkthrough.md` Chapter 5 for the AI Sales Agent's role in ad-driven booking conversion, and `review-fixflow-ads-system-spec.md` §3.8 for the engineering review that flagged AI cost was missing from the original ROI math.
