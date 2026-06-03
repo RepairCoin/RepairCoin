@@ -26,3 +26,19 @@ export const updateBrandKit = async (update: BrandKit): Promise<BrandKit> => {
   const response = await apiClient.put("/ai/brand-kit", update);
   return (response.data.data || response.data) as BrandKit;
 };
+
+export interface LogoColorSuggestion {
+  primaryColorHex: string | null;
+  secondaryColorHex: string | null;
+  description: string | null;
+}
+
+/** Phase 4 vision — extract a suggested brand palette from a logo image URL. */
+export const analyzeLogo = async (
+  logoUrl: string
+): Promise<LogoColorSuggestion> => {
+  const response = await apiClient.post("/ai/brand-kit/analyze-logo", {
+    logoUrl,
+  });
+  return (response.data.data || response.data) as LogoColorSuggestion;
+};

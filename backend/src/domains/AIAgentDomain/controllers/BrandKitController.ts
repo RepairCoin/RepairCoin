@@ -17,13 +17,22 @@ import {
   BrandKitService,
   validateBrandKitUpdate,
 } from "../services/BrandKitService";
+import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
+import {
+  BrandAssetVisionClient,
+  brandAssetVisionClient,
+} from "../services/BrandAssetVisionClient";
 
 export interface BrandKitControllerDeps {
   brandKit?: BrandKitService;
+  spendCap?: SpendCapEnforcer;
+  vision?: BrandAssetVisionClient;
 }
 
 export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
   const brandKit = deps.brandKit ?? new BrandKitService();
+  const spendCap = deps.spendCap ?? new SpendCapEnforcer();
+  const vision = deps.vision ?? brandAssetVisionClient;
 
   return {
     // GET — the shop's own kit (nulls when unset).
@@ -80,6 +89,52 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
         });
       }
     },
+
+    // POST /analyze-logo — Phase 4 vision: extract a brand palette from a logo
+    // image URL so the brand-kit form can auto-fill the colors. Spend-capped.
+    analyzeLogo: async (req: Request, res: Response): Promise<void> => {
+      const shopId = (req as any).user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: "Shop ID required" });
+        return;
+      }
+      const logoUrl =
+        typeof req.body?.logoUrl === "string" ? req.body.logoUrl.trim() : "";
+      if (logoUrl.length === 0) {
+        res.status(400).json({ success: false, error: "logoUrl is required" });
+        return;
+      }
+
+      const spend = await spendCap.canSpend(shopId);
+      if (!spend.allowed) {
+        res.status(429).json({
+          success: false,
+          error:
+            "AI budget for this month is exhausted. Try again next month or enter colors manually.",
+        });
+        return;
+      }
+
+      try {
+        const r = await vision.extractBrandColors(logoUrl);
+        await spendCap.recordSpend(shopId, r.costUsd);
+        res.json({
+          success: true,
+          data: {
+            primaryColorHex: r.primaryColorHex,
+            secondaryColorHex: r.secondaryColorHex,
+            description: r.description,
+          },
+        });
+      } catch (err) {
+        logger.error("BrandKitController.analyzeLogo failed", err);
+        res.status(503).json({
+          success: false,
+          error:
+            "Couldn't analyze the logo right now. Please try again or enter colors manually.",
+        });
+      }
+    },
   };
 }
 
@@ -94,4 +149,7 @@ export function getOwnBrandKit(req: Request, res: Response): Promise<void> {
 }
 export function updateOwnBrandKit(req: Request, res: Response): Promise<void> {
   return getDefaults().updateOwn(req, res);
+}
+export function analyzeLogoColors(req: Request, res: Response): Promise<void> {
+  return getDefaults().analyzeLogo(req, res);
 }

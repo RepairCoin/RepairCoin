@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Palette, Loader2, Save } from "lucide-react";
+import { Palette, Loader2, Save, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
-import { getBrandKit, updateBrandKit } from "@/services/api/aiBrandKit";
+import { getBrandKit, updateBrandKit, analyzeLogo } from "@/services/api/aiBrandKit";
 import { ImageUploader } from "./ImageUploader";
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
@@ -21,6 +21,7 @@ export const BrandKitSettings: React.FC = () => {
   const [secondary, setSecondary] = useState("");
   const [tone, setTone] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     getBrandKit()
@@ -58,6 +59,32 @@ export const BrandKitSettings: React.FC = () => {
       toast.error(e?.message || "Couldn't save the brand kit. Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const suggestColors = async () => {
+    if (!logoUrl) {
+      toast.error("Upload a logo first.");
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const s = await analyzeLogo(logoUrl);
+      if (s.primaryColorHex) setPrimary(s.primaryColorHex);
+      if (s.secondaryColorHex) setSecondary(s.secondaryColorHex);
+      if (s.primaryColorHex || s.secondaryColorHex) {
+        toast.success(
+          s.description
+            ? `Colors suggested from your logo — ${s.description}`
+            : "Colors suggested from your logo."
+        );
+      } else {
+        toast("Couldn't read clear colors — please enter them manually.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't analyze the logo. Try again.");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -123,6 +150,19 @@ export const BrandKitSettings: React.FC = () => {
             <span className="text-gray-300">transparent-background PNG</span> — it's
             stamped onto generated images (bottom-right corner).
           </p>
+          <button
+            type="button"
+            onClick={suggestColors}
+            disabled={!logoUrl || analyzing}
+            className="mt-3 inline-flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {analyzing ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-[#FFCC00]" />
+            )}
+            {analyzing ? "Reading your logo…" : "Suggest colors from logo"}
+          </button>
         </div>
       </div>
 

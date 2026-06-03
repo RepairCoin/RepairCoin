@@ -19,7 +19,7 @@ import {
 import { askInsights } from './controllers/InsightsController';
 import { askMarketing } from './controllers/MarketingChatController';
 import { generateImage } from './controllers/ImageGenerateController';
-import { getOwnBrandKit, updateOwnBrandKit } from './controllers/BrandKitController';
+import { getOwnBrandKit, updateOwnBrandKit, analyzeLogoColors } from './controllers/BrandKitController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -157,6 +157,8 @@ export function initializeRoutes(): Router {
   // only). PUT is a full replace; the image generator reads it via BrandKitService.
   router.get('/brand-kit', authMiddleware, requireRole(['shop']), getOwnBrandKit);
   router.put('/brand-kit', authMiddleware, requireRole(['shop']), updateOwnBrandKit);
+  // Phase 4 vision — extract a brand palette from a logo to auto-fill colors.
+  router.post('/brand-kit/analyze-logo', authMiddleware, requireRole(['shop']), analyzeLogoColors);
 
   // AI Marketing Assistant — shop-owner "compose + send a campaign by
   // chat" AI. Sibling to /insights. Sonnet + tool-use with the four
