@@ -23,6 +23,7 @@ import {
   updateOrderStatus,
   approveBooking,
   ServiceOrderWithDetails,
+  OrderStatus,
 } from "@/services/api/services";
 import { appointmentsApi } from "@/services/api/appointments";
 import { RescheduleModal } from "../modals/RescheduleModal";
@@ -126,7 +127,10 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
   // Map frontend filter key to backend status value
   const getApiStatus = (filter: string): string | undefined => {
     if (filter === "all") return undefined;
-    return filter; // "pending", "paid", "completed", "cancelled" map directly
+    // The "cancelled" tab aggregates all terminal statuses (matching its count
+    // in filterCounts below), so request them as a comma-separated group.
+    if (filter === "cancelled") return "cancelled,refunded,no_show,expired";
+    return filter; // "pending", "paid", "completed" map directly
   };
 
   // Load status counts from API
@@ -150,7 +154,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
       const response = await getShopOrders({
         limit: ITEMS_PER_PAGE,
         page,
-        ...(apiStatus ? { status: apiStatus as 'pending' | 'paid' | 'completed' | 'cancelled' } : {}),
+        ...(apiStatus ? { status: apiStatus as OrderStatus } : {}),
       });
       if (response && response.data) {
         // Transform API data to UI format
@@ -483,6 +487,36 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
     setCancelModalBooking(null);
   };
 
+  const handleNoShowComplete = () => {
+    if (noShowModalBooking) {
+      // no_show maps to the "cancelled" display status (see mapApiStatus).
+      // Update locally so the badge changes immediately without a page refresh.
+      setBookings((prev) =>
+        prev.map((b) => {
+          if (b.bookingId === noShowModalBooking.bookingId) {
+            const newTimeline = [
+              ...b.timeline,
+              {
+                id: `tl-${Date.now()}`,
+                type: "cancelled" as const,
+                timestamp: new Date().toISOString(),
+                description: "Booking marked as no-show",
+              },
+            ];
+            return {
+              ...b,
+              status: "cancelled" as const,
+              timeline: newTimeline,
+            };
+          }
+          return b;
+        }),
+      );
+      loadCounts();
+    }
+    setNoShowModalBooking(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -648,10 +682,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({
         } as ServiceOrderWithDetails : null}
         isOpen={!!noShowModalBooking}
         onClose={() => setNoShowModalBooking(null)}
-        onSuccess={() => {
-          setNoShowModalBooking(null);
-          loadBookings();
-        }}
+        onSuccess={handleNoShowComplete}
       />
     </div>
   );

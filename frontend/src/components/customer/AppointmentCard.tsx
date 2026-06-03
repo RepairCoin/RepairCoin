@@ -47,12 +47,15 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
     paid: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Paid' },
     'in-progress': { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'In Progress' },
     completed: { bg: 'bg-green-500/20', text: 'text-green-400', label: 'Completed' },
-    cancelled: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Cancelled' }
+    cancelled: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Cancelled' },
+    no_show: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'No-Show' },
+    expired: { bg: 'bg-gray-500/20', text: 'text-gray-400', label: 'Expired' },
+    refunded: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Refunded' }
   };
 
   const status = appointment.status.toLowerCase();
   const statusStyle = STATUS_COLORS[status] || STATUS_COLORS.pending;
-  const isUpcoming = !['completed', 'cancelled'].includes(status);
+  const isUpcoming = !['completed', 'cancelled', 'no_show', 'expired', 'refunded'].includes(status);
 
   // Check if appointment date is in the future
   // Parse YYYY-MM-DD as local date (new Date("YYYY-MM-DD") is UTC, causing off-by-one in western timezones)

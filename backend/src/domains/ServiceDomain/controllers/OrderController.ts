@@ -1,7 +1,7 @@
 // backend/src/domains/ServiceDomain/controllers/OrderController.ts
 import { Request, Response } from 'express';
 import { PaymentService } from '../services/PaymentService';
-import { OrderRepository } from '../../../repositories/OrderRepository';
+import { OrderRepository, OrderStatus } from '../../../repositories/OrderRepository';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { shopRepository } from '../../../repositories';
@@ -160,8 +160,15 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Customer authentication required' });
       }
 
+      // status may be a single value or a comma-separated group (e.g. the
+      // "cancelled" filter aggregates cancelled, refunded, no_show and expired)
+      const statusParam = req.query.status as string | undefined;
+      const statusValues = statusParam
+        ? (statusParam.split(',').filter(Boolean) as OrderStatus[])
+        : undefined;
+
       const filters = {
-        status: req.query.status as 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | undefined,
+        status: statusValues && statusValues.length === 1 ? statusValues[0] : statusValues,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
       };
@@ -198,8 +205,15 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Shop authentication required' });
       }
 
+      // status may be a single value or a comma-separated group (e.g. the
+      // "cancelled" tab aggregates cancelled, refunded, no_show and expired)
+      const statusParam = req.query.status as string | undefined;
+      const statusValues = statusParam
+        ? (statusParam.split(',').filter(Boolean) as OrderStatus[])
+        : undefined;
+
       const filters = {
-        status: req.query.status as 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | undefined,
+        status: statusValues && statusValues.length === 1 ? statusValues[0] : statusValues,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
         customerAddress: req.query.customerAddress as string | undefined

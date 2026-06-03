@@ -95,7 +95,7 @@ export interface CreateOrderParams {
 }
 
 export interface OrderFilters {
-  status?: OrderStatus;
+  status?: OrderStatus | OrderStatus[];
   startDate?: Date;
   endDate?: Date;
   customerAddress?: string;
@@ -256,8 +256,13 @@ export class OrderRepository extends BaseRepository {
 
       if (filters.status) {
         paramCount++;
-        whereClauses.push(`o.status = $${paramCount}`);
-        params.push(filters.status);
+        if (Array.isArray(filters.status)) {
+          whereClauses.push(`o.status = ANY($${paramCount})`);
+          params.push(filters.status);
+        } else {
+          whereClauses.push(`o.status = $${paramCount}`);
+          params.push(filters.status);
+        }
       }
 
       if (filters.startDate) {
@@ -349,8 +354,13 @@ export class OrderRepository extends BaseRepository {
 
       if (filters.status) {
         paramCount++;
-        whereClauses.push(`o.status = $${paramCount}`);
-        params.push(filters.status);
+        if (Array.isArray(filters.status)) {
+          whereClauses.push(`o.status = ANY($${paramCount})`);
+          params.push(filters.status);
+        } else {
+          whereClauses.push(`o.status = $${paramCount}`);
+          params.push(filters.status);
+        }
       }
 
       if (filters.startDate) {

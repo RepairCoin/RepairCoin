@@ -201,7 +201,15 @@ export const ServiceOrdersTab: React.FC = () => {
   const loadOrders = async (page: number = currentPage, currentFilter: string = filter) => {
     setLoading(true);
     try {
-      const statusFilter = currentFilter === "all" ? undefined : (currentFilter as OrderStatus);
+      // The "cancelled" filter aggregates all terminal statuses (matching its
+      // pill count below), so request them as a comma-separated group.
+      const cancelledGroup: string = "cancelled,refunded,no_show,expired";
+      const statusFilter =
+        currentFilter === "all"
+          ? undefined
+          : currentFilter === "cancelled"
+          ? (cancelledGroup as OrderStatus)
+          : (currentFilter as OrderStatus);
       const response = await getCustomerOrders({
         status: statusFilter,
         page,
@@ -227,7 +235,7 @@ export const ServiceOrdersTab: React.FC = () => {
 
   const loadCounts = async () => {
     try {
-      const statuses: OrderStatus[] = ["pending", "paid", "completed", "cancelled", "refunded"];
+      const statuses: OrderStatus[] = ["pending", "paid", "completed", "cancelled", "refunded", "no_show", "expired"];
       const results = await Promise.all(
         statuses.map((s) =>
           getCustomerOrders({ status: s, page: 1, limit: 1 }).then(
@@ -417,7 +425,7 @@ export const ServiceOrdersTab: React.FC = () => {
       pending: statusCounts["pending"] || 0,
       paid: statusCounts["paid"] || 0,
       completed: statusCounts["completed"] || 0,
-      cancelled: (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0),
+      cancelled: (statusCounts["cancelled"] || 0) + (statusCounts["refunded"] || 0) + (statusCounts["no_show"] || 0) + (statusCounts["expired"] || 0),
     };
   };
 
