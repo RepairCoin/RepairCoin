@@ -289,13 +289,19 @@ export function useServiceFormUI(
 
         showSuccess("Service created successfully");
         onSuccess();
-      } catch (error) {
+      } catch (error: any) {
+        const code = error?.response?.data?.code || error?.data?.code;
+        if (code === "SUBSCRIPTION_INACTIVE") {
+          setShowSubscriptionModal(true);
+        } else {
+          showError(error?.response?.data?.error || error?.message || "Failed to create service");
+        }
         console.error("Failed to create service:", error);
       } finally {
         setIsSubmitting(false);
       }
     },
-    [formData, pendingAvailabilityChanges, shopId, createServiceMutation, saveAvailabilityChanges, queryClient]
+    [formData, pendingAvailabilityChanges, shopId, createServiceMutation, saveAvailabilityChanges, queryClient, showError]
   );
 
   // Update existing service

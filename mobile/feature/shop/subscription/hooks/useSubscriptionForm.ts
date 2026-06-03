@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { apiClient } from "@/shared/utilities/axios";
 import { useShop } from "../../account/hooks/useShopQuery";
-import { SubscriptionFormData, SubscriptionResponse } from "../../services/shop.interface";
+import { SubscriptionFormData } from "../../services/shop.interface";
 
 export function useSubscriptionForm() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export function useSubscriptionForm() {
   const { data: shopData, isLoading: isLoadingShop } = useGetShopByWalletAddress(
     account?.address || ""
   );
-  const { showSuccess, showError } = useAppToast();
+  const { showError } = useAppToast();
 
   const [formData, setFormData] = useState<SubscriptionFormData>({
     shopName: "",
@@ -67,34 +68,32 @@ export function useSubscriptionForm() {
         return;
       }
 
-      const result = await apiClient.post<SubscriptionResponse>(
-        "/shops/subscription/subscribe-mobile",
+      const result = await apiClient.post<any>(
+        "/shops/subscription/checkout-mobile",
         {
           billingEmail: formData.email,
           billingContact: formData.shopName,
-          billingPhone: formData.phoneNumber,
-          billingAddress: formData.shopAddress,
         }
       );
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to create subscription");
+        throw new Error(result.error || "Failed to create checkout session");
       }
 
-      if (result.data?.clientSecret) {
-        router.push({
-          pathname: "/shop/payment/payment-card",
-          params: {
-            clientSecret: result.data.clientSecret,
-            subscriptionId: result.data.subscriptionId || "",
-          },
-        });
-      } else {
-        showSuccess(result.data?.nextSteps || result.data?.message || "Subscription created successfully!");
+      if (!result.data?.checkoutUrl) {
+        throw new Error("No checkout URL returned");
+      }
 
-        setTimeout(() => {
-          router.push("/shop/tabs/home");
-        }, 3000);
+      const browserResult = await WebBrowser.openAuthSessionAsync(
+        result.data.checkoutUrl,
+        "repaircoin://"
+      );
+
+      if (browserResult.type === "success") {
+        const url = browserResult.url;
+        if (url.includes("subscription-success")) {
+          router.replace("/subscription-success");
+        }
       }
     } catch (err: any) {
       const errorMessage =

@@ -29,40 +29,40 @@ export const NOTIFICATION_ROUTES = {
   },
   // Booking notifications
   booking_confirmed: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/service-orders",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   service_booking_received: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/service-orders",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   appointment_reminder: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/service-orders",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   upcoming_appointment: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/service-orders",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   service_order_completed: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/service-orders",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   order_completed: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/service-orders",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   // Reschedule notifications
   reschedule_request_created: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/reschedule-requests",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   reschedule_request_approved: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/reschedule-requests",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   reschedule_request_rejected: {
-    shop: "/(dashboard)/shop/booking",
+    shop: "/(dashboard)/shop/reschedule-requests",
     customer: "/(dashboard)/customer/tabs/service/",
   },
   // Subscription notifications (shop only)

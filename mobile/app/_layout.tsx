@@ -61,35 +61,35 @@ export default function RootLayout() {
   return (
     <ErrorBoundaryProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
-            <ThirdwebProvider>
-              <WalletAutoConnect />
-              <PushNotificationProvider>
-                <BottomSheetModalProvider>
-                  <ToastProvider>
-                  <StatusBar
-                    barStyle={
-                      Platform.OS === "ios" ? "light-content" : "default"
-                    }
-                    backgroundColor="transparent"
-                    translucent
-                  />
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      animation: "slide_from_right",
-                      gestureEnabled: true,
-                    }}
-                  />
-                  <DevTools />
-                  </ToastProvider>
-                </BottomSheetModalProvider>
-              </PushNotificationProvider>
-            </ThirdwebProvider>
-          </QueryClientProvider>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
+          <SafeAreaProvider>
+            <QueryClientProvider client={queryClient}>
+              <ThirdwebProvider>
+                <WalletAutoConnect />
+                <PushNotificationProvider>
+                  <BottomSheetModalProvider>
+                    <ToastProvider>
+                      <StatusBar
+                        barStyle={
+                          Platform.OS === "ios" ? "light-content" : "default"
+                        }
+                        backgroundColor="transparent"
+                        translucent
+                      />
+                      <Stack
+                        screenOptions={{
+                          headerShown: false,
+                          animation: "slide_from_right",
+                          gestureEnabled: true,
+                        }}
+                      />
+                      <DevTools />
+                    </ToastProvider>
+                  </BottomSheetModalProvider>
+                </PushNotificationProvider>
+              </ThirdwebProvider>
+            </QueryClientProvider>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
     </ErrorBoundaryProvider>
   );
 }
