@@ -103,7 +103,7 @@ export function CreatePurchaseOrderModal({
   };
 
   const calculateTotal = () => {
-    return poItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
+    return poItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitCost || 0), 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +119,7 @@ export function CreatePurchaseOrderModal({
       return;
     }
 
-    if (poItems.some((item) => !item.inventoryItemId || item.quantity <= 0 || item.unitCost < 0)) {
+    if (poItems.some((item) => !item.inventoryItemId || !(item.quantity > 0) || !(item.unitCost >= 0))) {
       toast.error("Please fill in all item details correctly");
       return;
     }
@@ -257,13 +257,14 @@ export function CreatePurchaseOrderModal({
                 {poItems.map((item, index) => (
                   <div
                     key={index}
-                    className="flex flex-col sm:flex-row gap-3 p-4 border border-gray-200 rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-end gap-3 p-4 border border-gray-200 rounded-lg"
                   >
                     <div className="flex-1">
+                      <label aria-hidden className="block text-xs font-medium text-gray-600 mb-1">&nbsp;</label>
                       <select
                         value={item.inventoryItemId}
                         onChange={(e) => updateItem(index, "inventoryItemId", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
+                        className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
                         required
                       >
                         <option value="">Select item</option>
@@ -276,33 +277,35 @@ export function CreatePurchaseOrderModal({
                     </div>
 
                     <div className="w-24">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Qty</label>
                       <input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value))}
                         placeholder="Qty"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
+                        className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
                         required
                       />
                     </div>
 
                     <div className="w-32">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Cost</label>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={item.unitCost}
                         onChange={(e) => updateItem(index, "unitCost", parseFloat(e.target.value))}
-                        placeholder="Unit cost"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
+                        placeholder="0.00"
+                        className="w-full h-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent text-sm"
                         required
                       />
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pb-0.5">
                       <div className="text-sm font-medium text-gray-700 min-w-[80px]">
-                        ${(item.quantity * item.unitCost).toFixed(2)}
+                        ${((item.quantity || 0) * (item.unitCost || 0)).toFixed(2)}
                       </div>
                       <button
                         type="button"
