@@ -24,7 +24,8 @@ import {
   Edit,
   Trash2,
   PackageCheck,
-  Ban
+  Ban,
+  Send
 } from "lucide-react";
 import { CreatePurchaseOrderModal } from "./modals/CreatePurchaseOrderModal";
 import { PurchaseOrderDetailModal } from "./modals/PurchaseOrderDetailModal";
@@ -99,6 +100,17 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
     setSelectedPO(null);
     loadData();
     toast.success("Items received successfully");
+  };
+
+  const handleAdvanceStatus = async (po: PurchaseOrder, status: PurchaseOrderStatus, successMessage: string) => {
+    try {
+      await inventoryApi.updatePurchaseOrder(shopId, po.id, { status });
+      toast.success(successMessage);
+      loadData();
+    } catch (error) {
+      console.error("Error updating purchase order status:", error);
+      toast.error("Failed to update purchase order");
+    }
   };
 
   const handleCancelPO = async (po: PurchaseOrder) => {
@@ -368,6 +380,26 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
                             View Details
                           </DropdownMenuItem>
 
+                          {po.status === "draft" && (
+                            <DropdownMenuItem
+                              onClick={() => handleAdvanceStatus(po, "sent", "Purchase order marked as sent")}
+                              className="gap-2 px-4 py-2 text-sm text-blue-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-blue-400"
+                            >
+                              <Send className="w-4 h-4" />
+                              Mark as Sent
+                            </DropdownMenuItem>
+                          )}
+
+                          {po.status === "sent" && (
+                            <DropdownMenuItem
+                              onClick={() => handleAdvanceStatus(po, "confirmed", "Purchase order confirmed")}
+                              className="gap-2 px-4 py-2 text-sm text-purple-400 rounded-none cursor-pointer focus:bg-[#252525] focus:text-purple-400"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Mark as Confirmed
+                            </DropdownMenuItem>
+                          )}
+
                           {(po.status === "confirmed" || po.status === "partially_received") && (
                             <DropdownMenuItem
                               onClick={() => handleReceiveItems(po)}
@@ -424,11 +456,12 @@ export function PurchaseOrdersTab({ shopId }: PurchaseOrdersTabProps) {
       {showDetailModal && selectedPO && (
         <PurchaseOrderDetailModal
           purchaseOrder={selectedPO}
-          onClose={() => {
+          vendors={vendors}
+          onClose={(changed) => {
             setShowDetailModal(false);
             setSelectedPO(null);
+            if (changed) loadData();
           }}
-          onRefresh={loadData}
         />
       )}
 

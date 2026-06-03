@@ -261,7 +261,7 @@ export async function deductStockForService(serviceId: string, orderId: string, 
         const adjustmentQuery = `
           INSERT INTO inventory_adjustments (
             item_id, shop_id, quantity_change,
-            previous_quantity, new_quantity,
+            quantity_before, quantity_after,
             adjustment_type, reason, reference_type, reference_id,
             adjusted_by
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
