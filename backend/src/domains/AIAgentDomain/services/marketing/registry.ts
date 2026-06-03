@@ -11,6 +11,7 @@ import { lookupAudienceCount } from "./tools/lookupAudienceCount";
 import { proposeCampaignDraft } from "./tools/proposeCampaignDraft";
 import { proposeCampaignSend } from "./tools/proposeCampaignSend";
 import { suggestCampaignStrategies } from "./tools/suggestCampaignStrategies";
+import { proposeCampaignImage } from "./tools/proposeCampaignImage";
 
 const MARKETING_TOOLS: readonly MarketingTool[] = Object.freeze([
   // Read-only — segment resolution + preview.
@@ -21,6 +22,8 @@ const MARKETING_TOOLS: readonly MarketingTool[] = Object.freeze([
   proposeCampaignSend,
   // Meta — strategy chips for empty-panel state.
   suggestCampaignStrategies,
+  // Image — generate a branded marketing image (propose → shop approves).
+  proposeCampaignImage,
 ]);
 
 const MARKETING_TOOLS_BY_NAME: ReadonlyMap<string, MarketingTool> = new Map(

@@ -91,6 +91,20 @@ export type MarketingToolDisplay =
       // you might want to ask").
       kind: "strategy_chips";
       items: string[];
+    }
+  | {
+      // AI Image Generation Phase 2 — a generated marketing image the shop
+      // reviews (approve / regenerate) before it lands in a campaign. The
+      // image is already generated + stored (DO Spaces URL); the card renders
+      // a preview. operationType distinguishes a fresh generate from a Phase 6
+      // edit of an existing image.
+      kind: "campaign_image_proposal";
+      imageUrl: string;
+      imageKey: string | null;
+      altText: string;
+      prompt: string;
+      operationType: "generate" | "edit";
+      dimensions: string;
     };
 
 /**
