@@ -44,6 +44,10 @@ import {
   ImageStorageService,
   imageStorageService,
 } from "../../../services/ImageStorageService";
+import {
+  LogoOverlayService,
+  logoOverlayService,
+} from "../../../services/LogoOverlayService";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
 import { BrandKitService } from "../services/BrandKitService";
 import {
@@ -61,6 +65,7 @@ export interface ImageGenerateDeps {
   storage?: ImageStorageService;
   spendCap?: SpendCapEnforcer;
   brandKit?: BrandKitService;
+  logoOverlay?: LogoOverlayService;
   auditLogger?: ImageGenerationAuditLogger;
   pool?: Pool;
 }
@@ -70,6 +75,7 @@ interface ParsedBody {
   dimensions: ImageSize;
   quality: ImageQuality;
   useCase: string;
+  overlayLogo: boolean;
 }
 
 function parseBody(body: unknown): { value?: ParsedBody; error?: string } {
@@ -100,7 +106,10 @@ function parseBody(body: unknown): { value?: ParsedBody; error?: string } {
       ? b.useCase
       : "marketing";
 
-  return { value: { prompt, dimensions, quality, useCase } };
+  // Default true — stamp the brand logo when one is set; pass false to skip.
+  const overlayLogo = b.overlayLogo !== false;
+
+  return { value: { prompt, dimensions, quality, useCase, overlayLogo } };
 }
 
 export function makeImageGenerateController(deps: ImageGenerateDeps = {}) {
@@ -109,6 +118,7 @@ export function makeImageGenerateController(deps: ImageGenerateDeps = {}) {
   const storage = deps.storage ?? imageStorageService;
   const spendCap = deps.spendCap ?? new SpendCapEnforcer();
   const brandKit = deps.brandKit ?? new BrandKitService();
+  const logoOverlay = deps.logoOverlay ?? logoOverlayService;
   const auditLogger = deps.auditLogger ?? imageGenerationAuditLogger;
   const pool = deps.pool ?? getSharedPool();
 
@@ -128,7 +138,7 @@ export function makeImageGenerateController(deps: ImageGenerateDeps = {}) {
         });
         return;
       }
-      const { prompt, dimensions, quality, useCase } = parsed.value;
+      const { prompt, dimensions, quality, useCase, overlayLogo } = parsed.value;
 
       // 2. Kill switch — dark by default; flip ai_images_enabled per shop.
       try {
@@ -236,6 +246,14 @@ export function makeImageGenerateController(deps: ImageGenerateDeps = {}) {
           buffer = Buffer.from(gen.b64Json, "base64");
         } else {
           throw new Error("no image data returned");
+        }
+
+        // Phase 7 — stamp the shop's real logo (deterministic, pixel-exact).
+        // Best-effort: a bad/missing logo never fails the generation. Baked in
+        // BEFORE upload so the stored PNG already carries the logo.
+        if (overlayLogo && kit?.logoUrl) {
+          const overlaid = await logoOverlay.overlaySafe(buffer, kit.logoUrl);
+          buffer = overlaid.buffer;
         }
 
         const stored = await storage.uploadBuffer(

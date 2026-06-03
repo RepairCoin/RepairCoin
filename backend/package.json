@@ -96,6 +96,7 @@
     "googleapis": "^171.4.0",
     "helmet": "^7.1.0",
     "inquirer": "^12.9.3",
+    "jimp": "^0.22.12",
     "json-2-csv": "^5.5.9",
     "jsonwebtoken": "^9.0.2",
     "keytar": "^7.9.0",

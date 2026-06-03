@@ -156,7 +156,7 @@ Flow per generation: fetch the vendor URL → `Buffer` → `uploadBuffer(buf, "i
 
 > *"Brand guidance — primary color {primary_hex}, secondary {secondary_hex}; tone: {tone_notes}. Apply these to the image. ---  {rawPrompt}"*
 
-Logo compositing is **not** done by the model — AI would distort a real logo. The shop's actual logo is stamped on **deterministically** (`sharp`), which is **promoted to v1 per Deo 2026-06-02** (was Q2 Option C / v1.5). See **Phase 7**. So a generated image gets brand **colors + tone** from the prompt (this section) **and** the real **logo overlaid** by Phase 7.
+Logo compositing is **not** done by the model — AI would distort a real logo. The shop's actual logo is stamped on **deterministically** (`jimp`), which is **promoted to v1 per Deo 2026-06-02** (was Q2 Option C / v1.5). See **Phase 7**. So a generated image gets brand **colors + tone** from the prompt (this section) **and** the real **logo overlaid** by Phase 7.
 
 ---
 
@@ -204,12 +204,12 @@ Logo compositing is **not** done by the model — AI would distort a real logo. 
 Lives in `ads-system/`. Reuses this doc's generation backend + storage + audit; adds Meta sizes (1080×1080 / 1080×1350 / 1080×1920), 5-variant batch, and the Meta preview/policy check (scope §8). Cross-reference only.
 
 ### Phase 7 — Logo overlay (deterministic compositing) — **V1** (2–3 days) · depends on P1 + P3
-Per Deo 2026-06-02: **v1 must stamp the shop's actual logo on generated/edited images.** Not an AI call (AI distorts real logos) — pixel-exact compositing with `sharp`.
+Per Deo 2026-06-02: **v1 must stamp the shop's actual logo on generated/edited images.** Not an AI call (AI distorts real logos) — pixel-exact compositing. **DONE + verified live 2026-06-03.** Built with **`jimp`** (not `sharp` as originally planned) — pure-JS, **no native bindings**, so zero cross-platform binary risk on the DigitalOcean `npm ci` deploy; logo compositing is low-volume so jimp's speed is a non-issue.
 - `LogoOverlayService` — overlay `shop_brand_kits.logo_url` onto an image buffer at a configurable corner (default bottom-right) + safe margin + max-width ~18% of image width; preserve aspect ratio.
 - Wired as a post-step on `/images/generate` + `/images/edit` (param `overlayLogo`, defaults true when a logo is set), applied **before** the DO Spaces upload so the stored PNG already has the logo baked in.
 - Proposal card: logo on/off toggle + corner control — re-composite is **instant and free** (no new AI spend), unlike Regenerate.
 - Brand-kit upload validates a **transparent-background PNG** for the logo (flag non-transparent so the overlay looks clean).
-- Adds the `sharp` dependency; ~zero marginal cost (local processing).
+- Adds the `jimp` dependency (pure-JS, deploy-safe); ~zero marginal cost (local processing).
 - **Acceptance:** generate a banner with a logo set → stored image has the real logo composited bottom-right with a clean margin; toggle off → no logo; non-transparent logo flagged at upload.
 
 > **Sequencing note:** Phase 7 is small and depends only on P1 (an image to stamp) + P3 (the stored logo). Land it right after P3 so the very first proposal cards show the real logo — it's the most visible "this is *my* brand" moment.
@@ -273,7 +273,7 @@ Confirm G2/G3/G7 ──┐
 G4 legal ──────────┴─(gates LAUNCH, not code)
                    ▼
 P1 generate → P3 brand kit → P7 logo overlay → P2 marketing tool → P4 vision → P6 edit → broaden flag
- (DALL·E+      (table+UI)     (sharp, V1,        (card+approve)      (Claude     (Stability,
+ (DALL·E+      (table+UI)     (jimp, V1,         (card+approve)      (Claude     (Stability,
   storage+                    real logo)                             vision)      V1 per scope)
   audit+cap+flag)
 ```
