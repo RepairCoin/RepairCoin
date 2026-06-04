@@ -21,6 +21,10 @@ import {
 type FilterTab = 'upcoming' | 'completed' | 'cancelled';
 type SortOrder = 'asc' | 'desc';
 
+// Terminal statuses that should be grouped under "Cancelled" (matching the
+// shop account behavior), never shown as upcoming.
+const CANCELLED_STATUSES = ['cancelled', 'no_show', 'expired', 'refunded'];
+
 export const AppointmentsTab: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -101,7 +105,7 @@ export const AppointmentsTab: React.FC = () => {
       const [year, month, day] = apt.bookingDate.split('-').map(Number);
       const aptDate = new Date(year, month - 1, day);
 
-      if (status === 'cancelled') {
+      if (CANCELLED_STATUSES.includes(status)) {
         cancelled.push(apt);
       } else if (status === 'completed') {
         completed.push(apt);
@@ -165,7 +169,7 @@ export const AppointmentsTab: React.FC = () => {
     const now = new Date();
     const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     const status = appointment.status.toLowerCase();
-    return hoursUntil >= 24 && status !== 'completed' && status !== 'cancelled';
+    return hoursUntil >= 24 && status !== 'completed' && !CANCELLED_STATUSES.includes(status);
   };
 
   const canRescheduleAppointment = (appointment: CalendarBooking): boolean => {
