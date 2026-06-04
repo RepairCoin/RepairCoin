@@ -300,7 +300,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
             Manage your inventory items and track stock levels
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={() => setShowCategoryModal(true)}
             className="px-4 py-2 bg-[#101010] border border-gray-700 text-gray-300 rounded-lg hover:border-[#FFCC00] hover:text-[#FFCC00] transition-colors flex items-center gap-2"
@@ -812,12 +812,25 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
       )}
 
       {/* Modals */}
-      {showAddModal && <AddInventoryItemModal onClose={() => setShowAddModal(false)} onSuccess={loadInventory} />}
+      {showAddModal && (
+        <AddInventoryItemModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            loadInventory();
+            loadCategories();
+            loadVendors();
+          }}
+        />
+      )}
       {showEditModal && selectedItem && (
         <EditInventoryItemModal
           item={selectedItem}
           onClose={() => setShowEditModal(false)}
-          onSuccess={loadInventory}
+          onSuccess={() => {
+            loadInventory();
+            loadCategories();
+            loadVendors();
+          }}
         />
       )}
       {showAdjustStockModal && selectedItem && (
