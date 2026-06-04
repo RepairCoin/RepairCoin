@@ -635,14 +635,13 @@ export const ManualBookingModal: React.FC<ManualBookingModalProps> = ({
               </div>
             ) : (
               <Select
-                value={selectedServiceId || "all"}
-                onValueChange={(value) => setSelectedServiceId(value === "all" ? "" : value)}
+                value={selectedServiceId || undefined}
+                onValueChange={(value) => setSelectedServiceId(value)}
               >
                 <SelectTrigger variant="dark" className="w-full h-auto py-3">
                   <SelectValue placeholder="Select a service..." />
                 </SelectTrigger>
-                <SelectContent variant="dark">
-                  <SelectItem variant="dark" value="all">Select a service...</SelectItem>
+                <SelectContent variant="dark" className="z-[1200]">
                   {services.map((service) => (
                     <SelectItem variant="dark" key={service.serviceId} value={service.serviceId}>
                       {service.serviceName} - ${service.priceUsd.toFixed(2)} ({service.durationMinutes} min)

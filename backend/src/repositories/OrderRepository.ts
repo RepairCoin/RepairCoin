@@ -616,6 +616,29 @@ export class OrderRepository extends BaseRepository {
     }
   }
 
+  async markAsPaid(orderId: string): Promise<ServiceOrder> {
+    try {
+      const query = `
+        UPDATE service_orders
+        SET status = 'paid', payment_status = 'paid', updated_at = NOW()
+        WHERE order_id = $1
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [orderId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Order marked as paid', { orderId });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error marking order as paid:', error);
+      throw error;
+    }
+  }
+
   /**
    * Mark order as expired (24h past appointment without completion)
    */
