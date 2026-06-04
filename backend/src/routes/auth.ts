@@ -442,6 +442,7 @@ router.post('/check-user', async (req, res) => {
             referredBy: customer.referredBy,
             referralCount: customer.referralCount || 0,
             // Suspension data
+            suspended: !!customer.suspendedAt,
             suspendedAt: customer.suspendedAt,
             suspensionReason: customer.suspensionReason,
             // External ID

@@ -766,6 +766,53 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
+router.post('/subscription/checkout-mobile', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { billingEmail, billingContact } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Shop ID not found in token' });
+    }
+    if (!billingEmail || !billingContact) {
+      return res.status(400).json({ success: false, error: 'Billing email and contact name are required' });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    const existingSubscription = await subscriptionService.getActiveSubscription(shopId);
+    if (existingSubscription) {
+      return res.status(400).json({ success: false, error: 'Shop already has an active subscription' });
+    }
+
+    const stripeService = getStripeService();
+    const stripe = stripeService.getStripe();
+
+    let stripeCustomer = await subscriptionService.getCustomerByShopId(shopId);
+    if (!stripeCustomer) {
+      const customer = await stripeService.createCustomer({ email: billingEmail, name: billingContact, shopId });
+      await DatabaseService.getInstance().getPool().query(
+        `INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name) VALUES ($1, $2, $3, $4)`,
+        [shopId, customer.id, billingEmail, billingContact]
+      );
+      stripeCustomer = { id: 0, stripeCustomerId: customer.id, shopId, email: billingEmail, name: billingContact, createdAt: new Date(), updatedAt: new Date() };
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomer.stripeCustomerId,
+      mode: 'subscription',
+      line_items: [{ price: process.env.STRIPE_MONTHLY_PRICE_ID, quantity: 1 }],
+      success_url: `repaircoin://subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `repaircoin://subscription-cancel`,
+      metadata: { shopId, platform: 'mobile' },
+    });
+
+    return res.json({ success: true, data: { checkoutUrl: session.url, sessionId: session.id } });
+  } catch (error: any) {
+    logger.error('Mobile checkout session creation failed', { error: error.message, shopId: req.user?.shopId });
+    return res.status(500).json({ success: false, error: error.message || 'Failed to create checkout session' });
+  }
+});
+
 router.post('/subscription/subscribe-mobile', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
