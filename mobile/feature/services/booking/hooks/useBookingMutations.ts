@@ -137,13 +137,18 @@ export function useCompleteOrderMutation() {
   const { guard, reset } = useSubmitGuard();
 
   const mutation = useMutation({
-    mutationFn: async (orderId: string) => {
+    mutationFn: async ({ orderId }: { orderId: string; customerAddress?: string }) => {
       return serviceApi.updateOrderStatus(orderId, "completed");
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["repaircoin", "bookings", "shop"],
       });
+      if (variables.customerAddress) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.customerTransactions(variables.customerAddress),
+        });
+      }
       showSuccess("Booking complete! Customer will receive RCN rewards.");
     },
     onError: (error: any) => {
@@ -158,10 +163,10 @@ export function useCompleteOrderMutation() {
   return {
     ...mutation,
     mutate: (
-      orderId: string,
+      variables: { orderId: string; customerAddress?: string },
       options?: Parameters<typeof mutation.mutate>[1]
     ) => {
-      guard(() => mutation.mutate(orderId, options));
+      guard(() => mutation.mutate(variables, options));
     },
   };
 }

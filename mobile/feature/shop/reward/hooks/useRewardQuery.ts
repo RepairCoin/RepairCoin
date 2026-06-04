@@ -57,6 +57,9 @@ export function useIssueReward(resetInputs?: () => void) {
         rqClient.invalidateQueries({
           queryKey: queryKeys.customerInfo(variables.customerAddress),
         });
+        rqClient.invalidateQueries({
+          queryKey: queryKeys.customerTransactions(variables.customerAddress),
+        });
       }
 
       if (shopWalletAddress) {

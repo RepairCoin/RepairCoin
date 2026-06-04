@@ -30,6 +30,10 @@ export function useWriteReview() {
     onSuccess: () => {
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
+      if (serviceId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.serviceReviews(serviceId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.service(serviceId) });
+      }
       showSuccess("Thank you for your feedback!");
       router.back();
     },
