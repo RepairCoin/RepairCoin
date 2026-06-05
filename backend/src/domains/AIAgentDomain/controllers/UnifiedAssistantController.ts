@@ -38,6 +38,7 @@ import { getSharedPool } from "../../../utils/database-pool";
 import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
 import { OrchestrateAuditLogger } from "../services/OrchestrateAuditLogger";
+import { buildDateContextBlock } from "../services/dateContext";
 import {
   getInsightsTools,
   getInsightsToolByName,
@@ -355,6 +356,9 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
           { text: ORCHESTRATE_SYSTEM_PROMPT, cache: true },
         ];
         if (helpBlock) systemPrompt.push({ text: helpBlock, cache: true });
+        // Non-cached: today's date, so the assistant can judge campaign timing
+        // (don't propose a Black Friday promo in June).
+        systemPrompt.push({ text: buildDateContextBlock(), cache: false });
         if (assistantName) {
           systemPrompt.push({
             text: `The shop owner has named you "${assistantName}". Use that name when you refer to yourself.`,
