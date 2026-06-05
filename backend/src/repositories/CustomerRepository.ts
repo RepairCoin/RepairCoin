@@ -182,8 +182,8 @@ export class CustomerRepository extends BaseRepository {
       const query = `
         INSERT INTO customers (
           address, wallet_address, name, first_name, last_name, email, phone, tier, lifetime_earnings,
-          last_earned_date, is_active, referral_count
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          last_earned_date, is_active, referral_count, referral_code
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       `;
 
       await this.pool.query(query, [
@@ -198,7 +198,8 @@ export class CustomerRepository extends BaseRepository {
         customer.lifetimeEarnings,
         customer.lastEarnedDate,
         customer.isActive,
-        customer.referralCount
+        customer.referralCount,
+        customer.referralCode ?? null
       ]);
 
       logger.info('Customer created successfully', { address: customer.address });
