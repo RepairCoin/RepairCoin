@@ -145,6 +145,29 @@ export class CustomerService {
     }
   }
 
+  // Generates an 8-char uppercase alphanumeric referral code.
+  private generateReferralCodeValue(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  // Returns a referral code not already used by another customer. Collisions in
+  // a 36^8 space are astronomically unlikely, so a few attempts is plenty.
+  private async generateUniqueReferralCode(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = this.generateReferralCodeValue();
+      const existing = await this.customerRepository.getCustomerByReferralCode(code);
+      if (!existing) {
+        return code;
+      }
+    }
+    throw new Error('Failed to generate a unique referral code');
+  }
+
   async registerCustomer(data: CustomerRegistrationData) {
     let referrer: CustomerData | null = null;
     try {
@@ -189,7 +212,8 @@ export class CustomerService {
       const customerWithWalletInfo = {
         ...newCustomer,
         wallet_type: data.walletType || 'external',
-        auth_method: data.authMethod || 'wallet'
+        auth_method: data.authMethod || 'wallet',
+        referralCode: await this.generateUniqueReferralCode()
       };
 
       await customerRepository.createCustomer(customerWithWalletInfo);
