@@ -131,11 +131,11 @@ const TAB_CONFIG: Record<string, {
     icon: <Settings className="w-5 h-5" />,
     description: "Configure your shop settings and preferences",
   },
-  groups: {
-    title: "Affiliate Groups",
-    icon: <GlobeIcon className="w-5 h-5" />,
-    description: "Manage affiliate group memberships and collaborations",
-  },
+  // groups: {
+  //   title: "Affiliate Groups",
+  //   icon: <GlobeIcon className="w-5 h-5" />,
+  //   description: "Manage affiliate group memberships and collaborations",
+  // },
   profile: {
     title: "Shop Profile",
     icon: <User className="w-5 h-5" />,

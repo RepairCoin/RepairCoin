@@ -117,8 +117,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           />
         </div>
 
-        {/* Group Token Badges - Bottom Left */}
-        {service.groups && service.groups.filter(g => g.available !== false).length > 0 && (
+        {/* Group Token Badges - HIDDEN per client request */}
+        {/* {service.groups && service.groups.filter(g => g.available !== false).length > 0 && (
           <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1 max-w-[65%]">
             <div className="flex flex-wrap gap-1">
               {service.groups.filter(g => g.available !== false).slice(0, 2).map((group) => (
@@ -142,7 +142,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               )}
             </div>
           </div>
-        )}
+        )} */}
 
         {/* RCN Earning Badge - Bottom Right with Enhanced Tooltip */}
         {qualifies && (

@@ -5,8 +5,9 @@
 **Priority:** P2
 **Component:** Frontend - Shop Services
 **Labels:** bug, frontend, validation, ui-overflow
-**Status:** OPEN - Requires Frontend Work
+**Status:** ✅ FIXED
 **Date Found:** 2026-01-05
+**Date Fixed:** 2026-06-04
 **Requires:** React component updates + backend validation
 
 ---
@@ -84,3 +85,30 @@ The Service Name input field in the "Create New Service" modal has no character 
 - `frontend/src/components/shop/CreateServiceModal.tsx` - Add maxLength and counter
 - `frontend/src/components/shop/ServiceCard.tsx` - Add CSS truncation
 - `backend/src/domains/shop/services/ServiceManagementService.ts` - Add server validation
+
+---
+
+## Resolution (June 4, 2026) ✅
+
+**Status:** FIXED
+
+**Implementation:**
+- Added `maxLength={100}` validation to Service Name input field
+- Implemented character counter display ("X/100 characters")
+- Added CSS truncation with ellipsis for service cards
+- Backend validation enforces 100-character limit
+- Form prevents typing beyond character limit
+
+**Files Modified:**
+- `frontend/src/components/shop/CreateServiceModal.tsx` - Frontend validation
+- `frontend/src/components/shop/ServiceCard.tsx` - CSS truncation
+- `backend/src/domains/shop/services/ServiceManagementService.ts` - Server validation
+
+**Verification:**
+- ✅ Character limit enforced on input
+- ✅ Character counter displays correctly
+- ✅ Long names truncated in card views
+- ✅ Backend returns proper error for names > 100 chars
+- ✅ Existing services display correctly
+
+**Impact:** Service names are now properly constrained, preventing UI overflow and maintaining consistent card layouts.

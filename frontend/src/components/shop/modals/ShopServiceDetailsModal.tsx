@@ -153,7 +153,8 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
             >
               Reviews {reviews.length > 0 ? `(${reviews.length})` : ""}
             </button>
-            <button
+            {/* Group Rewards Tab - HIDDEN per client request */}
+            {/* <button
               onClick={() => handleTabChange("groups")}
               className={`flex-1 px-6 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
                 activeTab === "groups"
@@ -163,7 +164,7 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
             >
               <Users className="w-4 h-4" />
               Group Rewards
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -396,12 +397,12 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
             </div>
           )}
 
-          {/* Groups Tab */}
-          {activeTab === "groups" && (
+          {/* Groups Tab - HIDDEN per client request */}
+          {/* {activeTab === "groups" && (
             <div>
               <ServiceGroupSettings serviceId={service.serviceId} />
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>

@@ -620,8 +620,8 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                 </div>
               </div>
 
-              {/* Group Rewards Info */}
-              {service.groups && service.groups.length > 0 && (
+              {/* Group Rewards Info - HIDDEN per client request */}
+              {/* {service.groups && service.groups.length > 0 && (
                 <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-4 mb-6">
                   <h3 className="text-sm font-bold text-purple-300 uppercase mb-2">
                     Bonus Group Rewards
@@ -651,7 +651,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                     </p>
                   )}
                 </div>
-              )}
+              )} */}
 
               {/* Suspension Warning - Block Booking */}
               {isSuspended && noShowStatus && (

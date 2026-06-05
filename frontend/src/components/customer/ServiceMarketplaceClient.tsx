@@ -424,8 +424,8 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
-            {/* Group Filter - Show all public groups for discovery */}
-            {customerGroups.length > 0 && !showFavoritesOnly && viewMode === "grid" && (
+            {/* Group Filter - HIDDEN per client request */}
+            {/* {customerGroups.length > 0 && !showFavoritesOnly && viewMode === "grid" && (
               <div className="mb-8">
                 <div className="bg-gradient-to-r from-purple-900/20 to-purple-800/20 border border-purple-500/30 rounded-xl p-5">
                   <div className="flex items-center gap-2 mb-3">
@@ -462,10 +462,10 @@ export const ServiceMarketplaceClient: React.FC = () => {
                   )}
                 </div>
               </div>
-            )}
+            )} */}
 
-            {/* Active Group Filter Banner */}
-            {selectedGroupId && viewMode === "grid" && (
+            {/* Active Group Filter Banner - HIDDEN */}
+            {/* {selectedGroupId && viewMode === "grid" && (
               <div className="mb-8 flex items-center gap-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-4">
                 <div className="flex-1">
                   <p className="text-sm text-purple-400 mb-1">Browsing group services:</p>
@@ -483,7 +483,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
                   View All Services
                 </button>
               </div>
-            )}
+            )} */}
 
             {/* Active Shop Filter */}
             {viewMode === "grid" && filters.shopId && !showFavoritesOnly && !selectedGroupId && (

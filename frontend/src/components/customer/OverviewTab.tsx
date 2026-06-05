@@ -472,8 +472,8 @@ export const OverviewTab: React.FC = () => {
           {/* Campaigns & Promos */}
           <CampaignsPromosCard />
 
-          {/* Group Token Balances */}
-          <GroupBalancesCard />
+          {/* Group Token Balances - HIDDEN per client request */}
+          {/* <GroupBalancesCard /> */}
         </div>
       </div>
 

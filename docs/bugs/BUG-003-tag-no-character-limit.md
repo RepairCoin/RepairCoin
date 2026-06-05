@@ -5,8 +5,9 @@
 **Priority:** P3
 **Component:** Frontend - Shop Services
 **Labels:** bug, frontend, validation, ui-overflow
-**Status:** OPEN - Requires Frontend Work
+**Status:** ✅ FIXED
 **Date Found:** 2026-01-05
+**Date Fixed:** 2026-06-04
 **Requires:** React validation + backend 20-char limit enforcement
 
 ---
@@ -147,3 +148,36 @@ if (tags && Array.isArray(tags)) {
 - Service cards: Shows first 3 tags with "+N more"
 - Details modal: Shows all tags in golden badges
 - Shop modal: Shows all tags in golden badges
+
+---
+
+## Resolution (June 4, 2026) ✅
+
+**Status:** FIXED
+
+**Implementation:**
+- Added 20-character maximum length validation for individual tags
+- Implemented character counter during tag input ("X/20")
+- Error message displays when tag exceeds limit
+- Backend validates both tag length and maximum 5 tags
+- Frontend prevents adding tags that exceed limit
+
+**Files Modified:**
+- `frontend/src/components/shop/modals/CreateServiceModal.tsx` - Tag length validation
+- `backend/src/domains/shop/services/ServiceManagementService.ts` - Server-side validation
+
+**Validation Rules Enforced:**
+- ✅ Maximum 5 tags per service
+- ✅ Individual tags limited to 20 characters
+- ✅ No duplicate tags allowed
+- ✅ Whitespace automatically trimmed
+- ✅ Backend validates all constraints
+
+**Verification:**
+- ✅ Character counter shows during tag input
+- ✅ Error message displayed for long tags
+- ✅ Backend rejects tags > 20 characters
+- ✅ Backend rejects > 5 tags
+- ✅ UI remains consistent across all views
+
+**Impact:** Tags are now properly constrained, preventing UI overflow in service cards and maintaining consistent display across the marketplace.

@@ -207,12 +207,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <FileBarChart className="w-5 h-5" />,
           tabId: "reports",
         },
-        {
-          title: "Affiliate Groups",
-          href: "/shop/groups",
-          icon: <GlobeIcon className="w-5 h-5" />,
-          tabId: "groups",
-        },
+        // {
+        //   title: "Affiliate Groups",
+        //   href: "/shop/groups",
+        //   icon: <GlobeIcon className="w-5 h-5" />,
+        //   tabId: "groups",
+        // },
         {
           title: "Shop Location",
           href: "/shop?tab=shop-location",
