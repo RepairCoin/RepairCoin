@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, Plus, Loader2, Package, Tag, DollarSign, Hash, BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { inventoryApi } from '@/services/api/inventory';
+import { NumberInput } from '@/components/ui/NumberInput';
 import type {
   InventoryItemWithDetails,
   InventoryCategory,
@@ -186,8 +187,8 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-[#1A1A1A] rounded-lg w-full max-w-3xl border border-gray-800 my-8">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1A1A1A] rounded-lg w-full max-w-3xl border border-gray-800 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <div className="flex items-center gap-3">
@@ -209,7 +210,8 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Image Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Item Image</label>
@@ -430,12 +432,11 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
               </label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="number"
+                <NumberInput
                   step="0.01"
                   min="0"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
+                  value={formData.price ?? 0}
+                  onValueChange={(value) => handleInputChange('price', value)}
                   placeholder="0.00"
                   className="w-full pl-10 pr-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
                   required
@@ -449,12 +450,11 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
               <label className="block text-sm font-medium text-gray-300 mb-2">Cost (optional)</label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="number"
+                <NumberInput
                   step="0.01"
                   min="0"
-                  value={formData.cost}
-                  onChange={(e) => handleInputChange('cost', parseFloat(e.target.value) || 0)}
+                  value={formData.cost ?? 0}
+                  onValueChange={(value) => handleInputChange('cost', value)}
                   placeholder="0.00"
                   className="w-full pl-10 pr-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
                   disabled={loading}
@@ -468,11 +468,11 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
             {/* Low Stock Threshold */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Low Stock Threshold</label>
-              <input
-                type="number"
+              <NumberInput
+                integer
                 min="0"
-                value={formData.lowStockThreshold}
-                onChange={(e) => handleInputChange('lowStockThreshold', parseInt(e.target.value) || 0)}
+                value={formData.lowStockThreshold ?? 0}
+                onValueChange={(value) => handleInputChange('lowStockThreshold', value)}
                 placeholder="10"
                 className="w-full px-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
                 disabled={loading}
@@ -504,8 +504,10 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({ 
             </p>
           </div>
 
+          </div>
+
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+          <div className="shrink-0 flex items-center justify-end gap-3 p-6 border-t border-gray-800">
             <button
               type="button"
               onClick={onClose}

@@ -66,11 +66,13 @@ export const ServiceImportModal: React.FC<ServiceImportModalProps> = ({ onClose,
     }
   };
 
-  const handleImport = async () => {
+  const handleImport = async (dryRunOverride?: boolean) => {
     if (!selectedFile) {
       toast.error('Please select a file first');
       return;
     }
+
+    const effectiveDryRun = dryRunOverride ?? dryRun;
 
     setImporting(true);
     setViewState('validating');
@@ -78,7 +80,7 @@ export const ServiceImportModal: React.FC<ServiceImportModalProps> = ({ onClose,
     try {
       const result = await importServices(selectedFile, {
         mode: importMode,
-        dryRun,
+        dryRun: effectiveDryRun,
         onDuplicateName: 'skip',
       });
 
@@ -86,7 +88,7 @@ export const ServiceImportModal: React.FC<ServiceImportModalProps> = ({ onClose,
       setViewState('results');
 
       if (result.success) {
-        if (dryRun) {
+        if (effectiveDryRun) {
           toast.success(`Validation successful! ${result.summary.validRows} rows ready to import`, {
             icon: '✅',
           });
@@ -499,9 +501,8 @@ export const ServiceImportModal: React.FC<ServiceImportModalProps> = ({ onClose,
                   type="button"
                   onClick={() => {
                     setDryRun(false);
-                    setViewState('upload');
-                    // Auto-trigger import after setting dryRun to false
-                    setTimeout(() => handleImport(), 100);
+                    setImportResult(null);
+                    handleImport(false);
                   }}
                   className="flex-1 px-4 py-3 rounded-xl bg-[#FFCC00] text-black font-semibold hover:bg-[#FFD700] transition-colors flex items-center justify-center gap-2"
                 >

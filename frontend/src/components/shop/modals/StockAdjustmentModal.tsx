@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Loader2, Package, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { inventoryApi } from '@/services/api/inventory';
+import { NumberInput } from '@/components/ui/NumberInput';
 import type { InventoryItemWithDetails, AdjustmentType } from '@/types/inventory';
 
 interface StockAdjustmentModalProps {
@@ -78,7 +79,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1A1A1A] rounded-lg w-full max-w-2xl border border-gray-800">
+      <div className="bg-[#1A1A1A] rounded-lg w-full max-w-2xl border border-gray-800 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <div className="flex items-center gap-3">
@@ -100,7 +101,8 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Current Stock Display */}
           <div className="bg-[#101010] border border-gray-700 rounded-lg p-4">
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -195,11 +197,11 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item
               </div>
 
               {/* Input */}
-              <input
-                type="number"
+              <NumberInput
+                integer
                 value={quantityChange}
-                onChange={(e) => setQuantityChange(parseInt(e.target.value) || 0)}
-                className="flex-1 px-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white text-center font-bold focus:outline-none focus:border-[#FFCC00] transition-colors"
+                onValueChange={setQuantityChange}
+                className="flex-1 min-w-0 px-4 py-2 bg-[#101010] border border-gray-700 rounded-lg text-white text-center font-bold focus:outline-none focus:border-[#FFCC00] transition-colors"
                 placeholder="0"
                 disabled={loading}
               />
@@ -255,8 +257,10 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ item
             />
           </div>
 
+          </div>
+
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+          <div className="shrink-0 flex items-center justify-end gap-3 p-6 border-t border-gray-800">
             <button
               type="button"
               onClick={onClose}
