@@ -25,6 +25,8 @@ export function useServiceReviews() {
         limit: 50,
       }),
     enabled: !!id,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   // Check if user is shop owner of this service

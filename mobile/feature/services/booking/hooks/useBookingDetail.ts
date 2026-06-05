@@ -130,7 +130,7 @@ export function useBookingDetail() {
       "Are you sure you want to mark this booking as complete? Customer will receive their RCN rewards.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Complete", onPress: () => completeOrderMutation.mutate(booking.orderId) },
+        { text: "Complete", onPress: () => completeOrderMutation.mutate({ orderId: booking.orderId, customerAddress: booking.customerAddress }) },
       ]
     );
   }, [booking, completeOrderMutation]);
