@@ -81,7 +81,7 @@ export const InsightsToolCallCard: React.FC<{
   return (
     <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+        <p className="text-xs uppercase tracking-wide text-gray-500">
           {title}
         </p>
         <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ const FollowUpsRow: React.FC<{
           type="button"
           onClick={() => onFollowupClick?.(q)}
           disabled={!onFollowupClick}
-          className="text-[11px] text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-full px-3 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="text-sm text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-full px-3 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           {q}
         </button>
@@ -170,7 +170,7 @@ const PinButton: React.FC<{
             : "Pin this question to your saved list"
       }
       aria-label="Pin this question"
-      className={`flex items-center gap-1 text-[10px] transition-colors disabled:cursor-default ${tone}`}
+      className={`flex items-center gap-1 text-xs transition-colors disabled:cursor-default ${tone}`}
     >
       {state === "pinned" ? (
         <Check className="w-3 h-3" />
@@ -194,7 +194,7 @@ const ExpandButton: React.FC<{ title: string; display: ToolDisplay }> = ({
         type="button"
         title="Expand for a larger view"
         aria-label="Expand for a larger view"
-        className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-[#FFCC00] transition-colors"
+        className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#FFCC00] transition-colors"
       >
         <Maximize2 className="w-3 h-3" />
         <span>Expand</span>
@@ -241,7 +241,7 @@ const NumberDisplay: React.FC<{
 }> = ({ d }) => (
   <div>
     {d.label && (
-      <p className="text-[11px] text-gray-400 mb-0.5">{d.label}</p>
+      <p className="text-sm text-gray-400 mb-0.5">{d.label}</p>
     )}
     <p className="text-3xl font-semibold text-[#FFCC00] tabular-nums leading-tight">
       {d.primary}
@@ -319,7 +319,7 @@ const ComparisonDisplay: React.FC<{
 }> = ({ d }) => (
   <div>
     {d.label && (
-      <p className="text-[11px] text-gray-400 mb-2">{d.label}</p>
+      <p className="text-sm text-gray-400 mb-2">{d.label}</p>
     )}
     <div className="flex items-baseline gap-4">
       <ComparisonTile
@@ -352,14 +352,14 @@ const ComparisonTile: React.FC<{
   const valueColor = muted ? "text-gray-300" : "text-[#FFCC00]";
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] uppercase tracking-wide text-gray-500">
+      <span className="text-xs uppercase tracking-wide text-gray-500">
         {label}
       </span>
       <span className={`${valueSize} font-semibold tabular-nums ${valueColor}`}>
         {value}
       </span>
       {sublabel && (
-        <span className="text-[10px] text-gray-500 mt-0.5">{sublabel}</span>
+        <span className="text-xs text-gray-500 mt-0.5">{sublabel}</span>
       )}
     </div>
   );
@@ -386,7 +386,7 @@ const DeltaBadge: React.FC<{
         : "text-sm px-3 py-1"
       : delta.magnitude === "large"
         ? "text-xs px-2 py-1"
-        : "text-[11px] px-2 py-0.5";
+        : "text-sm px-2 py-0.5";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border tabular-nums font-medium ${tone} ${sizeClass}`}
@@ -471,7 +471,7 @@ const ExpandedTable: React.FC<{
         ))}
       </tbody>
     </table>
-    <p className="text-[11px] text-gray-600 mt-3">
+    <p className="text-sm text-gray-600 mt-3">
       {d.rows.length} row{d.rows.length === 1 ? "" : "s"}
     </p>
   </div>
@@ -500,7 +500,7 @@ const ExpandedSparkline: React.FC<{
 }> = ({ d }) => (
   <div className="py-2">
     <SparklineSvg d={d} width={800} height={140} primarySize="text-2xl" />
-    <p className="text-[11px] text-gray-600 mt-3">
+    <p className="text-sm text-gray-600 mt-3">
       {d.series.length} data point{d.series.length === 1 ? "" : "s"}
     </p>
   </div>

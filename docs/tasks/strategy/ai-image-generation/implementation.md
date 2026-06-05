@@ -2,6 +2,12 @@
 
 **Status:** Implementation plan — ready to build once gates (§2) clear.
 **Created:** 2026-06-02.
+**Updated:** 2026-06-04 — added **Phases 8–9** (shop's own / storefront photos:
+reuse existing shop photos with `banner_url` as the storefront, then in-chat image
+upload), mirroring `scope.md` §3.4 / scope Phases 7–8. Also recorded the
+**edit-vendor switch Stability → gpt-image-1** (§1, Phase 6). *(scope's "Phase 7"
+= this doc's Phase 8 and scope's "Phase 8" = this doc's Phase 9, because Phase 7
+here was already the logo overlay — see the mapping note in §7.)*
 **Owner:** Deo.
 **Source of truth for scope/decisions:** [`scope.md`](./scope.md) (read first — this doc assumes its §6 decisions).
 **Pattern mirrors:** `ai-marketing-campaigns/` (tool registry + propose-then-tap cards) and `voice-ai-dispatcher/` (thin OpenAI clients + spend cap + audit table + per-shop kill switch).
@@ -20,7 +26,18 @@ Shared **image infrastructure** in `AIAgentDomain`, consumed first by **AI Marke
   > gpt-image-1 differs: sizes `1024x1024`/`1536x1024`/`1024x1536`, quality
   > `low`/`medium`/`high`, returns base64, and **rejects `response_format`**.
 - **See** (image→analysis) — **Claude Sonnet 4.6 vision** (already integrated; no new vendor)
-- **Edit** (image→image) — **Stability AI** Stable Diffusion 3.5 (img2img + inpainting)
+- **Edit** (image→image) — ~~Stability AI Stable Diffusion 3.5~~ → **OpenAI `gpt-image-1`** (`/v1/images/edits`)
+  > **Edit-vendor switch (2026-06-04):** editing moved OFF Stability. SD3.5
+  > img2img **ignored the edit instruction** — at every strength (0.2–0.99),
+  > every model variant, and prompts as drastic as "blue underwater," it returned
+  > the source image essentially unchanged, while Stability text-to-image worked
+  > fine. gpt-image-1's `/v1/images/edits` applies the change reliably and
+  > preserves text/layout (verified live on `peanut`: "make it warmer" → real
+  > warm-sunset edit, text + logo intact), reuses `OPENAI_API_KEY` (no 3rd
+  > vendor), ~$0.04–0.07/edit. `StabilityClient` is retired from the edit path
+  > (file kept for reference). See Phase 6.
+
+The shop's **own** photo — especially the **storefront** (`shops.banner_url`) — is the headline "See"/"Edit" input; how it gets into the flow is **Phases 8–9** (§7, mirroring scope §3.4).
 
 Everything follows the established invariants: **shop-scoped from the JWT** (never from the model's args), **spend-cap enforced**, **audited every call**, **propose-then-tap** for anything that lands in a customer-facing artifact, **feature-flagged + per-shop kill switch from day 1**.
 
@@ -61,11 +78,14 @@ backend/src/domains/AIAgentDomain/
   services/BrandKitService.ts                        ← NEW  read/write shop_brand_kits + prompt injection
   services/marketing/tools/proposeCampaignImage.ts   ← NEW  (Phase 2)
   services/marketing/tools/proposeImageEdit.ts       ← NEW  (Phase 6)
-  services/marketing/tools/analyzeBrandAssets.ts     ← NEW  (Phase 4, vision)
+  services/marketing/tools/analyzeBrandAssets.ts     ← NEW  (Phase 4, vision; reused by Phase 9)
+  services/marketing/tools/listShopPhotos.ts         ← NEW  (Phase 8 — shop's own photos; banner_url = storefront)
   services/marketing/types.ts                        ← EXTEND: + campaign_image_proposal display
   services/marketing/registry.ts                     ← EXTEND: register the new tools
-  routes.ts                                           ← EXTEND: mount the 3 new routes
+  controllers/UnifiedAssistantController.ts          ← EXTEND: accept optional attachedImageUrl (Phase 9)
+  routes.ts                                           ← EXTEND: mount the new routes
 
+backend/src/routes/upload.ts                          ← EXTEND: generic ai-source upload → shops/{id}/ai-uploads (Phase 9)
 backend/migrations/134_create_ai_image_generations.sql  ← NEW
 backend/migrations/135_create_shop_brand_kits.sql        ← NEW
 
@@ -73,6 +93,7 @@ frontend/src/services/api/aiImages.ts                ← NEW (generate/edit clie
 frontend/src/services/api/aiBrandKit.ts              ← NEW
 frontend/src/components/shop/marketing-ai/MarketingToolCallCard.tsx ← EXTEND: render image proposal
 frontend/src/components/shop/unified/OrchestrateToolCallCard.tsx    ← EXTEND: add image kind to MARKETING_KINDS
+frontend/src/components/shop/unified/UnifiedAssistantPanel.tsx      ← EXTEND: image attach affordance (Phase 9)
 frontend/src/components/shop/settings/BrandKitTab.tsx ← NEW (Phase 3)
 ```
 
@@ -134,9 +155,8 @@ Both applied to staging via the existing `record-and-verify-migration` script fl
 - Returns a URL valid ~60 min → **caller must download immediately** (G5).
 - Reads `OPENAI_API_KEY` at call time; never logs it; sanitized errors. Cost computed locally for the audit row.
 
-### Stability (`StabilityClient.ts`, Phase 6) — new pattern, same hygiene
-- `POST https://api.stability.ai/v2beta/stable-image/edit/...` (img2img / inpaint endpoints), `Authorization: Bearer ${STABILITY_API_KEY}`, multipart with the source image bytes + prompt (+ mask for inpaint).
-- ~$0.045/edit. Uses `STABILITY_API_KEY` (**already in `.env`**).
+### ~~Stability (`StabilityClient.ts`, Phase 6)~~ — **RETIRED 2026-06-04**
+Editing now runs on **`OpenAIImageClient.edit()`** (`/v1/images/edits`, gpt-image-1) — see §1 + Phase 6. SD3.5 img2img ignored the edit instruction. `StabilityClient.ts` is kept in the tree for reference but is **not wired in**, and **`STABILITY_API_KEY` is now unused** (no Stability dependency remains). For region-level inpainting later, add a `mask` to `OpenAIImageClient.edit()` (gpt-image-1 supports it) rather than reviving this.
 
 ### Moderation (`OpenAIModerationClient.ts`) — risk mitigation (scope §8)
 - `POST https://api.openai.com/v1/moderations` on the prompt **before** generating. If flagged → reject (400, audited with `moderation_flagged=true`), no image call. Cheap/free; closes the "deliberate inappropriate imagery" risk.
@@ -184,6 +204,15 @@ Logo compositing is **not** done by the model — AI would distort a real logo. 
 - **Note (cost):** unlike send, **proposing generates** (the preview is a real ~$0.04 image); Regenerate spends again. Surface this in the card copy and count it in the cap. This is the deliberate cost-for-revenue tradeoff (scope §9).
 - **Acceptance:** *"add a Black Friday banner to that campaign"* → image proposal card → Approve → image appears in the next CampaignReviewModal preview.
 
+### Phase 2.5 — Campaign embed + visual preview (DONE 2026-06-04) · closes the loop P2 opened
+Initial v1 left the image card at Copy-link + Regenerate (embed deferred). The banner now actually lands in the email and the shop sees it before send:
+- **Image card → "Use in campaign"** (`CampaignImageProposalCard`, primary CTA) — resubmits a chat message carrying the image URL, so the model has it across the turn boundary (works around the text-only history gap).
+- **`proposeCampaignDraft` gains optional `image_url`** — resolves a shop-owned URL (else falls back to the shop's most-recent generated image, mirroring `proposeImageEdit`) and **prepends an `{type:"image", src}` block above the headline** in `designContent.blocks` (the email renderer already draws image blocks). The `campaign_draft` display + result carry `imageUrl`.
+- **`CampaignReviewModal` renders a visual email preview** (banner + subject + body, reflecting live edits) — the send-confirm modal now shows the actual banner. `CampaignDraftCard` also shows a banner thumbnail + "Banner attached".
+- Works in both the Marketing panel and the unified assistant (routes through `OrchestrateToolCallCard`).
+- **Verified:** headless `proposeCampaignDraft` with an image → persisted `design_content.blocks[0]` is the image block (banner above headline), `display.imageUrl` set, test draft cleaned up; backend + frontend typecheck clean.
+- Files: `proposeCampaignDraft.ts`, `marketing/types.ts`, `aiMarketing.ts`, `MarketingToolCallCard.tsx`, `CampaignReviewModal.tsx`.
+
 ### Phase 3 — Brand kit settings (1–2 days) · unblocks P1's color injection
 - Migration 135 (`shop_brand_kits` + `ai_images_enabled`).
 - `BrandKitController` (`GET/PUT /api/ai/brand-kit`) + `BrandKitService`.
@@ -195,10 +224,11 @@ Logo compositing is **not** done by the model — AI would distort a real logo. 
 - Brand-kit setup helper: "upload logo → auto-suggest primary/secondary hex."
 - **Acceptance:** upload logo → *"extracted dominant colors: #FFCC00, #1A1A1A"* suggestion pre-fills the brand-kit form.
 
-### Phase 6 — Editing via Stability (2–3 days) · `STABILITY_API_KEY` ready
-- `StabilityClient` + `ImageEditController` (`POST /api/ai/images/edit`, body `{ source_image_url, prompt, mask?, shopId(JWT) }`) — inpaint when `mask` supplied, img2img otherwise; reuses Phase 1 storage + audit (`operation_type='edit'`, `vendor='stability'`).
-- `proposeImageEdit` marketing tool → same `campaign_image_proposal` display with `operationType:"edit"`.
-- **Acceptance:** pick an existing banner → *"replace the background with our storefront photo"* → edited preview → Approve → lands in the campaign.
+### Phase 6 — Editing (2–3 days) · ~~Stability~~ → **gpt-image-1** (DONE 2026-06-04)
+- `ImageEditController` (`POST /api/ai/images/edit`, body `{ source_image_url, prompt, mask?, shopId(JWT) }`); reuses Phase 1 storage + audit (`operation_type='edit'`).
+- **Vendor (updated 2026-06-04):** built on **`OpenAIImageClient.edit()`** (`/v1/images/edits`, `gpt-image-1`), **not** Stability — SD3.5 img2img ignored the edit instruction (see §1 callout). Output size auto-picked from the source PNG's aspect ratio (IHDR read) to keep framing; audit `vendor='openai'`, `model='gpt-image-1'`. `StabilityClient` retired from the path (file kept). `mask`/inpaint deferred (gpt-image-1 edit is full-image).
+- `proposeImageEdit` marketing tool → same `campaign_image_proposal` display with `operationType:"edit"`. The tool resolves a missing/foreign `source_image_url` to the shop's most-recent image (cross-turn URL gap fix, 2026-06-03).
+- **Acceptance:** pick an existing banner → *"make it warmer / replace the background"* → edited preview → Approve → lands in the campaign. *(Verified live on `peanut`.)*
 
 ### Phase 5 — Ads creative pipeline (5–7 days) · **separate workstream**
 Lives in `ads-system/`. Reuses this doc's generation backend + storage + audit; adds Meta sizes (1080×1080 / 1080×1350 / 1080×1920), 5-variant batch, and the Meta preview/policy check (scope §8). Cross-reference only.
@@ -213,6 +243,29 @@ Per Deo 2026-06-02: **v1 must stamp the shop's actual logo on generated/edited i
 - **Acceptance:** generate a banner with a logo set → stored image has the real logo composited bottom-right with a clean margin; toggle off → no logo; non-transparent logo flagged at upload.
 
 > **Sequencing note:** Phase 7 is small and depends only on P1 (an image to stamp) + P3 (the stored logo). Land it right after P3 so the very first proposal cards show the real logo — it's the most visible "this is *my* brand" moment.
+
+> **Phase-number mapping (storefront work):** `scope.md` calls these "Phase 7
+> (storefront reuse)" and "Phase 8 (in-chat upload)". Here they are **Phase 8**
+> and **Phase 9** — Phase 7 in this doc was already the logo overlay. Same work,
+> offset by one.
+
+### Phase 8 (new) — Storefront / shop-photo reuse (1–2 days) · depends on P1 + P6 · scope §3.4-A — ✅ BUILT 2026-06-04 (integration branch, uncommitted)
+Let the assistant use the shop's **already-uploaded** photos, with **`shops.banner_url` treated as the storefront** — no new upload UX, no schema change, no new storage.
+- ✅ `listShopPhotos` tool (`list_shop_photos`, read-only, no args) — reads `shops.banner_url` (labeled **"storefront"**), `shop_gallery_photos` (photo_url + caption), and active `shop_services.image_url` (caption = service name); returns `{ photos:[{url,type,caption}], has_storefront, count }` so Claude resolves "your storefront photo" → `banner_url` and disambiguates which photo. shopId from the JWT only. Registered in `registry.ts` → auto-included in BOTH the orchestrate and marketing-chat tool sets. **Verified** against live DB (peanut: `has_storefront:true`, 11 photos; storefront URL carries the `/shops/{shopId}/` prefix `proposeCampaignDraft` accepts as a banner).
+- ✅ `proposeCampaignDraft.image_url` already embeds any `/shops/{shopId}/` URL (resolveBannerImage), so the storefront banner "just works" once the tool surfaces it — description updated to name list_shop_photos as a source.
+- ✅ Orchestrate + marketing system prompts updated: image tools enumerated, "storefront = banner_url", and the **default-banner = one-tap suggestion** rule (below).
+- `proposeImageEdit` already accepts any `/shops/{shopId}/` URL (the shop-owned check added 2026-06-03), so an edit on `banner_url` "just works" too.
+- **Default-banner decision (exec ask, 2026-06-04): ONE-TAP SUGGESTION, not auto.** Banners stay optional — text-only is the default (never auto-generate; it costs money + ~80s). A bannerless `campaign_draft` card shows an **"Add a banner?"** row with two chips — **Use storefront** (resubmits "Use our storefront photo as the banner…" → AI calls list_shop_photos → re-drafts with `banner_url`; if `has_storefront:false`, offers to design one) and **Design one** (resubmits "Design a banner…" → `propose_campaign_image` from the campaign's subject+body). Frontend: `CampaignDraftCard` in `MarketingToolCallCard.tsx` (renders in the Marketing panel AND the unified assistant via `OrchestrateToolCallCard`).
+- Vision read of the same photos for "suggest a theme from our storefront" reuses `analyzeBrandAssets` (Phase 4, not yet built).
+- **Acceptance:** *"add a Black Friday overlay to our storefront"* → AI calls `listShopPhotos`, picks `banner_url`, calls `proposeImageEdit` → edited proposal card. *"look at our storefront and suggest a campaign theme"* → AI reads `banner_url` via `analyzeBrandAssets` → theme ideas.
+
+### Phase 9 (new) — In-chat image upload (2–3 days) · depends on P4 + P6 · scope §3.4-B — ✅ BUILT 2026-06-04 (integration branch, uncommitted)
+Let the shop drop **any** photo into the assistant for vision or editing (the better UX; handles photos not already in the system).
+- ✅ **Backend upload:** `ImageStorageService.uploadAiSource(file, shopId)` → `shops/{shopId}/ai-uploads`; `POST /api/upload/ai-source` (shop role, 5MB, image mimetypes) returns `{url,key}`.
+- ✅ **Context threading:** `MarketingToolContext.attachedImageUrl` (optional). BOTH `POST /api/ai/orchestrate` and `/api/ai/marketing-chat` read `req.body.attachedImageUrl`, **validate it's a `/shops/{shopId}/` URL** (else ignored — can't point at another shop's image), pass it into the tool dispatch ctx, AND add a **per-turn non-cached system block** telling the assistant an image is attached + which tool to use. (Chose a system note over a vision content block in the loop — the vision happens inside `analyze_brand_assets`, keeping the orchestrate loop text-only/cache-friendly.)
+- ✅ **Tooling:** NEW `analyze_brand_assets` (`analyzeBrandAssets.ts`, registered) — vision via `BrandAssetVisionClient.analyzeImage()` (new method): returns `{description, colors[], theme_ideas[]}`; defaults its source to `ctx.attachedImageUrl` (owner needn't paste a URL); ~$0.005, no spend-cap (mirrors brand-kit logo analysis). `proposeImageEdit` now **prefers `ctx.attachedImageUrl`** as the edit source when the model's URL isn't shop-owned, and its ownership check was broadened from `/ai-images/` to any `/shops/{shopId}/` path (so `ai-uploads` + existing photos count). **Verified live** (peanut storefront): analyze returned a description + 4 hex colors + 3 theme ideas for $0.0048; defaulted to the attached image with no `image_url` arg.
+- ✅ **Frontend:** **Attach** (paperclip) button in `UnifiedAssistantPanel` action row → hidden file input → `POST /upload/ai-source` (cookie auth, mirrors `ImageUploader`); pending-attachment chip (thumbnail + name + remove) above the textarea; `askOrchestrate(sessionId, messages, attachedImageUrl?)` sends the URL with the next message then clears it; the sent user bubble shows the attached thumbnail (`Turn.imageUrl`). (Built a compact inline paperclip rather than reusing the block-style `ImageUploader`, which is sized for settings forms.)
+- **Acceptance:** shop attaches a fresh storefront photo → *"what campaign theme fits this?"* (vision) **and** *"add our logo + '20% off' to this"* (edit) both render proposal cards end to end. ⚠️ Deterministic pieces verified headless; the full LLM tool-use loop (Claude picking analyze vs edit on an attached image) + the upload route over HTTP are **not yet browser-tested**.
 
 ---
 
@@ -272,10 +325,11 @@ Both vendor keys in .env ✓ (OpenAI + STABILITY_API_KEY) — no procurement gat
 Confirm G2/G3/G7 ──┐
 G4 legal ──────────┴─(gates LAUNCH, not code)
                    ▼
-P1 generate → P3 brand kit → P7 logo overlay → P2 marketing tool → P4 vision → P6 edit → broaden flag
- (DALL·E+      (table+UI)     (jimp, V1,         (card+approve)      (Claude     (Stability,
-  storage+                    real logo)                             vision)      V1 per scope)
+P1 generate → P3 brand kit → P7 logo overlay → P2 marketing tool → P4 vision → P6 edit → P8 storefront reuse → P9 chat upload → broaden flag
+ (gpt-image-1+ (table+UI)     (jimp, V1,         (card+approve)      (Claude     (gpt-image-1  (listShopPhotos;       (attach UI +
+  storage+                    real logo)                             vision)      /images/edits) banner_url=storefront)  ai-source upload)
   audit+cap+flag)
 ```
+P8/P9 are the storefront / own-photo expansion (scope §3.4); P8 needs the edit path (P6) + gen (P1), P9 needs the vision tool (P4) + edit (P6).
 
 **Smallest first shippable:** Phase 1 behind the flag (backend + audit, no UI) — the smallest blast radius, exactly as scope §10.5 recommends.

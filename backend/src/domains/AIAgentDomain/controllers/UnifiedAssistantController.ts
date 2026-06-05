@@ -170,7 +170,12 @@ interface UnifiedDispatch {
 async function dispatchUnified(
   name: string,
   input: unknown,
-  ctx: { shopId: string; pool: Pool }
+  ctx: {
+    shopId: string;
+    pool: Pool;
+    attachedImageUrl?: string;
+    lastImageUrl?: string;
+  }
 ): Promise<UnifiedDispatch> {
   // Orchestrator-own action tools (e.g. propose_purchase_order) — executed
   // directly (they validate their own args); they never throw past here.
@@ -236,7 +241,7 @@ const ORCHESTRATE_SYSTEM_PROMPT = `You are the shop owner's unified business ass
 
 Your tools fall into three groups (full schemas are provided to you separately):
 - INSIGHTS (read) — revenue, customers, repeat-visit health, bookings, services, and inventory / low-stock for a given range. Use these to answer "how are we doing?" questions.
-- MARKETING — size a customer segment (lookup_audience_count), draft a campaign (propose_campaign_draft), and propose sending a draft (propose_campaign_send).
+- MARKETING — size a customer segment (lookup_audience_count), draft a campaign (propose_campaign_draft), and propose sending a draft (propose_campaign_send). For campaign visuals: generate a branded banner from a description (propose_campaign_image), edit an existing image (propose_image_edit), analyze an attached photo for description/colors/theme ideas (analyze_brand_assets), and list the shop's already-uploaded photos (list_shop_photos — the "storefront" entry is the shop's banner). When the owner attaches an image to their message, you'll be told its url in a separate note — use analyze_brand_assets to look at it or propose_image_edit to modify it; don't ask them to re-share it. A campaign banner is OPTIONAL; never block a draft on it.
 - INVENTORY ACTION — propose a purchase order to restock a low / running-out item (propose_purchase_order). Use when the owner says "order more", "restock", or "reorder".
 
 You also have HELP KNOWLEDGE (a section of product help articles, provided separately) for HOW-TO / product-usage questions about operating the dashboard ("how do I create a service?", "where do I set my hours?"). Answer those directly from that knowledge — do NOT call a data tool for a "how do I…" question — and follow its citation rules.
@@ -245,10 +250,15 @@ Rules:
 - For "how did we do?" / performance questions, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull the most relevant 1-3 metrics — don't dump every tool.
 - When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or similar, FIRST call lookup_audience_count to size the segment, THEN call propose_campaign_draft. Echo the audience_type / audience_filters returned by the lookup into the draft.
 - REUSE what's already in this conversation. Do NOT re-call a tool for a metric, range, or segment you already fetched earlier in the thread — read it from the conversation instead. Only call a tool for data you don't have yet (a new metric, a different range, a not-yet-sized segment). On a "fix it" / win-back turn, go STRAIGHT to lookup_audience_count + propose_campaign_draft — do not re-pull numbers you already reported.
+- BANNERS are optional and owner-driven — never auto-generate one (it costs money + time). Draft text-only by default. Only add a banner when the owner asks, or when they tap a banner suggestion on the draft card, which arrives as a message like "Use our storefront photo as the banner…" or "Design a banner…". For the storefront case: call list_shop_photos, take the "storefront" url, and re-draft (REUSE the same subject/body) with that image_url — if has_storefront is false, say they haven't set a storefront photo and offer to design one instead. For the design case: call propose_campaign_image with a prompt drawn from the campaign's subject + message.
 - You can PROPOSE actions — draft or send a campaign, or order/restock inventory (propose_purchase_order) — but you NEVER execute them yourself. Every proposal renders a card the owner taps to confirm; the tap performs the action, not you. Never claim something was sent or ordered — say it's drafted/proposed and ready for their confirmation.
 - Ground EVERY number in tool output. Never invent figures. If a tool returns zero or no data, say so plainly.
 - ALWAYS respond in English (the shop dashboard is English). If the user's message looks garbled or contains non-English text — e.g. a voice transcription that mis-detected the language — do NOT switch languages or guess; reply in English and ask them to rephrase.
-- Be concise — a sentence or two per turn, like a sharp ops manager, not a report.`;
+- Be concise — a sentence or two per turn, like a sharp ops manager, not a report.
+- FORMAT for a NARROW chat panel. NEVER use markdown tables (pipes \`|\` and \`---\` rows) — they don't render here and spill out as raw symbols. To present multiple items (e.g. an inventory breakdown), use a SHORT bulleted list, ONE item per line: the item name in **bold**, then its key numbers and status inline. Example:
+  - **Back Glass** — 1 in stock, reorder at 6 · 🔴 Critical
+  - **iPad Screen** — 0 in stock, reorder at 2 · 🔴 Out of stock
+  Lead with a one-line summary, then the list, then your recommendation/next step. Keep lines short. Avoid headers (\`#\`) and long paragraphs.`;
 
 export interface UnifiedAssistantDeps {
   anthropic?: AnthropicClient;
@@ -293,6 +303,26 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         }
         const { sessionId, messages } = parsed.value;
 
+        // Phase 9 — optional image the owner attached to this turn (paperclip
+        // upload). Only honor a URL that is recognizably THIS shop's uploaded
+        // asset; anything else is ignored (can't be coerced into reading another
+        // shop's image). Passed into the tool context + announced in a per-turn
+        // system block so the assistant knows to analyze / edit it.
+        const rawAttached = (req.body as { attachedImageUrl?: unknown })
+          ?.attachedImageUrl;
+        const attachedImageUrl =
+          typeof rawAttached === "string" &&
+          rawAttached.includes(`/shops/${shopId}/`)
+            ? rawAttached
+            : undefined;
+        // The image currently shown in the panel — "edit this" targets it (and
+        // inherits its size). Shop-owned only.
+        const rawLast = (req.body as { lastImageUrl?: unknown })?.lastImageUrl;
+        const lastImageUrl =
+          typeof rawLast === "string" && rawLast.includes(`/shops/${shopId}/`)
+            ? rawLast
+            : undefined;
+
         const spendCheck = await spendCap.canSpend(shopId);
         if (!spendCheck.allowed) {
           res.status(429).json({
@@ -328,6 +358,14 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         if (assistantName) {
           systemPrompt.push({
             text: `The shop owner has named you "${assistantName}". Use that name when you refer to yourself.`,
+            cache: false,
+          });
+        }
+        if (attachedImageUrl) {
+          // Per-turn, non-cached: tells the assistant an image rode in with this
+          // message so it picks the right image tool instead of asking for a URL.
+          systemPrompt.push({
+            text: `The owner ATTACHED AN IMAGE to their current message (url: ${attachedImageUrl}). If they ask to analyze / critique / "what theme fits" / extract colors, call analyze_brand_assets (it defaults to this image). If they ask to edit / modify / "add X to this", call propose_image_edit with this url as source_image_url. If they ask to use it as an email banner, pass it as propose_campaign_draft's image_url. Don't ask them to re-share the image — you already have it.`,
             cache: false,
           });
         }
@@ -391,6 +429,8 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
             const result = await dispatchUnified(tu.toolName, tu.input, {
               shopId,
               pool,
+              attachedImageUrl,
+              lastImageUrl,
             });
             toolCalls.push({
               tool: result.tool,

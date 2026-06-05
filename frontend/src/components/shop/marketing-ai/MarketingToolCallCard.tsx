@@ -11,6 +11,8 @@ import {
   Image as ImageIcon,
   Copy,
   RefreshCw,
+  Store,
+  Sparkles,
 } from "lucide-react";
 import {
   MarketingToolCall,
@@ -45,14 +47,14 @@ export const MarketingToolCallCard: React.FC<{
     case "audience_summary":
       return <AudienceSummaryCard d={toolCall.display} />;
     case "campaign_draft":
-      return <CampaignDraftCard d={toolCall.display} />;
+      return <CampaignDraftCard d={toolCall.display} onSubmitPrompt={onChipClick} />;
     case "campaign_send":
       return <CampaignSendCard d={toolCall.display} />;
     case "strategy_chips":
       return <StrategyChipsRow d={toolCall.display} onPick={onChipClick} />;
     case "campaign_image_proposal":
       return (
-        <CampaignImageProposalCard d={toolCall.display} onRegenerate={onChipClick} />
+        <CampaignImageProposalCard d={toolCall.display} onSubmitPrompt={onChipClick} />
       );
   }
 };
@@ -85,7 +87,7 @@ const AudienceSummaryCard: React.FC<{
     <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 px-4 py-3">
       <div className="flex items-center gap-2 mb-2">
         <Users className="w-4 h-4 text-[#FFCC00]" />
-        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+        <p className="text-xs uppercase tracking-wide text-gray-500">
           Audience
         </p>
       </div>
@@ -95,9 +97,9 @@ const AudienceSummaryCard: React.FC<{
         </span>{" "}
         {d.resolvedCount === 1 ? "customer" : "customers"} match
       </p>
-      <p className="text-xs text-gray-400 mt-0.5">{d.label}</p>
+      <p className="text-sm text-gray-400 mt-0.5">{d.label}</p>
       {showSmallShopNote && (
-        <p className="mt-1.5 text-[11px] text-amber-400">
+        <p className="mt-1.5 text-sm text-amber-400">
           Your shop has {total!.toLocaleString()}{" "}
           {total === 1 ? "customer" : "customers"} total — that&apos;s why this
           is smaller than the {askedFor!.toLocaleString()} you asked for.
@@ -115,13 +117,13 @@ const AudienceSummaryCard: React.FC<{
           {d.sampleNames.slice(0, 5).map((n, i) => (
             <span
               key={i}
-              className="text-[10px] text-gray-300 bg-[#1A1A1A] border border-gray-700 rounded-full px-2 py-0.5"
+              className="text-xs text-gray-300 bg-[#1A1A1A] border border-gray-700 rounded-full px-2 py-0.5"
             >
               {n}
             </span>
           ))}
           {d.resolvedCount > (d.sampleNames?.length ?? 0) && (
-            <span className="text-[10px] text-gray-500">
+            <span className="text-xs text-gray-500">
               +{d.resolvedCount - (d.sampleNames?.length ?? 0)} more
             </span>
           )}
@@ -135,7 +137,10 @@ const AudienceSummaryCard: React.FC<{
 
 const CampaignDraftCard: React.FC<{
   d: Extract<MarketingToolDisplay, { kind: "campaign_draft" }>;
-}> = ({ d }) => {
+  /** Panel submit pipeline — powers the one-tap "add a banner" suggestions
+   *  (each resubmits a message the assistant maps to a banner action). */
+  onSubmitPrompt?: (prompt: string) => void;
+}> = ({ d, onSubmitPrompt }) => {
   const [open, setOpen] = useState(false);
   const [sentAt, setSentAt] = useState<Date | null>(null);
   const [recipientCount, setRecipientCount] = useState(d.recipientCount);
@@ -146,12 +151,12 @@ const CampaignDraftCard: React.FC<{
       <div className="rounded-lg bg-emerald-950/40 border border-emerald-800/60 px-4 py-3">
         <div className="flex items-center gap-2 mb-1">
           <Check className="w-4 h-4 text-emerald-400" />
-          <p className="text-[10px] uppercase tracking-wide text-emerald-400">
+          <p className="text-xs uppercase tracking-wide text-emerald-400">
             Sent
           </p>
         </div>
         <p className="text-sm text-white truncate">{d.subject}</p>
-        <p className="text-xs text-emerald-300/80 mt-0.5">
+        <p className="text-sm text-emerald-300/80 mt-0.5">
           {recipientCount.toLocaleString()} emails queued
         </p>
       </div>
@@ -168,19 +173,32 @@ const CampaignDraftCard: React.FC<{
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
             <Megaphone className="w-4 h-4 text-[#FFCC00]" />
-            <p className="text-[10px] uppercase tracking-wide text-gray-500">
+            <p className="text-xs uppercase tracking-wide text-gray-500">
               Campaign draft
             </p>
           </div>
-          <span className="text-[10px] text-gray-500 group-hover:text-[#FFCC00] transition-colors">
+          <span className="text-xs text-gray-500 group-hover:text-[#FFCC00] transition-colors">
             Tap to preview →
           </span>
         </div>
         <p className="text-sm text-white font-medium truncate">{d.subject}</p>
-        <p className="text-xs text-gray-400 mt-1 line-clamp-2 break-words">
+        <p className="text-sm text-gray-400 mt-1 line-clamp-2 break-words">
           {d.bodyPreview}
         </p>
-        <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-500">
+        {d.imageUrl && (
+          <div className="mt-2 flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={d.imageUrl}
+              alt="Banner"
+              className="w-12 h-12 rounded object-cover border border-gray-700 flex-shrink-0"
+            />
+            <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+              <ImageIcon className="w-3 h-3" /> Banner attached
+            </span>
+          </div>
+        )}
+        <div className="mt-2 flex items-center gap-3 text-sm text-gray-500">
           <span className="flex items-center gap-1">
             <Mail className="w-3 h-3" />
             {d.channel}
@@ -193,6 +211,39 @@ const CampaignDraftCard: React.FC<{
         </div>
       </button>
 
+      {/* One-tap banner suggestion — only when the draft has no banner yet.
+          Sibling to the tap-to-open button above (buttons can't nest). Each tap
+          resubmits a message the assistant turns into a banner action: reuse the
+          shop's storefront photo, or design a fresh branded banner. Banners stay
+          optional — the owner just sends as-is if they skip this. */}
+      {onSubmitPrompt && !d.imageUrl && (
+        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap pl-1">
+          <span className="text-xs text-gray-500">Add a banner?</span>
+          <button
+            type="button"
+            onClick={() =>
+              onSubmitPrompt(
+                "Use our storefront photo as the banner for that campaign."
+              )
+            }
+            className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00]/60 hover:text-white transition-colors"
+          >
+            <Store className="w-3 h-3" /> Use storefront
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSubmitPrompt(
+                "Design a banner for that campaign based on its subject and message."
+              )
+            }
+            className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00]/60 hover:text-white transition-colors"
+          >
+            <Sparkles className="w-3 h-3" /> Design one
+          </button>
+        </div>
+      )}
+
       {open && (
         <CampaignReviewModal
           open={open}
@@ -202,6 +253,7 @@ const CampaignDraftCard: React.FC<{
           campaignId={d.campaignId}
           audienceLabel={d.audienceLabel}
           recipientCount={d.recipientCount}
+          bannerImageUrl={d.imageUrl ?? undefined}
           onSent={(result) => {
             setSentAt(new Date());
             setRecipientCount(result.emailsSent);
@@ -307,7 +359,7 @@ const StrategyChipsRow: React.FC<{
           type="button"
           onClick={() => onPick?.(s)}
           disabled={!onPick}
-          className="text-[11px] text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-full px-3 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="text-sm text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-full px-3 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           {s}
         </button>
@@ -318,11 +370,36 @@ const StrategyChipsRow: React.FC<{
 
 // ----- campaign_image_proposal (AI-generated marketing image) -----
 
+// gpt-image-1's three sizes ↔ shop-friendly shape labels. The card lets the shop
+// re-render in another ratio with one tap — it sends a regenerate message the AI
+// maps to proposeCampaignImage's `orientation` param (landscape/square/portrait).
+const SHAPE_BY_DIMENSIONS: Record<string, "banner" | "square" | "story"> = {
+  "1536x1024": "banner",
+  "1024x1024": "square",
+  "1024x1536": "story",
+};
+// Each shape carries a proportional glyph (w×h in px, matching the real ratio)
+// so the shop SEES the shape — a wide rectangle, a square, a tall rectangle —
+// instead of having to know the words "landscape/portrait". The label stays.
+const SHAPES: Array<{
+  key: "banner" | "square" | "story";
+  label: string;
+  keyword: string;
+  glyph: { w: number; h: number };
+}> = [
+  { key: "banner", label: "Banner", keyword: "landscape email banner", glyph: { w: 24, h: 16 } },
+  { key: "square", label: "Square", keyword: "square social", glyph: { w: 17, h: 17 } },
+  { key: "story", label: "Story", keyword: "vertical portrait story", glyph: { w: 13, h: 19 } },
+];
+
 const CampaignImageProposalCard: React.FC<{
   d: Extract<MarketingToolDisplay, { kind: "campaign_image_proposal" }>;
-  onRegenerate?: (prompt: string) => void;
-}> = ({ d, onRegenerate }) => {
+  /** The panel's submit pipeline — resubmits the given text as a new user
+   *  message (powers both Regenerate and Use-in-campaign). */
+  onSubmitPrompt?: (prompt: string) => void;
+}> = ({ d, onSubmitPrompt }) => {
   const [copied, setCopied] = useState(false);
+  const currentShape = SHAPE_BY_DIMENSIONS[d.dimensions] ?? "banner";
 
   const copyLink = async () => {
     try {
@@ -338,10 +415,10 @@ const CampaignImageProposalCard: React.FC<{
     <div className="rounded-lg bg-[#0f0f0f] border border-gray-800 p-3 max-w-sm">
       <div className="flex items-center gap-2 mb-2">
         <ImageIcon className="w-4 h-4 text-[#FFCC00]" />
-        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+        <p className="text-xs uppercase tracking-wide text-gray-500">
           {d.operationType === "edit" ? "Edited image" : "Image proposal"}
         </p>
-        <span className="ml-auto text-[10px] text-gray-500">{d.dimensions}</span>
+        <span className="ml-auto text-xs text-gray-500">{d.dimensions}</span>
       </div>
 
       {/* Preview — click to open full size. */}
@@ -361,16 +438,86 @@ const CampaignImageProposalCard: React.FC<{
         />
       </a>
 
-      <p className="mt-2 text-[11px] text-gray-400 line-clamp-2">{d.prompt}</p>
-      <p className="mt-1 text-[10px] text-gray-600">
+      <p className="mt-2 text-sm text-gray-400 line-clamp-2">{d.prompt}</p>
+      <p className="mt-1 text-xs text-gray-600">
         Brand colors + logo applied automatically.
       </p>
 
-      <div className="mt-2.5 flex gap-2">
+      {/* Shape / ratio — proportional glyph + label so the shop sees the actual
+          shape (wide / square / tall). Tapping re-renders a generate in that
+          ratio, or re-shapes an edit (its default ratio follows the source). */}
+      {onSubmitPrompt && (
+        <div className="mt-2.5">
+          <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
+            Shape
+          </span>
+          <div className="flex items-stretch gap-2">
+            {SHAPES.map((s) => {
+              const active = s.key === currentShape;
+              const reshape =
+                d.operationType === "edit"
+                  ? `Change that image to a ${s.keyword} shape, keeping the same content and text.`
+                  : `Regenerate that image as a ${s.keyword} image — ${d.prompt}`;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => onSubmitPrompt(reshape)}
+                  title={
+                    active ? `Current shape: ${s.label}` : `Re-render as ${s.label}`
+                  }
+                  className={
+                    "flex flex-col items-center gap-1 px-3 py-2 rounded-lg border transition-colors " +
+                    (active
+                      ? "border-[#FFCC00] bg-[#FFCC00]/10"
+                      : "border-gray-700 bg-[#1A1A1A] hover:border-[#FFCC00]/60")
+                  }
+                >
+                  {/* fixed-height area so glyphs of different heights align */}
+                  <span className="flex items-center justify-center h-5">
+                    <span
+                      style={{ width: s.glyph.w, height: s.glyph.h }}
+                      className={
+                        "rounded-[2px] border-2 " +
+                        (active
+                          ? "border-[#FFCC00] bg-[#FFCC00]/40"
+                          : "border-gray-400")
+                      }
+                    />
+                  </span>
+                  <span
+                    className={
+                      "text-xs font-medium " +
+                      (active ? "text-[#FFCC00]" : "text-gray-300")
+                    }
+                  >
+                    {s.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {onSubmitPrompt && (
+          <button
+            type="button"
+            onClick={() =>
+              onSubmitPrompt(
+                `Use this image as the banner in a campaign — image URL: ${d.imageUrl}`
+              )
+            }
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#FFCC00] text-black hover:bg-[#FFD700] transition-colors"
+          >
+            <Megaphone className="w-3.5 h-3.5" /> Use in campaign
+          </button>
+        )}
         <button
           type="button"
           onClick={copyLink}
-          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#FFCC00] text-black hover:bg-[#FFD700] transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white transition-colors"
         >
           {copied ? (
             <>
@@ -382,10 +529,10 @@ const CampaignImageProposalCard: React.FC<{
             </>
           )}
         </button>
-        {onRegenerate && (
+        {onSubmitPrompt && (
           <button
             type="button"
-            onClick={() => onRegenerate(`Regenerate that image — ${d.prompt}`)}
+            onClick={() => onSubmitPrompt(`Regenerate that image — ${d.prompt}`)}
             className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Regenerate

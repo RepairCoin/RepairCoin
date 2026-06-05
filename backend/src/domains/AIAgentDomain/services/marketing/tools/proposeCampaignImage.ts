@@ -20,6 +20,7 @@ import {
 } from "../types";
 import { ImageGenerationService } from "../../ImageGenerationService";
 import { ImageSize } from "../../../../../services/openai/OpenAIImageClient";
+import { LogoPlacement } from "../../../../../services/LogoOverlayService";
 
 const NAME = "propose_campaign_image";
 const MAX_PROMPT = 1000;
@@ -29,6 +30,19 @@ const ORIENTATION: Record<string, ImageSize> = {
   square: "1024x1024",
   portrait: "1024x1536",
 };
+
+// Logo control the shop can request. "auto" (default) = smart placement in the
+// clearest spot; "none" = don't stamp the logo; the rest force an anchor.
+const LOGO_CHOICES = [
+  "auto",
+  "none",
+  "bottom-right",
+  "bottom-left",
+  "bottom-center",
+  "top-right",
+  "top-left",
+  "top-center",
+] as const;
 
 export const proposeCampaignImage: MarketingTool = {
   name: NAME,
@@ -56,7 +70,21 @@ export const proposeCampaignImage: MarketingTool = {
         type: "string",
         enum: ["landscape", "square", "portrait"],
         description:
-          "landscape = email banner (default), square = social/ad, portrait = story.",
+          "Image shape. landscape = email banner (default), square = social/ad, " +
+          "portrait = story. If the shop asks for a specific shape — 'banner' or " +
+          "'landscape' → landscape; 'square' → square; 'story', 'vertical', or " +
+          "'portrait' → portrait — set this to match.",
+      },
+      logo: {
+        type: "string",
+        enum: [...LOGO_CHOICES],
+        description:
+          "Where to place the shop's logo. 'auto' (default) = smart placement " +
+          "in the clearest spot so it doesn't cover text/subjects. Set 'none' if " +
+          "the shop says NOT to include the logo. Set a specific anchor if they " +
+          "ask — e.g. 'logo at the bottom center' → bottom-center, 'top left' → " +
+          "top-left. Only set this when the shop expresses a preference; " +
+          "otherwise omit it (auto).",
       },
     },
     required: ["prompt"],
@@ -69,7 +97,7 @@ export const proposeCampaignImage: MarketingTool = {
     if (!args || typeof args !== "object") {
       throw new Error(`${NAME}: args must be an object`);
     }
-    const a = args as { prompt?: unknown; orientation?: unknown };
+    const a = args as { prompt?: unknown; orientation?: unknown; logo?: unknown };
     const prompt = typeof a.prompt === "string" ? a.prompt.trim() : "";
     if (prompt.length === 0) {
       throw new Error(`${NAME}: prompt is required`);
@@ -79,12 +107,23 @@ export const proposeCampaignImage: MarketingTool = {
       typeof a.orientation === "string" ? a.orientation : "landscape";
     const dimensions = ORIENTATION[orientation] ?? ORIENTATION.landscape;
 
+    // Logo control: "none" → don't stamp it; an anchor → force it there; else
+    // (or unrecognized) → "auto" smart placement.
+    const logoChoice =
+      typeof a.logo === "string" && (LOGO_CHOICES as readonly string[]).includes(a.logo)
+        ? a.logo
+        : "auto";
+    const overlayLogo = logoChoice !== "none";
+    const logoPlacement = (logoChoice === "none" ? "auto" : logoChoice) as LogoPlacement;
+
     // Shop-scoped: shopId from the JWT-sourced ctx, never from Claude's args.
     const service = new ImageGenerationService({ pool: ctx.pool });
     const outcome = await service.generate(ctx.shopId, {
       prompt,
       dimensions,
       useCase: "marketing",
+      overlayLogo,
+      logoPlacement,
     });
 
     if (!outcome.ok || !outcome.imageUrl) {

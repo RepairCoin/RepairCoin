@@ -20,8 +20,14 @@ export const BrandKitSettings: React.FC = () => {
   const [primary, setPrimary] = useState("");
   const [secondary, setSecondary] = useState("");
   const [tone, setTone] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
+  // The shop's canonical logo (read-only here; managed in Shop Profile) and the
+  // OPTIONAL per-AI override. The AI uses the override if set, else the shop logo.
+  const [shopLogo, setShopLogo] = useState("");
+  const [overrideLogo, setOverrideLogo] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
+
+  // What the AI actually stamps / analyzes.
+  const effectiveLogo = overrideLogo || shopLogo;
 
   useEffect(() => {
     getBrandKit()
@@ -29,7 +35,8 @@ export const BrandKitSettings: React.FC = () => {
         setPrimary(k.primaryColorHex || "");
         setSecondary(k.secondaryColorHex || "");
         setTone(k.toneNotes || "");
-        setLogoUrl(k.logoUrl || "");
+        setShopLogo(k.shopLogoUrl || "");
+        setOverrideLogo(k.logoOverrideUrl || "");
       })
       .catch(() => {
         /* no kit yet — start blank */
@@ -49,7 +56,7 @@ export const BrandKitSettings: React.FC = () => {
     setSaving(true);
     try {
       await updateBrandKit({
-        logoUrl: logoUrl || null,
+        logoUrl: overrideLogo || null, // optional AI override; null = use shop logo
         primaryColorHex: primary || null,
         secondaryColorHex: secondary || null,
         toneNotes: tone.trim() || null,
@@ -63,13 +70,15 @@ export const BrandKitSettings: React.FC = () => {
   };
 
   const suggestColors = async () => {
-    if (!logoUrl) {
-      toast.error("Upload a logo first.");
+    if (!effectiveLogo) {
+      toast.error(
+        "Add a logo first — set your shop logo in Shop Profile, or upload an override here."
+      );
       return;
     }
     setAnalyzing(true);
     try {
-      const s = await analyzeLogo(logoUrl);
+      const s = await analyzeLogo(effectiveLogo);
       if (s.primaryColorHex) setPrimary(s.primaryColorHex);
       if (s.secondaryColorHex) setSecondary(s.secondaryColorHex);
       if (s.primaryColorHex || s.secondaryColorHex) {
@@ -102,8 +111,9 @@ export const BrandKitSettings: React.FC = () => {
         <Palette className="w-5 h-5" /> Brand Kit
       </h2>
       <p className="text-sm text-gray-400 mb-6">
-        Your colors, tone, and logo. The AI applies these to every image it
-        generates so your marketing and ads look on-brand.
+        Your colors and tone. The AI applies these to every image it generates so
+        your marketing and ads look on-brand. It also stamps your{" "}
+        <span className="text-gray-300">shop logo</span> on generated images.
       </p>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-8 border-t border-[#3F3F3F] pt-6">
@@ -130,30 +140,64 @@ export const BrandKitSettings: React.FC = () => {
           </div>
         </div>
 
-        {/* Logo */}
+        {/* Logo for AI images — defaults to the shop logo; optional override */}
         <div className="order-1 xl:order-2">
           <label className="block text-sm font-medium text-gray-300 mb-3">
-            Logo
+            Logo for AI images
           </label>
+
+          {/* When there's no override, the shop logo is used. Show it as the
+              default so the shop sees what will be stamped. */}
+          {!overrideLogo &&
+            (shopLogo ? (
+              <div className="flex items-center gap-3 mb-3 p-2.5 rounded-lg bg-[#1A1A1A] border border-gray-700">
+                <img
+                  src={shopLogo}
+                  alt="Shop logo"
+                  className="w-11 h-11 object-contain rounded bg-gray-800 p-1 shrink-0"
+                />
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Using your <span className="text-gray-200">shop logo</span>.
+                  Change it under <span className="text-gray-200">Shop Profile</span>,
+                  or upload an override below.
+                </p>
+              </div>
+            ) : (
+              <div className="mb-3 p-2.5 rounded-lg bg-[#1A1A1A] border border-gray-700">
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  No shop logo yet — add one under{" "}
+                  <span className="text-gray-200">Settings → Shop Profile</span>,
+                  or upload an override here just for AI images.
+                </p>
+              </div>
+            ))}
+
           <ImageUploader
             imageType="logo"
-            currentImageUrl={logoUrl || undefined}
+            currentImageUrl={overrideLogo || undefined}
             onUploadSuccess={(url) => {
-              setLogoUrl(url);
-              toast.success("Logo uploaded — remember to save.");
+              setOverrideLogo(url);
+              toast.success("Override logo uploaded — remember to save.");
             }}
-            onRemove={() => setLogoUrl("")}
+            onRemove={
+              overrideLogo
+                ? () => {
+                    setOverrideLogo("");
+                    toast("Reverted to your shop logo — remember to save.");
+                  }
+                : undefined
+            }
             showPreview
           />
           <p className="mt-2 text-xs text-gray-500">
-            Use a{" "}
-            <span className="text-gray-300">transparent-background PNG</span> — it's
-            stamped onto generated images (bottom-right corner).
+            Defaults to your shop logo. Upload a{" "}
+            <span className="text-gray-300">transparent-background PNG</span> to
+            override it just for AI-generated images (stamped bottom-right).
           </p>
           <button
             type="button"
             onClick={suggestColors}
-            disabled={!logoUrl || analyzing}
+            disabled={!effectiveLogo || analyzing}
             className="mt-3 inline-flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {analyzing ? (

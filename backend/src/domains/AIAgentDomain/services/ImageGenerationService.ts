@@ -32,6 +32,7 @@ import {
 import {
   LogoOverlayService,
   logoOverlayService,
+  LogoPlacement,
 } from "../../../services/LogoOverlayService";
 import { SpendCapEnforcer } from "./SpendCapEnforcer";
 import { BrandKitService } from "./BrandKitService";
@@ -39,14 +40,35 @@ import {
   ImageGenerationAuditLogger,
   imageGenerationAuditLogger,
 } from "./ImageGenerationAuditLogger";
-import {
-  StabilityClient,
-  stabilityClient,
-  STABILITY_EDIT_MODEL,
-} from "../../../services/stability/StabilityClient";
+// NOTE: editing moved from Stability to gpt-image-1 (OpenAIImageClient.edit) —
+// Stability SD3 img2img ignored the edit instruction. StabilityClient.ts is kept
+// in the tree for reference but is no longer wired into this service.
 
 export const MAX_PROMPT_CHARS = 1000;
 export const DAILY_IMAGE_LIMIT = 50; // per shop / day
+
+/** Human phrase for the area to keep clear for the logo, used in the generation
+ *  prompt. For "auto" we ask the model to free up one corner (the picker then
+ *  chooses the cleanest of the 6 candidate spots). */
+function reservedAreaPhrase(placement: LogoPlacement): string {
+  switch (placement) {
+    case "bottom-center":
+      return "the bottom-center area";
+    case "top-center":
+      return "the top-center area";
+    case "bottom-right":
+      return "the bottom-right corner";
+    case "bottom-left":
+      return "the bottom-left corner";
+    case "top-right":
+      return "the top-right corner";
+    case "top-left":
+      return "the top-left corner";
+    case "auto":
+    default:
+      return "one corner (e.g. a bottom corner)";
+  }
+}
 
 export interface ImageGenerationDeps {
   dalle?: OpenAIImageClient;
@@ -56,7 +78,6 @@ export interface ImageGenerationDeps {
   brandKit?: BrandKitService;
   logoOverlay?: LogoOverlayService;
   auditLogger?: ImageGenerationAuditLogger;
-  stability?: StabilityClient;
   pool?: Pool;
 }
 
@@ -67,6 +88,9 @@ export interface EditParams {
   strength?: number;
   overlayLogo?: boolean;
   useCase?: string;
+  /** Output size override. Default = match the source's aspect ratio
+   *  (preserves framing). Set to re-shape the edit (landscape/portrait/square). */
+  dimensions?: ImageSize;
 }
 
 export interface GenerateParams {
@@ -74,7 +98,11 @@ export interface GenerateParams {
   dimensions?: ImageSize;
   quality?: ImageQuality;
   useCase?: string;
+  /** False = don't stamp the logo at all. Default true (when a logo exists). */
   overlayLogo?: boolean;
+  /** Where to stamp the logo. Default "auto" (quietest spot). Ignored when
+   *  overlayLogo is false. */
+  logoPlacement?: LogoPlacement;
 }
 
 export interface GenerateOutcome {
@@ -98,7 +126,6 @@ export class ImageGenerationService {
   private brandKit: BrandKitService;
   private logoOverlay: LogoOverlayService;
   private auditLogger: ImageGenerationAuditLogger;
-  private stability: StabilityClient;
   private pool: Pool;
 
   constructor(deps: ImageGenerationDeps = {}) {
@@ -109,7 +136,6 @@ export class ImageGenerationService {
     this.brandKit = deps.brandKit ?? new BrandKitService();
     this.logoOverlay = deps.logoOverlay ?? logoOverlayService;
     this.auditLogger = deps.auditLogger ?? imageGenerationAuditLogger;
-    this.stability = deps.stability ?? stabilityClient;
     this.pool = deps.pool ?? getSharedPool();
   }
 
@@ -157,6 +183,7 @@ export class ImageGenerationService {
     const quality = params.quality ?? DEFAULT_IMAGE_QUALITY;
     const useCase = params.useCase ?? "marketing";
     const overlayLogo = params.overlayLogo !== false;
+    const logoPlacement: LogoPlacement = params.logoPlacement ?? "auto";
 
     // 1-3. Gates: kill-switch → spend cap → daily rate limit.
     const gate = await this.checkGates(shopId);
@@ -176,7 +203,15 @@ export class ImageGenerationService {
 
     // 5. Brand-kit injection (colors + tone; null-safe).
     const kit = await this.brandKit.getBrandKit(shopId);
-    const finalPrompt = this.brandKit.buildBrandedPrompt(prompt, kit);
+    let finalPrompt = this.brandKit.buildBrandedPrompt(prompt, kit);
+
+    // If we're going to stamp the logo, ask the model to RESERVE that spot —
+    // keep it clear of text/subjects so the logo doesn't clip the headline. This
+    // is what makes "smart" placement actually clean rather than least-bad.
+    const willStampLogo = overlayLogo && !!kit?.logoUrl;
+    if (willStampLogo) {
+      finalPrompt = `${finalPrompt} IMPORTANT: keep ${reservedAreaPhrase(logoPlacement)} of the image visually clean — no text, faces, or key subjects there — leaving room for a small logo.`;
+    }
 
     // 6. Generate → bytes → logo overlay → persist. Audit + spend ALWAYS.
     let imageUrl: string | null = null;
@@ -205,7 +240,9 @@ export class ImageGenerationService {
 
       // Phase 7 — stamp the real logo (best-effort, baked in before upload).
       if (overlayLogo && kit?.logoUrl) {
-        const overlaid = await this.logoOverlay.overlaySafe(buffer, kit.logoUrl);
+        const overlaid = await this.logoOverlay.overlaySafe(buffer, kit.logoUrl, {
+          corner: logoPlacement,
+        });
         buffer = overlaid.buffer;
       }
 
@@ -235,12 +272,32 @@ export class ImageGenerationService {
     };
   }
 
+  /** Pick the gpt-image-1 size whose aspect ratio matches the source PNG so an
+   *  edit keeps the original framing. Reads the PNG IHDR (no decode); falls back
+   *  to the default landscape size for non-PNG / unreadable buffers. */
+  private pickEditSize(buf: Buffer): ImageSize {
+    let w = 0;
+    let h = 0;
+    // PNG: 8-byte signature, 4-byte length, "IHDR", then width/height (BE u32).
+    if (buf.length >= 24 && buf.toString("ascii", 12, 16) === "IHDR") {
+      w = buf.readUInt32BE(16);
+      h = buf.readUInt32BE(20);
+    }
+    if (!w || !h) return DEFAULT_IMAGE_SIZE;
+    const ratio = w / h;
+    if (ratio >= 1.2) return "1536x1024"; // landscape
+    if (ratio <= 0.83) return "1024x1536"; // portrait
+    return "1024x1024"; // square
+  }
+
   /**
-   * Edit an existing image (Phase 6, Stability img2img). Same gates as
-   * generate; downloads the source, sends it to Stability with the edit
-   * prompt, optionally re-stamps the logo, stores + audits (operation_type
-   * 'edit', vendor 'stability'). The edit prompt is the user's instruction —
-   * we do NOT inject brand colors (the source already defines the look).
+   * Edit an existing image (Phase 6) via gpt-image-1 `/images/edits`. Same gates
+   * as generate; downloads the source, sends it + the edit prompt to OpenAI,
+   * optionally re-stamps the logo, stores + audits (operation_type 'edit',
+   * vendor 'openai'). The edit prompt is the user's instruction — we do NOT
+   * inject brand colors (the source already defines the look).
+   * (Was Stability SD3 img2img, which ignored the instruction — see
+   * OpenAIImageClient header.)
    */
   async edit(shopId: string, params: EditParams): Promise<GenerateOutcome> {
     const prompt = (params.prompt ?? "").trim();
@@ -263,7 +320,7 @@ export class ImageGenerationService {
     const mod = await this.moderation.check(prompt);
     if (mod.flagged) {
       await this.auditLogger.log({
-        shopId, operationType: "edit", vendor: "stability", model: STABILITY_EDIT_MODEL,
+        shopId, operationType: "edit", vendor: "openai", model: "gpt-image-1",
         prompt, sourceImageUrl, imageUrl: null, imageKey: null, dimensions: null, useCase,
         costUsd: 0, latencyMs: null, moderationFlagged: true,
         errorMessage: `moderation_flagged: ${mod.categories.join(",")}`,
@@ -278,18 +335,24 @@ export class ImageGenerationService {
     let costUsd = 0;
     let latencyMs: number | null = null;
     let errorMessage: string | null = null;
+    // The size we edit at — derived from the source's aspect ratio so the edit
+    // keeps the original framing. Recorded + returned (was dropped before).
+    let dimensions: string | null = null;
 
     try {
       const dl = await fetch(sourceImageUrl);
       if (!dl.ok) throw new Error(`source download failed (status ${dl.status})`);
       const sourceBuf = Buffer.from(await dl.arrayBuffer());
 
-      const edited = await this.stability.edit(sourceBuf, prompt, {
-        strength: params.strength,
-      });
+      // gpt-image-1 edit (not Stability — SD3 img2img ignored the instruction).
+      // Output size: an explicit override (re-shape request) if given, else match
+      // the source's aspect ratio so the edit keeps the original framing.
+      const size = params.dimensions ?? this.pickEditSize(sourceBuf);
+      dimensions = size;
+      const edited = await this.dalle.edit(sourceBuf, prompt, size);
       costUsd = edited.costUsd;
       latencyMs = edited.latencyMs;
-      let buffer = edited.image;
+      let buffer: Buffer = Buffer.from(edited.b64Json, "base64");
 
       if (overlayLogo && kit?.logoUrl) {
         const overlaid = await this.logoOverlay.overlaySafe(buffer, kit.logoUrl);
@@ -306,8 +369,8 @@ export class ImageGenerationService {
     }
 
     await this.auditLogger.log({
-      shopId, operationType: "edit", vendor: "stability", model: STABILITY_EDIT_MODEL,
-      prompt, sourceImageUrl, imageUrl, imageKey, dimensions: null, useCase,
+      shopId, operationType: "edit", vendor: "openai", model: "gpt-image-1",
+      prompt, sourceImageUrl, imageUrl, imageKey, dimensions, useCase,
       costUsd: imageUrl ? costUsd : 0, latencyMs, moderationFlagged: false, errorMessage,
     });
 
@@ -318,6 +381,7 @@ export class ImageGenerationService {
     await this.spendCap.recordSpend(shopId, costUsd);
     return {
       ok: true, status: 200, imageUrl, imageKey: imageKey ?? undefined,
+      dimensions: dimensions ?? undefined,
       costUsd: Number(costUsd.toFixed(6)), revisedPrompt: null,
     };
   }

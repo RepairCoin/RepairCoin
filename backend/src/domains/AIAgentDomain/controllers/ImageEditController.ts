@@ -1,9 +1,9 @@
 // backend/src/domains/AIAgentDomain/controllers/ImageEditController.ts
 //
 // POST /api/ai/images/edit — edit an existing image from a prompt (AI Image
-// Generation Phase 6, Stability img2img). Thin HTTP wrapper: validate the body,
-// delegate to ImageGenerationService.edit (shared with the propose_image_edit
-// tool). Same gates/audit/spend as generate.
+// Generation Phase 6; runs on gpt-image-1 /images/edits — Stability was retired).
+// Thin HTTP wrapper: validate the body, delegate to ImageGenerationService.edit
+// (shared with the propose_image_edit tool). Same gates/audit/spend as generate.
 //
 // Request (JSON): { sourceImageUrl, prompt, strength?, overlayLogo? }
 // Response: { success:true, data:{ imageUrl, imageKey, costUsd } } | { success:false, error }

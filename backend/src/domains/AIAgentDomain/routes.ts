@@ -168,9 +168,10 @@ export function initializeRoutes(): Router {
   // into ai_image_generations. See docs/tasks/strategy/ai-image-generation/.
   router.post('/images/generate', authMiddleware, requireRole(['shop']), generateImage);
 
-  // AI Image Editing — Phase 6 (Stability img2img). Edit an existing image
-  // from a prompt. Body: { sourceImageUrl, prompt, strength?, overlayLogo? }.
-  // Same gates/audit/spend as generate; audited operation_type='edit'.
+  // AI Image Editing — Phase 6 (gpt-image-1 /images/edits; Stability retired).
+  // Edit an existing image from a prompt. Body: { sourceImageUrl, prompt,
+  // strength?, overlayLogo? }. Same gates/audit/spend as generate;
+  // audited operation_type='edit'.
   router.post('/images/edit', authMiddleware, requireRole(['shop']), editImage);
 
   // Brand kit (AI Image Generation Phase 3) — per-shop colors + tone + logo URL

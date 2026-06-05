@@ -49,6 +49,8 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
           data:
             kit ?? {
               logoUrl: null,
+              logoOverrideUrl: null,
+              shopLogoUrl: null,
               primaryColorHex: null,
               secondaryColorHex: null,
               toneNotes: null,
@@ -98,10 +100,20 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
         res.status(401).json({ success: false, error: "Shop ID required" });
         return;
       }
-      const logoUrl =
+      let logoUrl =
         typeof req.body?.logoUrl === "string" ? req.body.logoUrl.trim() : "";
+      // Fall back to the shop's effective logo (override ?? shop profile logo)
+      // so "Suggest colors from logo" works without re-passing a URL.
       if (logoUrl.length === 0) {
-        res.status(400).json({ success: false, error: "logoUrl is required" });
+        const kit = await brandKit.getBrandKit(shopId);
+        logoUrl = kit?.logoUrl ?? "";
+      }
+      if (logoUrl.length === 0) {
+        res.status(400).json({
+          success: false,
+          error:
+            "Add a logo first — set your shop logo under Settings → Shop Profile, or upload an override here.",
+        });
         return;
       }
 

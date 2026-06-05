@@ -76,12 +76,14 @@ export class ImageStorageService {
       forcePathStyle: true, // Use path-style: region.digitaloceanspaces.com/bucket/key
       requestHandler: new NodeHttpHandler({
         connectionTimeout: 10000, // 10 seconds
-        socketTimeout: 30000, // 30 seconds
+        // 90s: AI image PNGs are large (~1.5MB landscape) and DO Spaces uploads
+        // can run long; 30s timed out mid-upload after a slow generation.
+        socketTimeout: 90000, // 90 seconds
         httpsAgent: new https.Agent({
           keepAlive: true,
           keepAliveMsecs: 1000,
           maxSockets: 50,
-          timeout: 30000,
+          timeout: 90000,
           family: 4, // Force IPv4
           lookup: (hostname, _options, callback) => {
             // Use dns.resolve4 which respects dns.setServers() (Google/Cloudflare DNS)
@@ -366,6 +368,16 @@ export class ImageStorageService {
    */
   async uploadCustomerAvatar(file: MulterFile, customerAddress: string): Promise<UploadResult> {
     return this.uploadImage(file, `customers/${customerAddress}/avatars`);
+  }
+
+  /**
+   * Upload an ad-hoc image the shop drops into the AI assistant (Phase 9 —
+   * in-chat image upload). Lands under `shops/{shopId}/ai-uploads` so the
+   * resulting URL carries the `/shops/{shopId}/` prefix the AI image tools use
+   * to confirm shop ownership before editing/analyzing it.
+   */
+  async uploadAiSource(file: MulterFile, shopId: string): Promise<UploadResult> {
+    return this.uploadImage(file, `shops/${shopId}/ai-uploads`);
   }
 
   /**

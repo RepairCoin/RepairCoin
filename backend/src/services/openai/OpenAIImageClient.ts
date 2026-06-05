@@ -6,9 +6,12 @@
 // docs/tasks/strategy/ai-image-generation/implementation.md §5.
 //
 // Model: `gpt-image-1` — OpenAI's current image model (supersedes DALL·E 3,
-// which is not available on this account). GENERATES only; editing is Stability
-// (Phase 6). The API returns base64 image bytes; the caller persists them
-// immediately (DigitalOcean Spaces).
+// which is not available on this account). GENERATES (text→image) AND EDITS
+// (image+prompt→image). Editing moved here from Stability: Stability's SD3
+// img2img ignored the edit instruction (returned the source unchanged at every
+// strength), whereas gpt-image-1's /images/edits applies the change reliably and
+// preserves text/layout. The API returns base64 image bytes; the caller persists
+// them immediately (DigitalOcean Spaces).
 //
 // Secret hygiene mirrors WhisperClient: reads OPENAI_API_KEY at call time,
 // never logs it, sanitized errors. Node 18+ built-in fetch; no `openai` SDK.
@@ -17,6 +20,7 @@ import { logger } from "../../utils/logger";
 
 const IMAGE_MODEL = "gpt-image-1";
 const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
+const IMAGE_EDIT_ENDPOINT = "https://api.openai.com/v1/images/edits";
 
 // Valid gpt-image-1 sizes (dall-e-3's 1792-wide sizes are NOT accepted here):
 // square for ad creative, landscape/portrait for banners.
@@ -131,6 +135,83 @@ export class OpenAIImageClient {
       costUsd: Number(costUsd.toFixed(6)),
       latencyMs,
     };
+  }
+
+  /**
+   * Edit an existing image from a prompt (gpt-image-1 `/images/edits`). Applies
+   * the instruction to `source` while keeping composition/text. Returns base64
+   * PNG bytes (the caller persists them). `size` should match the source's
+   * aspect ratio; the caller picks it. @throws sanitized Error; key never leaks.
+   */
+  async edit(
+    source: Buffer,
+    prompt: string,
+    size: ImageSize = DEFAULT_IMAGE_SIZE,
+    quality: ImageQuality = DEFAULT_IMAGE_QUALITY
+  ): Promise<{ b64Json: string; costUsd: number; latencyMs: number }> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is not set. Add it to backend/.env (never commit)."
+      );
+    }
+
+    const form = new FormData();
+    form.append("model", IMAGE_MODEL);
+    form.append(
+      "image",
+      new Blob([new Uint8Array(source)], { type: "image/png" }),
+      "image.png"
+    );
+    form.append("prompt", prompt);
+    form.append("size", size);
+    form.append("quality", quality);
+    form.append("n", "1");
+
+    const startedAt = Date.now();
+    let res: Response;
+    try {
+      // No Content-Type header — fetch + FormData set the multipart boundary.
+      res = await fetch(IMAGE_EDIT_ENDPOINT, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      });
+    } catch (err) {
+      const latencyMs = Date.now() - startedAt;
+      logger.error("OpenAIImageClient edit network error", {
+        latencyMs,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw new Error("Image edit request failed — network error");
+    }
+
+    const latencyMs = Date.now() - startedAt;
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "<unreadable>");
+      logger.error("OpenAIImageClient edit non-OK response", {
+        status: res.status,
+        latencyMs,
+        body: body.slice(0, 500),
+      });
+      throw new Error(`OpenAI image edit API returned status ${res.status}`);
+    }
+
+    const payload = (await res.json()) as {
+      data?: Array<{ b64_json?: string }>;
+    };
+    const b64 = payload.data?.[0]?.b64_json;
+    if (!b64) {
+      logger.error("OpenAIImageClient edit missing image data", { payload });
+      throw new Error("OpenAI image edit API returned no image data");
+    }
+
+    // Edits are priced like generation for gpt-image-1 (input image adds a small
+    // token cost; the table value is a close approximation for the audit).
+    const costUsd = IMAGE_PRICING[`${quality}:${size}`] ?? 0.08;
+
+    return { b64Json: b64, costUsd: Number(costUsd.toFixed(6)), latencyMs };
   }
 }
 

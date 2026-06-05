@@ -7,6 +7,20 @@
 import apiClient from "./client";
 
 export interface BrandKit {
+  /** Effective logo the AI uses (override ?? shop profile logo) — for preview. */
+  logoUrl: string | null;
+  /** Optional AI override (null = use the shop logo). */
+  logoOverrideUrl: string | null;
+  /** The shop's canonical logo, managed under Settings → Shop Profile. */
+  shopLogoUrl: string | null;
+  primaryColorHex: string | null;
+  secondaryColorHex: string | null;
+  toneNotes: string | null;
+}
+
+/** Writable brand-kit fields. `logoUrl` is the OPTIONAL AI override
+ *  (null = use the shop's profile logo) — NOT the shop's public logo. */
+export interface BrandKitUpdate {
   logoUrl: string | null;
   primaryColorHex: string | null;
   secondaryColorHex: string | null;
@@ -22,7 +36,9 @@ export const getBrandKit = async (): Promise<BrandKit> => {
 };
 
 /** Create or replace the shop's brand kit (full replace). */
-export const updateBrandKit = async (update: BrandKit): Promise<BrandKit> => {
+export const updateBrandKit = async (
+  update: BrandKitUpdate
+): Promise<BrandKit> => {
   const response = await apiClient.put("/ai/brand-kit", update);
   return (response.data.data || response.data) as BrandKit;
 };

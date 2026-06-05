@@ -19,7 +19,16 @@ import { getSharedPool } from "../../../utils/database-pool";
 import { logger } from "../../../utils/logger";
 
 export interface BrandKit {
+  /** Effective logo the AI uses (override ?? the shop's profile logo). This is
+   *  what the generator stamps and what the UI previews. */
   logoUrl: string | null;
+  /** The brand-kit override (shop_brand_kits.logo_url). Null = "use the shop
+   *  logo". A shop only sets this to stamp a different image (e.g. a
+   *  transparent PNG) onto AI output without changing its public logo. */
+  logoOverrideUrl: string | null;
+  /** The shop's canonical logo (shops.logo_url) — the default, managed under
+   *  Settings → Shop Profile. */
+  shopLogoUrl: string | null;
   primaryColorHex: string | null;
   secondaryColorHex: string | null;
   toneNotes: string | null;
@@ -27,7 +36,8 @@ export interface BrandKit {
 
 /** Fields a shop may set via PUT /api/ai/brand-kit. All optional → a full
  *  replace where an omitted/empty field is stored as NULL (the form always
- *  sends its current values). */
+ *  sends its current values). `logoUrl` here is the OPTIONAL AI override
+ *  (shop_brand_kits.logo_url) — NOT the shop's public logo. */
 export interface BrandKitUpdate {
   logoUrl?: string | null;
   primaryColorHex?: string | null;
@@ -38,6 +48,20 @@ export interface BrandKitUpdate {
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const MAX_TONE_CHARS = 500;
 const MAX_LOGO_URL_CHARS = 2048;
+
+// Always-on art direction so AI output reads like designed marketing, not
+// generic AI art. Applied to EVERY generation (with or without a brand kit).
+// Targets the real failure modes seen in output: light/yellow text on a light
+// busy background (unreadable), and unbalanced layouts with large dead space.
+const DESIGN_DIRECTION =
+  "Design direction: this is a polished marketing graphic. Make any on-image " +
+  "text large, bold, and HIGHLY LEGIBLE with strong contrast against its " +
+  "background — set text over a darker region or add a semi-transparent dark " +
+  "gradient/band behind it so it reads clearly. NEVER place light, white, or " +
+  "yellow text directly on a light or busy background. Use a balanced, " +
+  "full-frame composition with a clear focal point and NO large empty or dead " +
+  "space; the headline and offer get visual priority. Keep it clean, modern, " +
+  "and uncluttered.";
 
 /**
  * Pure validator for a brand-kit update — exported for unit tests. Normalizes
@@ -85,32 +109,46 @@ export function validateBrandKitUpdate(
 export class BrandKitService {
   constructor(private readonly pool: Pool = getSharedPool()) {}
 
-  /** Read a shop's brand kit. Returns null if unset OR the table doesn't
-   *  exist yet (Phase 3 creates it) — never throws into the gen path. */
+  /** Read a shop's brand kit. The logo is resolved to the EFFECTIVE logo —
+   *  the brand-kit override if set, otherwise the shop's profile logo
+   *  (shops.logo_url) — so a shop manages its logo in ONE place (Shop Profile)
+   *  and only overrides here when it wants a different image stamped on AI
+   *  output. Returns null only when the shop row itself is missing; on a DB
+   *  error returns null so generation proceeds without brand guidance. */
   async getBrandKit(shopId: string): Promise<BrandKit | null> {
     try {
       const r = await this.pool.query<{
-        logo_url: string | null;
+        shop_logo_url: string | null;
+        override_logo_url: string | null;
         primary_color_hex: string | null;
         secondary_color_hex: string | null;
         tone_notes: string | null;
       }>(
-        `SELECT logo_url, primary_color_hex, secondary_color_hex, tone_notes
-           FROM shop_brand_kits
-          WHERE shop_id = $1`,
+        `SELECT s.logo_url            AS shop_logo_url,
+                bk.logo_url           AS override_logo_url,
+                bk.primary_color_hex,
+                bk.secondary_color_hex,
+                bk.tone_notes
+           FROM shops s
+           LEFT JOIN shop_brand_kits bk ON bk.shop_id = s.shop_id
+          WHERE s.shop_id = $1`,
         [shopId]
       );
       const row = r.rows[0];
       if (!row) return null;
+      const shopLogoUrl = row.shop_logo_url;
+      const logoOverrideUrl = row.override_logo_url;
       return {
-        logoUrl: row.logo_url,
+        logoUrl: logoOverrideUrl ?? shopLogoUrl, // effective: override wins
+        logoOverrideUrl,
+        shopLogoUrl,
         primaryColorHex: row.primary_color_hex,
         secondaryColorHex: row.secondary_color_hex,
         toneNotes: row.tone_notes,
       };
     } catch (err) {
-      // Table absent (pre-Phase-3) or transient DB error → treat as "no kit".
-      // Brand guidance is an enhancement, never a hard dependency of gen.
+      // Table absent or transient DB error → treat as "no kit". Brand guidance
+      // (and logo stamping) is an enhancement, never a hard dependency of gen.
       logger.warn("BrandKitService.getBrandKit unavailable — generating without brand guidance", {
         shopId,
         error: err instanceof Error ? err.message : String(err),
@@ -125,12 +163,8 @@ export class BrandKitService {
    * stored kit. Throws on DB error (controller maps to 503).
    */
   async upsertBrandKit(shopId: string, update: BrandKitUpdate): Promise<BrandKit> {
-    const r = await this.pool.query<{
-      logo_url: string | null;
-      primary_color_hex: string | null;
-      secondary_color_hex: string | null;
-      tone_notes: string | null;
-    }>(
+    // `logo_url` stored here is the OPTIONAL override (null = use the shop logo).
+    await this.pool.query(
       `INSERT INTO shop_brand_kits
          (shop_id, logo_url, primary_color_hex, secondary_color_hex, tone_notes, updated_at)
        VALUES ($1, $2, $3, $4, $5, now())
@@ -139,8 +173,7 @@ export class BrandKitService {
          primary_color_hex   = EXCLUDED.primary_color_hex,
          secondary_color_hex = EXCLUDED.secondary_color_hex,
          tone_notes          = EXCLUDED.tone_notes,
-         updated_at          = now()
-       RETURNING logo_url, primary_color_hex, secondary_color_hex, tone_notes`,
+         updated_at          = now()`,
       [
         shopId,
         update.logoUrl ?? null,
@@ -149,28 +182,46 @@ export class BrandKitService {
         update.toneNotes ?? null,
       ]
     );
-    const row = r.rows[0];
+    // Re-read so the response carries the effective logo (override ?? shop logo)
+    // and shopLogoUrl, matching what getBrandKit returns.
+    const kit = await this.getBrandKit(shopId);
+    if (kit) return kit;
+    // Defensive: shop row missing (shouldn't happen for an authed shop).
     return {
-      logoUrl: row.logo_url,
-      primaryColorHex: row.primary_color_hex,
-      secondaryColorHex: row.secondary_color_hex,
-      toneNotes: row.tone_notes,
+      logoUrl: update.logoUrl ?? null,
+      logoOverrideUrl: update.logoUrl ?? null,
+      shopLogoUrl: null,
+      primaryColorHex: update.primaryColorHex ?? null,
+      secondaryColorHex: update.secondaryColorHex ?? null,
+      toneNotes: update.toneNotes ?? null,
     };
   }
 
   /**
-   * Prepend deterministic brand guardrails to the raw prompt. Colors + tone
-   * only (logo is Phase 7). Returns the raw prompt unchanged when no kit /
-   * no usable fields, so generation always works.
+   * Prepend deterministic guardrails to the raw prompt: always-on design
+   * direction (legibility + composition) PLUS the shop's brand colors/tone when
+   * a kit exists. The design direction targets the two failure modes seen in
+   * real output — low-contrast text (e.g. yellow/white over a light photo) and
+   * unbalanced layouts with dead space — and reframes the brand color as an
+   * ACCENT so the model stops painting body text in it. Logo is Phase 7.
    */
   buildBrandedPrompt(rawPrompt: string, kit: BrandKit | null): string {
-    if (!kit) return rawPrompt;
     const bits: string[] = [];
-    if (kit.primaryColorHex) bits.push(`primary color ${kit.primaryColorHex}`);
-    if (kit.secondaryColorHex) bits.push(`secondary color ${kit.secondaryColorHex}`);
-    if (kit.toneNotes) bits.push(`tone: ${kit.toneNotes.trim()}`);
-    if (bits.length === 0) return rawPrompt;
-    return `Brand guidance — ${bits.join("; ")}. Apply these to the image. --- ${rawPrompt}`;
+    if (kit?.primaryColorHex) {
+      bits.push(
+        `primary brand color ${kit.primaryColorHex} (use as an ACCENT — shapes, bars, highlights, key words — NOT for body text over light or busy areas)`
+      );
+    }
+    if (kit?.secondaryColorHex) {
+      bits.push(`secondary brand color ${kit.secondaryColorHex}`);
+    }
+    if (kit?.toneNotes) bits.push(`tone: ${kit.toneNotes.trim()}`);
+    const brand =
+      bits.length > 0
+        ? `Brand guidance — ${bits.join("; ")}. Apply these as accents. `
+        : "";
+
+    return `${DESIGN_DIRECTION} ${brand}--- ${rawPrompt}`;
   }
 }
 

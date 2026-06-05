@@ -44,6 +44,26 @@ export interface BrandColorResult {
   costUsd: number;
 }
 
+export interface ImageAnalysisResult {
+  /** One- to two-sentence read of what's in the image + its style/mood. */
+  description: string | null;
+  /** Dominant colors as uppercase 6-digit hex (best-effort, may be empty). */
+  colors: string[];
+  /** 2-3 short marketing/campaign theme ideas the image suggests. */
+  themeIdeas: string[];
+  costUsd: number;
+}
+
+const ANALYZE_PROMPT =
+  "You are a marketing creative assistant looking at a photo a shop owner " +
+  "uploaded (e.g. their storefront, a product, or a draft ad). Reply with ONLY " +
+  'a compact JSON object, no prose: {"description":"1-2 sentences on what this ' +
+  'shows and its mood/style","colors":["#RRGGBB", ...],"themeIdeas":["short ' +
+  'campaign angle", ...]}. colors = up to 4 dominant colors as uppercase ' +
+  "6-digit hex. themeIdeas = 2-3 concise marketing angles this image could " +
+  "anchor (e.g. 'cozy neighborhood vibe', 'bold limited-time sale'). Keep each " +
+  "themeIdea under 8 words.";
+
 export class BrandAssetVisionClient {
   private sdk: Anthropic | null = null;
 
@@ -110,6 +130,100 @@ export class BrandAssetVisionClient {
     const parsed = this.parse(text);
 
     return { ...parsed, costUsd };
+  }
+
+  /**
+   * Broader "See" read for the in-chat upload (Phase 9): describe an arbitrary
+   * shop photo + suggest campaign themes + pull a rough palette. Same base64
+   * download path as extractBrandColors. Throws on a hard download failure.
+   */
+  async analyzeImage(imageUrl: string): Promise<ImageAnalysisResult> {
+    const dl = await fetch(imageUrl);
+    if (!dl.ok) {
+      throw new Error(`image download failed (status ${dl.status})`);
+    }
+    let mediaType = (dl.headers.get("content-type") || "image/png")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (!SUPPORTED_MEDIA.has(mediaType)) mediaType = "image/png";
+    const b64 = Buffer.from(await dl.arrayBuffer()).toString("base64");
+
+    const resp = await this.client().messages.create({
+      model: VISION_MODEL,
+      max_tokens: 400,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType as
+                  | "image/jpeg"
+                  | "image/png"
+                  | "image/gif"
+                  | "image/webp",
+                data: b64,
+              },
+            },
+            { type: "text", text: ANALYZE_PROMPT },
+          ],
+        },
+      ],
+    });
+
+    const costUsd = Number(
+      (
+        resp.usage.input_tokens * INPUT_RATE +
+        resp.usage.output_tokens * OUTPUT_RATE
+      ).toFixed(6)
+    );
+
+    const text = resp.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+
+    const empty: Omit<ImageAnalysisResult, "costUsd"> = {
+      description: null,
+      colors: [],
+      themeIdeas: [],
+    };
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) {
+      logger.warn("BrandAssetVisionClient.analyzeImage: no JSON in response", {
+        preview: text.slice(0, 120),
+      });
+      return { ...empty, costUsd };
+    }
+    try {
+      const o = JSON.parse(match[0]) as Record<string, unknown>;
+      const colors = Array.isArray(o.colors)
+        ? (o.colors as unknown[])
+            .map((c) => (typeof c === "string" ? c.trim().toUpperCase() : ""))
+            .filter((c) => HEX_RE.test(c))
+            .slice(0, 4)
+        : [];
+      const themeIdeas = Array.isArray(o.themeIdeas)
+        ? (o.themeIdeas as unknown[])
+            .map((t) => (typeof t === "string" ? t.trim().slice(0, 60) : ""))
+            .filter((t) => t.length > 0)
+            .slice(0, 3)
+        : [];
+      return {
+        description:
+          typeof o.description === "string"
+            ? o.description.trim().slice(0, 400)
+            : null,
+        colors,
+        themeIdeas,
+        costUsd,
+      };
+    } catch {
+      return { ...empty, costUsd };
+    }
   }
 
   private parse(text: string): Omit<BrandColorResult, "costUsd"> {

@@ -2,6 +2,9 @@
 
 **Status:** Strategy draft — not yet planned-out into implementation.
 **Created:** 2026-05-28.
+**Updated:** 2026-06-04 — added §3.4 + Phases 7–8 for shop's own / storefront
+photos (reuse existing shop photos, treating `banner_url` as the storefront, plus
+in-chat image upload). Also noted the edit-vendor switch to gpt-image-1 in §3.3.
 **Owner:** Deo.
 **Trigger:** exec message — *"To be able to generate images for the ads and marketing... can the model see the image and make designs...? Just extra token fees... we want the businesses to use the ai as much as possible to make more revenue."*
 
@@ -66,6 +69,8 @@ Filing this under one product would force the other to reach across folders for 
 
 Alternative: OpenAI GPT-4o ($0.005-$0.01 per image vision input). Comparable quality. Skip unless we hit a specific Claude limitation.
 
+> **The shop's own photo (esp. the storefront) is the headline "See"/"Edit" input.** How a shop actually gets that photo into the AI flow — reuse an already-uploaded shop photo vs. upload one in the chat — is specified in **§3.4** and phased in §7 (Phases 7–8). v1 only wired logo→colors vision; the storefront paths are the next expansion.
+
 ### 3.3 Edit (image-to-image)
 
 **Use cases:**
@@ -82,13 +87,55 @@ Alternative: OpenAI GPT-4o ($0.005-$0.01 per image vision input). Comparable qua
 
 **Recommendation: Stability AI in v1.** Image editing is the "designs" capability the exec specifically asked for; quality matters more than procurement simplicity. One additional vendor is a small cost relative to the user-visible quality jump.
 
+> **Implementation note (2026-06-04):** editing **switched from Stability to OpenAI `gpt-image-1`** (`/v1/images/edits`). Stability SD3.5 img2img was found to ignore the edit instruction — at every strength (0.2–0.99), every model variant, and prompts as drastic as "blue underwater," it returned the source image essentially unchanged, while Stability text-to-image worked fine. gpt-image-1's edit endpoint applies the change reliably and preserves text/layout (verified live on `peanut`: "make it warmer" → real warm-sunset edit with text + logo intact), reuses the existing `OPENAI_API_KEY` (no 3rd vendor), and costs ~$0.04–0.07/edit. `StabilityClient` is retired from the edit path but kept in the tree, and **`STABILITY_API_KEY` is now unused** — no Stability dependency remains. If region-level inpainting is ever wanted, add a `mask` to `OpenAIImageClient.edit()` (gpt-image-1 supports masks) rather than reviving Stability. See `implementation.md`.
+
+---
+
+### 3.4 Bring your own photo (storefront & existing shop assets)
+
+§3.2–3.3 assume the source image is either AI-generated or the brand-kit logo.
+But the most-requested real-world input is the shop's **own** photo — above all
+their **storefront photo**: *"put our storefront in the banner"*, *"add a Black
+Friday overlay to this photo of our shop"*, *"look at our storefront and suggest
+a campaign theme."* As of v1 there is **no way to feed an arbitrary shop photo to
+the AI** (chat is text/voice only; the only vision path is logo→colors; the edit
+tool falls back to the last AI-generated image). This section closes that gap.
+
+Two complementary mechanisms — both planned, they coexist:
+
+**A. Reuse existing shop photos (primary — no new upload).** Shops already upload
+photos that live in DigitalOcean Spaces and are shop-owned:
+
+- **`shops.banner_url` — treated as the shop's STOREFRONT photo** (the 1200×300
+  shop banner is, in practice, the storefront/hero image). This is the default
+  "your storefront photo" the AI resolves to.
+- `shop_gallery_photos` — up to 20 photos with captions.
+- `shop_services.image_url` — per-service photos.
+
+The AI references these directly — no re-upload. The edit tool already accepts
+any `/shops/{shopId}/` URL, so *"add a Black Friday overlay to our storefront
+photo"* resolves `banner_url` → edits it. A small `list_shop_photos` /
+`get_shop_photo` tool exposes the catalogue (URLs + type/caption) so the
+assistant can pick the right one and disambiguate ("storefront" = banner). This
+matches the brand-kit/logo **single-source-of-truth** decision (2026-06-04):
+don't make the shop re-upload what they already have.
+
+**B. In-chat image upload (UX layer — better for ad-hoc photos).** For a photo
+that isn't already in the system (a fresh shot of the storefront, a competitor's
+ad, a draft banner), add an **attach/paperclip affordance to the assistant input
+panel**. The uploaded image → DO Spaces → its URL is plumbed into the orchestrate
+request → available to both the vision tool (*"what theme fits this?"*) and the
+edit tool (*"add our logo + 20% off to this"*). This is the lowest-friction,
+most general path and the better long-term UX. A handles "what I already have";
+B handles "something new" — ship A first, B right after.
+
 ---
 
 ## 4. Consumers (which products use what)
 
 | Product | Generate | See | Edit |
 |---|---|---|---|
-| **AI Marketing campaigns** (existing, just shipped) | v2 — embed banner images in email bodies | v2 — analyze uploaded shop logo for brand consistency | **v1 — edit existing email banners with prompts** |
+| **AI Marketing campaigns** (existing, just shipped) | **✅ embed banner images in email bodies — BUILT 2026-06-04** (image card "Use in campaign" → banner block at top of email + **visual preview before send**) | v2 — analyze uploaded shop logo for brand consistency | **v1 — edit existing email banners with prompts** |
 | **Ads System** (planned per `ads-system/`) | v1 of ads — generate ad creative for Meta/TikTok upload | v1 — analyze shop assets for brand consistency | **v1 — iterate on creative variants** (was v2; promoted) |
 | **Insights** | Probably never (data charts are SVG, not AI-generated) | v3 maybe — *"here's a screenshot of my POS report, parse the numbers"* | Never |
 | **Help Assistant** | Never | Never | Never |
@@ -221,6 +268,51 @@ Per exec requirement: shops need to edit existing images with prompts (*"take th
 - Audit log: extends `ai_image_generations` table with `operation_type` column (`generate | edit`)
 
 Acceptance: shop picks an existing email banner → asks AI *"replace the background with our storefront photo"* → AI calls `propose_image_edit` → returns edited image preview → shop approves → edit lands in the campaign.
+
+> **Phase-number note:** `implementation.md` already used "Phase 7" for the
+> deterministic logo overlay (built in v1). The two phases below are *new* scope
+> items (the storefront / own-photo capability) — titled rather than relied on by
+> number to avoid collision.
+
+### Phase 7 (new) — Storefront / shop-photo reuse (1-2 days) — see §3.4-A — ✅ BUILT 2026-06-04 (impl doc's "Phase 8"; uncommitted)
+
+Let the assistant use the shop's **already-uploaded** photos, with `banner_url`
+treated as the storefront. No new upload UX.
+
+- ✅ New `list_shop_photos` tool (returns the shop's `banner_url`, gallery photos,
+  and service images with type + caption) so the assistant can reference and
+  disambiguate "your storefront photo" → `banner_url`. Verified live (peanut).
+- ✅ **Default banner = ONE-TAP SUGGESTION (exec ask 2026-06-04), not auto.**
+  Text-only stays the default — never auto-generate (cost + latency). A
+  bannerless draft card shows "Add a banner?" → **Use storefront** (reuse
+  `banner_url`) or **Design one** (`propose_campaign_image` from subject+body).
+- `propose_image_edit` accepts these shop-owned URLs (already supported — it
+  takes any `/shops/{shopId}/` URL); a vision read of the same photos for
+  "suggest a theme from our storefront" awaits `analyze_brand_assets` (Phase 4).
+- No schema changes, no new storage — pure tool + resolution logic.
+
+Acceptance: shop says *"add a Black Friday overlay to our storefront"* → AI
+resolves `banner_url` → edits it → proposal card. And *"look at our storefront
+and suggest a campaign theme"* → AI reads `banner_url` via vision → theme ideas.
+
+### Phase 8 (new) — In-chat image upload (2-3 days) — see §3.4-B — ✅ BUILT 2026-06-04 (impl doc's "Phase 9"; uncommitted)
+
+Let the shop drop ANY photo into the assistant for vision or editing.
+
+- ✅ Attach/paperclip affordance in the unified-assistant input + a generic
+  upload (`POST /api/upload/ai-source` → `shops/{shopId}/ai-uploads`). Built a
+  compact inline paperclip (the block `ImageUploader` is for settings forms).
+- ✅ Uploaded URL plumbed into `/api/ai/orchestrate` (+ `/marketing-chat`) as
+  `attachedImageUrl`, validated shop-owned, exposed to tools for that turn via a
+  per-turn system note + tool context.
+- ✅ NEW `analyze_brand_assets` vision tool — describe an attached image (themes
+  / critique / colors), defaulting to the attached image. `propose_image_edit`
+  prefers the attached image as its edit source. Both verified (analyze live;
+  edit logic by inspection). Full LLM loop not yet browser-tested.
+
+Acceptance: shop attaches a fresh storefront photo → *"what campaign theme fits
+this?"* (vision) and *"add our logo + '20% off' to this"* (edit) both work end to
+end, with the result rendered as a proposal card.
 
 ### Out of scope for v1
 

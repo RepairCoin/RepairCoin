@@ -2,8 +2,14 @@
 
 **Status:** v1 built + verified **headless** on staging 2026-06-03. This guide
 covers the **browser/manual QA pass** (not yet done) plus the headless repro.
-**Branch:** `deo/ai-image-generation` (off `main`). **Backend:** behind the
-`ai_images_enabled` per-shop flag (default OFF).
+**Backend:** behind the `ai_images_enabled` per-shop flag (default OFF).
+
+**Branch — test on `deo/integration-unified-ai-image`.** As of 2026-06-03 the
+AI-image branch was merged locally with the unified-assistant branch onto this
+integration branch (merge commit `25676ce3`), so the **unified assistant renders
+the image card** — test the full flow there. (The standalone `deo/ai-image-
+generation` branch still works too, but predates the consolidation and only has
+the legacy Marketing panel.) See "Integration / merge status" at the bottom.
 
 Capabilities to test: **generate** (gpt-image-1), **brand kit** (colors/tone/
 logo), **vision** (logo→colors), **edit** (Stability img2img), **logo overlay**
@@ -31,13 +37,12 @@ is clicking.
 Insights / Help panels were removed** in the unified-assistant consolidation, so
 **use the unified assistant** for T3–T5 (ask it in plain English; it figures out
 it needs an image).
-> **Build note for whoever sets up the test env:** the unified assistant renders
-> the image card only on a build that has **both** the unified-assistant work
-> **and** the AI-image work, **and** the orchestrator wiring (`campaign_image_
-> proposal` in `OrchestrateToolCallCard`'s `MARKETING_KINDS`). If you're testing
-> the AI-image branch **standalone** (before it's merged with the unified
-> branch), that branch still has the **legacy Marketing panel** — use that
-> instead for T3–T5. See "Integration / merge-watch" at the bottom.
+> **Build note:** on the **`deo/integration-unified-ai-image`** branch (the
+> recommended test target) the unified assistant renders the image card — the
+> orchestrator wiring (`campaign_image_proposal` in `OrchestrateToolCallCard`'s
+> `MARKETING_KINDS`) and the card renderer are both present. Only if you test the
+> **standalone `deo/ai-image-generation`** branch (pre-consolidation) do you use
+> its **legacy Marketing panel** for T3–T5 instead.
 
 Mark each step **PASS / FAIL**. If something looks wrong, screenshot it + note
 the step number.
@@ -62,7 +67,8 @@ the step number.
 
 ### T3 — Ask the AI to make a marketing image
 1. Open the **unified assistant** (the ✨ "Ask AI Anything" pill or the purple
-   mic). *(Standalone AI-image branch only: use the legacy Marketing panel.)*
+   mic). *(Only on the standalone `deo/ai-image-generation` branch: use the
+   legacy Marketing panel.)*
 2. Type something like: *"Make a Black Friday banner — 20% off screen repairs."*
 3. Wait for it to reply (image generation takes a few seconds).
    - ✅ **PASS if:** an **image card appears** under the reply showing a real
@@ -94,10 +100,55 @@ the step number.
 
 ### T7 — When images are turned OFF (graceful)
 1. Ask a dev to **turn `ai_images_enabled` OFF** for your shop.
-2. In the Marketing assistant, ask for an image (T3).
+2. In the unified assistant, ask for an image (T3).
    - ✅ **PASS if:** the assistant replies that **image generation isn't enabled
      yet** (a friendly message) — it must **not** crash or show a raw error.
 3. Ask the dev to turn it back ON to continue.
+
+---
+
+> **⚠️ STOP-BEFORE-SEND for T8–T10.** The final **Send** button emails your REAL
+> customers and can't be recalled. For QA, **stop at the preview** — do NOT tap
+> Send unless a dev has set your test shop's audience to a single test address
+> (yours). The new feature being tested is the **banner embed + preview**, not
+> the send itself.
+
+### T8 — "Use in campaign" puts the banner into a draft (embed)
+1. Generate a banner (T3) so an image card is showing.
+2. On the image card, tap **"Use in campaign"** (the yellow primary button).
+3. The assistant will ask who to send to / for the wording — answer it
+   (e.g. *"send to all customers, subject 'Black Friday', short friendly body"*).
+   - ✅ **PASS if:** a **Campaign draft card** appears showing a small **banner
+     thumbnail** and a **"Banner attached"** label (plus subject + recipient count).
+
+### T9 — Preview before send shows the banner
+1. On the draft card from T8, tap it ("Tap to preview").
+2. The **Review modal** opens.
+   - ✅ **PASS if:** the **Preview panel shows your actual banner image** at the
+     top, with the subject as a headline and the body below it — i.e. the email
+     you'd send, banner included. (Editing subject/body updates the preview.)
+   - ✅ Do **not** tap Send (see the stop-before-send note).
+
+### T10 — Text-only campaign still works (no banner)
+1. Start fresh: ask the assistant for a campaign **without** any image
+   (e.g. *"draft a win-back email to lapsed customers"*).
+2. Open its draft → preview.
+   - ✅ **PASS if:** the draft card has **no thumbnail**, and the preview shows
+     **subject + body only, no banner** — confirming the image is optional.
+
+### T11 — Change the image shape/ratio with one tap
+1. Generate an image (T3). On the card, find the **Shape** row — three buttons
+   each showing a **little proportional rectangle** (wide = Banner, square =
+   Square, tall = Story) **with its label underneath**, so you can see the shape
+   without knowing the term. The **current shape is highlighted** yellow (a
+   campaign banner defaults to **Banner**).
+2. Tap a different shape — e.g. **Square**.
+   - ✅ **PASS if:** the assistant generates a **new image card in that ratio**
+     (Square ≈ 1:1, Banner ≈ wide 3:2, Story ≈ tall), with the new shape now
+     highlighted. The subject/idea stays the same; only the shape changes.
+3. Tap **Story** → a taller image; tap **Banner** → back to wide.
+   - ✅ Each tap re-renders in the chosen ratio. *(Note: each is a fresh image —
+     it counts toward the AI budget, same as Regenerate.)*
 
 ### Tester pass/fail summary
 | # | Test | PASS / FAIL |
@@ -109,6 +160,10 @@ the step number.
 | T5 | Edit an image | |
 | T6 | Logo on/off | |
 | T7 | Disabled shows a friendly message | |
+| T8 | "Use in campaign" → draft has banner attached | |
+| T9 | Review modal preview shows the banner | |
+| T10 | Text-only campaign has no banner | |
+| T11 | Shape pills re-render in Banner/Square/Story | |
 
 > **What a tester can't check (developer does it, Parts G–H):** the spend-cap
 > and daily-limit cutoffs, the content-safety block, and the database audit
@@ -124,7 +179,10 @@ the step number.
 2. **Env keys present** in `backend/.env`: `OPENAI_API_KEY` (gpt-image-1 +
    moderation + Whisper), `STABILITY_API_KEY` (edit), `ANTHROPIC_API_KEY`
    (vision), and `DO_SPACES_*` (storage). All confirmed present.
-3. **Pick a pilot shop** (e.g. `peanut` on staging) and **enable + fund** it:
+3. **Pick a pilot shop** and **enable + fund** it. On staging, **`peanut`** is
+   already enabled (`ai_images_enabled=true`, `$20/mo` budget, brand kit set,
+   wallet `0xb3afc20c0f66e9ec902bd7df2313b57ae8fb1d81`) — log in with that wallet
+   to use it. To enable a different shop:
    ```sql
    UPDATE ai_shop_settings
       SET ai_images_enabled = true,
@@ -199,21 +257,52 @@ Try `"dimensions":"1536x1024"` → landscape image, `costUsd` 0.063.
 ## Part D — Marketing image proposal (browser, the headline flow)
 
 1. Open the **unified assistant** (post-consolidation there is no separate
-   Marketing panel; on the standalone AI-image branch, use the legacy Marketing
-   panel — see "Integration / merge-watch").
+   Marketing panel; on the integration branch it renders the image card. Only on
+   the standalone `deo/ai-image-generation` branch use the legacy Marketing
+   panel — see "Integration / merge status").
 2. Type: *"Add a Black Friday banner to that campaign — 20% off screen repairs."*
 3. **Expect:** the assistant calls `propose_campaign_image`; after a moment an
    **image proposal card** renders under its reply: a preview, the prompt
-   caption, "Brand colors + logo applied," and **Copy link** + **Regenerate**.
+   caption, "Brand colors + logo applied," a **Shape** row (proportional
+   rectangle glyphs + labels: Banner/Square/Story, current highlighted — maps to
+   the tool's `orientation` param), and
+   **Use in campaign** + **Copy link** + **Regenerate**.
 4. Click the **preview** → opens full size in a new tab; image shows the brand
    colors and (if a logo is set) the logo stamped bottom-right.
 5. Click **Copy link** → "Copied"; **Regenerate** → assistant generates a fresh
-   variant card.
+   variant card. (**Use in campaign** is exercised in Part D2.)
 6. **Verify:** a new `ai_image_generations` row per generation/regenerate.
 
 ---
 
-## Part E — Edit an existing image (Stability)
+## Part D2 — Campaign embed + preview (the closed loop)
+
+Confirms an approved banner actually lands in the campaign email and is visible
+before send. (Tester version: T8–T10.)
+
+1. With an image card showing (Part D), click **Use in campaign**; answer the
+   assistant's audience/copy prompts → a **campaign draft card** appears with a
+   **banner thumbnail + "Banner attached"**.
+2. Tap the draft → the **review modal** shows the **banner in the preview** above
+   the subject/body. *(Do NOT Send unless the audience is a single test address.)*
+3. **Verify the embed in the DB** — the persisted draft has the image as the
+   FIRST block:
+   ```sql
+   SELECT design_content->'blocks'->0 AS first_block
+     FROM marketing_campaigns
+    WHERE shop_id = '<SHOP_ID>' AND created_by_source = 'ai_agent'
+    ORDER BY created_at DESC LIMIT 1;
+   -- first_block.type = 'image', first_block.src = the banner URL
+   ```
+4. **Fallback check:** generate a banner, then say *"draft a campaign with that
+   banner"* **without** re-stating the URL → still embeds (resolves to the shop's
+   most-recent `ai_image_generations` image).
+5. **Text-only check:** draft a campaign with no image → `blocks[0].type='headline'`
+   (no image block); modal preview shows no banner.
+
+---
+
+## Part E — Edit an existing image (gpt-image-1)
 
 API:
 ```bash
@@ -221,15 +310,18 @@ curl -s -X POST http://localhost:4000/api/ai/images/edit \
   -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
   -d '{"sourceImageUrl":"<an existing image URL>","prompt":"make it warmer with a soft golden sunset glow"}' | jq
 ```
-**Expect:** `{"success":true,"data":{"imageUrl":"…","costUsd":0.065}}` and the
-edited image visibly differs from the source.
+**Expect:** `{"success":true,"data":{"imageUrl":"…","costUsd":0.063}}` and the
+edited image visibly differs from the source (warmer). *(Editing moved off
+Stability — SD3.5 img2img ignored the instruction; it now runs on gpt-image-1's
+`/v1/images/edits`.)*
 
-Browser: in the Marketing assistant, after an image exists, say *"take that
-image and replace the background with a storefront"* → the assistant calls
-`propose_image_edit` → an **"Edited image"** proposal card renders.
+Browser: in the unified assistant, after an image exists, say *"take that
+image and make it warmer with a sunset glow"* → the assistant calls
+`propose_image_edit` → an **"Edited image"** proposal card renders (then can be
+embedded via **Use in campaign**, Part D2).
 
-**Verify:** audit row `operation_type='edit'`, `vendor='stability'`,
-`model='sd3.5-large'`, `source_image_url` set, `cost_usd=0.065`.
+**Verify:** audit row `operation_type='edit'`, `vendor='openai'`,
+`model='gpt-image-1'`, `source_image_url` set, `cost_usd≈0.063`.
 
 ---
 
@@ -295,8 +387,10 @@ staging DB). Delete the script after. (This is how P1/P3/P4/P6/P7 were proven.)
 - [ ] Generate returns a stored image; audit row + spend correct (Part A)
 - [ ] Brand kit saves/loads; colors inject into the prompt (Part B)
 - [ ] "Suggest colors from logo" pre-fills plausible hex (Part C)
-- [ ] Marketing assistant produces an image proposal card; Copy/Regenerate work (Part D)
-- [ ] Edit returns a visibly modified image; audit `operation_type='edit'` (Part E)
+- [ ] Unified assistant produces an image proposal card; Use-in-campaign/Copy/Regenerate work (Part D)
+- [ ] **Use in campaign** embeds the banner as the first email block; review modal previews it (full banner, not cropped); text-only has no banner (Part D2 / T8–T10)
+- [ ] **Shape pills** (Banner/Square/Story) re-render the image in the chosen ratio (T11)
+- [ ] Edit returns a visibly modified image; audit `operation_type='edit'`, `vendor='openai'` (Part E)
 - [ ] Logo is composited bottom-right; `overlayLogo:false` suppresses it (Part F)
 - [ ] All gates return the right status codes (Part G)
 - [ ] Audit always-writes; spend only on success; storage paths correct (Part H)
@@ -305,47 +399,50 @@ staging DB). Delete the script after. (This is how P1/P3/P4/P6/P7 were proven.)
 
 ## Known limitations / notes (v1)
 
-- **Model:** generation is **`gpt-image-1`** (not dall-e-3 — unavailable on the
-  account). Editing is **Stability SD3.5**. Logo overlay is local **`jimp`**.
+- **Model:** generation **and editing** are **`gpt-image-1`** (not dall-e-3 —
+  unavailable on the account). **Editing moved off Stability** (2026-06-04) — SD3.5
+  img2img ignored the instruction; it now uses gpt-image-1 `/v1/images/edits`,
+  `STABILITY_API_KEY` is unused. Logo overlay is local **`jimp`**.
 - **Brand logo on edits:** edits re-stamp the logo but do NOT re-inject brand
   colors into the edit prompt (the source defines the look).
-- **Card actions are Copy link + Regenerate** — "embed straight into a campaign
-  email" is a deferred follow-up.
+- **Campaign embed + preview is BUILT** (2026-06-04): the image card's **Use in
+  campaign** embeds the banner as the first email block and the review modal
+  previews it (Part D2 / T8–T10). The card also keeps Copy link + Regenerate.
 - **`analyze_brand_assets` chat tool** (broad "critique this image") is deferred
-  — needs marketing-chat image-upload UX.
-- **Inpaint (mask) path** exists in `StabilityClient` but has no UI yet.
+  — needs marketing-chat image-upload UX (scope §3.4-B / impl Phase 9).
+- **Inpaint (mask) path:** not wired (no region-select UI). If needed, add a
+  `mask` to `OpenAIImageClient.edit()` — gpt-image-1 supports it.
 - Daily limit 50/shop; per-shop `$50` base cap (tiered higher for ads shops —
   see `ai-cost-summary.md`).
 
 ---
 
-## Integration / merge-watch (unified assistant ↔ image cards)
+## Integration / merge status (unified assistant ↔ image cards)
 
-Yesterday's consolidation made the **unified assistant the only AI surface**
-(the separate Marketing/Insights/Help launchers were removed) — that work is on
+The consolidation made the **unified assistant the only AI surface** (the
+separate Marketing/Insights/Help launchers were removed) — that work is on
 `deo/unified-assistant-phase-6-branding`. AI Image Generation is on
-`deo/ai-image-generation` (off `main`). The two are **separate, unmerged
-branches** (GitHub suspended). Consequences for testing the IMAGE flow in the
-UNIFIED assistant:
+`deo/ai-image-generation` (off `main`).
 
-- The image tools are **marketing tools**; the unified orchestrator already
-  merges `getMarketingTools()`, so it **will call** `propose_campaign_image` /
+**✅ MERGED LOCALLY (2026-06-03) → `deo/integration-unified-ai-image`** (merge
+commit `25676ce3`), so the unified-assistant image flow is **live and testable
+now** on that branch — that's the recommended QA target. How it fits together:
+
+- The image tools are **marketing tools**; the unified orchestrator merges
+  `getMarketingTools()`, so it **calls** `propose_campaign_image` /
   `propose_image_edit`.
-- BUT the unified panel renders cards via `OrchestrateToolCallCard`, which routes
-  by `MARKETING_KINDS`. The image display kind **`campaign_image_proposal` must
-  be in that set**, or the card won't render in the unified assistant.
-  - ✅ Added on the unified branch (`OrchestrateToolCallCard` `MARKETING_KINDS +=
-    "campaign_image_proposal"`) so it's ready at merge.
-  - The display-type + card renderer (`aiMarketing.ts`, `MarketingToolCallCard`)
-    come from the **AI-image branch** — they land at merge.
+- The unified panel renders cards via `OrchestrateToolCallCard`, which routes by
+  `MARKETING_KINDS` — **`campaign_image_proposal` is in that set** (from the
+  unified branch), and the display-type + card renderer (`aiMarketing.ts`,
+  `MarketingToolCallCard`) come from the AI-image branch. Both now coexist on the
+  integration branch.
 
-**Net:** the unified-assistant image flow is **fully live only after the two
-branches merge to `main`**. Before that:
-- Test the AI-image tools standalone via the **legacy Marketing panel** on the
-  AI-image branch, OR
-- Test the unified flow on a build that has **both** branches merged.
-
-**Merge-watch files** (touched by both branches — expect small conflicts):
-`AIAgentDomain/routes.ts`, `marketing/registry.ts`, `marketing/types.ts`,
-frontend `aiMarketing.ts` + `MarketingToolCallCard.tsx`, and
-`OrchestrateToolCallCard.tsx` (`MARKETING_KINDS`).
+**Still TODO — the real merge to `main` (when GitHub is reinstated):** push the
+two feature branches, then merge them to `main` (or merge the integration branch).
+The local merge was clean except **one** conflict, `AIAgentDomain/routes.ts`
+(resolved by keeping both the `/orchestrate` route and the `/images/*` +
+`/brand-kit*` routes); `backend/package.json` auto-merged both dep sets. The
+other files MERGE-WATCH flagged (`marketing/registry.ts`, `marketing/types.ts`,
+frontend `aiMarketing.ts`, `MarketingToolCallCard.tsx`, `OrchestrateToolCallCard.tsx`)
+were each changed on only one branch and merged cleanly. Full plan:
+`MERGE-WATCH.md` in this folder.

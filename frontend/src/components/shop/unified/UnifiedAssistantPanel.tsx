@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  ChangeEvent,
   KeyboardEvent,
   useEffect,
   useMemo,
@@ -17,7 +18,9 @@ import {
   Pin,
   X,
   Square,
+  Paperclip,
 } from "lucide-react";
+import { getApiBaseUrl } from "@/utils/apiUrl";
 import ReactMarkdown, { Components } from "react-markdown";
 import {
   askOrchestrate,
@@ -66,7 +69,7 @@ const STARTER_PROMPTS: readonly string[] = [
 ] as const;
 
 type Turn =
-  | { role: "user"; content: string }
+  | { role: "user"; content: string; imageUrl?: string }
   | { role: "assistant"; content: string; toolCalls: OrchestrateToolCall[] };
 
 export const UnifiedAssistantPanel: React.FC<{
@@ -83,6 +86,15 @@ export const UnifiedAssistantPanel: React.FC<{
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voiceOut, setVoiceOut] = useState(false);
+  // Phase 9 — an image the owner attached via the paperclip, pending send.
+  // Uploaded to shops/{shopId}/ai-uploads; its URL rides along with the next
+  // message so the assistant can analyze or edit it.
+  const [attachedImage, setAttachedImage] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // The assistant's opening line (shown as a bubble + spoken) when a mic opens
   // the panel for the first time this session. UI-only — never sent to the
   // orchestrator (it would break the user-first message alternation).
@@ -157,6 +169,77 @@ export const UnifiedAssistantPanel: React.FC<{
       content: t.content.trim().length > 0 ? t.content : " ",
     }));
 
+  // Paperclip → file picker → upload to shops/{shopId}/ai-uploads. The returned
+  // URL is held as a pending attachment until the next message is sent.
+  const handleAttachClick = () => fileInputRef.current?.click();
+
+  const handleAttachFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = ""; // allow re-pick
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setError("Unsupported image type. Use JPEG, PNG, GIF, or WebP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image is too large (max 5MB).");
+      return;
+    }
+    const uploadOnce = async (): Promise<{ url: string }> => {
+      const formData = new FormData();
+      formData.append("image", file);
+      const resp = await fetch(`${getApiBaseUrl()}/upload/ai-source`, {
+        method: "POST",
+        credentials: "include", // cookie auth, same as ImageUploader
+        body: formData,
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.success || !result.url) {
+        throw new Error(
+          result.error || result.message || `Upload failed (${resp.status})`
+        );
+      }
+      return result as { url: string };
+    };
+
+    setAttaching(true);
+    setError(null);
+    try {
+      // Retry on a network-level failure (fetch throws a TypeError) — e.g. the
+      // dev server momentarily restarting. Up to 3 attempts, 1s apart, covers a
+      // ~2-3s restart window. A real HTTP error carries a message (not a
+      // TypeError), so it surfaces immediately without retrying.
+      let result: { url: string } | null = null;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          result = await uploadOnce();
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (e instanceof TypeError && attempt < 2) {
+            await new Promise((r) => setTimeout(r, 1000));
+            continue;
+          }
+          throw e;
+        }
+      }
+      if (!result) throw lastErr;
+      setAttachedImage({ url: result.url, name: file.name });
+    } catch (err) {
+      setError(
+        err instanceof TypeError
+          ? "Couldn't reach the server — please try again."
+          : err instanceof Error
+          ? err.message
+          : "Couldn't upload the image."
+      );
+    } finally {
+      setAttaching(false);
+    }
+  };
+
   const submitText = async (rawText: string, opts?: { speak?: boolean }) => {
     if (loading) return;
     const text = rawText.trim();
@@ -175,14 +258,27 @@ export const UnifiedAssistantPanel: React.FC<{
       return;
     }
 
-    const nextTurns: Turn[] = [...turns, { role: "user", content: text }];
+    // Consume any pending paperclip attachment for THIS message, then clear it
+    // so it never rides along on a later turn.
+    const img = attachedImage;
+    setAttachedImage(null);
+
+    const nextTurns: Turn[] = [
+      ...turns,
+      { role: "user", content: text, ...(img ? { imageUrl: img.url } : {}) },
+    ];
     setTurns(nextTurns);
     setInput("");
     setLoading(true);
     setError(null);
 
     try {
-      const res = await askOrchestrate(sessionId, toWireMessages(nextTurns));
+      const res = await askOrchestrate(
+        sessionId,
+        toWireMessages(nextTurns),
+        img?.url,
+        lastShownImageUrl(turns)
+      );
       // Panel was closed while the reply was in flight — drop it silently so we
       // don't speak into a torn-down panel (the source of overlapping voices).
       if (!aliveRef.current) return;
@@ -469,7 +565,7 @@ export const UnifiedAssistantPanel: React.FC<{
     <div className="flex-1 flex flex-col min-h-0 mt-4">
       {pinned.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wide text-gray-500 flex items-center gap-1">
+          <span className="text-xs uppercase tracking-wide text-gray-500 flex items-center gap-1">
             <Pin className="w-3 h-3" /> Pinned
           </span>
           {pinned.map((p) => (
@@ -506,7 +602,7 @@ export const UnifiedAssistantPanel: React.FC<{
         {/* Assistant's spoken greeting (voice opens, first time per session). */}
         {greeting && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
+            <div className="max-w-[85%] rounded-lg px-3 py-2 text-base break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
               {greeting}
             </div>
           </div>
@@ -531,7 +627,7 @@ export const UnifiedAssistantPanel: React.FC<{
       {displayError && (
         <div className="mt-3 bg-red-900/30 border border-red-700/60 rounded-lg px-3 py-2 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-red-300 leading-relaxed">{displayError}</p>
+          <p className="text-sm text-red-300 leading-relaxed">{displayError}</p>
         </div>
       )}
 
@@ -556,6 +652,46 @@ export const UnifiedAssistantPanel: React.FC<{
         </div>
       ) : (
       <div className="mt-3">
+        {/* Hidden file input backing the paperclip. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleAttachFile}
+          className="hidden"
+        />
+        {/* Pending attachment chip — thumbnail + name + remove. Sits above the
+            textarea so the owner sees what will ride along with their message. */}
+        {(attachedImage || attaching) && (
+          <div className="mb-2 inline-flex items-center gap-2 rounded-lg bg-[#1A1A1A] border border-gray-700 pl-1.5 pr-2 py-1">
+            {attaching ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-[#FFCC00]" />
+                <span className="text-xs text-gray-400">Uploading image…</span>
+              </>
+            ) : (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={attachedImage!.url}
+                  alt="Attachment"
+                  className="w-7 h-7 rounded object-cover border border-gray-700"
+                />
+                <span className="text-xs text-gray-300 max-w-[160px] truncate">
+                  {attachedImage!.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAttachedImage(null)}
+                  aria-label="Remove attached image"
+                  className="text-gray-500 hover:text-red-400 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           value={input}
@@ -569,7 +705,7 @@ export const UnifiedAssistantPanel: React.FC<{
               ? "Conversation full — close to start fresh"
               : "Type your question, or tap “Talk” to speak…"
           }
-          className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg px-3 py-2 text-base text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Ask your business assistant anything"
         />
         {/* Labeled action buttons — icon + always-visible text so the controls
@@ -585,7 +721,7 @@ export const UnifiedAssistantPanel: React.FC<{
                 shows again. */}
             {showCoach && (
               <div className="absolute bottom-full left-0 mb-2 z-20 w-max max-w-[230px]">
-                <div className="relative bg-gradient-to-br from-purple-600 to-violet-700 text-white text-xs font-medium leading-snug rounded-lg px-3 py-2 shadow-[0_4px_20px_rgba(168,85,247,0.5)]">
+                <div className="relative bg-gradient-to-br from-purple-600 to-violet-700 text-white text-sm font-medium leading-snug rounded-lg px-3 py-2 shadow-[0_4px_20px_rgba(168,85,247,0.5)]">
                   <button
                     type="button"
                     onClick={dismissCoach}
@@ -653,6 +789,24 @@ export const UnifiedAssistantPanel: React.FC<{
             <span>{voiceOut ? "Voice on" : "Voice off"}</span>
           </button>
 
+          {/* Attach — drop in a photo (storefront, product, draft ad) for the
+              assistant to analyze or edit (Phase 9). */}
+          <button
+            type="button"
+            onClick={handleAttachClick}
+            disabled={loading || atMessageLimit || attaching}
+            aria-label="Attach an image"
+            title="Attach an image"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#1A1A1A] border-gray-700 text-gray-400 hover:text-white hover:border-[#FFCC00]/60"
+          >
+            {attaching ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Paperclip className="w-4 h-4" />
+            )}
+            <span>Attach</span>
+          </button>
+
           {/* Send — primary action, pushed to the right. */}
           <button
             type="button"
@@ -676,7 +830,7 @@ export const UnifiedAssistantPanel: React.FC<{
       </div>
       )}
 
-      <p className="mt-2 text-[10px] text-gray-600 text-center">
+      <p className="mt-2 text-xs text-gray-400 text-center">
         I answer and draft — I never send, order, or charge anything without your
         tap.
       </p>
@@ -740,10 +894,10 @@ const EmptyState: React.FC<{
   disabled: boolean;
 }> = ({ onPick, disabled }) => (
   <div className="flex flex-col px-1 py-6">
-    <p className="text-sm text-gray-300 mb-1 text-center">
+    <p className="text-base text-gray-300 mb-1 text-center">
       Just talk to your business.
     </p>
-    <p className="text-xs text-gray-500 mb-5 text-center">
+    <p className="text-sm text-gray-500 mb-5 text-center">
       Ask a question, or tell me to do something — try:
     </p>
     <div className="w-full space-y-2">
@@ -753,7 +907,7 @@ const EmptyState: React.FC<{
           type="button"
           onClick={() => onPick(p)}
           disabled={disabled}
-          className="w-full text-left text-xs text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-lg px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full text-left text-sm text-gray-300 bg-[#1A1A1A] border border-gray-700 hover:border-[#FFCC00] hover:text-white rounded-lg px-3 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {p}
         </button>
@@ -798,7 +952,7 @@ function buildMarkdownComponents(): Components {
       </ol>
     ),
     li: ({ children }) => (
-      <li className="text-sm leading-relaxed">{children}</li>
+      <li className="text-base leading-relaxed">{children}</li>
     ),
     a: ({ href, children }) => (
       <a
@@ -822,6 +976,23 @@ function priorUserQuestion(turns: Turn[], i: number): string | undefined {
   return undefined;
 }
 
+/** URL of the image the owner is currently looking at — the most recent
+ *  campaign_image_proposal across the conversation. Sent so "edit this" targets
+ *  the displayed image (and the edit keeps its size). Undefined if none shown. */
+function lastShownImageUrl(turns: Turn[]): string | undefined {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const t = turns[i];
+    if (t.role !== "assistant") continue;
+    for (let j = t.toolCalls.length - 1; j >= 0; j--) {
+      const d = t.toolCalls[j].display;
+      if (d && d.kind === "campaign_image_proposal" && d.imageUrl) {
+        return d.imageUrl;
+      }
+    }
+  }
+  return undefined;
+}
+
 const TurnBubble: React.FC<{
   turn: Turn;
   markdownComponents: Components;
@@ -832,7 +1003,15 @@ const TurnBubble: React.FC<{
   if (turn.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words bg-[#FFCC00] text-black">
+        <div className="max-w-[85%] rounded-lg px-3 py-2 text-base whitespace-pre-wrap break-words bg-[#FFCC00] text-black">
+          {turn.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={turn.imageUrl}
+              alt="Attached"
+              className="mb-2 max-h-40 w-auto rounded-md border border-black/20"
+            />
+          )}
           {turn.content}
         </div>
       </div>
@@ -846,7 +1025,7 @@ const TurnBubble: React.FC<{
   return (
     <div className="flex justify-start flex-col items-start gap-2">
       {hasProse && (
-        <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
+        <div className="max-w-[85%] rounded-lg px-3 py-2 text-base break-words bg-[#1A1A1A] border border-gray-800 text-gray-200">
           <ReactMarkdown components={markdownComponents}>
             {turn.content}
           </ReactMarkdown>

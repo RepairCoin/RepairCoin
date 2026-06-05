@@ -95,12 +95,27 @@ export const ORCHESTRATE_LIMITS = {
  */
 export const askOrchestrate = async (
   sessionId: string,
-  messages: OrchestrateMessage[]
+  messages: OrchestrateMessage[],
+  /** Phase 9 — URL of an image the owner attached to this turn (paperclip).
+   *  The backend only honors a shop-owned URL; omit when there's no attachment. */
+  attachedImageUrl?: string,
+  /** URL of the image currently displayed in the panel (last proposal). Lets
+   *  "edit this" target what the owner sees — and keep its size. */
+  lastImageUrl?: string
 ): Promise<OrchestrateResponse> => {
-  const response = await apiClient.post("/ai/orchestrate", {
-    sessionId,
-    messages,
-  });
+  const response = await apiClient.post(
+    "/ai/orchestrate",
+    {
+      sessionId,
+      messages,
+      ...(attachedImageUrl ? { attachedImageUrl } : {}),
+      ...(lastImageUrl ? { lastImageUrl } : {}),
+    },
+    // The orchestrator can call image tools — gpt-image-1 landscape gen has been
+    // observed up to ~81s, plus storage + LLM round-trips. Match the backend's
+    // 240s ceiling for this route, or a worst-case regenerate times out.
+    { timeout: 240000 }
+  );
   // Axios interceptor pre-unwraps response.data — read response.data.X, not
   // response.data.data.X. The `|| response.data` covers interceptor bypass.
   return response.data.data || response.data;

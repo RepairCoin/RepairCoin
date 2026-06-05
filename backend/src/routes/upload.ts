@@ -152,6 +152,50 @@ router.post('/shop-banner', authMiddleware, requireRole(['shop']), upload.single
 });
 
 /**
+ * Upload an ad-hoc image into the AI assistant (Phase 9 — in-chat image upload).
+ * POST /api/upload/ai-source
+ * Requires: Shop role
+ * Stores under shops/{shopId}/ai-uploads so the returned URL is recognized as
+ * shop-owned by the AI image tools (edit / analyze source check).
+ */
+router.post('/ai-source', authMiddleware, requireRole(['shop']), upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const file = req.file;
+    const shopId = req.user?.shopId;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image file provided',
+      });
+    }
+
+    if (!shopId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Shop ID not found in authentication token',
+      });
+    }
+
+    const result = await imageStorageService.uploadAiSource(file, shopId);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    logger.info('AI-source image uploaded successfully', { shopId, url: result.url });
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Error uploading AI-source image:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload AI-source image',
+    });
+  }
+});
+
+/**
  * Upload customer avatar
  * POST /api/upload/customer-avatar
  * Requires: Customer role

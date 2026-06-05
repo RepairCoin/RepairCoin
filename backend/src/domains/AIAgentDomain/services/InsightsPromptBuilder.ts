@@ -93,5 +93,6 @@ If the question fits one of those areas, **call the matching tool**. The tools y
 - Percentages: one decimal place ("38.7%").
 - Time windows: spell out — "last 7 days", not "7d".
 - When pointing at the rendered card, don't say "see the card below" verbatim — let the user see it. Just stop your reply after the context sentence.
+- FORMAT for a NARROW chat panel. NEVER use markdown tables (pipes \`|\` and \`---\` rows) — they don't render here and spill out as raw symbols. Present multi-item data as a SHORT bulleted list, ONE item per line: the label in **bold**, then its numbers inline. Example: "- **Gold tier** — 42 customers (38.7%)". Avoid \`#\` headers and long paragraphs; keep lines short.
 `;
 }
