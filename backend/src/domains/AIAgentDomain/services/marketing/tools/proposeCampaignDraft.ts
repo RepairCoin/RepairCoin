@@ -54,7 +54,12 @@ export const proposeCampaignDraft: MarketingTool = {
     "body ≤8000 chars. The body should include paragraph breaks (use " +
     "blank lines between paragraphs). NEVER include a discount value " +
     "or offer the shop didn't explicitly state in the current message — " +
-    "use '(your offer here)' as a placeholder when uncertain.",
+    "use '(your offer here)' as a placeholder when uncertain. To put a " +
+    "banner IMAGE at the top of the email, pass `image_url` with the URL of " +
+    "an image the shop generated/approved via propose_campaign_image OR an " +
+    "existing shop photo from list_shop_photos (e.g. their storefront banner) " +
+    "— if they want 'the banner I just made' but you don't have the URL, pass " +
+    "any value and the most recent generated image is used.",
   inputSchema: {
     type: "object",
     properties: {
@@ -115,6 +120,16 @@ export const proposeCampaignDraft: MarketingTool = {
           "from the subject — this is for the shop's filing, not for " +
           "customers.",
       },
+      image_url: {
+        type: "string",
+        description:
+          "Optional. URL of a banner image to embed at the TOP of the email " +
+          "(a previously generated/edited image from propose_campaign_image, " +
+          "or an existing shop photo from list_shop_photos such as the " +
+          "storefront banner). Omit for a text-only campaign. A non-shop URL " +
+          "or a placeholder falls back to the shop's most recently generated " +
+          "image.",
+      },
     },
     required: [
       "audience_type",
@@ -140,12 +155,21 @@ export const proposeCampaignDraft: MarketingTool = {
     const subject = String(a.subject ?? "").trim();
     const body = String(a.body ?? "").trim();
     const campaignName = String(a.campaign_name ?? "").trim();
+    const providedImageUrl =
+      typeof a.image_url === "string" ? a.image_url.trim() : "";
 
     if (!subject || !body || !campaignName || !audienceLabel) {
       throw new Error(
         `${NAME}: subject, body, campaign_name, and audience_label are all required`
       );
     }
+
+    // Resolve an optional banner image to embed at the top of the email. Only
+    // ever embed a SHOP-OWNED image (shopId from the JWT). When the model
+    // supplies a URL that isn't recognizably this shop's (cross-turn URL gap /
+    // placeholder), fall back to the shop's most recent generated image —
+    // same robustness pattern as proposeImageEdit.
+    const bannerImageUrl = await resolveBannerImage(ctx, providedImageUrl);
 
     const marketingService = new MarketingService();
 
@@ -166,9 +190,19 @@ export const proposeCampaignDraft: MarketingTool = {
     // Headline = subject (mirrors what we tell the shop), text blocks =
     // paragraphs split on blank lines. Footer.showUnsubscribe=true so
     // SendGrid's compliance link renders.
+    const blocks = bodyToBlocks(subject, body);
+    if (bannerImageUrl) {
+      // Banner at the very top (above the headline) — the email renderer's
+      // 'image' block (MarketingService.renderBlock) draws it.
+      blocks.unshift({
+        type: "image",
+        src: bannerImageUrl,
+        style: { maxWidth: "100%" },
+      });
+    }
     const designContent = {
       header: { enabled: true, showLogo: true, backgroundColor: "#1a1a2e" },
-      blocks: bodyToBlocks(subject, body),
+      blocks,
       footer: { showSocial: false, showUnsubscribe: true },
     };
 
@@ -198,6 +232,7 @@ export const proposeCampaignDraft: MarketingTool = {
         audience_label: audienceLabel,
         subject,
         body_preview: truncate(body, 280),
+        image_embedded: Boolean(bannerImageUrl),
       },
       display: {
         kind: "campaign_draft",
@@ -207,10 +242,30 @@ export const proposeCampaignDraft: MarketingTool = {
         channel: "email",
         audienceLabel,
         recipientCount,
+        imageUrl: bannerImageUrl,
       },
     };
   },
 };
+
+/** Resolve an optional banner image to embed, shop-scoped. Returns the URL to
+ *  embed or null (text-only). Only shop-owned images are embedded; an
+ *  unrecognized/placeholder URL falls back to the shop's most recent generated
+ *  image (mirrors proposeImageEdit's cross-turn fallback). */
+async function resolveBannerImage(
+  ctx: MarketingToolContext,
+  provided: string
+): Promise<string | null> {
+  if (!provided) return null;
+  if (provided.includes(`/shops/${ctx.shopId}/`)) return provided;
+  const r = await ctx.pool.query<{ image_url: string }>(
+    `SELECT image_url FROM ai_image_generations
+      WHERE shop_id = $1 AND image_url IS NOT NULL
+      ORDER BY id DESC LIMIT 1`,
+    [ctx.shopId]
+  );
+  return r.rows[0]?.image_url ?? null;
+}
 
 function bodyToBlocks(subject: string, body: string): Array<Record<string, unknown>> {
   const paragraphs = body

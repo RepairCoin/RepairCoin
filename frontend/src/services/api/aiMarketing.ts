@@ -61,6 +61,9 @@ export type MarketingToolDisplay =
       channel: "email";
       audienceLabel: string;
       recipientCount: number;
+      /** Optional banner image embedded at the top of the email. Shown in the
+       *  draft card + the review-modal preview so the shop sees it before send. */
+      imageUrl?: string | null;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the
@@ -78,6 +81,19 @@ export type MarketingToolDisplay =
       // `suggest_campaign_strategies`.
       kind: "strategy_chips";
       items: string[];
+    }
+  | {
+      // AI Image Generation Phase 2 — a generated, brand-applied marketing
+      // image the shop reviews before using it in a campaign. The image is
+      // already generated + stored (DO Spaces URL). Emitted by
+      // `propose_campaign_image`.
+      kind: "campaign_image_proposal";
+      imageUrl: string;
+      imageKey: string | null;
+      altText: string;
+      prompt: string;
+      operationType: "generate" | "edit";
+      dimensions: string;
     };
 
 /**
@@ -132,10 +148,17 @@ export const askMarketing = async (
   sessionId: string,
   messages: MarketingMessage[]
 ): Promise<MarketingResponse> => {
-  const response = await apiClient.post("/ai/marketing-chat", {
-    sessionId,
-    messages,
-  });
+  const response = await apiClient.post(
+    "/ai/marketing-chat",
+    {
+      sessionId,
+      messages,
+    },
+    // The marketing assistant can call image tools — gpt-image-1 landscape gen
+    // has been observed up to ~81s, plus storage + LLM round-trips. Match the
+    // backend's 240s ceiling for this route, or a worst-case regenerate times out.
+    { timeout: 240000 }
+  );
   // Axios interceptor pre-unwraps response.data — call sites should read
   // response.data.X not response.data.data.X. The `|| response.data`
   // fallback covers any interceptor-bypass edge case.

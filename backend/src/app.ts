@@ -301,14 +301,31 @@ class RepairCoinApp {
     // Apply general rate limiting to all API routes
     this.app.use('/api/', generalLimiter);
 
-    // Add request timeout middleware (30 seconds)
+    // Add request timeout middleware (30 seconds for most requests).
+    // Slow AI paths run far longer than 30s — gpt-image-1 generation is ~20s on
+    // its own, and the orchestrator / marketing assistants add LLM round-trips
+    // on top before responding (image gen happens server-side inside a tool
+    // call). Cap those at 120s instead, or they 408 mid-generation and the
+    // client never receives the image card.
+    const SLOW_AI_PATHS = [
+      '/ai/images',              // generate + edit
+      '/ai/orchestrate',         // unified assistant (can call image tools)
+      '/ai/marketing-chat',      // marketing assistant (can call image tools)
+      '/ai/brand-kit/analyze-logo', // Claude vision on a logo
+    ];
     this.app.use((req, res, next) => {
+      const isSlowAi = SLOW_AI_PATHS.some((p) => req.path.includes(p));
+      // 240s for image paths: gpt-image-1 landscape gen has been observed up to
+      // ~81s, plus DO Spaces upload + the orchestrator's LLM round-trips. 120s
+      // wasn't enough for a worst-case "regenerate" on a wide banner.
+      const timeoutMs = isSlowAi ? 240000 : 30000;
       // Set timeout for all requests
-      req.setTimeout(30000, () => {
+      req.setTimeout(timeoutMs, () => {
         logger.error('Request timeout', {
           method: req.method,
           path: req.path,
-          ip: req.ip
+          ip: req.ip,
+          timeoutMs
         });
         res.status(408).json({
           success: false,

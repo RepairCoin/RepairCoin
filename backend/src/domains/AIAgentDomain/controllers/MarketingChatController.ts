@@ -215,6 +215,21 @@ export function makeMarketingChatController(
 
         const { sessionId, messages } = parsed.value;
 
+        // Phase 9 — optional image attached to this turn (paperclip). Only honor
+        // a URL recognizably owned by THIS shop; ignore anything else.
+        const rawAttached = (req.body as { attachedImageUrl?: unknown })
+          ?.attachedImageUrl;
+        const attachedImageUrl =
+          typeof rawAttached === "string" &&
+          rawAttached.includes(`/shops/${shopId}/`)
+            ? rawAttached
+            : undefined;
+        const rawLast = (req.body as { lastImageUrl?: unknown })?.lastImageUrl;
+        const lastImageUrl =
+          typeof rawLast === "string" && rawLast.includes(`/shops/${shopId}/`)
+            ? rawLast
+            : undefined;
+
         // 1. Spend cap (shared budget across all AI surfaces for this shop).
         const spendCheck = await spendCap.canSpend(shopId);
         if (!spendCheck.allowed) {
@@ -250,6 +265,17 @@ export function makeMarketingChatController(
         const rulesBlock = buildMarketingRulesBlock();
         const shopContext = await buildMarketingShopContext(shopId);
         const contextBlock = buildMarketingShopContextBlock(shopContext);
+        // Per-turn, non-cached note when the owner attached an image.
+        const systemBlocks: { text: string; cache: boolean }[] = [
+          { text: rulesBlock, cache: true },
+          { text: contextBlock, cache: true },
+        ];
+        if (attachedImageUrl) {
+          systemBlocks.push({
+            text: `The owner ATTACHED AN IMAGE to their current message (url: ${attachedImageUrl}). For "analyze / what theme fits / what colors" call analyze_brand_assets (defaults to this image). For "edit / add X to this" call propose_image_edit with this url as source_image_url. To use it as an email banner, pass it as propose_campaign_draft's image_url. Don't ask them to re-share it.`,
+            cache: false,
+          });
+        }
 
         // 4. Lazy-construct AnthropicClient.
         if (!anthropic) anthropic = new AnthropicClient();
@@ -278,10 +304,7 @@ export function makeMarketingChatController(
         try {
           for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
             const response = await anthropic.complete({
-              systemPrompt: [
-                { text: rulesBlock, cache: true },
-                { text: contextBlock, cache: true },
-              ],
+              systemPrompt: systemBlocks,
               messages: loopMessages,
               model: MARKETING_MODEL,
               maxTokens: MARKETING_MAX_TOKENS,
@@ -332,6 +355,8 @@ export function makeMarketingChatController(
                 dispatchResult = await dispatchMarketingTool(tool, tu.input, {
                   shopId,
                   pool,
+                  attachedImageUrl,
+                  lastImageUrl,
                 });
               }
 

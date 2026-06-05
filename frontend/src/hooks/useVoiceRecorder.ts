@@ -71,6 +71,14 @@ interface UseVoiceRecorderReturn {
   start: () => Promise<void>;
   stop: () => void;
   reset: () => void;
+  /**
+   * Live mic loudness in [0,1], sampled from the same AnalyserNode the
+   * silence detector already runs. Stable identity — call it from an
+   * animation loop (e.g. a listening visualization) to read the current
+   * amplitude WITHOUT triggering React re-renders. Returns 0 when not
+   * actively listening.
+   */
+  getAmplitude: () => number;
 }
 
 // ----- Silence detection tuning -----
@@ -80,13 +88,27 @@ interface UseVoiceRecorderReturn {
 // around 0.005-0.01; the threshold here errs on the side of waiting (no
 // false auto-stops while the user is thinking).
 const SILENCE_THRESHOLD = 0.015;
-// Cumulative quiet time before auto-stop fires.
-const SILENCE_DURATION_MS = 1500;
+// Quiet time AFTER the user has started speaking before we auto-stop (end of
+// speech). Generous enough to ride through natural mid-sentence pauses.
+const SILENCE_DURATION_MS = 2000;
 // Hard cap — never record longer than this regardless of silence.
 const MAX_RECORDING_MS = 5 * 60 * 1000;
-// Don't fire auto-stop in the very first window — gives the user a moment
-// to start speaking after pressing the mic.
-const SILENCE_GRACE_MS = 800;
+// How long to wait for the user to START speaking after they tap the mic. The
+// end-of-speech auto-stop does NOT fire until speech is detected (see
+// SPEECH_PEAK_THRESHOLD) — so a slow start never cuts them off. If they never
+// speak within this window, we stop and report "didn't catch any speech".
+const PRE_SPEECH_TIMEOUT_MS = 10000;
+// Peak RMS a recording must reach to count as containing real speech. Well
+// above SILENCE_THRESHOLD. Doubles as the "speech has started" signal: the
+// end-of-speech silence timer only arms once the level crosses this. If a
+// recording never crosses it, we skip the Whisper call entirely (the user
+// didn't actually speak — sending it would invite a hallucinated transcript).
+const SPEECH_PEAK_THRESHOLD = 0.05;
+// Transient "we didn't hear you" errors (no speech / no audio / too quiet)
+// auto-dismiss after this long so the red banner doesn't linger until the panel
+// closes. Hardware/permission errors are NOT auto-hidden — they carry an action
+// (e.g. "click the lock icon"), so the user needs time to read them.
+const TRANSIENT_ERROR_HIDE_MS = 4000;
 
 const PREFERRED_MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -127,6 +149,43 @@ export function useVoiceRecorder(
   const lastLoudAtRef = useRef<number>(0);
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string>("audio/webm");
+  // Latest RMS (0-1-ish) from the silence-detection tick; read by the
+  // listening visualization. Ref, not state — updated ~60fps.
+  const currentRmsRef = useRef<number>(0);
+  // Peak RMS across the current recording (speech-presence gate). Reset on
+  // start. `measuredRef` tracks whether the analyser ran at all — if the
+  // browser lacked AudioContext we can't measure, so we skip the gate.
+  const maxRmsRef = useRef<number>(0);
+  const measuredRef = useRef<boolean>(false);
+  // Pending auto-dismiss timer for a transient error (see setTransientError).
+  const errorHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearErrorHideTimer = useCallback(() => {
+    if (errorHideTimerRef.current !== null) {
+      clearTimeout(errorHideTimerRef.current);
+      errorHideTimerRef.current = null;
+    }
+  }, []);
+
+  /** Surface a recoverable "we didn't hear you" error, then auto-clear it back
+   *  to idle after a few seconds so the banner doesn't stick around. Any new
+   *  start()/reset() cancels the pending timer, so it only fires if the user
+   *  left the error untouched. */
+  const setTransientError = useCallback(
+    (message: string) => {
+      setState("error");
+      setError(message);
+      clearErrorHideTimer();
+      errorHideTimerRef.current = setTimeout(() => {
+        errorHideTimerRef.current = null;
+        setError(null);
+        // Only step back to idle if we're still showing this error — never
+        // clobber a recording the user has since restarted.
+        setState((s) => (s === "error" ? "idle" : s));
+      }, TRANSIENT_ERROR_HIDE_MS);
+    },
+    [clearErrorHideTimer]
+  );
 
   /** Aggressively clean up every resource so the mic indicator goes away. */
   const teardown = useCallback(() => {
@@ -154,13 +213,17 @@ export function useVoiceRecorder(
     audioCtxRef.current = null;
     analyserRef.current = null;
     chunksRef.current = [];
+    currentRmsRef.current = 0; // bars rest at zero once we stop listening
   }, []);
 
   useEffect(() => {
     // Cleanup on unmount — releases the mic even if the component is
-    // navigated away from mid-recording.
-    return teardown;
-  }, [teardown]);
+    // navigated away from mid-recording, and cancels any pending error timer.
+    return () => {
+      teardown();
+      clearErrorHideTimer();
+    };
+  }, [teardown, clearErrorHideTimer]);
 
   const stop = useCallback(() => {
     // Order matters: snapshot duration BEFORE we tear down the recorder,
@@ -183,11 +246,14 @@ export function useVoiceRecorder(
 
   const start = useCallback(async (): Promise<void> => {
     // Reset prior state so re-recording starts clean.
+    clearErrorHideTimer();
     setTranscript("");
     setOriginalTranscript("");
     setError(null);
     setDurationMs(0);
     chunksRef.current = [];
+    maxRmsRef.current = 0;
+    measuredRef.current = false;
 
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setState("error");
@@ -266,6 +332,11 @@ export function useVoiceRecorder(
       const finalDurationMs = Date.now() - startedAtRef.current;
       setDurationMs(finalDurationMs);
 
+      // Snapshot the speech-presence signals BEFORE teardown (which clears
+      // the live RMS). peakRms is the loudest frame seen this recording.
+      const peakRms = maxRmsRef.current;
+      const measured = measuredRef.current;
+
       // Pull the chunks NOW, then release the mic so the browser
       // indicator clears before the (potentially several-second) upload.
       const chunks = chunksRef.current;
@@ -273,8 +344,16 @@ export function useVoiceRecorder(
       teardown();
 
       if (audioBlob.size === 0) {
-        setState("error");
-        setError("Didn't catch any audio. Try again.");
+        setTransientError("Didn't catch any audio. Try again.");
+        return;
+      }
+
+      // Layer 1 guard: if the analyser ran and never heard real speech (only
+      // silence / background noise), skip the Whisper call entirely. Sending it
+      // would just invite a hallucinated transcript. Skipped when we couldn't
+      // measure (no AudioContext) — the server-side gate still backstops that.
+      if (measured && peakRms < SPEECH_PEAK_THRESHOLD) {
+        setTransientError("Didn't catch any speech. Tap the mic and try again.");
         return;
       }
 
@@ -288,8 +367,7 @@ export function useVoiceRecorder(
         );
         const safeTranscript = (result.transcript || "").trim();
         if (safeTranscript.length === 0) {
-          setState("error");
-          setError("Didn't catch that. Try speaking a bit louder.");
+          setTransientError("Didn't catch that. Try speaking a bit louder.");
           return;
         }
         setTranscript(safeTranscript);
@@ -329,6 +407,7 @@ export function useVoiceRecorder(
     analyser.fftSize = 2048;
     source.connect(analyser);
     analyserRef.current = analyser;
+    measuredRef.current = true; // analyser active → speech-presence gate valid
 
     recorder.start();
     startedAtRef.current = Date.now();
@@ -349,6 +428,8 @@ export function useVoiceRecorder(
         sumSquares += v * v;
       }
       const rms = Math.sqrt(sumSquares / buffer.length);
+      currentRmsRef.current = rms; // surfaced via getAmplitude()
+      if (rms > maxRmsRef.current) maxRmsRef.current = rms; // speech-presence peak
 
       const now = Date.now();
       if (rms >= SILENCE_THRESHOLD) {
@@ -357,12 +438,21 @@ export function useVoiceRecorder(
 
       const elapsed = now - startedAtRef.current;
       const sinceLoud = now - lastLoudAtRef.current;
+      // Speech is "started" once the level has crossed the real-speech peak.
+      const speechStarted = maxRmsRef.current >= SPEECH_PEAK_THRESHOLD;
 
-      const shouldAutoStop =
-        elapsed > SILENCE_GRACE_MS && sinceLoud >= SILENCE_DURATION_MS;
+      // End-of-speech: only auto-stop on silence AFTER the user has actually
+      // spoken — so a slow start or a thinking pause before talking never cuts
+      // them off (the bug: it stopped before they began).
+      const endOfSpeech =
+        speechStarted && sinceLoud >= SILENCE_DURATION_MS;
+      // Never-spoke timeout: if they tapped but didn't speak within the window,
+      // stop (the post-recording gate then reports "didn't catch any speech").
+      const preSpeechTimeout =
+        !speechStarted && elapsed >= PRE_SPEECH_TIMEOUT_MS;
       const hitMaxDuration = elapsed >= MAX_RECORDING_MS;
 
-      if (shouldAutoStop || hitMaxDuration) {
+      if (endOfSpeech || preSpeechTimeout || hitMaxDuration) {
         stop();
         return;
       }
@@ -371,16 +461,33 @@ export function useVoiceRecorder(
     };
 
     animationFrameRef.current = requestAnimationFrame(tick);
-  }, [language, onTranscribed, sessionId, stop, teardown]);
+  }, [
+    language,
+    onTranscribed,
+    sessionId,
+    stop,
+    teardown,
+    clearErrorHideTimer,
+    setTransientError,
+  ]);
 
   const reset = useCallback(() => {
+    clearErrorHideTimer();
     teardown();
     setState("idle");
     setTranscript("");
     setOriginalTranscript("");
     setError(null);
     setDurationMs(0);
-  }, [teardown]);
+  }, [teardown, clearErrorHideTimer]);
+
+  // Normalize raw RMS into a punchy 0-1 range for visualization. Speech RMS
+  // typically sits ~0.03-0.2; mapping 0.22 → full height keeps the bars lively
+  // without clipping. Clamped both ends.
+  const getAmplitude = useCallback(
+    () => Math.max(0, Math.min(1, currentRmsRef.current / 0.22)),
+    []
+  );
 
   return {
     state,
@@ -392,5 +499,6 @@ export function useVoiceRecorder(
     start,
     stop,
     reset,
+    getAmplitude,
   };
 }

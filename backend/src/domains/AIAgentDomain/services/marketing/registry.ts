@@ -11,6 +11,10 @@ import { lookupAudienceCount } from "./tools/lookupAudienceCount";
 import { proposeCampaignDraft } from "./tools/proposeCampaignDraft";
 import { proposeCampaignSend } from "./tools/proposeCampaignSend";
 import { suggestCampaignStrategies } from "./tools/suggestCampaignStrategies";
+import { proposeCampaignImage } from "./tools/proposeCampaignImage";
+import { proposeImageEdit } from "./tools/proposeImageEdit";
+import { listShopPhotos } from "./tools/listShopPhotos";
+import { analyzeBrandAssets } from "./tools/analyzeBrandAssets";
 
 const MARKETING_TOOLS: readonly MarketingTool[] = Object.freeze([
   // Read-only — segment resolution + preview.
@@ -21,6 +25,16 @@ const MARKETING_TOOLS: readonly MarketingTool[] = Object.freeze([
   proposeCampaignSend,
   // Meta — strategy chips for empty-panel state.
   suggestCampaignStrategies,
+  // Image — generate a branded marketing image (propose → shop approves).
+  proposeCampaignImage,
+  // Image — edit an existing image with a prompt (gpt-image-1 /images/edits).
+  proposeImageEdit,
+  // Image — list the shop's already-uploaded photos (storefront = banner_url)
+  // so the assistant can reuse one as a campaign banner / edit source.
+  listShopPhotos,
+  // Image (See) — vision over an attached photo: describe + palette + theme
+  // ideas (Phase 9 in-chat upload).
+  analyzeBrandAssets,
 ]);
 
 const MARKETING_TOOLS_BY_NAME: ReadonlyMap<string, MarketingTool> = new Map(

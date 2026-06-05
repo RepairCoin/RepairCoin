@@ -76,12 +76,14 @@ export class ImageStorageService {
       forcePathStyle: true, // Use path-style: region.digitaloceanspaces.com/bucket/key
       requestHandler: new NodeHttpHandler({
         connectionTimeout: 10000, // 10 seconds
-        socketTimeout: 30000, // 30 seconds
+        // 90s: AI image PNGs are large (~1.5MB landscape) and DO Spaces uploads
+        // can run long; 30s timed out mid-upload after a slow generation.
+        socketTimeout: 90000, // 90 seconds
         httpsAgent: new https.Agent({
           keepAlive: true,
           keepAliveMsecs: 1000,
           maxSockets: 50,
-          timeout: 30000,
+          timeout: 90000,
           family: 4, // Force IPv4
           lookup: (hostname, _options, callback) => {
             // Use dns.resolve4 which respects dns.setServers() (Google/Cloudflare DNS)
@@ -215,6 +217,64 @@ export class ImageStorageService {
   }
 
   /**
+   * Upload a raw buffer (not a Multer upload) to DigitalOcean Spaces.
+   *
+   * Used by AI image generation: a generated/edited image arrives as bytes
+   * (downloaded from the vendor's temporary URL) rather than an HTTP upload,
+   * so it has no MulterFile wrapper. Mirrors uploadImage's storage settings
+   * (public-read, 1-year cache, path-style/CDN URL).
+   */
+  async uploadBuffer(
+    buffer: Buffer,
+    contentType: string,
+    folder: string = 'ai-images',
+    ext: string = 'png'
+  ): Promise<UploadResult> {
+    try {
+      if (!buffer || buffer.length === 0) {
+        return { success: false, error: 'Empty image buffer.' };
+      }
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (buffer.length > maxSize) {
+        return { success: false, error: 'Image exceeds 10MB limit.' };
+      }
+
+      const fileName = this.generateFileName(`image.${ext}`, folder);
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileName,
+        Body: buffer,
+        ContentType: contentType,
+        ACL: 'public-read',
+        CacheControl: 'max-age=31536000',
+      });
+
+      await this.s3Client.send(command);
+
+      const publicUrl = this.cdnEndpoint
+        ? `${this.cdnEndpoint}/${fileName}`
+        : `https://${this.region}.digitaloceanspaces.com/${this.bucketName}/${fileName}`;
+
+      logger.info('Buffer uploaded successfully', {
+        fileName,
+        size: buffer.length,
+        contentType,
+        url: publicUrl,
+      });
+
+      return { success: true, url: publicUrl, key: fileName };
+    } catch (error: any) {
+      logger.error('Error uploading buffer:', {
+        message: error.message,
+        code: error.code,
+        bucket: this.bucketName,
+      });
+      return { success: false, error: `Failed to upload image: ${error.message}` };
+    }
+  }
+
+  /**
    * Upload a file (images + PDF) to DigitalOcean Spaces.
    * Used for message attachments where PDFs are also allowed.
    */
@@ -308,6 +368,16 @@ export class ImageStorageService {
    */
   async uploadCustomerAvatar(file: MulterFile, customerAddress: string): Promise<UploadResult> {
     return this.uploadImage(file, `customers/${customerAddress}/avatars`);
+  }
+
+  /**
+   * Upload an ad-hoc image the shop drops into the AI assistant (Phase 9 —
+   * in-chat image upload). Lands under `shops/{shopId}/ai-uploads` so the
+   * resulting URL carries the `/shops/{shopId}/` prefix the AI image tools use
+   * to confirm shop ownership before editing/analyzing it.
+   */
+  async uploadAiSource(file: MulterFile, shopId: string): Promise<UploadResult> {
+    return this.uploadImage(file, `shops/${shopId}/ai-uploads`);
   }
 
   /**

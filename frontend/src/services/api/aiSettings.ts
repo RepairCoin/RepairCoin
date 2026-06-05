@@ -16,13 +16,17 @@ export interface ShopAiSettings {
   escalationThreshold: number;
   aiFollowupDelayMinutes: number;
   humanReplyBaselineMinutes: number;
+  /** Phase 6 branding — unified assistant display name; null when unset. */
+  assistantName?: string | null;
 }
 
+/** Partial update — any subset; the backend skips columns that are absent. */
 export interface ShopAiSettingsUpdate {
-  escalationThreshold: number;
-  aiFollowupDelayMinutes: number;
-  /** Optional — backend skips writing the column when absent. */
+  escalationThreshold?: number;
+  aiFollowupDelayMinutes?: number;
   humanReplyBaselineMinutes?: number;
+  /** Trimmed name; empty/null clears it. */
+  assistantName?: string | null;
 }
 
 /** Bounds the UI enforces; the backend validates the same ranges. */
@@ -45,6 +49,11 @@ export const updateShopAiSettings = async (
   const response = await apiClient.put('/ai/settings', update);
   return response.data.data || response.data;
 };
+
+/** Phase 6 branding — set or clear just the assistant's display name. */
+export const updateAssistantName = async (
+  name: string | null
+): Promise<ShopAiSettings> => updateShopAiSettings({ assistantName: name });
 
 // ---- Admin gate ----
 

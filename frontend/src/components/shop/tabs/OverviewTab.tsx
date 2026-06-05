@@ -18,7 +18,6 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import { VoiceCommandPill } from "@/components/voice/VoiceCommandPill";
 import Link from "next/link";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
@@ -226,11 +225,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             Monitor your shop&apos;s token activity, balances, and performance in real time.
           </p>
         </div>
-
-        {/* Voice AI Dispatcher — Phase 2. Headline mic affordance on the
-            shop's dashboard home. Tap → records → transcript → Send
-            (Phase 3 will wire routing). */}
-        <VoiceCommandPill />
 
         {/* Shop Statistics - New Design */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">

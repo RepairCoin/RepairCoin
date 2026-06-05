@@ -45,6 +45,9 @@ export const CampaignReviewModal: React.FC<{
   campaignId: string;
   audienceLabel: string;
   recipientCount: number;
+  /** Banner embedded at the top of the email, if any — rendered in the
+   *  preview so the shop sees the actual image before sending. */
+  bannerImageUrl?: string | null;
   onSent: (result: CampaignDeliveryResult) => void;
 }> = ({
   open,
@@ -54,6 +57,7 @@ export const CampaignReviewModal: React.FC<{
   campaignId,
   audienceLabel,
   recipientCount,
+  bannerImageUrl,
   onSent,
 }) => {
   const [subject, setSubject] = useState(initialSubject);
@@ -107,6 +111,35 @@ export const CampaignReviewModal: React.FC<{
               <Mail className="w-3 h-3" />
               email
             </span>
+          </div>
+
+          {/* Email preview — what recipients see (banner + subject + body).
+              Reflects live edits to the fields below. */}
+          <div>
+            <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1.5">
+              Preview
+            </label>
+            <div className="rounded-lg overflow-hidden border border-gray-700 bg-white">
+              {bannerImageUrl && (
+                // Full banner, width-constrained, natural height — matches the
+                // email renderer (max-width:100%; height:auto). NOT object-cover,
+                // which would crop the banner in the preview.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={bannerImageUrl}
+                  alt="Campaign banner"
+                  className="w-full h-auto block"
+                />
+              )}
+              <div className="px-4 py-4">
+                <h3 className="text-base font-bold text-gray-900 text-center break-words">
+                  {subject}
+                </h3>
+                <div className="mt-2 text-sm text-gray-700 whitespace-pre-line break-words">
+                  {body}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Subject */}

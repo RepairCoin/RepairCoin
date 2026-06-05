@@ -28,6 +28,20 @@ export interface MarketingToolContext {
   shopId: string;
   /** Shared PG pool (allows test injection). */
   pool: Pool;
+  /**
+   * Phase 9 — an image the owner attached to THIS turn (paperclip upload →
+   * `shops/{shopId}/ai-uploads` URL). Image tools default their source to it:
+   * propose_image_edit edits it, analyze_brand_assets reads it. Absent on
+   * turns with no attachment.
+   */
+  attachedImageUrl?: string;
+  /**
+   * The image currently DISPLAYED in the panel (the most recent
+   * campaign_image_proposal the owner is looking at). "Edit this" means this
+   * image — propose_image_edit prefers it as the source so the edit operates on
+   * what the owner sees AND inherits its exact size. Sent by the frontend.
+   */
+  lastImageUrl?: string;
 }
 
 /**
@@ -68,6 +82,10 @@ export type MarketingToolDisplay =
       channel: "email";
       audienceLabel: string;
       recipientCount: number;
+      /** Optional banner embedded at the top of the email (DO Spaces URL).
+       *  Null/absent = text-only campaign. Shown in the draft card + the
+       *  CampaignReviewModal preview so the shop sees the banner before send. */
+      imageUrl?: string | null;
     }
   | {
       // Phase 2.2 — proposed send action for an existing draft (the
@@ -91,6 +109,20 @@ export type MarketingToolDisplay =
       // you might want to ask").
       kind: "strategy_chips";
       items: string[];
+    }
+  | {
+      // AI Image Generation Phase 2 — a generated marketing image the shop
+      // reviews (approve / regenerate) before it lands in a campaign. The
+      // image is already generated + stored (DO Spaces URL); the card renders
+      // a preview. operationType distinguishes a fresh generate from a Phase 6
+      // edit of an existing image.
+      kind: "campaign_image_proposal";
+      imageUrl: string;
+      imageKey: string | null;
+      altText: string;
+      prompt: string;
+      operationType: "generate" | "edit";
+      dimensions: string;
     };
 
 /**

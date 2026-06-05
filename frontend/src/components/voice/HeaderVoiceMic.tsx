@@ -1,316 +1,92 @@
 // frontend/src/components/voice/HeaderVoiceMic.tsx
 //
-// Voice AI Dispatcher Phase 2 — header mic icon.
+// Header mic — quick voice entry into the Unified Assistant.
 //
-// Small mic button mounted in DashboardLayout's action cluster
-// alongside Help / Insights / Marketing launchers. Lets the shop
-// owner trigger voice from any page (not just the dashboard home,
-// which is the only place VoiceCommandPill renders).
-//
-// On tap: opens a Popover that runs the same state machine as
-// VoiceCommandPill, but in a compact card rather than a hero pill.
+// Styled as a purple neon-glow button so the "talk to your assistant" entry
+// stands out from the yellow utility icons in the header cluster. Tapping it
+// opens the Unified Assistant Sheet and starts tap-to-talk recording (the
+// recording/transcription/reply all live in the unified panel — this is just
+// the trigger). A first-visit coach-mark explains it for owners who don't know
+// they can speak.
 
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { Mic, Square, Loader2, Send, X } from "lucide-react";
-import { toast } from "react-hot-toast";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
-import { dispatchTranscript } from "@/services/api/voice";
-import { useVoiceDispatchStore } from "@/stores/voiceDispatchStore";
+import React, { useEffect, useState } from "react";
+import { Mic, X } from "lucide-react";
+import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
+import { unlockAudioPlayback } from "@/lib/audioUnlock";
 
-const DOMAIN_LABEL: Record<string, string> = {
-  insights: "Insights",
-  marketing: "Marketing",
-  help: "Help",
-};
-
-const OUT_OF_SCOPE_COPY =
-  "I can't help with that yet — try opening the Insights, Marketing, or Help panel directly.";
+// Once seen/used, never show the header-mic coach-mark again.
+const MIC_COACH_KEY = "rc_header_mic_coach_seen";
 
 export const HeaderVoiceMic: React.FC = () => {
-  const [open, setOpen] = useState(false);
-  const [dispatching, setDispatching] = useState(false);
-  const [outOfScope, setOutOfScope] = useState(false);
-  const [dispatchFailed, setDispatchFailed] = useState(false);
-  const dispatch = useVoiceDispatchStore((s) => s.dispatch);
+  const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
+  const [showCoach, setShowCoach] = useState(false);
 
-  // One session id per popover-open. Resets when popover closes so a
-  // new open is a fresh conversation in audit terms.
-  const sessionId = useMemo(
-    () =>
-      (typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `voice-${Date.now()}-${Math.random().toString(36).slice(2)}`),
-    // Re-mint when popover toggles open → fresh session per open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open]
-  );
-
-  const recorder = useVoiceRecorder({ sessionId, language: "en" });
-
-  // Closing the popover should also stop any in-flight recording so the
-  // mic indicator doesn't stay on after dismissal.
-  const handleOpenChange = (next: boolean) => {
-    if (!next) {
-      recorder.reset();
-      setDispatching(false);
-      setOutOfScope(false);
-      setDispatchFailed(false);
-    }
-    setOpen(next);
-  };
-
-  const handleSend = async () => {
-    const text = recorder.transcript.trim();
-    if (text.length === 0) return;
-    setDispatching(true);
+  // First-visit coach-mark. Set in an effect (not initial state) to avoid an
+  // SSR/client hydration mismatch; storage access guarded for private mode.
+  useEffect(() => {
     try {
-      const result = await dispatchTranscript(
-        text,
-        sessionId,
-        "voice",
-        recorder.originalTranscript
-      );
-      if (result.domain === "out_of_scope") {
-        setOutOfScope(true);
-        return;
+      if (
+        typeof window !== "undefined" &&
+        !window.localStorage.getItem(MIC_COACH_KEY)
+      ) {
+        setShowCoach(true);
       }
-      dispatch(result.domain, text);
-      toast.success(`Asked ${DOMAIN_LABEL[result.domain]}`, {
-        duration: 2500,
-      });
-      recorder.reset();
-      setOpen(false);
     } catch {
-      setDispatchFailed(true);
-    } finally {
-      setDispatching(false);
+      /* localStorage blocked — just skip the coach-mark */
+    }
+  }, []);
+
+  const dismissCoach = () => {
+    setShowCoach(false);
+    try {
+      window.localStorage.setItem(MIC_COACH_KEY, "1");
+    } catch {
+      /* ignore */
     }
   };
-
-  const handleDismissOutOfScope = () => {
-    setOutOfScope(false);
-    recorder.reset();
-    setOpen(false);
-  };
-
-  const handleManualOpen = (domain: "insights" | "marketing" | "help") => {
-    dispatch(domain, "");
-    setDispatchFailed(false);
-    recorder.reset();
-    setOpen(false);
-  };
-
-  const triggerBusy = recorder.state === "listening";
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Voice command"
-          className={`relative p-2.5 rounded-full transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010] ${
-            triggerBusy
-              ? "bg-red-500 text-white"
-              : "bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800]"
-          }`}
-        >
-          <Mic className="w-6 h-6" />
-          {triggerBusy && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 animate-ping" />
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={12}
-        className="w-[360px] bg-[#1e1f22] border-gray-800 text-white p-4 shadow-2xl"
+    <div className="relative">
+      {/* Pulsing neon halo behind the button. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full bg-purple-500/50 blur-md animate-pulse"
+      />
+      <button
+        type="button"
+        onClick={() => {
+          dismissCoach();
+          // Unlock audio in the gesture so the deferred spoken greeting plays.
+          unlockAudioPlayback();
+          openWithMic();
+        }}
+        aria-label="Talk to your assistant"
+        title="Talk to your assistant"
+        className="relative z-10 p-2.5 rounded-full bg-gradient-to-br from-purple-500 to-violet-700 text-white ring-1 ring-purple-300/40 transition-all duration-300 shadow-[0_0_12px_2px_rgba(168,85,247,0.7),0_0_26px_8px_rgba(168,85,247,0.35)] hover:from-purple-400 hover:to-violet-600 hover:shadow-[0_0_18px_4px_rgba(168,85,247,0.95),0_0_38px_12px_rgba(168,85,247,0.5)]"
       >
-        {renderBody()}
-      </PopoverContent>
-    </Popover>
-  );
+        <Mic className="w-6 h-6" />
+      </button>
 
-  function renderBody() {
-    if (dispatchFailed) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-300">
-            Voice routing is having trouble. Open a panel manually:
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleManualOpen("insights")}
-              className="bg-transparent border-gray-700 text-white hover:bg-gray-800 text-xs"
-            >
-              Insights
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleManualOpen("marketing")}
-              className="bg-transparent border-gray-700 text-white hover:bg-gray-800 text-xs"
-            >
-              Marketing
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleManualOpen("help")}
-              className="bg-transparent border-gray-700 text-white hover:bg-gray-800 text-xs"
-            >
-              Help
-            </Button>
-          </div>
-        </div>
-      );
-    }
-    if (outOfScope) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-300">{OUT_OF_SCOPE_COPY}</p>
-          <Button
-            onClick={handleDismissOutOfScope}
-            className="w-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] font-semibold"
-          >
-            Got it
-          </Button>
-        </div>
-      );
-    }
-    if (dispatching) {
-      return (
-        <div className="flex items-center gap-3 py-2">
-          <Loader2 className="w-5 h-5 animate-spin text-[#FFCC00]" />
-          <p className="text-sm text-gray-300">Routing your question…</p>
-        </div>
-      );
-    }
-    if (recorder.state === "idle" || recorder.state === "error") {
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">Ask AI by voice</p>
+      {/* First-visit coach-mark — appears below the mic, pointing up at it. */}
+      {showCoach && (
+        <div className="absolute top-full right-0 mt-3 z-50 w-max max-w-[230px]">
+          <div className="relative rounded-lg bg-gradient-to-br from-purple-600 to-violet-700 px-3 py-2 text-xs font-medium leading-snug text-white shadow-[0_4px_20px_rgba(168,85,247,0.5)]">
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="text-gray-400 hover:text-white"
-              aria-label="Close"
+              onClick={dismissCoach}
+              aria-label="Dismiss tip"
+              className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white ring-2 ring-[#101010] hover:bg-red-600"
             >
-              <X className="w-4 h-4" />
+              <X className="h-3 w-3" />
             </button>
+            🎤 Talk to your assistant — tap and just speak to ask anything.
+            {/* upward pointer toward the mic */}
+            <span className="absolute bottom-full right-5 h-0 w-0 border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-purple-600" />
           </div>
-          {recorder.state === "error" && recorder.error && (
-            <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2">
-              {recorder.error}
-            </p>
-          )}
-          <p className="text-xs text-gray-400">
-            Insights, marketing, or help — AI routes your question to the
-            right place.
-          </p>
-          <Button
-            onClick={() => void recorder.start()}
-            className="w-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] font-semibold"
-          >
-            <Mic className="w-4 h-4 mr-2" />
-            {recorder.state === "error" ? "Try again" : "Start recording"}
-          </Button>
         </div>
-      );
-    }
-
-    if (recorder.state === "requesting_permission") {
-      return (
-        <div className="flex items-center gap-3 py-2">
-          <Loader2 className="w-5 h-5 animate-spin text-[#FFCC00]" />
-          <p className="text-sm text-gray-300">
-            Allow microphone access…
-          </p>
-        </div>
-      );
-    }
-
-    if (recorder.state === "listening") {
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            Listening…
-          </div>
-          <p className="text-xs text-gray-400">
-            Auto-stops when you stop talking, or tap below to stop now.
-          </p>
-          <Button
-            onClick={recorder.stop}
-            variant="outline"
-            className="w-full bg-transparent border-gray-700 text-white hover:bg-gray-800"
-          >
-            <Square className="w-4 h-4 mr-2 fill-current" />
-            Stop
-          </Button>
-        </div>
-      );
-    }
-
-    if (recorder.state === "transcribing") {
-      return (
-        <div className="flex items-center gap-3 py-2">
-          <Loader2 className="w-5 h-5 animate-spin text-[#FFCC00]" />
-          <p className="text-sm text-gray-300">Transcribing…</p>
-        </div>
-      );
-    }
-
-    // transcribed
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold">
-            Review and send
-          </p>
-          <button
-            type="button"
-            onClick={recorder.reset}
-            className="text-gray-400 hover:text-white"
-            aria-label="Cancel"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <Textarea
-          value={recorder.transcript}
-          onChange={(e) => recorder.setTranscript(e.target.value)}
-          className="w-full bg-[#101010] border-gray-800 text-white text-sm focus-visible:ring-[#FFCC00] resize-none"
-          rows={3}
-          autoFocus
-        />
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => void recorder.start()}
-            className="flex-1 text-gray-300 hover:text-white hover:bg-gray-800"
-          >
-            <Mic className="w-4 h-4 mr-2" />
-            Re-record
-          </Button>
-          <Button
-            onClick={handleSend}
-            disabled={recorder.transcript.trim().length === 0}
-            className="flex-1 bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] font-semibold"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            Send
-          </Button>
-        </div>
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
 };
