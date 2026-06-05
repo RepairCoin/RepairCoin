@@ -2,7 +2,6 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { jwtDecode } from "jwt-decode";
 import { router } from "expo-router";
 import { Toast } from "react-native-toast-notifications";
-import { authApi } from "@/feature/auth/services/auth.services";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 
 interface DecodedToken {
@@ -105,10 +104,24 @@ class ApiClient {
         useAuthStore.getState();
       if (!refreshToken) return null;
 
-      const response = await authApi.getRefreshToken(refreshToken);
+      // IMPORTANT: use a bare axios call (NOT this.instance / apiClient) so the
+      // refresh request does NOT re-enter the request interceptor. Going through
+      // this.instance deadlocks: the access token is expired and isRefreshing is
+      // already true, so the refresh request itself would wait on the refresh it
+      // is supposed to be performing.
+      const response = await axios.post(
+        `${this.baseURL}/auth/refresh`,
+        { refreshToken },
+        { headers: { "Content-Type": "application/json" }, timeout: 60000 },
+      );
 
-      if (response?.data?.success) {
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
+      const body = response?.data;
+
+      if (body?.success) {
+        const accessToken = body.data?.accessToken || body.token;
+        const newRefreshToken = body.data?.refreshToken;
+
+        if (!accessToken) return null;
 
         setAccessToken(accessToken);
         if (newRefreshToken) {
@@ -141,17 +154,21 @@ class ApiClient {
               if (!this.isRefreshing) {
                 this.isRefreshing = true;
 
-                const newToken = await this.refreshToken();
+                try {
+                  const newToken = await this.refreshToken();
 
-                if (newToken) {
-                  token = newToken;
-                  this.onTokenRefreshed(newToken);
-                } else {
-                  await this.clearAuthToken();
-                  this.onTokenRefreshed("");
+                  if (newToken) {
+                    token = newToken;
+                    this.onTokenRefreshed(newToken);
+                  } else {
+                    await this.clearAuthToken();
+                    this.onTokenRefreshed("");
+                  }
+                } finally {
+                  // Always release the gate, even if refresh throws, so later
+                  // requests never hang forever on a stuck isRefreshing flag.
+                  this.isRefreshing = false;
                 }
-
-                this.isRefreshing = false;
               } else {
                 token = await new Promise<string>((resolve) => {
                   this.subscribeTokenRefresh((newToken: string) => {

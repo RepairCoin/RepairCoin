@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useActiveWallet, useDisconnect } from "thirdweb/react";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { router } from "expo-router";
 import { useCallback, useState } from "react";
@@ -17,7 +18,8 @@ const SECURE_STORE_KEYS = [
 
 export const useLogout = () => {
   const queryClient = useQueryClient();
-  const account = useAuthStore((state) => state.account);
+  const activeWallet = useActiveWallet();
+  const { disconnect } = useDisconnect();
   const resetState = useAuthStore((state) => state.resetState);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -32,9 +34,14 @@ export const useLogout = () => {
         console.error("[Logout] Error deactivating push tokens:", error);
       });
 
-      if (account?.disconnect) {
+      // Disconnect the actual thirdweb wallet (not the store's plain
+      // { address } object). This tears down the underlying WalletConnect
+      // session and clears thirdweb's persisted "last connected wallet"
+      // record, preventing a stale "No matching key. session:" error from
+      // useAutoConnect on the next app launch.
+      if (activeWallet) {
         try {
-          await account.disconnect();
+          await disconnect(activeWallet);
         } catch (error) {
           console.error("[Logout] Error disconnecting wallet:", error);
         }
@@ -62,7 +69,7 @@ export const useLogout = () => {
     } finally {
       setIsLoggingOut(false);
     }
-  }, [queryClient, account, resetState, isLoggingOut]);
+  }, [queryClient, activeWallet, disconnect, resetState, isLoggingOut]);
 
   return {
     logout: handleLogout,
