@@ -267,6 +267,29 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
   ];
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0;
+  const matchesQuery = (text: string) =>
+    text.toLowerCase().includes(normalizedQuery);
+
+  const filteredSections = isSearching
+    ? shopSections
+        .map((section) => ({
+          ...section,
+          items: matchesQuery(section.title)
+            ? section.items
+            : section.items.filter((item) => matchesQuery(item.title)),
+        }))
+        .filter((section) => section.items.length > 0)
+    : shopSections;
+
+  const filteredBottomItems = isSearching
+    ? bottomMenuItems.filter((item) => matchesQuery(item.title))
+    : bottomMenuItems;
+
+  const hasResults =
+    filteredSections.length > 0 || filteredBottomItems.length > 0;
+
   return (
     <BaseSidebar
       isOpen={isOpen}
@@ -297,8 +320,13 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         {!isCollapsed ? (
           /* Shop Sidebar with Sections */
           <div className="space-y-4 px-2 sm:px-3">
-            {shopSections.map((section) => {
-              const sectionExpanded = isSectionExpanded(section.id);
+            {isSearching && !hasResults && (
+              <p className="px-2 py-3 text-sm text-gray-400">
+                No results for &ldquo;{searchQuery.trim()}&rdquo;
+              </p>
+            )}
+            {filteredSections.map((section) => {
+              const sectionExpanded = isSearching || isSectionExpanded(section.id);
 
               return (
                 <div key={section.id}>
@@ -348,7 +376,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         ) : (
           /* Collapsed state - show icons only */
           <ul className="space-y-1 px-2 sm:px-3">
-            {shopSections.flatMap((section) =>
+            {filteredSections.flatMap((section) =>
               section.items.map((item) => {
                 const isActive = isItemActive(item);
 
@@ -405,8 +433,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       </nav>
 
       {/* Settings Section */}
+      {(!isSearching || filteredBottomItems.length > 0) && (
       <div className="border-t border-gray-800 p-3 sm:p-4">
-        {!isCollapsed && (
+        {!isCollapsed && !isSearching && (
           <button
             onClick={() => toggleSection("settings")}
             className="flex items-center justify-between w-full px-2 py-2 text-[#FFCC00] text-xs font-semibold tracking-wider hover:opacity-80 transition-opacity mb-2"
@@ -421,9 +450,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         )}
 
         {/* Show items if: collapsed, OR section is expanded */}
-        {(isCollapsed || isSectionExpanded("settings")) && (
+        {(isCollapsed || isSearching || isSectionExpanded("settings")) && (
           <ul className="space-y-1">
-            {bottomMenuItems.map((item) => {
+            {filteredBottomItems.map((item) => {
               const isActive = item.tabId ? activeTab === item.tabId : false;
 
               const handleClick = (e: React.MouseEvent) => {
@@ -470,6 +499,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           </ul>
         )}
       </div>
+      )}
     </BaseSidebar>
   );
 };
