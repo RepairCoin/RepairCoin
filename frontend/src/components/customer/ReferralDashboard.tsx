@@ -30,7 +30,10 @@ export function ReferralDashboard() {
   const [copying, setCopying] = useState(false);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const generateAttemptedRef = useRef(false);
+  // Tracks the wallet address we've already requested a code for. Refs survive
+  // StrictMode's double-invoked effects and re-renders, so keying the guard by
+  // address makes the POST fire exactly once per wallet.
+  const generateRequestedForRef = useRef<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const [referralStats, setReferralStats] = useState<{
     totalReferrals: number;
@@ -69,26 +72,31 @@ export function ReferralDashboard() {
     }
   }, [customerData?.address]);
 
-  // Reset the generate-attempt guard whenever the wallet changes
+  // Clear any stale error when the wallet changes (the guard itself is keyed by
+  // address, so it doesn't need an explicit reset here).
   useEffect(() => {
-    generateAttemptedRef.current = false;
     setGenerateError(null);
   }, [customerData?.address]);
 
   // If the customer record exists but has no referral code yet, request the
   // backend to generate one and then refresh customer data so the UI updates.
+  //
+  // The guard is keyed by wallet address rather than a boolean so React's
+  // StrictMode double-invoke (and any incidental re-render) can't fire a second
+  // POST. We intentionally do NOT cancel the in-flight request on cleanup:
+  // earlier this effect listed `generatingCode` in its deps and set it inside,
+  // which made the cleanup run mid-flight and skip `fetchCustomerData`, leaving
+  // referralCode empty. The backend /referrals/generate call is idempotent.
   useEffect(() => {
-    if (
-      !customerData?.address ||
-      customerData?.referralCode ||
-      generateAttemptedRef.current ||
-      generatingCode
-    ) {
+    const address = customerData?.address;
+    if (!address || customerData?.referralCode) {
       return;
     }
+    if (generateRequestedForRef.current === address) {
+      return;
+    }
+    generateRequestedForRef.current = address;
 
-    generateAttemptedRef.current = true;
-    let cancelled = false;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
     (async () => {
@@ -115,9 +123,7 @@ export function ReferralDashboard() {
         ]);
 
         const generatedCode: string | undefined =
-          resp?.data?.data?.referralCode ?? resp?.data?.referralCode ?? resp?.referralCode;
-
-        if (cancelled) return;
+          resp?.data?.referralCode ?? resp?.data?.data?.referralCode ?? resp?.referralCode;
 
         if (!generatedCode) {
           throw new Error(
@@ -127,7 +133,6 @@ export function ReferralDashboard() {
 
         await fetchCustomerData(true);
       } catch (error: any) {
-        if (cancelled) return;
         const message =
           error?.response?.data?.error ||
           error?.message ||
@@ -137,24 +142,18 @@ export function ReferralDashboard() {
         toast.error(message);
       } finally {
         if (timeoutHandle) clearTimeout(timeoutHandle);
-        if (!cancelled) setGeneratingCode(false);
+        setGeneratingCode(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-      if (timeoutHandle) clearTimeout(timeoutHandle);
-    };
   }, [
     customerData?.address,
     customerData?.referralCode,
-    generatingCode,
     fetchCustomerData,
     retryNonce,
   ]);
 
   const retryGenerateReferralCode = () => {
-    generateAttemptedRef.current = false;
+    generateRequestedForRef.current = null;
     setGenerateError(null);
     setRetryNonce((n) => n + 1);
   };
