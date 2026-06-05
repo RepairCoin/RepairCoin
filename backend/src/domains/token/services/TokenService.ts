@@ -3,6 +3,7 @@
   import { TierManager, CustomerData } from '../../../contracts/TierManager';
   import { customerRepository, shopRepository, transactionRepository, adminRepository } from '../../../repositories';
   import { ReferralRepository } from '../../../repositories/ReferralRepository';
+  import { ReferralService } from '../../../services/ReferralService';
   import { logger } from '../../../utils/logger';
 
   export interface TokenEarningRequest {
@@ -43,9 +44,17 @@
     private tokenMinter: TokenMinter | null = null;
     private tierManager: TierManager | null = null;
     private referralRepository: ReferralRepository;
+    private referralService: ReferralService | null = null;
 
     constructor() {
       this.referralRepository = new ReferralRepository();
+    }
+
+    private getReferralService(): ReferralService {
+      if (!this.referralService) {
+        this.referralService = new ReferralService();
+      }
+      return this.referralService;
     }
 
     private getTokenMinter(): TokenMinter {
@@ -307,6 +316,27 @@
             orderId,
             transactionHash: result.transactionHash
           });
+
+          // Trigger referral completion if this is the referee's first repair.
+          // Wrapped in its own try/catch so a referral-side failure can never
+          // roll back the customer's already-minted service earning.
+          try {
+            const referralResult = await this.getReferralService().completeReferralOnFirstRepair(
+              customerAddress,
+              shopId,
+              serviceAmount // use the service amount as repair-equivalent
+            );
+            if (referralResult.referralCompleted) {
+              logger.info('Referral completed on first service marketplace booking', {
+                customerAddress,
+                shopId,
+                orderId
+              });
+            }
+          } catch (referralError) {
+            logger.error('Error checking referral completion after service marketplace earning:', referralError);
+            // Do not re-throw — keep the successful earning intact.
+          }
 
           // Return result with updated total tokens
           return {
