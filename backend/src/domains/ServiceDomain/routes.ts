@@ -1473,6 +1473,56 @@ export function initializeRoutes(stripe: StripeService): Router {
     reviewController.addShopResponse
   );
 
+  router.put(
+    '/reviews/:reviewId/respond',
+    authMiddleware,
+    requireRole(['shop']),
+    reviewController.updateShopResponse.bind(reviewController)
+  );
+
+  router.post(
+    '/reviews/:reviewId/rejoinder',
+    authMiddleware,
+    requireRole(['shop']),
+    reviewController.addShopRejoinder.bind(reviewController)
+  );
+
+  router.put(
+    '/reviews/:reviewId/rejoinder',
+    authMiddleware,
+    requireRole(['shop']),
+    reviewController.updateShopRejoinder.bind(reviewController)
+  );
+
+  router.post(
+    '/reviews/:reviewId/reply',
+    authMiddleware,
+    requireRole(['customer']),
+    reviewController.addCustomerReply.bind(reviewController)
+  );
+
+  router.put(
+    '/reviews/:reviewId/reply',
+    authMiddleware,
+    requireRole(['customer']),
+    reviewController.updateCustomerReply.bind(reviewController)
+  );
+
+  // Review thread — unlimited alternating replies (customer or shop)
+  router.post(
+    '/reviews/:reviewId/thread',
+    authMiddleware,
+    requireRole(['customer', 'shop']),
+    reviewController.addThreadReply.bind(reviewController)
+  );
+
+  router.put(
+    '/reviews/thread/:replyId',
+    authMiddleware,
+    requireRole(['customer', 'shop']),
+    reviewController.editThreadReply.bind(reviewController)
+  );
+
   /**
    * @swagger
    * /api/services/reviews/{reviewId}/helpful:

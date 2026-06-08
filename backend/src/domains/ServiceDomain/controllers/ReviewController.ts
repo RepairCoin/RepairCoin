@@ -347,6 +347,192 @@ export class ReviewController {
   }
 
   /**
+   * Edit shop response
+   * PUT /api/services/reviews/:reviewId/respond
+   */
+  async updateShopResponse(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewId } = req.params;
+      const { response } = req.body;
+      const shopId = req.user?.shopId;
+
+      if (!shopId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+      if (!response?.trim()) { res.status(400).json({ error: 'Response text is required' }); return; }
+      if (response.length > 2000) { res.status(400).json({ error: 'Response cannot exceed 2,000 characters' }); return; }
+
+      const existing = await reviewRepository.getReviewById(reviewId);
+      if (!existing) { res.status(404).json({ error: 'Review not found' }); return; }
+      if (existing.shopId !== shopId) { res.status(403).json({ error: 'You can only edit responses on your own reviews' }); return; }
+      if (!existing.shopResponse) { res.status(400).json({ error: 'No response to edit' }); return; }
+
+      const updated = await reviewRepository.updateShopResponse(reviewId, response.trim());
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      logger.error('Error updating shop response:', error);
+      res.status(500).json({ error: 'Failed to update response' });
+    }
+  }
+
+  /**
+   * Shop reply to customer's counter-reply
+   * POST /api/services/reviews/:reviewId/rejoinder
+   */
+  async addShopRejoinder(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewId } = req.params;
+      const { rejoinder } = req.body;
+      const shopId = req.user?.shopId;
+
+      if (!shopId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+      if (!rejoinder?.trim()) { res.status(400).json({ error: 'Rejoinder text is required' }); return; }
+      if (rejoinder.length > 1000) { res.status(400).json({ error: 'Rejoinder cannot exceed 1,000 characters' }); return; }
+
+      const existing = await reviewRepository.getReviewById(reviewId);
+      if (!existing) { res.status(404).json({ error: 'Review not found' }); return; }
+      if (existing.shopId !== shopId) { res.status(403).json({ error: 'You can only reply to reviews for your shop' }); return; }
+      if (!existing.customerReply) { res.status(400).json({ error: 'Customer has not replied yet' }); return; }
+      if (existing.shopRejoinder) { res.status(400).json({ error: 'You have already replied to this customer reply' }); return; }
+
+      const updated = await reviewRepository.addShopRejoinder(reviewId, rejoinder.trim());
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      logger.error('Error adding shop rejoinder:', error);
+      res.status(500).json({ error: 'Failed to add reply' });
+    }
+  }
+
+  /**
+   * Edit shop rejoinder
+   * PUT /api/services/reviews/:reviewId/rejoinder
+   */
+  async updateShopRejoinder(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewId } = req.params;
+      const { rejoinder } = req.body;
+      const shopId = req.user?.shopId;
+
+      if (!shopId) { res.status(401).json({ error: 'Unauthorized' }); return; }
+      if (!rejoinder?.trim()) { res.status(400).json({ error: 'Rejoinder text is required' }); return; }
+      if (rejoinder.length > 1000) { res.status(400).json({ error: 'Rejoinder cannot exceed 1,000 characters' }); return; }
+
+      const existing = await reviewRepository.getReviewById(reviewId);
+      if (!existing) { res.status(404).json({ error: 'Review not found' }); return; }
+      if (existing.shopId !== shopId) { res.status(403).json({ error: 'You can only edit replies on your own reviews' }); return; }
+      if (!existing.shopRejoinder) { res.status(400).json({ error: 'No reply to edit' }); return; }
+
+      const updated = await reviewRepository.updateShopRejoinder(reviewId, rejoinder.trim());
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      logger.error('Error updating shop rejoinder:', error);
+      res.status(500).json({ error: 'Failed to update reply' });
+    }
+  }
+
+  /**
+   * Add customer counter-reply to a shop response
+   * POST /api/services/reviews/:reviewId/reply
+   */
+  async addCustomerReply(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewId } = req.params;
+      const { reply } = req.body;
+      const customerAddress = req.user?.address;
+
+      if (!customerAddress) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      if (!reply || !reply.trim()) {
+        res.status(400).json({ error: 'Reply text is required' });
+        return;
+      }
+
+      if (reply.length > 1000) {
+        res.status(400).json({ error: 'Reply cannot exceed 1,000 characters' });
+        return;
+      }
+
+      const existingReview = await reviewRepository.getReviewById(reviewId);
+      if (!existingReview) {
+        res.status(404).json({ error: 'Review not found' });
+        return;
+      }
+
+      if (existingReview.customerAddress.toLowerCase() !== customerAddress.toLowerCase()) {
+        res.status(403).json({ error: 'You can only reply to your own reviews' });
+        return;
+      }
+
+      if (!existingReview.shopResponse) {
+        res.status(400).json({ error: 'You can only reply after the shop has responded' });
+        return;
+      }
+
+      if (existingReview.customerReply) {
+        res.status(400).json({ error: 'You have already replied to this review' });
+        return;
+      }
+
+      const updatedReview = await reviewRepository.addCustomerReply(reviewId, reply.trim());
+
+      res.json({ success: true, data: updatedReview });
+    } catch (error) {
+      logger.error('Error adding customer reply:', error);
+      res.status(500).json({ error: 'Failed to add reply' });
+    }
+  }
+
+  /**
+   * Edit customer reply
+   * PUT /api/services/reviews/:reviewId/reply
+   */
+  async updateCustomerReply(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewId } = req.params;
+      const { reply } = req.body;
+      const customerAddress = req.user?.address;
+
+      if (!customerAddress) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      if (!reply || !reply.trim()) {
+        res.status(400).json({ error: 'Reply text is required' });
+        return;
+      }
+
+      if (reply.length > 1000) {
+        res.status(400).json({ error: 'Reply cannot exceed 1,000 characters' });
+        return;
+      }
+
+      const existingReview = await reviewRepository.getReviewById(reviewId);
+      if (!existingReview) {
+        res.status(404).json({ error: 'Review not found' });
+        return;
+      }
+
+      if (existingReview.customerAddress.toLowerCase() !== customerAddress.toLowerCase()) {
+        res.status(403).json({ error: 'You can only edit your own reply' });
+        return;
+      }
+
+      if (!existingReview.customerReply) {
+        res.status(400).json({ error: 'No reply to edit' });
+        return;
+      }
+
+      const updatedReview = await reviewRepository.updateCustomerReply(reviewId, reply.trim());
+      res.json({ success: true, data: updatedReview });
+    } catch (error) {
+      logger.error('Error updating customer reply:', error);
+      res.status(500).json({ error: 'Failed to update reply' });
+    }
+  }
+
+  /**
    * Toggle helpful vote for a review (unique per account)
    * POST /api/services/reviews/:reviewId/helpful
    */
@@ -520,6 +706,105 @@ export class ReviewController {
       res.status(500).json({
         error: 'Failed to check review eligibility'
       });
+    }
+  }
+
+  /**
+   * Add a reply to a review thread (customer or shop, unlimited turns)
+   * POST /api/services/reviews/:reviewId/thread
+   */
+  async addThreadReply(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewId } = req.params;
+      const { content } = req.body;
+      const userAddress = req.user?.address;
+      const userRole = req.user?.role;
+
+      if (!userAddress) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      if (!content || !content.trim()) {
+        res.status(400).json({ error: 'Reply content is required' });
+        return;
+      }
+
+      if (content.length > 1000) {
+        res.status(400).json({ error: 'Reply cannot exceed 1,000 characters' });
+        return;
+      }
+
+      const review = await reviewRepository.getReviewById(reviewId);
+      if (!review) {
+        res.status(404).json({ error: 'Review not found' });
+        return;
+      }
+
+      if (!review.shopResponse) {
+        res.status(400).json({ error: 'Thread cannot start until the shop has responded' });
+        return;
+      }
+
+      // Determine author type
+      const isCustomer = review.customerAddress.toLowerCase() === userAddress.toLowerCase();
+      const isShop = userRole === 'shop';
+
+      if (!isCustomer && !isShop) {
+        res.status(403).json({ error: 'Only the reviewer or the shop can reply' });
+        return;
+      }
+
+      const authorType = isCustomer ? 'customer' : 'shop';
+
+      // Enforce alternating turns — last reply must not be from the same party
+      const existingReplies = await reviewRepository.getRepliesForReview(reviewId);
+      if (existingReplies.length > 0) {
+        const lastReply = existingReplies[existingReplies.length - 1];
+        if (lastReply.authorType === authorType) {
+          res.status(400).json({ error: 'Wait for the other party to reply before posting again' });
+          return;
+        }
+      }
+
+      const reply = await reviewRepository.addReply(reviewId, userAddress, authorType, content.trim());
+      res.json({ success: true, data: reply });
+    } catch (error) {
+      logger.error('Error adding thread reply:', error);
+      res.status(500).json({ error: 'Failed to add reply' });
+    }
+  }
+
+  /**
+   * Edit a thread reply (author only)
+   * PUT /api/services/reviews/thread/:replyId
+   */
+  async editThreadReply(req: Request, res: Response): Promise<void> {
+    try {
+      const { replyId } = req.params;
+      const { content } = req.body;
+      const userAddress = req.user?.address;
+
+      if (!userAddress) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      if (!content || !content.trim()) {
+        res.status(400).json({ error: 'Reply content is required' });
+        return;
+      }
+
+      if (content.length > 1000) {
+        res.status(400).json({ error: 'Reply cannot exceed 1,000 characters' });
+        return;
+      }
+
+      const reply = await reviewRepository.editReply(replyId, userAddress, content.trim());
+      res.json({ success: true, data: reply });
+    } catch (error) {
+      logger.error('Error editing thread reply:', error);
+      res.status(500).json({ error: 'Failed to edit reply' });
     }
   }
 }

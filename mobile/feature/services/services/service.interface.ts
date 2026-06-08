@@ -246,6 +246,16 @@ export interface SubmitReviewData {
   images?: string[];
 }
 
+export interface ReviewReply {
+  id: string;
+  reviewId: string;
+  authorAddress: string;
+  authorType: 'customer' | 'shop';
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 export interface ReviewData {
   reviewId: string;
   orderId: string;
@@ -258,6 +268,11 @@ export interface ReviewData {
   images: string[] | null;
   shopResponse: string | null;
   shopResponseAt: string | null;
+  customerReply: string | null;
+  customerReplyAt: string | null;
+  shopRejoinder: string | null;
+  shopRejoinderAt: string | null;
+  replies: ReviewReply[];
   helpfulCount: number;
   createdAt: string;
   updatedAt: string;
