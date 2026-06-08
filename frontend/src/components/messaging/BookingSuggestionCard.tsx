@@ -90,15 +90,20 @@ export function BookingSuggestionCard({
   // version of the ISO.
   const timeLabel = (() => {
     if (suggestion.humanLabel) return suggestion.humanLabel;
-    const date = new Date(suggestion.slotIso);
-    if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    if (!suggestion.slotIso) return 'No date provided';
+    try {
+      const date = new Date(suggestion.slotIso);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return date.toLocaleString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch (e) {
+      return 'Invalid date';
+    }
   })();
 
   // Phase 5: each suggestion now carries its own serviceName. Prefer that

@@ -184,6 +184,7 @@ function formatBookingTimeLabel(
   bookingDate: string,
   bookingTime: string
 ): string {
+  if (!bookingDate || !bookingTime) return 'No date provided';
   // Compose a parseable ISO-ish string. booking_time can be either HH:MM or
   // HH:MM:SS; both work for Date.parse when prefixed with "T".
   const iso = `${bookingDate}T${bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime}`;
