@@ -108,7 +108,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
 
         {subscription && (
           <Link
-            href="/shop/settings"
+            href="/shop?tab=subscription"
             className="text-sm px-4 py-2 bg-[#2F2F2F] text-[#FFCC00] rounded-full font-medium hover:bg-[#3F3F3F] transition-colors flex items-center gap-2"
           >
             Manage
@@ -199,7 +199,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
                 </p>
               </div>
               <Link
-                href="/shop/settings"
+                href="/shop?tab=subscription"
                 className="px-4 py-2 bg-[#FFCC00] hover:bg-yellow-400 text-black rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
               >
                 Go to Settings
@@ -228,7 +228,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
                 You cannot issue rewards or process redemptions while paused. Contact support to resolve any issues.
               </p>
               <Link
-                href="/shop/settings"
+                href="/shop?tab=subscription"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFCC00] hover:bg-yellow-400 text-black rounded-lg text-sm font-medium transition-colors"
               >
                 View Details
@@ -315,7 +315,7 @@ export function SubscriptionSettings({ userType = 'shop' }: SubscriptionSettings
                 Subscribe Now
               </Link>
               <Link
-                href="/shop/settings"
+                href="/shop?tab=subscription"
                 className="px-4 py-2 bg-[#2F2F2F] hover:bg-[#3F3F3F] text-gray-300 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 Learn More

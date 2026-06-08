@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { CustomerSidebar, ShopSidebar, AdminSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -48,10 +49,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const pathname = usePathname();
 
   // Initialize notification system for all users
   // Admins need WebSocket for subscription status change events
   useNotifications({ enabled: true });
+
+  // Close the mobile sidebar after navigating to a page or switching tabs.
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname, activeTab]);
 
   // Track scroll position for header padding
   useEffect(() => {

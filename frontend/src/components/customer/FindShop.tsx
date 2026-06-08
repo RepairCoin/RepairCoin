@@ -32,6 +32,9 @@ import "leaflet/dist/leaflet.css";
 if (typeof window !== "undefined") {
   const style = document.createElement("style");
   style.textContent = `
+    .leaflet-container {
+      isolation: isolate;
+    }
     .leaflet-popup-content-wrapper {
       background-color: #1F2937 !important;
       color: white !important;
