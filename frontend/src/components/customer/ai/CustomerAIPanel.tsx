@@ -1,10 +1,15 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Loader2, Camera, User, Bot as BotIcon } from "lucide-react";
+import { Send, Loader2, Camera, User, Bot as BotIcon, Star, MapPin, Clock, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 import { useAIChatStore } from "@/stores/aiChatStore";
-import { sendMessage, analyzeImage } from "@/services/api/aiAssistant";
+import {
+  startChatSession,
+  sendMessage,
+  uploadImage,
+} from "@/services/api/aiAssistant";
 import toast from "react-hot-toast";
 
 /**
@@ -14,57 +19,84 @@ import toast from "react-hot-toast";
  * Matches the shop AI panel structure but focused on customer diagnostics.
  */
 export const CustomerAIPanel: React.FC = () => {
-  const { messages, isLoading, addMessage, setLoading } = useAIChatStore();
+  const router = useRouter();
+  const {
+    messages,
+    isLoading,
+    session,
+    addMessage,
+    setLoading,
+    initializeSession
+  } = useAIChatStore();
   const [input, setInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sessionInitializedRef = useRef(false);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send initial greeting if no messages
+  // Initialize session on mount if needed
   useEffect(() => {
-    if (messages.length === 0) {
-      addMessage({
-        id: "welcome",
-        role: "assistant",
-        content:
-          "👋 Hi! I'm your AI repair assistant. Tell me what's wrong with your device, or upload a photo of the damage, and I'll help you find the right repair service and estimate the cost.",
-        timestamp: new Date(),
-      });
-    }
-  }, [messages.length, addMessage]);
+    const initSession = async () => {
+      if (!session && !sessionInitializedRef.current) {
+        sessionInitializedRef.current = true;
+        try {
+          const response = await startChatSession({});
+          if (response.success) {
+            initializeSession({
+              id: response.data.sessionId,
+              sessionToken: response.data.sessionToken,
+              status: 'active',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastActivityAt: new Date().toISOString(),
+            });
+            // Add the welcome message from the API
+            addMessage({
+              ...response.data.message,
+              timestamp: new Date(response.data.message.timestamp),
+            });
+          }
+        } catch (error) {
+          console.error('Failed to initialize session:', error);
+        }
+      }
+    };
+    initSession();
+  }, [session, initializeSession, addMessage]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !session) return;
 
     const userMessage = input.trim();
     setInput("");
 
-    // Add user message
-    addMessage({
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: userMessage,
-      timestamp: new Date(),
-    });
-
     setLoading(true);
 
     try {
-      const response = await sendMessage(userMessage);
-
-      addMessage({
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: response.message,
-        timestamp: new Date(),
-        metadata: response.metadata,
+      const response = await sendMessage({
+        sessionId: session.id,
+        sessionToken: session.sessionToken,
+        message: userMessage,
       });
+
+      if (response.success) {
+        // Add both user and assistant messages
+        addMessage({
+          ...response.data.userMessage,
+          timestamp: new Date(response.data.userMessage.timestamp),
+        });
+        addMessage({
+          ...response.data.assistantMessage,
+          timestamp: new Date(response.data.assistantMessage.timestamp),
+        });
+      }
     } catch (error) {
+      console.error('Send message error:', error);
       toast.error("Failed to send message. Please try again.");
     } finally {
       setLoading(false);
@@ -73,7 +105,7 @@ export const CustomerAIPanel: React.FC = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !session) return;
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
@@ -88,45 +120,27 @@ export const CustomerAIPanel: React.FC = () => {
     }
 
     setUploading(true);
+    setLoading(true);
 
     try {
-      // Convert to base64 for API
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
+      const response = await uploadImage({
+        sessionId: session.id,
+        sessionToken: session.sessionToken,
+        image: file,
+      });
 
-        // Add user message with image
+      if (response.success) {
+        // Add assistant message with analysis
         addMessage({
-          id: `user-img-${Date.now()}`,
-          role: "user",
-          content: `[Uploaded image: ${file.name}]`,
-          imageUrl: base64,
-          timestamp: new Date(),
+          ...response.data.assistantMessage,
+          timestamp: new Date(response.data.assistantMessage.timestamp),
         });
-
-        setLoading(true);
-
-        try {
-          const response = await analyzeImage(base64);
-
-          addMessage({
-            id: `ai-img-${Date.now()}`,
-            role: "assistant",
-            content: response.message,
-            timestamp: new Date(),
-            metadata: response.metadata,
-          });
-        } catch (error) {
-          toast.error("Failed to analyze image. Please try again.");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      reader.readAsDataURL(file);
+      }
     } catch (error) {
-      toast.error("Failed to upload image");
+      console.error('Image upload error:', error);
+      toast.error("Failed to analyze image. Please try again.");
     } finally {
+      setLoading(false);
       setUploading(false);
       // Reset file input
       if (fileInputRef.current) {
@@ -192,8 +206,60 @@ export const CustomerAIPanel: React.FC = () => {
               {/* Message content */}
               <div className="text-sm whitespace-pre-wrap">{message.content}</div>
 
-              {/* Metadata (cost estimates, services, etc.) */}
-              {message.metadata && (
+              {/* Service Recommendations - Clickable Cards */}
+              {message.metadata?.services && message.metadata.services.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {message.metadata.services.map((service: any) => (
+                    <div
+                      key={service.serviceId}
+                      onClick={() => router.push(`/marketplace?service=${service.serviceId}`)}
+                      className="bg-gray-900 hover:bg-gray-850 rounded-lg p-3 cursor-pointer transition-colors border border-gray-700 hover:border-blue-500 group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-white text-sm truncate group-hover:text-blue-400 transition-colors">
+                              {service.serviceName}
+                            </h4>
+                            <ExternalLink className="w-3 h-3 text-gray-500 flex-shrink-0 group-hover:text-blue-400" />
+                          </div>
+                          <p className="text-xs text-gray-400 mb-2">
+                            {service.shopName}
+                          </p>
+                          {service.description && (
+                            <p className="text-xs text-gray-500 line-clamp-2 mb-2">
+                              {service.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs">
+                            {service.rating > 0 && (
+                              <div className="flex items-center gap-1 text-yellow-400">
+                                <Star className="w-3 h-3 fill-current" />
+                                <span>{service.rating.toFixed(1)}</span>
+                                <span className="text-gray-500">({service.reviewCount})</span>
+                              </div>
+                            )}
+                            {service.estimatedDuration && (
+                              <div className="flex items-center gap-1 text-gray-400">
+                                <Clock className="w-3 h-3" />
+                                <span>{service.estimatedDuration}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0 text-right">
+                          <div className="text-lg font-bold text-green-400">
+                            ${service.price.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Metadata (cost estimates, device info) */}
+              {message.metadata && !message.metadata.services && (
                 <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
                   {message.metadata.estimatedCost && (
                     <div className="text-xs text-green-400">
@@ -205,13 +271,6 @@ export const CustomerAIPanel: React.FC = () => {
                       Device: {message.metadata.deviceType}
                     </div>
                   )}
-                  {message.metadata.recommendedServices &&
-                    message.metadata.recommendedServices.length > 0 && (
-                      <div className="text-xs text-gray-400">
-                        Recommended services:{" "}
-                        {message.metadata.recommendedServices.join(", ")}
-                      </div>
-                    )}
                 </div>
               )}
 

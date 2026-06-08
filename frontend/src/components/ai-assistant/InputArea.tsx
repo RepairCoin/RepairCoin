@@ -80,94 +80,82 @@ export const InputArea: React.FC<InputAreaProps> = ({
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
-      <div className="flex items-end gap-2">
-        {/* Image upload button */}
-        {showImageUpload && (
-          <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={disabled}
-            />
-            <motion.button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
-              whileHover={{ scale: disabled ? 1 : 1.1 }}
-              whileTap={{ scale: disabled ? 1 : 0.9 }}
-              className={`
-                flex-shrink-0 w-10 h-10 rounded-full
-                bg-gray-100 hover:bg-gray-200 active:bg-gray-300
-                flex items-center justify-center text-xl
-                transition-colors duration-200
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-              aria-label="Upload image"
-            >
-              📷
-            </motion.button>
-          </>
-        )}
-
+    <div className="border-t border-gray-800 bg-[#101010] p-4">
+      <div className="space-y-2">
         {/* Text input */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            placeholder="Type a message..."
-            rows={1}
-            className={`
-              w-full px-4 py-2 pr-12
-              border border-gray-300 rounded-full
-              resize-none overflow-hidden
-              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-              disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50
-              text-sm
-            `}
-            style={{ minHeight: '40px', maxHeight: '120px' }}
-          />
+        <textarea
+          ref={textareaRef}
+          value={message}
+          onChange={handleTextChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder="Type a message..."
+          rows={2}
+          className={`
+            w-full px-4 py-2
+            bg-[#1A1A1A] border border-gray-700 rounded-lg
+            text-white placeholder-gray-500
+            resize-none
+            focus:outline-none focus:border-[#FFCC00]
+            disabled:opacity-50 disabled:cursor-not-allowed
+            text-sm transition-colors
+          `}
+          style={{ minHeight: '60px', maxHeight: '120px' }}
+        />
 
-          {/* Character count (optional) */}
-          {message.length > 200 && (
-            <div className="absolute right-14 bottom-2 text-xs text-gray-400">
-              {message.length}/500
-            </div>
+        {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          {/* Image upload button */}
+          {showImageUpload && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                disabled={disabled}
+              />
+              <motion.button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled}
+                whileHover={{ scale: disabled ? 1 : 1.05 }}
+                whileTap={{ scale: disabled ? 1 : 0.95 }}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#1A1A1A] border-gray-700 text-gray-400 hover:text-white hover:border-[#FFCC00]/60"
+                aria-label="Upload image"
+              >
+                📷
+                <span>Photo</span>
+              </motion.button>
+            </>
           )}
+
+          {/* Send button */}
+          <motion.button
+            type="button"
+            onClick={handleSend}
+            disabled={disabled || !message.trim()}
+            whileHover={{ scale: disabled || !message.trim() ? 1 : 1.05 }}
+            whileTap={{ scale: disabled || !message.trim() ? 1 : 0.95 }}
+            className={`ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              disabled || !message.trim()
+                ? 'bg-[#1A1A1A] border border-gray-800 text-gray-600 cursor-not-allowed'
+                : 'bg-[#FFCC00] text-black hover:bg-[#FFD700]'
+            }`}
+            aria-label="Send message"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+            <span>Send</span>
+          </motion.button>
         </div>
 
-        {/* Send button */}
-        <motion.button
-          type="button"
-          onClick={handleSend}
-          disabled={disabled || !message.trim()}
-          whileHover={{ scale: disabled || !message.trim() ? 1 : 1.1 }}
-          whileTap={{ scale: disabled || !message.trim() ? 1 : 0.9 }}
-          className={`
-            flex-shrink-0 w-10 h-10 rounded-full
-            flex items-center justify-center text-xl
-            transition-all duration-200
-            ${
-              disabled || !message.trim()
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-br from-blue-500 to-purple-600 text-white hover:shadow-lg'
-            }
-          `}
-          aria-label="Send message"
-        >
-          →
-        </motion.button>
-      </div>
-
-      {/* Helper text */}
-      <div className="text-xs text-gray-400 mt-2 px-2">
-        Press Enter to send, Shift+Enter for new line
+        {/* Helper text */}
+        <p className="text-xs text-gray-500 text-center">
+          Press Enter to send, Shift+Enter for new line
+        </p>
       </div>
     </div>
   );

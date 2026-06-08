@@ -166,15 +166,15 @@ export const ChatWindow: React.FC = () => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8, y: 20 }}
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        className="fixed bottom-6 right-6 z-[9999] w-[400px] h-[600px] max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)] md:max-w-[400px] md:max-h-[600px] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden"
+        className="fixed bottom-6 right-6 z-[9999] w-[400px] h-[600px] max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)] md:max-w-[400px] md:max-h-[600px] flex flex-col bg-[#101010] rounded-2xl shadow-2xl overflow-hidden border border-gray-800"
       >
         {/* Header */}
-        <div className="flex-shrink-0 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-3 flex items-center justify-between">
+        <div className="flex-shrink-0 bg-[#101010] border-b border-gray-800 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🤖</span>
             <div>
-              <div className="font-semibold text-sm">AI Repair Assistant</div>
-              <div className="text-xs opacity-90 flex items-center gap-1">
+              <div className="font-semibold text-sm text-white">AI Repair Assistant</div>
+              <div className="text-xs text-gray-400 flex items-center gap-1">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 Online
               </div>
@@ -183,7 +183,7 @@ export const ChatWindow: React.FC = () => {
 
           <button
             onClick={closeChat}
-            className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+            className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-full p-1 transition-colors"
             aria-label="Close chat"
           >
             <svg
@@ -204,8 +204,8 @@ export const ChatWindow: React.FC = () => {
 
         {/* Error banner */}
         {error && (
-          <div className="flex-shrink-0 bg-red-100 border-b border-red-200 px-4 py-2">
-            <div className="text-sm text-red-700 flex items-center gap-2">
+          <div className="flex-shrink-0 bg-red-900/30 border-b border-red-700/60 px-4 py-2">
+            <div className="text-sm text-red-300 flex items-center gap-2">
               <span>⚠️</span>
               <span>{error}</span>
             </div>
@@ -233,7 +233,7 @@ export const ChatWindow: React.FC = () => {
         />
 
         {/* Powered by badge */}
-        <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-t border-gray-200">
+        <div className="flex-shrink-0 px-4 py-2 bg-[#1A1A1A] border-t border-gray-800">
           <div className="text-xs text-center text-gray-500">
             Powered by AI • RepairCoin
           </div>

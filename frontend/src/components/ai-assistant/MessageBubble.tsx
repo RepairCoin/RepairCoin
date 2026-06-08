@@ -34,15 +34,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLatest 
       transition={{ duration: 0.2 }}
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
     >
-      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end max-w-[80%] gap-2`}>
+      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end max-w-[85%] gap-2`}>
         {/* Avatar */}
         {isAssistant && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1A1A1A] border border-gray-700 flex items-center justify-center text-white text-lg">
             🤖
           </div>
         )}
         {isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-lg">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FFCC00] flex items-center justify-center text-black text-lg">
             👤
           </div>
         )}
@@ -50,10 +50,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLatest 
         {/* Message content */}
         <div className="flex flex-col">
           <div
-            className={`px-4 py-2 rounded-2xl ${
+            className={`px-4 py-2 rounded-lg ${
               isUser
-                ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-br-sm'
-                : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+                ? 'bg-[#FFCC00] text-black'
+                : 'bg-[#1A1A1A] border border-gray-800 text-gray-200'
             }`}
           >
             {/* Image preview if present */}
@@ -62,7 +62,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLatest 
                 <img
                   src={message.metadata.imageUrl}
                   alt="Uploaded"
-                  className="max-w-full rounded-lg max-h-48 object-cover"
+                  className="max-w-full rounded-lg max-h-48 object-cover border border-gray-700"
                 />
               </div>
             )}
@@ -74,8 +74,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLatest 
 
             {/* Analysis result if present */}
             {message.metadata?.analysis && (
-              <div className="mt-3 p-3 bg-white/10 rounded-lg text-xs space-y-1">
-                <div className="font-semibold">📊 AI Analysis:</div>
+              <div className="mt-3 p-3 bg-black/40 border border-gray-700 rounded-lg text-xs space-y-1">
+                <div className="font-semibold text-[#FFCC00]">📊 AI Analysis:</div>
                 <div>Device: {message.metadata.analysis.deviceModel || message.metadata.analysis.deviceType}</div>
                 <div>Issue: {message.metadata.analysis.damageType.replace('_', ' ')}</div>
                 <div>Severity: {message.metadata.analysis.severity} ({message.metadata.analysis.severityScore}/10)</div>

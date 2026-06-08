@@ -20,7 +20,7 @@ import {
 } from '@/types/aiChat';
 
 // Feature flag to use mock data during development
-const USE_MOCK_DATA = true; // Set to false when backend is ready
+const USE_MOCK_DATA = false; // Backend endpoints are ready!
 
 /**
  * Start a new AI chat session
@@ -33,7 +33,7 @@ export const startChatSession = async (
   }
 
   const response = await apiClient.post<StartChatResponse>(
-    '/ai-assistant/chat/start',
+    '/ai/customer-chat/start',
     data
   );
   return response.data;
@@ -50,7 +50,7 @@ export const sendMessage = async (
   }
 
   const response = await apiClient.post<SendMessageResponse>(
-    '/ai-assistant/chat/message',
+    '/ai/customer-chat/message',
     data
   );
   return response.data;
@@ -74,7 +74,7 @@ export const uploadImage = async (
   }
 
   const response = await apiClient.post<UploadImageResponse>(
-    '/ai-assistant/chat/upload-image',
+    '/ai/customer-chat/upload-image',
     formData,
     {
       headers: {

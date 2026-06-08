@@ -18,6 +18,11 @@ export interface ChatMessageMetadata {
   imageUrl?: string;
   analysis?: ImageAnalysis;
   recommendations?: ServiceRecommendation[];
+  services?: ServiceRecommendation[]; // AI-recommended services
+  estimatedCost?: string; // Cost range as formatted string
+  deviceType?: string;
+  damageType?: string;
+  recommendedServices?: string[]; // Legacy field
 }
 
 export interface QuickAction {
@@ -52,11 +57,12 @@ export interface ServiceRecommendation {
   price: number;
   rating: number;
   reviewCount: number;
-  distance: number;
-  distanceUnit: string;
-  estimatedDuration: string;
+  distance?: number;
+  distanceUnit?: string;
+  estimatedDuration?: string;
   imageUrl?: string;
-  matchReason: string;
+  description?: string;
+  matchReason?: string;
 }
 
 export interface ChatSession {

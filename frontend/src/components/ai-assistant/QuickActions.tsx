@@ -21,7 +21,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ actions, onActionCli
   }
 
   return (
-    <div className="px-4 py-2">
+    <div className="px-4 py-2 bg-[#101010] border-b border-gray-800">
       <div className="flex flex-wrap gap-2">
         {actions.map((action) => (
           <motion.button
@@ -30,13 +30,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ actions, onActionCli
             disabled={disabled}
             whileHover={{ scale: disabled ? 1 : 1.05 }}
             whileTap={{ scale: disabled ? 1 : 0.95 }}
-            className={`
-              px-4 py-2 rounded-full text-sm font-medium
-              border-2 border-blue-500 text-blue-600
-              hover:bg-blue-50 active:bg-blue-100
-              transition-colors duration-200
-              disabled:opacity-50 disabled:cursor-not-allowed
-            `}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>{action.label}</span>
           </motion.button>
