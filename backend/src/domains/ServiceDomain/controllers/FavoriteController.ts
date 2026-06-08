@@ -130,6 +130,7 @@ export class FavoriteController {
         averageRating: item.averageRating,
         reviewCount: item.reviewCount,
         active: true,
+        isFavorited: true,
         companyName: item.shopName, // Map shopName to companyName
         shopAddress: item.shopAddress,
         shopIsVerified: item.shopIsVerified || false,
