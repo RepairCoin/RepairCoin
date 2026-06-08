@@ -359,12 +359,13 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         // Non-cached: today's date, so the assistant can judge campaign timing
         // (don't propose a Black Friday promo in June).
         systemPrompt.push({ text: buildDateContextBlock(), cache: false });
-        if (assistantName) {
-          systemPrompt.push({
-            text: `The shop owner has named you "${assistantName}". Use that name when you refer to yourself.`,
-            cache: false,
-          });
-        }
+        // Brand name defaults to "FixFlow"; a per-shop custom name (if any) still
+        // overrides it (the rename UI is hidden, but the setting is preserved).
+        const effectiveName = assistantName?.trim() || "FixFlow";
+        systemPrompt.push({
+          text: `Your name is "${effectiveName}" — use it when you refer to yourself.`,
+          cache: false,
+        });
         if (attachedImageUrl) {
           // Per-turn, non-cached: tells the assistant an image rode in with this
           // message so it picks the right image tool instead of asking for a URL.

@@ -34,7 +34,8 @@ export const TTS_VOICES = [
   "shimmer",
 ] as const;
 export type TtsVoice = (typeof TTS_VOICES)[number];
-export const DEFAULT_TTS_VOICE: TtsVoice = "nova";
+// FixFlow brand voice: `alloy` — neutral/professional. (Was `nova`, warm female.)
+export const DEFAULT_TTS_VOICE: TtsVoice = "alloy";
 
 export interface SynthesizeResult {
   audio: Buffer;

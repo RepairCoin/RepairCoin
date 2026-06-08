@@ -62,7 +62,12 @@ export const UnifiedAssistantLauncher: React.FC = () => {
   }, []);
 
   const loadingName = assistantName === undefined;
-  const displayName = assistantName?.trim() || "Assistant";
+  // Brand default is "FixFlow" (was "Assistant"). A per-shop custom name still
+  // wins if one was set before renaming was hidden.
+  const displayName = assistantName?.trim() || "FixFlow";
+  // Renaming is disabled for the FixFlow brand rollout. Kept (not deleted) so it
+  // can be re-enabled by flipping this flag — the saveName flow stays intact.
+  const RENAME_ENABLED = false;
 
   const saveName = async () => {
     const next = draft.trim();
@@ -106,12 +111,12 @@ export const UnifiedAssistantLauncher: React.FC = () => {
                     className="inline-block h-4 w-24 rounded bg-gray-700/60 animate-pulse align-middle"
                     aria-hidden="true"
                   />
-                  <span className="sr-only">Assistant</span>
+                  <span className="sr-only">FixFlow</span>
                 </SheetTitle>
               ) : (
                 <SheetTitle className="text-white">{displayName}</SheetTitle>
               )}
-              {!loadingName && !editing && (
+              {RENAME_ENABLED && !loadingName && !editing && (
                 <button
                   type="button"
                   onClick={() => {
@@ -126,7 +131,7 @@ export const UnifiedAssistantLauncher: React.FC = () => {
                 </button>
               )}
             </div>
-            {editing && (
+            {RENAME_ENABLED && editing && (
               <div className="flex items-center gap-1.5 mt-1.5">
                 <input
                   autoFocus
@@ -178,7 +183,7 @@ export const UnifiedAssistantLauncher: React.FC = () => {
           </button>
         </div>
 
-        <UnifiedAssistantPanel assistantName={assistantName ?? null} />
+        <UnifiedAssistantPanel assistantName={displayName} />
       </SheetContent>
     </Sheet>
   );
