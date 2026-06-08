@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Linking, Share } from "react-native";
+import { Linking, Share, Alert } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
@@ -136,8 +137,11 @@ export function useUnifiedServiceDetail() {
   const handleShareWhatsApp = async () => {
     const message = `${getShareMessage()}\n${getShareUrl()}`;
     const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) await Linking.openURL(url);
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("WhatsApp Not Found", "WhatsApp is not installed on this device.");
+    }
     setShowShareModal(false);
   };
 
@@ -152,9 +156,10 @@ export function useUnifiedServiceDetail() {
   };
 
   const handleShareFacebook = async () => {
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`;
-    await Linking.openURL(url);
     setShowShareModal(false);
+    const shareUrl = getShareUrl();
+    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    await WebBrowser.openBrowserAsync(fbUrl);
   };
 
   const handleNativeShare = async () => {

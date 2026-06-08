@@ -4,8 +4,11 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  Dimensions,
 } from "react-native";
-import React from "react";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = (SCREEN_WIDTH - 32 - 16) / 2;
 import { Ionicons } from "@expo/vector-icons";
 import ServiceCard from "@/shared/components/shared/ServiceCard";
 import { SkeletonServiceGrid } from "@/shared/components/ui/Skeleton";
@@ -24,19 +27,22 @@ export default function FavoritesTabContent() {
   } = useFavoritesTab();
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
-    <ServiceCard
-      imageUrl={item.imageUrl}
-      category={getCategoryLabel(item.category)}
-      title={item.serviceName}
-      description={item.description}
-      price={item.priceUsd}
+    <View style={{ width: CARD_WIDTH, marginHorizontal: 4, marginVertical: 8 }}>
+      <ServiceCard
+        imageUrl={item.imageUrl}
+        category={getCategoryLabel(item.category)}
+        title={item.serviceName}
+        description={item.description}
+        price={item.priceUsd}
         avgRating={item.avgRating}
-        reviewCount={item.reviewCount}      duration={item.durationMinutes}
-      onPress={() => handleServicePress(item)}
-      showFavoriteButton
-      serviceId={item.serviceId}
-      isFavorited={true}
-    />
+        reviewCount={item.reviewCount}
+        duration={item.durationMinutes}
+        onPress={() => handleServicePress(item)}
+        showFavoriteButton
+        serviceId={item.serviceId}
+        isFavorited={true}
+      />
+    </View>
   );
 
   if (isLoading) {
@@ -59,7 +65,7 @@ export default function FavoritesTabContent() {
   }
 
   return (
-    <React.Fragment>
+    <View style={{ flex: 1 }}>
       {/* Favorites count */}
       <View className="mb-4">
         <Text className="text-gray-400 text-sm">
@@ -72,6 +78,7 @@ export default function FavoritesTabContent() {
         keyExtractor={(item, index) => `${item.serviceId}-${index}`}
         renderItem={renderServiceItem}
         numColumns={2}
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
@@ -98,6 +105,6 @@ export default function FavoritesTabContent() {
           </View>
         }
       />
-    </React.Fragment>
+    </View>
   );
 }

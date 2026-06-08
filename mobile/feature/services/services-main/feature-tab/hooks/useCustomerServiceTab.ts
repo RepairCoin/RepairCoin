@@ -1,9 +1,12 @@
 import { useState, useCallback } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { CustomerServiceTab } from "@/feature/services/services/service.interface";
 import { CUSTOMER_SERVICE_TABS } from "@/shared/constants/services";
 
 export function useCustomerServiceTab() {
-  const [activeTab, setActiveTab] = useState<CustomerServiceTab>("Services");
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const initialTab = (params.tab as CustomerServiceTab) || "Services";
+  const [activeTab, setActiveTab] = useState<CustomerServiceTab>(initialTab);
 
   const handleTabChange = useCallback((tab: CustomerServiceTab) => {
     setActiveTab(tab);

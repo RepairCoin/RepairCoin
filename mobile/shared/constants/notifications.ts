@@ -30,27 +30,27 @@ export const NOTIFICATION_ROUTES = {
   // Booking notifications
   booking_confirmed: {
     shop: "/(dashboard)/shop/service-orders",
-    customer: "/(dashboard)/customer/tabs/service/",
+    customer: "/(dashboard)/customer/tabs/service/?tab=Bookings",
   },
   service_booking_received: {
     shop: "/(dashboard)/shop/service-orders",
-    customer: "/(dashboard)/customer/tabs/service/",
+    customer: "/(dashboard)/customer/tabs/service/?tab=Bookings",
   },
   appointment_reminder: {
     shop: "/(dashboard)/shop/service-orders",
-    customer: "/(dashboard)/customer/tabs/service/",
+    customer: "/(dashboard)/customer/tabs/service/?tab=Bookings",
   },
   upcoming_appointment: {
     shop: "/(dashboard)/shop/service-orders",
-    customer: "/(dashboard)/customer/tabs/service/",
+    customer: "/(dashboard)/customer/tabs/service/?tab=Bookings",
   },
   service_order_completed: {
     shop: "/(dashboard)/shop/service-orders",
-    customer: "/(dashboard)/customer/tabs/service/",
+    customer: "/(dashboard)/customer/tabs/service/?tab=Bookings",
   },
   order_completed: {
     shop: "/(dashboard)/shop/service-orders",
-    customer: "/(dashboard)/customer/tabs/service/",
+    customer: "/(dashboard)/customer/tabs/service/?tab=Bookings",
   },
   // Reschedule notifications
   reschedule_request_created: {

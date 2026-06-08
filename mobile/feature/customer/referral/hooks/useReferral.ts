@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Share, Linking } from "react-native";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { useAppToast } from "@/shared/hooks";
 import { REFERRER_REWARD, COPY_FEEDBACK_DURATION } from "@/shared/constants/referral";
@@ -76,15 +77,9 @@ export function useReferral() {
 
   const handleWhatsAppShare = () => {
     const url = `whatsapp://send?text=${encodeURIComponent(referralMessage)}`;
-    Linking.canOpenURL(url)
-      .then((supported) => {
-        if (supported) {
-          Linking.openURL(url);
-        } else {
-          showWarning("WhatsApp not installed. Please install WhatsApp to share.");
-        }
-      })
-      .catch((err) => console.log("WhatsApp error:", err));
+    Linking.openURL(url).catch(() => {
+      showWarning("WhatsApp is not installed on this device.");
+    });
   };
 
   const handleTwitterShare = () => {
@@ -102,9 +97,12 @@ export function useReferral() {
       .catch(() => Linking.openURL(webUrl));
   };
 
-  const handleFacebookShare = () => {
-    const url = `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(referralMessage)}`;
-    Linking.openURL(url);
+  const handleFacebookShare = async () => {
+    await Clipboard.setStringAsync(referralMessage);
+    showWarning("Message copied — paste it as your caption on Facebook.");
+    const shareLink = "https://repaircoin.app";
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareLink)}`;
+    await WebBrowser.openBrowserAsync(url);
   };
 
   const handleGoBack = () => {
