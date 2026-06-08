@@ -369,6 +369,14 @@ export function CampaignBuilderModal({
       setBlocks(blocksWithUniqueIds);
     }
 
+    const audienceFilters = existingCampaign?.audienceFilters;
+    if (Array.isArray(audienceFilters?.selectedAddresses)) {
+      setSelectedCustomers(new Set(audienceFilters.selectedAddresses.map((a: string) => a.toLowerCase())));
+    }
+    if (Array.isArray(audienceFilters?.manualEmails)) {
+      setManualEmails(audienceFilters.manualEmails.join('\n'));
+    }
+
     // Set default subject based on campaign type
     if (!existingCampaign?.subject) {
       const subjects: Record<string, string> = {
@@ -441,7 +449,9 @@ export function CampaignBuilderModal({
       if (!initialLoadDone && result.customers.length > 0) {
         const allAddresses = result.customers.map(c => c.walletAddress);
         setAllCustomerAddresses(allAddresses);
-        setSelectedCustomers(new Set(allAddresses));
+        if (!existingCampaign) {
+          setSelectedCustomers(new Set(allAddresses));
+        }
         setInitialLoadDone(true);
       }
     } catch (error) {
@@ -608,10 +618,11 @@ export function CampaignBuilderModal({
         ...(manualEmails.trim() && { manualEmails: manualEmails.trim() }),
       };
 
-      if (campaignType === 'offer_coupon' && selectedPromoCodeId) {
+      const hasCouponBlock = blocks.some(b => b.type === 'coupon');
+      if (hasCouponBlock && selectedPromoCodeId) {
+        campaignData.promoCodeId = selectedPromoCodeId;
         const selectedPC = promoCodes.find(pc => pc.id === selectedPromoCodeId);
         if (selectedPC) {
-          campaignData.promoCodeId = selectedPromoCodeId;
           campaignData.couponValue = selectedPC.bonus_value;
           campaignData.couponType = selectedPC.bonus_type as 'fixed' | 'percentage';
           campaignData.couponExpiresAt = new Date(selectedPC.end_date).toISOString();
@@ -832,6 +843,10 @@ export function CampaignBuilderModal({
   };
 
   const selectedBlock = selectedBlockId ? blocks.find(b => b.id === selectedBlockId) : null;
+
+  const validManualEmailCount = manualEmails.split(/[\n,]+/).filter(e => e.trim() && e.includes('@')).length;
+  const hasRecipients = selectedCustomers.size > 0 || validManualEmailCount > 0;
+  const totalRecipients = selectedCustomers.size + validManualEmailCount;
 
   // Block editing panel
   const renderBlockEditor = () => {
@@ -1261,13 +1276,24 @@ export function CampaignBuilderModal({
                   <Save className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Draft'}</span>
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setStep('audience')}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-black"
-                >
-                  Select Audience
-                </Button>
+                {(() => {
+                  const action = {
+                    design: { label: 'Select Audience', onClick: () => setStep('audience') },
+                    audience: { label: 'Continue to Delivery', onClick: () => setStep('delivery'), disabled: !hasRecipients },
+                    delivery: { label: sending ? 'Sending...' : 'Send Now', onClick: () => handleSave(true), disabled: saving || sending, send: true },
+                  }[step];
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={action.onClick}
+                      disabled={action.disabled}
+                      className={`${action.send ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} disabled:opacity-50`}
+                    >
+                      {action.send && <Send className="w-4 h-4 mr-2" />}
+                      {action.label}
+                    </Button>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1526,6 +1552,22 @@ export function CampaignBuilderModal({
                 </div>
               )}
 
+              {viewOnly && validManualEmailCount > 0 && (
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
+                  <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-[#FFCC00]" />
+                    Invited New Users ({validManualEmailCount})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {manualEmails.split(/[\n,]+/).map(e => e.trim()).filter(e => e && e.includes('@')).map((email) => (
+                      <span key={email} className="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-300 font-mono">
+                        {email}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Existing Customers Section Header */}
               <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#FFCC00]" />
@@ -1687,12 +1729,14 @@ export function CampaignBuilderModal({
                   <Users className="w-5 h-5 text-gray-400" />
                   <div>
                     <span className="text-gray-400">Recipients: </span>
-                    <span className="text-white font-semibold">{selectedCustomers.size} customers selected</span>
-                    {customerTotal > 0 && (
-                      <span className="text-gray-500 text-sm ml-2">
-                        (of {customerTotal} total)
-                      </span>
-                    )}
+                    <span className="text-white font-semibold">
+                      {totalRecipients} recipient{totalRecipients === 1 ? '' : 's'}
+                    </span>
+                    <span className="text-gray-500 text-sm ml-2">
+                      ({selectedCustomers.size} customer{selectedCustomers.size === 1 ? '' : 's'}
+                      {customerTotal > 0 && ` of ${customerTotal}`}
+                      {validManualEmailCount > 0 && `, ${validManualEmailCount} new email${validManualEmailCount === 1 ? '' : 's'}`})
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1709,7 +1753,7 @@ export function CampaignBuilderModal({
                   </Button>
                   <Button
                     onClick={() => setStep('delivery')}
-                    disabled={selectedCustomers.size === 0}
+                    disabled={!hasRecipients}
                     className="bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50 w-full sm:w-auto"
                   >
                     Continue to Delivery
@@ -1762,7 +1806,10 @@ export function CampaignBuilderModal({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Audience:</span>
-                  <span className="text-white">{selectedCustomers.size} customers</span>
+                  <span className="text-white">
+                    {totalRecipients} recipient{totalRecipients === 1 ? '' : 's'}
+                    {validManualEmailCount > 0 && ` (${selectedCustomers.size} customers, ${validManualEmailCount} new)`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Delivery:</span>
@@ -1854,7 +1901,7 @@ export function CampaignBuilderModal({
                 <Button
                   size="sm"
                   onClick={() => setStep('delivery')}
-                  disabled={selectedCustomers.size === 0}
+                  disabled={!hasRecipients}
                   className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black disabled:opacity-50"
                 >
                   Next
