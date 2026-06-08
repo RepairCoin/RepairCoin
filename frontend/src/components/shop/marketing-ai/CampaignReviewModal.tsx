@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Send, Loader2, AlertCircle, Users, Mail } from "lucide-react";
+import { Send, Loader2, AlertCircle, Users, Mail, CalendarClock, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   sendCampaign,
+  scheduleCampaign,
   CampaignDeliveryResult,
 } from "@/services/api/marketing";
 
@@ -64,6 +65,10 @@ export const CampaignReviewModal: React.FC<{
   const [body, setBody] = useState(initialBody);
   const [state, setState] = useState<"idle" | "sending" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  // Phase 3 — send now vs schedule for later.
+  const [mode, setMode] = useState<"now" | "later">("now");
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [scheduledFor, setScheduledFor] = useState<Date | null>(null);
 
   const onConfirm = async () => {
     setState("sending");
@@ -77,6 +82,35 @@ export const CampaignReviewModal: React.FC<{
           ?.error ||
         (err as Error)?.message ||
         "Send failed. Please try again.";
+      setError(msg);
+      setState("error");
+    }
+  };
+
+  const onSchedule = async () => {
+    if (!scheduleAt) {
+      setError("Pick a date and time to schedule.");
+      setState("error");
+      return;
+    }
+    const when = new Date(scheduleAt);
+    if (isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+      setError("Schedule time must be in the future.");
+      setState("error");
+      return;
+    }
+    setState("sending");
+    setError(null);
+    try {
+      await scheduleCampaign(campaignId, when.toISOString());
+      setScheduledFor(when);
+      setState("idle");
+    } catch (err) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ||
+        (err as Error)?.message ||
+        "Couldn't schedule. Please try again.";
       setError(msg);
       setState("error");
     }
@@ -176,6 +210,42 @@ export const CampaignReviewModal: React.FC<{
             </p>
           </div>
 
+          {/* When to send — now or scheduled (Phase 3 send-later). */}
+          {!scheduledFor && (
+            <div>
+              <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1.5">
+                When to send
+              </label>
+              <div className="flex gap-2">
+                {(["now", "later"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    disabled={state === "sending"}
+                    className={
+                      "flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors disabled:opacity-50 " +
+                      (mode === m
+                        ? "border-[#FFCC00] bg-[#FFCC00]/10 text-white"
+                        : "border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600")
+                    }
+                  >
+                    {m === "now" ? "Send now" : "Schedule for later"}
+                  </button>
+                ))}
+              </div>
+              {mode === "later" && (
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  disabled={state === "sending"}
+                  className="mt-2 w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FFCC00] transition-colors [color-scheme:dark]"
+                />
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="rounded-md bg-red-900/30 border border-red-700/60 px-3 py-2 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -184,36 +254,80 @@ export const CampaignReviewModal: React.FC<{
           )}
         </div>
 
-        {/* Footer — Cancel + Send. Red button for the destructive verb. */}
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            disabled={state === "sending"}
-            className="px-4 py-2 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={state === "sending"}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {state === "sending" ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Sending…
-              </>
+        {/* Footer — scheduled-success, or Cancel + Send/Schedule. */}
+        {scheduledFor ? (
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <p className="flex items-center gap-2 text-sm text-emerald-400">
+              <Check className="w-4 h-4 flex-shrink-0" />
+              Scheduled for{" "}
+              {scheduledFor.toLocaleString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="px-4 py-2 rounded-md text-sm font-medium bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              disabled={state === "sending"}
+              className="px-4 py-2 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            {mode === "later" ? (
+              <button
+                type="button"
+                onClick={onSchedule}
+                disabled={state === "sending"}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-[#FFCC00] text-black hover:bg-[#FFD700] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {state === "sending" ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Scheduling…
+                  </>
+                ) : (
+                  <>
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    Schedule
+                  </>
+                )}
+              </button>
             ) : (
-              <>
-                <Send className="w-3.5 h-3.5" />
-                Send {recipientCount.toLocaleString()}{" "}
-                {recipientCount === 1 ? "email" : "emails"}
-              </>
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={state === "sending"}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {state === "sending" ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    Send {recipientCount.toLocaleString()}{" "}
+                    {recipientCount === 1 ? "email" : "emails"}
+                  </>
+                )}
+              </button>
             )}
-          </button>
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

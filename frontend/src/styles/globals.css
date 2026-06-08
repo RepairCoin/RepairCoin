@@ -151,3 +151,37 @@
 div[style*="position: fixed"][style*="z-index"] > div {
   outline: none !important;
 }
+
+/* Radiating "pulse ring" for the voice mic buttons — a solid gradient circle
+   behind the button that scales OUT and fades, so the pulse is clearly visible
+   (the built-in animate-pulse only dims opacity a little, which reads as static
+   on a small circle). */
+@keyframes micPulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+.animate-mic-pulse {
+  animation: micPulseRing 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Gentler pulse for the wide "Ask AI Anything" pill — small scale so the ring
+   hugs the pill edge (170% would balloon across the screen on a 640px pill). */
+@keyframes pillPulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+.animate-pill-pulse {
+  animation: pillPulseRing 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

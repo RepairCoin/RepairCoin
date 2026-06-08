@@ -62,41 +62,52 @@ export const VoiceCommandPill: React.FC<VoiceCommandPillProps> = ({
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      aria-label="Talk to your business assistant"
-      className={`group items-center gap-4 rounded-full px-5 py-3.5 text-left bg-[#15121f]/95 backdrop-blur border border-purple-500/60 shadow-[0_0_24px_rgba(168,85,247,0.45),0_10px_32px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-purple-400 hover:shadow-[0_0_36px_rgba(168,85,247,0.7),0_10px_32px_rgba(0,0,0,0.55)] ${
+    <div
+      // `fixed` (floating) and `relative` (inline) BOTH establish a positioning
+      // context for the absolute pulse — but never apply both at once, or they
+      // conflict and the floating pill falls back into normal flow at the top.
+      className={`group ${
         floating
-          ? `hidden lg:flex fixed bottom-6 -translate-x-1/2 z-40 w-[640px] max-w-[calc(100vw-3rem)] ${
+          ? `hidden lg:block fixed bottom-6 -translate-x-1/2 z-40 w-[640px] max-w-[calc(100vw-3rem)] ${
               sidebarCollapsed
                 ? "left-[calc(50%+40px)]"
                 : "left-[calc(50%+128px)]"
             }`
-          : "flex w-full max-w-2xl mx-auto"
+          : "relative w-full max-w-2xl mx-auto"
       }`}
     >
-      {/* Purple neon mic orb. */}
-      <span className="relative flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-violet-700 text-white flex items-center justify-center shadow-[0_0_16px_rgba(168,85,247,0.7)] group-hover:scale-105 transition-transform">
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 rounded-full bg-purple-500/50 blur-md animate-pulse"
-        />
-        <Mic className="w-6 h-6 relative" />
-      </span>
-
-      <span className="flex-1 min-w-0">
-        <span className="block text-base font-semibold text-white">
-          Ask AI Anything
+      {/* Radiating pulse behind the whole pill (the "oval") — same gradient as
+          the orb, scales out + fades via .animate-mic-pulse. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-pill-pulse"
+      />
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-label="Talk to your business assistant"
+        // Blue→purple GRADIENT border (matches the orb) via the double-background
+        // trick: dark fill on padding-box, gradient on border-box.
+        className="relative flex w-full items-center gap-4 rounded-full px-5 py-3.5 text-left backdrop-blur border-2 border-transparent shadow-[0_10px_32px_rgba(0,0,0,0.55)] transition-shadow duration-300 hover:shadow-[0_0_28px_rgba(139,92,246,0.55),0_10px_32px_rgba(0,0,0,0.55)] [background:linear-gradient(#15121f,#15121f)_padding-box,linear-gradient(to_bottom_right,#3b82f6,#9333ea)_border-box]"
+      >
+        {/* Solid blue→purple mic orb (no pulse — the pulse is on the pill now). */}
+        <span className="relative flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+          <Mic className="w-6 h-6" />
         </span>
-        <span className="block text-sm text-purple-200/70 truncate">
-          “{EXAMPLE_PROMPTS[exampleIndex]}”
-        </span>
-      </span>
 
-      <span className="hidden sm:inline text-[10px] uppercase tracking-wider text-purple-300/70 font-semibold whitespace-nowrap">
-        Tap to talk
-      </span>
-    </button>
+        <span className="flex-1 min-w-0">
+          <span className="block text-base font-semibold text-white">
+            Ask AI Anything
+          </span>
+          <span className="block text-sm text-purple-200/70 truncate">
+            “{EXAMPLE_PROMPTS[exampleIndex]}”
+          </span>
+        </span>
+
+        <span className="hidden sm:inline text-[10px] uppercase tracking-wider text-purple-300/70 font-semibold whitespace-nowrap">
+          Tap to talk
+        </span>
+      </button>
+    </div>
   );
 };

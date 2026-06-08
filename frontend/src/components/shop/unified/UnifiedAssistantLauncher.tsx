@@ -94,11 +94,13 @@ export const UnifiedAssistantLauncher: React.FC = () => {
 
       <SheetContent
         side="right"
-        className={`bg-[#101010] border-l border-gray-800 text-white p-6 flex flex-col transition-[max-width] duration-200 ease-out ${
+        className={`bg-black border-l border-gray-800 text-white p-6 flex flex-col transition-[max-width] duration-200 ease-out ${
           isExpanded ? "sm:max-w-5xl" : "sm:max-w-2xl"
         }`}
       >
-        <div className="flex items-start justify-between gap-3">
+        {/* Purple header bar — negative margins pull it edge-to-edge (cancel the
+            SheetContent p-6); internal padding re-added. Light text/icons. */}
+        <div className="flex items-start justify-between gap-3 -mx-6 -mt-6 mb-3 px-6 pt-6 pb-4 bg-gradient-to-br from-blue-600 to-purple-700">
           <div className="flex-1 min-w-0">
             {/* SheetTitle is always rendered (Radix a11y requirement); the
                 rename input appears below it when editing. */}
@@ -163,7 +165,7 @@ export const UnifiedAssistantLauncher: React.FC = () => {
                 </button>
               </div>
             )}
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-white/80 mt-1">
               Ask about your business or tell me what to do — revenue,
               customers, inventory, campaigns. I&apos;ll handle the rest.
             </p>
@@ -173,7 +175,7 @@ export const UnifiedAssistantLauncher: React.FC = () => {
             onClick={() => setIsExpanded((v) => !v)}
             aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
             title={isExpanded ? "Collapse panel" : "Expand panel"}
-            className="mr-8 mt-0.5 p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors flex-shrink-0"
+            className="mr-8 mt-0.5 p-1.5 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
           >
             {isExpanded ? (
               <Minimize2 className="w-4 h-4" />

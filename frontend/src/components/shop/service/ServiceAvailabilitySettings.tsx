@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Save, Loader2, AlertCircle, Check, Settings, Trash2 } from 'lucide-react';
-import { appointmentsApi, ShopAvailability, TimeSlotConfig } from '@/services/api/appointments';
+import { appointmentsApi, ShopAvailability, TimeSlotConfig, COMMON_TIMEZONES } from '@/services/api/appointments';
 import { ShopService } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
 
@@ -378,6 +378,28 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                   Minimum hours before appointment can be booked (0-168 hours)
                 </p>
               </div>
+            </div>
+
+            {/* Timezone */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Shop Timezone
+              </label>
+              <select
+                value={timeSlotConfig?.timezone ?? 'America/New_York'}
+                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, timezone: e.target.value })}
+                className="w-full md:max-w-md px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent [color-scheme:dark] cursor-pointer"
+              >
+                {COMMON_TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value} className="bg-[#0D0D0D] text-white">
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                Your local timezone. Used to show booking times correctly to customers and
+                to let your AI assistant greet you in your local time.
+              </p>
             </div>
 
             {/* Weekend Booking Toggle */}

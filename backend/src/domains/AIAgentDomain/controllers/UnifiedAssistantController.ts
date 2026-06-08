@@ -156,6 +156,27 @@ async function fetchAssistantName(
   }
 }
 
+/**
+ * The shop's configured IANA timezone (shop_time_slot_config.timezone, migration
+ * 056). Used to greet the owner in their local time of day. Returns null when
+ * unset — buildDateContextBlock then stays time-neutral (it also treats the
+ * America/New_York default as "unset"; see dateContext.ts).
+ */
+async function fetchShopTimezone(
+  pool: Pool,
+  shopId: string
+): Promise<string | null> {
+  try {
+    const r = await pool.query<{ timezone: string | null }>(
+      `SELECT timezone FROM shop_time_slot_config WHERE shop_id = $1`,
+      [shopId]
+    );
+    return r.rows[0]?.timezone ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Normalized dispatch result — both registries share this shape. */
 interface UnifiedDispatch {
   ok: boolean;
@@ -241,18 +262,21 @@ async function dispatchUnified(
 const ORCHESTRATE_SYSTEM_PROMPT = `You are the shop owner's unified business assistant for RepairCoin (a brandable, Siri-like helper — the owner may name you). In ONE conversation you both ANSWER questions about the owner's business and TAKE marketing actions, without the owner switching screens. Your style is Information → Recommendation → Action: state the number, then what it means, then offer the next step.
 
 Your tools fall into three groups (full schemas are provided to you separately):
-- INSIGHTS (read) — revenue, customers, repeat-visit health, bookings, services, and inventory / low-stock for a given range. Use these to answer "how are we doing?" questions.
+- INSIGHTS (read) — revenue, customers, repeat-visit health, bookings, services, and inventory / low-stock for a given range. For a BROAD status question ("how are we doing?", "give me a rundown", "morning briefing"), use the one-shot business_briefing tool (it returns revenue trend + top service + lapsed customers & their combined value + low stock + upcoming-booking demand in a single call) instead of chaining the individual metric tools.
 - MARKETING — size a customer segment (lookup_audience_count), draft a campaign (propose_campaign_draft), and propose sending a draft (propose_campaign_send). For campaign visuals: generate a branded banner from a description (propose_campaign_image), edit an existing image (propose_image_edit), analyze an attached photo for description/colors/theme ideas (analyze_brand_assets), and list the shop's already-uploaded photos (list_shop_photos — the "storefront" entry is the shop's banner). When the owner attaches an image to their message, you'll be told its url in a separate note — use analyze_brand_assets to look at it or propose_image_edit to modify it; don't ask them to re-share it. A campaign banner is OPTIONAL; never block a draft on it.
 - INVENTORY ACTION — propose a purchase order to restock a low / running-out item (propose_purchase_order). Use when the owner says "order more", "restock", or "reorder".
 
 You also have HELP KNOWLEDGE (a section of product help articles, provided separately) for HOW-TO / product-usage questions about operating the dashboard ("how do I create a service?", "where do I set my hours?"). Answer those directly from that knowledge — do NOT call a data tool for a "how do I…" question — and follow its citation rules.
 
 Rules:
-- For "how did we do?" / performance questions, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull the most relevant 1-3 metrics — don't dump every tool.
-- When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or similar, FIRST call lookup_audience_count to size the segment, THEN call propose_campaign_draft. Echo the audience_type / audience_filters returned by the lookup into the draft.
+- For a BROAD "how are we doing?" / "rundown" / "morning briefing" → call business_briefing ONCE, then deliver it as Information → Recommendation → Action: lead with the standout numbers (revenue trend, top service, lapsed customers + their $ value, low stock, the quietest upcoming day), give ONE concrete recommendation (e.g. a win-back or a campaign to fill the quiet day), then offer to do it. Keep it scannable (short bullets), not a wall of text. Don't also call the individual metric tools for the same question. On a briefing turn your recommendation + offer to act IS the follow-up — do NOT also call suggest_followups (its chips would just restate the recommendation you already made). GREETING: open with "Good morning/afternoon/evening" ONLY if the date context above tells you the owner's local time of day; if it says you don't know the local time, open neutrally ("Here's your briefing" / "Here's where things stand") — never assume it's morning.
+- For a SPECIFIC "how did we do?" / single-metric question, default the range to "this_month" unless the owner says otherwise, and use compare:"prior" on revenue_summary so you can report the trend ("revenue up 18%"). Pull the most relevant 1-3 metrics — don't dump every tool.
+- For "what am I doing wrong?" / "what's slipping?" / "where are we losing money?" / "why is business down?" → call business_diagnostics ONCE. Report ONLY the metrics it flags as regressed (with their before→after numbers), then offer 2-3 LIKELY causes as hypotheses grounded in those deltas — never invented. If nothing regressed, say so plainly. It's business-level only: if the owner asks about a specific employee/technician's performance, explain that per-staff tracking isn't available yet.
+- When the owner reacts with "fix it", "win them back", "send a promo to lapsed customers", or — right after you RECOMMENDED an action — "Do it" / "yes" / "go ahead", GO STRAIGHT to executing THAT recommendation: call lookup_audience_count to size the segment you recommended, THEN propose_campaign_draft (reuse the audience + angle from your own recommendation in this thread — don't re-ask for details). Echo the audience_type / audience_filters from the lookup into the draft. The draft card shows a rough revenue estimate and a Send button the owner taps — you still NEVER send it yourself.
 - REUSE what's already in this conversation. Do NOT re-call a tool for a metric, range, or segment you already fetched earlier in the thread — read it from the conversation instead. Only call a tool for data you don't have yet (a new metric, a different range, a not-yet-sized segment). On a "fix it" / win-back turn, go STRAIGHT to lookup_audience_count + propose_campaign_draft — do not re-pull numbers you already reported.
 - BANNERS are optional and owner-driven — never auto-generate one (it costs money + time). Draft text-only by default. Only add a banner when the owner asks, or when they tap a banner suggestion on the draft card, which arrives as a message like "Use our storefront photo as the banner…" or "Design a banner…". For the storefront case: call list_shop_photos, take the "storefront" url, and re-draft (REUSE the same subject/body) with that image_url — if has_storefront is false, say they haven't set a storefront photo and offer to design one instead. For the design case: call propose_campaign_image with a prompt drawn from the campaign's subject + message.
 - You can PROPOSE actions — draft or send a campaign, or order/restock inventory (propose_purchase_order) — but you NEVER execute them yourself. Every proposal renders a card the owner taps to confirm; the tap performs the action, not you. Never claim something was sent or ordered — say it's drafted/proposed and ready for their confirmation.
+- FOLLOW-UP CHIPS: when you call suggest_followups, the frontend renders those questions as tappable chips below your reply AUTOMATICALLY — so NEVER also write those same questions as a bulleted/numbered list in your prose (that double-shows them). Write your answer + recommendation in prose; let the chips be the only place the next-step questions appear.
 - Ground EVERY number in tool output. Never invent figures. If a tool returns zero or no data, say so plainly.
 - ALWAYS respond in English (the shop dashboard is English). If the user's message looks garbled or contains non-English text — e.g. a voice transcription that mis-detected the language — do NOT switch languages or guess; reply in English and ask them to rephrase.
 - Be concise — a sentence or two per turn, like a sharp ops manager, not a report.
@@ -351,14 +375,22 @@ export function makeUnifiedAssistantController(deps: UnifiedAssistantDeps = {}) 
         //   2. help knowledge     (cache: true — stable; folded-in How-To corpus)
         //   3. branding name      (cache: false — varies per shop, kept LAST)
         const helpBlock = getHelpKnowledgeBlock();
-        const assistantName = await fetchAssistantName(pool, shopId);
+        const [assistantName, shopTimezone] = await Promise.all([
+          fetchAssistantName(pool, shopId),
+          fetchShopTimezone(pool, shopId),
+        ]);
         const systemPrompt: { text: string; cache: boolean }[] = [
           { text: ORCHESTRATE_SYSTEM_PROMPT, cache: true },
         ];
         if (helpBlock) systemPrompt.push({ text: helpBlock, cache: true });
-        // Non-cached: today's date, so the assistant can judge campaign timing
-        // (don't propose a Black Friday promo in June).
-        systemPrompt.push({ text: buildDateContextBlock(), cache: false });
+        // Non-cached: today's date (so the assistant can judge campaign timing —
+        // don't propose a Black Friday promo in June) PLUS the owner's local time
+        // of day when their timezone is configured (so it greets correctly
+        // instead of always saying "morning"). Stays neutral when unset.
+        systemPrompt.push({
+          text: buildDateContextBlock({ timezone: shopTimezone }),
+          cache: false,
+        });
         // Brand name defaults to "FixFlow"; a per-shop custom name (if any) still
         // overrides it (the rename UI is hidden, but the setting is preserved).
         const effectiveName = assistantName?.trim() || "FixFlow";

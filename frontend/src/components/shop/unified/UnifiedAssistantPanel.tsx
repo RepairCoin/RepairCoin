@@ -634,8 +634,8 @@ export const UnifiedAssistantPanel: React.FC<{
       {listening ? (
         // Listening takeover — the plain input bar becomes a live, voice-
         // reactive equalizer (Siri-style). Auto-stops on silence, or tap Stop.
-        <div className="mt-3 flex items-center gap-3 rounded-lg border border-purple-500/40 bg-[#1A1A1A] px-4 py-3 shadow-[0_0_24px_rgba(168,85,247,0.22)]">
-          <span className="flex items-center gap-2 text-sm font-medium text-purple-300 whitespace-nowrap">
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-transparent px-4 py-3 shadow-[0_0_24px_rgba(139,92,246,0.28)] [background:linear-gradient(#1A1A1A,#1A1A1A)_padding-box,linear-gradient(to_right,#3b82f6,#9333ea)_border-box]">
+          <span className="flex items-center gap-2 text-sm font-medium text-violet-300 whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             Listening…
           </span>
@@ -645,7 +645,7 @@ export const UnifiedAssistantPanel: React.FC<{
             onClick={() => recorder.stop()}
             aria-label="Stop and send"
             title="Stop"
-            className="flex-shrink-0 p-2.5 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors"
+            className="flex-shrink-0 p-2.5 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white hover:from-blue-400 hover:to-purple-500 transition-colors"
           >
             <Square className="w-4 h-4 fill-current" />
           </button>
@@ -721,7 +721,7 @@ export const UnifiedAssistantPanel: React.FC<{
                 shows again. */}
             {showCoach && (
               <div className="absolute bottom-full left-0 mb-2 z-20 w-max max-w-[230px]">
-                <div className="relative bg-gradient-to-br from-purple-600 to-violet-700 text-white text-sm font-medium leading-snug rounded-lg px-3 py-2 shadow-[0_4px_20px_rgba(168,85,247,0.5)]">
+                <div className="relative bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm font-medium leading-snug rounded-lg px-3 py-2 shadow-[0_4px_20px_rgba(139,92,246,0.5)]">
                   <button
                     type="button"
                     onClick={dismissCoach}
@@ -746,8 +746,8 @@ export const UnifiedAssistantPanel: React.FC<{
               }}
               disabled={loading || atMessageLimit || transcribing}
               aria-label="Tap to talk to the assistant"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-purple-500/10 border-purple-400/60 text-purple-300 hover:bg-purple-500/20 ${
-                showCoach ? "ring-2 ring-purple-400/60" : ""
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-transparent text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-br from-blue-500 to-purple-600 text-white hover:from-blue-400 hover:to-purple-500 ${
+                showCoach ? "ring-2 ring-purple-400/70" : ""
               }`}
             >
               {transcribing ? (
@@ -993,6 +993,38 @@ function lastShownImageUrl(turns: Turn[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Deterministic display order for a turn's tool-call cards, independent of the
+ * order Claude happened to call the tools in. Claude may interleave calls (e.g.
+ * propose_purchase_order BETWEEN lookup_audience_count and propose_campaign_draft),
+ * which visually split the audience card from the campaign it sizes. We anchor a
+ * logical order instead: the audience card sits directly above its campaign
+ * draft, banner/send follow, a restock (purchase order) is a separate action
+ * shown after, and chips stay last. Lower weight = higher up. Unknown/insights
+ * data cards default to 0 (top) and keep their relative call order via the
+ * stable index tiebreaker.
+ */
+const CARD_RENDER_ORDER: Record<string, number> = {
+  audience_summary: 1,
+  campaign_draft: 2,
+  campaign_image_proposal: 3,
+  campaign_send: 4,
+  purchase_order_proposal: 5,
+  strategy_chips: 6,
+  follow_ups: 7,
+};
+
+function orderedToolCalls(toolCalls: OrchestrateToolCall[]): OrchestrateToolCall[] {
+  return toolCalls
+    .map((tc, idx) => ({
+      tc,
+      idx,
+      w: CARD_RENDER_ORDER[tc.display?.kind ?? ""] ?? 0,
+    }))
+    .sort((a, b) => a.w - b.w || a.idx - b.idx)
+    .map((x) => x.tc);
+}
+
 const TurnBubble: React.FC<{
   turn: Turn;
   markdownComponents: Components;
@@ -1033,7 +1065,7 @@ const TurnBubble: React.FC<{
       )}
       {turn.toolCalls.length > 0 && (
         <div className="w-full max-w-[85%] space-y-2">
-          {turn.toolCalls.map((tc, i) => (
+          {orderedToolCalls(turn.toolCalls).map((tc, i) => (
             <OrchestrateToolCallCard
               key={i}
               toolCall={tc}
