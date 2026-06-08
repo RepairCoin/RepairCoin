@@ -86,29 +86,32 @@ export const lookupAudienceCount: MarketingTool = {
     const marketingService = new MarketingService();
     const customerRepo = new CustomerRepository();
 
-    const count = await marketingService.getAudienceCount(
+    // Resolve the ACTUAL recipients for this segment once. Both the count and
+    // the sample-name preview must come from this same filtered list — pulling
+    // sample names from the unfiltered shop list (the old bug) showed customers
+    // who weren't in the segment, contradicting the count (e.g. "1 match" but
+    // 4 names listed).
+    const recipients = await marketingService.getAudienceRecipients(
       ctx.shopId,
       segment.audienceType as any,
       segment.audienceFilters
     );
+    const count = recipients.length;
+    const sampleNames = recipients
+      .slice(0, 5)
+      .map((c) => (c.name && c.name.trim()) || shortAddress(c.walletAddress))
+      .filter((s) => s.length > 0);
 
-    // Pull the shop's full customer list once — used for two things:
-    //   1. sampleNames (a 5-name preview for the audience card)
-    //   2. totalShopCustomers (the all_customers count, so the card +
-    //      Claude can flag degenerate cases: "top 50" against a 4-customer
-    //      shop should say "you have 4 in total — let's send to all 4"
-    //      instead of presenting a meaningless 1-customer "top spender".)
-    let sampleNames: string[] = [];
+    // totalShopCustomers needs the UNFILTERED total — it lets the card + Claude
+    // flag degenerate cases ("top 50" against a 4-customer shop should say
+    // "you have 4 in total — let's send to all 4" instead of a meaningless
+    // 1-customer "top spender"). Kept as a separate query on purpose.
     let totalShopCustomers = 0;
     try {
       const shopCustomers = await customerRepo.findByShopInteraction(ctx.shopId);
       totalShopCustomers = shopCustomers.length;
-      sampleNames = shopCustomers
-        .slice(0, 5)
-        .map((c) => (c.name && c.name.trim()) || shortAddress(c.walletAddress))
-        .filter((s) => s.length > 0);
     } catch {
-      sampleNames = [];
+      totalShopCustomers = 0;
     }
 
     return {

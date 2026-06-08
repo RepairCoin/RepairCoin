@@ -41,6 +41,7 @@ import { getSuspensionLiftService } from './services/SuspensionLiftService';
 import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
 import { ReportSchedulerService } from './services/ReportSchedulerService';
+import { getCampaignScheduler } from './services/CampaignScheduler';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -615,6 +616,7 @@ class RepairCoinApp {
       stopUnpaidBookingCleanup();
       bookingCleanupService.stop();
       autoMessageSchedulerService.stop();
+      getCampaignScheduler().stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -822,6 +824,11 @@ class RepairCoinApp {
         // Processes scheduled auto-messages (daily/weekly/monthly) and pending delayed sends
         autoMessageSchedulerService.start(1);
         logger.info('📨 Auto-message scheduler started (every 1 hour)');
+
+        // Start campaign scheduler - runs every minute
+        // Sends marketing campaigns whose scheduled_at has arrived (send-later).
+        getCampaignScheduler().start();
+        logger.info('🗓️ Campaign scheduler started (every minute, sends due scheduled campaigns)');
 
         // Start report scheduler - runs every hour
         // Processes automated shop reports (daily/weekly/monthly)

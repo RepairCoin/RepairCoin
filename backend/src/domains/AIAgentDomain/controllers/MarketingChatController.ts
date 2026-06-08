@@ -34,6 +34,7 @@ import {
   buildMarketingShopContextBlock,
 } from "../services/marketing/promptBuilder";
 import { buildMarketingShopContext } from "../services/marketing/contextBuilder";
+import { buildDateContextBlock } from "../services/dateContext";
 import {
   getMarketingTools,
   getMarketingToolByName,
@@ -269,6 +270,9 @@ export function makeMarketingChatController(
         const systemBlocks: { text: string; cache: boolean }[] = [
           { text: rulesBlock, cache: true },
           { text: contextBlock, cache: true },
+          // Non-cached: today's date so campaign timing is judged correctly
+          // (don't draft a Black Friday promo in June).
+          { text: buildDateContextBlock(), cache: false },
         ];
         if (attachedImageUrl) {
           systemBlocks.push({

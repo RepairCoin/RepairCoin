@@ -34,9 +34,14 @@ export const MobileBottomNavMic: React.FC = () => {
         openWithMic();
       }}
       aria-label="Talk to your assistant"
-      className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-violet-700 text-white ring-1 ring-purple-300/40 shadow-[0_0_16px_4px_rgba(168,85,247,0.55),0_8px_24px_rgba(168,85,247,0.4)] active:scale-95 transition-transform"
+      className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl active:scale-95 transition-all duration-300"
     >
-      <Mic className="w-7 h-7" />
+      {/* Solid blue→purple gradient ring that pulses via OPACITY (not blurred). */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-mic-pulse"
+      />
+      <Mic className="w-7 h-7 relative z-10" />
     </button>
   );
 };

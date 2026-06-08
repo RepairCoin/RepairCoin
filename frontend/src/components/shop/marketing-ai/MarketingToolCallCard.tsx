@@ -209,6 +209,14 @@ const CampaignDraftCard: React.FC<{
             {d.recipientCount === 1 ? "recipient" : "recipients"} ({d.audienceLabel})
           </span>
         </div>
+        {d.estimatedRevenue && (
+          <p className="mt-1.5 text-sm text-emerald-400/90">
+            Est. opportunity: $
+            {d.estimatedRevenue.lowUsd.toLocaleString()}–$
+            {d.estimatedRevenue.highUsd.toLocaleString()}{" "}
+            <span className="text-xs text-gray-500">(rough estimate)</span>
+          </p>
+        )}
       </button>
 
       {/* One-tap banner suggestion — only when the draft has no banner yet.

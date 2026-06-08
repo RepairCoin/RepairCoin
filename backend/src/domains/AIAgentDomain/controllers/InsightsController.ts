@@ -29,6 +29,7 @@ import { AnthropicClient } from "../services/AnthropicClient";
 import { SpendCapEnforcer } from "../services/SpendCapEnforcer";
 import { InsightsAuditLogger } from "../services/InsightsAuditLogger";
 import { buildInsightsSystemPrompt } from "../services/InsightsPromptBuilder";
+import { buildDateContextBlock } from "../services/dateContext";
 import {
   getInsightsTools,
   getInsightsToolByName,
@@ -292,7 +293,11 @@ export function makeInsightsController(deps: InsightsControllerDeps = {}) {
         try {
           for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
             const response = await anthropic.complete({
-              systemPrompt: [{ text: systemPromptText, cache: true }],
+              systemPrompt: [
+                { text: systemPromptText, cache: true },
+                // Non-cached: today's date for time-sensitive reasoning.
+                { text: buildDateContextBlock(), cache: false },
+              ],
               messages: loopMessages,
               model: INSIGHTS_MODEL,
               maxTokens: INSIGHTS_MAX_TOKENS,
