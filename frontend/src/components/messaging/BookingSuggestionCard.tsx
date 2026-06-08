@@ -88,15 +88,18 @@ export function BookingSuggestionCard({
   // Best-effort time label: prefer the backend-supplied human label
   // (already in the shop's timezone). Fall back to a locale-rendered
   // version of the ISO.
-  const timeLabel =
-    suggestion.humanLabel ||
-    new Date(suggestion.slotIso).toLocaleString(undefined, {
+  const timeLabel = (() => {
+    if (suggestion.humanLabel) return suggestion.humanLabel;
+    const date = new Date(suggestion.slotIso);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleString(undefined, {
       weekday: "long",
       month: "long",
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
     });
+  })();
 
   // Phase 5: each suggestion now carries its own serviceName. Prefer that
   // over the message-level prop fallback — critical for multi-card
