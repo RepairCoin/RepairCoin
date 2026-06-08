@@ -9,6 +9,7 @@ import {
 import { NotificationRepository, CreateNotificationParams } from '../repositories/NotificationRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
 import { ServiceRepository } from '../repositories/ServiceRepository';
+import { ShopRepository } from '../repositories/ShopRepository';
 import { EmailService } from './EmailService';
 import { WebSocketManager } from './WebSocketManager';
 import { PaginatedResult, PaginationParams } from '../repositories/BaseRepository';
@@ -42,14 +43,17 @@ export class MarketingService {
   private notificationRepo: NotificationRepository;
   private customerRepo: CustomerRepository;
   private serviceRepo: ServiceRepository;
+  private shopRepo: ShopRepository;
   private emailService: EmailService;
   private wsManager: WebSocketManager | null;
+  private isProcessingScheduled = false;
 
   constructor(wsManager?: WebSocketManager) {
     this.campaignRepo = new MarketingCampaignRepository();
     this.notificationRepo = new NotificationRepository();
     this.customerRepo = new CustomerRepository();
     this.serviceRepo = new ServiceRepository();
+    this.shopRepo = new ShopRepository();
     this.emailService = new EmailService();
     this.wsManager = wsManager || null;
   }
@@ -307,26 +311,40 @@ export class MarketingService {
     });
   }
 
-  // Process scheduled campaigns (call this from a cron job)
-  async processScheduledCampaigns(): Promise<void> {
-    const campaigns = await this.campaignRepo.getScheduledCampaigns();
-
-    for (const campaign of campaigns) {
-      try {
-        // Get shop info for sending
-        // Note: You'll need to fetch shop info from ShopRepository
-        const shopInfo: ShopInfo = {
-          id: campaign.shopId,
-          name: 'Shop', // Would be fetched from DB
-          walletAddress: '' // Would be fetched from DB
-        };
-
-        await this.sendCampaign(campaign.id, shopInfo);
-        logger.info(`Scheduled campaign ${campaign.id} sent successfully`);
-      } catch (error: any) {
-        logger.error(`Error processing scheduled campaign ${campaign.id}:`, error);
-      }
+  // Process scheduled campaigns whose scheduled_at is due (called by the scheduler)
+  async processScheduledCampaigns(): Promise<{ processed: number; failed: number }> {
+    if (this.isProcessingScheduled) {
+      return { processed: 0, failed: 0 };
     }
+    this.isProcessingScheduled = true;
+
+    let processed = 0;
+    let failed = 0;
+
+    try {
+      const campaigns = await this.campaignRepo.getScheduledCampaigns();
+
+      for (const campaign of campaigns) {
+        try {
+          const shop = await this.shopRepo.getShop(campaign.shopId);
+          await this.sendCampaign(campaign.id, {
+            id: campaign.shopId,
+            name: shop?.name || 'Shop',
+            email: shop?.email || '',
+            walletAddress: shop?.walletAddress || ''
+          });
+          processed++;
+          logger.info(`Scheduled campaign ${campaign.id} sent successfully`);
+        } catch (error: any) {
+          failed++;
+          logger.error(`Error processing scheduled campaign ${campaign.id}:`, error);
+        }
+      }
+    } finally {
+      this.isProcessingScheduled = false;
+    }
+
+    return { processed, failed };
   }
 
   // Private methods

@@ -45,6 +45,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,12 +72,36 @@ import {
   createCampaign,
   updateCampaign,
   sendCampaign,
+  scheduleCampaign,
   getShopCustomers,
   ShopCustomer,
 } from "@/services/api/marketing";
 import { ShopService, getShopServices } from "@/services/api/services";
 import apiClient from "@/services/api/client";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
+
+const blockTypeLabels: Record<string, string> = {
+  headline: 'Headline',
+  text: 'Text',
+  button: 'Button',
+  image: 'Image',
+  coupon: 'Coupon',
+  service_card: 'Service',
+  divider: 'Divider',
+  spacer: 'Spacer',
+};
+
+function formatBlockType(type: string): string {
+  return blockTypeLabels[type] || type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function toDatetimeLocalValue(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 interface PromoCode {
   id: number;
@@ -198,7 +223,7 @@ function SortableBlockItem({
         <GripVertical className="w-4 h-4 text-gray-500" />
       </button>
       <span className="flex-1 text-white text-sm truncate">
-        {block.type.charAt(0).toUpperCase() + block.type.slice(1)}
+        {formatBlockType(block.type)}
         {block.content && `: ${block.content.substring(0, 15)}...`}
         {block.type === 'service_card' && block.serviceName && `: ${block.serviceName}`}
       </span>
@@ -244,6 +269,8 @@ export function CampaignBuilderModal({
   const [blocks, setBlocks] = useState<DesignBlock[]>([]);
   // audienceType is always 'select_customers' now since we use the customer list approach
   const [deliveryMethod, setDeliveryMethod] = useState<string>(existingCampaign?.deliveryMethod || 'in_app');
+  const [sendMode, setSendMode] = useState<'now' | 'schedule'>(existingCampaign?.status === 'scheduled' ? 'schedule' : 'now');
+  const [scheduledAt, setScheduledAt] = useState<string>(toDatetimeLocalValue(existingCampaign?.scheduledAt));
   const [couponValue, setCouponValue] = useState<string>(existingCampaign?.couponValue?.toString() || '5');
   const [couponType, setCouponType] = useState<string>(existingCampaign?.couponType || 'fixed');
   const [couponExpiry, setCouponExpiry] = useState<string>('');
@@ -592,6 +619,39 @@ export function CampaignBuilderModal({
     },
   });
 
+  const persistCampaign = async (): Promise<MarketingCampaign> => {
+    const serviceCardBlock = blocks.find(b => b.type === 'service_card' && b.serviceId);
+    const selectedServiceId = serviceCardBlock?.serviceId;
+
+    // Always use select_customers since we're using the customer list approach
+    const campaignData: CreateCampaignData = {
+      name,
+      campaignType,
+      subject,
+      designContent: buildDesignContent(),
+      audienceType: 'select_customers',
+      deliveryMethod: deliveryMethod as any,
+      audienceFilters: { selectedAddresses: Array.from(selectedCustomers) },
+      ...(selectedServiceId && { serviceId: selectedServiceId }),
+      ...(manualEmails.trim() && { manualEmails: manualEmails.trim() }),
+    };
+
+    const hasCouponBlock = blocks.some(b => b.type === 'coupon');
+    if (hasCouponBlock && selectedPromoCodeId) {
+      campaignData.promoCodeId = selectedPromoCodeId;
+      const selectedPC = promoCodes.find(pc => pc.id === selectedPromoCodeId);
+      if (selectedPC) {
+        campaignData.couponValue = selectedPC.bonus_value;
+        campaignData.couponType = selectedPC.bonus_type as 'fixed' | 'percentage';
+        campaignData.couponExpiresAt = new Date(selectedPC.end_date).toISOString();
+      }
+    }
+
+    return existingCampaign
+      ? updateCampaign(existingCampaign.id, campaignData)
+      : createCampaign(shopId, campaignData);
+  };
+
   const handleSave = async (andSend = false) => {
     if (!name.trim()) {
       toast.error('Please enter a campaign name');
@@ -600,44 +660,8 @@ export function CampaignBuilderModal({
 
     try {
       setSaving(true);
-
-      // Extract serviceId from service_card block if present
-      const serviceCardBlock = blocks.find(b => b.type === 'service_card' && b.serviceId);
-      const selectedServiceId = serviceCardBlock?.serviceId;
-
-      // Always use select_customers since we're using the customer list approach
-      const campaignData: CreateCampaignData = {
-        name,
-        campaignType,
-        subject,
-        designContent: buildDesignContent(),
-        audienceType: 'select_customers',
-        deliveryMethod: deliveryMethod as any,
-        audienceFilters: { selectedAddresses: Array.from(selectedCustomers) },
-        ...(selectedServiceId && { serviceId: selectedServiceId }),
-        ...(manualEmails.trim() && { manualEmails: manualEmails.trim() }),
-      };
-
-      const hasCouponBlock = blocks.some(b => b.type === 'coupon');
-      if (hasCouponBlock && selectedPromoCodeId) {
-        campaignData.promoCodeId = selectedPromoCodeId;
-        const selectedPC = promoCodes.find(pc => pc.id === selectedPromoCodeId);
-        if (selectedPC) {
-          campaignData.couponValue = selectedPC.bonus_value;
-          campaignData.couponType = selectedPC.bonus_type as 'fixed' | 'percentage';
-          campaignData.couponExpiresAt = new Date(selectedPC.end_date).toISOString();
-        }
-      }
-
-      let savedCampaign: MarketingCampaign;
-
-      if (existingCampaign) {
-        savedCampaign = await updateCampaign(existingCampaign.id, campaignData);
-        toast.success('Campaign saved');
-      } else {
-        savedCampaign = await createCampaign(shopId, campaignData);
-        toast.success('Campaign created');
-      }
+      const savedCampaign = await persistCampaign();
+      toast.success(existingCampaign ? 'Campaign saved' : 'Campaign created');
 
       if (andSend) {
         setSending(true);
@@ -652,6 +676,43 @@ export function CampaignBuilderModal({
     } finally {
       setSaving(false);
       setSending(false);
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!name.trim()) {
+      toast.error('Please enter a campaign name');
+      return;
+    }
+    if (!scheduledAt) {
+      toast.error('Please choose a date and time to schedule');
+      return;
+    }
+    const when = new Date(scheduledAt);
+    if (isNaN(when.getTime()) || when <= new Date()) {
+      toast.error('Scheduled time must be in the future');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const savedCampaign = await persistCampaign();
+      await scheduleCampaign(savedCampaign.id, when.toISOString());
+      toast.success(`Campaign scheduled for ${when.toLocaleString()}`);
+      onClose(true);
+    } catch (error: any) {
+      console.error('Error scheduling campaign:', error);
+      toast.error(error.message || 'Failed to schedule campaign');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeliveryAction = () => {
+    if (sendMode === 'schedule') {
+      handleSchedule();
+    } else {
+      handleSave(true);
     }
   };
 
@@ -871,7 +932,7 @@ export function CampaignBuilderModal({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="text-white font-medium">
-            Edit {selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)}
+            Edit {formatBlockType(selectedBlock.type)}
           </h4>
           <button
             onClick={() => { setSelectedBlockId(null); setActiveTab('blocks'); }}
@@ -1277,11 +1338,15 @@ export function CampaignBuilderModal({
                   <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Draft'}</span>
                 </Button>
                 {(() => {
-                  const action = {
+                  type StepAction = { label: string; onClick: () => void; disabled?: boolean; send?: boolean; scheduled?: boolean };
+                  const actions: Record<typeof step, StepAction> = {
                     design: { label: 'Select Audience', onClick: () => setStep('audience') },
                     audience: { label: 'Continue to Delivery', onClick: () => setStep('delivery'), disabled: !hasRecipients },
-                    delivery: { label: sending ? 'Sending...' : 'Send Now', onClick: () => handleSave(true), disabled: saving || sending, send: true },
-                  }[step];
+                    delivery: sendMode === 'schedule'
+                      ? { label: 'Schedule', onClick: handleSchedule, disabled: saving || !scheduledAt, send: true, scheduled: true }
+                      : { label: sending ? 'Sending...' : 'Send Now', onClick: () => handleSave(true), disabled: saving || sending, send: true },
+                  };
+                  const action = actions[step];
                   return (
                     <Button
                       size="sm"
@@ -1289,7 +1354,7 @@ export function CampaignBuilderModal({
                       disabled={action.disabled}
                       className={`${action.send ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} disabled:opacity-50`}
                     >
-                      {action.send && <Send className="w-4 h-4 mr-2" />}
+                      {action.send && (action.scheduled ? <Clock className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />)}
                       {action.label}
                     </Button>
                   );
@@ -1815,6 +1880,14 @@ export function CampaignBuilderModal({
                   <span className="text-gray-400">Delivery:</span>
                   <span className="text-white capitalize">{deliveryMethod.replace('_', ' ')}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">When:</span>
+                  <span className="text-white">
+                    {sendMode === 'schedule' && scheduledAt
+                      ? new Date(scheduledAt).toLocaleString()
+                      : 'Immediately'}
+                  </span>
+                </div>
                 {campaignType === 'offer_coupon' && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Coupon:</span>
@@ -1824,6 +1897,66 @@ export function CampaignBuilderModal({
                   </div>
                 )}
               </div>
+
+              {!viewOnly && (
+                <div className="mt-6 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                  <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-[#FFCC00]" />
+                    When to Send
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSendMode('now')}
+                      className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                        sendMode === 'now'
+                          ? 'bg-[#FFCC00]/20 border-[#FFCC00] text-white'
+                          : 'bg-gray-800 border-transparent text-gray-400 hover:bg-gray-700/50'
+                      }`}
+                    >
+                      Send now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSendMode('schedule')}
+                      className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                        sendMode === 'schedule'
+                          ? 'bg-[#FFCC00]/20 border-[#FFCC00] text-white'
+                          : 'bg-gray-800 border-transparent text-gray-400 hover:bg-gray-700/50'
+                      }`}
+                    >
+                      Schedule for later
+                    </button>
+                  </div>
+                  {sendMode === 'schedule' && (
+                    <div className="mt-3">
+                      <Input
+                        type="datetime-local"
+                        value={scheduledAt}
+                        min={toDatetimeLocalValue(new Date().toISOString())}
+                        onChange={(e) => setScheduledAt(e.target.value)}
+                        onClick={(e) => {
+                          const input = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+                          input.showPicker?.();
+                        }}
+                        className="block w-full bg-gray-900 border-gray-600 text-white cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                      />
+                      <p className="text-gray-500 text-xs mt-2">
+                        The campaign will be sent automatically at the selected time (your local timezone).
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {viewOnly && existingCampaign?.status === 'scheduled' && existingCampaign?.scheduledAt && (
+                <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/40 rounded-lg flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <span className="text-blue-300">
+                    Scheduled for {new Date(existingCampaign.scheduledAt).toLocaleString()}
+                  </span>
+                </div>
+              )}
 
               {!viewOnly && (
                 <div className="hidden sm:flex flex-col-reverse sm:flex-row justify-between gap-3 sm:gap-0 mt-8">
@@ -1846,12 +1979,14 @@ export function CampaignBuilderModal({
                       Save as Draft
                     </Button>
                     <Button
-                      onClick={() => handleSave(true)}
-                      disabled={saving || sending}
+                      onClick={handleDeliveryAction}
+                      disabled={saving || sending || (sendMode === 'schedule' && !scheduledAt)}
                       className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                     >
-                      <Send className="w-4 h-4 mr-2" />
-                      {sending ? 'Sending...' : 'Send Now'}
+                      {sendMode === 'schedule' ? <Clock className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                      {sendMode === 'schedule'
+                        ? (saving ? 'Scheduling...' : 'Schedule')
+                        : (sending ? 'Sending...' : 'Send Now')}
                     </Button>
                   </div>
                 </div>
@@ -1922,12 +2057,14 @@ export function CampaignBuilderModal({
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => handleSave(true)}
-                  disabled={saving || sending}
+                  onClick={handleDeliveryAction}
+                  disabled={saving || sending || (sendMode === 'schedule' && !scheduledAt)}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                 >
-                  <Send className="w-4 h-4 mr-2" />
-                  {sending ? 'Sending…' : 'Send'}
+                  {sendMode === 'schedule' ? <Clock className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                  {sendMode === 'schedule'
+                    ? (saving ? 'Scheduling…' : 'Schedule')
+                    : (sending ? 'Sending…' : 'Send')}
                 </Button>
               </>
             )}
