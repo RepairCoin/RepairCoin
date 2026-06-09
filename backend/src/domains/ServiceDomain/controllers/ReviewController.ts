@@ -5,6 +5,7 @@ import { OrderRepository } from '../../../repositories/OrderRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { customerRepository, shopRepository } from '../../../repositories';
 import { EmailService } from '../../../services/EmailService';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -78,29 +79,48 @@ export class ReviewController {
         images: images || []
       });
 
-      // Send review email to shop (preference-gated on 'customerReview')
+      // Send review email + in-app/push notification to shop
       try {
-        const shop = await shopRepository.getShop(order.shopId);
+        const [shop, service, customer] = await Promise.all([
+          shopRepository.getShop(order.shopId),
+          serviceRepository.getServiceById(order.serviceId),
+          customerRepository.getCustomer(customerAddress),
+        ]);
+        const customerDisplayName =
+          customer?.name ||
+          [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
+          'A customer';
+        const serviceName = service?.serviceName || 'Service';
+
         if (shop?.email) {
-          const service = await serviceRepository.getServiceById(order.serviceId);
-          const customer = await customerRepository.getCustomer(customerAddress);
-          // Prefer customer.name; fall back to first_name + last_name; finally "A customer"
-          const customerDisplayName =
-            customer?.name ||
-            [(customer as any)?.first_name, (customer as any)?.last_name].filter(Boolean).join(' ').trim() ||
-            'A customer';
           await emailService.sendCustomerReviewNotification(shop.email, shop.shopId, {
             shopName: shop.name,
             customerName: customerDisplayName,
-            serviceName: service?.serviceName || 'Service',
+            serviceName,
             rating,
             comment: (comment || '').slice(0, 500),
           });
           logger.info('Customer review email sent to shop', { shopId: order.shopId, reviewId });
         }
-      } catch (emailError) {
-        logger.error('Failed to send review email to shop:', emailError);
-        // Don't fail the review creation if email fails
+
+        if (shop?.walletAddress) {
+          await eventBus.publish(createDomainEvent(
+            'review:created',
+            reviewId,
+            {
+              shopAddress: shop.walletAddress,
+              customerAddress,
+              customerName: customerDisplayName,
+              serviceId: order.serviceId,
+              serviceName,
+              rating,
+              reviewId,
+            },
+            'ServiceDomain'
+          ));
+        }
+      } catch (notifError) {
+        logger.error('Failed to send review notifications to shop:', notifError);
       }
 
       res.status(201).json({
@@ -333,6 +353,31 @@ export class ReviewController {
 
       // Add response
       const updatedReview = await reviewRepository.addShopResponse(reviewId, response);
+
+      // In-app/push notification to customer
+      try {
+        const [shop, service] = await Promise.all([
+          shopRepository.getShop(shopId),
+          serviceRepository.getServiceById(existingReview.serviceId),
+        ]);
+        if (shop) {
+          await eventBus.publish(createDomainEvent(
+            'review:shop_responded',
+            reviewId,
+            {
+              customerAddress: existingReview.customerAddress,
+              shopAddress: shop.walletAddress,
+              shopName: shop.name,
+              serviceId: existingReview.serviceId,
+              serviceName: service?.serviceName || 'your service',
+              reviewId,
+            },
+            'ServiceDomain'
+          ));
+        }
+      } catch (notifError) {
+        logger.error('Failed to send shop response notification:', notifError);
+      }
 
       res.json({
         success: true,
@@ -757,17 +802,51 @@ export class ReviewController {
 
       const authorType = isCustomer ? 'customer' : 'shop';
 
-      // Enforce alternating turns — last reply must not be from the same party
-      const existingReplies = await reviewRepository.getRepliesForReview(reviewId);
-      if (existingReplies.length > 0) {
-        const lastReply = existingReplies[existingReplies.length - 1];
-        if (lastReply.authorType === authorType) {
-          res.status(400).json({ error: 'Wait for the other party to reply before posting again' });
-          return;
+      const reply = await reviewRepository.addReply(reviewId, userAddress, authorType, content.trim());
+
+      // In-app/push notification to the other party
+      try {
+        const shop = await shopRepository.getShop(review.shopId);
+        if (isCustomer) {
+          // Customer commented → notify shop
+          if (shop?.walletAddress) {
+            const customer = await customerRepository.getCustomer(userAddress);
+            const senderName = customer?.name || 'A customer';
+            await eventBus.publish(createDomainEvent(
+              'review:comment_added',
+              reviewId,
+              {
+                recipientAddress: shop.walletAddress,
+                senderAddress: userAddress,
+                senderName,
+                authorType: 'customer',
+                serviceId: review.serviceId,
+                reviewId,
+              },
+              'ServiceDomain'
+            ));
+          }
+        } else {
+          // Shop commented → notify customer
+          const senderName = shop?.name || 'The shop';
+          await eventBus.publish(createDomainEvent(
+            'review:comment_added',
+            reviewId,
+            {
+              recipientAddress: review.customerAddress,
+              senderAddress: userAddress,
+              senderName,
+              authorType: 'shop',
+              serviceId: review.serviceId,
+              reviewId,
+            },
+            'ServiceDomain'
+          ));
         }
+      } catch (notifError) {
+        logger.error('Failed to send review comment notification:', notifError);
       }
 
-      const reply = await reviewRepository.addReply(reviewId, userAddress, authorType, content.trim());
       res.json({ success: true, data: reply });
     } catch (error) {
       logger.error('Error adding thread reply:', error);

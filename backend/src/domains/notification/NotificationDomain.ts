@@ -77,6 +77,11 @@ export class NotificationDomain implements DomainModule {
     // Listen to manual booking payment completion events
     eventBus.subscribe('manual_booking:payment_completed', this.handleManualBookingPaymentCompleted.bind(this), 'NotificationDomain');
 
+    // Listen to review/comment events
+    eventBus.subscribe('review:created', this.handleReviewCreated.bind(this), 'NotificationDomain');
+    eventBus.subscribe('review:shop_responded', this.handleReviewShopResponded.bind(this), 'NotificationDomain');
+    eventBus.subscribe('review:comment_added', this.handleReviewCommentAdded.bind(this), 'NotificationDomain');
+
     logger.info('Notification domain event subscriptions set up');
   }
 
@@ -103,6 +108,66 @@ export class NotificationDomain implements DomainModule {
       await this.pushDispatcher.sendRewardNotification(customerAddress, shopName, amount, transactionId);
     } catch (error: any) {
       logger.error('Error handling reward issued event:', error);
+    }
+  }
+
+  private async handleReviewCreated(event: any): Promise<void> {
+    try {
+      const { shopAddress, customerAddress, customerName, serviceId, serviceName, rating, reviewId } = event.data;
+
+      logger.info(`Creating review received notification for shop ${shopAddress} (review ${reviewId})`);
+
+      const notification = await this.notificationService.createReviewReceivedNotification(
+        customerAddress, shopAddress, customerName, serviceId, serviceName, rating, reviewId
+      );
+
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+      }
+
+      await this.pushDispatcher.sendReviewReceivedToShop(shopAddress, customerName, serviceName, rating, reviewId);
+    } catch (error: any) {
+      logger.error('Error handling review created event:', error);
+    }
+  }
+
+  private async handleReviewShopResponded(event: any): Promise<void> {
+    try {
+      const { customerAddress, shopAddress, shopName, serviceId, serviceName, reviewId } = event.data;
+
+      logger.info(`Creating shop review response notification for customer ${customerAddress} (review ${reviewId})`);
+
+      const notification = await this.notificationService.createShopReviewResponseNotification(
+        shopAddress || customerAddress, customerAddress, shopName, serviceId, serviceName, reviewId
+      );
+
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+
+      await this.pushDispatcher.sendShopRespondedToCustomer(customerAddress, shopName, serviceName, reviewId);
+    } catch (error: any) {
+      logger.error('Error handling shop review response event:', error);
+    }
+  }
+
+  private async handleReviewCommentAdded(event: any): Promise<void> {
+    try {
+      const { recipientAddress, senderAddress, senderName, authorType, serviceId, reviewId } = event.data;
+
+      logger.info(`Creating review comment notification for ${recipientAddress} (review ${reviewId}, from ${authorType})`);
+
+      const notification = await this.notificationService.createReviewCommentNotification(
+        senderAddress, recipientAddress, senderName, authorType, serviceId, reviewId
+      );
+
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(recipientAddress, notification);
+      }
+
+      await this.pushDispatcher.sendReviewCommentNotification(recipientAddress, senderName, authorType, reviewId);
+    } catch (error: any) {
+      logger.error('Error handling review comment event:', error);
     }
   }
 

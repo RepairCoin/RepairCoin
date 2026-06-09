@@ -247,7 +247,6 @@ export function ShopServiceDetailsModal({
     setSubmittingResponse(true);
     try {
       await serviceApi.addShopResponse(reviewId, responseText);
-      Alert.alert("Success", "Response added successfully!");
       setRespondingTo(null);
       setResponseText("");
       // Reload reviews

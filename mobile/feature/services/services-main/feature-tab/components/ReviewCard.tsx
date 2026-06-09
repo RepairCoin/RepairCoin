@@ -77,7 +77,7 @@ export default function ReviewCard({ review, isShopOwner = false, currentUserAdd
   const [editComment, setEditComment] = useState(review.comment ?? "");
 
   // Thread replies state
-  const [threadExpanded, setThreadExpanded] = useState(false);
+  const [commentsVisible, setCommentsVisible] = useState(false);
   const [isAddingReply, setIsAddingReply] = useState(false);
   const [newReplyText, setNewReplyText] = useState("");
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
@@ -90,16 +90,12 @@ export default function ReviewCard({ review, isShopOwner = false, currentUserAdd
   const canEditReview = isReviewer && !review.shopResponse;
   const canEditShopResponse = isShopOwner && !!review.shopResponse;
 
-  // Thread reply eligibility — alternating turns
   const replies: ReviewReply[] = review.replies ?? [];
-  const lastReply = replies[replies.length - 1];
-  const canCustomerReply = isReviewer && !!review.shopResponse && (replies.length === 0 || lastReply?.authorType === 'shop');
-  const canShopReply = isShopOwner && replies.length > 0 && lastReply?.authorType === 'customer';
+  const canCustomerReply = isReviewer && !!review.shopResponse;
+  const canShopReply = isShopOwner;
   const canAddReply = canCustomerReply || canShopReply;
 
-  const COLLAPSED_COUNT = 2;
-  const visibleReplies = threadExpanded ? replies : replies.slice(-COLLAPSED_COUNT);
-  const hiddenCount = replies.length - COLLAPSED_COUNT;
+  const commentCount = replies.length;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -325,103 +321,112 @@ export default function ReviewCard({ review, isShopOwner = false, currentUserAdd
             </View>
           </View>
 
-          {/* "Show X more" collapse button */}
-          {hiddenCount > 0 && !threadExpanded && (
-            <TouchableOpacity onPress={() => setThreadExpanded(true)} className="flex-row items-center ml-9 mb-2">
-              <Ionicons name="chevron-down-outline" size={13} color="#9CA3AF" />
-              <Text className="text-gray-400 text-xs ml-1">Show {hiddenCount} more {hiddenCount === 1 ? "reply" : "replies"}</Text>
+          {/* Comments toggle button */}
+          {(commentCount > 0 || canAddReply) && (
+            <TouchableOpacity
+              onPress={() => { setCommentsVisible(!commentsVisible); setIsAddingReply(false); setNewReplyText(""); }}
+              className="flex-row items-center mt-2 ml-9"
+            >
+              <Ionicons name={commentsVisible ? "chatbubble" : "chatbubble-outline"} size={13} color="#9CA3AF" />
+              <Text className="text-gray-400 text-xs ml-1">
+                {commentCount > 0 ? `${commentCount} ${commentCount === 1 ? "comment" : "comments"}` : "Comment"}
+              </Text>
+              {commentsVisible && <Ionicons name="chevron-up-outline" size={11} color="#9CA3AF" className="ml-1" />}
             </TouchableOpacity>
           )}
 
-          {/* Thread replies */}
-          {visibleReplies.map((reply, index) => {
-            const isShopReply = reply.authorType === 'shop';
-            const isOwnReply = currentUserAddress?.toLowerCase() === reply.authorAddress.toLowerCase();
-            const isLast = index === visibleReplies.length - 1;
-            const hasMore = replies.length > 0 && !isLast;
+          {/* Comments section */}
+          {commentsVisible && (
+            <View className="mt-2">
+              {replies.map((reply, index) => {
+                const isShopReply = reply.authorType === 'shop';
+                const isOwnReply = currentUserAddress?.toLowerCase() === reply.authorAddress.toLowerCase();
+                const isLast = index === replies.length - 1;
 
-            return (
-              <View key={reply.id} className="flex-row">
-                <View className="items-center mr-3" style={{ width: 24 }}>
-                  {isShopReply ? (
-                    <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: isShopOwner ? "rgba(96,165,250,0.15)" : "rgba(255,204,0,0.15)" }}>
-                      <Ionicons name="storefront-outline" size={11} color={isShopOwner ? "#60A5FA" : "#FFCC00"} />
+                return (
+                  <View key={reply.id} className="flex-row">
+                    <View className="items-center mr-3" style={{ width: 24 }}>
+                      {isShopReply ? (
+                        <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: isShopOwner ? "rgba(96,165,250,0.15)" : "rgba(255,204,0,0.15)" }}>
+                          <Ionicons name="storefront-outline" size={11} color={isShopOwner ? "#60A5FA" : "#FFCC00"} />
+                        </View>
+                      ) : (
+                        <View className="w-6 h-6 rounded-full bg-[#333] items-center justify-center">
+                          <Text className="text-white font-bold" style={{ fontSize: 9 }}>{getInitials(review.customerName, review.customerAddress)}</Text>
+                        </View>
+                      )}
+                      {(!isLast || canAddReply || isAddingReply) && (
+                        <View className="flex-1 mt-1" style={{ width: 1, backgroundColor: "#374151" }} />
+                      )}
                     </View>
-                  ) : (
-                    <View className="w-6 h-6 rounded-full bg-[#333] items-center justify-center">
-                      <Text className="text-white font-bold" style={{ fontSize: 9 }}>{getInitials(review.customerName, review.customerAddress)}</Text>
+                    <View className="flex-1 pb-3">
+                      <View className="flex-row items-center mb-1">
+                        <Text className={`text-xs font-semibold ${isShopReply ? (isShopOwner ? "text-blue-400" : "text-[#FFCC00]") : "text-gray-300"}`}>
+                          {isShopReply ? (isShopOwner ? "You" : "Shop") : (isReviewer ? "You" : (review.customerName || "Customer"))}
+                        </Text>
+                        <Text className="text-gray-500 text-xs ml-2">{formatDate(reply.createdAt)}</Text>
+                        {isOwnReply && editingReplyId !== reply.id && (
+                          <TouchableOpacity onPress={() => { setEditingReplyId(reply.id); setEditReplyContent(reply.content); }} className="ml-auto p-1">
+                            <Ionicons name="pencil-outline" size={13} color="#6B7280" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {editingReplyId === reply.id ? (
+                        <>
+                          <TextInput value={editReplyContent} onChangeText={setEditReplyContent} placeholder="Edit your comment..." placeholderTextColor="#6B7280" multiline maxLength={1000} className="text-white text-sm min-h-[60px]" style={{ textAlignVertical: "top" }} />
+                          <Text className="text-gray-500 text-xs mt-1 text-right">{editReplyContent.length}/1000</Text>
+                          <View className="flex-row gap-2 mt-2">
+                            <TouchableOpacity onPress={handleSubmitEditThreadReply} disabled={isSubmitting || !editReplyContent.trim()} className={`flex-1 bg-[#FFCC00] rounded-lg py-2 items-center ${isSubmitting || !editReplyContent.trim() ? "opacity-50" : ""}`}>
+                              {isSubmitting ? <ActivityIndicator size="small" color="#000" /> : <Text className="text-black font-semibold text-sm">Save</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => { setEditingReplyId(null); setEditReplyContent(""); }} className="px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
+                              <Text className="text-white text-sm">Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </>
+                      ) : (
+                        <Text className="text-gray-300 text-sm">{reply.content}</Text>
+                      )}
                     </View>
-                  )}
-                  {(hasMore || (!isLast) || canAddReply || isAddingReply) && (
-                    <View className="flex-1 mt-1" style={{ width: 1, backgroundColor: "#374151" }} />
-                  )}
-                </View>
-                <View className="flex-1 pb-3">
-                  <View className="flex-row items-center mb-1">
-                    <Text className={`text-xs font-semibold ${isShopReply ? (isShopOwner ? "text-blue-400" : "text-[#FFCC00]") : "text-gray-300"}`}>
-                      {isShopReply ? (isShopOwner ? "You" : "Shop") : (isReviewer ? "You" : (review.customerName || "Customer"))}
-                    </Text>
-                    <Text className="text-gray-500 text-xs ml-2">{formatDate(reply.createdAt)}</Text>
-                    {isOwnReply && editingReplyId !== reply.id && (
-                      <TouchableOpacity onPress={() => { setEditingReplyId(reply.id); setEditReplyContent(reply.content); }} className="ml-auto p-1">
-                        <Ionicons name="pencil-outline" size={13} color="#6B7280" />
-                      </TouchableOpacity>
+                  </View>
+                );
+              })}
+
+              {/* Add comment input */}
+              {isAddingReply ? (
+                <View className="flex-row">
+                  <View className="items-center mr-3" style={{ width: 24 }}>
+                    {canCustomerReply ? (
+                      <View className="w-6 h-6 rounded-full bg-[#333] items-center justify-center">
+                        <Text className="text-white font-bold" style={{ fontSize: 9 }}>{getInitials(review.customerName, review.customerAddress)}</Text>
+                      </View>
+                    ) : (
+                      <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(96,165,250,0.15)" }}>
+                        <Ionicons name="storefront-outline" size={11} color="#60A5FA" />
+                      </View>
                     )}
                   </View>
-                  {editingReplyId === reply.id ? (
-                    <>
-                      <TextInput value={editReplyContent} onChangeText={setEditReplyContent} placeholder="Edit your reply..." placeholderTextColor="#6B7280" multiline maxLength={1000} className="text-white text-sm min-h-[60px]" style={{ textAlignVertical: "top" }} />
-                      <Text className="text-gray-500 text-xs mt-1 text-right">{editReplyContent.length}/1000</Text>
-                      <View className="flex-row gap-2 mt-2">
-                        <TouchableOpacity onPress={handleSubmitEditThreadReply} disabled={isSubmitting || !editReplyContent.trim()} className={`flex-1 bg-[#FFCC00] rounded-lg py-2 items-center ${isSubmitting || !editReplyContent.trim() ? "opacity-50" : ""}`}>
-                          {isSubmitting ? <ActivityIndicator size="small" color="#000" /> : <Text className="text-black font-semibold text-sm">Save</Text>}
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setEditingReplyId(null); setEditReplyContent(""); }} className="px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
-                          <Text className="text-white text-sm">Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  ) : (
-                    <Text className="text-gray-300 text-sm">{reply.content}</Text>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-
-          {/* Add reply input */}
-          {isAddingReply ? (
-            <View className="flex-row">
-              <View className="items-center mr-3" style={{ width: 24 }}>
-                {canCustomerReply ? (
-                  <View className="w-6 h-6 rounded-full bg-[#333] items-center justify-center">
-                    <Text className="text-white font-bold" style={{ fontSize: 9 }}>{getInitials(review.customerName, review.customerAddress)}</Text>
+                  <View className="flex-1">
+                    <TextInput value={newReplyText} onChangeText={setNewReplyText} placeholder="Write a comment..." placeholderTextColor="#6B7280" multiline maxLength={1000} className="text-white text-sm min-h-[60px] bg-[#0d0d0d] border border-gray-700 rounded-lg p-2" style={{ textAlignVertical: "top" }} />
+                    <Text className="text-gray-500 text-xs mt-1 text-right">{newReplyText.length}/1000</Text>
+                    <View className="flex-row gap-2 mt-2">
+                      <TouchableOpacity onPress={handleSubmitThreadReply} disabled={isSubmitting || !newReplyText.trim()} className={`flex-1 bg-[#FFCC00] rounded-lg py-2 items-center ${isSubmitting || !newReplyText.trim() ? "opacity-50" : ""}`}>
+                        {isSubmitting ? <ActivityIndicator size="small" color="#000" /> : <Text className="text-black font-semibold text-sm">Submit</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => { setIsAddingReply(false); setNewReplyText(""); }} className="px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
+                        <Text className="text-white text-sm">Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                ) : (
-                  <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(96,165,250,0.15)" }}>
-                    <Ionicons name="storefront-outline" size={11} color="#60A5FA" />
-                  </View>
-                )}
-              </View>
-              <View className="flex-1">
-                <TextInput value={newReplyText} onChangeText={setNewReplyText} placeholder="Write a reply..." placeholderTextColor="#6B7280" multiline maxLength={1000} className="text-white text-sm min-h-[60px] bg-[#0d0d0d] border border-gray-700 rounded-lg p-2" style={{ textAlignVertical: "top" }} />
-                <Text className="text-gray-500 text-xs mt-1 text-right">{newReplyText.length}/1000</Text>
-                <View className="flex-row gap-2 mt-2">
-                  <TouchableOpacity onPress={handleSubmitThreadReply} disabled={isSubmitting || !newReplyText.trim()} className={`flex-1 bg-[#FFCC00] rounded-lg py-2 items-center ${isSubmitting || !newReplyText.trim() ? "opacity-50" : ""}`}>
-                    {isSubmitting ? <ActivityIndicator size="small" color="#000" /> : <Text className="text-black font-semibold text-sm">Submit</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setIsAddingReply(false); setNewReplyText(""); }} className="px-4 py-2 bg-[#1a1a1a] border border-gray-700 rounded-lg">
-                    <Text className="text-white text-sm">Cancel</Text>
-                  </TouchableOpacity>
                 </View>
-              </View>
+              ) : canAddReply ? (
+                <TouchableOpacity onPress={() => setIsAddingReply(true)} className="flex-row items-center ml-9">
+                  <Ionicons name="add-circle-outline" size={13} color="#9CA3AF" />
+                  <Text className="text-gray-400 text-xs ml-1">Add a comment</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          ) : canAddReply ? (
-            <TouchableOpacity onPress={() => setIsAddingReply(true)} className="flex-row items-center ml-9">
-              <Ionicons name="chatbubble-outline" size={13} color="#9CA3AF" />
-              <Text className="text-gray-400 text-xs ml-1">{canCustomerReply ? "Reply to shop" : "Reply to customer"}</Text>
-            </TouchableOpacity>
-          ) : null}
+          )}
 
         </View>
       ) : isShopOwner && isResponding ? (

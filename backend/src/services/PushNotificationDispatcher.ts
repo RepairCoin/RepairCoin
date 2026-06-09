@@ -239,6 +239,54 @@ export class PushNotificationDispatcher {
       data: { type: 'subscription_expiring', shopName, daysRemaining, expirationDate },
     });
   }
+
+  async sendReviewReceivedToShop(
+    shopWalletAddress: string,
+    customerName: string,
+    serviceName: string,
+    rating: number,
+    reviewId: string
+  ): Promise<SendPushResult> {
+    const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+    return this.sendToUser(shopWalletAddress, {
+      title: 'New Review',
+      body: `${customerName} reviewed ${serviceName} ${stars}`,
+      channelId: NotificationChannels.APPOINTMENTS,
+      data: { type: 'customer_review_received', reviewId, customerName, serviceName, rating },
+    });
+  }
+
+  async sendShopRespondedToCustomer(
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    reviewId: string
+  ): Promise<SendPushResult> {
+    return this.sendToUser(customerAddress, {
+      title: 'Shop Responded',
+      body: `${shopName} responded to your review on ${serviceName}`,
+      channelId: NotificationChannels.APPOINTMENTS,
+      data: { type: 'shop_review_response', reviewId, shopName, serviceName },
+    });
+  }
+
+  async sendReviewCommentNotification(
+    recipientAddress: string,
+    senderName: string,
+    authorType: 'customer' | 'shop',
+    reviewId: string
+  ): Promise<SendPushResult> {
+    const title = authorType === 'customer' ? 'New Comment on Review' : 'Shop Commented';
+    const body = authorType === 'customer'
+      ? `${senderName} added a comment on the review`
+      : `${senderName} added a comment on your review`;
+    return this.sendToUser(recipientAddress, {
+      title,
+      body,
+      channelId: NotificationChannels.APPOINTMENTS,
+      data: { type: 'review_comment', reviewId, senderName, authorType },
+    });
+  }
 }
 
 // Singleton instance
