@@ -11,6 +11,7 @@ export interface ShopAiSettings {
   aiGlobalEnabled: boolean;
   aiFollowupEnabled: boolean;
   aiImagesEnabled: boolean;
+  campaignRewardsEnabled: boolean;
   monthlyBudgetUsd: number;
   currentMonthSpendUsd: number;
   // Shop-editable
@@ -69,6 +70,7 @@ export interface AdminShopAiSettingsUpdate {
   aiGlobalEnabled?: boolean;
   aiFollowupEnabled?: boolean;
   aiImagesEnabled?: boolean;
+  campaignRewardsEnabled?: boolean;
   monthlyBudgetUsd?: number;
 }
 

@@ -74,6 +74,7 @@ export const AdminAISettingsTab: React.FC = () => {
   const enabledCount = shops.filter((s) => s.aiGlobalEnabled).length;
   const followupCount = shops.filter((s) => s.aiFollowupEnabled).length;
   const imagesCount = shops.filter((s) => s.aiImagesEnabled).length;
+  const rewardsCount = shops.filter((s) => s.campaignRewardsEnabled).length;
 
   return (
     <div className="bg-[#101010] rounded-2xl overflow-hidden">
@@ -114,6 +115,7 @@ export const AdminAISettingsTab: React.FC = () => {
               <p className="text-sm text-gray-400">
                 {shops.length} shops · {enabledCount} with AI on ·{" "}
                 {followupCount} with follow-ups on · {imagesCount} with images on
+                {" "}· {rewardsCount} with rewards on
               </p>
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -136,6 +138,7 @@ export const AdminAISettingsTab: React.FC = () => {
                     <th className="px-4 py-3 font-medium">AI Sales Agent</th>
                     <th className="px-4 py-3 font-medium">Follow-up Nudges</th>
                     <th className="px-4 py-3 font-medium">AI Images</th>
+                    <th className="px-4 py-3 font-medium">Campaign Rewards</th>
                     <th className="px-4 py-3 font-medium">Monthly Budget</th>
                     <th className="px-4 py-3 font-medium">Spent</th>
                   </tr>
@@ -143,7 +146,7 @@ export const AdminAISettingsTab: React.FC = () => {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                         No shops match &quot;{filter}&quot;.
                       </td>
                     </tr>
@@ -232,6 +235,14 @@ const ShopAIRow: React.FC<ShopAIRowProps> = ({ shop, saving, onUpdate }) => {
           checked={shop.aiImagesEnabled}
           disabled={saving}
           onCheckedChange={(v) => onUpdate(shop.shopId, { aiImagesEnabled: v })}
+          className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
+        />
+      </td>
+      <td className="px-4 py-3">
+        <Switch
+          checked={shop.campaignRewardsEnabled}
+          disabled={saving}
+          onCheckedChange={(v) => onUpdate(shop.shopId, { campaignRewardsEnabled: v })}
           className="data-[state=unchecked]:bg-gray-600 data-[state=checked]:bg-[#FFCC00]"
         />
       </td>
