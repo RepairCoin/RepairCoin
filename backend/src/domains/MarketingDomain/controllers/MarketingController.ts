@@ -3,6 +3,7 @@ import { MarketingService } from '../../../services/MarketingService';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { ContactRepository } from '../../../repositories/ContactRepository';
 import { campaignEmailService } from '../../../services/CampaignEmailService';
+import { campaignRewardService, CampaignRewardBlockedError } from '../../../services/CampaignRewardService';
 import { logger } from '../../../utils/logger';
 
 export class MarketingController {
@@ -336,12 +337,46 @@ export class MarketingController {
 
       res.json({ success: true, data: result });
     } catch (error: any) {
+      // Insufficient RCN for the campaign's reward — block the send with a 400
+      // and the shortfall details so the UI can say "buy more RCN / lower it".
+      if (error instanceof CampaignRewardBlockedError) {
+        res.status(400).json({ success: false, error: error.message, details: error.details });
+        return;
+      }
       logger.error('Error sending campaign:', error);
       // Return a more descriptive error message
       res.status(500).json({
         success: false,
         error: error.message || 'Failed to send campaign'
       });
+    }
+  };
+
+  /**
+   * Retry a campaign's failed RCN rewards (Campaign Rewards — Phase 1).
+   * Idempotent — only re-issues recipients still in 'failed'.
+   */
+  retryRewards = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { campaignId } = req.params;
+      const existing = await this.marketingService.getCampaign(campaignId);
+      if (!existing) {
+        res.status(404).json({ success: false, error: 'Campaign not found' });
+        return;
+      }
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+      const result = await campaignRewardService.retryFailed(existing);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      if (error instanceof CampaignRewardBlockedError) {
+        res.status(400).json({ success: false, error: error.message, details: error.details });
+        return;
+      }
+      logger.error('Error retrying campaign rewards:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to retry rewards' });
     }
   };
 

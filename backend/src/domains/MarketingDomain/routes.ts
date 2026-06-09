@@ -291,6 +291,14 @@ export function initializeRoutes(): Router {
     controller.sendCampaign
   );
 
+  // Retry a campaign's failed RCN rewards (Campaign Rewards — Phase 1).
+  router.post(
+    '/campaigns/:campaignId/retry-rewards',
+    authMiddleware,
+    requireRole(['shop']),
+    controller.retryRewards
+  );
+
   /**
    * @swagger
    * /api/marketing/campaigns/{campaignId}/schedule:

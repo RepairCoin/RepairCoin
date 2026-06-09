@@ -217,6 +217,15 @@ const CampaignDraftCard: React.FC<{
             <span className="text-xs text-gray-500">(rough estimate)</span>
           </p>
         )}
+        {d.reward && (
+          <p className="mt-1.5 text-sm text-violet-300">
+            🎁 Reward: {d.reward.rcnPerRecipient.toLocaleString()} RCN each ·{" "}
+            <span className="font-semibold">
+              {d.reward.totalRcn.toLocaleString()} RCN total
+            </span>{" "}
+            <span className="text-xs text-gray-500">(issued on send)</span>
+          </p>
+        )}
       </button>
 
       {/* One-tap banner suggestion — only when the draft has no banner yet.

@@ -66,6 +66,8 @@ export type MarketingToolDisplay =
       imageUrl?: string | null;
       /** Phase 2 — rough revenue-opportunity range ("est. $X–$Y"). */
       estimatedRevenue?: { lowUsd: number; highUsd: number } | null;
+      /** Campaign Rewards — RCN given to each recipient when sent (+ total cost). */
+      reward?: { rcnPerRecipient: number; totalRcn: number } | null;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the

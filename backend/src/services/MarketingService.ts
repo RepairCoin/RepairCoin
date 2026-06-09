@@ -14,6 +14,8 @@ import { EmailService } from './EmailService';
 import { WebSocketManager } from './WebSocketManager';
 import { PaginatedResult, PaginationParams } from '../repositories/BaseRepository';
 import { eventBus, createDomainEvent } from '../events/EventBus';
+import { campaignRewardService } from './CampaignRewardService';
+import { getSharedPool } from '../utils/database-pool';
 
 interface ShopInfo {
   id: string;
@@ -36,6 +38,12 @@ export interface CampaignDeliveryResult {
   emailsFailed: number;
   inAppSent: number;
   inAppFailed: number;
+  // Campaign rewards (Phase 1) — present only when the campaign carries an
+  // on_send RCN reward.
+  rcnIssued?: number;
+  rcnSkipped?: number;
+  rcnFailed?: number;
+  rcnTotalIssued?: number;
 }
 
 export class MarketingService {
@@ -76,6 +84,34 @@ export class MarketingService {
   async updateCampaign(id: string, params: UpdateCampaignParams): Promise<MarketingCampaign> {
     logger.info(`Updating marketing campaign ${id}`);
     return this.campaignRepo.update(id, params);
+  }
+
+  /** Set/clear a campaign's reward config (Campaign Rewards — Phase 1+). */
+  async setCampaignReward(
+    campaignId: string,
+    config: {
+      rewardType?: 'none' | 'rcn' | 'coupon';
+      rewardMode?: 'flat' | 'by_tier' | 'by_spend' | null;
+      rewardRcnAmount?: number | null;
+      fulfillmentTrigger?: 'on_send' | 'on_return';
+      returnWindowDays?: number | null;
+    }
+  ): Promise<void> {
+    return this.campaignRepo.setReward(campaignId, config);
+  }
+
+  /** Whether the shop is allowed to attach campaign rewards (admin gate). */
+  async isCampaignRewardsEnabled(shopId: string): Promise<boolean> {
+    try {
+      const pool = getSharedPool();
+      const r = await pool.query<{ campaign_rewards_enabled: boolean }>(
+        `SELECT campaign_rewards_enabled FROM ai_shop_settings WHERE shop_id = $1`,
+        [shopId]
+      );
+      return r.rows[0]?.campaign_rewards_enabled === true;
+    } catch {
+      return false;
+    }
   }
 
   async deleteCampaign(id: string): Promise<boolean> {
@@ -187,6 +223,21 @@ export class MarketingService {
       inAppSent: 0,
       inAppFailed: 0
     };
+
+    // Campaign rewards (Phase 1: flat on_send RCN). Runs BEFORE the email loop so
+    // the balance gate can block the whole send without having emailed anyone.
+    // A CampaignRewardBlockedError (insufficient shop RCN) propagates to the
+    // caller, which surfaces "buy more RCN / lower the reward".
+    if (campaignRewardService.hasOnSendRcnReward(campaign)) {
+      const rewardOutcome = await campaignRewardService.fulfillOnSend(
+        campaign,
+        recipients.map(r => ({ walletAddress: r.walletAddress, email: r.email, name: r.name }))
+      );
+      result.rcnIssued = rewardOutcome.issued;
+      result.rcnSkipped = rewardOutcome.skipped;
+      result.rcnFailed = rewardOutcome.failed;
+      result.rcnTotalIssued = rewardOutcome.totalIssuedRcn;
+    }
 
     // Send to existing customers via selected delivery method
     for (const recipient of recipients) {

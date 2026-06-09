@@ -131,6 +131,18 @@ export const proposeCampaignDraft: MarketingTool = {
           "or a placeholder falls back to the shop's most recently generated " +
           "image.",
       },
+      reward_rcn: {
+        type: "number",
+        minimum: 1,
+        maximum: 10000,
+        description:
+          "Optional. RCN tokens to give EACH recipient when the campaign is " +
+          "sent (1 RCN = $0.10, drawn from the shop's purchased RCN balance). " +
+          "Only set this when the shop explicitly asks to include a reward " +
+          "(e.g. 'send 25 RCN to lapsed customers'). Omit for a no-reward " +
+          "campaign. When set, you MAY state the exact amount in the body. The " +
+          "shop confirms the total RCN cost before sending.",
+      },
     },
     required: [
       "audience_type",
@@ -158,6 +170,8 @@ export const proposeCampaignDraft: MarketingTool = {
     const campaignName = String(a.campaign_name ?? "").trim();
     const providedImageUrl =
       typeof a.image_url === "string" ? a.image_url.trim() : "";
+    const rewardRcn =
+      typeof a.reward_rcn === "number" && a.reward_rcn > 0 ? a.reward_rcn : 0;
 
     if (!subject || !body || !campaignName || !audienceLabel) {
       throw new Error(
@@ -228,9 +242,38 @@ export const proposeCampaignDraft: MarketingTool = {
       createdBySource: "ai_agent",
     });
 
+    // Campaign reward (Phase 1: flat on_send RCN). Only persist it when the
+    // admin has enabled rewards for this shop — otherwise the card would promise
+    // a reward the send can't deliver. When unavailable we draft text-only and
+    // flag it so the assistant can tell the owner.
+    let reward: {
+      rcnPerRecipient: number;
+      totalRcn: number;
+      fulfillment: "on_send";
+    } | null = null;
+    let rewardUnavailable = false;
+    if (rewardRcn > 0) {
+      if (await marketingService.isCampaignRewardsEnabled(ctx.shopId)) {
+        await marketingService.setCampaignReward(campaign.id, {
+          rewardType: "rcn",
+          rewardMode: "flat",
+          rewardRcnAmount: rewardRcn,
+          fulfillmentTrigger: "on_send",
+        });
+        reward = {
+          rcnPerRecipient: rewardRcn,
+          totalRcn: rewardRcn * recipientCount,
+          fulfillment: "on_send",
+        };
+      } else {
+        rewardUnavailable = true;
+      }
+    }
+
     logger.info(`${NAME}: drafted campaign ${campaign.id} for shop ${ctx.shopId}`, {
       audienceType,
       recipientCount,
+      rewardRcn: reward ? rewardRcn : 0,
     });
 
     return {
@@ -248,6 +291,12 @@ export const proposeCampaignDraft: MarketingTool = {
           avg_order_value_usd: revenue.avgOrderValueUsd,
           assumptions: revenue.assumptions,
         },
+        reward: reward
+          ? { rcn_per_recipient: reward.rcnPerRecipient, total_rcn: reward.totalRcn, fulfillment: reward.fulfillment }
+          : null,
+        // True when the shop asked for a reward but campaign rewards aren't
+        // enabled for them — tell the owner it was drafted without the reward.
+        reward_unavailable: rewardUnavailable,
       },
       display: {
         kind: "campaign_draft",
@@ -259,6 +308,9 @@ export const proposeCampaignDraft: MarketingTool = {
         recipientCount,
         imageUrl: bannerImageUrl,
         estimatedRevenue: { lowUsd: revenue.lowUsd, highUsd: revenue.highUsd },
+        reward: reward
+          ? { rcnPerRecipient: reward.rcnPerRecipient, totalRcn: reward.totalRcn }
+          : undefined,
       },
     };
   },
