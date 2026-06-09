@@ -253,3 +253,76 @@ describe('expireOverdue', () => {
     expect(mockExpireOverdueRewards).toHaveBeenCalled();
   });
 });
+
+// ----- Phase 3: variable RCN (by_tier / by_spend) -----
+
+/** Pool that serves BOTH the flag query and the tier/spend resolve query. */
+const poolVariable = (resolveRows: any[]): any => ({
+  query: jest.fn().mockImplementation((sql: string) => {
+    if (sql.includes('campaign_rewards_enabled')) {
+      return Promise.resolve({ rows: [{ campaign_rewards_enabled: true }] });
+    }
+    if (sql.includes('FROM customers')) {
+      return Promise.resolve({ rows: resolveRows });
+    }
+    return Promise.resolve({ rows: [] });
+  }),
+});
+const serviceV = (rows: any[]) => new CampaignRewardService(poolVariable(rows));
+
+describe('variable rewards — gating', () => {
+  it('hasOnSendRcnReward is true when any tier amount is > 0', () => {
+    const c = campaign({ rewardMode: 'by_tier', rewardRcnAmount: null, rewardRcnByTier: { GOLD: 50, BRONZE: 0 } });
+    expect(service().hasOnSendRcnReward(c)).toBe(true);
+  });
+  it('hasOnSendRcnReward is false when every tier amount is 0', () => {
+    const c = campaign({ rewardMode: 'by_tier', rewardRcnAmount: null, rewardRcnByTier: { GOLD: 0, BRONZE: 0 } });
+    expect(service().hasOnSendRcnReward(c)).toBe(false);
+  });
+  it('hasOnSendRcnReward is true when any spend band is > 0', () => {
+    const c = campaign({ rewardMode: 'by_spend', rewardRcnAmount: null, rewardSpendBands: [{ minSpend: 0, rcn: 10 }] });
+    expect(service().hasOnSendRcnReward(c)).toBe(true);
+  });
+});
+
+describe('fulfillOnSend — by_tier', () => {
+  it('issues each recipient the amount for their tier and skips those with no tier mapping', async () => {
+    const c = campaign({ rewardMode: 'by_tier', rewardRcnAmount: null, rewardRcnByTier: { GOLD: 50, SILVER: 25, BRONZE: 10 } });
+    const svc = serviceV([
+      { addr: '0xa', tier: 'GOLD', spend: '0' },
+      { addr: '0xb', tier: 'BRONZE', spend: '0' },
+      // 0xc absent → no tier → amount 0 → skipped
+    ]);
+    const res = await svc.fulfillOnSend(c, recipients('0xa', '0xb', '0xc'));
+    expect(res).toEqual({ issued: 2, skipped: 1, failed: 0, totalIssuedRcn: 60 });
+    expect(mockIssueExact).toHaveBeenCalledWith(expect.objectContaining({ customerAddress: '0xa', rcnAmount: 50 }));
+    expect(mockIssueExact).toHaveBeenCalledWith(expect.objectContaining({ customerAddress: '0xb', rcnAmount: 10 }));
+  });
+});
+
+describe('fulfillOnSend — by_spend', () => {
+  it('issues the highest band each customer qualifies for', async () => {
+    const c = campaign({
+      rewardMode: 'by_spend', rewardRcnAmount: null,
+      rewardSpendBands: [{ minSpend: 0, rcn: 10 }, { minSpend: 500, rcn: 25 }, { minSpend: 1000, rcn: 50 }],
+    });
+    const svc = serviceV([
+      { addr: '0xa', tier: null, spend: '1500' }, // → 50
+      { addr: '0xb', tier: null, spend: '600' },  // → 25
+      { addr: '0xc', tier: null, spend: '100' },  // → 10
+    ]);
+    const res = await svc.fulfillOnSend(c, recipients('0xa', '0xb', '0xc'));
+    expect(res).toEqual({ issued: 3, skipped: 0, failed: 0, totalIssuedRcn: 85 });
+  });
+
+  it('blocks the send when the variable TOTAL exceeds the balance', async () => {
+    mockGetShop.mockResolvedValue({ walletAddress: SHOP_WALLET, purchasedRcnBalance: 40 });
+    const c = campaign({ rewardMode: 'by_tier', rewardRcnAmount: null, rewardRcnByTier: { GOLD: 50, BRONZE: 10 } });
+    const svc = serviceV([
+      { addr: '0xa', tier: 'GOLD', spend: '0' },   // 50
+      { addr: '0xb', tier: 'BRONZE', spend: '0' },  // 10  → total 60 > 40
+    ]);
+    await expect(svc.fulfillOnSend(c, recipients('0xa', '0xb'))).rejects.toBeInstanceOf(CampaignRewardBlockedError);
+    expect(mockIssueExact).not.toHaveBeenCalled();
+  });
+});

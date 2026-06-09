@@ -69,8 +69,10 @@ export type MarketingToolDisplay =
       /** Campaign Rewards — RCN given to each recipient (+ total cost).
        *  fulfillment 'on_return' issues when the customer comes back. */
       reward?: {
-        rcnPerRecipient: number;
-        totalRcn: number;
+        /** Human-readable summary (variable modes show a tier/spend schedule). */
+        summary?: string;
+        rcnPerRecipient?: number; // flat only
+        totalRcn?: number; // flat only
         fulfillment?: "on_send" | "on_return";
         returnWindowDays?: number | null;
       } | null;

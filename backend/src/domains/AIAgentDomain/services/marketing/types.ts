@@ -93,8 +93,10 @@ export type MarketingToolDisplay =
        *  only when the owner attached a reward and it's enabled. fulfillment
        *  'on_return' issues when the customer comes back (within returnWindowDays). */
       reward?: {
-        rcnPerRecipient: number;
-        totalRcn: number;
+        /** Human-readable summary (variable modes show a tier/spend schedule). */
+        summary?: string;
+        rcnPerRecipient?: number; // flat only
+        totalRcn?: number; // flat only
         fulfillment?: "on_send" | "on_return";
         returnWindowDays?: number | null;
       };

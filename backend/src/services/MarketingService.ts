@@ -95,6 +95,8 @@ export class MarketingService {
       rewardType?: 'none' | 'rcn' | 'coupon';
       rewardMode?: 'flat' | 'by_tier' | 'by_spend' | null;
       rewardRcnAmount?: number | null;
+      rewardRcnByTier?: Record<string, number> | null;
+      rewardSpendBands?: Array<{ minSpend: number; rcn: number }> | null;
       fulfillmentTrigger?: 'on_send' | 'on_return';
       returnWindowDays?: number | null;
     }

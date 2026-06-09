@@ -219,10 +219,15 @@ const CampaignDraftCard: React.FC<{
         )}
         {d.reward && (
           <p className="mt-1.5 text-sm text-violet-300">
-            🎁 Reward: {d.reward.rcnPerRecipient.toLocaleString()} RCN each ·{" "}
+            🎁 Reward:{" "}
             <span className="font-semibold">
-              {d.reward.fulfillment === "on_return" ? "up to " : ""}
-              {d.reward.totalRcn.toLocaleString()} RCN total
+              {d.reward.summary
+                ? d.reward.summary
+                : `${(d.reward.rcnPerRecipient ?? 0).toLocaleString()} RCN each${
+                    d.reward.totalRcn != null
+                      ? ` · ${d.reward.fulfillment === "on_return" ? "up to " : ""}${d.reward.totalRcn.toLocaleString()} RCN total`
+                      : ""
+                  }`}
             </span>{" "}
             <span className="text-xs text-gray-500">
               {d.reward.fulfillment === "on_return"

@@ -161,6 +161,38 @@ export const proposeCampaignDraft: MarketingTool = {
           "Days an on_return reward stays claimable after send. Only used when " +
           "reward_fulfillment='on_return'. Default 30.",
       },
+      reward_mode: {
+        type: "string",
+        enum: ["flat", "by_tier", "by_spend"],
+        description:
+          "How the RCN amount is decided (only with a reward). 'flat' (default) " +
+          "= the same reward_rcn for everyone. 'by_tier' = different amounts per " +
+          "loyalty tier (set reward_rcn_by_tier). 'by_spend' = amounts by how much " +
+          "the customer has spent at the shop (set reward_spend_bands). Use a " +
+          "variable mode only when the owner asks to reward customers differently.",
+      },
+      reward_rcn_by_tier: {
+        type: "object",
+        description:
+          "RCN per loyalty tier for reward_mode='by_tier', e.g. " +
+          '{"GOLD": 50, "SILVER": 25, "BRONZE": 10}. Keys are BRONZE/SILVER/GOLD; ' +
+          "omit a tier to give it nothing.",
+      },
+      reward_spend_bands: {
+        type: "array",
+        description:
+          "RCN by spend for reward_mode='by_spend'. A customer gets the rcn of " +
+          "the HIGHEST band whose minSpend they've reached, e.g. " +
+          '[{"minSpend":0,"rcn":10},{"minSpend":500,"rcn":25},{"minSpend":1000,"rcn":50}].',
+        items: {
+          type: "object",
+          properties: {
+            minSpend: { type: "number", minimum: 0 },
+            rcn: { type: "number", minimum: 0 },
+          },
+          required: ["minSpend", "rcn"],
+        },
+      },
     },
     required: [
       "audience_type",
@@ -196,6 +228,16 @@ export const proposeCampaignDraft: MarketingTool = {
       typeof a.return_window_days === "number" && a.return_window_days > 0
         ? Math.min(365, Math.round(a.return_window_days))
         : 30;
+    const rewardMode: "flat" | "by_tier" | "by_spend" =
+      a.reward_mode === "by_tier" ? "by_tier" : a.reward_mode === "by_spend" ? "by_spend" : "flat";
+    const rewardByTier =
+      rewardMode === "by_tier" && a.reward_rcn_by_tier && typeof a.reward_rcn_by_tier === "object"
+        ? (a.reward_rcn_by_tier as Record<string, number>)
+        : null;
+    const rewardSpendBands =
+      rewardMode === "by_spend" && Array.isArray(a.reward_spend_bands)
+        ? (a.reward_spend_bands as Array<{ minSpend: number; rcn: number }>)
+        : null;
 
     if (!subject || !body || !campaignName || !audienceLabel) {
       throw new Error(
@@ -270,25 +312,36 @@ export const proposeCampaignDraft: MarketingTool = {
     // admin has enabled rewards for this shop — otherwise the card would promise
     // a reward the send can't deliver. When unavailable we draft text-only and
     // flag it so the assistant can tell the owner.
+    const hasReward =
+      (rewardMode === "flat" && rewardRcn > 0) ||
+      (rewardMode === "by_tier" && !!rewardByTier && Object.values(rewardByTier).some((v) => Number(v) > 0)) ||
+      (rewardMode === "by_spend" && !!rewardSpendBands && rewardSpendBands.some((b) => Number(b.rcn) > 0));
+
     let reward: {
-      rcnPerRecipient: number;
-      totalRcn: number;
+      summary: string;
+      rcnPerRecipient?: number;
+      totalRcn?: number;
       fulfillment: "on_send" | "on_return";
       returnWindowDays: number | null;
     } | null = null;
     let rewardUnavailable = false;
-    if (rewardRcn > 0) {
+
+    if (hasReward) {
       if (await marketingService.isCampaignRewardsEnabled(ctx.shopId)) {
         await marketingService.setCampaignReward(campaign.id, {
           rewardType: "rcn",
-          rewardMode: "flat",
-          rewardRcnAmount: rewardRcn,
+          rewardMode,
+          rewardRcnAmount: rewardMode === "flat" ? rewardRcn : null,
+          rewardRcnByTier: rewardMode === "by_tier" ? rewardByTier : null,
+          rewardSpendBands: rewardMode === "by_spend" ? rewardSpendBands : null,
           fulfillmentTrigger: rewardFulfillment,
           returnWindowDays: rewardFulfillment === "on_return" ? returnWindowDays : null,
         });
+        const flat = rewardMode === "flat";
         reward = {
-          rcnPerRecipient: rewardRcn,
-          totalRcn: rewardRcn * recipientCount,
+          summary: buildRewardSummary(rewardMode, rewardRcn, rewardByTier, rewardSpendBands, recipientCount),
+          rcnPerRecipient: flat ? rewardRcn : undefined,
+          totalRcn: flat ? rewardRcn * recipientCount : undefined,
           fulfillment: rewardFulfillment,
           returnWindowDays: rewardFulfillment === "on_return" ? returnWindowDays : null,
         };
@@ -320,8 +373,10 @@ export const proposeCampaignDraft: MarketingTool = {
         },
         reward: reward
           ? {
-              rcn_per_recipient: reward.rcnPerRecipient,
-              total_rcn: reward.totalRcn,
+              summary: reward.summary,
+              mode: rewardMode,
+              rcn_per_recipient: reward.rcnPerRecipient ?? null,
+              total_rcn: reward.totalRcn ?? null,
               fulfillment: reward.fulfillment,
               return_window_days: reward.returnWindowDays,
             }
@@ -342,6 +397,7 @@ export const proposeCampaignDraft: MarketingTool = {
         estimatedRevenue: { lowUsd: revenue.lowUsd, highUsd: revenue.highUsd },
         reward: reward
           ? {
+              summary: reward.summary,
               rcnPerRecipient: reward.rcnPerRecipient,
               totalRcn: reward.totalRcn,
               fulfillment: reward.fulfillment,
@@ -398,4 +454,28 @@ function bodyToBlocks(subject: string, body: string): Array<Record<string, unkno
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return `${s.slice(0, n - 1).trimEnd()}…`;
+}
+
+/** Human-readable one-liner for the reward shown on the draft card. */
+function buildRewardSummary(
+  mode: "flat" | "by_tier" | "by_spend",
+  flatRcn: number,
+  byTier: Record<string, number> | null,
+  bands: Array<{ minSpend: number; rcn: number }> | null,
+  recipientCount: number
+): string {
+  if (mode === "by_tier" && byTier) {
+    const order = ["GOLD", "SILVER", "BRONZE"];
+    const parts = order
+      .filter((t) => Number(byTier[t]) > 0)
+      .map((t) => `${t[0]}${t.slice(1).toLowerCase()} ${byTier[t]}`);
+    return `${parts.join(" / ")} RCN each`;
+  }
+  if (mode === "by_spend" && bands && bands.length) {
+    const rcns = bands.map((b) => Number(b.rcn)).filter((n) => n > 0);
+    const lo = Math.min(...rcns);
+    const hi = Math.max(...rcns);
+    return lo === hi ? `${lo} RCN by spend` : `${lo}–${hi} RCN by spend`;
+  }
+  return `${flatRcn} RCN each · ${(flatRcn * recipientCount).toLocaleString()} RCN total`;
 }
