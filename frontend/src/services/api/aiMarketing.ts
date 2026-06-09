@@ -76,6 +76,8 @@ export type MarketingToolDisplay =
         fulfillment?: "on_send" | "on_return";
         returnWindowDays?: number | null;
       } | null;
+      /** Coupon — a bonus-RCN code redeemed on the next visit. */
+      coupon?: { code: string; bonusRcn: number; expiresAt: string } | null;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the

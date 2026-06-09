@@ -238,6 +238,14 @@ const CampaignDraftCard: React.FC<{
             </span>
           </p>
         )}
+        {d.coupon && (
+          <p className="mt-1.5 text-sm text-violet-300">
+            🎟️ Coupon:{" "}
+            <span className="font-semibold font-mono">{d.coupon.code}</span> ·{" "}
+            +{d.coupon.bonusRcn.toLocaleString()} RCN{" "}
+            <span className="text-xs text-gray-500">(redeemed on next visit)</span>
+          </p>
+        )}
       </button>
 
       {/* One-tap banner suggestion — only when the draft has no banner yet.

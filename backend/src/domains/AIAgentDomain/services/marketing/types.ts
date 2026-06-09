@@ -100,6 +100,8 @@ export type MarketingToolDisplay =
         fulfillment?: "on_send" | "on_return";
         returnWindowDays?: number | null;
       };
+      /** Campaign Rewards (coupon) — a bonus-RCN code redeemed on the next visit. */
+      coupon?: { code: string; bonusRcn: number; expiresAt: string };
     }
   | {
       // Phase 2.2 — proposed send action for an existing draft (the

@@ -30,6 +30,7 @@ import {
   MarketingToolResult,
 } from "../types";
 import { MarketingService } from "../../../../../services/MarketingService";
+import { PromoCodeRepository } from "../../../../../repositories/PromoCodeRepository";
 import { logger } from "../../../../../utils/logger";
 import { estimateCampaignRevenue } from "../estimateCampaignRevenue";
 
@@ -193,6 +194,24 @@ export const proposeCampaignDraft: MarketingTool = {
           required: ["minSpend", "rcn"],
         },
       },
+      coupon_rcn: {
+        type: "number",
+        minimum: 1,
+        maximum: 10000,
+        description:
+          "Optional, ALTERNATIVE to reward_rcn. Issues a one-per-customer COUPON " +
+          "CODE that grants this many BONUS RCN when the customer redeems it on " +
+          "their next visit (the shop enters the code when issuing their repair " +
+          "reward). Unlike reward_rcn (issued automatically), a coupon is claimed " +
+          "by returning. Only set when the owner asks for a redeemable code. The " +
+          "code is generated and added to the email automatically — don't invent one.",
+      },
+      coupon_expires_days: {
+        type: "number",
+        minimum: 1,
+        maximum: 365,
+        description: "Days the coupon code stays valid. Only with coupon_rcn. Default 60.",
+      },
     },
     required: [
       "audience_type",
@@ -238,6 +257,12 @@ export const proposeCampaignDraft: MarketingTool = {
       rewardMode === "by_spend" && Array.isArray(a.reward_spend_bands)
         ? (a.reward_spend_bands as Array<{ minSpend: number; rcn: number }>)
         : null;
+    const couponRcn =
+      typeof a.coupon_rcn === "number" && a.coupon_rcn > 0 ? a.coupon_rcn : 0;
+    const couponExpiresDays =
+      typeof a.coupon_expires_days === "number" && a.coupon_expires_days > 0
+        ? Math.min(365, Math.round(a.coupon_expires_days))
+        : 60;
 
     if (!subject || !body || !campaignName || !audienceLabel) {
       throw new Error(
@@ -350,10 +375,58 @@ export const proposeCampaignDraft: MarketingTool = {
       }
     }
 
+    // Campaign coupon (Phase 4) — a one-per-customer RCN-bonus CODE redeemed on
+    // the next visit via the existing /issue-reward promo path. Mutually
+    // exclusive with an RCN reward; only when the owner asked for a code.
+    let coupon: { code: string; bonusRcn: number; expiresAt: string } | null = null;
+    if (!hasReward && couponRcn > 0) {
+      if (await marketingService.isCampaignRewardsEnabled(ctx.shopId)) {
+        const expiresAt = new Date(Date.now() + couponExpiresDays * 86400000);
+        try {
+          const created = await new PromoCodeRepository().create({
+            code: generateCouponCode(campaignName),
+            shop_id: ctx.shopId,
+            name: campaignName,
+            description: `Campaign coupon — ${campaignName}`,
+            bonus_type: "fixed",
+            bonus_value: couponRcn,
+            start_date: new Date(),
+            end_date: expiresAt,
+            per_customer_limit: 1,
+          });
+          // Add the code to the email body + link the promo code to the campaign so
+          // the existing redemption path grants the bonus when the customer returns.
+          const couponBlock = {
+            type: "text",
+            content:
+              `🎟️ Your code: ${created.code} — get ${couponRcn} bonus RCN when you come in ` +
+              `for your next repair (expires ${expiresAt.toLocaleDateString()}). Show this code at the shop.`,
+            style: { fontSize: "14px", textAlign: "center", color: "#7c3aed", fontWeight: "bold" },
+          };
+          await marketingService.updateCampaign(campaign.id, {
+            designContent: { ...designContent, blocks: [...designContent.blocks, couponBlock] },
+            promoCodeId: created.id,
+            couponValue: couponRcn,
+            couponType: "fixed",
+            couponExpiresAt: expiresAt,
+          });
+          await marketingService.setCampaignReward(campaign.id, { rewardType: "coupon" });
+          coupon = { code: created.code, bonusRcn: couponRcn, expiresAt: expiresAt.toISOString() };
+        } catch (err) {
+          logger.error(`${NAME}: coupon creation failed (drafted text-only)`, {
+            error: err instanceof Error ? err.message : err,
+          });
+        }
+      } else {
+        rewardUnavailable = true;
+      }
+    }
+
     logger.info(`${NAME}: drafted campaign ${campaign.id} for shop ${ctx.shopId}`, {
       audienceType,
       recipientCount,
       rewardRcn: reward ? rewardRcn : 0,
+      coupon: coupon ? coupon.code : null,
     });
 
     return {
@@ -381,8 +454,11 @@ export const proposeCampaignDraft: MarketingTool = {
               return_window_days: reward.returnWindowDays,
             }
           : null,
-        // True when the shop asked for a reward but campaign rewards aren't
-        // enabled for them — tell the owner it was drafted without the reward.
+        coupon: coupon
+          ? { code: coupon.code, bonus_rcn: coupon.bonusRcn, expires_at: coupon.expiresAt }
+          : null,
+        // True when the shop asked for a reward/coupon but campaign rewards aren't
+        // enabled for them — tell the owner it was drafted without it.
         reward_unavailable: rewardUnavailable,
       },
       display: {
@@ -403,6 +479,9 @@ export const proposeCampaignDraft: MarketingTool = {
               fulfillment: reward.fulfillment,
               returnWindowDays: reward.returnWindowDays,
             }
+          : undefined,
+        coupon: coupon
+          ? { code: coupon.code, bonusRcn: coupon.bonusRcn, expiresAt: coupon.expiresAt }
           : undefined,
       },
     };
@@ -454,6 +533,16 @@ function bodyToBlocks(subject: string, body: string): Array<Record<string, unkno
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return `${s.slice(0, n - 1).trimEnd()}…`;
+}
+
+/** A short, readable coupon code: up-to-4 letters from the campaign name + a
+ *  5-char random suffix (no ambiguous chars). Uppercased by PromoCodeRepository. */
+function generateCouponCode(name: string): string {
+  const base = name.replace(/[^a-zA-Z]/g, "").slice(0, 4).toUpperCase() || "SHOP";
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 5; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+  return `${base}${suffix}`.slice(0, 20);
 }
 
 /** Human-readable one-liner for the reward shown on the draft card. */
