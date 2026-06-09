@@ -1122,6 +1122,83 @@ export class CustomerRepository extends BaseRepository {
   }
 
   /**
+   * Find a shop's LAPSED customers for win-back campaigns — those whose last
+   * BOOKING (service_orders) was at least `minDaysSinceLastVisit` days ago.
+   *
+   * WHY a dedicated method (not the transaction-based findByShopInteraction):
+   * for a repair shop, "lapsed" means "hasn't booked a repair" — a BOOKING
+   * signal, not RCN token activity. findByShopInteraction INNER JOINs the
+   * `transactions` table, so a customer who booked repairs but never earned/
+   * redeemed RCN is invisible to it — and "last visit" there is the last token
+   * movement, not the last booking. That mismatch made win-back campaigns target
+   * the wrong people (e.g. someone who booked today but had no recent token
+   * activity) while excluding genuinely-lapsed bookers. This sources candidates
+   * from service_orders and defines "last visit" as the last order date —
+   * matching the business_briefing lapsed metric. Same row shape as
+   * findByShopInteraction so downstream audience filters keep working.
+   *
+   * Customers without a real customer record (e.g. guest orders) and
+   * inactive/suspended customers are excluded — they aren't reachable CRM
+   * contacts. Email-less customers are kept (the count matches "lapsed bookers";
+   * the send step skips those without an email, as it does for every audience).
+   */
+  async findLapsedBookers(
+    shopId: string,
+    minDaysSinceLastVisit: number
+  ): Promise<Array<{
+    walletAddress: string;
+    email?: string;
+    name?: string;
+    tier?: string;
+    totalSpent?: number;
+    visitCount?: number;
+    lastVisit?: Date;
+  }>> {
+    try {
+      const query = `
+        SELECT DISTINCT
+          c.address as wallet_address,
+          c.email,
+          c.name,
+          c.tier,
+          COALESCE(o.total_spent, 0) as total_spent,
+          COALESCE(o.order_count, 0) as visit_count,
+          o.last_order as last_visit
+        FROM customers c
+        INNER JOIN (
+          SELECT
+            customer_address,
+            MAX(created_at) as last_order,
+            COUNT(*) as order_count,
+            SUM(total_amount) FILTER (WHERE status IN ('paid', 'completed')) as total_spent
+          FROM service_orders
+          WHERE shop_id = $1 AND customer_address IS NOT NULL
+          GROUP BY customer_address
+        ) o ON LOWER(c.address) = LOWER(o.customer_address)
+        WHERE c.is_active = true
+          AND (c.suspended_at IS NULL)
+          AND o.last_order <= now() - make_interval(days => $2)
+        ORDER BY o.last_order ASC
+      `;
+
+      const result = await this.pool.query(query, [shopId, minDaysSinceLastVisit]);
+
+      return result.rows.map(row => ({
+        walletAddress: row.wallet_address,
+        email: row.email || undefined,
+        name: row.name || undefined,
+        tier: row.tier || undefined,
+        totalSpent: parseFloat(row.total_spent) || 0,
+        visitCount: parseInt(row.visit_count) || 0,
+        lastVisit: row.last_visit ? new Date(row.last_visit) : undefined
+      }));
+    } catch (error) {
+      logger.error('Error finding lapsed bookers:', error);
+      throw new Error('Failed to find lapsed bookers');
+    }
+  }
+
+  /**
    * Find customers who have interacted with a specific shop with pagination and search
    * Used for marketing campaign targeting with select customers option
    */

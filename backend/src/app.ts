@@ -40,8 +40,8 @@ import { getAutoNoShowDetectionService } from './services/AutoNoShowDetectionSer
 import { getSuspensionLiftService } from './services/SuspensionLiftService';
 import { rescheduleExpirationService } from './services/RescheduleExpirationService';
 import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
-import { marketingCampaignSchedulerService } from './services/MarketingCampaignSchedulerService';
 import { ReportSchedulerService } from './services/ReportSchedulerService';
+import { getCampaignScheduler } from './services/CampaignScheduler';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -616,7 +616,7 @@ class RepairCoinApp {
       stopUnpaidBookingCleanup();
       bookingCleanupService.stop();
       autoMessageSchedulerService.stop();
-      marketingCampaignSchedulerService.stop();
+      getCampaignScheduler().stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -825,10 +825,10 @@ class RepairCoinApp {
         autoMessageSchedulerService.start(1);
         logger.info('📨 Auto-message scheduler started (every 1 hour)');
 
-        // Start marketing campaign scheduler - runs every minute
-        // Sends scheduled campaigns once their scheduled_at time is due
-        marketingCampaignSchedulerService.start(60);
-        logger.info('📣 Marketing campaign scheduler started (every 60 seconds)');
+        // Start campaign scheduler - runs every minute
+        // Sends marketing campaigns whose scheduled_at has arrived (send-later).
+        getCampaignScheduler().start();
+        logger.info('🗓️ Campaign scheduler started (every minute, sends due scheduled campaigns)');
 
         // Start report scheduler - runs every hour
         // Processes automated shop reports (daily/weekly/monthly)

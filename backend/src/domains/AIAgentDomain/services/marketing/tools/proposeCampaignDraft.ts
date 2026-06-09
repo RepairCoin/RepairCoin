@@ -31,6 +31,7 @@ import {
 } from "../types";
 import { MarketingService } from "../../../../../services/MarketingService";
 import { logger } from "../../../../../utils/logger";
+import { estimateCampaignRevenue } from "../estimateCampaignRevenue";
 
 const NAME = "propose_campaign_draft";
 const MAX_SUBJECT_LENGTH = 200;
@@ -186,6 +187,14 @@ export const proposeCampaignDraft: MarketingTool = {
       );
     }
 
+    // Phase 2 — a rough revenue-opportunity estimate so "Do it" has a number
+    // attached. Best-effort; never blocks the draft.
+    const revenue = await estimateCampaignRevenue(
+      ctx.pool,
+      ctx.shopId,
+      recipientCount
+    );
+
     // Build the designContent shape the existing email renderer expects.
     // Headline = subject (mirrors what we tell the shop), text blocks =
     // paragraphs split on blank lines. Footer.showUnsubscribe=true so
@@ -233,6 +242,12 @@ export const proposeCampaignDraft: MarketingTool = {
         subject,
         body_preview: truncate(body, 280),
         image_embedded: Boolean(bannerImageUrl),
+        estimated_revenue: {
+          low_usd: revenue.lowUsd,
+          high_usd: revenue.highUsd,
+          avg_order_value_usd: revenue.avgOrderValueUsd,
+          assumptions: revenue.assumptions,
+        },
       },
       display: {
         kind: "campaign_draft",
@@ -243,6 +258,7 @@ export const proposeCampaignDraft: MarketingTool = {
         audienceLabel,
         recipientCount,
         imageUrl: bannerImageUrl,
+        estimatedRevenue: { lowUsd: revenue.lowUsd, highUsd: revenue.highUsd },
       },
     };
   },

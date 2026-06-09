@@ -86,6 +86,9 @@ export type MarketingToolDisplay =
        *  Null/absent = text-only campaign. Shown in the draft card + the
        *  CampaignReviewModal preview so the shop sees the banner before send. */
       imageUrl?: string | null;
+      /** Phase 2 — rough revenue-opportunity range for this send. Shown on the
+       *  draft card as "est. $X–$Y". Always a rough estimate, never a promise. */
+      estimatedRevenue?: { lowUsd: number; highUsd: number } | null;
     }
   | {
       // Phase 2.2 — proposed send action for an existing draft (the

@@ -37,6 +37,11 @@ import {
   deletePinned,
   recordPinnedRun,
 } from './controllers/InsightsPinnedController';
+import {
+  startChat as startCustomerChat,
+  sendMessage as sendCustomerMessage,
+  uploadImage as uploadCustomerImage,
+} from './controllers/CustomerChatController';
 
 /**
  * AI Agent domain routes.
@@ -62,6 +67,9 @@ import {
  *   DELETE /api/ai/insights/pinned/:id      — shop: unpin a question
  *   PUT    /api/ai/insights/pinned/:id/run  — shop: record a fresh tap-to-run
  *   GET  /api/ai/admin/cost-summary — admin: platform-wide aggregate (Task 12)
+ *   POST /api/ai/customer-chat/start — public: start customer diagnostic chat
+ *   POST /api/ai/customer-chat/message — public: send message in diagnostic chat
+ *   POST /api/ai/customer-chat/upload-image — public: upload image for diagnosis
  */
 
 export function initializeRoutes(): Router {
@@ -302,6 +310,13 @@ export function initializeRoutes(): Router {
     requireRole(['admin']),
     adminUpdateShopAiSettings
   );
+
+  // Customer-facing diagnostic chat — PUBLIC endpoints (no auth required).
+  // Anonymous customers can get AI help finding the right repair service.
+  // Sessions expire after 24 hours.
+  router.post('/customer-chat/start', startCustomerChat);
+  router.post('/customer-chat/message', sendCustomerMessage);
+  router.post('/customer-chat/upload-image', uploadCustomerImage);
 
   return router;
 }

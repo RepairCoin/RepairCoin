@@ -49,10 +49,12 @@ export const HeaderVoiceMic: React.FC = () => {
 
   return (
     <div className="relative">
-      {/* Pulsing neon halo behind the button. */}
+      {/* Solid blue→purple gradient ring behind the button that pulses via
+          OPACITY (not a blurred glow). Scaled slightly larger so it shows as a
+          ring around the edge — matches the bot-launcher reference. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-full bg-purple-500/50 blur-md animate-pulse"
+        className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-mic-pulse"
       />
       <button
         type="button"
@@ -64,7 +66,7 @@ export const HeaderVoiceMic: React.FC = () => {
         }}
         aria-label="Talk to your assistant"
         title="Talk to your assistant"
-        className="relative z-10 p-2.5 rounded-full bg-gradient-to-br from-purple-500 to-violet-700 text-white ring-1 ring-purple-300/40 transition-all duration-300 shadow-[0_0_12px_2px_rgba(168,85,247,0.7),0_0_26px_8px_rgba(168,85,247,0.35)] hover:from-purple-400 hover:to-violet-600 hover:shadow-[0_0_18px_4px_rgba(168,85,247,0.95),0_0_38px_12px_rgba(168,85,247,0.5)]"
+        className="relative z-10 p-2.5 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg transition-shadow hover:shadow-xl"
       >
         <Mic className="w-6 h-6" />
       </button>

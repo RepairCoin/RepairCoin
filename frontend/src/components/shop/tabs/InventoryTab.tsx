@@ -66,6 +66,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
   const [showLowStock, setShowLowStock] = useState(false);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [productType, setProductType] = useState<'cards' | 'sealed' | 'custom'>('cards');
 
   // Bulk selection
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -91,7 +92,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
     loadCategories();
     loadVendors();
     loadStats();
-  }, [page, searchQuery, selectedCategory, selectedVendor, selectedStatus, showLowStock, showOutOfStock, sortBy]);
+  }, [page, searchQuery, selectedCategory, selectedVendor, selectedStatus, showLowStock, showOutOfStock, sortBy, productType]);
 
   const loadInventory = async () => {
     try {
@@ -104,6 +105,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
         lowStock: showLowStock || undefined,
         outOfStock: showOutOfStock || undefined,
         sortBy: sortBy as any,
+        productType: productType || undefined,
       };
 
       const response = await inventoryApi.getItems(filters, page, ITEMS_PER_PAGE);
@@ -415,6 +417,60 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ shopId }) => {
 
       {/* PO Suggestions Card (v2.1) */}
       <POSuggestionsCard shopId={shopId} onSuggestionActioned={() => { loadInventory(); loadStats(); }} />
+
+      {/* Product Type Tabs */}
+      <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setProductType('cards');
+              setPage(1);
+            }}
+            className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+              productType === 'cards'
+                ? 'bg-[#FFCC00] text-black shadow-lg'
+                : 'bg-[#101010] text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <Package className="w-5 h-5" />
+              <span>Cards (Raw & Slab)</span>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setProductType('sealed');
+              setPage(1);
+            }}
+            className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+              productType === 'sealed'
+                ? 'bg-[#FFCC00] text-black shadow-lg'
+                : 'bg-[#101010] text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <Archive className="w-5 h-5" />
+              <span>Sealed Products</span>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setProductType('custom');
+              setPage(1);
+            }}
+            className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+              productType === 'custom'
+                ? 'bg-[#FFCC00] text-black shadow-lg'
+                : 'bg-[#101010] text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <TrendingUp className="w-5 h-5" />
+              <span>Custom Products</span>
+            </div>
+          </button>
+        </div>
+      </div>
 
       {/* Search and Filters */}
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">

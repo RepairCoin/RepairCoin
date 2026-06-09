@@ -64,6 +64,8 @@ export type MarketingToolDisplay =
       /** Optional banner image embedded at the top of the email. Shown in the
        *  draft card + the review-modal preview so the shop sees it before send. */
       imageUrl?: string | null;
+      /** Phase 2 — rough revenue-opportunity range ("est. $X–$Y"). */
+      estimatedRevenue?: { lowUsd: number; highUsd: number } | null;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the

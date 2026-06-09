@@ -43,17 +43,14 @@ export class MarketingService {
   private notificationRepo: NotificationRepository;
   private customerRepo: CustomerRepository;
   private serviceRepo: ServiceRepository;
-  private shopRepo: ShopRepository;
   private emailService: EmailService;
   private wsManager: WebSocketManager | null;
-  private isProcessingScheduled = false;
 
   constructor(wsManager?: WebSocketManager) {
     this.campaignRepo = new MarketingCampaignRepository();
     this.notificationRepo = new NotificationRepository();
     this.customerRepo = new CustomerRepository();
     this.serviceRepo = new ServiceRepository();
-    this.shopRepo = new ShopRepository();
     this.emailService = new EmailService();
     this.wsManager = wsManager || null;
   }
@@ -100,13 +97,26 @@ export class MarketingService {
     return this.campaignRepo.getCampaignStats(shopId);
   }
 
+  // Get the resolved recipient list for a segment. Public wrapper around
+  // the private getTargetAudience so callers (e.g. the AI lookup_audience_count
+  // tool) can derive BOTH the count and a sample-name preview from the SAME
+  // filtered set — never from the unfiltered shop list, which would show
+  // customers who aren't actually in the segment.
+  async getAudienceRecipients(
+    shopId: string,
+    audienceType: MarketingCampaign['audienceType'],
+    audienceFilters?: Record<string, any>
+  ): Promise<Array<{ walletAddress: string; email?: string; name?: string }>> {
+    return this.getTargetAudience(shopId, audienceType, audienceFilters);
+  }
+
   // Get audience count for targeting
   async getAudienceCount(
     shopId: string,
     audienceType: MarketingCampaign['audienceType'],
     audienceFilters?: Record<string, any>
   ): Promise<number> {
-    const recipients = await this.getTargetAudience(shopId, audienceType, audienceFilters);
+    const recipients = await this.getAudienceRecipients(shopId, audienceType, audienceFilters);
     return recipients.length;
   }
 
@@ -311,40 +321,31 @@ export class MarketingService {
     });
   }
 
-  // Process scheduled campaigns whose scheduled_at is due (called by the scheduler)
-  async processScheduledCampaigns(): Promise<{ processed: number; failed: number }> {
-    if (this.isProcessingScheduled) {
-      return { processed: 0, failed: 0 };
-    }
-    this.isProcessingScheduled = true;
+  // Process scheduled campaigns whose time has arrived. Called from the cron
+  // worker (CampaignScheduler). Fetches REAL shop info per campaign (was a
+  // placeholder), mirroring MarketingController.sendCampaign. One campaign's
+  // failure is logged and skipped — it never blocks the rest.
+  async processScheduledCampaigns(): Promise<void> {
+    const campaigns = await this.campaignRepo.getScheduledCampaigns();
+    if (campaigns.length === 0) return;
 
-    let processed = 0;
-    let failed = 0;
+    const shopRepo = new ShopRepository();
+    logger.info(`Processing ${campaigns.length} due scheduled campaign(s)`);
 
-    try {
-      const campaigns = await this.campaignRepo.getScheduledCampaigns();
-
-      for (const campaign of campaigns) {
-        try {
-          const shop = await this.shopRepo.getShop(campaign.shopId);
-          await this.sendCampaign(campaign.id, {
-            id: campaign.shopId,
-            name: shop?.name || 'Shop',
-            email: shop?.email || '',
-            walletAddress: shop?.walletAddress || ''
-          });
-          processed++;
-          logger.info(`Scheduled campaign ${campaign.id} sent successfully`);
-        } catch (error: any) {
-          failed++;
-          logger.error(`Error processing scheduled campaign ${campaign.id}:`, error);
-        }
+    for (const campaign of campaigns) {
+      try {
+        const shop = await shopRepo.getShop(campaign.shopId);
+        await this.sendCampaign(campaign.id, {
+          id: campaign.shopId,
+          name: shop?.name || 'Shop',
+          email: shop?.email || '',
+          walletAddress: shop?.walletAddress || '',
+        });
+        logger.info(`Scheduled campaign ${campaign.id} sent successfully`);
+      } catch (error: any) {
+        logger.error(`Error processing scheduled campaign ${campaign.id}:`, error);
       }
-    } finally {
-      this.isProcessingScheduled = false;
     }
-
-    return { processed, failed };
   }
 
   // Private methods
@@ -407,9 +408,23 @@ export class MarketingService {
         }
         return [];
 
-      case 'custom':
-        // Apply custom filters from audienceFilters
-        let filtered = shopCustomers;
+      case 'custom': {
+        // Lapsed / win-back (minDaysSinceLastVisit) is BOOKING-based: source
+        // candidates from service_orders so customers who booked repairs but
+        // have no RCN token activity are included, and "last visit" = last
+        // BOOKING date. This matches the business_briefing lapsed metric.
+        //
+        // The old path filtered the transaction-based shopCustomers list by
+        // c.lastVisit (last token movement), which both miscounted lapsed
+        // customers AND targeted the wrong ones (e.g. a customer who just
+        // booked but had no recent token activity counted as "lapsed", while
+        // genuinely-lapsed bookers with no token activity were invisible).
+        let filtered = audienceFilters?.minDaysSinceLastVisit
+          ? await this.customerRepo.findLapsedBookers(
+              shopId,
+              audienceFilters.minDaysSinceLastVisit
+            )
+          : shopCustomers;
 
         if (audienceFilters?.minSpent) {
           filtered = filtered.filter(c => (c.totalSpent || 0) >= audienceFilters.minSpent);
@@ -427,19 +442,11 @@ export class MarketingService {
             c.lastVisit && new Date(c.lastVisit) >= cutoffDate
           );
         }
-        // Lapsed-customer filter — keep customers whose last visit was at
-        // least N days ago (the inverse of lastVisitDays). Customers with
-        // no recorded lastVisit are excluded — they never engaged, so they
-        // are not "lapsed" in any meaningful sense.
-        if (audienceFilters?.minDaysSinceLastVisit) {
-          const lapsedCutoff = new Date();
-          lapsedCutoff.setDate(lapsedCutoff.getDate() - audienceFilters.minDaysSinceLastVisit);
-          filtered = filtered.filter(c =>
-            c.lastVisit && new Date(c.lastVisit) <= lapsedCutoff
-          );
-        }
+        // Note: minDaysSinceLastVisit is already applied at the SQL level by
+        // findLapsedBookers above — no post-filter needed here.
 
         return filtered;
+      }
 
       default:
         return shopCustomers;

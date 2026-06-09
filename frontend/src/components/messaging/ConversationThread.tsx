@@ -764,7 +764,10 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
               <p className="text-xs text-gray-500 mb-1">Last Activity</p>
               <p className="text-sm text-gray-300">
                 {conversationDetails?.lastMessageTime
-                  ? new Date(conversationDetails.lastMessageTime).toLocaleString()
+                  ? (() => {
+                      const date = new Date(conversationDetails.lastMessageTime);
+                      return isNaN(date.getTime()) ? '-' : date.toLocaleString();
+                    })()
                   : '-'}
               </p>
             </div>

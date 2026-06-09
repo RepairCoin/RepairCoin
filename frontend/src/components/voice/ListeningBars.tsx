@@ -89,7 +89,7 @@ export const ListeningBars: React.FC<ListeningBarsProps> = ({
           ref={(el) => {
             barRefs.current[i] = el;
           }}
-          className="w-[3px] h-full rounded-full bg-purple-400 origin-center shadow-[0_0_8px_rgba(168,85,247,0.8)]"
+          className="w-[3px] h-full rounded-full bg-violet-400 origin-center shadow-[0_0_8px_rgba(139,92,246,0.8)]"
           style={{ transform: `scaleY(${IDLE_SCALE})` }}
         />
       ))}

@@ -27,10 +27,11 @@ export const MessageList: React.FC = () => {
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center text-gray-500">
+      <div className="flex-1 flex items-center justify-center p-6 bg-[#101010]">
+        <div className="text-center">
           <div className="text-5xl mb-4">🤖</div>
-          <div className="text-sm">Start a conversation with the AI Assistant</div>
+          <p className="text-base text-gray-300 mb-1">Hi! I'm your AI repair assistant.</p>
+          <p className="text-sm text-gray-500">I can help diagnose device issues and find the best repair services for you.</p>
         </div>
       </div>
     );
@@ -39,7 +40,7 @@ export const MessageList: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-4 py-4 space-y-2 scroll-smooth"
+      className="flex-1 overflow-y-auto px-4 py-4 space-y-2 scroll-smooth bg-[#101010]"
       style={{ scrollbarWidth: 'thin' }}
     >
       {messages.map((message, index) => (

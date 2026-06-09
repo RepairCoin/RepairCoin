@@ -87,6 +87,7 @@ export interface InventoryFilters {
   lowStock?: boolean;
   outOfStock?: boolean;
   sortBy?: 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc' | 'stock_asc' | 'stock_desc' | 'newest' | 'oldest';
+  productType?: 'cards' | 'sealed' | 'custom';
 }
 
 export interface CreateInventoryItemData {

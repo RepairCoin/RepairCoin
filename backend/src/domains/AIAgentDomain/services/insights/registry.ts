@@ -26,6 +26,10 @@ import { repeatCustomerAnalysis } from "./tools/repeatCustomerAnalysis";
 import { timeOfDayPattern } from "./tools/timeOfDayPattern";
 // Phase 6.3 — meta-tool for AI-suggested follow-up chips.
 import { suggestFollowups } from "./tools/suggestFollowups";
+// FixFlow AI Operator Phase 1 — one-shot "how are we doing?" briefing.
+import { businessBriefing } from "./tools/businessBriefing";
+// FixFlow AI Operator Phase 4 — "what am I doing wrong?" diagnostics.
+import { businessDiagnostics } from "./tools/businessDiagnostics";
 // Phase 8.1 — inventory tools.
 import { inventoryStockSummary } from "./tools/inventoryStockSummary";
 import { lowStockItems } from "./tools/lowStockItems";
@@ -52,6 +56,10 @@ const INSIGHTS_TOOLS: readonly BusinessInsightsTool[] = Object.freeze([
   inventoryValueTrend,
   // Phase 6.3 — meta-tools (no DB access; Claude orchestration).
   suggestFollowups,
+  // FixFlow AI Operator Phase 1 — composed one-shot briefing.
+  businessBriefing,
+  // FixFlow AI Operator Phase 4 — composed operational diagnostics.
+  businessDiagnostics,
 ]);
 
 const INSIGHTS_TOOLS_BY_NAME: ReadonlyMap<string, BusinessInsightsTool> =

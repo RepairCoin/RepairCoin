@@ -212,6 +212,7 @@ export function CancellationConfirmModal({
 }
 
 function formatTimeLabel(bookingDate: string, bookingTime: string): string {
+  if (!bookingDate || !bookingTime) return 'No date provided';
   const iso = `${bookingDate}T${bookingTime.length === 5 ? `${bookingTime}:00` : bookingTime}`;
   try {
     const d = new Date(iso);

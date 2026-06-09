@@ -10,20 +10,20 @@ import { motion } from 'framer-motion';
 
 export const TypingIndicator: React.FC = () => {
   return (
-    <div className="flex justify-start mb-4">
+    <div className="flex justify-start mb-4" aria-live="polite" aria-label="Assistant is typing">
       <div className="flex items-end gap-2">
         {/* AI Avatar */}
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg">
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1A1A1A] border border-gray-700 flex items-center justify-center text-white text-lg">
           🤖
         </div>
 
         {/* Typing animation */}
-        <div className="px-4 py-3 rounded-2xl bg-gray-100 rounded-bl-sm">
+        <div className="px-4 py-3 rounded-lg bg-[#1A1A1A] border border-gray-800">
           <div className="flex gap-1">
             {[0, 1, 2].map((index) => (
               <motion.div
                 key={index}
-                className="w-2 h-2 bg-gray-400 rounded-full"
+                className="w-2 h-2 bg-[#FFCC00] rounded-full"
                 animate={{
                   y: [0, -8, 0],
                 }}
