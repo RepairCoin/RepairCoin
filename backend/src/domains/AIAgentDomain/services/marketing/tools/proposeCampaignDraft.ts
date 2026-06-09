@@ -136,12 +136,30 @@ export const proposeCampaignDraft: MarketingTool = {
         minimum: 1,
         maximum: 10000,
         description:
-          "Optional. RCN tokens to give EACH recipient when the campaign is " +
-          "sent (1 RCN = $0.10, drawn from the shop's purchased RCN balance). " +
-          "Only set this when the shop explicitly asks to include a reward " +
-          "(e.g. 'send 25 RCN to lapsed customers'). Omit for a no-reward " +
-          "campaign. When set, you MAY state the exact amount in the body. The " +
-          "shop confirms the total RCN cost before sending.",
+          "Optional. RCN tokens to give EACH recipient (1 RCN = $0.10, drawn " +
+          "from the shop's purchased RCN balance). Only set this when the shop " +
+          "explicitly asks to include a reward (e.g. 'send 25 RCN to lapsed " +
+          "customers'). Omit for a no-reward campaign. When set, you MAY state " +
+          "the exact amount in the body. The shop confirms the cost before send.",
+      },
+      reward_fulfillment: {
+        type: "string",
+        enum: ["on_send", "on_return"],
+        description:
+          "When the reward lands (only with reward_rcn). 'on_send' = issued " +
+          "immediately when the campaign sends (a thank-you gift). 'on_return' " +
+          "= issued only when the customer next completes an order within " +
+          "return_window_days (best for WIN-BACK — only spends on customers who " +
+          "actually come back). Default 'on_send'. Prefer 'on_return' for " +
+          "lapsed / win-back audiences.",
+      },
+      return_window_days: {
+        type: "number",
+        minimum: 1,
+        maximum: 365,
+        description:
+          "Days an on_return reward stays claimable after send. Only used when " +
+          "reward_fulfillment='on_return'. Default 30.",
       },
     },
     required: [
@@ -172,6 +190,12 @@ export const proposeCampaignDraft: MarketingTool = {
       typeof a.image_url === "string" ? a.image_url.trim() : "";
     const rewardRcn =
       typeof a.reward_rcn === "number" && a.reward_rcn > 0 ? a.reward_rcn : 0;
+    const rewardFulfillment: "on_send" | "on_return" =
+      a.reward_fulfillment === "on_return" ? "on_return" : "on_send";
+    const returnWindowDays =
+      typeof a.return_window_days === "number" && a.return_window_days > 0
+        ? Math.min(365, Math.round(a.return_window_days))
+        : 30;
 
     if (!subject || !body || !campaignName || !audienceLabel) {
       throw new Error(
@@ -249,7 +273,8 @@ export const proposeCampaignDraft: MarketingTool = {
     let reward: {
       rcnPerRecipient: number;
       totalRcn: number;
-      fulfillment: "on_send";
+      fulfillment: "on_send" | "on_return";
+      returnWindowDays: number | null;
     } | null = null;
     let rewardUnavailable = false;
     if (rewardRcn > 0) {
@@ -258,12 +283,14 @@ export const proposeCampaignDraft: MarketingTool = {
           rewardType: "rcn",
           rewardMode: "flat",
           rewardRcnAmount: rewardRcn,
-          fulfillmentTrigger: "on_send",
+          fulfillmentTrigger: rewardFulfillment,
+          returnWindowDays: rewardFulfillment === "on_return" ? returnWindowDays : null,
         });
         reward = {
           rcnPerRecipient: rewardRcn,
           totalRcn: rewardRcn * recipientCount,
-          fulfillment: "on_send",
+          fulfillment: rewardFulfillment,
+          returnWindowDays: rewardFulfillment === "on_return" ? returnWindowDays : null,
         };
       } else {
         rewardUnavailable = true;
@@ -292,7 +319,12 @@ export const proposeCampaignDraft: MarketingTool = {
           assumptions: revenue.assumptions,
         },
         reward: reward
-          ? { rcn_per_recipient: reward.rcnPerRecipient, total_rcn: reward.totalRcn, fulfillment: reward.fulfillment }
+          ? {
+              rcn_per_recipient: reward.rcnPerRecipient,
+              total_rcn: reward.totalRcn,
+              fulfillment: reward.fulfillment,
+              return_window_days: reward.returnWindowDays,
+            }
           : null,
         // True when the shop asked for a reward but campaign rewards aren't
         // enabled for them — tell the owner it was drafted without the reward.
@@ -309,7 +341,12 @@ export const proposeCampaignDraft: MarketingTool = {
         imageUrl: bannerImageUrl,
         estimatedRevenue: { lowUsd: revenue.lowUsd, highUsd: revenue.highUsd },
         reward: reward
-          ? { rcnPerRecipient: reward.rcnPerRecipient, totalRcn: reward.totalRcn }
+          ? {
+              rcnPerRecipient: reward.rcnPerRecipient,
+              totalRcn: reward.totalRcn,
+              fulfillment: reward.fulfillment,
+              returnWindowDays: reward.returnWindowDays,
+            }
           : undefined,
       },
     };

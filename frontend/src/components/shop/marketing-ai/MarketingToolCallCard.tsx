@@ -221,9 +221,16 @@ const CampaignDraftCard: React.FC<{
           <p className="mt-1.5 text-sm text-violet-300">
             🎁 Reward: {d.reward.rcnPerRecipient.toLocaleString()} RCN each ·{" "}
             <span className="font-semibold">
+              {d.reward.fulfillment === "on_return" ? "up to " : ""}
               {d.reward.totalRcn.toLocaleString()} RCN total
             </span>{" "}
-            <span className="text-xs text-gray-500">(issued on send)</span>
+            <span className="text-xs text-gray-500">
+              {d.reward.fulfillment === "on_return"
+                ? `(when they return${
+                    d.reward.returnWindowDays ? `, ${d.reward.returnWindowDays} days` : ""
+                  })`
+                : "(issued on send)"}
+            </span>
           </p>
         )}
       </button>

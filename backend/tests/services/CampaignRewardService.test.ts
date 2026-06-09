@@ -11,6 +11,8 @@ const mockIssueExact = jest.fn();
 const mockGetShop = jest.fn();
 const mockMarkRecipientReward = jest.fn();
 const mockFindFailedRewardRecipients = jest.fn();
+const mockClaimReturningRewards = jest.fn();
+const mockExpireOverdueRewards = jest.fn();
 
 jest.mock('../../src/utils/database-pool', () => ({
   getSharedPool: jest.fn(),
@@ -26,6 +28,8 @@ jest.mock('../../src/repositories/MarketingCampaignRepository', () => ({
   MarketingCampaignRepository: jest.fn().mockImplementation(() => ({
     markRecipientReward: (...args: any[]) => mockMarkRecipientReward(...args),
     findFailedRewardRecipients: (...args: any[]) => mockFindFailedRewardRecipients(...args),
+    claimReturningRewards: (...args: any[]) => mockClaimReturningRewards(...args),
+    expireOverdueRewards: (...args: any[]) => mockExpireOverdueRewards(...args),
   })),
 }));
 
@@ -171,5 +175,81 @@ describe('retryFailed', () => {
     const res = await service().retryFailed(campaign());
     expect(res).toEqual({ issued: 0, skipped: 0, failed: 0, totalIssuedRcn: 0 });
     expect(mockIssueExact).not.toHaveBeenCalled();
+  });
+});
+
+// ----- Phase 2: redeem-on-return -----
+
+const onReturn = (overrides: Record<string, any> = {}) =>
+  campaign({ fulfillmentTrigger: 'on_return', returnWindowDays: 30, ...overrides });
+
+describe('hasOnReturnRcnReward', () => {
+  it('is true for an on_return RCN reward', () => {
+    expect(service().hasOnReturnRcnReward(onReturn())).toBe(true);
+  });
+  it('is false for an on_send reward', () => {
+    expect(service().hasOnReturnRcnReward(campaign())).toBe(false);
+  });
+});
+
+describe('fulfillOnReturn', () => {
+  it('writes a PENDING reward per eligible recipient with an expiry, and never issues at send', async () => {
+    const res = await service().fulfillOnReturn(onReturn(), recipients('0xa', '0xb'));
+    expect(res).toEqual({ pending: 2, skipped: 0 });
+    expect(mockIssueExact).not.toHaveBeenCalled(); // nothing issued at send
+    expect(mockMarkRecipientReward).toHaveBeenCalledWith(
+      'camp_1', '0xa',
+      expect.objectContaining({ status: 'pending', amount: 10, expiresAt: expect.any(Date) })
+    );
+  });
+
+  it("skips the shop's own wallet", async () => {
+    const res = await service().fulfillOnReturn(onReturn(), recipients('0xa', SHOP_WALLET));
+    expect(res).toEqual({ pending: 1, skipped: 1 });
+  });
+
+  it('skips entirely when the flag is OFF', async () => {
+    const res = await service(false).fulfillOnReturn(onReturn(), recipients('0xa'));
+    expect(res).toEqual({ pending: 0, skipped: 0 });
+    expect(mockMarkRecipientReward).not.toHaveBeenCalled();
+  });
+});
+
+describe('redeemReturning', () => {
+  it('issues a claimed pending reward and attaches the tx hash', async () => {
+    mockClaimReturningRewards.mockResolvedValue([
+      { id: 'r1', campaignId: 'camp_1', customerAddress: '0xa', rewardAmount: 25, campaignName: 'Win-back' },
+    ]);
+    const res = await service().redeemReturning('shop_test', '0xa');
+    expect(res).toEqual({ redeemed: 1, failed: 0, totalRcn: 25 });
+    expect(mockIssueExact).toHaveBeenCalledWith(
+      expect.objectContaining({ rcnAmount: 25, source: 'marketing_campaign_return' })
+    );
+    expect(mockMarkRecipientReward).toHaveBeenCalledWith('camp_1', '0xa', expect.objectContaining({ txHash: '0xtx' }));
+  });
+
+  it('is a no-op when nothing is claimed (idempotent — already redeemed / no pending)', async () => {
+    mockClaimReturningRewards.mockResolvedValue([]);
+    const res = await service().redeemReturning('shop_test', '0xa');
+    expect(res).toEqual({ redeemed: 0, failed: 0, totalRcn: 0 });
+    expect(mockIssueExact).not.toHaveBeenCalled();
+  });
+
+  it('downgrades a claimed reward to failed when issuance fails', async () => {
+    mockClaimReturningRewards.mockResolvedValue([
+      { id: 'r1', campaignId: 'camp_1', customerAddress: '0xa', rewardAmount: 25, campaignName: 'Win-back' },
+    ]);
+    mockIssueExact.mockResolvedValue({ ok: false, errorCode: 'insufficient_balance', error: 'short' });
+    const res = await service().redeemReturning('shop_test', '0xa');
+    expect(res).toEqual({ redeemed: 0, failed: 1, totalRcn: 0 });
+    expect(mockMarkRecipientReward).toHaveBeenCalledWith('camp_1', '0xa', expect.objectContaining({ status: 'failed' }));
+  });
+});
+
+describe('expireOverdue', () => {
+  it('delegates to the repo and returns the count expired', async () => {
+    mockExpireOverdueRewards.mockResolvedValue(4);
+    await expect(service().expireOverdue()).resolves.toBe(4);
+    expect(mockExpireOverdueRewards).toHaveBeenCalled();
   });
 });

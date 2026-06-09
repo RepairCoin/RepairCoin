@@ -44,6 +44,8 @@ export interface CampaignDeliveryResult {
   rcnSkipped?: number;
   rcnFailed?: number;
   rcnTotalIssued?: number;
+  // Redeem-on-return (Phase 2) — pending rewards written, issued when customers return.
+  rcnPending?: number;
 }
 
 export class MarketingService {
@@ -237,6 +239,15 @@ export class MarketingService {
       result.rcnSkipped = rewardOutcome.skipped;
       result.rcnFailed = rewardOutcome.failed;
       result.rcnTotalIssued = rewardOutcome.totalIssuedRcn;
+    } else if (campaignRewardService.hasOnReturnRcnReward(campaign)) {
+      // Redeem-on-return: write a pending reward per recipient now; the RCN is
+      // issued later when they complete an order within the window. No balance
+      // gate at send — checked at redemption.
+      const pendingOutcome = await campaignRewardService.fulfillOnReturn(
+        campaign,
+        recipients.map(r => ({ walletAddress: r.walletAddress, email: r.email, name: r.name }))
+      );
+      result.rcnPending = pendingOutcome.pending;
     }
 
     // Send to existing customers via selected delivery method

@@ -149,6 +149,110 @@ export class CampaignRewardService {
     return result;
   }
 
+  // ---- Phase 2: redeem-on-return ----
+
+  /** True for a campaign whose RCN reward lands when the customer next returns. */
+  hasOnReturnRcnReward(campaign: MarketingCampaign): boolean {
+    return (
+      campaign.rewardType === 'rcn' &&
+      campaign.fulfillmentTrigger === 'on_return' &&
+      !!campaign.rewardRcnAmount &&
+      campaign.rewardRcnAmount > 0
+    );
+  }
+
+  /**
+   * Write a PENDING reward per eligible recipient at send time — no debit now.
+   * The reward is issued later, when the customer completes an order within the
+   * return window (redeemReturning). No balance gate here: the balance is checked
+   * at redemption, so a win-back only ever spends on customers who actually return.
+   */
+  async fulfillOnReturn(
+    campaign: MarketingCampaign,
+    recipients: RewardRecipient[]
+  ): Promise<{ pending: number; skipped: number }> {
+    const shopId = campaign.shopId;
+    const amount = campaign.rewardRcnAmount as number;
+    const result = { pending: 0, skipped: 0 };
+
+    if (!(await this.isEnabled(shopId))) {
+      logger.warn('CampaignRewardService: on_return reward but campaign_rewards_enabled is OFF — skipping', {
+        shopId, campaignId: campaign.id,
+      });
+      return result;
+    }
+
+    const shop = await shopRepository.getShop(shopId);
+    const shopWallet = shop?.walletAddress?.toLowerCase();
+    const windowDays = campaign.returnWindowDays && campaign.returnWindowDays > 0 ? campaign.returnWindowDays : 30;
+    const expiresAt = new Date(Date.now() + windowDays * 86400000);
+
+    for (const r of recipients) {
+      if (!r.walletAddress || r.walletAddress.toLowerCase() === shopWallet) {
+        result.skipped++;
+        continue;
+      }
+      await this.campaignRepo.markRecipientReward(campaign.id, r.walletAddress, {
+        kind: 'rcn', amount, status: 'pending', expiresAt, error: null,
+      });
+      result.pending++;
+    }
+
+    logger.info('CampaignRewardService: on_return pending rewards written', {
+      campaignId: campaign.id, windowDays, ...result,
+    });
+    return result;
+  }
+
+  /**
+   * Redeem any pending on_return rewards a customer earned, when they return
+   * (a service.order_completed at the campaign's shop). Atomic claim prevents
+   * double-issue across concurrent orders / event redeliveries; the RCN is issued
+   * with the balance checked at this moment.
+   */
+  async redeemReturning(
+    shopId: string,
+    customerAddress: string
+  ): Promise<{ redeemed: number; failed: number; totalRcn: number }> {
+    const result = { redeemed: 0, failed: 0, totalRcn: 0 };
+    const claimed = await this.campaignRepo.claimReturningRewards(shopId, customerAddress);
+    if (claimed.length === 0) return result;
+
+    for (const c of claimed) {
+      const amount = c.rewardAmount;
+      if (!amount || amount <= 0) continue;
+      const out = await rewardIssuanceService.issueExact({
+        shopId, customerAddress, rcnAmount: amount, source: 'marketing_campaign_return',
+        reason: `Reward: returned for campaign "${c.campaignName}"`,
+      });
+      if (out.ok) {
+        result.redeemed++;
+        result.totalRcn += amount;
+        // Row is already 'redeemed' from the claim — just attach the tx hash.
+        await this.campaignRepo.markRecipientReward(c.campaignId, customerAddress, {
+          txHash: out.txHash, error: null,
+        });
+      } else {
+        // Issue failed after the optimistic claim — downgrade so it isn't counted
+        // as delivered (and an admin can retry).
+        result.failed++;
+        await this.campaignRepo.markRecipientReward(c.campaignId, customerAddress, {
+          status: 'failed', error: out.error,
+        });
+      }
+    }
+
+    logger.info('CampaignRewardService: redeem-on-return processed', {
+      shopId, customerAddress, ...result,
+    });
+    return result;
+  }
+
+  /** Sweep pending on_return rewards past their window into 'expired'. */
+  async expireOverdue(): Promise<number> {
+    return this.campaignRepo.expireOverdueRewards();
+  }
+
   /** Re-issue rewards to recipients whose first attempt failed. Idempotent —
    *  only touches rows still in 'failed'. */
   async retryFailed(campaign: MarketingCampaign): Promise<RewardFulfillmentResult> {

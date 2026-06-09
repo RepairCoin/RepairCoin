@@ -630,6 +630,52 @@ export class MarketingCampaignRepository extends BaseRepository {
     return r.rows.map(row => this.mapRecipient(row));
   }
 
+  /**
+   * Atomically CLAIM a customer's pending on_return RCN rewards for a shop — flips
+   * them pending → redeemed in one statement and returns the claimed rows. The
+   * WHERE reward_status='pending' makes this safe under concurrency (two
+   * order_completed events for the same customer can't both claim the same row),
+   * which is the idempotency guard for redeem-on-return. The caller then issues
+   * the RCN and downgrades to 'failed' if the mint fails. Only RCN, unexpired.
+   */
+  async claimReturningRewards(
+    shopId: string,
+    customerAddress: string
+  ): Promise<Array<{ id: string; campaignId: string; customerAddress: string; rewardAmount: number; campaignName: string }>> {
+    const r = await this.pool.query(
+      `UPDATE marketing_campaign_recipients r
+         SET reward_status = 'redeemed', reward_redeemed_at = NOW()
+        FROM marketing_campaigns c
+       WHERE r.campaign_id = c.id
+         AND c.shop_id = $1
+         AND LOWER(r.customer_address) = LOWER($2)
+         AND r.reward_kind = 'rcn'
+         AND r.reward_status = 'pending'
+         AND (r.reward_expires_at IS NULL OR r.reward_expires_at > NOW())
+       RETURNING r.id, r.campaign_id, r.customer_address, r.reward_amount, c.name AS campaign_name`,
+      [shopId, customerAddress]
+    );
+    return r.rows.map((row) => ({
+      id: row.id,
+      campaignId: row.campaign_id,
+      customerAddress: row.customer_address,
+      rewardAmount: row.reward_amount != null ? parseFloat(row.reward_amount) : 0,
+      campaignName: row.campaign_name,
+    }));
+  }
+
+  /** Expire pending on_return rewards past their window. Returns the count expired. */
+  async expireOverdueRewards(): Promise<number> {
+    const r = await this.pool.query(
+      `UPDATE marketing_campaign_recipients
+          SET reward_status = 'expired'
+        WHERE reward_status = 'pending'
+          AND reward_expires_at IS NOT NULL
+          AND reward_expires_at <= NOW()`
+    );
+    return r.rowCount || 0;
+  }
+
   // Templates methods
   async getTemplates(category?: string): Promise<MarketingTemplate[]> {
     let query = 'SELECT * FROM marketing_templates WHERE is_active = true';

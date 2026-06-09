@@ -42,6 +42,7 @@ import { rescheduleExpirationService } from './services/RescheduleExpirationServ
 import { autoMessageSchedulerService } from './services/AutoMessageSchedulerService';
 import { ReportSchedulerService } from './services/ReportSchedulerService';
 import { getCampaignScheduler } from './services/CampaignScheduler';
+import { getCampaignRewardExpiryScheduler } from './services/CampaignRewardExpiryScheduler';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -617,6 +618,7 @@ class RepairCoinApp {
       bookingCleanupService.stop();
       autoMessageSchedulerService.stop();
       getCampaignScheduler().stop();
+      getCampaignRewardExpiryScheduler().stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -829,6 +831,11 @@ class RepairCoinApp {
         // Sends marketing campaigns whose scheduled_at has arrived (send-later).
         getCampaignScheduler().start();
         logger.info('🗓️ Campaign scheduler started (every minute, sends due scheduled campaigns)');
+
+        // Start campaign reward expiry sweep - runs hourly
+        // Expires pending redeem-on-return rewards past their window.
+        getCampaignRewardExpiryScheduler().start();
+        logger.info('🎁 Campaign reward expiry scheduler started (hourly)');
 
         // Start report scheduler - runs every hour
         // Processes automated shop reports (daily/weekly/monthly)
