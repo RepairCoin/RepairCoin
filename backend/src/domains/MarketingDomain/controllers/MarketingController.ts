@@ -47,6 +47,41 @@ export class MarketingController {
     }
   };
 
+  private async processManualEmails(shopId: string, manualEmails: unknown): Promise<string[]> {
+    if (!manualEmails || typeof manualEmails !== 'string' || !manualEmails.trim()) {
+      return [];
+    }
+
+    const emailList = manualEmails
+      .split(/[\n,]+/)
+      .map(email => email.trim().toLowerCase())
+      .filter(email => email && email.includes('@'));
+
+    for (const email of emailList) {
+      try {
+        const emailPrefix = email.split('@')[0];
+        const fullName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+
+        await this.contactRepo.createContact({
+          shopId,
+          fullName,
+          email,
+          source: 'manual',
+          tags: ['campaign-invite']
+        });
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'message' in error) {
+          const errorMessage = (error as { message: string }).message;
+          if (!errorMessage.includes('already exists')) {
+            logger.warn(`Error creating contact for ${email}:`, errorMessage);
+          }
+        }
+      }
+    }
+
+    return emailList;
+  }
+
   /**
    * Get a single campaign
    */
@@ -112,43 +147,7 @@ export class MarketingController {
         return;
       }
 
-      // Process manual emails if provided
-      let processedManualEmails: string[] = [];
-      if (manualEmails && typeof manualEmails === 'string' && manualEmails.trim()) {
-        // Parse emails from the string (split by newline or comma, trim, validate)
-        const emailList = manualEmails
-          .split(/[\n,]+/)
-          .map(email => email.trim().toLowerCase())
-          .filter(email => email && email.includes('@'));
-
-        // Create contacts for emails that don't exist
-        for (const email of emailList) {
-          try {
-            // Extract name from email (part before @) or use generic name
-            const emailPrefix = email.split('@')[0];
-            const fullName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-
-            await this.contactRepo.createContact({
-              shopId,
-              fullName,
-              email,
-              source: 'manual',
-              tags: ['campaign-invite']
-            });
-          } catch (error: unknown) {
-            // Contact already exists or validation error - continue
-            if (error && typeof error === 'object' && 'message' in error) {
-              const errorMessage = (error as { message: string }).message;
-              // Only log if it's not a duplicate error
-              if (!errorMessage.includes('already exists')) {
-                logger.warn(`Error creating contact for ${email}:`, errorMessage);
-              }
-            }
-          }
-        }
-
-        processedManualEmails = emailList;
-      }
+      const processedManualEmails = await this.processManualEmails(shopId, manualEmails);
 
       // Merge manual emails into audienceFilters
       const updatedAudienceFilters = {
@@ -235,8 +234,17 @@ export class MarketingController {
         couponValue,
         couponType,
         couponExpiresAt,
-        serviceId
+        serviceId,
+        manualEmails
       } = req.body;
+
+      const processedManualEmails = await this.processManualEmails(existing.shopId, manualEmails);
+      const updatedAudienceFilters = audienceFilters !== undefined
+        ? {
+            ...audienceFilters,
+            ...(processedManualEmails.length > 0 && { manualEmails: processedManualEmails })
+          }
+        : audienceFilters;
 
       const campaign = await this.marketingService.updateCampaign(campaignId, {
         name,
@@ -245,7 +253,7 @@ export class MarketingController {
         designContent,
         templateId,
         audienceType,
-        audienceFilters,
+        audienceFilters: updatedAudienceFilters,
         deliveryMethod,
         promoCodeId,
         couponValue,
