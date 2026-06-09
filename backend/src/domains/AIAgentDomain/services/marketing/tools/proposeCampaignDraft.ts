@@ -179,7 +179,8 @@ export const proposeCampaignDraft: MarketingTool = {
     const recipientCount = await marketingService.getAudienceCount(
       ctx.shopId,
       audienceType as any,
-      audienceFilters
+      audienceFilters,
+      'email'
     );
     if (recipientCount === 0) {
       throw new Error(

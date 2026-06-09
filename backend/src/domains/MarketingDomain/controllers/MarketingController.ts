@@ -2,18 +2,20 @@ import { Request, Response, NextFunction } from 'express';
 import { MarketingService } from '../../../services/MarketingService';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { ContactRepository } from '../../../repositories/ContactRepository';
-import { campaignEmailService } from '../../../services/CampaignEmailService';
+import { EmailService } from '../../../services/EmailService';
 import { logger } from '../../../utils/logger';
 
 export class MarketingController {
   private marketingService: MarketingService;
   private shopRepo: ShopRepository;
   private contactRepo: ContactRepository;
+  private emailService: EmailService;
 
   constructor() {
     this.marketingService = new MarketingService();
     this.shopRepo = new ShopRepository();
     this.contactRepo = new ContactRepository();
+    this.emailService = new EmailService();
   }
 
   /**
@@ -453,7 +455,7 @@ export class MarketingController {
   getAudienceCount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const shopId = req.params.shopId;
-      const { audienceType, audienceFilters } = req.query;
+      const { audienceType, audienceFilters, deliveryMethod } = req.query;
 
       // Verify shop ownership using shopId from JWT (works for both wallet and social login)
       const userShopId = req.user?.shopId;
@@ -465,7 +467,8 @@ export class MarketingController {
       const count = await this.marketingService.getAudienceCount(
         shopId,
         (audienceType as any) || 'all_customers',
-        audienceFilters ? JSON.parse(audienceFilters as string) : undefined
+        audienceFilters ? JSON.parse(audienceFilters as string) : undefined,
+        deliveryMethod as any
       );
 
       res.json({ success: true, data: { count } });
@@ -801,11 +804,11 @@ export class MarketingController {
         return;
       }
 
-      // Check if SendGrid is configured
-      if (!campaignEmailService.isReady()) {
+      // Check if the SMTP email service is configured
+      if (!this.emailService.isReady()) {
         res.status(500).json({
           success: false,
-          error: 'Email service is not configured. Please set SENDGRID_API_KEY in environment variables.'
+          error: 'Email service is not configured. Please set EMAIL_USER/EMAIL_PASS in environment variables.'
         });
         return;
       }
@@ -837,12 +840,29 @@ export class MarketingController {
         return;
       }
 
-      // Send bulk emails
-      const results = await campaignEmailService.sendBulkCampaignEmails({
-        subject,
-        htmlContent,
-        recipients: emailRecipients
-      });
+      const shop = await this.shopRepo.getShop(shopId);
+      const shopName = shop?.name || 'Shop';
+
+      // Sent sequentially to stay within the SMTP transport's connection limits.
+      const results: Array<{ contactId: string; email: string; status: 'sent' | 'failed' }> = [];
+      for (const recipient of emailRecipients) {
+        const brandedHtml = this.marketingService.renderSimpleCampaignEmail(
+          shopName,
+          subject,
+          htmlContent,
+          this.marketingService.buildUnsubscribeUrl(shopId, recipient.email)
+        );
+        const sent = await this.emailService.sendContactCampaignEmail(
+          recipient.email,
+          subject,
+          brandedHtml
+        );
+        results.push({
+          contactId: recipient.contactId,
+          email: recipient.email,
+          status: sent ? 'sent' : 'failed'
+        });
+      }
 
       // Update contact send counts
       const sentContactIds = results
@@ -901,23 +921,30 @@ export class MarketingController {
         return;
       }
 
-      // Check if SendGrid is configured
-      if (!campaignEmailService.isReady()) {
+      // Check if the SMTP email service is configured
+      if (!this.emailService.isReady()) {
         res.status(500).json({
           success: false,
-          error: 'Email service is not configured. Please set SENDGRID_API_KEY in environment variables.'
+          error: 'Email service is not configured. Please set EMAIL_USER/EMAIL_PASS in environment variables.'
         });
         return;
       }
 
-      // Send test email
-      const result = await campaignEmailService.sendTestEmail(
-        testEmail,
+      const shop = await this.shopRepo.getShop(shopId);
+      const brandedHtml = this.marketingService.renderSimpleCampaignEmail(
+        shop?.name || 'Shop',
         subject,
-        htmlContent
+        htmlContent,
+        this.marketingService.buildUnsubscribeUrl(shopId, testEmail)
       );
 
-      if (result.success) {
+      const sent = await this.emailService.sendContactCampaignEmail(
+        testEmail,
+        subject,
+        brandedHtml
+      );
+
+      if (sent) {
         res.json({
           success: true,
           message: `Test email sent successfully to ${testEmail}`
@@ -925,7 +952,7 @@ export class MarketingController {
       } else {
         res.status(500).json({
           success: false,
-          error: result.error || 'Failed to send test email'
+          error: 'Failed to send test email'
         });
       }
     } catch (error: unknown) {
@@ -937,4 +964,54 @@ export class MarketingController {
       }
     }
   };
+
+  /**
+   * Public unsubscribe handler — flips the contact to 'unsubscribed' so future
+   * campaigns (which only send to active contacts) skip them.
+   */
+  unsubscribe = async (req: Request, res: Response): Promise<void> => {
+    const { token } = req.params;
+
+    const decoded = this.marketingService.verifyUnsubscribeToken(token);
+    if (!decoded) {
+      res.status(400).send(this.renderUnsubscribePage('This unsubscribe link is invalid.', false));
+      return;
+    }
+    const { shopId, email } = decoded;
+
+    try {
+      await this.contactRepo.addEmailUnsubscribe(shopId, email);
+      await this.contactRepo.unsubscribeContactByEmail(shopId, email);
+      res.send(this.renderUnsubscribePage("You've been unsubscribed and won't receive further emails.", true));
+    } catch (error) {
+      logger.error('Error processing unsubscribe:', error);
+      res.status(500).send(this.renderUnsubscribePage('Something went wrong. Please try again later.', false));
+    }
+  };
+
+  private renderUnsubscribePage(message: string, success: boolean): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unsubscribe</title>
+</head>
+<body style="margin:0;font-family:Arial,sans-serif;background-color:#f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5;">
+    <tr><td align="center" style="padding:60px 20px;">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background-color:#1a1a2e;padding:30px;text-align:center;">
+          <h1 style="color:#ffffff;margin:0;font-size:22px;">RepairCoin</h1>
+        </td></tr>
+        <tr><td style="padding:40px 30px;text-align:center;">
+          <div style="font-size:40px;margin-bottom:16px;">${success ? '✅' : '⚠️'}</div>
+          <p style="color:#333333;font-size:16px;line-height:1.6;margin:0;">${message}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
 }

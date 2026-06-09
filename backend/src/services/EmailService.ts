@@ -2843,6 +2843,15 @@ export class EmailService {
     }
   }
 
+  public isReady(): boolean {
+    this.ensureInitialized();
+    return this.isConfigured && !!this.transporter;
+  }
+
+  public async sendContactCampaignEmail(to: string, subject: string, html: string): Promise<boolean> {
+    return this.sendEmail(to, subject, html);
+  }
+
   /**
    * Send bug report notification to admin
    */

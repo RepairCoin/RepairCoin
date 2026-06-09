@@ -338,22 +338,22 @@ export function ContactListView({ shopId }: ContactListViewProps) {
                       </Badge>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {contact.tags.length > 0 ? (
                           contact.tags.slice(0, 2).map((tag, i) => (
                             <Badge
                               key={i}
-                              variant="outline"
-                              className="text-xs border-gray-600"
+                              className="gap-1 text-xs font-medium border border-yellow-500/30 bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25"
                             >
+                              <Tag className="w-3 h-3" />
                               {tag}
                             </Badge>
                           ))
                         ) : (
-                          <span className="text-sm text-gray-500">No tags</span>
+                          <span className="text-sm text-gray-500 italic">No tags</span>
                         )}
                         {contact.tags.length > 2 && (
-                          <Badge variant="outline" className="text-xs border-gray-600">
+                          <Badge className="text-xs font-medium border border-gray-600 bg-gray-700 text-gray-200">
                             +{contact.tags.length - 2}
                           </Badge>
                         )}
@@ -371,14 +371,21 @@ export function ContactListView({ shopId }: ContactListViewProps) {
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-white hover:bg-gray-700"
+                          >
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent
+                          align="end"
+                          className="bg-gray-800 border border-gray-700 text-gray-200 shadow-xl"
+                        >
                           <DropdownMenuItem
                             onClick={() => handleDelete(contact.id)}
-                            className="text-red-400"
+                            className="cursor-pointer text-red-400 focus:bg-red-500/10 focus:text-red-300"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
@@ -404,7 +411,7 @@ export function ContactListView({ shopId }: ContactListViewProps) {
                   size="sm"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="border-gray-700"
+                  className="border-gray-600 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
                 >
                   Previous
                 </Button>
@@ -413,7 +420,7 @@ export function ContactListView({ shopId }: ContactListViewProps) {
                   size="sm"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="border-gray-700"
+                  className="border-gray-600 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
                 >
                   Next
                 </Button>

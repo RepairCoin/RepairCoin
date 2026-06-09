@@ -356,7 +356,7 @@ export class PromoCodeRepository extends BaseRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
-  private async findById(id: number): Promise<PromoCode | null> {
+  async findById(id: number): Promise<PromoCode | null> {
     const query = 'SELECT * FROM promo_codes WHERE id = $1';
     const result = await this.pool.query(query, [id]);
     if (!result.rows[0]) return null;
