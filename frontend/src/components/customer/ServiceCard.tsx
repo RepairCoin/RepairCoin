@@ -95,8 +95,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
         )}
 
-        {/* Favorite Button - Top Right */}
-        <div className="absolute top-3 right-3 z-10">
+        {/* Favorite + Share Buttons - Top Right (stacked) */}
+        <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
           <FavoriteButton
             serviceId={service.serviceId}
             initialIsFavorited={service.isFavorited}
@@ -104,10 +104,6 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             className="ring-2 ring-white/20"
             onFavoriteChange={(isFavorited) => onFavoriteChange?.(service.serviceId, isFavorited)}
           />
-        </div>
-
-        {/* Share Button - Top Right (below favorite) */}
-        <div className="absolute top-14 right-3 z-10">
           <ShareButton
             serviceId={service.serviceId}
             serviceName={service.serviceName}
