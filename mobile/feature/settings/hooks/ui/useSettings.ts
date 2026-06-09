@@ -101,7 +101,7 @@ export function useSettings(role: SettingsRole) {
             handleSubscription: () => router.push("/shop/subscription"),
             handleBuyTokens: () => router.push("/shop/buy-token"),
             handleRedeemTokens: () => router.push("/shop/redeem-token"),
-            handleGroups: () => router.push("/shop/groups" as any),
+            // handleGroups: () => router.push("/shop/groups" as any),
           },
         };
 
