@@ -245,50 +245,6 @@ export class CampaignEmailService {
   }
 
   /**
-   * Generate unsubscribe token for a contact
-   */
-  public generateUnsubscribeToken(contactId: string, shopId: string): string {
-    // Use Resend's method if available, otherwise use local implementation
-    if (this.useResend) {
-      return resendEmailService.generateUnsubscribeToken(contactId, shopId);
-    }
-
-    // Simple base64 encoding for now - in production, use JWT or encrypted tokens
-    const payload = JSON.stringify({ contactId, shopId, timestamp: Date.now() });
-    return Buffer.from(payload).toString('base64url');
-  }
-
-  /**
-   * Add unsubscribe footer to email HTML content
-   */
-  public addUnsubscribeFooter(htmlContent: string, unsubscribeToken: string): string {
-    // Use Resend's method if available, otherwise use local implementation
-    if (this.useResend) {
-      return resendEmailService.addUnsubscribeFooter(htmlContent, unsubscribeToken);
-    }
-
-    const unsubscribeUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/api/marketing/unsubscribe/${unsubscribeToken}`;
-
-    const footer = `
-      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center;">
-        <p>You received this email because you are a customer of our shop.</p>
-        <p>
-          <a href="${unsubscribeUrl}" style="color: #6b7280; text-decoration: underline;">
-            Unsubscribe from future emails
-          </a>
-        </p>
-      </div>
-    `;
-
-    // Insert before closing body tag, or append if no body tag
-    if (htmlContent.includes('</body>')) {
-      return htmlContent.replace('</body>', `${footer}</body>`);
-    }
-
-    return htmlContent + footer;
-  }
-
-  /**
    * Convert HTML to plain text (basic implementation)
    */
   private htmlToText(html: string): string {

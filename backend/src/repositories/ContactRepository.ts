@@ -86,10 +86,17 @@ export class ContactRepository extends BaseRepository {
       throw new Error('At least one contact method (email or phone) is required');
     }
 
+    // Honor a prior unsubscribe: a re-added/imported contact whose email is
+    // still suppressed comes back as 'unsubscribed', not active.
+    const status =
+      data.email && (await this.isEmailUnsubscribed(data.shopId, data.email))
+        ? 'unsubscribed'
+        : 'active';
+
     const query = `
       INSERT INTO contact_imports (
-        shop_id, full_name, email, phone, source, tags, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        shop_id, full_name, email, phone, source, tags, notes, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
 
@@ -100,7 +107,8 @@ export class ContactRepository extends BaseRepository {
       data.phone || null,
       data.source || 'manual',
       data.tags || [],
-      data.notes || null
+      data.notes || null,
+      status
     ];
 
     try {
@@ -537,5 +545,39 @@ export class ContactRepository extends BaseRepository {
     `;
 
     await this.pool.query(query, [contactIds]);
+  }
+
+  async addEmailUnsubscribe(shopId: string, email: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO marketing_email_unsubscribes (shop_id, email)
+       VALUES ($1, $2)
+       ON CONFLICT (shop_id, email) DO NOTHING`,
+      [shopId, email.toLowerCase()]
+    );
+  }
+
+  async getUnsubscribedEmails(shopId: string): Promise<string[]> {
+    const result = await this.pool.query(
+      `SELECT email FROM marketing_email_unsubscribes WHERE shop_id = $1`,
+      [shopId]
+    );
+    return result.rows.map(row => row.email);
+  }
+
+  async isEmailUnsubscribed(shopId: string, email: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `SELECT 1 FROM marketing_email_unsubscribes WHERE shop_id = $1 AND email = $2 LIMIT 1`,
+      [shopId, email.toLowerCase()]
+    );
+    return result.rows.length > 0;
+  }
+
+  // Keeps the contacts list/stats in sync when an imported contact unsubscribes.
+  async unsubscribeContactByEmail(shopId: string, email: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE contact_imports SET status = 'unsubscribed'
+       WHERE shop_id = $1 AND LOWER(email) = LOWER($2)`,
+      [shopId, email]
+    );
   }
 }

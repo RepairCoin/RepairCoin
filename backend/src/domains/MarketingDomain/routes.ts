@@ -674,6 +674,9 @@ export function initializeRoutes(): Router {
     controller.sendTestEmail
   );
 
+  // Public — opened from the unsubscribe link in a sent email, so no auth.
+  router.get('/unsubscribe/:token', controller.unsubscribe);
+
   // ==================== TEMPLATE ROUTES ====================
 
   /**

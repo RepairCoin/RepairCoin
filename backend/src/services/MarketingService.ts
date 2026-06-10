@@ -156,18 +156,20 @@ export class MarketingService {
   async getAudienceRecipients(
     shopId: string,
     audienceType: MarketingCampaign['audienceType'],
-    audienceFilters?: Record<string, any>
+    audienceFilters?: Record<string, any>,
+    deliveryMethod?: MarketingCampaign['deliveryMethod']
   ): Promise<Array<{ walletAddress: string; email?: string; name?: string }>> {
-    return this.getTargetAudience(shopId, audienceType, audienceFilters);
+    return this.getTargetAudience(shopId, audienceType, audienceFilters, deliveryMethod);
   }
 
   // Get audience count for targeting
   async getAudienceCount(
     shopId: string,
     audienceType: MarketingCampaign['audienceType'],
-    audienceFilters?: Record<string, any>
+    audienceFilters?: Record<string, any>,
+    deliveryMethod?: MarketingCampaign['deliveryMethod']
   ): Promise<number> {
-    const recipients = await this.getAudienceRecipients(shopId, audienceType, audienceFilters);
+    const recipients = await this.getAudienceRecipients(shopId, audienceType, audienceFilters, deliveryMethod);
     return recipients.length;
   }
 
@@ -203,13 +205,28 @@ export class MarketingService {
     const recipients = await this.getTargetAudience(
       campaign.shopId,
       campaign.audienceType,
-      campaign.audienceFilters
+      campaign.audienceFilters,
+      campaign.deliveryMethod
     );
+
+    const contactRepo = new (require('../repositories/ContactRepository').ContactRepository)();
+
+    // Emails that opted out for this shop — skipped on the email channel only.
+    const suppressedEmails = new Set<string>(
+      (await contactRepo.getUnsubscribedEmails(campaign.shopId)).map((e: string) => e.toLowerCase())
+    );
+
+    // The coupon block needs the redeemable code string, which lives on the
+    // linked promo code rather than the campaign.
+    let couponCode: string | undefined;
+    if (campaign.promoCodeId) {
+      const promoCodeRepo = new (require('../repositories/PromoCodeRepository').PromoCodeRepository)();
+      couponCode = (await promoCodeRepo.findById(campaign.promoCodeId))?.code;
+    }
 
     // Get manual email contacts if present
     const manualEmailContacts: Array<{ email: string; name: string }> = [];
     if (campaign.audienceFilters?.manualEmails && Array.isArray(campaign.audienceFilters.manualEmails)) {
-      const contactRepo = new (require('../repositories/ContactRepository').ContactRepository)();
       const contacts = await contactRepo.getContactsByEmails(
         campaign.shopId,
         campaign.audienceFilters.manualEmails
@@ -306,8 +323,8 @@ export class MarketingService {
     for (const recipient of recipients) {
       try {
         if (campaign.deliveryMethod === 'email' || campaign.deliveryMethod === 'both') {
-          if (recipient.email) {
-            const emailSent = await this.sendEmailCampaign(campaign, recipient, shopInfo);
+          if (recipient.email && !suppressedEmails.has(recipient.email.toLowerCase())) {
+            const emailSent = await this.sendEmailCampaign(campaign, recipient, shopInfo, couponCode);
             if (emailSent) {
               result.emailsSent++;
               await this.campaignRepo.updateRecipientStatus(campaignId, recipient.walletAddress, {
@@ -343,11 +360,15 @@ export class MarketingService {
     // Send to manual email contacts (email only)
     if (manualEmailContacts.length > 0 && (campaign.deliveryMethod === 'email' || campaign.deliveryMethod === 'both')) {
       for (const contact of manualEmailContacts) {
+        if (suppressedEmails.has(contact.email.toLowerCase())) {
+          continue;
+        }
         try {
           const emailSent = await this.sendEmailCampaign(
             campaign,
             { walletAddress: '', email: contact.email, name: contact.name },
-            shopInfo
+            shopInfo,
+            couponCode
           );
           if (emailSent) {
             result.emailsSent++;
@@ -466,6 +487,27 @@ export class MarketingService {
   private async getTargetAudience(
     shopId: string,
     audienceType: MarketingCampaign['audienceType'],
+    audienceFilters?: Record<string, any>,
+    deliveryMethod?: MarketingCampaign['deliveryMethod']
+  ): Promise<Array<{ walletAddress: string; email?: string; name?: string }>> {
+    const audience = await this.resolveTargetAudience(shopId, audienceType, audienceFilters);
+
+    // Opt-outs only affect email; for email-only campaigns suppressed recipients
+    // receive nothing, so drop them so previews/counts match what actually sends.
+    if (deliveryMethod === 'email') {
+      const contactRepo = new (require('../repositories/ContactRepository').ContactRepository)();
+      const suppressed = new Set<string>(
+        (await contactRepo.getUnsubscribedEmails(shopId)).map((e: string) => e.toLowerCase())
+      );
+      return audience.filter(r => !r.email || !suppressed.has(r.email.toLowerCase()));
+    }
+
+    return audience;
+  }
+
+  private async resolveTargetAudience(
+    shopId: string,
+    audienceType: MarketingCampaign['audienceType'],
     audienceFilters?: Record<string, any>
   ): Promise<Array<{ walletAddress: string; email?: string; name?: string }>> {
     // Get all customers who have interacted with this shop
@@ -570,7 +612,8 @@ export class MarketingService {
   private async sendEmailCampaign(
     campaign: MarketingCampaign,
     recipient: { walletAddress: string; email?: string; name?: string },
-    shopInfo: ShopInfo
+    shopInfo: ShopInfo,
+    couponCode?: string
   ): Promise<boolean> {
     if (!recipient.email) {
       return false;
@@ -595,7 +638,8 @@ export class MarketingService {
       }
     }
 
-    const html = this.renderEmailTemplate(campaign, shopInfo, recipient.name, serviceData);
+    const unsubscribeUrl = this.buildUnsubscribeUrl(shopInfo.id, recipient.email);
+    const html = this.renderEmailTemplate(campaign, shopInfo, recipient.name, serviceData, unsubscribeUrl, couponCode);
 
     try {
       const sent = await this.emailService.sendMarketingEmail({
@@ -680,7 +724,9 @@ export class MarketingService {
     campaign: MarketingCampaign,
     shopInfo: ShopInfo,
     _recipientName?: string,
-    serviceData?: ServiceData
+    serviceData?: ServiceData,
+    unsubscribeUrl?: string,
+    couponCode?: string
   ): string {
     const design = campaign.designContent;
     const frontendUrl = process.env.FRONTEND_URL || 'https://repaircoin.ai';
@@ -696,7 +742,7 @@ export class MarketingService {
 
     let blocksHtml = '';
     for (const block of contentBlocks) {
-      blocksHtml += this.renderBlock(block, campaign, shopInfo, serviceData);
+      blocksHtml += this.renderBlock(block, campaign, shopInfo, serviceData, couponCode);
     }
 
     // Full-width banner row: no padding, image spans the full 600px container.
@@ -747,7 +793,7 @@ export class MarketingService {
                     ${design.footer?.showUnsubscribe ? `
                       <p style="color: #999; font-size: 12px; margin: 0;">
                         You received this email because you are a customer of ${shopInfo.name}.
-                        <br><a href="#" style="color: #999;">Unsubscribe</a>
+                        <br><a href="${unsubscribeUrl || '#'}" style="color: #999;">Unsubscribe</a>
                       </p>
                     ` : ''}
                   </td>
@@ -762,7 +808,103 @@ export class MarketingService {
     `;
   }
 
-  private renderBlock(block: any, campaign: MarketingCampaign, _shopInfo: ShopInfo, serviceData?: ServiceData): string {
+  // bodyHtml must be an inner fragment (not a full document); subject is shown as a headline.
+  public renderSimpleCampaignEmail(shopName: string, subject: string, bodyHtml: string, unsubscribeUrl?: string): string {
+    const logoUrl = `${process.env.PUBLIC_ASSET_URL || 'https://repaircoin.ai'}/img/landing/repaircoin-icon.png`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject || shopName}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5;">
+          <tr>
+            <td align="center" style="padding: 20px;">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background-color: #1a1a2e; padding: 30px; text-align: center;">
+                    <img src="${logoUrl}" alt="RepairCoin" style="width: 60px; height: 60px; margin: 0 auto 15px; display: block;">
+                    <h1 style="color: white; margin: 0; font-size: 24px;">${shopName}</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 30px;">
+                    ${subject ? `<h2 style="font-size: 24px; font-weight: bold; text-align: center; color: #333; margin: 0 0 20px 0;">${subject}</h2>` : ''}
+                    ${bodyHtml}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="color: #999; font-size: 12px; margin: 0;">
+                      You received this email because you are a customer of ${shopName}.
+                      <br><a href="${unsubscribeUrl || '#'}" style="color: #999;">Unsubscribe</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  public buildUnsubscribeUrl(shopId: string, email: string): string {
+    const payload = Buffer.from(JSON.stringify({ shopId, email })).toString('base64url');
+    const token = `${payload}.${this.signUnsubscribePayload(payload)}`;
+    return `${this.resolveApiBaseUrl()}/api/marketing/unsubscribe/${token}`;
+  }
+
+  // Returns the payload only if the HMAC matches — prevents crafting a link to
+  // unsubscribe an arbitrary address.
+  public verifyUnsubscribeToken(token: string): { shopId: string; email: string } | null {
+    const crypto = require('crypto');
+    const [payload, sig] = (token || '').split('.');
+    if (!payload || !sig) return null;
+
+    const expected = Buffer.from(this.signUnsubscribePayload(payload));
+    const provided = Buffer.from(sig);
+    if (expected.length !== provided.length || !crypto.timingSafeEqual(expected, provided)) {
+      return null;
+    }
+
+    try {
+      const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
+      if (!decoded?.shopId || !decoded?.email) return null;
+      return { shopId: decoded.shopId, email: decoded.email };
+    } catch {
+      return null;
+    }
+  }
+
+  private signUnsubscribePayload(payload: string): string {
+    const crypto = require('crypto');
+    const secret = process.env.JWT_SECRET || 'unsubscribe-dev-secret';
+    return crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  }
+
+  // API_PUBLIC_URL is the source of truth; only local dev falls back to localhost,
+  // and a deployed env missing it is logged loudly instead of silently breaking links.
+  private resolveApiBaseUrl(): string {
+    if (process.env.API_PUBLIC_URL) {
+      return process.env.API_PUBLIC_URL.replace(/\/+$/, '');
+    }
+    const env = process.env.NODE_ENV;
+    const isLocal = !env || env === 'development' || env === 'test';
+    if (!isLocal) {
+      logger.error(
+        `API_PUBLIC_URL is not set (NODE_ENV=${env}) — email links will point to localhost and will not work. Set API_PUBLIC_URL for this environment.`
+      );
+    }
+    return `http://localhost:${process.env.PORT || 4000}`;
+  }
+
+  private renderBlock(block: any, campaign: MarketingCampaign, _shopInfo: ShopInfo, serviceData?: ServiceData, couponCode?: string): string {
     const style = block.style || {};
     const frontendUrl = process.env.FRONTEND_URL || 'https://repaircoin.ai';
 
@@ -817,7 +959,7 @@ export class MarketingService {
         if (!campaign.couponValue) return '';
         const couponDisplay = campaign.couponType === 'percentage'
           ? `${campaign.couponValue}%`
-          : `$${campaign.couponValue}`;
+          : `${campaign.couponValue} RCN`;
         const expiryText = campaign.couponExpiresAt
           ? `Expires: ${campaign.couponExpiresAt.toLocaleDateString()}`
           : '';
@@ -835,8 +977,14 @@ export class MarketingService {
               ${couponDisplay}
             </div>
             <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
-              OFF your next visit!
+              Get ${couponDisplay} bonus on your next visit!
             </div>
+            ${couponCode ? `
+              <div style="font-size: 13px; opacity: 0.9; margin-top: 15px;">Use the code below when you pay</div>
+              <div style="display: inline-block; background-color: #ffffff; color: #111827; font-family: monospace; font-weight: bold; font-size: 20px; letter-spacing: 1px; padding: 10px 20px; border-radius: 6px; margin-top: 8px;">
+                ${couponCode}
+              </div>
+            ` : ''}
             ${expiryText ? `<div style="font-size: 12px; opacity: 0.8; margin-top: 15px;">${expiryText}</div>` : ''}
           </div>
         `;

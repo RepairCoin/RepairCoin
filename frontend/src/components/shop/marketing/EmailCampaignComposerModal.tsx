@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import apiClient from "@/services/api/client";
 
 interface EmailCampaignComposerModalProps {
   open: boolean;
@@ -68,22 +69,11 @@ export function EmailCampaignComposerModal({
     try {
       setSendingTest(true);
 
-      const response = await fetch(`/api/marketing/shops/${shopId}/contacts/test-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          subject,
-          htmlContent: convertToHtml(message),
-          testEmail,
-        }),
+      await apiClient.post(`/marketing/shops/${shopId}/contacts/test-email`, {
+        subject,
+        htmlContent: convertToHtml(message),
+        testEmail,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to send test email");
-      }
 
       toast.success(`Test email sent to ${testEmail}`);
     } catch (error: unknown) {
@@ -125,20 +115,11 @@ export function EmailCampaignComposerModal({
         payload.contactIds = selectedContactIds;
       }
 
-      const response = await fetch(`/api/marketing/shops/${shopId}/contacts/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const data = await apiClient.post<{ data: SendResult }>(
+        `/marketing/shops/${shopId}/contacts/send-email`,
+        payload
+      );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to send email campaign");
-      }
-
-      const data = await response.json();
       setResult(data.data);
 
       toast.success(`Campaign sent! ${data.data.sent} emails delivered successfully`);
@@ -154,36 +135,16 @@ export function EmailCampaignComposerModal({
     }
   };
 
+  // Returns a body fragment only; the backend wraps it in the branded template.
   const convertToHtml = (text: string): string => {
-    // Simple text to HTML conversion with basic formatting
-    const lines = text.split("\n");
-    const html = lines
-      .map((line) => {
-        if (!line.trim()) return "<br>";
-        return `<p style="margin: 0 0 10px 0;">${line}</p>`;
-      })
+    return text
+      .split("\n")
+      .map((line) =>
+        line.trim()
+          ? `<p style="margin: 0 0 10px 0; color: #555; font-size: 16px; line-height: 1.6;">${line}</p>`
+          : "<br>"
+      )
       .join("");
-
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
-</head>
-<body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <div style="margin-bottom: 20px;">
-      <h1 style="color: #333; font-size: 24px; margin: 0 0 10px 0;">${subject}</h1>
-    </div>
-    <div style="color: #555; font-size: 16px; line-height: 1.6;">
-      ${html}
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
   };
 
   const handleClose = () => {
@@ -371,7 +332,7 @@ export function EmailCampaignComposerModal({
                 variant="outline"
                 onClick={handleClose}
                 disabled={sending || sendingTest}
-                className="border-gray-700"
+                className="border-gray-600 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
               >
                 Cancel
               </Button>
