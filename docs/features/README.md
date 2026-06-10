@@ -20,7 +20,7 @@ Feature specifications, token economics, and system implementations.
 ### RCN (Utility Token)
 - **Purpose**: Rewards and redemptions
 - **Value**: 1 RCN = $0.10 USD
-- **Usage**: 
+- **Usage**:
   - Customers earn from repairs
   - Customers redeem at shops
   - Shops purchase from admin

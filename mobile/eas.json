@@ -62,7 +62,7 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_API_URL": "https://api.repaircoin.ai/api"
+        "EXPO_PUBLIC_API_URL": "https://api.fixflow.ai/api"
       },
       "channel": "production"
     },
@@ -77,7 +77,7 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_API_URL": "https://api.repaircoin.ai/api"
+        "EXPO_PUBLIC_API_URL": "https://api.fixflow.ai/api"
       },
       "channel": "production"
     }

@@ -22,7 +22,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     handleSubscription,
     handleBuyTokens,
     handleRedeemTokens,
-    handleGroups,
+    // handleGroups,
     handleNotificationPreferences,
     // Bug report
     isBugReportVisible,
@@ -105,13 +105,13 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               subtitle="Process customer redemptions"
               onPress={handleRedeemTokens!}
             />
-            <Divider />
+            {/* <Divider />
             <SettingsItem
               icon={<Ionicons name="people" size={20} color="#FFCC00" />}
               title="Groups"
               subtitle="Manage affiliate shop groups"
               onPress={handleGroups!}
-            />
+            /> */}
           </SettingsSection>
         )}
 

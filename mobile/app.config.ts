@@ -6,19 +6,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   
   return {
     name: "FixFlow",
-    slug: "repaircoin-app",
+    slug: "fixflow-app",
     owner: "repaircoin",
     version: "1.0.1",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "repaircoin",
+    scheme: "fixflow",
     userInterfaceStyle: "automatic",
     newArchEnabled: false,
     ios: {
       supportsTablet: false,
       bundleIdentifier: isProd
-        ? "com.repaircoin.app"
-        : "com.repaircoin.staging",
+        ? "com.fixflow.app"
+        : "com.fixflow.staging",
       runtimeVersion: "1.0.0",
       buildNumber: "1.0.0",
       infoPlist: {
@@ -41,10 +41,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: "#ffffff",
       },
       versionCode: 3,
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: isProd
+        ? "./google-services.json"
+        : "./google-services.staging.json",
       package: isProd
-        ? "com.repaircoin.app"
-        : "com.repaircoin.staging",
+        ? "com.fixflow.app"
+        : "com.fixflow.staging",
       runtimeVersion: {
         policy: "appVersion",
       },
@@ -137,7 +139,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       eas: {
-        projectId: "ac220b86-d08f-403e-a3bb-d1657b30f245",
+        projectId: "7551ff24-3bee-4b40-9fac-e4d4f72974e8",
       },
       router: {},
     },
@@ -145,7 +147,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       enabled: true,
       checkAutomatically: "ON_LOAD" as const,
       fallbackToCacheTimeout: 0,
-      url: "https://u.expo.dev/ac220b86-d08f-403e-a3bb-d1657b30f245",
+      url: "https://u.expo.dev/7551ff24-3bee-4b40-9fac-e4d4f72974e8",
     },
   };
 };
