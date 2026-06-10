@@ -32,6 +32,7 @@ import {
   DisputeResponse,
   NoShowPolicy,
   ServiceGroupLink,
+  ReviewReply,
 } from "@/feature/services/services/service.interface";
 import { apiClient } from "@/shared/utilities/axios";
 
@@ -224,6 +225,102 @@ class ServiceApi {
       });
     } catch (error: any) {
       console.error("Failed to add shop response:", error.message);
+      throw error;
+    }
+  }
+
+  async addCustomerReply(
+    reviewId: string,
+    reply: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.post(`/services/reviews/${reviewId}/reply`, { reply });
+    } catch (error: any) {
+      console.error("Failed to add customer reply:", error.message);
+      throw error;
+    }
+  }
+
+  async updateCustomerReply(
+    reviewId: string,
+    reply: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.put(`/services/reviews/${reviewId}/reply`, { reply });
+    } catch (error: any) {
+      console.error("Failed to update customer reply:", error.message);
+      throw error;
+    }
+  }
+
+  async updateReview(
+    reviewId: string,
+    data: { rating?: number; comment?: string }
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.put(`/services/reviews/${reviewId}`, data);
+    } catch (error: any) {
+      console.error("Failed to update review:", error.message);
+      throw error;
+    }
+  }
+
+  async updateShopResponse(
+    reviewId: string,
+    response: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.put(`/services/reviews/${reviewId}/respond`, { response });
+    } catch (error: any) {
+      console.error("Failed to update shop response:", error.message);
+      throw error;
+    }
+  }
+
+  async addShopRejoinder(
+    reviewId: string,
+    rejoinder: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.post(`/services/reviews/${reviewId}/rejoinder`, { rejoinder });
+    } catch (error: any) {
+      console.error("Failed to add shop rejoinder:", error.message);
+      throw error;
+    }
+  }
+
+  async updateShopRejoinder(
+    reviewId: string,
+    rejoinder: string
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.put(`/services/reviews/${reviewId}/rejoinder`, { rejoinder });
+    } catch (error: any) {
+      console.error("Failed to update shop rejoinder:", error.message);
+      throw error;
+    }
+  }
+
+  async addThreadReply(
+    reviewId: string,
+    content: string
+  ): Promise<{ success: boolean; data: ReviewReply }> {
+    try {
+      return await apiClient.post(`/services/reviews/${reviewId}/thread`, { content });
+    } catch (error: any) {
+      console.error("Failed to add thread reply:", error.message);
+      throw error;
+    }
+  }
+
+  async editThreadReply(
+    replyId: string,
+    content: string
+  ): Promise<{ success: boolean; data: ReviewReply }> {
+    try {
+      return await apiClient.put(`/services/reviews/thread/${replyId}`, { content });
+    } catch (error: any) {
+      console.error("Failed to edit thread reply:", error.message);
       throw error;
     }
   }

@@ -698,6 +698,61 @@ export class NotificationService {
     });
   }
 
+  async createReviewReceivedNotification(
+    customerAddress: string,
+    shopAddress: string,
+    customerName: string,
+    serviceId: string,
+    serviceName: string,
+    rating: number,
+    reviewId: string
+  ): Promise<Notification> {
+    return this.createNotification({
+      senderAddress: customerAddress,
+      receiverAddress: shopAddress,
+      notificationType: 'customer_review_received',
+      message: `${customerName} left a ${rating}-star review on ${serviceName}`,
+      metadata: { customerName, serviceId, serviceName, rating, reviewId, timestamp: new Date().toISOString() }
+    });
+  }
+
+  async createShopReviewResponseNotification(
+    shopAddress: string,
+    customerAddress: string,
+    shopName: string,
+    serviceId: string,
+    serviceName: string,
+    reviewId: string
+  ): Promise<Notification> {
+    return this.createNotification({
+      senderAddress: shopAddress,
+      receiverAddress: customerAddress,
+      notificationType: 'shop_review_response',
+      message: `${shopName} responded to your review on ${serviceName}`,
+      metadata: { shopName, serviceId, serviceName, reviewId, timestamp: new Date().toISOString() }
+    });
+  }
+
+  async createReviewCommentNotification(
+    senderAddress: string,
+    recipientAddress: string,
+    senderName: string,
+    authorType: 'customer' | 'shop',
+    serviceId: string,
+    reviewId: string
+  ): Promise<Notification> {
+    const message = authorType === 'customer'
+      ? `${senderName} added a comment on a review`
+      : `${senderName} added a comment on your review`;
+    return this.createNotification({
+      senderAddress,
+      receiverAddress: recipientAddress,
+      notificationType: 'review_comment',
+      message,
+      metadata: { senderName, authorType, serviceId, reviewId, timestamp: new Date().toISOString() }
+    });
+  }
+
   async createServicePaymentFailedNotification(
     customerAddress: string,
     serviceName: string,

@@ -78,4 +78,17 @@ export const NOTIFICATION_ROUTES = {
     shop: "/(dashboard)/shop/subscription",
     customer: null,
   },
+  // Review notifications
+  customer_review_received: {
+    shop: "/(dashboard)/shop/tabs/service",
+    customer: null,
+  },
+  shop_review_response: {
+    shop: null,
+    customer: "/(dashboard)/customer/tabs/service",
+  },
+  review_comment: {
+    shop: "/(dashboard)/shop/tabs/service",
+    customer: "/(dashboard)/customer/tabs/service",
+  },
 } as const;

@@ -11,7 +11,6 @@ import {
   UpdateServiceData,
 } from "@/feature/services/services/service.interface";
 import { appointmentApi } from "@/feature/services/services/service.services";
-import { ReviewData } from "@/feature/services/services/service.interface";
 
 // ============================================
 // Shop Service Queries
@@ -194,14 +193,13 @@ export function useShopReviewsQuery() {
 }
 
 export function useShopReviewResponseMutation() {
-  const { showSuccess, showError } = useAppToast();
+  const { showError } = useAppToast();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ reviewId, response }: { reviewId: string; response: string }) =>
       serviceApi.addShopResponse(reviewId, response),
     onSuccess: () => {
-      showSuccess("Response added successfully!");
       queryClient.invalidateQueries({ queryKey: ["shopReviews"] });
     },
     onError: (err: any) => {
