@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, ChangeEvent } from "react";
+import React, { useState, useRef, useEffect, ChangeEvent } from "react";
 import { toast } from "react-hot-toast";
 import { Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
@@ -54,6 +54,13 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(currentImageUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync the preview when the parent changes currentImageUrl after mount — e.g.
+  // an AI-generated logo/banner set programmatically (not via this uploader).
+  // Skipped mid-upload so a local preview isn't clobbered.
+  useEffect(() => {
+    if (!uploading) setPreviewUrl(currentImageUrl);
+  }, [currentImageUrl, uploading]);
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

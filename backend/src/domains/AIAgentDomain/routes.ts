@@ -26,7 +26,8 @@ import { askMarketing } from './controllers/MarketingChatController';
 import { askOrchestrator } from './controllers/UnifiedAssistantController';
 import { generateImage } from './controllers/ImageGenerateController';
 import { editImage } from './controllers/ImageEditController';
-import { getOwnBrandKit, updateOwnBrandKit, analyzeLogoColors } from './controllers/BrandKitController';
+import { getOwnBrandKit, updateOwnBrandKit, analyzeLogoColors, analyzeBrandProfile, completeBrandOnboarding } from './controllers/BrandKitController';
+import { generateBrandTemplates, listBrandTemplates, generateShopBanner } from './controllers/BrandTemplateController';
 import {
   listAnomalies,
   dismissAnomaly,
@@ -181,6 +182,15 @@ export function initializeRoutes(): Router {
   router.put('/brand-kit', authMiddleware, requireRole(['shop']), updateOwnBrandKit);
   // Phase 4 vision — extract a brand palette from a logo to auto-fill colors.
   router.post('/brand-kit/analyze-logo', authMiddleware, requireRole(['shop']), analyzeLogoColors);
+  // Branding Studio — full brand-profile read (colors + personality/industry/tone/style/headline).
+  router.post('/brand-kit/analyze-brand', authMiddleware, requireRole(['shop']), analyzeBrandProfile);
+  // Branding Studio (onboarding) — stamp the wizard as finished/skipped.
+  router.post('/brand-kit/complete-onboarding', authMiddleware, requireRole(['shop']), completeBrandOnboarding);
+  // Branding Studio Phase 4 — on-demand brand templates (social/poster).
+  router.post('/brand-kit/templates/generate', authMiddleware, requireRole(['shop']), generateBrandTemplates);
+  router.get('/brand-kit/templates', authMiddleware, requireRole(['shop']), listBrandTemplates);
+  // Branding Studio — generate a shop banner (header) with AI → returns the URL.
+  router.post('/brand-kit/generate-banner', authMiddleware, requireRole(['shop']), generateShopBanner);
 
   // AI Marketing Assistant — shop-owner "compose + send a campaign by
   // chat" AI. Sibling to /insights. Sonnet + tool-use with the four

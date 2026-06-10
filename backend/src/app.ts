@@ -313,7 +313,10 @@ class RepairCoinApp {
       '/ai/images',              // generate + edit
       '/ai/orchestrate',         // unified assistant (can call image tools)
       '/ai/marketing-chat',      // marketing assistant (can call image tools)
-      '/ai/brand-kit/analyze-logo', // Claude vision on a logo
+      '/ai/brand-kit/analyze-logo',  // Claude vision on a logo
+      '/ai/brand-kit/analyze-brand', // Claude vision — full brand profile
+      '/ai/brand-kit/templates',     // on-demand template gen (gpt-image-1)
+      '/ai/brand-kit/generate-banner', // banner gen (gpt-image-1, wide = slowest)
     ];
     this.app.use((req, res, next) => {
       const isSlowAi = SLOW_AI_PATHS.some((p) => req.path.includes(p));

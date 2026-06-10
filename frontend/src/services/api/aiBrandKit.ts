@@ -13,9 +13,23 @@ export interface BrandKit {
   logoOverrideUrl: string | null;
   /** The shop's canonical logo, managed under Settings → Shop Profile. */
   shopLogoUrl: string | null;
+  /** The shop's banner/header image (shops.banner_url). */
+  shopBannerUrl: string | null;
   primaryColorHex: string | null;
   secondaryColorHex: string | null;
   toneNotes: string | null;
+  /** Branding Studio profile (collected by the wizard). All nullable. */
+  marketingStyle: string | null;
+  brandVoice: string | null;
+  headline: string | null;
+  brandPersonality: string | null;
+  industryStyle: string | null;
+  /** Curated Google-font pairing (Phase 4). */
+  headingFont: string | null;
+  bodyFont: string | null;
+  /** When the Branding Studio onboarding was finished/skipped. null = not done
+   *  (the wizard auto-opens on first dashboard load). */
+  onboardingCompletedAt: string | null;
 }
 
 /** Writable brand-kit fields. `logoUrl` is the OPTIONAL AI override
@@ -25,6 +39,13 @@ export interface BrandKitUpdate {
   primaryColorHex: string | null;
   secondaryColorHex: string | null;
   toneNotes: string | null;
+  marketingStyle?: string | null;
+  brandVoice?: string | null;
+  headline?: string | null;
+  brandPersonality?: string | null;
+  industryStyle?: string | null;
+  headingFont?: string | null;
+  bodyFont?: string | null;
 }
 
 /** The shop's brand kit (all-null when unset). */
@@ -57,4 +78,116 @@ export const analyzeLogo = async (
     logoUrl,
   });
   return (response.data.data || response.data) as LogoColorSuggestion;
+};
+
+/** The fuller brand-profile read behind the Branding Studio "AI Brand Analysis"
+ *  step — colors plus personality/industry/tone and a suggested style + headline.
+ *  Pass no logoUrl to analyze the shop's effective logo. Any field may be null. */
+export interface BrandProfileSuggestion {
+  primaryColorHex: string | null;
+  secondaryColorHex: string | null;
+  description: string | null;
+  brandPersonality: string | null;
+  industryStyle: string | null;
+  recommendedTone: string | null;
+  marketingStyle: string | null;
+  headline: string | null;
+}
+
+export const analyzeBrand = async (
+  logoUrl?: string
+): Promise<BrandProfileSuggestion> => {
+  const response = await apiClient.post(
+    "/ai/brand-kit/analyze-brand",
+    { logoUrl: logoUrl ?? undefined },
+    { timeout: 120000 }
+  );
+  return (response.data.data || response.data) as BrandProfileSuggestion;
+};
+
+/** Branding Studio — stamp onboarding as finished/skipped (idempotent). */
+export const completeBrandOnboarding = async (): Promise<BrandKit> => {
+  const response = await apiClient.post("/ai/brand-kit/complete-onboarding");
+  return (response.data.data || response.data) as BrandKit;
+};
+
+/* ------------------------- Brand templates (Phase 4) ------------------------ */
+
+export type TemplateKind = "social_post" | "social_story" | "poster";
+
+export interface BrandTemplate {
+  id: number;
+  kind: TemplateKind;
+  templateKey: string;
+  url: string;
+  size: string | null;
+  costUsd: number;
+  createdAt: string;
+}
+
+export interface GenerateTemplateResult {
+  kind: TemplateKind;
+  ok: boolean;
+  status: number;
+  url?: string;
+  error?: string;
+  costUsd?: number;
+}
+
+/** Curated Google-font pairing per marketing style — mirrors the backend
+ *  fontPairForStyle so the style guide/wizard can preview without a round-trip. */
+export const FONT_PAIRS: Record<string, { heading: string; body: string }> = {
+  "Professional & Corporate": { heading: "Montserrat", body: "Source Sans 3" },
+  "Modern & Tech": { heading: "Space Grotesk", body: "Inter" },
+  "Friendly & Local": { heading: "Poppins", body: "Nunito" },
+  "Premium & Luxury": { heading: "Playfair Display", body: "Lato" },
+};
+export const fontPairForStyle = (style: string | null) =>
+  (style && FONT_PAIRS[style]) || { heading: "Poppins", body: "Inter" };
+
+/** The four marketing styles (single source for the wizard + settings select). */
+export const MARKETING_STYLE_OPTIONS = [
+  "Professional & Corporate",
+  "Modern & Tech",
+  "Friendly & Local",
+  "Premium & Luxury",
+];
+
+/** Generate brand templates on demand (defaults to all kinds). Throws with the
+ *  server message on a gate (403 = AI images off, 429 = budget exhausted). */
+export const generateBrandTemplates = async (
+  kinds?: TemplateKind[],
+  prompt?: string
+): Promise<GenerateTemplateResult[]> => {
+  // gpt-image-1 is slow (~20-80s each) and "generate all" runs up to 3 in series,
+  // so override the 30s axios default (backend allows 240s for these paths).
+  // `prompt` lets the shop steer the content (optional).
+  const response = await apiClient.post(
+    "/ai/brand-kit/templates/generate",
+    { kinds, prompt },
+    { timeout: 240000 }
+  );
+  const data = (response.data.data || response.data) as { results: GenerateTemplateResult[] };
+  return data.results;
+};
+
+/** List the shop's generated templates (newest first). */
+export const listBrandTemplates = async (): Promise<BrandTemplate[]> => {
+  const response = await apiClient.get("/ai/brand-kit/templates");
+  return (response.data.data || response.data) as BrandTemplate[];
+};
+
+/** Generate a shop banner (header) with AI; returns the image URL. The caller
+ *  persists it as the shop banner (shops.banner_url) via updateShopProfile.
+ *  Throws with the server message on a gate (403 AI off / 429 budget). */
+export const generateShopBanner = async (prompt?: string): Promise<string> => {
+  // A wide gpt-image-1 banner has been observed up to ~80s — well past the 30s
+  // axios default (backend allows 240s for this path). `prompt` steers the content.
+  const response = await apiClient.post(
+    "/ai/brand-kit/generate-banner",
+    { prompt },
+    { timeout: 240000 }
+  );
+  const data = (response.data.data || response.data) as { url: string };
+  return data.url;
 };

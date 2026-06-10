@@ -51,9 +51,18 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
               logoUrl: null,
               logoOverrideUrl: null,
               shopLogoUrl: null,
+              shopBannerUrl: null,
               primaryColorHex: null,
               secondaryColorHex: null,
               toneNotes: null,
+              marketingStyle: null,
+              brandVoice: null,
+              headline: null,
+              brandPersonality: null,
+              industryStyle: null,
+              headingFont: null,
+              bodyFont: null,
+              onboardingCompletedAt: null,
             },
         });
       } catch (err) {
@@ -147,6 +156,87 @@ export function makeBrandKitController(deps: BrandKitControllerDeps = {}) {
         });
       }
     },
+
+    // POST /analyze-brand — Branding Studio: the full brand-profile read behind
+    // the wizard's "AI Brand Analysis" step (colors + personality + industry +
+    // tone + suggested style/headline). Spend-capped; falls back to the shop's
+    // effective logo like analyze-logo.
+    analyzeBrand: async (req: Request, res: Response): Promise<void> => {
+      const shopId = (req as any).user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: "Shop ID required" });
+        return;
+      }
+      let logoUrl =
+        typeof req.body?.logoUrl === "string" ? req.body.logoUrl.trim() : "";
+      if (logoUrl.length === 0) {
+        const kit = await brandKit.getBrandKit(shopId);
+        logoUrl = kit?.logoUrl ?? "";
+      }
+      if (logoUrl.length === 0) {
+        res.status(400).json({
+          success: false,
+          error:
+            "Add a logo first — set your shop logo under Settings → Shop Profile, or upload one in the wizard.",
+        });
+        return;
+      }
+
+      const spend = await spendCap.canSpend(shopId);
+      if (!spend.allowed) {
+        res.status(429).json({
+          success: false,
+          error:
+            "AI budget for this month is exhausted. Try again next month or fill in your brand details manually.",
+        });
+        return;
+      }
+
+      try {
+        const r = await vision.analyzeBrand(logoUrl);
+        await spendCap.recordSpend(shopId, r.costUsd);
+        res.json({
+          success: true,
+          data: {
+            primaryColorHex: r.primaryColorHex,
+            secondaryColorHex: r.secondaryColorHex,
+            description: r.description,
+            brandPersonality: r.brandPersonality,
+            industryStyle: r.industryStyle,
+            recommendedTone: r.recommendedTone,
+            marketingStyle: r.marketingStyle,
+            headline: r.headline,
+          },
+        });
+      } catch (err) {
+        logger.error("BrandKitController.analyzeBrand failed", err);
+        res.status(503).json({
+          success: false,
+          error:
+            "Couldn't analyze your brand right now. Please try again or fill in the details manually.",
+        });
+      }
+    },
+
+    // POST /complete-onboarding — Branding Studio Phase 1. Stamp the wizard as
+    // finished/skipped so it doesn't auto-open again. Idempotent.
+    completeOnboarding: async (req: Request, res: Response): Promise<void> => {
+      const shopId = (req as any).user?.shopId;
+      if (!shopId) {
+        res.status(401).json({ success: false, error: "Shop ID required" });
+        return;
+      }
+      try {
+        const kit = await brandKit.markOnboardingComplete(shopId);
+        res.json({ success: true, data: kit });
+      } catch (err) {
+        logger.error("BrandKitController.completeOnboarding failed", err);
+        res.status(503).json({
+          success: false,
+          error: "Couldn't save onboarding status. Please try again.",
+        });
+      }
+    },
   };
 }
 
@@ -164,4 +254,10 @@ export function updateOwnBrandKit(req: Request, res: Response): Promise<void> {
 }
 export function analyzeLogoColors(req: Request, res: Response): Promise<void> {
   return getDefaults().analyzeLogo(req, res);
+}
+export function analyzeBrandProfile(req: Request, res: Response): Promise<void> {
+  return getDefaults().analyzeBrand(req, res);
+}
+export function completeBrandOnboarding(req: Request, res: Response): Promise<void> {
+  return getDefaults().completeOnboarding(req, res);
 }

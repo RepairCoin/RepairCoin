@@ -45,6 +45,9 @@ import { StakingTab } from "@/components/shop/tabs/StakingTab";
 import { ReportsTab } from "@/components/shop/tabs/ReportsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
+import { BrandingStudio } from "@/components/shop/branding-studio/BrandingStudio";
+import { BrandSetupCard } from "@/components/shop/branding-studio/BrandSetupCard";
+import { getBrandKit } from "@/services/api/aiBrandKit";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
 import { SubscriptionGuard } from "@/components/shop/SubscriptionGuard";
@@ -236,6 +239,16 @@ export default function ShopDashboardClient() {
 
   // Onboarding modal state
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+
+  // Branding Studio (onboarding AI) first-run. Opens once for operational shops
+  // that haven't finished/skipped it AND haven't already set brand colors (so we
+  // never nag shops who configured a brand kit before this feature). The ref
+  // guards against re-checking on every shopData change.
+  const [showBrandingStudio, setShowBrandingStudio] = useState(false);
+  const brandingStudioChecked = useRef(false);
+  // Soft dashboard nudge for shops whose brand kit isn't set up yet (incl. skippers).
+  const [brandKitNeedsSetup, setBrandKitNeedsSetup] = useState(false);
+  const [brandCardDismissed, setBrandCardDismissed] = useState(false);
 
   // Suspended/Rejected modal state
   const [showSuspendedModal, setShowSuspendedModal] = useState(true);
@@ -559,6 +572,32 @@ export default function ShopDashboardClient() {
   // Shop should be blocked if: suspended, rejected, pending, paused, or not operational (unsubscribed/expired)
   // However, if subscription is cancelled but still within the billing period, shop should NOT be blocked
   const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || (!isOperational && !isCancelledButActive));
+
+  // Branding Studio first-run: once per session, for operational/non-blocked
+  // shops, open the wizard if onboarding isn't done AND no brand colors exist yet.
+  // Failures (no kit / API down) silently no-op — onboarding is never a blocker.
+  useEffect(() => {
+    if (brandingStudioChecked.current) return;
+    if (!shopData || isBlocked || !isOperational) return;
+    brandingStudioChecked.current = true;
+    try {
+      const sid = shopData.shopId;
+      if (sid && localStorage.getItem(`brandSetupCardDismissed:${sid}`) === "1") {
+        setBrandCardDismissed(true);
+      }
+    } catch { /* ignore storage errors */ }
+    getBrandKit()
+      .then((kit) => {
+        const done = !!kit.onboardingCompletedAt;
+        const hasColors = !!(kit.primaryColorHex || kit.secondaryColorHex);
+        // Card shows whenever the kit isn't set up; auto-open only first time.
+        setBrandKitNeedsSetup(!hasColors);
+        if (!done && !hasColors) setShowBrandingStudio(true);
+      })
+      .catch(() => {
+        /* no kit / unavailable — don't open, don't block */
+      });
+  }, [shopData, isBlocked, isOperational]);
 
   // Get the block reason
   const getBlockReason = () => {
@@ -1322,6 +1361,25 @@ export default function ShopDashboardClient() {
           )}
 
           {/* Tab Content */}
+          {/* Optional brand-setup nudge for skippers (operational + kit not set up). */}
+          {activeTab === "overview" &&
+            isOperational &&
+            !isBlocked &&
+            brandKitNeedsSetup &&
+            !brandCardDismissed &&
+            !showBrandingStudio && (
+              <BrandSetupCard
+                onStart={() => setShowBrandingStudio(true)}
+                onDismiss={() => {
+                  setBrandCardDismissed(true);
+                  try {
+                    const sid = shopData?.shopId;
+                    if (sid) localStorage.setItem(`brandSetupCardDismissed:${sid}`, "1");
+                  } catch { /* ignore */ }
+                }}
+              />
+            )}
+
           {activeTab === "overview" && (
             <OverviewTab
               shopData={shopData}
@@ -1597,6 +1655,20 @@ export default function ShopDashboardClient() {
                 shopData={shopData}
                 open={showOnboardingModal && !isSuspended && !isRejected && !isPaused}
                 onClose={() => setShowOnboardingModal(false)}
+              />
+
+              {/* Branding Studio (onboarding AI) — first-run brand setup. Gated so
+                  it never stacks on the onboarding / suspended modals. */}
+              <BrandingStudio
+                open={showBrandingStudio && !showOnboardingModal && !isBlocked}
+                origin="onboarding"
+                shopName={shopData?.name}
+                onComplete={(kit) => {
+                  setShowBrandingStudio(false);
+                  // If they actually set colors, the kit is set up — drop the nudge.
+                  const hasColors = !!(kit?.primaryColorHex || kit?.secondaryColorHex);
+                  setBrandKitNeedsSetup(!hasColors);
+                }}
               />
 
               {/* Suspended/Rejected/Unsubscribed/Pending Shop Modal */}

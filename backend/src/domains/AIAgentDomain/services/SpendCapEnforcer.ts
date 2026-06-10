@@ -22,6 +22,9 @@ import { logger } from "../../../utils/logger";
 import { SpendCheckResult } from "../types";
 
 const CHEAPER_MODEL_THRESHOLD = 0.7; // ≥ 70% of budget → switch to Haiku
+// Mirrors the ai_shop_settings.monthly_budget_usd DB default + SettingsController
+// / SpendController. Used when a shop has no settings row yet.
+const DEFAULT_MONTHLY_BUDGET = 20.0;
 
 export class SpendCapEnforcer {
   constructor(private readonly pool: Pool = getSharedPool()) {}
@@ -47,13 +50,29 @@ export class SpendCapEnforcer {
     );
 
     if (result.rows.length === 0) {
+      // No settings row yet — a brand-new shop (e.g. mid-onboarding). Every other
+      // path (SettingsController/SpendController) treats this as the DEFAULT $20
+      // budget, so blocking here was inconsistent and broke first-run AI (incl.
+      // the Branding Studio analysis). Lazily provision the default row so spend
+      // is still tracked by recordSpend, and allow the call against the default.
+      try {
+        await this.pool.query(
+          `INSERT INTO ai_shop_settings (shop_id, current_month_started_at)
+           VALUES ($1, NOW())
+           ON CONFLICT (shop_id) DO NOTHING`,
+          [shopId]
+        );
+      } catch (err) {
+        logger.error("SpendCapEnforcer.canSpend: default settings provision failed", err);
+        // Even if provisioning fails, don't hard-block onboarding — allow against
+        // the default budget; recordSpend will no-op until a row exists.
+      }
       return {
-        allowed: false,
+        allowed: true,
         useCheaperModel: false,
         currentSpendUsd: 0,
-        monthlyBudgetUsd: 0,
+        monthlyBudgetUsd: DEFAULT_MONTHLY_BUDGET,
         percentUsed: 0,
-        blockReason: "no_shop_settings",
       };
     }
 
