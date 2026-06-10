@@ -34,13 +34,13 @@ const walletOptions: WalletOption[] = [
     type: "social",
     available: true,
   },
-  {
-    id: "metamask",
-    name: "MetaMask",
-    icon: require("@/assets/icons/icons8-metamask-100.png"),
-    type: "wallet",
-    available: true,
-  },
+  // {
+  //   id: "metamask",
+  //   name: "MetaMask",
+  //   icon: require("@/assets/icons/icons8-metamask-100.png"),
+  //   type: "wallet",
+  //   available: true,
+  // },
 ];
 
 export default function WalletSelectionModal({
@@ -94,7 +94,7 @@ export default function WalletSelectionModal({
       <View className="flex-1 bg-black/50 justify-end">
         <View className="bg-gray-900 rounded-t-3xl p-6 max-h-[80%]">
           <View className="flex-row justify-between items-center mb-6">
-            <Text className="text-white text-2xl font-bold">Connect Wallet</Text>
+            <Text className="text-white text-2xl font-bold">Sign In</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={28} color="#fff" />
             </TouchableOpacity>
@@ -102,14 +102,14 @@ export default function WalletSelectionModal({
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text className="text-gray-400 text-sm font-semibold mb-3 uppercase">
-              Social Login
+              Continue with
             </Text>
             {socialOptions.map(renderWalletOption)}
 
-            <Text className="text-gray-400 text-sm font-semibold mb-3 mt-4 uppercase">
+            {/* <Text className="text-gray-400 text-sm font-semibold mb-3 mt-4 uppercase">
               Wallet Apps
             </Text>
-            {walletAppOptions.map(renderWalletOption)}
+            {walletAppOptions.map(renderWalletOption)} */}
 
             <Text className="text-gray-500 text-xs text-center mt-4">
               By connecting, you agree to FixFlow's Terms of Service and Privacy Policy

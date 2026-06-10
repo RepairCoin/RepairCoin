@@ -193,13 +193,13 @@ export default function ShopAccountScreen() {
             </Text>
             <Text className="text-zinc-500 text-xs mt-1">Redeemed</Text>
           </View>
-          <View className="w-px bg-zinc-800" />
+          {/* <View className="w-px bg-zinc-800" />
           <View className="flex-1 items-center">
             <Text className="text-white text-xl font-bold">
               {formatNumber(shopData?.rcg_balance || 0)}
             </Text>
             <Text className="text-zinc-500 text-xs mt-1">RCG</Text>
-          </View>
+          </View> */}
         </View>
         <View className="flex-row mx-4 mt-4 gap-3">
           <TouchableOpacity

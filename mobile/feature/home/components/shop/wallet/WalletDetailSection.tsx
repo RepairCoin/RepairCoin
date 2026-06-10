@@ -20,10 +20,10 @@ function WalletDetailSection({ shopData }: { shopData: ShopData }) {
           value={shopData?.totalTokensIssued ?? 0}
           label="Issued"
         />
-        <StatCard
+        {/* <StatCard
           value={shopData?.rcg_balance ?? 0}
           label="RCG"
-        />
+        /> */}
       </View>
     </View>
   );

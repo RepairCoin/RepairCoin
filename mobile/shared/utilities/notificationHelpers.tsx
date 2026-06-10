@@ -84,11 +84,20 @@ export function getNavigationRoute(
   notification: Notification,
   userType: string | null
 ): string | null {
-  const { notificationType } = notification;
+  const { notificationType, metadata } = notification;
+  const isShop = userType === "shop";
+
+  // Review notifications: deep-link to the specific service's reviews when serviceId is present
+  const reviewTypes = ["customer_review_received", "shop_review_response", "review_comment"];
+  if (reviewTypes.includes(notificationType) && metadata?.serviceId) {
+    return isShop
+      ? `/(dashboard)/shop/service/${metadata.serviceId}/reviews`
+      : `/(dashboard)/customer/review/service/${metadata.serviceId}`;
+  }
+
   const routes = NOTIFICATION_ROUTES[notificationType as keyof typeof NOTIFICATION_ROUTES];
 
   if (!routes) return null;
 
-  const isShop = userType === "shop";
   return isShop ? routes.shop : routes.customer;
 }

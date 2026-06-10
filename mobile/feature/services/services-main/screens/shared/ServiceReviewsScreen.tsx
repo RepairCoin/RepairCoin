@@ -23,6 +23,7 @@ export default function ServiceReviewsScreen() {
     stats,
     hasReviews,
     isShopOwner,
+    currentUserAddress,
     ratingFilter,
     refreshing,
     isLoading,
@@ -92,6 +93,7 @@ export default function ServiceReviewsScreen() {
                   key={review.reviewId}
                   review={review}
                   isShopOwner={isShopOwner}
+                  currentUserAddress={currentUserAddress}
                   onReviewUpdated={refetch}
                 />
               ))}

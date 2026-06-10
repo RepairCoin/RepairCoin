@@ -11,6 +11,7 @@ import { RescheduleRequestConfirmationHandler } from './services/RescheduleReque
 import { RescheduleRequestOutcomeHandler } from './services/RescheduleRequestOutcomeHandler';
 import { AISalesFollowUpHandler } from './services/AISalesFollowUpHandler';
 import { AISalesFollowUpDetector } from './services/AISalesFollowUpDetector';
+import { campaignRewardRedemptionHandler } from './services/CampaignRewardRedemptionHandler';
 import { WebSocketManager } from '../../services/WebSocketManager';
 
 /**
@@ -97,6 +98,18 @@ export class AIAgentDomain implements DomainModule {
         `${this.name} domain: OrderConfirmationHandler unavailable (likely no ANTHROPIC_API_KEY); confirmation hook disabled`
       );
     }
+
+    // Subscribe the campaign reward redeem-on-return hook (Campaign Rewards
+    // Phase 2). When a customer completes an order, any pending on_return RCN
+    // rewards that shop's campaigns promised them are issued now. No Claude call,
+    // so it runs regardless of ANTHROPIC_API_KEY; errors are swallowed in the
+    // handler so a redemption can't break order completion.
+    eventBus.subscribe(
+      'service.order_completed',
+      (event) => campaignRewardRedemptionHandler.handleOrderCompleted(event),
+      'AIAgentDomain'
+    );
+    logger.info(`${this.name} domain: subscribed campaign reward redeem-on-return`);
 
     // Subscribe the booking-confirmation hook. Posts a templated "your
     // appointment is confirmed" message into the chat when a customer pays

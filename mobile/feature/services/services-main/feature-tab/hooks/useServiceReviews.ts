@@ -29,8 +29,8 @@ export function useServiceReviews() {
     refetchOnMount: true,
   });
 
-  // Check if user is shop owner of this service
   const isShopOwner = !!userProfile?.shopId;
+  const currentUserAddress: string | undefined = userProfile?.address;
 
   const allReviews = data?.data || [];
   const hasReviews = allReviews.length > 0;
@@ -87,6 +87,7 @@ export function useServiceReviews() {
     stats,
     hasReviews,
     isShopOwner,
+    currentUserAddress,
 
     // State
     ratingFilter,

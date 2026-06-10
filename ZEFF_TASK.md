@@ -27,7 +27,41 @@
 
 ---
 
-## 📋 IMMEDIATE NEXT STEPS (Do First!)
+## 🚨 CRITICAL BLOCKER - MUST FIX FIRST!
+
+**Problem:** Missing `ANTHROPIC_API_KEY` in `backend/.env`
+**Impact:** AI chat returns 500 error - feature can't be tested
+**Fix Time:** 5 minutes (once you have the key)
+
+### How to Fix:
+
+1. **Get Anthropic API Key:**
+   - Go to: https://console.anthropic.com/settings/keys
+   - Create account (free tier available)
+   - Create new API key (starts with `sk-ant-api03-...`)
+
+2. **Add to backend/.env:**
+   ```bash
+   ANTHROPIC_API_KEY=sk-ant-api03-YOUR_KEY_HERE
+   ```
+
+3. **Restart Backend:**
+   ```bash
+   lsof -ti:4000 | xargs kill -9
+   npm run server
+   ```
+
+**📖 Full Details:** See `URGENT_FIX_NEEDED.md`
+
+**Alternative (Temporary):**
+Enable mock mode in `frontend/src/services/api/aiAssistant.ts`:
+```typescript
+const USE_MOCK_DATA = true; // Line 23
+```
+
+---
+
+## 📋 IMMEDIATE NEXT STEPS (After API Key Added!)
 
 ### 1. Test the New Feature (15 minutes)
 **Priority:** 🔴 CRITICAL - Test before deploying to production

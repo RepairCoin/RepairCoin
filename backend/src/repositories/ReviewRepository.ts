@@ -14,8 +14,22 @@ export interface ServiceReview {
   helpfulCount: number;
   shopResponse?: string;
   shopResponseAt?: Date;
+  customerReply?: string;
+  customerReplyAt?: Date;
+  shopRejoinder?: string;
+  shopRejoinderAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ReviewReply {
+  id: string;
+  reviewId: string;
+  authorAddress: string;
+  authorType: 'customer' | 'shop';
+  content: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface ServiceReviewWithDetails extends ServiceReview {
@@ -23,6 +37,7 @@ export interface ServiceReviewWithDetails extends ServiceReview {
   customerProfileImageUrl?: string;
   serviceName?: string;
   shopName?: string;
+  replies?: ReviewReply[];
 }
 
 export interface CreateReviewParams {
@@ -172,6 +187,21 @@ export class ReviewRepository extends BaseRepository {
       const result = await this.pool.query(query, params);
       const items = result.rows.map(row => this.mapReviewWithDetailsRow(row));
 
+      // Attach replies
+      if (items.length > 0) {
+        const reviewIds = items.map(r => r.reviewId);
+        const repliesResult = await this.pool.query(
+          `SELECT * FROM review_replies WHERE review_id = ANY($1) ORDER BY created_at ASC`,
+          [reviewIds]
+        );
+        const repliesByReview = repliesResult.rows.reduce((acc, row) => {
+          if (!acc[row.review_id]) acc[row.review_id] = [];
+          acc[row.review_id].push(this.mapReplyRow(row));
+          return acc;
+        }, {} as Record<string, ReviewReply[]>);
+        items.forEach(r => { r.replies = repliesByReview[r.reviewId] || []; });
+      }
+
       return {
         items,
         pagination: {
@@ -301,6 +331,21 @@ export class ReviewRepository extends BaseRepository {
       const result = await this.pool.query(query, params);
       const items = result.rows.map(row => this.mapReviewWithDetailsRow(row));
 
+      // Attach replies
+      if (items.length > 0) {
+        const reviewIds = items.map(r => r.reviewId);
+        const repliesResult = await this.pool.query(
+          `SELECT * FROM review_replies WHERE review_id = ANY($1) ORDER BY created_at ASC`,
+          [reviewIds]
+        );
+        const repliesByReview = repliesResult.rows.reduce((acc, row) => {
+          if (!acc[row.review_id]) acc[row.review_id] = [];
+          acc[row.review_id].push(this.mapReplyRow(row));
+          return acc;
+        }, {} as Record<string, ReviewReply[]>);
+        items.forEach(r => { r.replies = repliesByReview[r.reviewId] || []; });
+      }
+
       return {
         items,
         pagination: {
@@ -396,6 +441,107 @@ export class ReviewRepository extends BaseRepository {
       return this.mapReviewRow(result.rows[0]);
     } catch (error) {
       logger.error('Error adding shop response:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Edit shop response
+   */
+  async updateShopResponse(reviewId: string, response: string): Promise<ServiceReview> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_reviews SET shop_response = $1, updated_at = NOW() WHERE review_id = $2 RETURNING *`,
+        [response, reviewId]
+      );
+      if (result.rows.length === 0) throw new Error('Review not found');
+      logger.info('Shop response updated', { reviewId });
+      return this.mapReviewRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error updating shop response:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add shop rejoinder (reply to customer's counter-reply)
+   */
+  async addShopRejoinder(reviewId: string, rejoinder: string): Promise<ServiceReview> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_reviews SET shop_rejoinder = $1, shop_rejoinder_at = NOW(), updated_at = NOW() WHERE review_id = $2 RETURNING *`,
+        [rejoinder, reviewId]
+      );
+      if (result.rows.length === 0) throw new Error('Review not found');
+      logger.info('Shop rejoinder added', { reviewId });
+      return this.mapReviewRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error adding shop rejoinder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Edit shop rejoinder
+   */
+  async updateShopRejoinder(reviewId: string, rejoinder: string): Promise<ServiceReview> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE service_reviews SET shop_rejoinder = $1, updated_at = NOW() WHERE review_id = $2 RETURNING *`,
+        [rejoinder, reviewId]
+      );
+      if (result.rows.length === 0) throw new Error('Review not found');
+      logger.info('Shop rejoinder updated', { reviewId });
+      return this.mapReviewRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error updating shop rejoinder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Edit an existing customer reply
+   */
+  async updateCustomerReply(reviewId: string, reply: string): Promise<ServiceReview> {
+    try {
+      const query = `
+        UPDATE service_reviews
+        SET customer_reply = $1, updated_at = NOW()
+        WHERE review_id = $2
+        RETURNING *
+      `;
+      const result = await this.pool.query(query, [reply, reviewId]);
+      if (result.rows.length === 0) throw new Error('Review not found');
+      logger.info('Customer reply updated', { reviewId });
+      return this.mapReviewRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error updating customer reply:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add customer counter-reply to a shop response (one reply per review)
+   */
+  async addCustomerReply(reviewId: string, reply: string): Promise<ServiceReview> {
+    try {
+      const query = `
+        UPDATE service_reviews
+        SET customer_reply = $1, customer_reply_at = NOW(), updated_at = NOW()
+        WHERE review_id = $2
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [reply, reviewId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Review not found');
+      }
+
+      logger.info('Customer reply added', { reviewId });
+      return this.mapReviewRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error adding customer reply:', error);
       throw error;
     }
   }
@@ -514,6 +660,59 @@ export class ReviewRepository extends BaseRepository {
   }
 
   /**
+   * Add a reply to a review thread (customer or shop, unlimited turns)
+   */
+  async addReply(reviewId: string, authorAddress: string, authorType: 'customer' | 'shop', content: string): Promise<ReviewReply> {
+    try {
+      const result = await this.pool.query(
+        `INSERT INTO review_replies (review_id, author_address, author_type, content)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [reviewId, authorAddress.toLowerCase(), authorType, content]
+      );
+      logger.info('Review reply added', { reviewId, authorType });
+      return this.mapReplyRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error adding review reply:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Edit an existing reply (author only)
+   */
+  async editReply(replyId: string, authorAddress: string, content: string): Promise<ReviewReply> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE review_replies SET content = $1, updated_at = NOW()
+         WHERE id = $2 AND author_address = $3 RETURNING *`,
+        [content, replyId, authorAddress.toLowerCase()]
+      );
+      if (result.rows.length === 0) throw new Error('Reply not found or not authorized');
+      logger.info('Review reply edited', { replyId });
+      return this.mapReplyRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error editing review reply:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all replies for a review
+   */
+  async getRepliesForReview(reviewId: string): Promise<ReviewReply[]> {
+    try {
+      const result = await this.pool.query(
+        `SELECT * FROM review_replies WHERE review_id = $1 ORDER BY created_at ASC`,
+        [reviewId]
+      );
+      return result.rows.map(row => this.mapReplyRow(row));
+    } catch (error) {
+      logger.error('Error fetching review replies:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map database row to ServiceReview
    */
   private mapReviewRow(row: any): ServiceReview {
@@ -529,6 +728,22 @@ export class ReviewRepository extends BaseRepository {
       helpfulCount: row.helpful_count || 0,
       shopResponse: row.shop_response,
       shopResponseAt: row.shop_response_at,
+      customerReply: row.customer_reply,
+      customerReplyAt: row.customer_reply_at,
+      shopRejoinder: row.shop_rejoinder,
+      shopRejoinderAt: row.shop_rejoinder_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  private mapReplyRow(row: any): ReviewReply {
+    return {
+      id: row.id,
+      reviewId: row.review_id,
+      authorAddress: row.author_address,
+      authorType: row.author_type,
+      content: row.content,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

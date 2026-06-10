@@ -246,6 +246,16 @@ export interface SubmitReviewData {
   images?: string[];
 }
 
+export interface ReviewReply {
+  id: string;
+  reviewId: string;
+  authorAddress: string;
+  authorType: 'customer' | 'shop';
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 export interface ReviewData {
   reviewId: string;
   orderId: string;
@@ -258,6 +268,11 @@ export interface ReviewData {
   images: string[] | null;
   shopResponse: string | null;
   shopResponseAt: string | null;
+  customerReply: string | null;
+  customerReplyAt: string | null;
+  shopRejoinder: string | null;
+  shopRejoinderAt: string | null;
+  replies: ReviewReply[];
   helpfulCount: number;
   createdAt: string;
   updatedAt: string;
@@ -561,6 +576,60 @@ export interface BookingAnalytics {
   peakHours: Array<{ hour: number; count: number }>;
   cancellationReasons: Array<{ reason: string; count: number }>;
   bookingTrends: Array<{ date: string; count: number }>;
+}
+
+export interface ShopServiceMetrics {
+  totalServices: number;
+  activeServices: number;
+  inactiveServices: number;
+  totalOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+  totalRcnRedeemed: number;
+  totalRcnDiscountUsd: number;
+  averageOrderValue: number;
+  averageRating: number;
+  totalReviews: number;
+  totalFavorites: number;
+}
+
+export interface ServicePerformance {
+  serviceId: string;
+  serviceName: string;
+  category: string;
+  priceUsd: number;
+  totalOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+  averageRating: number;
+  reviewCount: number;
+  favoriteCount: number;
+  rcnRedeemed: number;
+  rcnDiscountUsd: number;
+  conversionRate: number;
+}
+
+export interface OrderTrend {
+  date: string;
+  orderCount: number;
+  revenue: number;
+  rcnDiscountUsd: number;
+}
+
+export interface CategoryPerformance {
+  category: string;
+  serviceCount: number;
+  totalOrders: number;
+  totalRevenue: number;
+  averageRating: number;
+  averagePrice: number;
+}
+
+export interface ShopAnalyticsSummary {
+  overview: ShopServiceMetrics;
+  topServices: ServicePerformance[];
+  orderTrends: OrderTrend[];
+  categoryBreakdown: CategoryPerformance[];
 }
 
 export interface DisputeEntry {

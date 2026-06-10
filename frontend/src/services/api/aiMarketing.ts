@@ -58,6 +58,8 @@ export type MarketingToolDisplay =
       campaignId: string;
       subject: string;
       bodyPreview: string;
+      /** Full body for the review modal (the card shows bodyPreview). */
+      body?: string;
       channel: "email";
       audienceLabel: string;
       recipientCount: number;
@@ -66,6 +68,19 @@ export type MarketingToolDisplay =
       imageUrl?: string | null;
       /** Phase 2 — rough revenue-opportunity range ("est. $X–$Y"). */
       estimatedRevenue?: { lowUsd: number; highUsd: number } | null;
+      /** Campaign Rewards — RCN given to each recipient (+ total cost).
+       *  fulfillment 'on_return' issues when the customer comes back. */
+      reward?: {
+        /** Human-readable summary (variable modes show a tier/spend schedule). */
+        summary?: string;
+        rcnPerRecipient?: number; // flat only
+        totalRcn?: number; // flat only
+        fulfillment?: "on_send" | "on_return";
+        returnWindowDays?: number | null;
+      } | null;
+      /** Coupon — a bonus-RCN code redeemed on the next visit. code is null at
+       *  draft (minted at send); shown as "code added when sent". */
+      coupon?: { code: string | null; bonusRcn: number; expiresAt: string } | null;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the

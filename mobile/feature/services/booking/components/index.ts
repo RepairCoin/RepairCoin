@@ -7,6 +7,7 @@ export { default as ServiceOrdersScreen } from "./ServiceOrdersScreen";
 export { default as OrderCard } from "./OrderCard";
 export { default as OrderDetailModal } from "./OrderDetailModal";
 export { default as BookingAnalyticsTab } from "./BookingAnalyticsTab";
+export { default as ServiceAnalyticsTab } from "./ServiceAnalyticsTab";
 export { default as InfoRow } from "./InfoRow";
 export { default as StatusBanner } from "./StatusBanner";
 export { default as InfoBanner } from "./InfoBanner";

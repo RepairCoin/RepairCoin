@@ -10,6 +10,8 @@ export interface ShopAiSettings {
   // Admin-gated — read-only for the shop
   aiGlobalEnabled: boolean;
   aiFollowupEnabled: boolean;
+  aiImagesEnabled: boolean;
+  campaignRewardsEnabled: boolean;
   monthlyBudgetUsd: number;
   currentMonthSpendUsd: number;
   // Shop-editable
@@ -67,6 +69,8 @@ export interface AdminShopAiSettings extends ShopAiSettings {
 export interface AdminShopAiSettingsUpdate {
   aiGlobalEnabled?: boolean;
   aiFollowupEnabled?: boolean;
+  aiImagesEnabled?: boolean;
+  campaignRewardsEnabled?: boolean;
   monthlyBudgetUsd?: number;
 }
 

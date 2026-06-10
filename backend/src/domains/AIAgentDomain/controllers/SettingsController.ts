@@ -58,6 +58,8 @@ export interface ShopAiSettings {
   // Admin-gated (read-only for the shop)
   aiGlobalEnabled: boolean;
   aiFollowupEnabled: boolean;
+  aiImagesEnabled: boolean;
+  campaignRewardsEnabled: boolean;
   monthlyBudgetUsd: number;
   currentMonthSpendUsd: number;
   // Shop-editable
@@ -167,6 +169,8 @@ export interface AdminShopAiSettings extends ShopAiSettings {
 export interface AdminShopAiSettingsUpdate {
   aiGlobalEnabled?: boolean;
   aiFollowupEnabled?: boolean;
+  aiImagesEnabled?: boolean;
+  campaignRewardsEnabled?: boolean;
   monthlyBudgetUsd?: number;
 }
 
@@ -199,6 +203,18 @@ export function validateAdminShopAiSettingsUpdate(body: any): AdminValidationRes
     }
     out.aiFollowupEnabled = body.aiFollowupEnabled;
   }
+  if (body.aiImagesEnabled !== undefined) {
+    if (typeof body.aiImagesEnabled !== "boolean") {
+      return { ok: false, error: "aiImagesEnabled must be a boolean" };
+    }
+    out.aiImagesEnabled = body.aiImagesEnabled;
+  }
+  if (body.campaignRewardsEnabled !== undefined) {
+    if (typeof body.campaignRewardsEnabled !== "boolean") {
+      return { ok: false, error: "campaignRewardsEnabled must be a boolean" };
+    }
+    out.campaignRewardsEnabled = body.campaignRewardsEnabled;
+  }
   if (body.monthlyBudgetUsd !== undefined) {
     const b = body.monthlyBudgetUsd;
     if (typeof b !== "number" || !Number.isFinite(b) || b < BUDGET_MIN || b > BUDGET_MAX) {
@@ -214,7 +230,7 @@ export function validateAdminShopAiSettingsUpdate(body: any): AdminValidationRes
     return {
       ok: false,
       error:
-        "Provide at least one of: aiGlobalEnabled, aiFollowupEnabled, monthlyBudgetUsd",
+        "Provide at least one of: aiGlobalEnabled, aiFollowupEnabled, aiImagesEnabled, campaignRewardsEnabled, monthlyBudgetUsd",
     };
   }
   return { ok: true, value: out };
@@ -225,6 +241,8 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
   const r = await pool.query<{
     ai_global_enabled: boolean;
     ai_followup_enabled: boolean;
+    ai_images_enabled: boolean;
+    campaign_rewards_enabled: boolean;
     ai_followup_delay_minutes: number | null;
     escalation_threshold: number | null;
     monthly_budget_usd: string;
@@ -232,7 +250,8 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     human_reply_baseline_minutes: number | null;
     assistant_name: string | null;
   }>(
-    `SELECT ai_global_enabled, ai_followup_enabled, ai_followup_delay_minutes,
+    `SELECT ai_global_enabled, ai_followup_enabled, ai_images_enabled,
+            campaign_rewards_enabled, ai_followup_delay_minutes,
             escalation_threshold, monthly_budget_usd, current_month_spend_usd,
             human_reply_baseline_minutes, assistant_name
      FROM ai_shop_settings WHERE shop_id = $1`,
@@ -243,6 +262,8 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
     return {
       aiGlobalEnabled: false,
       aiFollowupEnabled: false,
+      aiImagesEnabled: false,
+      campaignRewardsEnabled: false,
       monthlyBudgetUsd: DEFAULT_MONTHLY_BUDGET,
       currentMonthSpendUsd: 0,
       escalationThreshold: DEFAULT_ESCALATION_THRESHOLD,
@@ -255,6 +276,8 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
   return {
     aiGlobalEnabled: row.ai_global_enabled === true,
     aiFollowupEnabled: row.ai_followup_enabled === true,
+    aiImagesEnabled: row.ai_images_enabled === true,
+    campaignRewardsEnabled: row.campaign_rewards_enabled === true,
     monthlyBudgetUsd: parseFloat(row.monthly_budget_usd) || DEFAULT_MONTHLY_BUDGET,
     currentMonthSpendUsd: parseFloat(row.current_month_spend_usd) || 0,
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
@@ -269,7 +292,8 @@ async function fetchSettings(pool: Pool, shopId: string): Promise<ShopAiSettings
 /** SELECT clause for the admin gate view — one shop's AI settings + name. */
 const ADMIN_SELECT = `
   SELECT s.shop_id, COALESCE(sh.name, s.shop_id) AS shop_name,
-         s.ai_global_enabled, s.ai_followup_enabled,
+         s.ai_global_enabled, s.ai_followup_enabled, s.ai_images_enabled,
+         s.campaign_rewards_enabled,
          s.ai_followup_delay_minutes, s.escalation_threshold,
          s.monthly_budget_usd, s.current_month_spend_usd,
          s.human_reply_baseline_minutes
@@ -282,6 +306,8 @@ function mapAdminRow(row: any): AdminShopAiSettings {
     shopName: row.shop_name ?? row.shop_id,
     aiGlobalEnabled: row.ai_global_enabled === true,
     aiFollowupEnabled: row.ai_followup_enabled === true,
+    aiImagesEnabled: row.ai_images_enabled === true,
+    campaignRewardsEnabled: row.campaign_rewards_enabled === true,
     monthlyBudgetUsd: parseFloat(row.monthly_budget_usd) || DEFAULT_MONTHLY_BUDGET,
     currentMonthSpendUsd: parseFloat(row.current_month_spend_usd) || 0,
     escalationThreshold: row.escalation_threshold ?? DEFAULT_ESCALATION_THRESHOLD,
@@ -414,6 +440,8 @@ export function makeSettingsControllers(deps: SettingsControllerDeps = {}) {
         const v = validation.value;
         if (v.aiGlobalEnabled !== undefined) add("ai_global_enabled", v.aiGlobalEnabled);
         if (v.aiFollowupEnabled !== undefined) add("ai_followup_enabled", v.aiFollowupEnabled);
+        if (v.aiImagesEnabled !== undefined) add("ai_images_enabled", v.aiImagesEnabled);
+        if (v.campaignRewardsEnabled !== undefined) add("campaign_rewards_enabled", v.campaignRewardsEnabled);
         if (v.monthlyBudgetUsd !== undefined) add("monthly_budget_usd", v.monthlyBudgetUsd);
 
         const placeholders = vals.map((_, i) => `$${i + 1}`);
