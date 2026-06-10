@@ -5,14 +5,14 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  ActivityIndicator,
+  // TouchableOpacity,
+  // Modal,
+  // TextInput,
+  // ActivityIndicator,
 } from "react-native";
-import { MaterialIcons, Ionicons } from "@expo/vector-icons";
+import { /* MaterialIcons, */ Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { /* useMutation, useQueryClient */ } from "@tanstack/react-query";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
@@ -85,44 +85,44 @@ export default function CustomerWalletTab() {
 
   const totalBalance = customerData?.customer?.currentRcnBalance || 0;
 
-  const [showMintModal, setShowMintModal] = useState(false);
-  const [mintAmount, setMintAmount] = useState("");
-  const { showSuccess, showError } = useAppToast();
-  const queryClient = useQueryClient();
+  // const [showMintModal, setShowMintModal] = useState(false);
+  // const [mintAmount, setMintAmount] = useState("");
+  const { showError } = useAppToast();
+  // const queryClient = useQueryClient();
 
-  const mintMutation = useMutation({
-    mutationFn: async (amount: number) => {
-      return apiClient.post(`/customers/balance/${walletAddress}/instant-mint`, { amount });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
-      refetch();
-      setShowMintModal(false);
-      setMintAmount("");
-      showSuccess("RCN minted to your wallet!");
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.error || error.message || "Failed to mint RCN";
-      showError(message);
-    },
-  });
+  // const mintMutation = useMutation({
+  //   mutationFn: async (amount: number) => {
+  //     return apiClient.post(`/customers/balance/${walletAddress}/instant-mint`, { amount });
+  //   },
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
+  //     refetch();
+  //     setShowMintModal(false);
+  //     setMintAmount("");
+  //     showSuccess("RCN minted to your wallet!");
+  //   },
+  //   onError: (error: any) => {
+  //     const message = error.response?.data?.error || error.message || "Failed to mint RCN";
+  //     showError(message);
+  //   },
+  // });
 
-  const handleMint = () => {
-    const amount = parseFloat(mintAmount);
-    if (isNaN(amount) || amount <= 0) {
-      showError("Please enter a valid amount");
-      return;
-    }
-    if (amount > totalBalance) {
-      showError("Amount exceeds available balance");
-      return;
-    }
-    if (amount > 10000) {
-      showError("Maximum 10,000 RCN per transaction");
-      return;
-    }
-    mintMutation.mutate(amount);
-  };
+  // const handleMint = () => {
+  //   const amount = parseFloat(mintAmount);
+  //   if (isNaN(amount) || amount <= 0) {
+  //     showError("Please enter a valid amount");
+  //     return;
+  //   }
+  //   if (amount > totalBalance) {
+  //     showError("Amount exceeds available balance");
+  //     return;
+  //   }
+  //   if (amount > 10000) {
+  //     showError("Maximum 10,000 RCN per transaction");
+  //     return;
+  //   }
+  //   mintMutation.mutate(amount);
+  // };
 
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",
@@ -197,16 +197,16 @@ export default function CustomerWalletTab() {
           tier={tokenData.tier}
           isLoading={isLoading}
           quickActions={[
-            {
-              icon: <Ionicons name="arrow-up-circle-outline" size={24} color="#000" />,
-              label: "Mint",
-              onPress: () => totalBalance > 0 ? setShowMintModal(true) : showError("No platform balance to mint"),
-            },
-            {
-              icon: <MaterialIcons name="card-giftcard" size={24} color="#000" />,
-              label: "Gift Token",
-              onPress: () => router.push("/customer/gift-token"),
-            },
+            // {
+            //   icon: <Ionicons name="arrow-up-circle-outline" size={24} color="#000" />,
+            //   label: "Mint",
+            //   onPress: () => totalBalance > 0 ? setShowMintModal(true) : showError("No platform balance to mint"),
+            // },
+            // {
+            //   icon: <MaterialIcons name="card-giftcard" size={24} color="#000" />,
+            //   label: "Gift Token",
+            //   onPress: () => router.push("/customer/gift-token"),
+            // },
             {
               icon: <Ionicons name="qr-code-outline" size={24} color="#000" />,
               label: "QR Code",
@@ -224,7 +224,7 @@ export default function CustomerWalletTab() {
             },
           ]}
         />
-        <Modal visible={showMintModal} transparent animationType="fade">
+        {/* <Modal visible={showMintModal} transparent animationType="fade">
           <Pressable
             className="flex-1 bg-black/60 justify-center items-center"
             onPress={() => setShowMintModal(false)}
@@ -286,7 +286,7 @@ export default function CustomerWalletTab() {
               </TouchableOpacity>
             </Pressable>
           </Pressable>
-        </Modal>
+        </Modal> */}
         {recentlyViewedData && recentlyViewedData.length > 0 && (
           <RecentlyViewedSection
             data={recentlyViewedData}
