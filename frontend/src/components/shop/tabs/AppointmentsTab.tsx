@@ -613,7 +613,7 @@ export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ defaultSubTab 
         {/* Status badge and payment link button */}
         <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-2">
           <span className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-medium ${badgeBg}`}>
-            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            {(booking.status.charAt(0).toUpperCase() + booking.status.slice(1)).replace(/_/g, ' ')}
           </span>
           {/* Show payment link button for pending (unpaid) bookings */}
           {booking.status === 'pending' && (

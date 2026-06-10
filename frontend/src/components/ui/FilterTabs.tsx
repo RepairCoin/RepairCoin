@@ -21,12 +21,14 @@ export const FilterTabs: React.FC<FilterTabsProps> = ({
   className = "",
 }) => {
   return (
-    <div className={`flex flex-wrap gap-2 ${className}`}>
+    <div
+      className={`flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible ${className}`}
+    >
       {tabs.map((tab) => (
         <button
           key={tab.value}
           onClick={() => onTabChange(tab.value)}
-          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors duration-150 ${
+          className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg border text-sm font-medium transition-colors duration-150 ${
             activeTab === tab.value
               ? "bg-yellow-400 text-gray-900 border-yellow-400"
               : "bg-[#1A1A1A] border-gray-800 text-gray-400 hover:bg-gray-800 hover:text-white"

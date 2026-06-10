@@ -46,9 +46,9 @@ export const ServiceExportModal: React.FC<ServiceExportModalProps> = ({ onClose 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1A1A1A] rounded-2xl shadow-2xl w-full max-w-md border border-gray-800 overflow-hidden">
+      <div className="bg-[#1A1A1A] rounded-2xl shadow-2xl w-full max-w-md border border-gray-800 overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
+        <div className="flex items-center justify-between p-6 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#FFCC00]/10 rounded-lg">
               <Download className="h-5 w-5 text-[#FFCC00]" />
@@ -67,7 +67,7 @@ export const ServiceExportModal: React.FC<ServiceExportModalProps> = ({ onClose 
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* File Format Selection */}
           <div>
             <label className="block text-sm font-semibold text-white mb-3">
@@ -207,7 +207,7 @@ export const ServiceExportModal: React.FC<ServiceExportModalProps> = ({ onClose 
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-6 border-t border-gray-800 bg-gray-900/30">
+        <div className="flex gap-3 p-6 border-t border-gray-800 bg-gray-900/30 shrink-0">
           <button
             type="button"
             onClick={onClose}
