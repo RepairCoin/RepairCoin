@@ -30,7 +30,6 @@ import {
   MarketingToolResult,
 } from "../types";
 import { MarketingService } from "../../../../../services/MarketingService";
-import { PromoCodeRepository } from "../../../../../repositories/PromoCodeRepository";
 import { logger } from "../../../../../utils/logger";
 import { estimateCampaignRevenue } from "../estimateCampaignRevenue";
 
@@ -375,48 +374,23 @@ export const proposeCampaignDraft: MarketingTool = {
       }
     }
 
-    // Campaign coupon (Phase 4) — a one-per-customer RCN-bonus CODE redeemed on
-    // the next visit via the existing /issue-reward promo path. Mutually
-    // exclusive with an RCN reward; only when the owner asked for a code.
-    let coupon: { code: string; bonusRcn: number; expiresAt: string } | null = null;
+    // Campaign coupon (Phase 4) — a one-per-customer RCN-bonus code. The actual
+    // CODE is minted at SEND time (MarketingService.sendCampaign), NOT here, so
+    // re-drafting (e.g. adding a banner) doesn't spawn extra orphaned codes. Here
+    // we only persist the coupon CONFIG; the send injects the code into the email
+    // and links the promo code to the campaign. Mutually exclusive with an RCN
+    // reward; only when the owner asked for a code.
+    let coupon: { code: string | null; bonusRcn: number; expiresAt: string } | null = null;
     if (!hasReward && couponRcn > 0) {
       if (await marketingService.isCampaignRewardsEnabled(ctx.shopId)) {
         const expiresAt = new Date(Date.now() + couponExpiresDays * 86400000);
-        try {
-          const created = await new PromoCodeRepository().create({
-            code: generateCouponCode(campaignName),
-            shop_id: ctx.shopId,
-            name: campaignName,
-            description: `Campaign coupon — ${campaignName}`,
-            bonus_type: "fixed",
-            bonus_value: couponRcn,
-            start_date: new Date(),
-            end_date: expiresAt,
-            per_customer_limit: 1,
-          });
-          // Add the code to the email body + link the promo code to the campaign so
-          // the existing redemption path grants the bonus when the customer returns.
-          const couponBlock = {
-            type: "text",
-            content:
-              `🎟️ Your code: ${created.code} — get ${couponRcn} bonus RCN when you come in ` +
-              `for your next repair (expires ${expiresAt.toLocaleDateString()}). Show this code at the shop.`,
-            style: { fontSize: "14px", textAlign: "center", color: "#7c3aed", fontWeight: "bold" },
-          };
-          await marketingService.updateCampaign(campaign.id, {
-            designContent: { ...designContent, blocks: [...designContent.blocks, couponBlock] },
-            promoCodeId: created.id,
-            couponValue: couponRcn,
-            couponType: "fixed",
-            couponExpiresAt: expiresAt,
-          });
-          await marketingService.setCampaignReward(campaign.id, { rewardType: "coupon" });
-          coupon = { code: created.code, bonusRcn: couponRcn, expiresAt: expiresAt.toISOString() };
-        } catch (err) {
-          logger.error(`${NAME}: coupon creation failed (drafted text-only)`, {
-            error: err instanceof Error ? err.message : err,
-          });
-        }
+        await marketingService.updateCampaign(campaign.id, {
+          couponValue: couponRcn,
+          couponType: "fixed",
+          couponExpiresAt: expiresAt,
+        });
+        await marketingService.setCampaignReward(campaign.id, { rewardType: "coupon" });
+        coupon = { code: null, bonusRcn: couponRcn, expiresAt: expiresAt.toISOString() };
       } else {
         rewardUnavailable = true;
       }
@@ -466,6 +440,8 @@ export const proposeCampaignDraft: MarketingTool = {
         campaignId: campaign.id,
         subject,
         bodyPreview: truncate(body, 280),
+        // Full body for the review modal (the card uses bodyPreview).
+        body,
         channel: "email",
         audienceLabel,
         recipientCount,
@@ -533,16 +509,6 @@ function bodyToBlocks(subject: string, body: string): Array<Record<string, unkno
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return `${s.slice(0, n - 1).trimEnd()}…`;
-}
-
-/** A short, readable coupon code: up-to-4 letters from the campaign name + a
- *  5-char random suffix (no ambiguous chars). Uppercased by PromoCodeRepository. */
-function generateCouponCode(name: string): string {
-  const base = name.replace(/[^a-zA-Z]/g, "").slice(0, 4).toUpperCase() || "SHOP";
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let suffix = "";
-  for (let i = 0; i < 5; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
-  return `${base}${suffix}`.slice(0, 20);
 }
 
 /** Human-readable one-liner for the reward shown on the draft card. */

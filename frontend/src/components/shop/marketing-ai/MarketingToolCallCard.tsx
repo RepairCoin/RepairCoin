@@ -241,9 +241,18 @@ const CampaignDraftCard: React.FC<{
         {d.coupon && (
           <p className="mt-1.5 text-sm text-violet-300">
             🎟️ Coupon:{" "}
-            <span className="font-semibold font-mono">{d.coupon.code}</span> ·{" "}
-            +{d.coupon.bonusRcn.toLocaleString()} RCN{" "}
-            <span className="text-xs text-gray-500">(redeemed on next visit)</span>
+            {d.coupon.code ? (
+              <>
+                <span className="font-semibold font-mono">{d.coupon.code}</span> ·{" "}
+                +{d.coupon.bonusRcn.toLocaleString()} RCN{" "}
+                <span className="text-xs text-gray-500">(redeemed on next visit)</span>
+              </>
+            ) : (
+              <>
+                +{d.coupon.bonusRcn.toLocaleString()} RCN bonus{" "}
+                <span className="text-xs text-gray-500">(code added when you send)</span>
+              </>
+            )}
           </p>
         )}
       </button>
@@ -286,7 +295,7 @@ const CampaignDraftCard: React.FC<{
           open={open}
           onOpenChange={setOpen}
           initialSubject={d.subject}
-          initialBody={d.bodyPreview}
+          initialBody={d.body ?? d.bodyPreview}
           campaignId={d.campaignId}
           audienceLabel={d.audienceLabel}
           recipientCount={d.recipientCount}

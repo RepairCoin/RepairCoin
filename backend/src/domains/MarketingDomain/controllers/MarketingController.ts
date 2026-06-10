@@ -381,6 +381,38 @@ export class MarketingController {
   };
 
   /**
+   * Pre-flight affordability check for a campaign's on-send RCN reward — lets the
+   * review modal warn / disable Send before the owner taps. Non-mutating.
+   */
+  rewardPrecheck = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { campaignId } = req.params;
+      const existing = await this.marketingService.getCampaign(campaignId);
+      if (!existing) {
+        res.status(404).json({ success: false, error: 'Campaign not found' });
+        return;
+      }
+      if (!req.user?.shopId || req.user.shopId !== existing.shopId) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return;
+      }
+      const recipients = await this.marketingService.getAudienceRecipients(
+        existing.shopId,
+        existing.audienceType as any,
+        existing.audienceFilters
+      );
+      const result = await campaignRewardService.precheckOnSend(
+        existing,
+        recipients.map((r) => ({ walletAddress: r.walletAddress }))
+      );
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      logger.error('Error in reward precheck:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to precheck reward' });
+    }
+  };
+
+  /**
    * Schedule a campaign
    */
   scheduleCampaign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

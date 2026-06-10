@@ -16,6 +16,7 @@ import { PaginatedResult, PaginationParams } from '../repositories/BaseRepositor
 import { eventBus, createDomainEvent } from '../events/EventBus';
 import { campaignRewardService } from './CampaignRewardService';
 import { getSharedPool } from '../utils/database-pool';
+import { PromoCodeRepository } from '../repositories/PromoCodeRepository';
 
 interface ShopInfo {
   id: string;
@@ -46,6 +47,16 @@ export interface CampaignDeliveryResult {
   rcnTotalIssued?: number;
   // Redeem-on-return (Phase 2) — pending rewards written, issued when customers return.
   rcnPending?: number;
+}
+
+/** A short, readable coupon code: up-to-4 letters from the campaign name + a
+ *  5-char random suffix (no ambiguous chars). Uppercased by PromoCodeRepository. */
+function generateCouponCode(name: string): string {
+  const base = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || 'SHOP';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+  for (let i = 0; i < 5; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+  return `${base}${suffix}`.slice(0, 20);
 }
 
 export class MarketingService {
@@ -250,6 +261,45 @@ export class MarketingService {
         recipients.map(r => ({ walletAddress: r.walletAddress, email: r.email, name: r.name }))
       );
       result.rcnPending = pendingOutcome.pending;
+    }
+
+    // Campaign coupon (Phase 4): mint the code NOW (once), inject it into the email
+    // body, and link it to the campaign. Generated at SEND — not at draft — so
+    // re-drafting (e.g. adding a banner) never spawns orphaned codes. Redeemed
+    // later via the existing /issue-reward promo path.
+    if (campaign.rewardType === 'coupon' && !campaign.promoCodeId && (campaign.couponValue || 0) > 0) {
+      try {
+        const expiresAt = campaign.couponExpiresAt
+          ? new Date(campaign.couponExpiresAt)
+          : new Date(Date.now() + 60 * 86400000);
+        const created = await new PromoCodeRepository().create({
+          code: generateCouponCode(campaign.name),
+          shop_id: campaign.shopId,
+          name: campaign.name,
+          description: `Campaign coupon — ${campaign.name}`,
+          bonus_type: 'fixed',
+          bonus_value: campaign.couponValue as number,
+          start_date: new Date(),
+          end_date: expiresAt,
+          per_customer_limit: 1,
+        });
+        const couponBlock = {
+          type: 'text',
+          content:
+            `🎟️ Your code: ${created.code} — get ${campaign.couponValue} bonus RCN when you come in ` +
+            `for your next repair (expires ${expiresAt.toLocaleDateString()}). Show this code at the shop.`,
+          style: { fontSize: '14px', textAlign: 'center', color: '#7c3aed', fontWeight: 'bold' },
+        };
+        const existingBlocks = (campaign.designContent && (campaign.designContent as any).blocks) || [];
+        const updatedDesign = { ...(campaign.designContent || {}), blocks: [...existingBlocks, couponBlock] };
+        await this.campaignRepo.update(campaign.id, { designContent: updatedDesign, promoCodeId: created.id });
+        // Mutate the in-memory campaign so the email render below includes the code.
+        (campaign as any).designContent = updatedDesign;
+        (campaign as any).promoCodeId = created.id;
+        logger.info(`Minted campaign coupon ${created.code} for campaign ${campaign.id}`);
+      } catch (err) {
+        logger.error('Failed to mint campaign coupon at send (continuing without):', err);
+      }
     }
 
     // Send to existing customers via selected delivery method
@@ -637,14 +687,23 @@ export class MarketingService {
     // Always use production URL for logo in emails (localhost won't work for email recipients)
     const logoUrl = `${process.env.PUBLIC_ASSET_URL || 'https://repaircoin.ai'}/img/landing/repaircoin-icon.png`;
 
-    // Build HTML from design blocks
-    let blocksHtml = '';
+    // A LEADING banner image renders EDGE-TO-EDGE and REPLACES the shop-name
+    // header (so the email opens on the banner, not a redundant dark header).
+    // The remaining blocks render in the padded body as usual.
+    const blocksArr = design.blocks && Array.isArray(design.blocks) ? design.blocks : [];
+    const bannerBlock = blocksArr[0] && blocksArr[0].type === 'image' ? blocksArr[0] : null;
+    const contentBlocks = bannerBlock ? blocksArr.slice(1) : blocksArr;
 
-    if (design.blocks && Array.isArray(design.blocks)) {
-      for (const block of design.blocks) {
-        blocksHtml += this.renderBlock(block, campaign, shopInfo, serviceData);
-      }
+    let blocksHtml = '';
+    for (const block of contentBlocks) {
+      blocksHtml += this.renderBlock(block, campaign, shopInfo, serviceData);
     }
+
+    // Full-width banner row: no padding, image spans the full 600px container.
+    // The container's overflow:hidden + border-radius rounds the top corners.
+    const bannerHtml = bannerBlock
+      ? `<tr><td style="padding: 0; font-size: 0; line-height: 0;"><img src="${bannerBlock.src}" alt="" style="display: block; width: 100%; height: auto; border: 0;"></td></tr>`
+      : '';
 
     return `
       <!DOCTYPE html>
@@ -659,7 +718,7 @@ export class MarketingService {
           <tr>
             <td align="center" style="padding: 20px;">
               <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
-                ${design.header?.enabled !== false ? `
+                ${(design.header?.enabled !== false && !bannerBlock) ? `
                 <tr>
                   <td style="background-color: ${design.header?.backgroundColor || '#1a1a2e'}; padding: 30px; text-align: center;">
                     ${design.header?.showLogo !== false ? `
@@ -669,6 +728,7 @@ export class MarketingService {
                   </td>
                 </tr>
                 ` : ''}
+                ${bannerHtml}
                 <tr>
                   <td style="padding: 30px;">
                     ${blocksHtml}

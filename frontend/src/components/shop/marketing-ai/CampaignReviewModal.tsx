@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Send, Loader2, AlertCircle, Users, Mail, CalendarClock, Check } from "lucide-react";
 import {
   Dialog,
@@ -12,6 +12,8 @@ import {
 import {
   sendCampaign,
   scheduleCampaign,
+  rewardPrecheck,
+  RewardPrecheck,
   CampaignDeliveryResult,
 } from "@/services/api/marketing";
 
@@ -69,6 +71,23 @@ export const CampaignReviewModal: React.FC<{
   const [mode, setMode] = useState<"now" | "later">("now");
   const [scheduleAt, setScheduleAt] = useState("");
   const [scheduledFor, setScheduledFor] = useState<Date | null>(null);
+  // Pre-flight reward affordability — warn + disable Send BEFORE the tap when the
+  // shop can't cover an on-send RCN reward. The server gate still backs this up.
+  const [precheck, setPrecheck] = useState<RewardPrecheck | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPrecheck(null);
+      return;
+    }
+    let cancelled = false;
+    rewardPrecheck(campaignId)
+      .then((p) => { if (!cancelled) setPrecheck(p); })
+      .catch(() => { if (!cancelled) setPrecheck(null); });
+    return () => { cancelled = true; };
+  }, [open, campaignId]);
+
+  const balanceShort = precheck?.applicable === true && precheck.affordable === false;
 
   const onConfirm = async () => {
     setState("sending");
@@ -246,6 +265,18 @@ export const CampaignReviewModal: React.FC<{
             </div>
           )}
 
+          {balanceShort && precheck && (
+            <div className="rounded-md bg-amber-900/30 border border-amber-600/60 px-3 py-2 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-200 leading-relaxed">
+                This campaign&apos;s reward needs{" "}
+                <span className="font-semibold">{precheck.required.toLocaleString()} RCN</span>, but the shop&apos;s
+                balance is <span className="font-semibold">{precheck.available.toLocaleString()} RCN</span>. Buy
+                more RCN or lower the reward before sending.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-md bg-red-900/30 border border-red-700/60 px-3 py-2 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -290,7 +321,7 @@ export const CampaignReviewModal: React.FC<{
               <button
                 type="button"
                 onClick={onSchedule}
-                disabled={state === "sending"}
+                disabled={state === "sending" || balanceShort}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-[#FFCC00] text-black hover:bg-[#FFD700] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {state === "sending" ? (
@@ -309,7 +340,7 @@ export const CampaignReviewModal: React.FC<{
               <button
                 type="button"
                 onClick={onConfirm}
-                disabled={state === "sending"}
+                disabled={state === "sending" || balanceShort}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {state === "sending" ? (

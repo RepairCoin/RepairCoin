@@ -58,6 +58,8 @@ export type MarketingToolDisplay =
       campaignId: string;
       subject: string;
       bodyPreview: string;
+      /** Full body for the review modal (the card shows bodyPreview). */
+      body?: string;
       channel: "email";
       audienceLabel: string;
       recipientCount: number;
@@ -76,8 +78,9 @@ export type MarketingToolDisplay =
         fulfillment?: "on_send" | "on_return";
         returnWindowDays?: number | null;
       } | null;
-      /** Coupon — a bonus-RCN code redeemed on the next visit. */
-      coupon?: { code: string; bonusRcn: number; expiresAt: string } | null;
+      /** Coupon — a bonus-RCN code redeemed on the next visit. code is null at
+       *  draft (minted at send); shown as "code added when sent". */
+      coupon?: { code: string | null; bonusRcn: number; expiresAt: string } | null;
     }
   | {
       // Inline send-confirm chip for an existing draft. Tap fires the

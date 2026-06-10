@@ -242,6 +242,30 @@ export class CampaignRewardService {
     return result;
   }
 
+  /**
+   * Non-mutating affordability check for an on_send RCN reward — used by the
+   * review modal to warn / disable Send BEFORE the owner taps (the same numbers
+   * the balance gate uses at send time). `applicable:false` means there's no
+   * on_send RCN reward to gate (nothing to warn about).
+   */
+  async precheckOnSend(
+    campaign: MarketingCampaign,
+    recipients: RewardRecipient[]
+  ): Promise<{ applicable: boolean; required: number; available: number; affordable: boolean }> {
+    if (!this.hasOnSendRcnReward(campaign) || !(await this.isEnabled(campaign.shopId))) {
+      return { applicable: false, required: 0, available: 0, affordable: true };
+    }
+    const shop = await shopRepository.getShop(campaign.shopId);
+    const shopWallet = shop?.walletAddress?.toLowerCase();
+    const eligible = recipients.filter(
+      (r) => r.walletAddress && r.walletAddress.toLowerCase() !== shopWallet
+    );
+    const amounts = await this.resolveAmounts(campaign, eligible.map((r) => r.walletAddress));
+    const required = Array.from(amounts.values()).reduce((s, v) => s + v, 0);
+    const available = shop?.purchasedRcnBalance ?? 0;
+    return { applicable: true, required, available, affordable: required <= available };
+  }
+
   // ---- Phase 2: redeem-on-return ----
 
   /** True for a campaign whose RCN reward lands when the customer next returns. */
