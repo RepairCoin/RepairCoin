@@ -131,6 +131,86 @@ export const proposeCampaignDraft: MarketingTool = {
           "or a placeholder falls back to the shop's most recently generated " +
           "image.",
       },
+      reward_rcn: {
+        type: "number",
+        minimum: 1,
+        maximum: 10000,
+        description:
+          "Optional. RCN tokens to give EACH recipient (1 RCN = $0.10, drawn " +
+          "from the shop's purchased RCN balance). Only set this when the shop " +
+          "explicitly asks to include a reward (e.g. 'send 25 RCN to lapsed " +
+          "customers'). Omit for a no-reward campaign. When set, you MAY state " +
+          "the exact amount in the body. The shop confirms the cost before send.",
+      },
+      reward_fulfillment: {
+        type: "string",
+        enum: ["on_send", "on_return"],
+        description:
+          "When the reward lands (only with reward_rcn). 'on_send' = issued " +
+          "immediately when the campaign sends (a thank-you gift). 'on_return' " +
+          "= issued only when the customer next completes an order within " +
+          "return_window_days (best for WIN-BACK — only spends on customers who " +
+          "actually come back). Default 'on_send'. Prefer 'on_return' for " +
+          "lapsed / win-back audiences.",
+      },
+      return_window_days: {
+        type: "number",
+        minimum: 1,
+        maximum: 365,
+        description:
+          "Days an on_return reward stays claimable after send. Only used when " +
+          "reward_fulfillment='on_return'. Default 30.",
+      },
+      reward_mode: {
+        type: "string",
+        enum: ["flat", "by_tier", "by_spend"],
+        description:
+          "How the RCN amount is decided (only with a reward). 'flat' (default) " +
+          "= the same reward_rcn for everyone. 'by_tier' = different amounts per " +
+          "loyalty tier (set reward_rcn_by_tier). 'by_spend' = amounts by how much " +
+          "the customer has spent at the shop (set reward_spend_bands). Use a " +
+          "variable mode only when the owner asks to reward customers differently.",
+      },
+      reward_rcn_by_tier: {
+        type: "object",
+        description:
+          "RCN per loyalty tier for reward_mode='by_tier', e.g. " +
+          '{"GOLD": 50, "SILVER": 25, "BRONZE": 10}. Keys are BRONZE/SILVER/GOLD; ' +
+          "omit a tier to give it nothing.",
+      },
+      reward_spend_bands: {
+        type: "array",
+        description:
+          "RCN by spend for reward_mode='by_spend'. A customer gets the rcn of " +
+          "the HIGHEST band whose minSpend they've reached, e.g. " +
+          '[{"minSpend":0,"rcn":10},{"minSpend":500,"rcn":25},{"minSpend":1000,"rcn":50}].',
+        items: {
+          type: "object",
+          properties: {
+            minSpend: { type: "number", minimum: 0 },
+            rcn: { type: "number", minimum: 0 },
+          },
+          required: ["minSpend", "rcn"],
+        },
+      },
+      coupon_rcn: {
+        type: "number",
+        minimum: 1,
+        maximum: 10000,
+        description:
+          "Optional, ALTERNATIVE to reward_rcn. Issues a one-per-customer COUPON " +
+          "CODE that grants this many BONUS RCN when the customer redeems it on " +
+          "their next visit (the shop enters the code when issuing their repair " +
+          "reward). Unlike reward_rcn (issued automatically), a coupon is claimed " +
+          "by returning. Only set when the owner asks for a redeemable code. The " +
+          "code is generated and added to the email automatically — don't invent one.",
+      },
+      coupon_expires_days: {
+        type: "number",
+        minimum: 1,
+        maximum: 365,
+        description: "Days the coupon code stays valid. Only with coupon_rcn. Default 60.",
+      },
     },
     required: [
       "audience_type",
@@ -158,6 +238,30 @@ export const proposeCampaignDraft: MarketingTool = {
     const campaignName = String(a.campaign_name ?? "").trim();
     const providedImageUrl =
       typeof a.image_url === "string" ? a.image_url.trim() : "";
+    const rewardRcn =
+      typeof a.reward_rcn === "number" && a.reward_rcn > 0 ? a.reward_rcn : 0;
+    const rewardFulfillment: "on_send" | "on_return" =
+      a.reward_fulfillment === "on_return" ? "on_return" : "on_send";
+    const returnWindowDays =
+      typeof a.return_window_days === "number" && a.return_window_days > 0
+        ? Math.min(365, Math.round(a.return_window_days))
+        : 30;
+    const rewardMode: "flat" | "by_tier" | "by_spend" =
+      a.reward_mode === "by_tier" ? "by_tier" : a.reward_mode === "by_spend" ? "by_spend" : "flat";
+    const rewardByTier =
+      rewardMode === "by_tier" && a.reward_rcn_by_tier && typeof a.reward_rcn_by_tier === "object"
+        ? (a.reward_rcn_by_tier as Record<string, number>)
+        : null;
+    const rewardSpendBands =
+      rewardMode === "by_spend" && Array.isArray(a.reward_spend_bands)
+        ? (a.reward_spend_bands as Array<{ minSpend: number; rcn: number }>)
+        : null;
+    const couponRcn =
+      typeof a.coupon_rcn === "number" && a.coupon_rcn > 0 ? a.coupon_rcn : 0;
+    const couponExpiresDays =
+      typeof a.coupon_expires_days === "number" && a.coupon_expires_days > 0
+        ? Math.min(365, Math.round(a.coupon_expires_days))
+        : 60;
 
     if (!subject || !body || !campaignName || !audienceLabel) {
       throw new Error(
@@ -228,9 +332,75 @@ export const proposeCampaignDraft: MarketingTool = {
       createdBySource: "ai_agent",
     });
 
+    // Campaign reward (Phase 1: flat on_send RCN). Only persist it when the
+    // admin has enabled rewards for this shop — otherwise the card would promise
+    // a reward the send can't deliver. When unavailable we draft text-only and
+    // flag it so the assistant can tell the owner.
+    const hasReward =
+      (rewardMode === "flat" && rewardRcn > 0) ||
+      (rewardMode === "by_tier" && !!rewardByTier && Object.values(rewardByTier).some((v) => Number(v) > 0)) ||
+      (rewardMode === "by_spend" && !!rewardSpendBands && rewardSpendBands.some((b) => Number(b.rcn) > 0));
+
+    let reward: {
+      summary: string;
+      rcnPerRecipient?: number;
+      totalRcn?: number;
+      fulfillment: "on_send" | "on_return";
+      returnWindowDays: number | null;
+    } | null = null;
+    let rewardUnavailable = false;
+
+    if (hasReward) {
+      if (await marketingService.isCampaignRewardsEnabled(ctx.shopId)) {
+        await marketingService.setCampaignReward(campaign.id, {
+          rewardType: "rcn",
+          rewardMode,
+          rewardRcnAmount: rewardMode === "flat" ? rewardRcn : null,
+          rewardRcnByTier: rewardMode === "by_tier" ? rewardByTier : null,
+          rewardSpendBands: rewardMode === "by_spend" ? rewardSpendBands : null,
+          fulfillmentTrigger: rewardFulfillment,
+          returnWindowDays: rewardFulfillment === "on_return" ? returnWindowDays : null,
+        });
+        const flat = rewardMode === "flat";
+        reward = {
+          summary: buildRewardSummary(rewardMode, rewardRcn, rewardByTier, rewardSpendBands, recipientCount),
+          rcnPerRecipient: flat ? rewardRcn : undefined,
+          totalRcn: flat ? rewardRcn * recipientCount : undefined,
+          fulfillment: rewardFulfillment,
+          returnWindowDays: rewardFulfillment === "on_return" ? returnWindowDays : null,
+        };
+      } else {
+        rewardUnavailable = true;
+      }
+    }
+
+    // Campaign coupon (Phase 4) — a one-per-customer RCN-bonus code. The actual
+    // CODE is minted at SEND time (MarketingService.sendCampaign), NOT here, so
+    // re-drafting (e.g. adding a banner) doesn't spawn extra orphaned codes. Here
+    // we only persist the coupon CONFIG; the send injects the code into the email
+    // and links the promo code to the campaign. Mutually exclusive with an RCN
+    // reward; only when the owner asked for a code.
+    let coupon: { code: string | null; bonusRcn: number; expiresAt: string } | null = null;
+    if (!hasReward && couponRcn > 0) {
+      if (await marketingService.isCampaignRewardsEnabled(ctx.shopId)) {
+        const expiresAt = new Date(Date.now() + couponExpiresDays * 86400000);
+        await marketingService.updateCampaign(campaign.id, {
+          couponValue: couponRcn,
+          couponType: "fixed",
+          couponExpiresAt: expiresAt,
+        });
+        await marketingService.setCampaignReward(campaign.id, { rewardType: "coupon" });
+        coupon = { code: null, bonusRcn: couponRcn, expiresAt: expiresAt.toISOString() };
+      } else {
+        rewardUnavailable = true;
+      }
+    }
+
     logger.info(`${NAME}: drafted campaign ${campaign.id} for shop ${ctx.shopId}`, {
       audienceType,
       recipientCount,
+      rewardRcn: reward ? rewardRcn : 0,
+      coupon: coupon ? coupon.code : null,
     });
 
     return {
@@ -248,17 +418,47 @@ export const proposeCampaignDraft: MarketingTool = {
           avg_order_value_usd: revenue.avgOrderValueUsd,
           assumptions: revenue.assumptions,
         },
+        reward: reward
+          ? {
+              summary: reward.summary,
+              mode: rewardMode,
+              rcn_per_recipient: reward.rcnPerRecipient ?? null,
+              total_rcn: reward.totalRcn ?? null,
+              fulfillment: reward.fulfillment,
+              return_window_days: reward.returnWindowDays,
+            }
+          : null,
+        coupon: coupon
+          ? { code: coupon.code, bonus_rcn: coupon.bonusRcn, expires_at: coupon.expiresAt }
+          : null,
+        // True when the shop asked for a reward/coupon but campaign rewards aren't
+        // enabled for them — tell the owner it was drafted without it.
+        reward_unavailable: rewardUnavailable,
       },
       display: {
         kind: "campaign_draft",
         campaignId: campaign.id,
         subject,
         bodyPreview: truncate(body, 280),
+        // Full body for the review modal (the card uses bodyPreview).
+        body,
         channel: "email",
         audienceLabel,
         recipientCount,
         imageUrl: bannerImageUrl,
         estimatedRevenue: { lowUsd: revenue.lowUsd, highUsd: revenue.highUsd },
+        reward: reward
+          ? {
+              summary: reward.summary,
+              rcnPerRecipient: reward.rcnPerRecipient,
+              totalRcn: reward.totalRcn,
+              fulfillment: reward.fulfillment,
+              returnWindowDays: reward.returnWindowDays,
+            }
+          : undefined,
+        coupon: coupon
+          ? { code: coupon.code, bonusRcn: coupon.bonusRcn, expiresAt: coupon.expiresAt }
+          : undefined,
       },
     };
   },
@@ -309,4 +509,28 @@ function bodyToBlocks(subject: string, body: string): Array<Record<string, unkno
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return `${s.slice(0, n - 1).trimEnd()}…`;
+}
+
+/** Human-readable one-liner for the reward shown on the draft card. */
+function buildRewardSummary(
+  mode: "flat" | "by_tier" | "by_spend",
+  flatRcn: number,
+  byTier: Record<string, number> | null,
+  bands: Array<{ minSpend: number; rcn: number }> | null,
+  recipientCount: number
+): string {
+  if (mode === "by_tier" && byTier) {
+    const order = ["GOLD", "SILVER", "BRONZE"];
+    const parts = order
+      .filter((t) => Number(byTier[t]) > 0)
+      .map((t) => `${t[0]}${t.slice(1).toLowerCase()} ${byTier[t]}`);
+    return `${parts.join(" / ")} RCN each`;
+  }
+  if (mode === "by_spend" && bands && bands.length) {
+    const rcns = bands.map((b) => Number(b.rcn)).filter((n) => n > 0);
+    const lo = Math.min(...rcns);
+    const hi = Math.max(...rcns);
+    return lo === hi ? `${lo} RCN by spend` : `${lo}–${hi} RCN by spend`;
+  }
+  return `${flatRcn} RCN each · ${(flatRcn * recipientCount).toLocaleString()} RCN total`;
 }

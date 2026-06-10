@@ -21,6 +21,14 @@ export interface MarketingCampaign {
   couponType: 'fixed' | 'percentage' | null;
   couponExpiresAt: Date | null;
   serviceId: string | null;
+  // Campaign rewards (migration 136). Default reward_type 'none' = message-only.
+  rewardType: 'none' | 'rcn' | 'coupon';
+  rewardMode: 'flat' | 'by_tier' | 'by_spend' | null;
+  rewardRcnAmount: number | null;
+  rewardRcnByTier: Record<string, number> | null;
+  rewardSpendBands: Array<{ minSpend: number; rcn: number }> | null;
+  fulfillmentTrigger: 'on_send' | 'on_return';
+  returnWindowDays: number | null;
   totalRecipients: number;
   emailsSent: number;
   emailsOpened: number;
@@ -43,6 +51,16 @@ export interface CampaignRecipient {
   inAppSentAt: Date | null;
   inAppReadAt: Date | null;
   deliveryError: string | null;
+  // Reward ledger (migration 136) — the per-recipient idempotency anchor.
+  rewardKind: 'rcn' | 'coupon' | null;
+  rewardAmount: number | null;
+  rewardStatus: 'pending' | 'issued' | 'redeemed' | 'skipped' | 'failed' | 'expired' | null;
+  rewardPromoCode: string | null;
+  rewardTxHash: string | null;
+  rewardIssuedAt: Date | null;
+  rewardRedeemedAt: Date | null;
+  rewardExpiresAt: Date | null;
+  rewardError: string | null;
   createdAt: Date;
 }
 
@@ -528,6 +546,136 @@ export class MarketingCampaignRepository extends BaseRepository {
     }
   }
 
+  // ---- Campaign rewards (migration 136) ----
+
+  /** Set/clear the reward config on a campaign. Used by the AI draft + the
+   *  manual builder. Only writes the fields provided. */
+  async setReward(
+    campaignId: string,
+    config: {
+      rewardType?: 'none' | 'rcn' | 'coupon';
+      rewardMode?: 'flat' | 'by_tier' | 'by_spend' | null;
+      rewardRcnAmount?: number | null;
+      rewardRcnByTier?: Record<string, number> | null;
+      rewardSpendBands?: Array<{ minSpend: number; rcn: number }> | null;
+      fulfillmentTrigger?: 'on_send' | 'on_return';
+      returnWindowDays?: number | null;
+    }
+  ): Promise<void> {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+    const set = (col: string, val: any) => { updates.push(`${col} = $${i++}`); values.push(val); };
+    if (config.rewardType !== undefined) set('reward_type', config.rewardType);
+    if (config.rewardMode !== undefined) set('reward_mode', config.rewardMode);
+    if (config.rewardRcnAmount !== undefined) set('reward_rcn_amount', config.rewardRcnAmount);
+    if (config.rewardRcnByTier !== undefined) set('reward_rcn_by_tier', config.rewardRcnByTier ? JSON.stringify(config.rewardRcnByTier) : null);
+    if (config.rewardSpendBands !== undefined) set('reward_spend_bands', config.rewardSpendBands ? JSON.stringify(config.rewardSpendBands) : null);
+    if (config.fulfillmentTrigger !== undefined) set('fulfillment_trigger', config.fulfillmentTrigger);
+    if (config.returnWindowDays !== undefined) set('return_window_days', config.returnWindowDays);
+    if (updates.length === 0) return;
+    values.push(campaignId);
+    await this.pool.query(
+      `UPDATE marketing_campaigns SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${i}`,
+      values
+    );
+  }
+
+  /** Update a recipient's reward ledger fields. The (campaign_id, customer_address)
+   *  row is the idempotency anchor for fulfillment + retries. */
+  async markRecipientReward(
+    campaignId: string,
+    customerAddress: string,
+    patch: {
+      kind?: 'rcn' | 'coupon';
+      amount?: number;
+      status?: 'pending' | 'issued' | 'redeemed' | 'skipped' | 'failed' | 'expired';
+      promoCode?: string;
+      txHash?: string;
+      issuedAt?: Date;
+      redeemedAt?: Date;
+      expiresAt?: Date;
+      error?: string | null;
+    }
+  ): Promise<void> {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+    const set = (col: string, val: any) => { updates.push(`${col} = $${i++}`); values.push(val); };
+    if (patch.kind !== undefined) set('reward_kind', patch.kind);
+    if (patch.amount !== undefined) set('reward_amount', patch.amount);
+    if (patch.status !== undefined) set('reward_status', patch.status);
+    if (patch.promoCode !== undefined) set('reward_promo_code', patch.promoCode);
+    if (patch.txHash !== undefined) set('reward_tx_hash', patch.txHash);
+    if (patch.issuedAt !== undefined) set('reward_issued_at', patch.issuedAt);
+    if (patch.redeemedAt !== undefined) set('reward_redeemed_at', patch.redeemedAt);
+    if (patch.expiresAt !== undefined) set('reward_expires_at', patch.expiresAt);
+    if (patch.error !== undefined) set('reward_error', patch.error);
+    if (updates.length === 0) return;
+    values.push(campaignId, customerAddress.toLowerCase());
+    await this.pool.query(
+      `UPDATE marketing_campaign_recipients SET ${updates.join(', ')}
+       WHERE campaign_id = $${i} AND customer_address = $${i + 1}`,
+      values
+    );
+  }
+
+  /** Recipients whose reward issuance failed — for the "retry failed rewards" action. */
+  async findFailedRewardRecipients(campaignId: string): Promise<CampaignRecipient[]> {
+    const r = await this.pool.query(
+      `SELECT * FROM marketing_campaign_recipients
+       WHERE campaign_id = $1 AND reward_status = 'failed'`,
+      [campaignId]
+    );
+    return r.rows.map(row => this.mapRecipient(row));
+  }
+
+  /**
+   * Atomically CLAIM a customer's pending on_return RCN rewards for a shop — flips
+   * them pending → redeemed in one statement and returns the claimed rows. The
+   * WHERE reward_status='pending' makes this safe under concurrency (two
+   * order_completed events for the same customer can't both claim the same row),
+   * which is the idempotency guard for redeem-on-return. The caller then issues
+   * the RCN and downgrades to 'failed' if the mint fails. Only RCN, unexpired.
+   */
+  async claimReturningRewards(
+    shopId: string,
+    customerAddress: string
+  ): Promise<Array<{ id: string; campaignId: string; customerAddress: string; rewardAmount: number; campaignName: string }>> {
+    const r = await this.pool.query(
+      `UPDATE marketing_campaign_recipients r
+         SET reward_status = 'redeemed', reward_redeemed_at = NOW()
+        FROM marketing_campaigns c
+       WHERE r.campaign_id = c.id
+         AND c.shop_id = $1
+         AND LOWER(r.customer_address) = LOWER($2)
+         AND r.reward_kind = 'rcn'
+         AND r.reward_status = 'pending'
+         AND (r.reward_expires_at IS NULL OR r.reward_expires_at > NOW())
+       RETURNING r.id, r.campaign_id, r.customer_address, r.reward_amount, c.name AS campaign_name`,
+      [shopId, customerAddress]
+    );
+    return r.rows.map((row) => ({
+      id: row.id,
+      campaignId: row.campaign_id,
+      customerAddress: row.customer_address,
+      rewardAmount: row.reward_amount != null ? parseFloat(row.reward_amount) : 0,
+      campaignName: row.campaign_name,
+    }));
+  }
+
+  /** Expire pending on_return rewards past their window. Returns the count expired. */
+  async expireOverdueRewards(): Promise<number> {
+    const r = await this.pool.query(
+      `UPDATE marketing_campaign_recipients
+          SET reward_status = 'expired'
+        WHERE reward_status = 'pending'
+          AND reward_expires_at IS NOT NULL
+          AND reward_expires_at <= NOW()`
+    );
+    return r.rowCount || 0;
+  }
+
   // Templates methods
   async getTemplates(category?: string): Promise<MarketingTemplate[]> {
     let query = 'SELECT * FROM marketing_templates WHERE is_active = true';
@@ -652,6 +800,17 @@ export class MarketingCampaignRepository extends BaseRepository {
       couponType: row.coupon_type,
       couponExpiresAt: row.coupon_expires_at ? new Date(row.coupon_expires_at) : null,
       serviceId: row.service_id,
+      rewardType: row.reward_type || 'none',
+      rewardMode: row.reward_mode || null,
+      rewardRcnAmount: row.reward_rcn_amount != null ? parseFloat(row.reward_rcn_amount) : null,
+      rewardRcnByTier: row.reward_rcn_by_tier
+        ? (typeof row.reward_rcn_by_tier === 'string' ? JSON.parse(row.reward_rcn_by_tier) : row.reward_rcn_by_tier)
+        : null,
+      rewardSpendBands: row.reward_spend_bands
+        ? (typeof row.reward_spend_bands === 'string' ? JSON.parse(row.reward_spend_bands) : row.reward_spend_bands)
+        : null,
+      fulfillmentTrigger: row.fulfillment_trigger || 'on_send',
+      returnWindowDays: row.return_window_days ?? null,
       totalRecipients: row.total_recipients || 0,
       emailsSent: row.emails_sent || 0,
       emailsOpened: row.emails_opened || 0,
@@ -676,6 +835,15 @@ export class MarketingCampaignRepository extends BaseRepository {
       inAppSentAt: row.in_app_sent_at ? new Date(row.in_app_sent_at) : null,
       inAppReadAt: row.in_app_read_at ? new Date(row.in_app_read_at) : null,
       deliveryError: row.delivery_error,
+      rewardKind: row.reward_kind || null,
+      rewardAmount: row.reward_amount != null ? parseFloat(row.reward_amount) : null,
+      rewardStatus: row.reward_status || null,
+      rewardPromoCode: row.reward_promo_code || null,
+      rewardTxHash: row.reward_tx_hash || null,
+      rewardIssuedAt: row.reward_issued_at ? new Date(row.reward_issued_at) : null,
+      rewardRedeemedAt: row.reward_redeemed_at ? new Date(row.reward_redeemed_at) : null,
+      rewardExpiresAt: row.reward_expires_at ? new Date(row.reward_expires_at) : null,
+      rewardError: row.reward_error || null,
       createdAt: new Date(row.created_at)
     };
   }

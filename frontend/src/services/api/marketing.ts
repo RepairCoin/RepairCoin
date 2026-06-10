@@ -157,6 +157,19 @@ export async function sendCampaign(campaignId: string): Promise<CampaignDelivery
   return response.data;
 }
 
+export interface RewardPrecheck {
+  applicable: boolean; // true when there's an on-send RCN reward to gate
+  required: number;    // total RCN the send would cost
+  available: number;   // shop's current purchased RCN balance
+  affordable: boolean;
+}
+
+// Pre-flight affordability check for a campaign's on-send RCN reward.
+export async function rewardPrecheck(campaignId: string): Promise<RewardPrecheck> {
+  const response = await apiClient.get(`/marketing/campaigns/${campaignId}/reward-precheck`);
+  return response.data?.data ?? response.data;
+}
+
 // Schedule a campaign
 export async function scheduleCampaign(
   campaignId: string,
