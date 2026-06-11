@@ -69,13 +69,16 @@ import {
   MarketingCampaign,
   MarketingTemplate,
   CreateCampaignData,
+  CampaignReward,
   createCampaign,
   updateCampaign,
   sendCampaign,
   scheduleCampaign,
+  rewardPrecheck,
   getShopCustomers,
   ShopCustomer,
 } from "@/services/api/marketing";
+import { getShopAiSettings } from "@/services/api/aiSettings";
 import { ShopService, getShopServices } from "@/services/api/services";
 import apiClient from "@/services/api/client";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
@@ -176,6 +179,8 @@ const colorPresets = [
   '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF',
   '#EC4899', '#F43F5E', '#EF4444', '#F97316', '#EAB308',
 ];
+
+const REWARD_TIERS = ['BRONZE', 'SILVER', 'GOLD'] as const;
 
 // Sortable Block Item Component
 function SortableBlockItem({
@@ -292,6 +297,43 @@ export function CampaignBuilderModal({
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [manualEmails, setManualEmails] = useState<string>('');
 
+  // Reward configuration
+  const [rewardsEnabled, setRewardsEnabled] = useState(false);
+  const [rewardType, setRewardType] = useState<'none' | 'rcn' | 'coupon'>(
+    existingCampaign?.rewardType === 'rcn' || existingCampaign?.rewardType === 'coupon'
+      ? existingCampaign.rewardType
+      : 'none'
+  );
+  const [rewardMode, setRewardMode] = useState<'flat' | 'by_tier' | 'by_spend'>(
+    existingCampaign?.rewardMode || 'flat'
+  );
+  const [rewardFlatAmount, setRewardFlatAmount] = useState<string>(
+    existingCampaign?.rewardRcnAmount?.toString() || '5'
+  );
+  const [rewardByTier, setRewardByTier] = useState<Record<string, string>>(() => {
+    const src = existingCampaign?.rewardRcnByTier || {};
+    return Object.fromEntries(
+      REWARD_TIERS.map((t) => [t, src[t] != null ? String(src[t]) : ''])
+    );
+  });
+  const [rewardSpendBands, setRewardSpendBands] = useState<Array<{ minSpend: string; rcn: string }>>(
+    existingCampaign?.rewardSpendBands?.length
+      ? existingCampaign.rewardSpendBands.map((b) => ({ minSpend: String(b.minSpend), rcn: String(b.rcn) }))
+      : [{ minSpend: '0', rcn: '' }]
+  );
+  const [fulfillment, setFulfillment] = useState<'on_send' | 'on_return'>(
+    existingCampaign?.fulfillmentTrigger || 'on_send'
+  );
+  const [returnWindowDays, setReturnWindowDays] = useState<string>(
+    existingCampaign?.returnWindowDays?.toString() || '30'
+  );
+  const [couponBonusRcn, setCouponBonusRcn] = useState<string>(
+    existingCampaign?.rewardType === 'coupon' && existingCampaign?.couponValue != null
+      ? String(existingCampaign.couponValue)
+      : '5'
+  );
+  const [couponExpiresDays, setCouponExpiresDays] = useState<string>('60');
+
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -339,6 +381,15 @@ export function CampaignBuilderModal({
     };
     loadServices();
   }, [shopId]);
+
+  // Whether this shop is allowed to attach campaign rewards (admin gate)
+  useEffect(() => {
+    let cancelled = false;
+    getShopAiSettings()
+      .then((s) => { if (!cancelled) setRewardsEnabled(s.campaignRewardsEnabled === true); })
+      .catch(() => { if (!cancelled) setRewardsEnabled(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Load shop promo codes
   useEffect(() => {
@@ -619,6 +670,81 @@ export function CampaignBuilderModal({
     },
   });
 
+  const validateReward = (): string | null => {
+    if (!rewardsEnabled || rewardType === 'none') return null;
+    if (rewardType === 'coupon') {
+      const bonus = Number(couponBonusRcn);
+      if (!Number.isFinite(bonus) || bonus <= 0) return 'Coupon needs a bonus RCN amount greater than 0';
+      const days = Number(couponExpiresDays);
+      if (!Number.isFinite(days) || days <= 0) return 'Coupon expiry must be greater than 0 days';
+      return null;
+    }
+    if (rewardMode === 'flat') {
+      const amt = Number(rewardFlatAmount);
+      if (!Number.isFinite(amt) || amt <= 0) return 'Flat reward needs an RCN amount greater than 0';
+    } else if (rewardMode === 'by_tier') {
+      for (const t of REWARD_TIERS) {
+        const raw = rewardByTier[t];
+        if (raw === '' || raw == null) continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) return 'Tier amounts must be 0 or more';
+      }
+      if (!REWARD_TIERS.some((t) => Number(rewardByTier[t]) > 0)) {
+        return 'Set an RCN amount greater than 0 for at least one tier';
+      }
+    } else {
+      for (const b of rewardSpendBands) {
+        const min = Number(b.minSpend);
+        if (!Number.isFinite(min) || min < 0) return 'Each spend band needs a minimum spend of 0 or more';
+        if (b.rcn !== '' && (!Number.isFinite(Number(b.rcn)) || Number(b.rcn) < 0)) {
+          return 'Each spend band reward must be 0 or more';
+        }
+      }
+      if (!rewardSpendBands.some((b) => Number(b.rcn) > 0)) {
+        return 'Set an RCN amount greater than 0 for at least one spend band';
+      }
+    }
+    if (fulfillment === 'on_return') {
+      const d = Number(returnWindowDays);
+      if (!Number.isFinite(d) || d <= 0) return 'Return window must be greater than 0 days';
+    }
+    return null;
+  };
+
+  const buildReward = (): CampaignReward | undefined => {
+    if (!rewardsEnabled) return undefined;
+    if (rewardType === 'none') {
+      // Clear only a reward the builder manages (rcn/coupon); never touch an
+      // unrepresentable one.
+      const managed = existingCampaign?.rewardType === 'rcn' || existingCampaign?.rewardType === 'coupon';
+      return managed ? { type: 'none' } : undefined;
+    }
+    if (rewardType === 'coupon') {
+      return {
+        type: 'coupon',
+        couponValue: Number(couponBonusRcn),
+        couponExpiresDays: Number(couponExpiresDays),
+      };
+    }
+    const reward: CampaignReward = { type: 'rcn', mode: rewardMode, fulfillment };
+    if (rewardMode === 'flat') {
+      reward.rcnAmount = Number(rewardFlatAmount);
+    } else if (rewardMode === 'by_tier') {
+      const byTier: Record<string, number> = {};
+      for (const t of REWARD_TIERS) {
+        const raw = rewardByTier[t];
+        if (raw !== '' && raw != null) byTier[t] = Number(raw);
+      }
+      reward.rcnByTier = byTier;
+    } else {
+      reward.spendBands = rewardSpendBands
+        .filter((b) => b.rcn !== '')
+        .map((b) => ({ minSpend: Number(b.minSpend) || 0, rcn: Number(b.rcn) }));
+    }
+    if (fulfillment === 'on_return') reward.returnWindowDays = Number(returnWindowDays);
+    return reward;
+  };
+
   const persistCampaign = async (): Promise<MarketingCampaign> => {
     const serviceCardBlock = blocks.find(b => b.type === 'service_card' && b.serviceId);
     const selectedServiceId = serviceCardBlock?.serviceId;
@@ -635,6 +761,9 @@ export function CampaignBuilderModal({
       ...(selectedServiceId && { serviceId: selectedServiceId }),
       ...(manualEmails.trim() && { manualEmails: manualEmails.trim() }),
     };
+
+    const reward = buildReward();
+    if (reward !== undefined) campaignData.reward = reward;
 
     const hasCouponBlock = blocks.some(b => b.type === 'coupon');
     if (hasCouponBlock && selectedPromoCodeId) {
@@ -657,6 +786,11 @@ export function CampaignBuilderModal({
       toast.error('Please enter a campaign name');
       return;
     }
+    const rewardError = validateReward();
+    if (rewardError) {
+      toast.error(rewardError);
+      return;
+    }
 
     try {
       setSaving(true);
@@ -664,6 +798,16 @@ export function CampaignBuilderModal({
       toast.success(existingCampaign ? 'Campaign saved' : 'Campaign created');
 
       if (andSend) {
+        if (rewardsEnabled && rewardType === 'rcn' && fulfillment === 'on_send') {
+          const pre = await rewardPrecheck(savedCampaign.id);
+          if (pre.applicable && !pre.affordable) {
+            toast.error(
+              `Not enough RCN: this reward needs ${pre.required.toLocaleString()} RCN but you have ${pre.available.toLocaleString()}. Saved as a draft — buy more RCN, then send.`
+            );
+            onClose(true);
+            return;
+          }
+        }
         setSending(true);
         const result = await sendCampaign(savedCampaign.id);
         toast.success(`Campaign sent to ${result.totalRecipients} recipients!`);
@@ -691,6 +835,11 @@ export function CampaignBuilderModal({
     const when = new Date(scheduledAt);
     if (isNaN(when.getTime()) || when <= new Date()) {
       toast.error('Scheduled time must be in the future');
+      return;
+    }
+    const rewardError = validateReward();
+    if (rewardError) {
+      toast.error(rewardError);
       return;
     }
 
@@ -1862,6 +2011,242 @@ export function CampaignBuilderModal({
                 ))}
               </div>
 
+              {/* Reward */}
+              <div className="mt-8">
+                <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-[#FFCC00]" />
+                  Reward
+                </h4>
+
+                {!rewardsEnabled ? (
+                  <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg text-sm text-gray-400">
+                    Campaign rewards aren&apos;t enabled for your shop. Ask an admin to turn them on to attach rewards to campaigns.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { value: 'none', label: 'No reward' },
+                        { value: 'rcn', label: 'RCN reward' },
+                        { value: 'coupon', label: 'Coupon' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={viewOnly}
+                          onClick={() => setRewardType(opt.value)}
+                          className={`p-3 rounded-lg border text-sm font-medium transition-colors disabled:opacity-60 ${
+                            rewardType === opt.value
+                              ? 'bg-[#FFCC00]/20 border-[#FFCC00] text-white'
+                              : 'bg-gray-800 border-transparent text-gray-400 hover:bg-gray-700/50'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {rewardType === 'rcn' && (
+                      <div className="space-y-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                        <div>
+                          <Label className="text-gray-300 text-xs uppercase tracking-wide">Reward amount</Label>
+                          <div className="grid grid-cols-3 gap-2 mt-1.5">
+                            {([
+                              { value: 'flat', label: 'Flat' },
+                              { value: 'by_tier', label: 'By tier' },
+                              { value: 'by_spend', label: 'By spend' },
+                            ] as const).map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                disabled={viewOnly}
+                                onClick={() => setRewardMode(opt.value)}
+                                className={`p-2 rounded-md border text-sm font-medium transition-colors disabled:opacity-60 ${
+                                  rewardMode === opt.value
+                                    ? 'bg-[#FFCC00]/20 border-[#FFCC00] text-white'
+                                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700/50'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {rewardMode === 'flat' && (
+                          <div>
+                            <Label className="text-gray-300 text-xs">RCN per recipient</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              value={rewardFlatAmount}
+                              disabled={viewOnly}
+                              onChange={(e) => setRewardFlatAmount(e.target.value)}
+                              className="mt-1.5 bg-gray-900 border-gray-600 text-white"
+                            />
+                          </div>
+                        )}
+
+                        {rewardMode === 'by_tier' && (
+                          <div className="space-y-2">
+                            {REWARD_TIERS.map((tier) => (
+                              <div key={tier} className="flex items-center gap-3">
+                                <span className="w-20 text-sm text-gray-300 capitalize">{tier.toLowerCase()}</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  placeholder="0"
+                                  value={rewardByTier[tier] ?? ''}
+                                  disabled={viewOnly}
+                                  onChange={(e) => setRewardByTier((prev) => ({ ...prev, [tier]: e.target.value }))}
+                                  className="flex-1 bg-gray-900 border-gray-600 text-white"
+                                />
+                                <span className="text-sm text-gray-500">RCN</span>
+                              </div>
+                            ))}
+                            <p className="text-xs text-gray-500">Leave a tier blank to give it nothing.</p>
+                          </div>
+                        )}
+
+                        {rewardMode === 'by_spend' && (
+                          <div className="space-y-2">
+                            {rewardSpendBands.map((band, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <span className="text-sm text-gray-400">Spend ≥ $</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={band.minSpend}
+                                  disabled={viewOnly}
+                                  onChange={(e) => setRewardSpendBands((prev) =>
+                                    prev.map((b, i) => (i === idx ? { ...b, minSpend: e.target.value } : b))
+                                  )}
+                                  className="w-24 bg-gray-900 border-gray-600 text-white"
+                                />
+                                <span className="text-sm text-gray-400">→</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.1"
+                                  placeholder="0"
+                                  value={band.rcn}
+                                  disabled={viewOnly}
+                                  onChange={(e) => setRewardSpendBands((prev) =>
+                                    prev.map((b, i) => (i === idx ? { ...b, rcn: e.target.value } : b))
+                                  )}
+                                  className="w-24 bg-gray-900 border-gray-600 text-white"
+                                />
+                                <span className="text-sm text-gray-500">RCN</span>
+                                {!viewOnly && rewardSpendBands.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setRewardSpendBands((prev) => prev.filter((_, i) => i !== idx))}
+                                    className="p-1 hover:bg-red-500/20 rounded"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-400" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            {!viewOnly && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setRewardSpendBands((prev) => [...prev, { minSpend: '0', rcn: '' }])}
+                                className="border-gray-600 text-gray-300"
+                              >
+                                Add band
+                              </Button>
+                            )}
+                          </div>
+                        )}
+
+                        <div>
+                          <Label className="text-gray-300 text-xs uppercase tracking-wide">Fulfillment</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-1.5">
+                            {([
+                              { value: 'on_send', label: 'On send', desc: 'Issued immediately' },
+                              { value: 'on_return', label: 'On return', desc: 'Issued when they come back' },
+                            ] as const).map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                disabled={viewOnly}
+                                onClick={() => setFulfillment(opt.value)}
+                                className={`p-3 rounded-md border text-left transition-colors disabled:opacity-60 ${
+                                  fulfillment === opt.value
+                                    ? 'bg-[#FFCC00]/20 border-[#FFCC00] text-white'
+                                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700/50'
+                                }`}
+                              >
+                                <div className="text-sm font-medium">{opt.label}</div>
+                                <div className="text-xs text-gray-500">{opt.desc}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {fulfillment === 'on_return' && (
+                          <div>
+                            <Label className="text-gray-300 text-xs">Return window (days)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              value={returnWindowDays}
+                              disabled={viewOnly}
+                              onChange={(e) => setReturnWindowDays(e.target.value)}
+                              className="mt-1.5 bg-gray-900 border-gray-600 text-white"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Unredeemed rewards expire after this many days.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {rewardType === 'coupon' && (
+                      <div className="space-y-4 p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                        <p className="text-xs text-gray-400">
+                          A unique code is added to the email at send. Each recipient can redeem it once on
+                          their next visit for bonus RCN — the shop enters the code when issuing their reward.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-gray-300 text-xs">Bonus RCN</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              step="1"
+                              value={couponBonusRcn}
+                              disabled={viewOnly}
+                              onChange={(e) => setCouponBonusRcn(e.target.value)}
+                              className="mt-1.5 bg-gray-900 border-gray-600 text-white"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-gray-300 text-xs">Expires in (days)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              value={couponExpiresDays}
+                              disabled={viewOnly}
+                              onChange={(e) => setCouponExpiresDays(e.target.value)}
+                              className="mt-1.5 bg-gray-900 border-gray-600 text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Summary */}
               <div className="mt-8 p-4 bg-gray-800 rounded-lg space-y-2">
                 <h4 className="text-white font-medium mb-3">Campaign Summary</h4>
@@ -1893,6 +2278,22 @@ export function CampaignBuilderModal({
                     <span className="text-gray-400">Coupon:</span>
                     <span className="text-white">
                       {couponType === 'percentage' ? `${couponValue}%` : `$${couponValue}`} off
+                    </span>
+                  </div>
+                )}
+                {rewardsEnabled && rewardType === 'rcn' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Reward:</span>
+                    <span className="text-white capitalize">
+                      {rewardMode.replace('_', ' ')} RCN · {fulfillment === 'on_return' ? `on return (${returnWindowDays}d)` : 'on send'}
+                    </span>
+                  </div>
+                )}
+                {rewardsEnabled && rewardType === 'coupon' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Reward:</span>
+                    <span className="text-white">
+                      Coupon · {couponBonusRcn} bonus RCN · expires in {couponExpiresDays}d
                     </span>
                   </div>
                 )}

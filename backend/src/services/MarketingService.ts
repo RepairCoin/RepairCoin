@@ -4,7 +4,8 @@ import {
   MarketingCampaign,
   CreateCampaignParams,
   UpdateCampaignParams,
-  MarketingTemplate
+  MarketingTemplate,
+  CampaignRewardConfig
 } from '../repositories/MarketingCampaignRepository';
 import { NotificationRepository, CreateNotificationParams } from '../repositories/NotificationRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
@@ -80,6 +81,16 @@ export class MarketingService {
   async createCampaign(params: CreateCampaignParams): Promise<MarketingCampaign> {
     logger.info(`Creating marketing campaign for shop ${params.shopId}`, { name: params.name });
     return this.campaignRepo.create(params);
+  }
+
+  /** Create a campaign and set its reward in a single transaction — a failed
+   *  reward write rolls back the create so no orphaned campaign is left behind. */
+  async createCampaignWithReward(
+    params: CreateCampaignParams,
+    reward: CampaignRewardConfig
+  ): Promise<MarketingCampaign> {
+    logger.info(`Creating marketing campaign with reward for shop ${params.shopId}`, { name: params.name });
+    return this.campaignRepo.createWithReward(params, reward);
   }
 
   async getCampaign(id: string): Promise<MarketingCampaign | null> {
