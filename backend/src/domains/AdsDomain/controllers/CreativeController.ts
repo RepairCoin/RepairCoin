@@ -56,6 +56,18 @@ export async function updateCreative(req: Request, res: Response): Promise<void>
   }
 }
 
+// DELETE /creatives/:id (admin) — soft delete
+export async function deleteCreative(req: Request, res: Response): Promise<void> {
+  try {
+    const ok = await creatives.softDelete(req.params.id);
+    if (!ok) { res.status(404).json({ success: false, error: 'Creative not found' }); return; }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('CreativeController.deleteCreative failed', err);
+    res.status(500).json({ success: false, error: 'Failed to delete creative' });
+  }
+}
+
 // PATCH /creatives/:id/review (admin) — Q8: approve/reject before launch
 export async function reviewCreative(req: Request, res: Response): Promise<void> {
   const status = req.body?.status;

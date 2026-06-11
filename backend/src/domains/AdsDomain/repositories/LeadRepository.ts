@@ -170,6 +170,19 @@ export class LeadRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** Q9 retention: hard-delete unconverted leads older than `retentionDays`.
+   *  Converted leads (booked/paid/completed) are kept forever — they're linked to
+   *  a customers row. Returns the number of rows deleted. */
+  async purgeExpired(retentionDays = 180): Promise<number> {
+    const res = await this.pool.query(
+      `DELETE FROM ad_leads
+        WHERE lead_status NOT IN ('booked','paid','completed')
+          AND created_at < now() - ($1 || ' days')::interval`,
+      [String(retentionDays)]
+    );
+    return res.rowCount ?? 0;
+  }
+
   private mapRow(r: any): AdLead {
     return {
       id: r.id,

@@ -11,7 +11,7 @@ import {
   listShopCampaigns,
 } from './controllers/CampaignController';
 import {
-  createCreative, listCreatives, updateCreative, reviewCreative,
+  createCreative, listCreatives, updateCreative, reviewCreative, deleteCreative,
 } from './controllers/CreativeController';
 import {
   listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead, draftLeadReply,
@@ -73,6 +73,7 @@ export function initializeRoutes(): Router {
   router.get('/campaigns/:id/creatives', ...admin, listCreatives);
   router.patch('/creatives/:id', ...admin, updateCreative);
   router.patch('/creatives/:id/review', ...admin, reviewCreative);
+  router.delete('/creatives/:id', ...admin, deleteCreative);
 
   // ---- Admin: leads ----
   router.get('/leads', ...admin, listLeads);

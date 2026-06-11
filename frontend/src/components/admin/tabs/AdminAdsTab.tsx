@@ -12,6 +12,7 @@ import { LeadKanban } from "@/components/ads/LeadKanban";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
 import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
+import { CreativesPanel } from "@/components/ads/CreativesPanel";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -262,6 +263,9 @@ export const AdminAdsTab: React.FC = () => {
                   </table>
                 </div>
               )}
+
+              {/* Creatives + Q8 review */}
+              <CreativesPanel campaignId={selected.id} />
 
               {/* Lead pipeline (Stage 2) */}
               <div>

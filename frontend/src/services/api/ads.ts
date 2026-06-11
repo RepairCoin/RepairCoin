@@ -165,6 +165,59 @@ export const setExperimentWinner = async (id: string, creativeId: string): Promi
   return unwrap<AdExperiment>(res);
 };
 
+/* -------------------------------- Creatives ------------------------------ */
+// Q8 — admin creates creatives and reviews (approve/reject) them before launch,
+// protecting the SHARED Meta ad account from policy-violating ads.
+
+export type CreativeType = 'image' | 'video' | 'carousel';
+export type CreativeReviewStatus = 'pending' | 'approved' | 'rejected';
+export type LandingUrlType = 'booking_page' | 'shop_profile' | 'lead_form';
+
+export interface AdCreative {
+  id: string;
+  campaignId: string;
+  creativeType: CreativeType;
+  language: string;
+  landingUrl: string | null;
+  landingUrlType: LandingUrlType | null;
+  headline: string | null;
+  body: string | null;
+  version: number;
+  reviewStatus: CreativeReviewStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateCreativeInput {
+  creativeType: CreativeType;
+  language?: string;
+  landingUrl?: string | null;
+  landingUrlType?: LandingUrlType | null;
+  headline?: string | null;
+  body?: string | null;
+}
+
+export const listCreatives = async (campaignId: string): Promise<AdCreative[]> => {
+  const res = await apiClient.get(`/ads/campaigns/${campaignId}/creatives`);
+  return unwrap<AdCreative[]>(res);
+};
+export const createCreative = async (campaignId: string, input: CreateCreativeInput): Promise<AdCreative> => {
+  const res = await apiClient.post(`/ads/campaigns/${campaignId}/creatives`, input);
+  return unwrap<AdCreative>(res);
+};
+export const updateCreative = async (id: string, input: Partial<CreateCreativeInput>): Promise<AdCreative> => {
+  const res = await apiClient.patch(`/ads/creatives/${id}`, input);
+  return unwrap<AdCreative>(res);
+};
+export const reviewCreative = async (id: string, status: 'approved' | 'rejected'): Promise<AdCreative> => {
+  const res = await apiClient.patch(`/ads/creatives/${id}/review`, { status });
+  return unwrap<AdCreative>(res);
+};
+export const deleteCreative = async (id: string): Promise<void> => {
+  await apiClient.delete(`/ads/creatives/${id}`);
+};
+
 export const listLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {
   const res = await apiClient.get('/ads/leads', { params });
   return { items: unwrap<AdLead[]>(res), total: (res.data.total ?? 0) as number };

@@ -8,13 +8,18 @@ import cron from 'node-cron';
 import { logger } from '../../../utils/logger';
 import { SafeguardEvaluator } from './SafeguardEvaluator';
 import { PerformanceRepository } from '../repositories/PerformanceRepository';
+import { LeadRepository } from '../repositories/LeadRepository';
+
+// Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
+const LEAD_RETENTION_DAYS = 180;
 
 export class SafeguardScheduler {
   private cronJob: cron.ScheduledTask | null = null;
   private isRunning = false;
   constructor(
     private readonly evaluator = new SafeguardEvaluator(),
-    private readonly perf = new PerformanceRepository()
+    private readonly perf = new PerformanceRepository(),
+    private readonly leads = new LeadRepository()
   ) {}
 
   start(): void {
@@ -45,6 +50,10 @@ export class SafeguardScheduler {
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);
+
+      // Q9 retention: purge unconverted leads past the retention window.
+      const purged = await this.leads.purgeExpired(LEAD_RETENTION_DAYS);
+      if (purged > 0) logger.info(`Ads lead retention: purged ${purged} expired unconverted lead(s)`);
     } catch (err) {
       logger.error('Ads safeguard scheduler tick failed:', err);
     } finally {
