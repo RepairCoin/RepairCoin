@@ -1,4 +1,4 @@
--- 136_campaign_rewards.sql
+-- 141_campaign_rewards.sql
 --
 -- Campaign Rewards — Phase 0 (foundation).
 -- See docs/tasks/strategy/campaign-rewards/.

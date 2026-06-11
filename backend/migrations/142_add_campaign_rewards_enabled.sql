@@ -1,4 +1,4 @@
--- 137_add_campaign_rewards_enabled.sql
+-- 142_add_campaign_rewards_enabled.sql
 --
 -- Campaign Rewards — Phase 0. Per-shop admin kill switch, mirroring
 -- ai_images_enabled (migration 134). Default OFF for a controlled rollout:
