@@ -41,6 +41,7 @@ export class SafeguardScheduler {
       // Roll up the lead pipeline → ad_performance_daily FIRST, so the safeguard
       // sweep evaluates fresh leads/bookings/revenue totals.
       await this.perf.rollUpFromPipeline(90);
+      await this.perf.rollUpCohortRevenue(120); // Stage 5 cohort 30d/90d revenue
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);

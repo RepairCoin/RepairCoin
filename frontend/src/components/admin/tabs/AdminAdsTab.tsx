@@ -10,6 +10,8 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
 import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
+import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
+import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -146,6 +148,9 @@ export const AdminAdsTab: React.FC = () => {
         </div>
       )}
 
+      {/* Stage 5 — per-industry comparison */}
+      <IndustryAnalytics />
+
       {/* Create form */}
       {showCreate && (
         <div className="rounded-xl border border-[#FFCC00]/30 bg-[#1A1A1A] p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -263,6 +268,9 @@ export const AdminAdsTab: React.FC = () => {
                 <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
                 <LeadKanban mode="admin" campaignId={selected.id} />
               </div>
+
+              {/* A/B experiments (Stage 5) */}
+              <ExperimentsPanel campaignId={selected.id} />
             </>
           )}
         </div>

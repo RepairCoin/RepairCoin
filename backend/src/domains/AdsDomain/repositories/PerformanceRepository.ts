@@ -121,6 +121,62 @@ export class PerformanceRepository extends BaseRepository {
     );
   }
 
+  /** Stage 5 — per-industry breakdown (admin): totals + ROI/CPL/CPB per industry. */
+  async getIndustryBreakdown(): Promise<Array<{
+    industrySlug: string | null; industryName: string;
+    totalSpendCents: number; totalRevenueCents: number; totalLeads: number; totalBookings: number;
+    campaignCount: number; roi: number | null; cplCents: number | null; cpbCents: number | null;
+  }>> {
+    const res = await this.pool.query(
+      `SELECT i.slug AS slug, COALESCE(i.name,'Uncategorized') AS name,
+              COALESCE(SUM(p.spend_cents),0)::int      AS spend,
+              COALESCE(SUM(p.revenue_cents),0)::int    AS revenue,
+              COALESCE(SUM(p.leads_captured),0)::int   AS leads,
+              COALESCE(SUM(p.bookings_created),0)::int AS bookings,
+              COUNT(DISTINCT c.id)::int                AS campaigns
+         FROM ad_campaigns c
+         LEFT JOIN industries i ON i.id = c.industry_id
+         LEFT JOIN ad_performance_daily p ON p.campaign_id = c.id
+        WHERE c.deleted_at IS NULL
+        GROUP BY i.slug, i.name
+        ORDER BY revenue DESC`
+    );
+    return res.rows.map((r) => ({
+      industrySlug: r.slug,
+      industryName: r.name,
+      totalSpendCents: r.spend,
+      totalRevenueCents: r.revenue,
+      totalLeads: r.leads,
+      totalBookings: r.bookings,
+      campaignCount: r.campaigns,
+      roi: r.spend > 0 ? (r.revenue - r.spend) / r.spend : null,
+      cplCents: r.leads > 0 ? Math.round(r.spend / r.leads) : null,
+      cpbCents: r.bookings > 0 ? Math.round(r.spend / r.bookings) : null,
+    }));
+  }
+
+  /** Stage 5 — cohort attribution: for each campaign-day, the revenue from leads
+   *  captured that day realized within the trailing 30 / 90 days. Lag-aware: an
+   *  order can land weeks after the lead. Updates existing perf rows. */
+  async rollUpCohortRevenue(lookbackDays = 120): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_performance_daily p
+          SET revenue_30d_cents = sub.r30, revenue_90d_cents = sub.r90, updated_at = now()
+         FROM (
+           SELECT l.campaign_id, l.created_at::date AS d,
+                  ROUND(SUM(CASE WHEN o.created_at <= l.created_at + INTERVAL '30 days' THEN o.final_amount_usd ELSE 0 END) * 100)::int AS r30,
+                  ROUND(SUM(CASE WHEN o.created_at <= l.created_at + INTERVAL '90 days' THEN o.final_amount_usd ELSE 0 END) * 100)::int AS r90
+             FROM ad_leads l
+             JOIN service_orders o ON o.ad_lead_id = l.id
+            WHERE l.created_at > now() - ($1 || ' days')::interval
+              AND COALESCE(o.status,'') NOT IN ('cancelled','refunded')
+            GROUP BY l.campaign_id, l.created_at::date
+         ) sub
+        WHERE p.campaign_id = sub.campaign_id AND p.date = sub.d`,
+      [String(lookbackDays)]
+    );
+  }
+
   /** All-shops admin rollup: totals across every (non-deleted) campaign's perf. */
   async getAllShopsSummary(): Promise<CampaignTotals & { campaignCount: number }> {
     const res = await this.pool.query(

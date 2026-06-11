@@ -58,6 +58,16 @@ export async function getAllShopsSummary(_req: Request, res: Response): Promise<
   }
 }
 
+// GET /analytics/by-industry (admin) — Stage 5 per-industry comparison
+export async function getIndustryAnalytics(_req: Request, res: Response): Promise<void> {
+  try {
+    res.json({ success: true, data: await perf.getIndustryBreakdown() });
+  } catch (err) {
+    logger.error('PerformanceController.getIndustryAnalytics failed', err);
+    res.status(500).json({ success: false, error: 'Failed to get industry analytics' });
+  }
+}
+
 // GET /campaigns/:id/performance (admin)
 export async function getCampaignPerformance(req: Request, res: Response): Promise<void> {
   try {

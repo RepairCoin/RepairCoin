@@ -121,6 +121,50 @@ export const getAllShopsSummary = async () => {
   return unwrap<AllShopsSummary>(res);
 };
 
+// Stage 5 — per-industry comparison
+export interface IndustryRow {
+  industrySlug: string | null;
+  industryName: string;
+  totalSpendCents: number;
+  totalRevenueCents: number;
+  totalLeads: number;
+  totalBookings: number;
+  campaignCount: number;
+  roi: number | null;
+  cplCents: number | null;
+  cpbCents: number | null;
+}
+export const getIndustryAnalytics = async (): Promise<IndustryRow[]> => {
+  const res = await apiClient.get('/ads/analytics/by-industry');
+  return unwrap<IndustryRow[]>(res);
+};
+
+// Stage 5 — A/B experiments
+export interface AdExperiment {
+  id: string; campaignId: string; name: string;
+  status: 'running' | 'ended'; winnerCreativeId: string | null;
+}
+export interface ExperimentArm {
+  creativeId: string; headline: string | null;
+  leads: number; bookings: number; conversionRate: number | null;
+}
+export const listExperiments = async (campaignId: string): Promise<AdExperiment[]> => {
+  const res = await apiClient.get(`/ads/campaigns/${campaignId}/experiments`);
+  return unwrap<AdExperiment[]>(res);
+};
+export const createExperiment = async (campaignId: string, name: string): Promise<AdExperiment> => {
+  const res = await apiClient.post(`/ads/campaigns/${campaignId}/experiments`, { name });
+  return unwrap<AdExperiment>(res);
+};
+export const getExperimentReport = async (id: string): Promise<ExperimentArm[]> => {
+  const res = await apiClient.get(`/ads/experiments/${id}/report`);
+  return unwrap<ExperimentArm[]>(res);
+};
+export const setExperimentWinner = async (id: string, creativeId: string): Promise<AdExperiment> => {
+  const res = await apiClient.patch(`/ads/experiments/${id}/winner`, { creativeId });
+  return unwrap<AdExperiment>(res);
+};
+
 export const listLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {
   const res = await apiClient.get('/ads/leads', { params });
   return { items: unwrap<AdLead[]>(res), total: (res.data.total ?? 0) as number };

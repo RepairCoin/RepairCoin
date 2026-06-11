@@ -19,8 +19,13 @@ import {
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
+  getIndustryAnalytics,
 } from './controllers/PerformanceController';
 import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhookController';
+import {
+  createExperiment, listExperiments, getExperimentReport, setExperimentWinner,
+} from './controllers/ExperimentController';
+import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
   const router = Router();
@@ -50,6 +55,18 @@ export function initializeRoutes(): Router {
   router.get('/campaigns/:id/performance', ...admin, getCampaignPerformance);
   router.post('/campaigns/:id/metrics', ...admin, enterDailyMetrics);   // Stage 1: daily entry
   router.get('/analytics/summary', ...admin, getAllShopsSummary);        // Stage 1: all-shops rollup
+  router.get('/analytics/by-industry', ...admin, getIndustryAnalytics);  // Stage 5: per-industry
+
+  // ---- Admin: A/B experiments (Stage 5) ----
+  router.post('/campaigns/:id/experiments', ...admin, createExperiment);
+  router.get('/campaigns/:id/experiments', ...admin, listExperiments);
+  router.get('/experiments/:id/report', ...admin, getExperimentReport);
+  router.patch('/experiments/:id/winner', ...admin, setExperimentWinner);
+
+  // ---- Industry default service taxonomy (Stage 5) ----
+  router.get('/industries/:slug/services', ...admin, (req, res) => {
+    res.json({ success: true, data: taxonomyFor(req.params.slug) });
+  });
 
   // ---- Admin: creatives ----
   router.post('/campaigns/:id/creatives', ...admin, createCreative);
