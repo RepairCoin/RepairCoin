@@ -131,6 +131,12 @@ export const updateLeadStatus = async (id: string, status: LeadStatus, lostReaso
   return unwrap<AdLead>(res);
 };
 
+// Stage 3 (Option C) — AI-drafted first outreach for a lead (admin).
+export const draftLeadReply = async (id: string): Promise<string> => {
+  const res = await apiClient.post(`/ads/leads/${id}/draft-reply`);
+  return unwrap<{ draft: string }>(res).draft;
+};
+
 /* --------------------------------- Shop ---------------------------------- */
 
 export const listShopCampaigns = async (params?: { status?: CampaignStatus }) => {

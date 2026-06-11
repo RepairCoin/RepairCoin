@@ -6,10 +6,10 @@
 // /ads/shop/leads). One-click status change (not drag-drop — simpler + reliable).
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, ChevronRight, Phone, Mail } from "lucide-react";
+import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  listLeads, listShopLeads, updateLeadStatus,
+  listLeads, listShopLeads, updateLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
 
@@ -36,6 +36,8 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [leads, setLeads] = useState<AdLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [draftingId, setDraftingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const editable = mode === "admin";
 
   const load = useCallback(async () => {
@@ -61,6 +63,25 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const draft = async (lead: AdLead) => {
+    setDraftingId(lead.id);
+    try {
+      const text = await draftLeadReply(lead.id);
+      setDrafts((prev) => ({ ...prev, [lead.id]: text }));
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't draft a reply.");
+    } finally {
+      setDraftingId(null);
+    }
+  };
+
+  const copyDraft = (text: string) => {
+    navigator.clipboard?.writeText(text).then(
+      () => toast.success("Copied."),
+      () => toast.error("Couldn't copy.")
+    );
   };
 
   if (loading) {
@@ -115,6 +136,30 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                           >
                             Lost
                           </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* AI-drafted outreach (Stage 3, Option C) — new/contacted only */}
+                    {editable && (col.status === "new" || col.status === "contacted") && (
+                      <div className="mt-2">
+                        {!drafts[lead.id] ? (
+                          <button
+                            onClick={() => draft(lead)}
+                            disabled={draftingId === lead.id}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50 transition-colors"
+                          >
+                            {draftingId === lead.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-[#FFCC00]" />}
+                            {draftingId === lead.id ? "Drafting…" : "Draft reply with AI"}
+                          </button>
+                        ) : (
+                          <div className="rounded border border-white/10 bg-[#0F0F0F] p-2">
+                            <p className="text-[11px] text-gray-300 leading-relaxed whitespace-pre-wrap">{drafts[lead.id]}</p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <button onClick={() => copyDraft(drafts[lead.id])} className="inline-flex items-center gap-1 text-[11px] text-[#FFCC00] hover:text-[#E6B800]"><Copy className="w-3 h-3" /> Copy</button>
+                              <button onClick={() => draft(lead)} disabled={draftingId === lead.id} className="text-[11px] text-gray-500 hover:text-white disabled:opacity-50">Redraft</button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}

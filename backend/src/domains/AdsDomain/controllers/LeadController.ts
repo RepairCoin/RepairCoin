@@ -9,6 +9,7 @@ import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { leadAttributionService } from '../services/LeadAttributionService';
+import { leadAIService } from '../services/LeadAIService';
 
 const leads = new LeadRepository();
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
@@ -114,6 +115,18 @@ export async function updateLeadStatus(req: Request, res: Response): Promise<voi
   } catch (err) {
     logger.error('LeadController.updateLeadStatus failed', err);
     res.status(500).json({ success: false, error: 'Failed to update lead status' });
+  }
+}
+
+// POST /leads/:id/draft-reply (admin) — Stage 3 (Option C): AI-drafted outreach.
+export async function draftLeadReply(req: Request, res: Response): Promise<void> {
+  try {
+    const r = await leadAIService.draftOutreach(req.params.id);
+    res.json({ success: true, data: r });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    logger.error('LeadController.draftLeadReply failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to draft reply' });
   }
 }
 

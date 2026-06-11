@@ -14,7 +14,7 @@ import {
   createCreative, listCreatives, updateCreative, reviewCreative,
 } from './controllers/CreativeController';
 import {
-  listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead,
+  listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead, draftLeadReply,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -54,6 +54,7 @@ export function initializeRoutes(): Router {
   router.get('/leads', ...admin, listLeads);
   router.post('/leads/manual', ...admin, createManualLead);
   router.patch('/leads/:id/status', ...admin, updateLeadStatus);
+  router.post('/leads/:id/draft-reply', ...admin, draftLeadReply);   // Stage 3: AI outreach draft
 
   // ---- Shop: own read-only ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
