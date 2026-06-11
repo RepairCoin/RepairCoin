@@ -82,6 +82,20 @@ export interface ChatSession {
   lastActivityAt: string;
 }
 
+/**
+ * A single persisted conversation thread. Kept entirely client-side
+ * (localStorage) so customers can flip between their recent chats via the
+ * tab strip. Intentionally lightweight — we cap the number we retain.
+ */
+export interface ChatThread {
+  id: string; // mirrors the session id
+  title: string;
+  session: ChatSession;
+  messages: ChatMessage[];
+  createdAt: string;
+  lastActivityAt: string;
+}
+
 export interface UploadedImage {
   id: string;
   sessionId: string;

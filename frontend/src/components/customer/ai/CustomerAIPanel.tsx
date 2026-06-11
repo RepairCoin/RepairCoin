@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Send, Loader2, Camera, User, Bot as BotIcon, Star, MapPin, Clock, ExternalLink } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Send, Loader2, Camera, User, Bot as BotIcon, Star, MapPin, Clock, ExternalLink, Plus, X } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useAIChatStore } from "@/stores/aiChatStore";
@@ -12,6 +12,8 @@ import {
 } from "@/services/api/aiAssistant";
 import toast from "react-hot-toast";
 
+console.log('🔥 CustomerAIPanel.tsx module loaded');
+
 /**
  * CustomerAIPanel
  *
@@ -19,87 +21,173 @@ import toast from "react-hot-toast";
  * Matches the shop AI panel structure but focused on customer diagnostics.
  */
 export const CustomerAIPanel: React.FC = () => {
+  console.log('🎨 CustomerAIPanel component rendering - START');
+
   const router = useRouter();
   const {
     messages,
     isLoading,
     session,
+    threads,
+    activeThreadId,
     addMessage,
     setLoading,
-    initializeSession
+    initializeSession,
+    switchThread,
+    deleteThread,
   } = useAIChatStore();
+
+  console.log('📊 Zustand store state:', {
+    messagesCount: messages.length,
+    isLoading,
+    hasSession: !!session,
+    session
+  });
+
   const [input, setInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sessionInitializedRef = useRef(false);
+  // Guards a session-creation request in flight, and stops the auto-init effect
+  // from hammering the API if session creation keeps failing.
+  const creatingSessionRef = useRef(false);
+  const initFailedRef = useRef(false);
+
+  console.log('🔧 About to define useEffects...');
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize session on mount if needed
+  console.log('✅ First useEffect defined (auto-scroll)');
+
+  // Create a brand-new chat session (a new thread) and seed it with the
+  // API's welcome message. Used both for the first-ever chat and the
+  // "+ New chat" tab button.
+  const createSession = useCallback(async () => {
+    if (creatingSessionRef.current) return;
+    creatingSessionRef.current = true;
+    setLoading(true);
+
+    try {
+      const response = await startChatSession({});
+
+      // Response is already unwrapped by apiClient - it's {sessionId, sessionToken, message}
+      const newSession = {
+        id: response.sessionId,
+        sessionToken: response.sessionToken,
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+      };
+
+      initializeSession(newSession);
+
+      // Seed the thread with the welcome message from the API
+      addMessage({
+        ...response.message,
+        timestamp: new Date(response.message.timestamp),
+      });
+
+      initFailedRef.current = false;
+    } catch (error) {
+      console.error('Failed to initialize chat session:', error);
+      initFailedRef.current = true; // Stop the auto-init effect from retrying
+      toast.error("Couldn't start the chat. Please try again.");
+    } finally {
+      creatingSessionRef.current = false;
+      setLoading(false);
+    }
+  }, [addMessage, initializeSession, setLoading]);
+
+  // Auto-create the first session when there's nothing to show. Also re-fires
+  // if the customer deletes their last chat. Backs off after a failure so we
+  // don't hammer the API — the "+" button lets them retry manually.
   useEffect(() => {
-    const initSession = async () => {
-      if (!session && !sessionInitializedRef.current) {
-        sessionInitializedRef.current = true;
-        try {
-          const response = await startChatSession({});
-          if (response.success) {
-            initializeSession({
-              id: response.data.sessionId,
-              sessionToken: response.data.sessionToken,
-              status: 'active',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              lastActivityAt: new Date().toISOString(),
-            });
-            // Add the welcome message from the API
-            addMessage({
-              ...response.data.message,
-              timestamp: new Date(response.data.message.timestamp),
-            });
-          }
-        } catch (error) {
-          console.error('Failed to initialize session:', error);
-        }
-      }
-    };
-    initSession();
-  }, [session, initializeSession, addMessage]);
+    if (!session && threads.length === 0 && !initFailedRef.current) {
+      void createSession();
+    }
+  }, [session, threads.length, createSession]);
+
+  // Start a fresh chat from the "+" tab. Skips creating a duplicate if the
+  // current chat is still empty (only the welcome message, no user reply yet).
+  const handleNewChat = () => {
+    const hasUserMessage = messages.some((m) => m.role === "user");
+    if (session && !hasUserMessage) return;
+    initFailedRef.current = false;
+    void createSession();
+  };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !session) return;
+    console.log('🔵 handleSend called', {
+      input: input.trim(),
+      isLoading,
+      session,
+      hasSession: !!session
+    });
+
+    if (!input.trim()) {
+      console.log('❌ No input text');
+      return;
+    }
+
+    if (isLoading) {
+      console.log('❌ Already loading');
+      return;
+    }
+
+    if (!session) {
+      console.log('❌ No session - trying to initialize...');
+      toast.error("Chat session not ready. Please close and reopen the chat.");
+      return;
+    }
 
     const userMessage = input.trim();
+    console.log('✅ Sending message:', userMessage);
     setInput("");
+
+    // Add user message optimistically (show immediately)
+    const tempUserMessage = {
+      id: `temp_${Date.now()}`,
+      sessionId: session.id,
+      role: 'user' as const,
+      content: userMessage,
+      timestamp: new Date(),
+    };
+    addMessage(tempUserMessage);
 
     setLoading(true);
 
     try {
+      console.log('📤 Calling sendMessage API...', {
+        sessionId: session.id,
+        sessionToken: session.sessionToken?.substring(0, 20) + '...',
+        message: userMessage
+      });
+
       const response = await sendMessage({
         sessionId: session.id,
         sessionToken: session.sessionToken,
         message: userMessage,
       });
 
-      if (response.success) {
-        // Add both user and assistant messages
-        addMessage({
-          ...response.data.userMessage,
-          timestamp: new Date(response.data.userMessage.timestamp),
-        });
-        addMessage({
-          ...response.data.assistantMessage,
-          timestamp: new Date(response.data.assistantMessage.timestamp),
-        });
-      }
+      console.log('📥 Response received:', response);
+
+      // Response is already unwrapped - it's {userMessage, assistantMessage}
+      console.log('✅ Success - adding assistant message to store');
+      // Only add assistant message (user message already shown optimistically)
+      addMessage({
+        ...response.assistantMessage,
+        timestamp: new Date(response.assistantMessage.timestamp),
+      });
     } catch (error) {
-      console.error('Send message error:', error);
+      console.error('❌ Send message error:', error);
       toast.error("Failed to send message. Please try again.");
     } finally {
       setLoading(false);
+      console.log('🏁 handleSend complete');
     }
   };
 
@@ -129,13 +217,12 @@ export const CustomerAIPanel: React.FC = () => {
         image: file,
       });
 
-      if (response.success) {
-        // Add assistant message with analysis
-        addMessage({
-          ...response.data.assistantMessage,
-          timestamp: new Date(response.data.assistantMessage.timestamp),
-        });
-      }
+      // Response is already unwrapped - it's {assistantMessage}
+      // Add assistant message with analysis
+      addMessage({
+        ...response.assistantMessage,
+        timestamp: new Date(response.assistantMessage.timestamp),
+      });
     } catch (error) {
       console.error('Image upload error:', error);
       toast.error("Failed to analyze image. Please try again.");
@@ -169,9 +256,49 @@ export const CustomerAIPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full mt-4">
+    <div className="flex flex-col h-full pt-4">
+      {/* Recent chats - thin tab strip */}
+      {threads.length > 0 && (
+        <div className="flex items-center gap-1 pb-2 mb-1 border-b border-gray-800 overflow-x-auto flex-shrink-0 scrollbar-thin">
+          {threads.map((thread) => (
+            <div
+              key={thread.id}
+              onClick={() => switchThread(thread.id)}
+              className={`group flex items-center gap-1 pl-3 pr-1.5 py-1 rounded-t-md text-xs whitespace-nowrap cursor-pointer transition-colors ${
+                thread.id === activeThreadId
+                  ? "bg-gray-800 text-white"
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+              }`}
+            >
+              <span className="max-w-[120px] truncate">{thread.title}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteThread(thread.id);
+                }}
+                className="p-0.5 rounded text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                aria-label="Close chat"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={handleNewChat}
+            disabled={isLoading}
+            className="flex-shrink-0 p-1 rounded-md text-gray-400 hover:bg-gray-800 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="New chat"
+            title="New chat"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -212,7 +339,7 @@ export const CustomerAIPanel: React.FC = () => {
                   {message.metadata.services.map((service: any) => (
                     <div
                       key={service.serviceId}
-                      onClick={() => router.push(`/marketplace?service=${service.serviceId}`)}
+                      onClick={() => router.push(`/service/${service.serviceId}`)}
                       className="bg-gray-900 hover:bg-gray-850 rounded-lg p-3 cursor-pointer transition-colors border border-gray-700 hover:border-blue-500 group"
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -280,7 +407,7 @@ export const CustomerAIPanel: React.FC = () => {
                   message.role === "user" ? "text-blue-200" : "text-gray-500"
                 }`}
               >
-                {format(message.timestamp, "HH:mm")}
+                {format(new Date(message.timestamp), "HH:mm")}
               </div>
             </div>
 
@@ -320,7 +447,7 @@ export const CustomerAIPanel: React.FC = () => {
 
       {/* Quick Actions */}
       {messages.length <= 1 && (
-        <div className="flex flex-wrap gap-2 py-3 border-t border-gray-800">
+        <div className="flex flex-wrap gap-2 py-3 border-t border-gray-800 flex-shrink-0">
           {quickActions.map((action) => (
             <button
               key={action.label}
@@ -335,7 +462,7 @@ export const CustomerAIPanel: React.FC = () => {
       )}
 
       {/* Input Area */}
-      <div className="border-t border-gray-800 pt-4">
+      <div className="border-t border-gray-800 pt-4 flex-shrink-0">
         <div className="flex gap-2">
           {/* Image Upload Button */}
           <input
