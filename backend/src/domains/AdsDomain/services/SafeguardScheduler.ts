@@ -9,6 +9,7 @@ import { logger } from '../../../utils/logger';
 import { SafeguardEvaluator } from './SafeguardEvaluator';
 import { PerformanceRepository } from '../repositories/PerformanceRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
+import { AdBillingService } from './AdBillingService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
 const LEAD_RETENTION_DAYS = 180;
@@ -19,7 +20,8 @@ export class SafeguardScheduler {
   constructor(
     private readonly evaluator = new SafeguardEvaluator(),
     private readonly perf = new PerformanceRepository(),
-    private readonly leads = new LeadRepository()
+    private readonly leads = new LeadRepository(),
+    private readonly billing = new AdBillingService()
   ) {}
 
   start(): void {
@@ -54,6 +56,11 @@ export class SafeguardScheduler {
       // Q9 retention: purge unconverted leads past the retention window.
       const purged = await this.leads.purgeExpired(LEAD_RETENTION_DAYS);
       if (purged > 0) logger.info(`Ads lead retention: purged ${purged} expired unconverted lead(s)`);
+
+      // Q4/Q7: accrue ad-management revenue (Plan B/C daily + Plan A monthly).
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      await this.billing.runNightly(monthStart);
     } catch (err) {
       logger.error('Ads safeguard scheduler tick failed:', err);
     } finally {

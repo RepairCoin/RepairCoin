@@ -14,6 +14,7 @@ import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
 import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
 import { CreativesPanel } from "@/components/ads/CreativesPanel";
 import { MarginPanel } from "@/components/ads/MarginPanel";
+import { BillingPanel } from "@/components/ads/BillingPanel";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -267,6 +268,9 @@ export const AdminAdsTab: React.FC = () => {
 
               {/* True margin (Q6) — admin only */}
               <MarginPanel campaignId={selected.id} />
+
+              {/* Ad-management billing (Q4/Q7) — admin only, per shop */}
+              <BillingPanel shopId={selected.shopId} />
 
               {/* Creatives + Q8 review */}
               <CreativesPanel campaignId={selected.id} />

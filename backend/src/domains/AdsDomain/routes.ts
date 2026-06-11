@@ -25,6 +25,9 @@ import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhook
 import {
   createExperiment, listExperiments, getExperimentReport, setExperimentWinner,
 } from './controllers/ExperimentController';
+import {
+  getBillingPlan, setBillingPlan, getShopBilling, getBillingSummary, triggerAccrual, invoiceShop,
+} from './controllers/BillingController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
@@ -58,6 +61,14 @@ export function initializeRoutes(): Router {
   router.get('/analytics/by-industry', ...admin, getIndustryAnalytics);  // Stage 5: per-industry
   router.get('/analytics/margin', ...admin, getMarginSummary);           // Q6: all-shops true margin
   router.get('/campaigns/:id/margin', ...admin, getCampaignMargin);      // Q6: per-campaign true margin
+
+  // ---- Admin: ad-management billing (Q4/Q7 — Plan A/B/C) ----
+  router.get('/analytics/billing', ...admin, getBillingSummary);         // platform-wide accrued revenue
+  router.post('/billing/accrue', ...admin, triggerAccrual);              // run accrual now (also nightly)
+  router.get('/shops/:shopId/billing-plan', ...admin, getBillingPlan);
+  router.put('/shops/:shopId/billing-plan', ...admin, setBillingPlan);
+  router.get('/shops/:shopId/billing', ...admin, getShopBilling);
+  router.post('/shops/:shopId/billing/invoice', ...admin, invoiceShop); // gated Stripe push
 
   // ---- Admin: A/B experiments (Stage 5) ----
   router.post('/campaigns/:id/experiments', ...admin, createExperiment);

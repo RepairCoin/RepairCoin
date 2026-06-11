@@ -142,6 +142,78 @@ export const getMarginSummary = async (): Promise<MarginSummary> => {
   return unwrap<MarginSummary>(res);
 };
 
+/* ----------------------- Ad-management billing (Q4/Q7) ------------------- */
+// Plan A/B/C ride on top of the $500/mo base subscription. Admin-only.
+
+export type AdPlanType = 'a' | 'b' | 'c';
+export type PlanCModel = 'per_booking' | 'revenue_share';
+
+export interface AdBillingPlan {
+  shopId: string;
+  planType: AdPlanType;
+  markupBps: number;            // Plan B (2000 = 20%)
+  dashboardFeeCents: number;    // Plan A
+  perBookingFeeCents: number;   // Plan C
+  revenueShareBps: number;      // Plan C alt
+  planCModel: PlanCModel;
+  active: boolean;
+}
+
+export interface BillingTotals {
+  pendingCents: number;
+  invoicedCents: number;
+  paidCents: number;
+  totalCents: number;
+}
+
+export interface BillingCharge {
+  id: string;
+  shopId: string;
+  campaignId: string | null;
+  periodDate: string;
+  chargeType: 'plan_a_dashboard' | 'plan_b_margin' | 'plan_c_booking' | 'plan_c_revenue_share';
+  basisCents: number;
+  amountCents: number;
+  status: 'pending' | 'invoiced' | 'paid' | 'void';
+}
+
+export interface InvoicePreview { shopId: string; chargeIds: string[]; totalCents: number; lineCount: number; }
+
+export interface ShopBilling {
+  plan: AdBillingPlan;
+  totals: BillingTotals;
+  recent: BillingCharge[];
+  invoicePreview: InvoicePreview;
+  stripeEnabled: boolean;
+}
+
+export type BillingSummary = BillingTotals & { shopCount: number };
+
+export const getBillingPlan = async (shopId: string): Promise<AdBillingPlan> => {
+  const res = await apiClient.get(`/ads/shops/${shopId}/billing-plan`);
+  return unwrap<AdBillingPlan>(res);
+};
+export const setBillingPlan = async (shopId: string, input: Partial<Omit<AdBillingPlan, 'shopId'>>): Promise<AdBillingPlan> => {
+  const res = await apiClient.put(`/ads/shops/${shopId}/billing-plan`, input);
+  return unwrap<AdBillingPlan>(res);
+};
+export const getShopBilling = async (shopId: string): Promise<ShopBilling> => {
+  const res = await apiClient.get(`/ads/shops/${shopId}/billing`);
+  return unwrap<ShopBilling>(res);
+};
+export const getBillingSummary = async (): Promise<BillingSummary> => {
+  const res = await apiClient.get('/ads/analytics/billing');
+  return unwrap<BillingSummary>(res);
+};
+export const triggerAccrual = async (): Promise<void> => {
+  await apiClient.post('/ads/billing/accrue');
+};
+// Gated server-side (501 with an actionable message until Stripe collection is wired).
+export const pushShopInvoice = async (shopId: string): Promise<{ stripeInvoiceId: string; totalCents: number }> => {
+  const res = await apiClient.post(`/ads/shops/${shopId}/billing/invoice`);
+  return unwrap<{ stripeInvoiceId: string; totalCents: number }>(res);
+};
+
 // Stage 5 — per-industry comparison
 export interface IndustryRow {
   industrySlug: string | null;
