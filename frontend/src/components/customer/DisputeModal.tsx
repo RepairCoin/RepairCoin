@@ -99,9 +99,9 @@ export default function DisputeModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-lg shadow-2xl">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-700">
+        <div className="flex items-center justify-between p-6 border-b border-zinc-700 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-500/10 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-orange-400" />
@@ -120,7 +120,7 @@ export default function DisputeModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Success State */}
           {result?.success && (
             <div
@@ -254,7 +254,7 @@ export default function DisputeModal({
 
         {/* Footer */}
         {!result?.success && daysRemaining > 0 && (
-          <div className="flex gap-3 p-6 pt-0">
+          <div className="flex gap-3 p-6 pt-4 border-t border-zinc-700 shrink-0">
             <button
               onClick={onClose}
               className="flex-1 py-2.5 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm transition-colors"
@@ -272,7 +272,7 @@ export default function DisputeModal({
         )}
 
         {!result?.success && daysRemaining === 0 && (
-          <div className="p-6 pt-0">
+          <div className="p-6 pt-4 border-t border-zinc-700 shrink-0">
             <button
               onClick={onClose}
               className="w-full py-2.5 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm transition-colors"

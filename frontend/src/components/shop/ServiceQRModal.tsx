@@ -94,9 +94,9 @@ export const ServiceQRModal: React.FC<ServiceQRModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#101010] rounded-xl border border-gray-800 max-w-md w-full overflow-hidden">
+      <div className="bg-[#101010] rounded-xl border border-gray-800 max-w-md w-full overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white">Service QR Code</h2>
             <p className="text-sm text-gray-400 mt-1">Share this code with customers</p>
@@ -110,7 +110,7 @@ export const ServiceQRModal: React.FC<ServiceQRModalProps> = ({
         </div>
 
         {/* QR Code */}
-        <div className="px-6 py-8 flex flex-col items-center">
+        <div className="px-6 py-8 flex flex-col items-center overflow-y-auto flex-1">
           <div className="bg-white p-6 rounded-xl shadow-lg">
             <canvas ref={canvasRef} />
           </div>
@@ -146,7 +146,7 @@ export const ServiceQRModal: React.FC<ServiceQRModalProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 border-t border-gray-800 flex gap-3">
+        <div className="px-6 py-4 border-t border-gray-800 flex gap-3 shrink-0">
           <button
             onClick={handleDownload}
             className="flex-1 py-3 bg-[#FFCC00] hover:bg-[#e6b800] text-[#101010] font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -164,7 +164,7 @@ export const ServiceQRModal: React.FC<ServiceQRModalProps> = ({
         </div>
 
         {/* Instructions */}
-        <div className="px-6 py-4 bg-[#1a1a1a] border-t border-gray-800">
+        <div className="px-6 py-4 bg-[#1a1a1a] border-t border-gray-800 shrink-0">
           <p className="text-xs text-gray-400 text-center">
             Customers can scan this QR code to view and book this service directly
           </p>
