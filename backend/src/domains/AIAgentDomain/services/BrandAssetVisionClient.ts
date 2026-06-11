@@ -44,6 +44,47 @@ export interface BrandColorResult {
   costUsd: number;
 }
 
+// Branding Studio (onboarding) — the fuller brand read behind the wizard's
+// "AI Brand Analysis" step: colors PLUS a marketing profile, in ONE vision call
+// (cost-parity with extractBrandColors). The 4 marketing styles MUST match the
+// wizard's options so the suggestion can pre-select a card.
+export const MARKETING_STYLE_OPTIONS = [
+  "Professional & Corporate",
+  "Modern & Tech",
+  "Friendly & Local",
+  "Premium & Luxury",
+] as const;
+export type MarketingStyleOption = (typeof MARKETING_STYLE_OPTIONS)[number];
+
+export interface BrandProfileResult {
+  primaryColorHex: string | null;
+  secondaryColorHex: string | null;
+  description: string | null;
+  brandPersonality: string | null;
+  industryStyle: string | null;
+  recommendedTone: string | null;
+  marketingStyle: MarketingStyleOption | null;
+  headline: string | null;
+  costUsd: number;
+}
+
+const BRAND_PROFILE_PROMPT =
+  "You are a brand strategist analyzing a shop's logo to build its marketing " +
+  "profile. Reply with ONLY a compact JSON object, no prose: " +
+  '{"primaryColorHex":"#RRGGBB","secondaryColorHex":"#RRGGBB",' +
+  '"description":"one short sentence on the logo style/mood",' +
+  '"brandPersonality":"three traits joined by \' • \'",' +
+  '"industryStyle":"short industry/style label",' +
+  '"recommendedTone":"three tone words joined by \' • \'",' +
+  '"marketingStyle":"EXACTLY one of: Professional & Corporate | Modern & Tech | ' +
+  'Friendly & Local | Premium & Luxury",' +
+  '"headline":"a short punchy tagline, max 6 words"}. ' +
+  "Use uppercase 6-digit hex. primaryColorHex = dominant brand color, " +
+  "secondaryColorHex = next most prominent (or a complementary neutral if " +
+  "single-color). brandPersonality and recommendedTone = exactly three short " +
+  "words/phrases joined by ' • '. marketingStyle MUST be one of the four options " +
+  "verbatim.";
+
 export interface ImageAnalysisResult {
   /** One- to two-sentence read of what's in the image + its style/mood. */
   description: string | null;
@@ -130,6 +171,112 @@ export class BrandAssetVisionClient {
     const parsed = this.parse(text);
 
     return { ...parsed, costUsd };
+  }
+
+  /**
+   * Branding Studio — full brand-profile read from a logo: colors + personality,
+   * industry style, recommended tone, a suggested marketing style, and a headline.
+   * One vision call. Same base64 download path as extractBrandColors. Throws on a
+   * hard download failure; soft-fails individual fields to null.
+   */
+  async analyzeBrand(imageUrl: string): Promise<BrandProfileResult> {
+    const dl = await fetch(imageUrl);
+    if (!dl.ok) {
+      throw new Error(`logo download failed (status ${dl.status})`);
+    }
+    let mediaType = (dl.headers.get("content-type") || "image/png")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (!SUPPORTED_MEDIA.has(mediaType)) mediaType = "image/png";
+    const b64 = Buffer.from(await dl.arrayBuffer()).toString("base64");
+
+    const resp = await this.client().messages.create({
+      model: VISION_MODEL,
+      max_tokens: 400,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType as
+                  | "image/jpeg"
+                  | "image/png"
+                  | "image/gif"
+                  | "image/webp",
+                data: b64,
+              },
+            },
+            { type: "text", text: BRAND_PROFILE_PROMPT },
+          ],
+        },
+      ],
+    });
+
+    const costUsd = Number(
+      (
+        resp.usage.input_tokens * INPUT_RATE +
+        resp.usage.output_tokens * OUTPUT_RATE
+      ).toFixed(6)
+    );
+
+    const text = resp.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+
+    return { ...this.parseBrandProfile(text), costUsd };
+  }
+
+  private parseBrandProfile(text: string): Omit<BrandProfileResult, "costUsd"> {
+    const empty: Omit<BrandProfileResult, "costUsd"> = {
+      primaryColorHex: null,
+      secondaryColorHex: null,
+      description: null,
+      brandPersonality: null,
+      industryStyle: null,
+      recommendedTone: null,
+      marketingStyle: null,
+      headline: null,
+    };
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) {
+      logger.warn("BrandAssetVisionClient.analyzeBrand: no JSON in response", {
+        preview: text.slice(0, 120),
+      });
+      return empty;
+    }
+    try {
+      const o = JSON.parse(match[0]) as Record<string, unknown>;
+      const hex = (v: unknown): string | null => {
+        if (typeof v !== "string") return null;
+        const t = v.trim().toUpperCase();
+        return HEX_RE.test(t) ? t : null;
+      };
+      const str = (v: unknown, max: number): string | null =>
+        typeof v === "string" && v.trim().length > 0
+          ? v.trim().slice(0, max)
+          : null;
+      const style = typeof o.marketingStyle === "string" ? o.marketingStyle.trim() : "";
+      const marketingStyle = (MARKETING_STYLE_OPTIONS as readonly string[]).includes(style)
+        ? (style as MarketingStyleOption)
+        : null;
+      return {
+        primaryColorHex: hex(o.primaryColorHex),
+        secondaryColorHex: hex(o.secondaryColorHex),
+        description: str(o.description, 300),
+        brandPersonality: str(o.brandPersonality, 200),
+        industryStyle: str(o.industryStyle, 200),
+        recommendedTone: str(o.recommendedTone, 200),
+        marketingStyle,
+        headline: str(o.headline, 200),
+      };
+    } catch {
+      return empty;
+    }
   }
 
   /**

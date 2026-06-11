@@ -9,9 +9,12 @@ import {
   GripVertical,
   Plus,
   Save,
-  X
+  X,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { generateShopBanner } from "@/services/api/aiBrandKit";
 import {
   updateShopProfile,
   getGalleryPhotos,
@@ -42,6 +45,8 @@ export const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generatingBanner, setGeneratingBanner] = useState(false);
+  const [bannerPrompt, setBannerPrompt] = useState("");
   const [editingCaption, setEditingCaption] = useState<number | null>(null);
   const [captionText, setCaptionText] = useState("");
 
@@ -89,6 +94,20 @@ export const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
   const handleBannerUpload = (url: string) => {
     setBannerUrl(url);
     toast.success("Banner uploaded! Click 'Save Changes' to apply.");
+  };
+
+  const handleGenerateBanner = async () => {
+    setGeneratingBanner(true);
+    try {
+      const url = await generateShopBanner(bannerPrompt.trim() || undefined);
+      setBannerUrl(url);
+      toast.success("Banner generated! Click 'Save Changes' to apply.");
+    } catch (e: any) {
+      // 403 (AI images off) / 429 (budget) surface the server message.
+      toast.error(e?.message || "Couldn't generate a banner. Please try again.");
+    } finally {
+      setGeneratingBanner(false);
+    }
   };
 
   const handleLogoUpload = (url: string) => {
@@ -177,6 +196,33 @@ export const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
           label="Banner Image"
           showPreview={true}
         />
+        <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+          <input
+            type="text"
+            value={bannerPrompt}
+            onChange={(e) => setBannerPrompt(e.target.value)}
+            maxLength={500}
+            placeholder="Tell the AI what to show — e.g. 'phone repair promo, cracked screen being fixed'"
+            className="flex-1 min-w-0 px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
+          />
+          <button
+            type="button"
+            onClick={handleGenerateBanner}
+            disabled={generatingBanner}
+            className="inline-flex items-center justify-center gap-2 text-xs font-medium px-3 py-2.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+          >
+            {generatingBanner ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-[#FFCC00]" />
+            )}
+            {generatingBanner ? "Generating banner…" : "Generate banner with AI"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Describe what you want, or leave it empty to generate from your brand kit
+          (counts toward your monthly AI budget). Your colors + logo are always applied.
+        </p>
       </div>
 
       {/* Logo Image Section */}

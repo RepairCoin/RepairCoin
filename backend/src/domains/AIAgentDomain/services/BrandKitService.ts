@@ -29,9 +29,26 @@ export interface BrandKit {
   /** The shop's canonical logo (shops.logo_url) — the default, managed under
    *  Settings → Shop Profile. */
   shopLogoUrl: string | null;
+  /** The shop's banner/header image (shops.banner_url). One value, editable in
+   *  Brand Kit + Shop Profile, AI-generatable. */
+  shopBannerUrl: string | null;
   primaryColorHex: string | null;
   secondaryColorHex: string | null;
   toneNotes: string | null;
+  /** Branding Studio profile (Phase 2/3) — collected by the wizard's analysis /
+   *  marketing-style / profile-ready steps. All nullable. */
+  marketingStyle: string | null;
+  brandVoice: string | null;
+  headline: string | null;
+  brandPersonality: string | null;
+  industryStyle: string | null;
+  /** Curated typography pairing (Phase 4) — Google font names. */
+  headingFont: string | null;
+  bodyFont: string | null;
+  /** When the Branding Studio onboarding was finished/skipped. NULL = not done
+   *  (the wizard auto-opens on first dashboard load). Set via markOnboardingComplete,
+   *  NOT the full-replace upsert (so a settings save never clears it). */
+  onboardingCompletedAt: string | null;
 }
 
 /** Fields a shop may set via PUT /api/ai/brand-kit. All optional → a full
@@ -43,11 +60,20 @@ export interface BrandKitUpdate {
   primaryColorHex?: string | null;
   secondaryColorHex?: string | null;
   toneNotes?: string | null;
+  marketingStyle?: string | null;
+  brandVoice?: string | null;
+  headline?: string | null;
+  brandPersonality?: string | null;
+  industryStyle?: string | null;
+  headingFont?: string | null;
+  bodyFont?: string | null;
 }
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const MAX_TONE_CHARS = 500;
 const MAX_LOGO_URL_CHARS = 2048;
+// The Branding Studio profile fields are short labels/taglines, not prose.
+const MAX_PROFILE_CHARS = 200;
 
 // Always-on art direction so AI output reads like designed marketing, not
 // generic AI art. Applied to EVERY generation (with or without a brand kit).
@@ -103,6 +129,23 @@ export function validateBrandKitUpdate(
   }
   out.logoUrl = logo;
 
+  // Branding Studio profile fields — short labels; trim + length-cap only.
+  for (const key of [
+    "marketingStyle",
+    "brandVoice",
+    "headline",
+    "brandPersonality",
+    "industryStyle",
+    "headingFont",
+    "bodyFont",
+  ] as const) {
+    const v = asStr(b[key]);
+    if (v && v.length > MAX_PROFILE_CHARS) {
+      return { error: `${key} exceeds ${MAX_PROFILE_CHARS} characters` };
+    }
+    out[key] = v;
+  }
+
   return { value: out };
 }
 
@@ -119,16 +162,34 @@ export class BrandKitService {
     try {
       const r = await this.pool.query<{
         shop_logo_url: string | null;
+        shop_banner_url: string | null;
         override_logo_url: string | null;
         primary_color_hex: string | null;
         secondary_color_hex: string | null;
         tone_notes: string | null;
+        marketing_style: string | null;
+        brand_voice: string | null;
+        headline: string | null;
+        brand_personality: string | null;
+        industry_style: string | null;
+        heading_font: string | null;
+        body_font: string | null;
+        onboarding_completed_at: Date | null;
       }>(
         `SELECT s.logo_url            AS shop_logo_url,
+                s.banner_url          AS shop_banner_url,
                 bk.logo_url           AS override_logo_url,
                 bk.primary_color_hex,
                 bk.secondary_color_hex,
-                bk.tone_notes
+                bk.tone_notes,
+                bk.marketing_style,
+                bk.brand_voice,
+                bk.headline,
+                bk.brand_personality,
+                bk.industry_style,
+                bk.heading_font,
+                bk.body_font,
+                bk.onboarding_completed_at
            FROM shops s
            LEFT JOIN shop_brand_kits bk ON bk.shop_id = s.shop_id
           WHERE s.shop_id = $1`,
@@ -142,9 +203,20 @@ export class BrandKitService {
         logoUrl: logoOverrideUrl ?? shopLogoUrl, // effective: override wins
         logoOverrideUrl,
         shopLogoUrl,
+        shopBannerUrl: row.shop_banner_url,
         primaryColorHex: row.primary_color_hex,
         secondaryColorHex: row.secondary_color_hex,
         toneNotes: row.tone_notes,
+        marketingStyle: row.marketing_style,
+        brandVoice: row.brand_voice,
+        headline: row.headline,
+        brandPersonality: row.brand_personality,
+        industryStyle: row.industry_style,
+        headingFont: row.heading_font,
+        bodyFont: row.body_font,
+        onboardingCompletedAt: row.onboarding_completed_at
+          ? row.onboarding_completed_at.toISOString()
+          : null,
       };
     } catch (err) {
       // Table absent or transient DB error → treat as "no kit". Brand guidance
@@ -166,13 +238,22 @@ export class BrandKitService {
     // `logo_url` stored here is the OPTIONAL override (null = use the shop logo).
     await this.pool.query(
       `INSERT INTO shop_brand_kits
-         (shop_id, logo_url, primary_color_hex, secondary_color_hex, tone_notes, updated_at)
-       VALUES ($1, $2, $3, $4, $5, now())
+         (shop_id, logo_url, primary_color_hex, secondary_color_hex, tone_notes,
+          marketing_style, brand_voice, headline, brand_personality, industry_style,
+          heading_font, body_font, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
        ON CONFLICT (shop_id) DO UPDATE SET
          logo_url            = EXCLUDED.logo_url,
          primary_color_hex   = EXCLUDED.primary_color_hex,
          secondary_color_hex = EXCLUDED.secondary_color_hex,
          tone_notes          = EXCLUDED.tone_notes,
+         marketing_style     = EXCLUDED.marketing_style,
+         brand_voice         = EXCLUDED.brand_voice,
+         headline            = EXCLUDED.headline,
+         brand_personality   = EXCLUDED.brand_personality,
+         industry_style      = EXCLUDED.industry_style,
+         heading_font        = EXCLUDED.heading_font,
+         body_font           = EXCLUDED.body_font,
          updated_at          = now()`,
       [
         shopId,
@@ -180,6 +261,13 @@ export class BrandKitService {
         update.primaryColorHex ?? null,
         update.secondaryColorHex ?? null,
         update.toneNotes ?? null,
+        update.marketingStyle ?? null,
+        update.brandVoice ?? null,
+        update.headline ?? null,
+        update.brandPersonality ?? null,
+        update.industryStyle ?? null,
+        update.headingFont ?? null,
+        update.bodyFont ?? null,
       ]
     );
     // Re-read so the response carries the effective logo (override ?? shop logo)
@@ -191,10 +279,37 @@ export class BrandKitService {
       logoUrl: update.logoUrl ?? null,
       logoOverrideUrl: update.logoUrl ?? null,
       shopLogoUrl: null,
+      shopBannerUrl: null,
       primaryColorHex: update.primaryColorHex ?? null,
       secondaryColorHex: update.secondaryColorHex ?? null,
       toneNotes: update.toneNotes ?? null,
+      marketingStyle: update.marketingStyle ?? null,
+      brandVoice: update.brandVoice ?? null,
+      headline: update.headline ?? null,
+      brandPersonality: update.brandPersonality ?? null,
+      industryStyle: update.industryStyle ?? null,
+      headingFont: update.headingFont ?? null,
+      bodyFont: update.bodyFont ?? null,
+      onboardingCompletedAt: null,
     };
+  }
+
+  /**
+   * Stamp the Branding Studio onboarding as finished/skipped. Kept SEPARATE from
+   * upsertBrandKit (which is a full replace) so a later settings save never
+   * clears it. Upserts a row when none exists yet (e.g. the shop SKIPPED with an
+   * empty kit). Returns the fresh kit.
+   */
+  async markOnboardingComplete(shopId: string): Promise<BrandKit | null> {
+    await this.pool.query(
+      `INSERT INTO shop_brand_kits (shop_id, onboarding_completed_at, updated_at)
+       VALUES ($1, now(), now())
+       ON CONFLICT (shop_id) DO UPDATE SET
+         onboarding_completed_at = now(),
+         updated_at              = now()`,
+      [shopId]
+    );
+    return this.getBrandKit(shopId);
   }
 
   /**
