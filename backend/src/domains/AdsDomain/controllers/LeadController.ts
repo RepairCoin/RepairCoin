@@ -10,6 +10,7 @@ import { AdsEvents } from '../events';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { leadAttributionService } from '../services/LeadAttributionService';
 import { leadAIService } from '../services/LeadAIService';
+import { leadAutoAnswerService } from '../services/LeadAutoAnswerService';
 
 const leads = new LeadRepository();
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
@@ -151,6 +152,65 @@ export async function draftLeadReply(req: Request, res: Response): Promise<void>
     const status = err?.status ?? 500;
     logger.error('LeadController.draftLeadReply failed', err);
     res.status(status).json({ success: false, error: err?.message || 'Failed to draft reply' });
+  }
+}
+
+// GET /leads/:id/messages (admin) — Stage 3.5 conversation thread.
+export async function getLeadThread(req: Request, res: Response): Promise<void> {
+  try {
+    res.json({ success: true, data: await leadAutoAnswerService.getThread(req.params.id) });
+  } catch (err) {
+    logger.error('LeadController.getLeadThread failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load conversation' });
+  }
+}
+
+// POST /leads/:id/messages (admin) — admin sends a manual reply (stored + delivered).
+export async function postLeadMessage(req: Request, res: Response): Promise<void> {
+  const body = (req.body?.body || '').toString().trim();
+  if (!body) { res.status(400).json({ success: false, error: 'body is required' }); return; }
+  try {
+    res.status(201).json({ success: true, data: await leadAutoAnswerService.sendAdminMessage(req.params.id, body) });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500) logger.error('LeadController.postLeadMessage failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to send message' });
+  }
+}
+
+// POST /leads/:id/auto-answer (admin) — generate + send an AI reply for the thread now.
+export async function autoAnswerLead(req: Request, res: Response): Promise<void> {
+  try {
+    res.json({ success: true, data: await leadAutoAnswerService.generateReply(req.params.id) });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500) logger.error('LeadController.autoAnswerLead failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to auto-answer' });
+  }
+}
+
+// POST /leads/inbound (PUBLIC) — a lead's reply arrives (from a channel webhook).
+// Stores it and auto-answers IF the campaign has ai_agent_enabled. Guarded by a
+// shared token when ADS_INBOUND_WEBHOOK_TOKEN is set.
+export async function inboundLeadMessage(req: Request, res: Response): Promise<void> {
+  const expected = process.env.ADS_INBOUND_WEBHOOK_TOKEN;
+  if (expected && req.headers['x-ads-inbound-token'] !== expected) {
+    res.status(401).json({ success: false, error: 'Invalid inbound token' });
+    return;
+  }
+  const leadId = (req.body?.leadId || '').toString();
+  const body = (req.body?.body || '').toString().trim();
+  if (!leadId || !body) { res.status(400).json({ success: false, error: 'leadId and body are required' }); return; }
+  try {
+    const result = await leadAutoAnswerService.handleInbound(leadId, body, req.body?.channel);
+    res.json({
+      success: true,
+      data: { inboundId: result.inbound.id, autoAnswered: result.autoAnswered, reply: result.reply?.body ?? null },
+    });
+  } catch (err: any) {
+    const status = err?.status ?? 500;
+    if (status >= 500) logger.error('LeadController.inboundLeadMessage failed', err);
+    res.status(status).json({ success: false, error: err?.message || 'Failed to process inbound message' });
   }
 }
 

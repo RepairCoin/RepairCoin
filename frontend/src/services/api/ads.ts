@@ -97,6 +97,7 @@ export const createCampaign = async (input: {
 
 export const updateCampaign = async (id: string, input: Partial<{
   name: string; status: CampaignStatus; dailyBudgetCents: number; notes: string | null;
+  aiAgentEnabled: boolean;
 }>) => {
   const res = await apiClient.patch(`/ads/campaigns/${id}`, input);
   return unwrap<AdCampaign>(res);
@@ -325,6 +326,31 @@ export const updateLeadStatus = async (id: string, status: LeadStatus, lostReaso
 export const draftLeadReply = async (id: string): Promise<string> => {
   const res = await apiClient.post(`/ads/leads/${id}/draft-reply`);
   return unwrap<{ draft: string }>(res).draft;
+};
+
+// Stage 3.5 — full AI auto-answer conversation thread (admin).
+export interface LeadMessage {
+  id: string;
+  leadId: string;
+  direction: 'inbound' | 'outbound';
+  author: 'lead' | 'ai' | 'admin';
+  channel: 'sms' | 'whatsapp' | 'messenger' | 'email' | 'manual';
+  body: string;
+  aiCostCents: number;
+  deliveryStatus: 'recorded' | 'queued' | 'sent' | 'delivered' | 'failed';
+  createdAt: string;
+}
+export const getLeadThread = async (id: string): Promise<LeadMessage[]> => {
+  const res = await apiClient.get(`/ads/leads/${id}/messages`);
+  return unwrap<LeadMessage[]>(res);
+};
+export const sendLeadMessage = async (id: string, body: string): Promise<LeadMessage> => {
+  const res = await apiClient.post(`/ads/leads/${id}/messages`, { body });
+  return unwrap<LeadMessage>(res);
+};
+export const autoAnswerLead = async (id: string): Promise<LeadMessage> => {
+  const res = await apiClient.post(`/ads/leads/${id}/auto-answer`);
+  return unwrap<LeadMessage>(res);
 };
 
 /* --------------------------- Public (landing page) ----------------------- */

@@ -16,6 +16,7 @@ import {
 import {
   listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead, draftLeadReply,
   listAwaitingLeads, listShopAwaitingLeads,
+  getLeadThread, postLeadMessage, autoAnswerLead, inboundLeadMessage,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -43,6 +44,10 @@ export function initializeRoutes(): Router {
   // PUBLIC — landing-page lead webform (UTM-attributed). No auth: attribution is
   // by campaign id / utm params in the body. (Stage 2.)
   router.post('/leads/webform', webformLead);
+
+  // PUBLIC — inbound lead reply from a channel webhook (Stage 3.5). Auto-answers when
+  // the campaign has ai_agent_enabled. Guarded by ADS_INBOUND_WEBHOOK_TOKEN when set.
+  router.post('/leads/inbound', inboundLeadMessage);
 
   // PUBLIC — Meta Lead Ads webhook (Stage 4). GET = verification handshake;
   // POST = signed lead delivery (raw body parsed in app.ts for signature check).
@@ -94,6 +99,9 @@ export function initializeRoutes(): Router {
   router.post('/leads/manual', ...admin, createManualLead);
   router.patch('/leads/:id/status', ...admin, updateLeadStatus);
   router.post('/leads/:id/draft-reply', ...admin, draftLeadReply);   // Stage 3: AI outreach draft
+  router.get('/leads/:id/messages', ...admin, getLeadThread);        // Stage 3.5: conversation thread
+  router.post('/leads/:id/messages', ...admin, postLeadMessage);     // Stage 3.5: admin manual reply
+  router.post('/leads/:id/auto-answer', ...admin, autoAnswerLead);   // Stage 3.5: trigger AI reply
 
   // ---- Shop: own read-only ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);

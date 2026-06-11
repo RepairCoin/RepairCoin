@@ -61,6 +61,16 @@ export const AdminAdsTab: React.FC = () => {
     catch (e: any) { toast.error(e?.message || "Couldn't load performance."); }
   };
 
+  const toggleAiAgent = async (c: AdCampaign) => {
+    try {
+      await updateCampaign(c.id, { aiAgentEnabled: !c.aiAgentEnabled });
+      await load();
+      toast.success(c.aiAgentEnabled ? "AI auto-answer off." : "AI auto-answer on — new lead replies are answered automatically.");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't update AI auto-answer.");
+    }
+  };
+
   const submitCreate = async () => {
     if (!form.shopId.trim() || !form.name.trim()) {
       toast.error("Shop ID and campaign name are required.");
@@ -209,7 +219,19 @@ export const AdminAdsTab: React.FC = () => {
             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-[#FFCC00]" /> {selected.name}
             </h3>
-            <button onClick={() => select(selected.id)} className="text-gray-400 hover:text-white"><RefreshCw className="w-4 h-4" /></button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => toggleAiAgent(selected)}
+                className="inline-flex items-center gap-2 text-xs text-gray-300 hover:text-white"
+                title="When on, the AI automatically answers new lead replies"
+              >
+                <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${selected.aiAgentEnabled ? "bg-[#FFCC00]" : "bg-gray-600"}`}>
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${selected.aiAgentEnabled ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                </span>
+                AI auto-answer
+              </button>
+              <button onClick={() => select(selected.id)} className="text-gray-400 hover:text-white"><RefreshCw className="w-4 h-4" /></button>
+            </div>
           </div>
 
           {!perf ? (

@@ -6,12 +6,13 @@
 // /ads/shop/leads). One-click status change (not drag-drop — simpler + reliable).
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy } from "lucide-react";
+import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   listLeads, listShopLeads, updateLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
+import { LeadConversation } from "@/components/ads/LeadConversation";
 
 const COLUMNS: { status: LeadStatus; label: string }[] = [
   { status: "new", label: "New" },
@@ -38,6 +39,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [convoLead, setConvoLead] = useState<AdLead | null>(null);
   const editable = mode === "admin";
 
   const load = useCallback(async () => {
@@ -137,6 +139,13 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                             Lost
                           </button>
                         )}
+                        <button
+                          onClick={() => setConvoLead(lead)}
+                          className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00] ml-auto"
+                          title="Open conversation"
+                        >
+                          <MessageSquare className="w-3 h-3" /> Chat
+                        </button>
                       </div>
                     )}
 
@@ -171,6 +180,15 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
           );
         })}
       </div>
+
+      {convoLead && (
+        <LeadConversation
+          leadId={convoLead.id}
+          leadName={convoLead.name}
+          open={!!convoLead}
+          onClose={() => setConvoLead(null)}
+        />
+      )}
     </div>
   );
 };
