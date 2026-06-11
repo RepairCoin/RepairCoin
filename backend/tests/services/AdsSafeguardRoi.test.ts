@@ -37,6 +37,38 @@ describe('RoiCalculator.fromTotals', () => {
   });
 });
 
+describe('RoiCalculator.marginFromTotals (Q6 true margin)', () => {
+  it('shop ROI excludes AI cost; true ROI folds it into the denominator', () => {
+    const m = RoiCalculator.marginFromTotals(
+      totals({ totalSpendCents: 10000, totalRevenueCents: 30000 }),
+      200 // $2.00 AI cost (cents)
+    );
+    expect(m.shopRoi).toBeCloseTo(2);                 // (30000-10000)/10000 — unchanged for the shop
+    expect(m.trueRoi).toBeCloseTo((30000 - 10200) / 10200); // ~1.941
+    expect(m.roiDip).toBeCloseTo(2 - (30000 - 10200) / 10200);
+    expect(m.aiCostCents).toBe(200);
+  });
+
+  it('handles fractional sub-cent AI cost', () => {
+    const m = RoiCalculator.marginFromTotals(totals({ totalSpendCents: 10000, totalRevenueCents: 20000 }), 0.03);
+    expect(m.aiCostCents).toBeCloseTo(0.03);
+    expect(m.trueRoi).toBeCloseTo((20000 - 10000.03) / 10000.03);
+  });
+
+  it('trueRoi computable from AI cost alone when ad spend is 0', () => {
+    const m = RoiCalculator.marginFromTotals(totals({ totalRevenueCents: 500 }), 100);
+    expect(m.shopRoi).toBeNull();                     // no ad spend → shop ROI undefined
+    expect(m.trueRoi).toBeCloseTo((500 - 100) / 100); // but COGS denominator exists
+    expect(m.roiDip).toBeNull();                       // can't diff against a null shopRoi
+  });
+
+  it('negative AI cost is clamped to 0', () => {
+    const m = RoiCalculator.marginFromTotals(totals({ totalSpendCents: 1000, totalRevenueCents: 3000 }), -50);
+    expect(m.aiCostCents).toBe(0);
+    expect(m.trueRoi).toBeCloseTo(m.shopRoi!);
+  });
+});
+
 describe('SafeguardEvaluator.decide', () => {
   const T = { softCents: 40000, hardCents: 80000 }; // $400 / $800 defaults
 

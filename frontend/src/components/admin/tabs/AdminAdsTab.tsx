@@ -13,6 +13,7 @@ import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import { IndustryAnalytics } from "@/components/ads/IndustryAnalytics";
 import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
 import { CreativesPanel } from "@/components/ads/CreativesPanel";
+import { MarginPanel } from "@/components/ads/MarginPanel";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -263,6 +264,9 @@ export const AdminAdsTab: React.FC = () => {
                   </table>
                 </div>
               )}
+
+              {/* True margin (Q6) — admin only */}
+              <MarginPanel campaignId={selected.id} />
 
               {/* Creatives + Q8 review */}
               <CreativesPanel campaignId={selected.id} />

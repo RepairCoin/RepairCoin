@@ -8,10 +8,12 @@ import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { PerformanceRepository } from '../repositories/PerformanceRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { AiCostRepository } from '../repositories/AiCostRepository';
 import { RoiCalculator } from '../services/RoiCalculator';
 
 const perf = new PerformanceRepository();
 const campaigns = new CampaignRepository();
+const aiCosts = new AiCostRepository();
 const roi = new RoiCalculator(perf);
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
 
@@ -65,6 +67,38 @@ export async function getIndustryAnalytics(_req: Request, res: Response): Promis
   } catch (err) {
     logger.error('PerformanceController.getIndustryAnalytics failed', err);
     res.status(500).json({ success: false, error: 'Failed to get industry analytics' });
+  }
+}
+
+// GET /campaigns/:id/margin (admin only) — Q6 true-margin: shop ROI vs ROI with
+// AI COGS folded in. NEVER exposed to shops.
+export async function getCampaignMargin(req: Request, res: Response): Promise<void> {
+  try {
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const [totals, aiCostCents] = await Promise.all([
+      perf.getTotals(campaign.id),
+      aiCosts.getCampaignCostCents(campaign.id),
+    ]);
+    res.json({ success: true, data: RoiCalculator.marginFromTotals(totals, aiCostCents) });
+  } catch (err) {
+    logger.error('PerformanceController.getCampaignMargin failed', err);
+    res.status(500).json({ success: false, error: 'Failed to get margin' });
+  }
+}
+
+// GET /analytics/margin (admin only) — all-shops true-margin rollup.
+export async function getMarginSummary(_req: Request, res: Response): Promise<void> {
+  try {
+    const [summary, aiCostCents] = await Promise.all([
+      perf.getAllShopsSummary(),
+      aiCosts.getAllCostCents(),
+    ]);
+    const margin = RoiCalculator.marginFromTotals(summary, aiCostCents);
+    res.json({ success: true, data: { ...margin, campaignCount: summary.campaignCount } });
+  } catch (err) {
+    logger.error('PerformanceController.getMarginSummary failed', err);
+    res.status(500).json({ success: false, error: 'Failed to get margin summary' });
   }
 }
 

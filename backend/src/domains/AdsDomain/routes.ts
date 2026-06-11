@@ -19,7 +19,7 @@ import {
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
-  getIndustryAnalytics,
+  getIndustryAnalytics, getCampaignMargin, getMarginSummary,
 } from './controllers/PerformanceController';
 import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhookController';
 import {
@@ -56,6 +56,8 @@ export function initializeRoutes(): Router {
   router.post('/campaigns/:id/metrics', ...admin, enterDailyMetrics);   // Stage 1: daily entry
   router.get('/analytics/summary', ...admin, getAllShopsSummary);        // Stage 1: all-shops rollup
   router.get('/analytics/by-industry', ...admin, getIndustryAnalytics);  // Stage 5: per-industry
+  router.get('/analytics/margin', ...admin, getMarginSummary);           // Q6: all-shops true margin
+  router.get('/campaigns/:id/margin', ...admin, getCampaignMargin);      // Q6: per-campaign true margin
 
   // ---- Admin: A/B experiments (Stage 5) ----
   router.post('/campaigns/:id/experiments', ...admin, createExperiment);

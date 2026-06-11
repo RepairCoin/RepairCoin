@@ -13,6 +13,7 @@ import { BrandKitService } from '../../AIAgentDomain/services/BrandKitService';
 import { shopRepository } from '../../../repositories';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
+import { AiCostRepository } from '../repositories/AiCostRepository';
 import { ClaudeModel } from '../../AIAgentDomain/types';
 
 const DRAFT_MODEL: ClaudeModel = 'claude-haiku-4-5-20251001';
@@ -37,7 +38,8 @@ export class LeadAIService {
     private readonly spendCap = new SpendCapEnforcer(),
     private readonly brandKit = new BrandKitService(),
     private readonly leads = new LeadRepository(),
-    private readonly campaigns = new CampaignRepository()
+    private readonly campaigns = new CampaignRepository(),
+    private readonly aiCosts = new AiCostRepository()
   ) {}
 
   /** Draft an outreach message for a lead. Throws { status } on a gate. */
@@ -77,6 +79,19 @@ export class LeadAIService {
         maxTokens: 300,
       });
       await this.spendCap.recordSpend(shopId, resp.costUsd);
+      // Q6: attribute this COGS to the campaign for the admin true-margin panel.
+      // Best-effort — bookkeeping must never break the draft it's measuring.
+      try {
+        await this.aiCosts.record({
+          campaignId: lead.campaignId,
+          leadId: lead.id,
+          costCents: resp.costUsd * 100,
+          kind: 'draft_outreach',
+          model: resp.model,
+        });
+      } catch (e) {
+        logger.error('LeadAIService: failed to record ad AI cost', e);
+      }
       return { draft: resp.text.trim(), costUsd: resp.costUsd };
     } catch (err) {
       logger.error('LeadAIService.draftOutreach failed', err);

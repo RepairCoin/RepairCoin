@@ -121,6 +121,27 @@ export const getAllShopsSummary = async () => {
   return unwrap<AllShopsSummary>(res);
 };
 
+// Q6 — admin-only "true margin": shop-facing ROI vs ROI with AI COGS folded in.
+// NEVER shown to shops.
+export interface CampaignMargin {
+  totalSpendCents: number;
+  totalRevenueCents: number;
+  aiCostCents: number;     // fractional cents
+  shopRoi: number | null;  // excludes AI cost (what the shop sees)
+  trueRoi: number | null;  // includes AI cost in the denominator
+  roiDip: number | null;   // shopRoi - trueRoi
+}
+export type MarginSummary = CampaignMargin & { campaignCount: number };
+
+export const getCampaignMargin = async (id: string): Promise<CampaignMargin> => {
+  const res = await apiClient.get(`/ads/campaigns/${id}/margin`);
+  return unwrap<CampaignMargin>(res);
+};
+export const getMarginSummary = async (): Promise<MarginSummary> => {
+  const res = await apiClient.get('/ads/analytics/margin');
+  return unwrap<MarginSummary>(res);
+};
+
 // Stage 5 — per-industry comparison
 export interface IndustryRow {
   industrySlug: string | null;
@@ -279,3 +300,10 @@ export const fmtUsd = (cents: number | null | undefined): string =>
 
 export const fmtRoi = (roi: number | null): string =>
   roi == null ? '—' : `${(roi * 100).toFixed(0)}%`;
+
+// Precise dollar formatter for tiny AI costs (e.g. $0.0003) where fmtUsd's
+// whole-dollar rounding would collapse to "$0".
+export const fmtUsdPrecise = (cents: number | null | undefined): string =>
+  cents == null ? '—' : (cents / 100).toLocaleString(undefined, {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4,
+  });
