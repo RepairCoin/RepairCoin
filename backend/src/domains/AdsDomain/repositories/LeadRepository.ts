@@ -35,6 +35,7 @@ export interface CreateLeadInput {
   attributionMethod?: AttributionMethod;
   consentToContact?: boolean;
   notes?: string | null;
+  metaLeadId?: string | null;
 }
 
 export interface ListLeadsFilter {
@@ -49,8 +50,8 @@ export class LeadRepository extends BaseRepository {
   async create(input: CreateLeadInput): Promise<AdLead> {
     const res = await this.pool.query(
       `INSERT INTO ad_leads
-         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+         (campaign_id, creative_id, name, phone, email, attribution_method, consent_to_contact, notes, meta_lead_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [
         input.campaignId,
         input.creativeId ?? null,
@@ -60,9 +61,16 @@ export class LeadRepository extends BaseRepository {
         input.attributionMethod ?? 'manual',
         input.consentToContact ?? false,
         input.notes ?? null,
+        input.metaLeadId ?? null,
       ]
     );
     return this.mapRow(res.rows[0]);
+  }
+
+  /** Idempotency for Meta webhook re-delivery: existing lead id for a meta_lead_id. */
+  async findByMetaLeadId(metaLeadId: string): Promise<string | null> {
+    const res = await this.pool.query(`SELECT id FROM ad_leads WHERE meta_lead_id = $1`, [metaLeadId]);
+    return res.rows[0]?.id ?? null;
   }
 
   async findById(id: string): Promise<AdLead | null> {

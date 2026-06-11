@@ -19,6 +19,7 @@ import {
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
 } from './controllers/PerformanceController';
+import { verifyMetaWebhook, receiveMetaWebhook } from './controllers/MetaWebhookController';
 
 export function initializeRoutes(): Router {
   const router = Router();
@@ -33,6 +34,11 @@ export function initializeRoutes(): Router {
   // PUBLIC — landing-page lead webform (UTM-attributed). No auth: attribution is
   // by campaign id / utm params in the body. (Stage 2.)
   router.post('/leads/webform', webformLead);
+
+  // PUBLIC — Meta Lead Ads webhook (Stage 4). GET = verification handshake;
+  // POST = signed lead delivery (raw body parsed in app.ts for signature check).
+  router.get('/webhooks/meta/leads', verifyMetaWebhook);
+  router.post('/webhooks/meta/leads', receiveMetaWebhook);
 
   // ---- Admin: campaigns ----
   router.post('/campaigns', ...admin, createCampaign);

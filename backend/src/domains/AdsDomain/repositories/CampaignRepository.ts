@@ -157,6 +157,15 @@ export class CampaignRepository extends BaseRepository {
     return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id }));
   }
 
+  /** Resolve our campaign from a Meta campaign id (webhook/insights attribution). */
+  async findByMetaCampaignId(metaCampaignId: string): Promise<AdCampaign | null> {
+    const res = await this.pool.query(
+      `SELECT * FROM ad_campaigns WHERE meta_campaign_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [metaCampaignId]
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
   /** Lightweight ownership check used by shop-scoped endpoints. */
   async getShopIdForCampaign(id: string): Promise<string | null> {
     try {

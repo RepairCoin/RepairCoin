@@ -19,6 +19,7 @@ export interface RawLead {
   utm?: Record<string, string>;
   clickId?: string;
   consentToContact?: boolean;
+  metaLeadId?: string;
   method: AttributionMethod;
 }
 
@@ -48,6 +49,12 @@ export class LeadAttributionService {
     const creativeId = raw.creativeId || raw.utm?.utm_content || null;
     const phone = normalizePhone(raw.phone);
 
+    // Idempotency: Meta re-delivers webhooks — a known meta_lead_id is a no-op.
+    if (raw.metaLeadId) {
+      const existingMeta = await this.leads.findByMetaLeadId(raw.metaLeadId);
+      if (existingMeta) return { leadId: existingMeta, deduped: true };
+    }
+
     // Dedupe: a recent non-duplicate lead with the same phone on this campaign.
     if (phone) {
       const existing = await this.leads.findRecentByPhone(campaignId, phone, 24);
@@ -65,6 +72,7 @@ export class LeadAttributionService {
       email: raw.email ?? null,
       attributionMethod: raw.method,
       consentToContact: raw.consentToContact ?? false,
+      metaLeadId: raw.metaLeadId ?? null,
     });
 
     await eventBus.publish(

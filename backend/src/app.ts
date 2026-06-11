@@ -288,10 +288,14 @@ class RepairCoinApp {
     }));
     
     // Raw body parsing for Stripe webhooks (MUST be before JSON parsing)
-    this.app.use('/api/shops/webhooks/stripe', 
+    this.app.use('/api/shops/webhooks/stripe',
       express.raw({ type: 'application/json' })
     );
-    
+
+    // Raw body for the Meta Lead Ads webhook (X-Hub-Signature-256 HMAC needs the
+    // exact bytes). MUST be before JSON parsing. (Ads System Stage 4.)
+    this.app.use('/api/ads/webhooks/meta/leads', express.raw({ type: '*/*' }));
+
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
