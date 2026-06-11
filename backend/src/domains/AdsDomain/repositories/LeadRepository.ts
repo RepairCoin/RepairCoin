@@ -136,6 +136,27 @@ export class LeadRepository extends BaseRepository {
     return address;
   }
 
+  /** Leads with no first response yet (SLA): oldest first. Optionally shop-scoped
+   *  (joined through ad_campaigns.shop_id). Excludes terminal statuses. */
+  async listAwaiting(shopId?: string, limit = 50): Promise<AdLead[]> {
+    const params: any[] = [];
+    const where = [`l.first_response_at IS NULL`, `l.lead_status NOT IN ('lost','completed','paid')`];
+    let from = `ad_leads l`;
+    if (shopId) {
+      from = `ad_leads l JOIN ad_campaigns c ON c.id = l.campaign_id`;
+      params.push(shopId);
+      where.push(`c.shop_id = $${params.length}`);
+    }
+    params.push(limit);
+    const res = await this.pool.query(
+      `SELECT l.* FROM ${from}
+        WHERE ${where.join(' AND ')}
+        ORDER BY l.created_at ASC LIMIT $${params.length}`,
+      params
+    );
+    return res.rows.map((r) => this.mapRow(r));
+  }
+
   async updateStatus(id: string, status: LeadStatus, lostReason?: string | null): Promise<AdLead | null> {
     const res = await this.pool.query(
       `UPDATE ad_leads

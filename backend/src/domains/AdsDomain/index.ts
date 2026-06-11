@@ -6,6 +6,7 @@
 
 import { DomainModule } from '../types';
 import { initializeRoutes } from './routes';
+import { registerAdsEventListeners } from './services/adsEventListeners';
 import { logger } from '../../utils/logger';
 import { Router } from 'express';
 
@@ -18,6 +19,7 @@ export class AdsDomain implements DomainModule {
   }
 
   async initialize(): Promise<void> {
-    logger.info(`${this.name} domain initialized — Ads System (Stage 0 foundation)`);
+    registerAdsEventListeners(); // lead_captured → notify shop (SLA speed-to-lead)
+    logger.info(`${this.name} domain initialized — Ads System`);
   }
 }

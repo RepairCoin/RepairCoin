@@ -9,6 +9,7 @@ import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw } from "lu
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -130,6 +131,9 @@ export const AdminAdsTab: React.FC = () => {
           <Plus className="w-4 h-4" /> New Campaign
         </Button>
       </div>
+
+      {/* First-response SLA */}
+      <AwaitingResponse mode="admin" />
 
       {/* All-shops summary */}
       {summary && (

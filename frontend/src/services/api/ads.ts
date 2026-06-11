@@ -137,6 +137,17 @@ export const draftLeadReply = async (id: string): Promise<string> => {
   return unwrap<{ draft: string }>(res).draft;
 };
 
+/* --------------------------- Public (landing page) ----------------------- */
+
+// Submit a lead from a public landing-page form (UTM-attributed). No auth.
+export const submitWebformLead = async (payload: {
+  campaignId?: string; name?: string; phone?: string; email?: string;
+  utm?: Record<string, string>; clickId?: string;
+}): Promise<{ deduped: boolean }> => {
+  const res = await apiClient.post('/ads/leads/webform', { ...payload, consentToContact: true });
+  return unwrap<{ deduped: boolean }>(res);
+};
+
 /* --------------------------------- Shop ---------------------------------- */
 
 export const listShopCampaigns = async (params?: { status?: CampaignStatus }) => {
@@ -152,6 +163,16 @@ export const getShopCampaignPerformance = async (id: string) => {
 export const listShopLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {
   const res = await apiClient.get('/ads/shop/leads', { params });
   return { items: unwrap<AdLead[]>(res), total: (res.data.total ?? 0) as number };
+};
+
+// First-response SLA — leads with no response yet (oldest first).
+export const listAwaitingLeads = async (): Promise<AdLead[]> => {
+  const res = await apiClient.get('/ads/leads/awaiting');
+  return unwrap<AdLead[]>(res);
+};
+export const listShopAwaitingLeads = async (): Promise<AdLead[]> => {
+  const res = await apiClient.get('/ads/shop/leads/awaiting');
+  return unwrap<AdLead[]>(res);
 };
 
 /* ------------------------------- Formatters ------------------------------ */

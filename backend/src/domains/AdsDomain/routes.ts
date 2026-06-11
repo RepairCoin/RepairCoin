@@ -15,6 +15,7 @@ import {
 } from './controllers/CreativeController';
 import {
   listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead, draftLeadReply,
+  listAwaitingLeads, listShopAwaitingLeads,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -58,6 +59,7 @@ export function initializeRoutes(): Router {
 
   // ---- Admin: leads ----
   router.get('/leads', ...admin, listLeads);
+  router.get('/leads/awaiting', ...admin, listAwaitingLeads);   // SLA (Stage 2)
   router.post('/leads/manual', ...admin, createManualLead);
   router.patch('/leads/:id/status', ...admin, updateLeadStatus);
   router.post('/leads/:id/draft-reply', ...admin, draftLeadReply);   // Stage 3: AI outreach draft
@@ -66,6 +68,7 @@ export function initializeRoutes(): Router {
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
   router.get('/shop/leads', ...shop, listShopLeads);
+  router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
 
   return router;
 }

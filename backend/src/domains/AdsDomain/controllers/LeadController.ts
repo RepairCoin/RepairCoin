@@ -118,6 +118,30 @@ export async function updateLeadStatus(req: Request, res: Response): Promise<voi
   }
 }
 
+// GET /leads/awaiting (admin) — first-response SLA: leads with no response yet.
+export async function listAwaitingLeads(req: Request, res: Response): Promise<void> {
+  try {
+    const items = await leads.listAwaiting(undefined, 50);
+    res.json({ success: true, data: items });
+  } catch (err) {
+    logger.error('LeadController.listAwaitingLeads failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load awaiting leads' });
+  }
+}
+
+// GET /shop/leads/awaiting (shop) — own awaiting leads only.
+export async function listShopAwaitingLeads(req: Request, res: Response): Promise<void> {
+  const shopId = shopIdOf(req);
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
+  try {
+    const items = await leads.listAwaiting(shopId, 50);
+    res.json({ success: true, data: items });
+  } catch (err) {
+    logger.error('LeadController.listShopAwaitingLeads failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load awaiting leads' });
+  }
+}
+
 // POST /leads/:id/draft-reply (admin) — Stage 3 (Option C): AI-drafted outreach.
 export async function draftLeadReply(req: Request, res: Response): Promise<void> {
   try {

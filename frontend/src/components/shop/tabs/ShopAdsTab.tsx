@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Megaphone, TrendingUp, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { LeadKanban } from "@/components/ads/LeadKanban";
+import { AwaitingResponse } from "@/components/ads/AwaitingResponse";
 import {
   listShopCampaigns, getShopCampaignPerformance, fmtUsd, fmtRoi,
   type AdCampaign, type CampaignPerformance,
@@ -61,6 +62,8 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ reviewScore, photoCount 
       <h2 className="text-xl font-semibold text-white flex items-center gap-2">
         <Megaphone className="w-5 h-5 text-[#FFCC00]" /> Your Ads
       </h2>
+
+      <AwaitingResponse mode="shop" />
 
       {showQualityWarning && (
         <div className="rounded-xl border border-yellow-500/40 bg-yellow-900/15 p-4 flex items-start gap-3">
