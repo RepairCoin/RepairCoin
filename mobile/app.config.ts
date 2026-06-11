@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         NSCameraUsageDescription:
           "This app uses your camera to scan QR codes and take photos.",
         NSPhotoLibraryUsageDescription:
-          "This app needs access to your photo library to upload images.",
+          "FixFlow needs access to your photo library so you can select and upload profile photos and service images. For example, shop owners can upload photos of their services, and customers can set a profile picture from their existing photos.",
         NSMicrophoneUsageDescription:
           "This app uses your microphone for video recording.",
       },
@@ -117,7 +117,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-image-picker",
         {
           photosPermission:
-            "Allow FixFlow to access your photos to upload images.",
+            "FixFlow needs access to your photo library so you can select and upload profile photos and service images. For example, shop owners can upload photos of their services, and customers can set a profile picture from their existing photos.",
           cameraPermission:
             "Allow FixFlow to access your camera to take photos.",
         },

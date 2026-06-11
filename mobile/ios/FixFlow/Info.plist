@@ -64,7 +64,7 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow FixFlow to access your microphone for video recording.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow FixFlow to access your photos to upload images.</string>
+    <string>FixFlow needs access to your photo library so you can select and upload profile photos and service images. For example, shop owners can upload photos of their services, and customers can set a profile picture from their existing photos.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
