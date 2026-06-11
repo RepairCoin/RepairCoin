@@ -21,7 +21,7 @@ export interface MarketingCampaign {
   couponType: 'fixed' | 'percentage' | null;
   couponExpiresAt: Date | null;
   serviceId: string | null;
-  // Campaign rewards (migration 136). Default reward_type 'none' = message-only.
+  // Campaign rewards (migration 141). Default reward_type 'none' = message-only.
   rewardType: 'none' | 'rcn' | 'coupon';
   rewardMode: 'flat' | 'by_tier' | 'by_spend' | null;
   rewardRcnAmount: number | null;
@@ -51,7 +51,7 @@ export interface CampaignRecipient {
   inAppSentAt: Date | null;
   inAppReadAt: Date | null;
   deliveryError: string | null;
-  // Reward ledger (migration 136) — the per-recipient idempotency anchor.
+  // Reward ledger (migration 141) — the per-recipient idempotency anchor.
   rewardKind: 'rcn' | 'coupon' | null;
   rewardAmount: number | null;
   rewardStatus: 'pending' | 'issued' | 'redeemed' | 'skipped' | 'failed' | 'expired' | null;
@@ -546,7 +546,7 @@ export class MarketingCampaignRepository extends BaseRepository {
     }
   }
 
-  // ---- Campaign rewards (migration 136) ----
+  // ---- Campaign rewards (migration 141) ----
 
   /** Set/clear the reward config on a campaign. Used by the AI draft + the
    *  manual builder. Only writes the fields provided. */
