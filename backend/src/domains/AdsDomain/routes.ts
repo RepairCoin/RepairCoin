@@ -14,7 +14,7 @@ import {
   createCreative, listCreatives, updateCreative, reviewCreative,
 } from './controllers/CreativeController';
 import {
-  listLeads, createManualLead, updateLeadStatus, listShopLeads,
+  listLeads, createManualLead, updateLeadStatus, listShopLeads, webformLead,
 } from './controllers/LeadController';
 import {
   getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
@@ -27,8 +27,12 @@ export function initializeRoutes(): Router {
 
   // Health — confirms the domain is registered.
   router.get('/health', (_req: Request, res: Response) => {
-    res.json({ domain: 'ads', status: 'live', stage: '0' });
+    res.json({ domain: 'ads', status: 'live', stage: '2' });
   });
+
+  // PUBLIC — landing-page lead webform (UTM-attributed). No auth: attribution is
+  // by campaign id / utm params in the body. (Stage 2.)
+  router.post('/leads/webform', webformLead);
 
   // ---- Admin: campaigns ----
   router.post('/campaigns', ...admin, createCampaign);

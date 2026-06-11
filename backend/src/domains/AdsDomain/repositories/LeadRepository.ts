@@ -95,6 +95,39 @@ export class LeadRepository extends BaseRepository {
     return { items: dataRes.rows.map((r) => this.mapRow(r)), total: countRes.rows[0].n };
   }
 
+  /** Dedupe: a non-duplicate lead with the same phone on this campaign within
+   *  `hours`. Returns the existing lead id, or null. */
+  async findRecentByPhone(campaignId: string, phone: string, hours = 24): Promise<string | null> {
+    const res = await this.pool.query(
+      `SELECT id FROM ad_leads
+        WHERE campaign_id = $1 AND phone = $2 AND is_duplicate = false
+          AND created_at > now() - ($3 || ' hours')::interval
+        ORDER BY created_at DESC LIMIT 1`,
+      [campaignId, phone, String(hours)]
+    );
+    return res.rows[0]?.id ?? null;
+  }
+
+  /** Link a lead to an existing customer matched by phone or email; sets
+   *  customer_id. Returns the matched customer address, or null if none. */
+  async linkCustomerByContact(leadId: string, phone: string | null, email: string | null): Promise<string | null> {
+    if (!phone && !email) return null;
+    const match = await this.pool.query(
+      `SELECT address FROM customers
+        WHERE ($1::text IS NOT NULL AND phone = $1)
+           OR ($2::text IS NOT NULL AND lower(email) = lower($2))
+        LIMIT 1`,
+      [phone, email]
+    );
+    const address = match.rows[0]?.address ?? null;
+    if (!address) return null;
+    await this.pool.query(
+      `UPDATE ad_leads SET customer_id = $1, updated_at = now() WHERE id = $2`,
+      [address, leadId]
+    );
+    return address;
+  }
+
   async updateStatus(id: string, status: LeadStatus, lostReason?: string | null): Promise<AdLead | null> {
     const res = await this.pool.query(
       `UPDATE ad_leads

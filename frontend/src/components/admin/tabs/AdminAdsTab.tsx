@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { LeadKanban } from "@/components/ads/LeadKanban";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -252,6 +253,12 @@ export const AdminAdsTab: React.FC = () => {
                   </table>
                 </div>
               )}
+
+              {/* Lead pipeline (Stage 2) */}
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
+                <LeadKanban mode="admin" campaignId={selected.id} />
+              </div>
             </>
           )}
         </div>

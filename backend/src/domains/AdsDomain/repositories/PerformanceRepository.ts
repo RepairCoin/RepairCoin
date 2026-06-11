@@ -76,6 +76,51 @@ export class PerformanceRepository extends BaseRepository {
     );
   }
 
+  /** Nightly roll-up (Stage 2): derive leads_captured (from ad_leads) and
+   *  bookings_created + revenue_cents (from service_orders linked via ad_lead_id)
+   *  per campaign+day. Manual-entry columns (spend/impressions/clicks) are left
+   *  untouched. Reset-then-aggregate over the window so cancels/refunds auto-correct
+   *  (Q5: ROI is computed-at-read, so the stored revenue must stay current). */
+  async rollUpFromPipeline(lookbackDays = 90): Promise<void> {
+    const days = String(lookbackDays);
+    // 1. Zero the derived columns in the window (so removed orders drop out).
+    await this.pool.query(
+      `UPDATE ad_performance_daily
+          SET leads_captured = 0, bookings_created = 0, revenue_cents = 0, updated_at = now()
+        WHERE date > (now() - ($1 || ' days')::interval)::date`,
+      [days]
+    );
+    // 2. leads_captured from the lead pipeline (non-duplicate), by created day.
+    await this.pool.query(
+      `INSERT INTO ad_performance_daily (campaign_id, date, leads_captured)
+       SELECT campaign_id, created_at::date, count(*)::int
+         FROM ad_leads
+        WHERE is_duplicate = false AND created_at > now() - ($1 || ' days')::interval
+        GROUP BY campaign_id, created_at::date
+       ON CONFLICT (campaign_id, date) DO UPDATE SET
+         leads_captured = EXCLUDED.leads_captured, updated_at = now()`,
+      [days]
+    );
+    // 3. bookings_created + revenue_cents from ad-attributed service orders.
+    await this.pool.query(
+      `INSERT INTO ad_performance_daily (campaign_id, date, bookings_created, revenue_cents)
+       SELECT l.campaign_id, o.created_at::date,
+              count(*)::int,
+              ROUND(COALESCE(SUM(o.final_amount_usd), 0) * 100)::int
+         FROM service_orders o
+         JOIN ad_leads l ON l.id = o.ad_lead_id
+        WHERE o.ad_lead_id IS NOT NULL
+          AND o.created_at > now() - ($1 || ' days')::interval
+          AND COALESCE(o.status, '') NOT IN ('cancelled', 'refunded')
+        GROUP BY l.campaign_id, o.created_at::date
+       ON CONFLICT (campaign_id, date) DO UPDATE SET
+         bookings_created = EXCLUDED.bookings_created,
+         revenue_cents = EXCLUDED.revenue_cents,
+         updated_at = now()`,
+      [days]
+    );
+  }
+
   /** All-shops admin rollup: totals across every (non-deleted) campaign's perf. */
   async getAllShopsSummary(): Promise<CampaignTotals & { campaignCount: number }> {
     const res = await this.pool.query(

@@ -5,6 +5,7 @@
 
 import { RoiCalculator } from '../../src/domains/AdsDomain/services/RoiCalculator';
 import { SafeguardEvaluator } from '../../src/domains/AdsDomain/services/SafeguardEvaluator';
+import { normalizePhone } from '../../src/domains/AdsDomain/services/LeadAttributionService';
 import { CampaignTotals } from '../../src/domains/AdsDomain/repositories/PerformanceRepository';
 
 const totals = (o: Partial<CampaignTotals> = {}): CampaignTotals => ({
@@ -65,5 +66,22 @@ describe('SafeguardEvaluator.decide', () => {
   it('hard pause takes precedence over soft alert', () => {
     // $801, 0 leads, 0 bookings → both conditions true → hard wins.
     expect(SafeguardEvaluator.decide(totals({ totalSpendCents: 80100 }), T)).toBe('hard_pause');
+  });
+});
+
+describe('normalizePhone (lead dedupe key)', () => {
+  it('formats a bare 10-digit US number to E.164', () => {
+    expect(normalizePhone('(415) 555-0132')).toBe('+14155550132');
+  });
+  it('keeps an existing country code', () => {
+    expect(normalizePhone('+44 20 7946 0958')).toBe('+442079460958');
+  });
+  it('normalizes formatting so two writings of the same number match', () => {
+    expect(normalizePhone('415-555-0132')).toBe(normalizePhone('4155550132'));
+  });
+  it('returns null for empty/garbage', () => {
+    expect(normalizePhone('')).toBeNull();
+    expect(normalizePhone(null)).toBeNull();
+    expect(normalizePhone('abc')).toBeNull();
   });
 });

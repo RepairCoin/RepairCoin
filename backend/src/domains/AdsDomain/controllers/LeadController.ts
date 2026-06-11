@@ -5,7 +5,10 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { AdsEvents } from '../events';
 import { LeadRepository } from '../repositories/LeadRepository';
+import { leadAttributionService } from '../services/LeadAttributionService';
 
 const leads = new LeadRepository();
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
@@ -31,20 +34,46 @@ export async function createManualLead(req: Request, res: Response): Promise<voi
   const { campaignId } = req.body || {};
   if (!campaignId) { res.status(400).json({ success: false, error: 'campaignId is required' }); return; }
   try {
-    const lead = await leads.create({
+    const r = await leadAttributionService.attribute({
       campaignId,
-      creativeId: req.body.creativeId ?? null,
-      name: req.body.name ?? null,
-      phone: req.body.phone ?? null,
-      email: req.body.email ?? null,
-      attributionMethod: 'manual',
-      consentToContact: req.body.consentToContact ?? false,
-      notes: req.body.notes ?? null,
+      creativeId: req.body.creativeId,
+      name: req.body.name,
+      phone: req.body.phone,
+      email: req.body.email,
+      consentToContact: req.body.consentToContact,
+      method: 'manual',
     });
-    res.status(201).json({ success: true, data: lead });
+    res.status(r.deduped ? 200 : 201).json({ success: true, data: r });
   } catch (err) {
     logger.error('LeadController.createManualLead failed', err);
     res.status(500).json({ success: false, error: 'Failed to create lead' });
+  }
+}
+
+// POST /leads/webform (PUBLIC) — landing-page form submissions (UTM-attributed).
+// No auth: attribution comes from the campaign id / utm params in the body.
+export async function webformLead(req: Request, res: Response): Promise<void> {
+  const b = req.body || {};
+  if (!b.campaignId && !b.utm?.utm_campaign) {
+    res.status(400).json({ success: false, error: 'campaignId or utm.utm_campaign required' });
+    return;
+  }
+  try {
+    const r = await leadAttributionService.attribute({
+      campaignId: b.campaignId,
+      creativeId: b.creativeId,
+      name: b.name,
+      phone: b.phone,
+      email: b.email,
+      utm: b.utm,
+      clickId: b.clickId,
+      consentToContact: b.consentToContact ?? true, // form submit = consent
+      method: 'utm',
+    });
+    res.status(r.deduped ? 200 : 201).json({ success: true, data: { deduped: r.deduped } });
+  } catch (err) {
+    logger.error('LeadController.webformLead failed', err);
+    res.status(500).json({ success: false, error: 'Failed to capture lead' });
   }
 }
 
@@ -59,6 +88,28 @@ export async function updateLeadStatus(req: Request, res: Response): Promise<voi
   try {
     const lead = await leads.updateStatus(req.params.id, status, req.body?.lostReason ?? null);
     if (!lead) { res.status(404).json({ success: false, error: 'Lead not found' }); return; }
+
+    // On conversion, link to an existing customer (match by phone/email). We do
+    // NOT auto-create a wallet-less customer row — see Stage 2 notes.
+    if ((status === 'booked' || status === 'paid') && !lead.customerId) {
+      const customerId = await leads.linkCustomerByContact(lead.id, lead.phone, lead.email);
+      if (customerId) {
+        lead.customerId = customerId;
+        await eventBus.publish(
+          createDomainEvent(
+            AdsEvents.LEAD_CONVERTED_TO_CUSTOMER,
+            lead.id,
+            { campaignId: lead.campaignId, customerId },
+            'AdsDomain'
+          )
+        );
+      }
+    }
+    if (status === 'booked') {
+      await eventBus.publish(
+        createDomainEvent(AdsEvents.LEAD_BOOKED, lead.id, { campaignId: lead.campaignId }, 'AdsDomain')
+      );
+    }
     res.json({ success: true, data: lead });
   } catch (err) {
     logger.error('LeadController.updateLeadStatus failed', err);

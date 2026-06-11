@@ -126,6 +126,11 @@ export const listLeads = async (params?: { campaignId?: string; status?: LeadSta
   return { items: unwrap<AdLead[]>(res), total: (res.data.total ?? 0) as number };
 };
 
+export const updateLeadStatus = async (id: string, status: LeadStatus, lostReason?: string) => {
+  const res = await apiClient.patch(`/ads/leads/${id}/status`, { status, lostReason });
+  return unwrap<AdLead>(res);
+};
+
 /* --------------------------------- Shop ---------------------------------- */
 
 export const listShopCampaigns = async (params?: { status?: CampaignStatus }) => {
@@ -136,6 +141,11 @@ export const listShopCampaigns = async (params?: { status?: CampaignStatus }) =>
 export const getShopCampaignPerformance = async (id: string) => {
   const res = await apiClient.get(`/ads/shop/campaigns/${id}/performance`);
   return unwrap<CampaignPerformance>(res);
+};
+
+export const listShopLeads = async (params?: { campaignId?: string; status?: LeadStatus }) => {
+  const res = await apiClient.get('/ads/shop/leads', { params });
+  return { items: unwrap<AdLead[]>(res), total: (res.data.total ?? 0) as number };
 };
 
 /* ------------------------------- Formatters ------------------------------ */

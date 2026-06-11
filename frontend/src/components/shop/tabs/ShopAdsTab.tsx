@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Megaphone, TrendingUp, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
+import { LeadKanban } from "@/components/ads/LeadKanban";
 import {
   listShopCampaigns, getShopCampaignPerformance, fmtUsd, fmtRoi,
   type AdCampaign, type CampaignPerformance,
@@ -113,6 +114,12 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ reviewScore, photoCount 
                   <Stat label="Cost / Lead" value={fmtUsd(perf.roi.cplCents)} />
                   <Stat label="Cost / Booking" value={fmtUsd(perf.roi.cpbCents)} />
                   <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
+                </div>
+
+                {/* Lead pipeline (read-only) */}
+                <div className="mt-5">
+                  <p className="text-sm font-medium text-gray-300 mb-2">Leads</p>
+                  {selectedId && <LeadKanban mode="shop" campaignId={selectedId} />}
                 </div>
               </>
             )}

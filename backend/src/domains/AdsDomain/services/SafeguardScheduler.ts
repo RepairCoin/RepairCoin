@@ -7,11 +7,15 @@
 import cron from 'node-cron';
 import { logger } from '../../../utils/logger';
 import { SafeguardEvaluator } from './SafeguardEvaluator';
+import { PerformanceRepository } from '../repositories/PerformanceRepository';
 
 export class SafeguardScheduler {
   private cronJob: cron.ScheduledTask | null = null;
   private isRunning = false;
-  constructor(private readonly evaluator = new SafeguardEvaluator()) {}
+  constructor(
+    private readonly evaluator = new SafeguardEvaluator(),
+    private readonly perf = new PerformanceRepository()
+  ) {}
 
   start(): void {
     if (this.cronJob) {
@@ -34,6 +38,9 @@ export class SafeguardScheduler {
     if (this.isRunning) return;
     this.isRunning = true;
     try {
+      // Roll up the lead pipeline → ad_performance_daily FIRST, so the safeguard
+      // sweep evaluates fresh leads/bookings/revenue totals.
+      await this.perf.rollUpFromPipeline(90);
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);
