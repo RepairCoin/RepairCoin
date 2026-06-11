@@ -34,6 +34,7 @@ import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
@@ -1537,6 +1538,11 @@ export default function ShopDashboardClient() {
             <SubscriptionGuard shopData={shopData}>
               <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
             </SubscriptionGuard>
+          )}
+
+          {/* Ads System (Stage 1) — read-only campaign performance for this shop */}
+          {activeTab === "ads" && shopData && (
+            <ShopAdsTab reviewScore={(shopData as any)?.review_score} />
           )}
 
           {activeTab === "profile" && shopData && (

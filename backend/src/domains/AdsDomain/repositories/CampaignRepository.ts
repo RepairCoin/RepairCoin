@@ -149,6 +149,14 @@ export class CampaignRepository extends BaseRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
+  /** Active campaigns (id + shop_id) — the SafeguardEvaluator's nightly input. */
+  async listActive(): Promise<Array<{ id: string; shopId: string }>> {
+    const res = await this.pool.query(
+      `SELECT id, shop_id FROM ad_campaigns WHERE status = 'active' AND deleted_at IS NULL`
+    );
+    return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id }));
+  }
+
   /** Lightweight ownership check used by shop-scoped endpoints. */
   async getShopIdForCampaign(id: string): Promise<string | null> {
     try {

@@ -23,6 +23,41 @@ async function buildPayload(campaignId: string) {
   return { campaignId, roi: roiSummary, dailyRows: rows };
 }
 
+// POST /campaigns/:id/metrics (admin) — manual daily metric entry (idempotent per day)
+export async function enterDailyMetrics(req: Request, res: Response): Promise<void> {
+  const date = req.body?.date;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ success: false, error: 'date (YYYY-MM-DD) is required' });
+    return;
+  }
+  try {
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    await perf.upsertDaily(campaign.id, date, {
+      spendCents: req.body.spendCents,
+      impressions: req.body.impressions,
+      clicks: req.body.clicks,
+      leadsCaptured: req.body.leadsCaptured,
+      bookingsCreated: req.body.bookingsCreated,
+      revenueCents: req.body.revenueCents,
+    });
+    res.json({ success: true, data: await buildPayload(campaign.id) });
+  } catch (err) {
+    logger.error('PerformanceController.enterDailyMetrics failed', err);
+    res.status(500).json({ success: false, error: 'Failed to save metrics' });
+  }
+}
+
+// GET /analytics/summary (admin) — all-shops rollup
+export async function getAllShopsSummary(_req: Request, res: Response): Promise<void> {
+  try {
+    res.json({ success: true, data: await perf.getAllShopsSummary() });
+  } catch (err) {
+    logger.error('PerformanceController.getAllShopsSummary failed', err);
+    res.status(500).json({ success: false, error: 'Failed to get summary' });
+  }
+}
+
 // GET /campaigns/:id/performance (admin)
 export async function getCampaignPerformance(req: Request, res: Response): Promise<void> {
   try {

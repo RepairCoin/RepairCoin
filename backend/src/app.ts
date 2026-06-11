@@ -44,6 +44,7 @@ import { autoMessageSchedulerService } from './services/AutoMessageSchedulerServ
 import { ReportSchedulerService } from './services/ReportSchedulerService';
 import { getCampaignScheduler } from './services/CampaignScheduler';
 import { getCampaignRewardExpiryScheduler } from './services/CampaignRewardExpiryScheduler';
+import { getSafeguardScheduler } from './domains/AdsDomain/services/SafeguardScheduler';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -624,6 +625,7 @@ class RepairCoinApp {
       autoMessageSchedulerService.stop();
       getCampaignScheduler().stop();
       getCampaignRewardExpiryScheduler().stop();
+      getSafeguardScheduler().stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -841,6 +843,11 @@ class RepairCoinApp {
         // Expires pending redeem-on-return rewards past their window.
         getCampaignRewardExpiryScheduler().start();
         logger.info('🎁 Campaign reward expiry scheduler started (hourly)');
+
+        // Ads safeguard sweep — nightly auto-pause of campaigns burning budget
+        // with no leads/bookings ($400 alert / $800 pause).
+        getSafeguardScheduler().start();
+        logger.info('🛡️ Ads safeguard scheduler started (daily 03:00)');
 
         // Start report scheduler - runs every hour
         // Processes automated shop reports (daily/weekly/monthly)

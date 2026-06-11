@@ -23,6 +23,15 @@ export interface CampaignTotals {
   totalBookings: number;
 }
 
+export interface DailyMetricsInput {
+  spendCents?: number;
+  impressions?: number;
+  clicks?: number;
+  leadsCaptured?: number;
+  bookingsCreated?: number;
+  revenueCents?: number;
+}
+
 export class PerformanceRepository extends BaseRepository {
   async getDailyRows(campaignId: string, limitDays = 30): Promise<PerformanceRow[]> {
     const res = await this.pool.query(
@@ -42,6 +51,47 @@ export class PerformanceRepository extends BaseRepository {
       bookingsCreated: r.bookings_created,
       revenueCents: r.revenue_cents,
     }));
+  }
+
+  /** Admin daily-metric entry — one row per campaign per day (idempotent upsert). */
+  async upsertDaily(campaignId: string, date: string, m: DailyMetricsInput): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ad_performance_daily
+         (campaign_id, date, spend_cents, impressions, clicks, leads_captured,
+          bookings_created, revenue_cents)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (campaign_id, date) DO UPDATE SET
+         spend_cents      = EXCLUDED.spend_cents,
+         impressions      = EXCLUDED.impressions,
+         clicks           = EXCLUDED.clicks,
+         leads_captured   = EXCLUDED.leads_captured,
+         bookings_created = EXCLUDED.bookings_created,
+         revenue_cents    = EXCLUDED.revenue_cents,
+         updated_at       = now()`,
+      [
+        campaignId, date,
+        m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0,
+        m.leadsCaptured ?? 0, m.bookingsCreated ?? 0, m.revenueCents ?? 0,
+      ]
+    );
+  }
+
+  /** All-shops admin rollup: totals across every (non-deleted) campaign's perf. */
+  async getAllShopsSummary(): Promise<CampaignTotals & { campaignCount: number }> {
+    const res = await this.pool.query(
+      `SELECT COALESCE(SUM(p.spend_cents),0)::int      AS spend,
+              COALESCE(SUM(p.revenue_cents),0)::int    AS revenue,
+              COALESCE(SUM(p.leads_captured),0)::int   AS leads,
+              COALESCE(SUM(p.bookings_created),0)::int AS bookings,
+              COUNT(DISTINCT p.campaign_id)::int       AS campaigns
+         FROM ad_performance_daily p
+         JOIN ad_campaigns c ON c.id = p.campaign_id AND c.deleted_at IS NULL`
+    );
+    const r = res.rows[0];
+    return {
+      totalSpendCents: r.spend, totalRevenueCents: r.revenue,
+      totalLeads: r.leads, totalBookings: r.bookings, campaignCount: r.campaigns,
+    };
   }
 
   async getTotals(campaignId: string): Promise<CampaignTotals> {

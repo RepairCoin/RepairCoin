@@ -1,0 +1,289 @@
+"use client";
+
+// Admin Ads dashboard (Ads System Stage 1). All-shops summary + campaign list +
+// create + per-campaign performance (ROI computed-at-read) + manual daily-metric
+// entry. Admin-only; reads/writes /api/ads. Gated by ADS_DASHBOARD_ENABLED upstream.
+
+import React, { useCallback, useEffect, useState } from "react";
+import { Loader2, Plus, Megaphone, TrendingUp, Pause, Play, RefreshCw } from "lucide-react";
+import toast from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import {
+  listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
+  enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
+  type AdCampaign, type CampaignPerformance, type AllShopsSummary,
+} from "@/services/api/ads";
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+export const AdminAdsTab: React.FC = () => {
+  const [summary, setSummary] = useState<AllShopsSummary | null>(null);
+  const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [perf, setPerf] = useState<CampaignPerformance | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [savingMetrics, setSavingMetrics] = useState(false);
+
+  const [form, setForm] = useState({ shopId: "", name: "", dailyBudget: "", notes: "" });
+  const [metrics, setMetrics] = useState({
+    date: todayStr(), spend: "", impressions: "", clicks: "", leads: "", bookings: "", revenue: "",
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [c, s] = await Promise.all([
+        listCampaigns().catch(() => ({ items: [] as AdCampaign[], total: 0 })),
+        getAllShopsSummary().catch(() => null),
+      ]);
+      setCampaigns(c.items);
+      setSummary(s);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const select = async (id: string) => {
+    setSelectedId(id);
+    setPerf(null);
+    try { setPerf(await getCampaignPerformance(id)); }
+    catch (e: any) { toast.error(e?.message || "Couldn't load performance."); }
+  };
+
+  const submitCreate = async () => {
+    if (!form.shopId.trim() || !form.name.trim()) {
+      toast.error("Shop ID and campaign name are required.");
+      return;
+    }
+    setCreating(true);
+    try {
+      await createCampaign({
+        shopId: form.shopId.trim(),
+        name: form.name.trim(),
+        dailyBudgetCents: form.dailyBudget ? Math.round(parseFloat(form.dailyBudget) * 100) : 0,
+        notes: form.notes.trim() || null,
+      });
+      toast.success("Campaign created.");
+      setShowCreate(false);
+      setForm({ shopId: "", name: "", dailyBudget: "", notes: "" });
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't create campaign.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const toggleStatus = async (c: AdCampaign) => {
+    const next = c.status === "active" ? "paused" : "active";
+    try {
+      await updateCampaign(c.id, { status: next });
+      await load();
+      if (selectedId === c.id) await select(c.id);
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't update status.");
+    }
+  };
+
+  const saveMetrics = async () => {
+    if (!selectedId) return;
+    const num = (v: string) => (v ? parseInt(v, 10) : 0);
+    setSavingMetrics(true);
+    try {
+      const updated = await enterDailyMetrics(selectedId, {
+        date: metrics.date,
+        spendCents: metrics.spend ? Math.round(parseFloat(metrics.spend) * 100) : 0,
+        impressions: num(metrics.impressions),
+        clicks: num(metrics.clicks),
+        leadsCaptured: num(metrics.leads),
+        bookingsCreated: num(metrics.bookings),
+        revenueCents: metrics.revenue ? Math.round(parseFloat(metrics.revenue) * 100) : 0,
+      });
+      setPerf(updated);
+      await load(); // refresh summary
+      toast.success(`Metrics saved for ${metrics.date}.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't save metrics.");
+    } finally {
+      setSavingMetrics(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center gap-2 text-gray-400 text-sm py-10"><Loader2 className="w-4 h-4 animate-spin" /> Loading ads…</div>;
+  }
+
+  const selected = campaigns.find((c) => c.id === selectedId) || null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+          <Megaphone className="w-5 h-5 text-[#FFCC00]" /> Ads
+        </h2>
+        <Button onClick={() => setShowCreate((v) => !v)} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+          <Plus className="w-4 h-4" /> New Campaign
+        </Button>
+      </div>
+
+      {/* All-shops summary */}
+      {summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <Stat label="Total Spend" value={fmtUsd(summary.totalSpendCents)} />
+          <Stat label="Total Revenue" value={fmtUsd(summary.totalRevenueCents)} />
+          <Stat label="ROI" value={fmtRoi(summary.totalSpendCents > 0 ? (summary.totalRevenueCents - summary.totalSpendCents) / summary.totalSpendCents : null)} accent />
+          <Stat label="Bookings" value={String(summary.totalBookings)} />
+          <Stat label="Campaigns" value={String(summary.campaignCount)} />
+        </div>
+      )}
+
+      {/* Create form */}
+      {showCreate && (
+        <div className="rounded-xl border border-[#FFCC00]/30 bg-[#1A1A1A] p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Shop ID"><input className={inputCls} value={form.shopId} onChange={(e) => setForm({ ...form, shopId: e.target.value })} placeholder="e.g. tcoy" /></Field>
+          <Field label="Campaign name"><input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Spring promo" /></Field>
+          <Field label="Daily budget ($)"><input className={inputCls} type="number" value={form.dailyBudget} onChange={(e) => setForm({ ...form, dailyBudget: e.target.value })} placeholder="25" /></Field>
+          <Field label="Notes"><input className={inputCls} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+          <div className="sm:col-span-2">
+            <Button onClick={submitCreate} disabled={creating} className="bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Create
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign list */}
+      <div className="rounded-xl border border-white/10 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-[#1A1A1A] text-gray-400">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium">Campaign</th>
+              <th className="text-left px-4 py-2 font-medium">Shop</th>
+              <th className="text-left px-4 py-2 font-medium">Status</th>
+              <th className="text-right px-4 py-2 font-medium">Budget/day</th>
+              <th className="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {campaigns.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">No campaigns yet.</td></tr>
+            )}
+            {campaigns.map((c) => (
+              <tr key={c.id} className={`border-t border-white/5 cursor-pointer hover:bg-white/5 ${selectedId === c.id ? "bg-white/5" : ""}`} onClick={() => select(c.id)}>
+                <td className="px-4 py-2.5 text-white">{c.name}</td>
+                <td className="px-4 py-2.5 text-gray-300">{c.shopId}</td>
+                <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
+                <td className="px-4 py-2.5 text-right text-gray-300">{fmtUsd(c.dailyBudgetCents)}</td>
+                <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => toggleStatus(c)} className="text-gray-400 hover:text-white" title={c.status === "active" ? "Pause" : "Activate"}>
+                    {c.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Selected campaign — performance + metric entry */}
+      {selected && (
+        <div className="rounded-xl border border-white/10 bg-[#141414] p-5 space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-[#FFCC00]" /> {selected.name}
+            </h3>
+            <button onClick={() => select(selected.id)} className="text-gray-400 hover:text-white"><RefreshCw className="w-4 h-4" /></button>
+          </div>
+
+          {!perf ? (
+            <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading performance…</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Stat label="Spend" value={fmtUsd(perf.roi.totalSpendCents)} />
+                <Stat label="Revenue" value={fmtUsd(perf.roi.totalRevenueCents)} />
+                <Stat label="ROI" value={fmtRoi(perf.roi.roi)} accent />
+                <Stat label="Bookings" value={String(perf.roi.totalBookings)} />
+                <Stat label="Leads" value={String(perf.roi.totalLeads)} />
+                <Stat label="Cost / Lead" value={fmtUsd(perf.roi.cplCents)} />
+                <Stat label="Cost / Booking" value={fmtUsd(perf.roi.cpbCents)} />
+                <Stat label="ROAS" value={perf.roi.roas == null ? "—" : `${perf.roi.roas.toFixed(1)}×`} />
+              </div>
+
+              {/* Daily metric entry */}
+              <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-4">
+                <p className="text-sm font-medium text-gray-300 mb-3">Enter daily metrics</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                  <Field label="Date"><input className={inputCls} type="date" value={metrics.date} onChange={(e) => setMetrics({ ...metrics, date: e.target.value })} /></Field>
+                  <Field label="Spend $"><input className={inputCls} type="number" value={metrics.spend} onChange={(e) => setMetrics({ ...metrics, spend: e.target.value })} /></Field>
+                  <Field label="Impr."><input className={inputCls} type="number" value={metrics.impressions} onChange={(e) => setMetrics({ ...metrics, impressions: e.target.value })} /></Field>
+                  <Field label="Clicks"><input className={inputCls} type="number" value={metrics.clicks} onChange={(e) => setMetrics({ ...metrics, clicks: e.target.value })} /></Field>
+                  <Field label="Leads"><input className={inputCls} type="number" value={metrics.leads} onChange={(e) => setMetrics({ ...metrics, leads: e.target.value })} /></Field>
+                  <Field label="Bookings"><input className={inputCls} type="number" value={metrics.bookings} onChange={(e) => setMetrics({ ...metrics, bookings: e.target.value })} /></Field>
+                  <Field label="Revenue $"><input className={inputCls} type="number" value={metrics.revenue} onChange={(e) => setMetrics({ ...metrics, revenue: e.target.value })} /></Field>
+                </div>
+                <Button onClick={saveMetrics} disabled={savingMetrics} className="mt-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-medium">
+                  {savingMetrics ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save metrics
+                </Button>
+              </div>
+
+              {/* 30-day rows */}
+              {perf.dailyRows.length > 0 && (
+                <div className="rounded-lg border border-white/10 overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-[#1A1A1A] text-gray-500">
+                      <tr><th className="text-left px-3 py-2">Date</th><th className="text-right px-3 py-2">Spend</th><th className="text-right px-3 py-2">Leads</th><th className="text-right px-3 py-2">Bookings</th><th className="text-right px-3 py-2">Revenue</th></tr>
+                    </thead>
+                    <tbody>
+                      {perf.dailyRows.map((r) => (
+                        <tr key={r.date} className="border-t border-white/5">
+                          <td className="px-3 py-1.5 text-gray-300">{r.date}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtUsd(r.spendCents)}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{r.leadsCaptured}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{r.bookingsCreated}</td>
+                          <td className="px-3 py-1.5 text-right text-gray-300">{fmtUsd(r.revenueCents)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const inputCls = "w-full px-2.5 py-1.5 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00] transition-colors";
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div>
+    <label className="block text-xs text-gray-500 mb-1">{label}</label>
+    {children}
+  </div>
+);
+
+const Stat: React.FC<{ label: string; value: string; accent?: boolean }> = ({ label, value, accent }) => (
+  <div className="rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2.5">
+    <p className="text-xs text-gray-500">{label}</p>
+    <p className={`text-lg font-semibold ${accent ? "text-[#FFCC00]" : "text-white"}`}>{value}</p>
+  </div>
+);
+
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const map: Record<string, string> = {
+    active: "bg-green-500/15 text-green-400",
+    paused: "bg-yellow-500/15 text-yellow-400",
+    draft: "bg-gray-500/15 text-gray-400",
+    archived: "bg-gray-700/30 text-gray-500",
+  };
+  return <span className={`text-xs px-2 py-0.5 rounded-full ${map[status] || map.draft}`}>{status}</span>;
+};
+
+export default AdminAdsTab;

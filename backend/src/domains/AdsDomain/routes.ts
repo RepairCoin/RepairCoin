@@ -17,7 +17,7 @@ import {
   listLeads, createManualLead, updateLeadStatus, listShopLeads,
 } from './controllers/LeadController';
 import {
-  getCampaignPerformance, getShopCampaignPerformance,
+  getCampaignPerformance, getShopCampaignPerformance, enterDailyMetrics, getAllShopsSummary,
 } from './controllers/PerformanceController';
 
 export function initializeRoutes(): Router {
@@ -37,6 +37,8 @@ export function initializeRoutes(): Router {
   router.patch('/campaigns/:id', ...admin, updateCampaign);
   router.delete('/campaigns/:id', ...admin, deleteCampaign);
   router.get('/campaigns/:id/performance', ...admin, getCampaignPerformance);
+  router.post('/campaigns/:id/metrics', ...admin, enterDailyMetrics);   // Stage 1: daily entry
+  router.get('/analytics/summary', ...admin, getAllShopsSummary);        // Stage 1: all-shops rollup
 
   // ---- Admin: creatives ----
   router.post('/campaigns/:id/creatives', ...admin, createCreative);
