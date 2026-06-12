@@ -1,5 +1,18 @@
+import { Pool, PoolClient } from 'pg';
 import { BaseRepository, PaginatedResult, PaginationParams } from './BaseRepository';
 import { logger } from '../utils/logger';
+
+type Executor = Pick<Pool | PoolClient, 'query'>;
+
+export type CampaignRewardConfig = {
+  rewardType?: 'none' | 'rcn' | 'coupon';
+  rewardMode?: 'flat' | 'by_tier' | 'by_spend' | null;
+  rewardRcnAmount?: number | null;
+  rewardRcnByTier?: Record<string, number> | null;
+  rewardSpendBands?: Array<{ minSpend: number; rcn: number }> | null;
+  fulfillmentTrigger?: 'on_send' | 'on_return';
+  returnWindowDays?: number | null;
+};
 
 export interface MarketingCampaign {
   id: string;
@@ -115,7 +128,7 @@ export interface UpdateCampaignParams {
 
 export class MarketingCampaignRepository extends BaseRepository {
 
-  async create(params: CreateCampaignParams): Promise<MarketingCampaign> {
+  async create(params: CreateCampaignParams, executor: Executor = this.pool): Promise<MarketingCampaign> {
     const query = `
       INSERT INTO marketing_campaigns (
         shop_id, name, campaign_type, subject, preview_text,
@@ -149,7 +162,7 @@ export class MarketingCampaignRepository extends BaseRepository {
     ];
 
     try {
-      const result = await this.pool.query(query, values);
+      const result = await executor.query(query, values);
       return this.mapCampaign(result.rows[0]);
     } catch (error: any) {
       logger.error('Error creating marketing campaign:', error);
@@ -157,11 +170,23 @@ export class MarketingCampaignRepository extends BaseRepository {
     }
   }
 
-  async findById(id: string): Promise<MarketingCampaign | null> {
+  async createWithReward(
+    params: CreateCampaignParams,
+    reward: CampaignRewardConfig
+  ): Promise<MarketingCampaign> {
+    return this.withTransaction(async (client) => {
+      const campaign = await this.create(params, client);
+      await this.setReward(campaign.id, reward, client);
+      const refreshed = await this.findById(campaign.id, client);
+      return refreshed ?? campaign;
+    });
+  }
+
+  async findById(id: string, executor: Executor = this.pool): Promise<MarketingCampaign | null> {
     const query = 'SELECT * FROM marketing_campaigns WHERE id = $1';
 
     try {
-      const result = await this.pool.query(query, [id]);
+      const result = await executor.query(query, [id]);
       if (result.rows.length === 0) return null;
       return this.mapCampaign(result.rows[0]);
     } catch (error: any) {
@@ -552,15 +577,8 @@ export class MarketingCampaignRepository extends BaseRepository {
    *  manual builder. Only writes the fields provided. */
   async setReward(
     campaignId: string,
-    config: {
-      rewardType?: 'none' | 'rcn' | 'coupon';
-      rewardMode?: 'flat' | 'by_tier' | 'by_spend' | null;
-      rewardRcnAmount?: number | null;
-      rewardRcnByTier?: Record<string, number> | null;
-      rewardSpendBands?: Array<{ minSpend: number; rcn: number }> | null;
-      fulfillmentTrigger?: 'on_send' | 'on_return';
-      returnWindowDays?: number | null;
-    }
+    config: CampaignRewardConfig,
+    executor: Executor = this.pool
   ): Promise<void> {
     const updates: string[] = [];
     const values: any[] = [];
@@ -575,7 +593,7 @@ export class MarketingCampaignRepository extends BaseRepository {
     if (config.returnWindowDays !== undefined) set('return_window_days', config.returnWindowDays);
     if (updates.length === 0) return;
     values.push(campaignId);
-    await this.pool.query(
+    await executor.query(
       `UPDATE marketing_campaigns SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${i}`,
       values
     );

@@ -20,6 +20,13 @@ export interface MarketingCampaign {
   couponType: 'fixed' | 'percentage' | null;
   couponExpiresAt: string | null;
   serviceId: string | null;
+  rewardType: 'none' | 'rcn' | 'coupon';
+  rewardMode: 'flat' | 'by_tier' | 'by_spend' | null;
+  rewardRcnAmount: number | null;
+  rewardRcnByTier: Record<string, number> | null;
+  rewardSpendBands: Array<{ minSpend: number; rcn: number }> | null;
+  fulfillmentTrigger: 'on_send' | 'on_return';
+  returnWindowDays: number | null;
   totalRecipients: number;
   emailsSent: number;
   emailsOpened: number;
@@ -52,6 +59,18 @@ export interface CampaignStats {
   avgOpenRate: number;
 }
 
+export interface CampaignReward {
+  type: 'none' | 'rcn' | 'coupon';
+  mode?: 'flat' | 'by_tier' | 'by_spend';
+  rcnAmount?: number;
+  rcnByTier?: Record<string, number>;
+  spendBands?: Array<{ minSpend: number; rcn: number }>;
+  fulfillment?: 'on_send' | 'on_return';
+  returnWindowDays?: number;
+  couponValue?: number;
+  couponExpiresDays?: number;
+}
+
 export interface CreateCampaignData {
   name: string;
   campaignType: MarketingCampaign['campaignType'];
@@ -68,6 +87,7 @@ export interface CreateCampaignData {
   couponExpiresAt?: string;
   serviceId?: string;
   manualEmails?: string;
+  reward?: CampaignReward | null;
 }
 
 export interface CampaignDeliveryResult {
