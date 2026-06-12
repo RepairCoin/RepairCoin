@@ -19,8 +19,8 @@
     "android:staging": "./scripts/switch-env.sh staging && npx expo run:android",
     "android:production": "./scripts/switch-env.sh production && npx expo run:android",
     "ios:local": "./scripts/switch-env.sh local && npx expo run:ios --device",
-    "ios:staging": "./scripts/switch-env.sh staging && npx expo run:ios --device",
-    "ios:production": "./scripts/switch-env.sh production && npx expo run:ios --device",
+    "ios:staging": "./scripts/switch-env.sh staging && adb uninstall com.repaircoin.staging && npx expo run:ios --device",
+    "ios:production": "./scripts/switch-env.sh production && adb uninstall com.repaircoin.app && npx expo run:ios --device",
     "deploy": "./scripts/deploy.sh",
     "deploy:ios:preview": "./scripts/deploy.sh preview",
     "deploy:ios:production": "./scripts/deploy.sh production",
@@ -30,8 +30,7 @@
     "deploy:android:production": "eas build --profile production --platform android",
     "submit:ios:preview": "eas submit --profile preview --platform ios",
     "submit:ios:production": "eas submit --profile production --platform ios",
-    "apk:latest": "eas build:list --platform android --limit 1",
-    "uninstall:staging": "adb uninstall com.repaircoin.staging"
+    "apk:latest": "eas build:list --platform android --limit 1"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.921.0",
