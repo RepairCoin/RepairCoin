@@ -5,6 +5,8 @@ import { logger } from '../../../utils/logger';
 
 const favoriteRepository = new FavoriteRepository();
 
+const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
+
 export class FavoriteController {
   /**
    * Add service to favorites
@@ -22,6 +24,20 @@ export class FavoriteController {
 
       if (!serviceId) {
         res.status(400).json({ error: 'Service ID is required' });
+        return;
+      }
+
+      // Demo users cannot persist favorites (no DB record) — return mock success
+      if (customerAddress.toLowerCase() === DEMO_ADDRESS) {
+        res.status(201).json({
+          success: true,
+          data: {
+            id: 'demo-favorite',
+            customerAddress,
+            serviceId,
+            createdAt: new Date()
+          }
+        });
         return;
       }
 
@@ -53,6 +69,12 @@ export class FavoriteController {
         return;
       }
 
+      // Demo users have no persisted favorites — silently succeed
+      if (customerAddress.toLowerCase() === DEMO_ADDRESS) {
+        res.json({ success: true, message: 'Service removed from favorites' });
+        return;
+      }
+
       await favoriteRepository.removeFavorite(customerAddress, serviceId);
 
       res.json({
@@ -81,6 +103,12 @@ export class FavoriteController {
         return;
       }
 
+      // Demo users never have persisted favorites
+      if (customerAddress.toLowerCase() === DEMO_ADDRESS) {
+        res.json({ success: true, data: { isFavorited: false } });
+        return;
+      }
+
       const isFavorited = await favoriteRepository.isFavorited(customerAddress, serviceId);
 
       res.json({
@@ -105,6 +133,16 @@ export class FavoriteController {
 
       if (!customerAddress) {
         res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      // Demo users have no persisted favorites — return empty list
+      if (customerAddress.toLowerCase() === DEMO_ADDRESS) {
+        res.json({
+          success: true,
+          data: [],
+          pagination: { page: 1, limit: 20, totalItems: 0, totalPages: 0, hasMore: false }
+        });
         return;
       }
 
