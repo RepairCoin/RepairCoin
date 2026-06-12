@@ -135,7 +135,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
         )}
 
         {/* Notifications Section */}
-        <SettingsSection title="Notifications">
+        {/* <SettingsSection title="Notifications">
           <SettingsItem
             icon={
               <Ionicons
@@ -148,7 +148,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
             subtitle="Manage your notification settings"
             onPress={handleNotificationPreferences}
           />
-        </SettingsSection>
+        </SettingsSection> */}
 
         {/* Support Section */}
         <SettingsSection title="Support">
