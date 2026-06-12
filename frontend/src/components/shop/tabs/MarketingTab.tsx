@@ -71,7 +71,6 @@ const statusBadgeStyles: Record<string, { bg: string; text: string; border?: str
   sent: { bg: "bg-green-500/20", text: "text-green-400", border: "border border-green-500/30" },
   scheduled: { bg: "bg-purple-500/20", text: "text-purple-400", border: "border border-purple-500/30" },
   expired: { bg: "bg-red-500/20", text: "text-red-400", border: "border border-red-500/30" },
-  paused: { bg: "bg-amber-600/20", text: "text-amber-400", border: "border border-amber-600/30" },
   cancelled: { bg: "bg-red-500/20", text: "text-red-400", border: "border border-red-500/30" },
 };
 
@@ -81,7 +80,6 @@ const statusFilterOptions = [
   { value: "sent", label: "Sent" },
   { value: "scheduled", label: "Scheduled" },
   { value: "draft", label: "Draft" },
-  { value: "paused", label: "Paused" },
   { value: "expired", label: "Expired" },
 ];
 
@@ -98,10 +96,17 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
   const [viewOnlyMode, setViewOnlyMode] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Filter campaigns based on status
+  // Filter campaigns based on derived status / reward outcomes
   const filteredCampaigns = campaigns.filter((campaign) => {
-    if (statusFilter === "all") return true;
-    return campaign.status === statusFilter;
+    const display = campaign.displayStatus ?? campaign.status;
+    switch (statusFilter) {
+      case "all":
+        return true;
+      case "expired":
+        return (campaign.rewardSummary?.expired ?? 0) > 0;
+      default:
+        return display === statusFilter;
+    }
   });
 
   useEffect(() => {
@@ -383,7 +388,12 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
               </Button>
             </div>
           ) : (
-            filteredCampaigns.map((campaign) => (
+            filteredCampaigns.map((campaign) => {
+              const display = campaign.displayStatus ?? campaign.status;
+              const isOnReturnRcn =
+                campaign.rewardType === "rcn" && campaign.fulfillmentTrigger === "on_return";
+              const showRewardRollup = isOnReturnRcn && !!campaign.rewardSummary;
+              return (
               <div
                 key={campaign.id}
                 className="flex items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-gray-800/50 transition-colors cursor-pointer"
@@ -408,15 +418,15 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                       <h4 className="text-white font-medium truncate max-w-full">{campaign.name}</h4>
                       {/* Status badge */}
                       <Badge
-                        className={`${getStatusBadgeStyle(campaign.status)} text-xs px-2 py-0.5 rounded-md flex-shrink-0`}
+                        className={`${getStatusBadgeStyle(display)} text-xs px-2 py-0.5 rounded-md flex-shrink-0`}
                       >
-                        {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                        {display.charAt(0).toUpperCase() + display.slice(1)}
                       </Badge>
                     </div>
 
                     {/* Description row with Sent badge, type, and delivery method icons */}
                     <div className="flex flex-wrap items-center gap-2 text-sm">
-                      {/* Show "Sent" badge with checkmark for sent campaigns */}
+                      {/* Show "Sent" badge with checkmark for delivered campaigns */}
                       {campaign.status === "sent" && (
                         <span className="flex items-center gap-1 text-green-400 text-xs">
                           <CheckCircle2 className="w-3 h-3" />
@@ -431,17 +441,27 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                       </span>
                     </div>
 
+                    {/* Reward outcome rollup for on_return RCN campaigns */}
+                    {showRewardRollup && (
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="text-green-400">{campaign.rewardSummary!.redeemed} redeemed</span>
+                        <span className="text-gray-600">·</span>
+                        <span className="text-amber-400">{campaign.rewardSummary!.pending} pending</span>
+                        <span className="text-gray-600">·</span>
+                        <span className="text-red-400">{campaign.rewardSummary!.expired} expired</span>
+                      </div>
+                    )}
+
                     {/* Mobile-only stats row (shown only on mobile, hidden on sm+) */}
-                    {((campaign.status as string) === "sent" ||
-                      (campaign.status as string) === "active" ||
-                      (campaign.status as string) === "expired" ||
-                      (((campaign.status as string) === "scheduled" || (campaign.status as string) === "paused") && campaign.scheduledAt)) && (
+                    {(display === "sent" ||
+                      display === "active" ||
+                      (display === "scheduled" && campaign.scheduledAt)) && (
                       <div className="sm:hidden text-xs mt-1">
                         <p className="text-gray-300">
                           {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
                         </p>
                         <p className="text-gray-500">
-                          {((campaign.status as string) === "scheduled" || (campaign.status as string) === "paused") && campaign.scheduledAt
+                          {display === "scheduled" && campaign.scheduledAt
                             ? `Scheduled for ${formatDate(campaign.scheduledAt)}`
                             : campaign.sentAt
                               ? formatDate(campaign.sentAt)
@@ -454,7 +474,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
 
                 {/* Right side - Stats and date (hidden on mobile, shown sm+) */}
                 <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                  {((campaign.status as string) === "sent" || (campaign.status as string) === "active") && (
+                  {(display === "sent" || display === "active") && (
                     <div className="hidden sm:block text-right text-sm">
                       <p className="text-gray-300">
                         {campaign.inAppSent} in app • {campaign.emailsSent} email
@@ -464,33 +484,13 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                       </p>
                     </div>
                   )}
-                  {(campaign.status as string) === "scheduled" && campaign.scheduledAt && (
+                  {display === "scheduled" && campaign.scheduledAt && (
                     <div className="hidden sm:block text-right text-sm">
                       <p className="text-gray-300">
                         {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
                       </p>
                       <p className="text-gray-500">
                         Scheduled for {formatDate(campaign.scheduledAt)}
-                      </p>
-                    </div>
-                  )}
-                  {(campaign.status as string) === "paused" && campaign.scheduledAt && (
-                    <div className="hidden sm:block text-right text-sm">
-                      <p className="text-gray-300">
-                        {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
-                      </p>
-                      <p className="text-gray-500">
-                        Scheduled for {formatDate(campaign.scheduledAt)}
-                      </p>
-                    </div>
-                  )}
-                  {(campaign.status as string) === "expired" && (
-                    <div className="hidden sm:block text-right text-sm">
-                      <p className="text-gray-300">
-                        {campaign.inAppSent || 0} in app • {campaign.emailsSent || 0} email
-                      </p>
-                      <p className="text-gray-500">
-                        {campaign.sentAt ? formatDate(campaign.sentAt) : ""}
                       </p>
                     </div>
                   )}
@@ -539,7 +539,7 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                           Cancel
                         </DropdownMenuItem>
                       )}
-                      {(campaign.status as string) !== "sent" && (campaign.status as string) !== "active" && (
+                      {campaign.status !== "sent" && (
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
@@ -565,7 +565,8 @@ export function MarketingTab({ shopId, shopName }: MarketingTabProps) {
                   </DropdownMenu>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
