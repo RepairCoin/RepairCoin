@@ -41,6 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: "#ffffff",
       },
       versionCode: 3,
+      googleServicesFile: "./google-services.json",
       package: "com.repaircoin.app",
       runtimeVersion: {
         policy: "appVersion",
