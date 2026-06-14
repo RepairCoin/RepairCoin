@@ -67,6 +67,10 @@ export const LeadConversation: React.FC<{
     }
   };
 
+  // The AI answers the customer's last message — only meaningful when the most
+  // recent message is from the lead (otherwise there's nothing new to reply to).
+  const canAiAnswer = thread.length > 0 && thread[thread.length - 1].author === "lead";
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="bg-[#0F0F0F] border-white/10 text-white max-w-lg">
@@ -109,7 +113,8 @@ export const LeadConversation: React.FC<{
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={aiAnswer}
-              disabled={aiBusy}
+              disabled={aiBusy || !canAiAnswer}
+              title={canAiAnswer ? "Generate the shop's reply to the customer's last message" : "Waiting on the customer — nothing new to answer"}
               className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50"
             >
               {aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />} AI answer

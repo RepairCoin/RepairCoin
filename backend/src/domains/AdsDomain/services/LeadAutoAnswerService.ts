@@ -106,6 +106,15 @@ export class LeadAutoAnswerService {
     if (history.length === 0) {
       throw Object.assign(new Error('Nothing from the lead to answer yet.'), { status: 400 });
     }
+    // Don't answer if the conversation already ended with the shop's turn — there's
+    // no pending customer message, so the model would just return an empty reply.
+    const last = thread[thread.length - 1];
+    if (last && last.author !== 'lead') {
+      throw Object.assign(
+        new Error("The last message is already a reply — wait for the customer's next message before answering again."),
+        { status: 400 }
+      );
+    }
 
     const channel = LeadChannelSender.pickChannel(lead);
     try {
@@ -115,10 +124,15 @@ export class LeadAutoAnswerService {
         model: MODEL,
         maxTokens: 400,
       });
-      const deliveryStatus = await this.channel.deliver(channel, lead, resp.text.trim());
+      const reply = resp.text.trim();
+      // Never store an empty reply (e.g. the model had nothing to add).
+      if (!reply) {
+        throw Object.assign(new Error('The AI did not produce a reply — please try again.'), { status: 503 });
+      }
+      const deliveryStatus = await this.channel.deliver(channel, lead, reply);
       const stored = await this.messages.append({
         leadId, direction: 'outbound', author: 'ai', channel,
-        body: resp.text.trim(), aiCostCents: resp.costUsd * 100, deliveryStatus,
+        body: reply, aiCostCents: resp.costUsd * 100, deliveryStatus,
       });
 
       await this.spendCap.recordSpend(shopId, resp.costUsd);
