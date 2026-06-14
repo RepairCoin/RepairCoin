@@ -29,6 +29,9 @@ import {
 import {
   getBillingPlan, setBillingPlan, getShopBilling, getBillingSummary, triggerAccrual, invoiceShop,
 } from './controllers/BillingController';
+import {
+  requestAds, getMyEnrollment, listEnrollments, decideEnrollment,
+} from './controllers/EnrollmentController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
@@ -103,11 +106,17 @@ export function initializeRoutes(): Router {
   router.post('/leads/:id/messages', ...admin, postLeadMessage);     // Stage 3.5: admin manual reply
   router.post('/leads/:id/auto-answer', ...admin, autoAnswerLead);   // Stage 3.5: trigger AI reply
 
-  // ---- Shop: own read-only ----
+  // ---- Admin: ad-program enrollment requests ----
+  router.get('/enrollments', ...admin, listEnrollments);
+  router.post('/enrollments/:shopId/decide', ...admin, decideEnrollment);
+
+  // ---- Shop: own read-only + self-serve enrollment ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
   router.get('/shop/leads', ...shop, listShopLeads);
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
+  router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
+  router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
 
   return router;
 }

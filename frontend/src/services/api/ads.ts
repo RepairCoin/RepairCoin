@@ -364,6 +364,42 @@ export const submitWebformLead = async (payload: {
   return unwrap<{ deduped: boolean }>(res);
 };
 
+/* ----------------------- Ad-program enrollment (opt-in) ------------------ */
+// Shop self-serve "Request ads": shop requests → admin approves/declines. v1 keeps
+// campaign creation admin-only; this just signals interest + sets the plan on approve.
+
+export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
+export interface AdEnrollment {
+  shopId: string;
+  requestedPlan: AdPlanType;
+  status: EnrollmentStatus;
+  message: string | null;
+  declineReason: string | null;
+  createdAt: string;
+}
+
+// Shop
+export const requestAdsEnrollment = async (requestedPlan: AdPlanType, message?: string): Promise<AdEnrollment> => {
+  const res = await apiClient.post('/ads/shop/enrollment', { requestedPlan, message });
+  return unwrap<AdEnrollment>(res);
+};
+export const getMyEnrollment = async (): Promise<AdEnrollment | null> => {
+  const res = await apiClient.get('/ads/shop/enrollment');
+  return unwrap<AdEnrollment | null>(res);
+};
+
+// Admin
+export const listEnrollments = async (status?: EnrollmentStatus): Promise<AdEnrollment[]> => {
+  const res = await apiClient.get('/ads/enrollments', { params: status ? { status } : undefined });
+  return unwrap<AdEnrollment[]>(res);
+};
+export const decideEnrollment = async (
+  shopId: string, decision: 'approved' | 'declined', declineReason?: string
+): Promise<AdEnrollment> => {
+  const res = await apiClient.post(`/ads/enrollments/${shopId}/decide`, { decision, declineReason });
+  return unwrap<AdEnrollment>(res);
+};
+
 /* --------------------------------- Shop ---------------------------------- */
 
 export const listShopCampaigns = async (params?: { status?: CampaignStatus }) => {

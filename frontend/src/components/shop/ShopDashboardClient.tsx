@@ -15,6 +15,7 @@ import apiClient, { isAccountSwitchError } from "@/services/api/client";
 
 // Import our new components
 import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
+import { AdEnrollmentTeaser } from "@/components/ads/AdEnrollmentTeaser";
 import { PurchaseTab } from "@/components/shop/tabs/PurchaseTab";
 import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
@@ -1382,14 +1383,19 @@ export default function ShopDashboardClient() {
             )}
 
           {activeTab === "overview" && (
-            <OverviewTab
-              shopData={shopData}
-              purchases={purchases}
-              onRefreshData={loadShopData}
-              authToken={authToken ?? undefined}
-              loading={loading}
-              error={error}
-            />
+            <div className="space-y-6">
+              {shopData && (
+                <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+              )}
+              <OverviewTab
+                shopData={shopData}
+                purchases={purchases}
+                onRefreshData={loadShopData}
+                authToken={authToken ?? undefined}
+                loading={loading}
+                error={error}
+              />
+            </div>
           )}
 
           {activeTab === "services" && shopData && (
@@ -1546,11 +1552,14 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "profile" && shopData && (
-            <ProfileTab
-              shopId={shopData.shopId}
-              shopData={shopData}
-              onUpdate={loadShopData}
-            />
+            <div className="space-y-6">
+              <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+              <ProfileTab
+                shopId={shopData.shopId}
+                shopData={shopData}
+                onUpdate={loadShopData}
+              />
+            </div>
           )}
 
           {activeTab === "settings" && shopData && (

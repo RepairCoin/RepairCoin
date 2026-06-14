@@ -15,6 +15,7 @@ import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
 import { CreativesPanel } from "@/components/ads/CreativesPanel";
 import { MarginPanel } from "@/components/ads/MarginPanel";
 import { BillingPanel } from "@/components/ads/BillingPanel";
+import { AdEnrollmentRequests } from "@/components/ads/AdEnrollmentRequests";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -146,6 +147,9 @@ export const AdminAdsTab: React.FC = () => {
           <Plus className="w-4 h-4" /> New Campaign
         </Button>
       </div>
+
+      {/* Shop opt-in requests (only renders when something is pending) */}
+      <AdEnrollmentRequests onApproved={load} />
 
       {/* First-response SLA */}
       <AwaitingResponse mode="admin" />
