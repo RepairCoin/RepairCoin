@@ -103,7 +103,7 @@ const generateAndSetTokens = async (
   const tokenId = uuidv4();
 
   // Generate both tokens
-  const accessToken = generateAccessToken(payload);
+  const accessToken = generateAccessToken(payload, tokenId);
   const refreshToken = generateRefreshToken(payload, tokenId);
 
   // Store refresh token in database
@@ -1498,7 +1498,7 @@ router.post('/refresh', async (req, res) => {
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId
-    });
+    }, decoded.tokenId);
 
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieDomain = getCookieDomain(req);
