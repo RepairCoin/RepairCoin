@@ -35,7 +35,20 @@ export interface MarketingCampaign {
   inAppRead: number;
   createdAt: string;
   updatedAt: string;
+  rewardSummary?: CampaignRewardSummary;
+  displayStatus?: CampaignDisplayStatus;
 }
+
+export interface CampaignRewardSummary {
+  pending: number;
+  redeemed: number;
+  expired: number;
+  issued: number;
+  failed: number;
+  skipped: number;
+}
+
+export type CampaignDisplayStatus = 'draft' | 'scheduled' | 'sent' | 'active' | 'cancelled';
 
 export interface MarketingTemplate {
   id: string;

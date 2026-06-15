@@ -14,6 +14,42 @@ export type CampaignRewardConfig = {
   returnWindowDays?: number | null;
 };
 
+export interface CampaignRewardSummary {
+  pending: number;
+  redeemed: number;
+  expired: number;
+  issued: number;
+  failed: number;
+  skipped: number;
+}
+
+export type CampaignDisplayStatus = 'draft' | 'scheduled' | 'sent' | 'active' | 'cancelled';
+
+// 'active' surfaces only for on_return RCN campaigns with a still-pending promise.
+export function deriveCampaignDisplayStatus(
+  campaign: Pick<MarketingCampaign, 'status' | 'rewardType' | 'fulfillmentTrigger'>,
+  summary: CampaignRewardSummary
+): CampaignDisplayStatus {
+  if (campaign.status !== 'sent') {
+    return campaign.status as CampaignDisplayStatus;
+  }
+  const isOnReturnRcn = campaign.rewardType === 'rcn' && campaign.fulfillmentTrigger === 'on_return';
+  if (isOnReturnRcn && summary.pending > 0) return 'active';
+  return 'sent';
+}
+
+export function mapRewardSummary(row: any): CampaignRewardSummary {
+  const n = (v: any) => (v != null ? parseInt(v, 10) : 0);
+  return {
+    pending: n(row.reward_pending),
+    redeemed: n(row.reward_redeemed),
+    expired: n(row.reward_expired),
+    issued: n(row.reward_issued),
+    failed: n(row.reward_failed),
+    skipped: n(row.reward_skipped),
+  };
+}
+
 export interface MarketingCampaign {
   id: string;
   shopId: string;
@@ -51,6 +87,8 @@ export interface MarketingCampaign {
   createdBySource: 'manual' | 'ai_agent';
   createdAt: Date;
   updatedAt: Date;
+  rewardSummary?: CampaignRewardSummary;
+  displayStatus?: CampaignDisplayStatus;
 }
 
 export interface CampaignRecipient {
@@ -203,23 +241,40 @@ export class MarketingCampaignRepository extends BaseRepository {
     const offset = this.getPaginationOffset(pagination.page, pagination.limit);
 
     let countQuery = 'SELECT COUNT(*) FROM marketing_campaigns WHERE shop_id = $1';
-    let dataQuery = 'SELECT * FROM marketing_campaigns WHERE shop_id = $1';
+    let whereClause = 'WHERE c.shop_id = $1';
     const values: any[] = [shopId];
 
     if (status) {
       countQuery += ' AND status = $2';
-      dataQuery += ' AND status = $2';
+      whereClause += ' AND c.status = $2';
       values.push(status);
     }
 
-    dataQuery += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    // Paginated campaigns LEFT JOINed to their recipient ledger, grouped to one
+    // rollup row per campaign — single aggregated query, no N+1.
+    const dataQuery = `
+      SELECT
+        c.*,
+        COUNT(r.id) FILTER (WHERE r.reward_status = 'pending')  AS reward_pending,
+        COUNT(r.id) FILTER (WHERE r.reward_status = 'redeemed') AS reward_redeemed,
+        COUNT(r.id) FILTER (WHERE r.reward_status = 'expired')  AS reward_expired,
+        COUNT(r.id) FILTER (WHERE r.reward_status = 'issued')   AS reward_issued,
+        COUNT(r.id) FILTER (WHERE r.reward_status = 'failed')   AS reward_failed,
+        COUNT(r.id) FILTER (WHERE r.reward_status = 'skipped')  AS reward_skipped
+      FROM marketing_campaigns c
+      LEFT JOIN marketing_campaign_recipients r ON r.campaign_id = c.id
+      ${whereClause}
+      GROUP BY c.id
+      ORDER BY c.created_at DESC
+      LIMIT $${values.length + 1} OFFSET $${values.length + 2}
+    `;
 
     try {
       const countResult = await this.pool.query(countQuery, values);
       const totalItems = parseInt(countResult.rows[0].count, 10);
 
       const dataResult = await this.pool.query(dataQuery, [...values, pagination.limit, offset]);
-      const items = dataResult.rows.map(row => this.mapCampaign(row));
+      const items = dataResult.rows.map(row => this.mapCampaignWithRollup(row));
 
       const totalPages = Math.ceil(totalItems / pagination.limit);
 
@@ -839,6 +894,14 @@ export class MarketingCampaignRepository extends BaseRepository {
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
+  }
+
+  private mapCampaignWithRollup(row: any): MarketingCampaign {
+    const campaign = this.mapCampaign(row);
+    const summary = mapRewardSummary(row);
+    campaign.rewardSummary = summary;
+    campaign.displayStatus = deriveCampaignDisplayStatus(campaign, summary);
+    return campaign;
   }
 
   private mapRecipient(row: any): CampaignRecipient {
