@@ -202,14 +202,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           icon: <Megaphone className="w-5 h-5" />,
           tabId: "marketing",
         },
-        ...(process.env.NEXT_PUBLIC_ADS_DASHBOARD_ENABLED === "true"
-          ? [{
-              title: "Ads",
-              href: "/shop?tab=ads",
-              icon: <Megaphone className="w-5 h-5" />,
-              tabId: "ads",
-            }]
-          : []),
+        // Ads is reached via the Plans & Billing hub (AI Ads card → ?tab=ads),
+        // so the standalone sidebar link is removed to avoid a duplicate entry.
         {
           title: "Reports",
           href: "/shop?tab=reports",
