@@ -19,6 +19,7 @@ export interface RefreshToken {
   userAgent?: string;
   ipAddress?: string;
   location?: string;
+  deviceId?: string;
 }
 
 export interface CreateRefreshTokenParams {
@@ -31,6 +32,7 @@ export interface CreateRefreshTokenParams {
   userAgent?: string;
   ipAddress?: string;
   location?: string;
+  deviceId?: string;
 }
 
 export class RefreshTokenRepository extends BaseRepository {
@@ -51,8 +53,8 @@ export class RefreshTokenRepository extends BaseRepository {
       const query = `
         INSERT INTO refresh_tokens (
           token_id, user_address, user_role, shop_id, token_hash,
-          expires_at, user_agent, ip_address, location
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          expires_at, user_agent, ip_address, location, device_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
 
@@ -65,7 +67,8 @@ export class RefreshTokenRepository extends BaseRepository {
         params.expiresAt,
         params.userAgent || null,
         params.ipAddress || null,
-        params.location || null
+        params.location || null,
+        params.deviceId || null
       ];
 
       const result = await this.pool.query(query, values);
@@ -175,6 +178,77 @@ export class RefreshTokenRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error revoking all shop tokens:', error);
       throw new Error('Failed to revoke all shop tokens');
+    }
+  }
+
+  // Revoke prior active tokens for the same user + device, so a device keeps a
+  // single active session. Called on login to supersede the old one.
+  //
+  // Prefers device_id (a stable per-browser-context id) so two contexts on the
+  // same machine — e.g. normal + incognito, which share a user_agent — aren't
+  // treated as the same device. Falls back to user_agent only when no device_id
+  // is sent (older web clients, native apps).
+  async revokeActiveByDevice(
+    userAddress: string,
+    deviceId: string | null | undefined,
+    userAgent: string | null | undefined,
+    reason: string = 'Superseded by new login on same device'
+  ): Promise<number> {
+    // Nothing to match on — don't revoke (avoids nuking every session on a
+    // request that carries neither a device id nor a user agent).
+    if (!deviceId && !userAgent) {
+      return 0;
+    }
+
+    try {
+      const query = deviceId
+        ? `
+        UPDATE refresh_tokens
+        SET revoked = true, revoked_at = NOW(), revoked_reason = $3
+        WHERE user_address = $1 AND device_id = $2 AND revoked = false
+        RETURNING id
+      `
+        : `
+        UPDATE refresh_tokens
+        SET revoked = true, revoked_at = NOW(), revoked_reason = $3
+        WHERE user_address = $1 AND device_id IS NULL AND user_agent = $2 AND revoked = false
+        RETURNING id
+      `;
+
+      const matchValue = deviceId || userAgent;
+      const result = await this.pool.query(query, [userAddress.toLowerCase(), matchValue, reason]);
+      if (result.rowCount) {
+        logger.info('Superseded prior same-device sessions on login', {
+          userAddress, count: result.rowCount, matchedBy: deviceId ? 'device_id' : 'user_agent'
+        });
+      }
+      return result.rowCount || 0;
+    } catch (error) {
+      logger.error('Error revoking prior same-device tokens:', error);
+      throw new Error('Failed to revoke prior same-device tokens');
+    }
+  }
+
+  // Active sessions deduped to the most-recent row per device. Keys off device_id
+  // when present, falling back to user_agent, then token_id so distinct unknown
+  // devices aren't merged.
+  async getDistinctDeviceTokens(userAddress: string): Promise<RefreshToken[]> {
+    try {
+      const query = `
+        SELECT * FROM (
+          SELECT DISTINCT ON (COALESCE(device_id, user_agent, token_id)) *
+          FROM refresh_tokens
+          WHERE user_address = $1 AND revoked = false AND expires_at > NOW()
+          ORDER BY COALESCE(device_id, user_agent, token_id), last_used_at DESC, created_at DESC
+        ) d
+        ORDER BY d.last_used_at DESC
+      `;
+
+      const result = await this.pool.query(query, [userAddress.toLowerCase()]);
+      return result.rows.map(row => this.mapSnakeToCamel(row));
+    } catch (error) {
+      logger.error('Error getting distinct-device tokens:', error);
+      throw new Error('Failed to get active sessions');
     }
   }
 

@@ -275,7 +275,7 @@ class RepairCoinApp {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Cache-Control', 'Pragma', 'x-payment-page'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Device-Id', 'Cache-Control', 'Pragma', 'x-payment-page'],
       exposedHeaders: ['X-Token-Refreshed'], // Expose sliding window refresh header to frontend
       preflightContinue: false,
       optionsSuccessStatus: 204
@@ -356,7 +356,7 @@ class RepairCoinApp {
         res.header('Access-Control-Allow-Origin', origin);
       }
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID, X-Device-Id');
       res.header('Access-Control-Allow-Credentials', 'true');
       res.sendStatus(204);
     });
