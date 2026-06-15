@@ -31,6 +31,7 @@ import { MessagingDomain } from './domains/messaging';
 import { SupportDomain } from './domains/support';
 import { InventoryDomain } from './domains/InventoryDomain';
 import { AIAgentDomain } from './domains/AIAgentDomain';
+import { AdsDomain } from './domains/AdsDomain';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
@@ -43,6 +44,7 @@ import { autoMessageSchedulerService } from './services/AutoMessageSchedulerServ
 import { ReportSchedulerService } from './services/ReportSchedulerService';
 import { getCampaignScheduler } from './services/CampaignScheduler';
 import { getCampaignRewardExpiryScheduler } from './services/CampaignRewardExpiryScheduler';
+import { getSafeguardScheduler } from './domains/AdsDomain/services/SafeguardScheduler';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 import { startUnpaidBookingCleanup, stopUnpaidBookingCleanup } from './services/UnpaidBookingCleanupService';
@@ -286,10 +288,14 @@ class RepairCoinApp {
     }));
     
     // Raw body parsing for Stripe webhooks (MUST be before JSON parsing)
-    this.app.use('/api/shops/webhooks/stripe', 
+    this.app.use('/api/shops/webhooks/stripe',
       express.raw({ type: 'application/json' })
     );
-    
+
+    // Raw body for the Meta Lead Ads webhook (X-Hub-Signature-256 HMAC needs the
+    // exact bytes). MUST be before JSON parsing. (Ads System Stage 4.)
+    this.app.use('/api/ads/webhooks/meta/leads', express.raw({ type: '*/*' }));
+
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
@@ -385,6 +391,7 @@ class RepairCoinApp {
     domainRegistry.register(new SupportDomain());
     domainRegistry.register(new InventoryDomain());
     domainRegistry.register(new AIAgentDomain());
+    domainRegistry.register(new AdsDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();
@@ -622,6 +629,7 @@ class RepairCoinApp {
       autoMessageSchedulerService.stop();
       getCampaignScheduler().stop();
       getCampaignRewardExpiryScheduler().stop();
+      getSafeguardScheduler().stop();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -839,6 +847,11 @@ class RepairCoinApp {
         // Expires pending redeem-on-return rewards past their window.
         getCampaignRewardExpiryScheduler().start();
         logger.info('🎁 Campaign reward expiry scheduler started (hourly)');
+
+        // Ads safeguard sweep — nightly auto-pause of campaigns burning budget
+        // with no leads/bookings ($400 alert / $800 pause).
+        getSafeguardScheduler().start();
+        logger.info('🛡️ Ads safeguard scheduler started (daily 03:00)');
 
         // Start report scheduler - runs every hour
         // Processes automated shop reports (daily/weekly/monthly)

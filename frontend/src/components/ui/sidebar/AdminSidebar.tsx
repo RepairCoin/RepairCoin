@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone } from "lucide-react";
 import { SettingsIcon, LogoutIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
@@ -185,6 +185,16 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
         tabId: "sessions",
       }
     );
+
+    // Ads System (Stage 1) — gated behind the rollout flag.
+    if (process.env.NEXT_PUBLIC_ADS_DASHBOARD_ENABLED === "true") {
+      adminItems.push({
+        title: "Ads",
+        href: "/admin?tab=ads",
+        icon: <Megaphone className="w-5 h-5" />,
+        tabId: "ads",
+      });
+    }
 
     return adminItems;
   };

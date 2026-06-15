@@ -20,6 +20,7 @@ import { SessionManagementTab } from "@/components/admin/tabs/SessionManagementT
 import { AdminSupportTab } from "@/components/admin/tabs/AdminSupportTab";
 import { AdminWaitlistTab } from "@/components/admin/tabs/AdminWaitlistTab";
 import AdminDisputeTab from "@/components/admin/tabs/AdminDisputeTab";
+import AdminAdsTab from "@/components/admin/tabs/AdminAdsTab";
 import { AdminSettingsTab } from "@/components/admin/tabs/AdminSettingsTab";
 import { BugReportsTab } from "@/components/admin/tabs/BugReportsTab";
 import { AdminAISettingsTab } from "@/components/admin/tabs/AdminAISettingsTab";
@@ -433,6 +434,13 @@ export default function AdminDashboardClient() {
           {activeTab === "sessions" && hasAdminAccess && (
               <LazyTabWrapper isActive={activeTab === "sessions"}>
                 <SessionManagementTab />
+              </LazyTabWrapper>
+            )}
+
+          {/* Ads System (Stage 1) */}
+          {activeTab === "ads" && hasAdminAccess && (
+              <LazyTabWrapper isActive={activeTab === "ads"}>
+                <AdminAdsTab />
               </LazyTabWrapper>
             )}
 

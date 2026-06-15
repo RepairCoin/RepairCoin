@@ -1,0 +1,118 @@
+// backend/src/domains/AdsDomain/controllers/CampaignController.ts
+//
+// Campaign CRUD. Admin endpoints create/manage; shop endpoints read own only
+// (shopId from JWT, never a path/body param). Soft-delete via deleted_at.
+
+import { Request, Response } from 'express';
+import { logger } from '../../../utils/logger';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { AdsEvents } from '../events';
+import { CampaignRepository } from '../repositories/CampaignRepository';
+import { SafeguardRepository } from '../repositories/SafeguardRepository';
+
+const campaigns = new CampaignRepository();
+const safeguards = new SafeguardRepository();
+
+const adminId = (req: Request) => (req as any).user?.address ?? 'admin';
+const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
+
+// POST /campaigns (admin)
+export async function createCampaign(req: Request, res: Response): Promise<void> {
+  const { shopId, name } = req.body || {};
+  if (!shopId || !name) {
+    res.status(400).json({ success: false, error: 'shopId and name are required' });
+    return;
+  }
+  try {
+    const campaign = await campaigns.create({
+      shopId,
+      name,
+      industryId: req.body.industryId ?? null,
+      platform: req.body.platform,
+      targetRadiusMiles: req.body.targetRadiusMiles ?? null,
+      targetUnits: req.body.targetUnits,
+      dailyBudgetCents: req.body.dailyBudgetCents ?? 0,
+      aiAgentEnabled: req.body.aiAgentEnabled ?? false,
+      notes: req.body.notes ?? null,
+      createdBy: adminId(req),
+    });
+    await safeguards.ensureDefault(campaign.id); // default $400/$800 thresholds
+    await eventBus.publish(
+      createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaign.id, { shopId, name }, 'AdsDomain')
+    );
+    res.status(201).json({ success: true, data: campaign });
+  } catch (err) {
+    logger.error('CampaignController.createCampaign failed', err);
+    res.status(500).json({ success: false, error: 'Failed to create campaign' });
+  }
+}
+
+// GET /campaigns (admin) — filter by shop / status, paginated
+export async function listCampaigns(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await campaigns.list({
+      shopId: req.query.shopId as string | undefined,
+      status: req.query.status as any,
+      page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 25,
+    });
+    res.json({ success: true, data: result.items, total: result.total });
+  } catch (err) {
+    logger.error('CampaignController.listCampaigns failed', err);
+    res.status(500).json({ success: false, error: 'Failed to list campaigns' });
+  }
+}
+
+// GET /campaigns/:id (admin)
+export async function getCampaign(req: Request, res: Response): Promise<void> {
+  try {
+    const campaign = await campaigns.findById(req.params.id);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    res.json({ success: true, data: campaign });
+  } catch (err) {
+    logger.error('CampaignController.getCampaign failed', err);
+    res.status(500).json({ success: false, error: 'Failed to get campaign' });
+  }
+}
+
+// PATCH /campaigns/:id (admin)
+export async function updateCampaign(req: Request, res: Response): Promise<void> {
+  try {
+    const campaign = await campaigns.update(req.params.id, req.body || {});
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    res.json({ success: true, data: campaign });
+  } catch (err) {
+    logger.error('CampaignController.updateCampaign failed', err);
+    res.status(500).json({ success: false, error: 'Failed to update campaign' });
+  }
+}
+
+// DELETE /campaigns/:id (admin) — soft delete
+export async function deleteCampaign(req: Request, res: Response): Promise<void> {
+  try {
+    const ok = await campaigns.softDelete(req.params.id);
+    if (!ok) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('CampaignController.deleteCampaign failed', err);
+    res.status(500).json({ success: false, error: 'Failed to delete campaign' });
+  }
+}
+
+// GET /shop/campaigns (shop) — own campaigns only
+export async function listShopCampaigns(req: Request, res: Response): Promise<void> {
+  const shopId = shopIdOf(req);
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
+  try {
+    const result = await campaigns.list({
+      shopId,
+      status: req.query.status as any,
+      page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 25,
+    });
+    res.json({ success: true, data: result.items, total: result.total });
+  } catch (err) {
+    logger.error('CampaignController.listShopCampaigns failed', err);
+    res.status(500).json({ success: false, error: 'Failed to list campaigns' });
+  }
+}

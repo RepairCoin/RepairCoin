@@ -15,6 +15,7 @@ import apiClient, { isAccountSwitchError } from "@/services/api/client";
 
 // Import our new components
 import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
+import { AdEnrollmentTeaser } from "@/components/ads/AdEnrollmentTeaser";
 import { PurchaseTab } from "@/components/shop/tabs/PurchaseTab";
 import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
 import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
@@ -34,6 +35,7 @@ import { LowStockAlertsTab } from "@/components/shop/tabs/LowStockAlertsTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
+import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
@@ -1381,14 +1383,19 @@ export default function ShopDashboardClient() {
             )}
 
           {activeTab === "overview" && (
-            <OverviewTab
-              shopData={shopData}
-              purchases={purchases}
-              onRefreshData={loadShopData}
-              authToken={authToken ?? undefined}
-              loading={loading}
-              error={error}
-            />
+            <div className="space-y-6">
+              {shopData && (
+                <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+              )}
+              <OverviewTab
+                shopData={shopData}
+                purchases={purchases}
+                onRefreshData={loadShopData}
+                authToken={authToken ?? undefined}
+                loading={loading}
+                error={error}
+              />
+            </div>
           )}
 
           {activeTab === "services" && shopData && (
@@ -1539,12 +1546,20 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
+          {/* Ads System (Stage 1) — read-only campaign performance for this shop */}
+          {activeTab === "ads" && shopData && (
+            <ShopAdsTab reviewScore={(shopData as any)?.review_score} />
+          )}
+
           {activeTab === "profile" && shopData && (
-            <ProfileTab
-              shopId={shopData.shopId}
-              shopData={shopData}
-              onUpdate={loadShopData}
-            />
+            <div className="space-y-6">
+              <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+              <ProfileTab
+                shopId={shopData.shopId}
+                shopData={shopData}
+                onUpdate={loadShopData}
+              />
+            </div>
           )}
 
           {activeTab === "settings" && shopData && (

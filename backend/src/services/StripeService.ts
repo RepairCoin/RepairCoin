@@ -267,6 +267,54 @@ export class StripeService {
   }
 
   /**
+   * Create a one-off invoice from ad-hoc line items (no predefined Price needed) and
+   * attempt immediate collection against the customer's default payment method. Used
+   * by ad-management billing (Plan A/B/C). Each line is an amount in cents + label.
+   */
+  async createImmediateInvoice(
+    customerId: string,
+    lines: Array<{ amountCents: number; description: string }>,
+    metadata: Record<string, string> = {}
+  ): Promise<Stripe.Invoice> {
+    try {
+      // Draft invoice first, then attach items to it explicitly (pending_invoice_items
+      // ambiguity avoided), finalize, and pay.
+      const invoice = await this.stripe.invoices.create({
+        customer: customerId,
+        collection_method: 'charge_automatically',
+        auto_advance: false,
+        metadata,
+      });
+      for (const line of lines) {
+        await this.stripe.invoiceItems.create({
+          customer: customerId,
+          invoice: invoice.id,
+          amount: line.amountCents,
+          currency: 'usd',
+          description: line.description,
+        });
+      }
+      await this.stripe.invoices.finalizeInvoice(invoice.id as string);
+      const paid = await this.stripe.invoices.pay(invoice.id as string).catch((err) => {
+        // Card decline / no payment method: invoice stays open for retry — don't throw.
+        logger.warn('Ad-management invoice finalized but immediate payment failed', {
+          invoiceId: invoice.id, error: err instanceof Error ? err.message : 'Unknown error',
+        });
+        return null;
+      });
+      logger.info('Ad-management invoice created', {
+        invoiceId: invoice.id, customerId, lines: lines.length, paid: paid?.status ?? 'open',
+      });
+      return paid ?? invoice;
+    } catch (error) {
+      logger.error('Failed to create ad-management invoice', {
+        error: error instanceof Error ? error.message : 'Unknown error', customerId,
+      });
+      throw new Error(`Failed to create invoice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Retry failed payment
    */
   async retryPayment(invoiceId: string): Promise<Stripe.Invoice> {
