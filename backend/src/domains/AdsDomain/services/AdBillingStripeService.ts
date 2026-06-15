@@ -21,6 +21,7 @@ export interface InvoicePreview {
 }
 
 const CHARGE_LABEL: Record<ChargeType, string> = {
+  flat_tier_fee: 'AI Ads Management — monthly plan fee',
   plan_a_dashboard: 'Ad management — dashboard fee (Plan A)',
   plan_b_margin: 'Ad management — managed ad spend margin (Plan B)',
   plan_c_booking: 'Ad management — per-booking fee (Plan C)',

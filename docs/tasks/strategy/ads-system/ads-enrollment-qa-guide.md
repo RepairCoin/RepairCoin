@@ -1,15 +1,21 @@
 # QA Guide — Ads System (shop opt-in + AI)
 
 Covers two flows end-to-end:
-1. **Shop "Request ads" opt-in** — teaser → shop requests + picks a plan → admin approves → shop enrolled.
+1. **Shop "Request ads" opt-in** — teaser → shop picks a **flat tier** (Starter/Growth/Business) → admin
+   approves → shop enrolled on that tier.
 2. **Ads AI** — Stage 3 AI-drafted outreach + Stage 3.5 full auto-answer (multi-turn, brand-voiced).
+
+> **Billing model (2026-06-15):** ads is now **flat-tier only** — Starter $199 / Growth $499 / Business $999.
+> The shop pays its own ad spend **directly**; the fee is FixFlow's flat management fee. The old Plan A/B/C
+> (dashboard fee / 20% markup / pay-per-result) are **retired** (dormant in code, gone from the UI).
 
 Two automated scripts give instant pass/fail; the browser walkthroughs let you watch each flow on-screen.
 
-Prereqs: `NEXT_PUBLIC_ADS_DASHBOARD_ENABLED=true` (frontend), `ANTHROPIC_API_KEY` set (for the AI), backend +
-frontend running, `.env` pointed at the shared DO staging DB (default). Test shop below = **peanut**.
-Remember: `NEXT_PUBLIC_*` vars + new components compile at dev-server **startup** — restart `npm run dev` (and
-clear `frontend/.next`) after changing the flag or pulling new UI.
+Prereqs: `NEXT_PUBLIC_ADS_DASHBOARD_ENABLED=true` **and** `NEXT_PUBLIC_ADDON_HUB_ENABLED=true` (frontend — the
+hub is the front door to ads now), `ANTHROPIC_API_KEY` set (for the AI), backend + frontend running, `.env`
+pointed at the shared DO staging DB (default). Migration **155** must be applied (flat-tier columns). Test shop
+below = **peanut**. Remember: `NEXT_PUBLIC_*` vars + new components compile at dev-server **startup** — restart
+`npm run dev` (and clear `frontend/.next`) after changing a flag or pulling new UI.
 
 ---
 
@@ -22,9 +28,9 @@ Both drive the REAL backend repositories/services — the same code the HTTP con
 cd backend
 npx ts-node scripts/qa-ads-enrollment.ts peanut
 ```
-Expected **8/8**: request→pending, admin sees pending, approve→approved, billing plan set to the requested
-plan, re-request-after-approve no-op, decline-with-reason, re-request reopens a declined request. Leaves peanut
-with a PENDING request for the browser walkthrough (B).
+Expected **8/8**: request→pending (Growth tier), admin sees pending, approve→approved, **flat plan set to the
+requested tier** (asserts `flat/growth/49900`), re-request-after-approve no-op, decline-with-reason, re-request
+reopens a declined request. Leaves peanut with a PENDING request for the browser walkthrough (B).
 
 ### A2 — Ads AI (makes ~3 live Haiku calls, a few cents)
 ```bash
@@ -53,13 +59,17 @@ npx ts-node scripts/qa-ads-enrollment.ts --clean peanut    # remove any QA reque
 
 ### 1. Shop discovers + requests
 - Log in as **peanut** → you land on **profile** → a yellow **"Want more customers?"** teaser is at the top
-- Click **"Explore ads →"** → the **"Get more customers with ads"** form → pick a plan (Managed / Dashboard /
-  Pay-per-result) → optional note → **Request ads**
+- Click **"Explore ads →"** → lands on the **Plans & Billing** hub (the standalone Ads sidebar link was
+  removed — ads is reached through the hub now)
+- On the **AI Ads Management** card (status "Not enabled") click **"Request ads"** → opens the Ads tab's
+  **"Get more customers with ads"** form → pick a **tier (Starter $199 / Growth $499 / Business $999)** →
+  optional note → **Request ads**
 - ✅ Card flips to **"pending review"**
 
 ### 2. Admin approves
-- Log in as **admin** → **Ads** tab → **"Ad program requests"** panel shows **peanut** + the plan it chose
-- Click **Approve** → toast "Approved — plan set."
+- Log in as **admin** → **Ads** tab → **"Ad program requests"** panel shows **peanut** + the **tier** it chose
+  (e.g. "wants Growth ($499)")
+- Click **Approve** → toast "Approved — plan set." (sets the shop to the flat tier)
 
 ### 3. Shop is enrolled
 - Back as **peanut** → ✅ green **"You're enrolled 🎉 — your campaign is being set up."** (teaser is gone)
@@ -106,8 +116,11 @@ npx ts-node scripts/cleanup-ads-demo.ts                    # remove any demo cam
 ---
 
 ## Notes
-- Approving enrollment only sets the **billing plan**; the admin still builds the campaign (Q8/v1).
+- Approving enrollment only sets the **flat billing tier**; the admin still builds the campaign (Q8/v1).
+- The admin **BillingPanel** now offers the 3 flat tiers (Starter/Growth/Business); A/B/C are retired. The
+  shop's flat fee accrues monthly as a `flat_tier_fee` charge (nightly `accrueMonthlyFees`); the shop pays its
+  own ad spend directly, so there is no spend pass-through charge.
 - Billing/Margin panels are **admin-only** and live **inside a campaign detail** (a shop with no campaign yet
-  has no billing screen).
+  has no billing screen). The shop's own **Plans & Billing** hub (`?tab=plans`) shows its tier read-only.
 - Enrollment/decision notifications are best-effort (need `ADMIN_ADDRESSES` + the shop's wallet address).
 - All data lands in the shared staging DB — run section D when finished.

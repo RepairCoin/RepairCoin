@@ -7,7 +7,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { EnrollmentRepository } from '../repositories/EnrollmentRepository';
-import { BillingPlanRepository, AdPlanType } from '../repositories/BillingPlanRepository';
+import { BillingPlanRepository, FlatTierName, FLAT_TIER_FEES } from '../repositories/BillingPlanRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
 import { shopRepository } from '../../../repositories';
 
@@ -44,8 +44,8 @@ async function notifyShop(shopId: string, notificationType: string, message: str
 export async function requestAds(req: Request, res: Response): Promise<void> {
   const shopId = shopIdOf(req);
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
-  const plan = (req.body?.requestedPlan as AdPlanType) ?? 'b';
-  if (!['a', 'b', 'c'].includes(plan)) { res.status(400).json({ success: false, error: "requestedPlan must be 'a','b' or 'c'" }); return; }
+  const plan = (req.body?.requestedPlan as FlatTierName) ?? 'growth';
+  if (!['starter', 'growth', 'business'].includes(plan)) { res.status(400).json({ success: false, error: "requestedPlan must be 'starter', 'growth' or 'business'" }); return; }
   try {
     const existing = await enrollments.getByShop(shopId);
     if (existing?.status === 'approved') {
@@ -54,7 +54,7 @@ export async function requestAds(req: Request, res: Response): Promise<void> {
     }
     const message = (req.body?.message || '').toString().slice(0, 1000) || null;
     const enrollment = await enrollments.request(shopId, plan, message);
-    await notifyAdmins('ad_enrollment_request', `Shop ${shopId} requested to join the ad program (Plan ${plan.toUpperCase()}).`, { shopId, requestedPlan: plan });
+    await notifyAdmins('ad_enrollment_request', `Shop ${shopId} requested to join the ad program (${plan} tier).`, { shopId, requestedPlan: plan });
     res.status(201).json({ success: true, data: enrollment });
   } catch (err) {
     logger.error('EnrollmentController.requestAds failed', err);
@@ -99,12 +99,17 @@ export async function decideEnrollment(req: Request, res: Response): Promise<voi
     const updated = await enrollments.decide(shopId, decision, adminAddrOf(req), req.body?.declineReason);
 
     if (decision === 'approved') {
-      // Set the shop's ad-management plan to what they requested (admin can fine-tune
-      // the terms afterward in the billing panel). Admin still builds the campaign.
-      await plans.upsertPlan(shopId, { planType: existing.requestedPlan, active: true });
+      // Set the shop's ad-management plan to the requested flat tier (admin can fine-tune
+      // in the billing panel). Legacy a/b/c requests fall back to Growth. Admin still
+      // builds the campaign.
+      const tier = (['starter', 'growth', 'business'].includes(existing.requestedPlan)
+        ? existing.requestedPlan : 'growth') as FlatTierName;
+      await plans.upsertPlan(shopId, {
+        planType: 'flat', flatTierName: tier, flatFeeCents: FLAT_TIER_FEES[tier], active: true,
+      });
       await notifyShop(shopId, 'ad_enrollment_approved',
-        `You're in! Your ad program (Plan ${existing.requestedPlan.toUpperCase()}) is approved — we'll set up your campaign shortly.`,
-        { shopId, plan: existing.requestedPlan });
+        `You're in! Your ${tier} ad plan is approved — we'll set up your campaign shortly.`,
+        { shopId, plan: tier });
     } else {
       await notifyShop(shopId, 'ad_enrollment_declined',
         `Your ad program request was declined.${req.body?.declineReason ? ' Reason: ' + req.body.declineReason : ''}`,

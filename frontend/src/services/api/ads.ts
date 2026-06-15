@@ -146,17 +146,27 @@ export const getMarginSummary = async (): Promise<MarginSummary> => {
 /* ----------------------- Ad-management billing (Q4/Q7) ------------------- */
 // Plan A/B/C ride on top of the $500/mo base subscription. Admin-only.
 
-export type AdPlanType = 'a' | 'b' | 'c';
+export type AdPlanType = 'a' | 'b' | 'c' | 'flat';
 export type PlanCModel = 'per_booking' | 'revenue_share';
+export type FlatTierName = 'starter' | 'growth' | 'business';
+
+// The live flat tiers (Decision 2026-06-15). a/b/c are legacy/dormant.
+export const FLAT_TIERS: { name: FlatTierName; label: string; feeCents: number; blurb: string }[] = [
+  { name: 'starter',  label: 'Starter — $199/mo',  feeCents: 19900, blurb: 'Facebook · 1 campaign · you reply to leads' },
+  { name: 'growth',   label: 'Growth — $499/mo',   feeCents: 49900, blurb: 'FB + Instagram · 3 campaigns · AI answers leads' },
+  { name: 'business', label: 'Business — $999/mo', feeCents: 99900, blurb: 'FB + IG + Google · 10 campaigns · priority' },
+];
 
 export interface AdBillingPlan {
   shopId: string;
   planType: AdPlanType;
-  markupBps: number;            // Plan B (2000 = 20%)
-  dashboardFeeCents: number;    // Plan A
-  perBookingFeeCents: number;   // Plan C
-  revenueShareBps: number;      // Plan C alt
-  planCModel: PlanCModel;
+  markupBps: number;            // Plan B (2000 = 20%) — legacy
+  dashboardFeeCents: number;    // Plan A — legacy
+  perBookingFeeCents: number;   // Plan C — legacy
+  revenueShareBps: number;      // Plan C alt — legacy
+  planCModel: PlanCModel;       // legacy
+  flatFeeCents: number;         // flat tier monthly fee
+  flatTierName: string | null;  // 'starter' | 'growth' | 'business'
   active: boolean;
 }
 
@@ -371,7 +381,7 @@ export const submitWebformLead = async (payload: {
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
 export interface AdEnrollment {
   shopId: string;
-  requestedPlan: AdPlanType;
+  requestedPlan: FlatTierName;   // legacy rows may hold a/b/c
   status: EnrollmentStatus;
   message: string | null;
   declineReason: string | null;
@@ -379,7 +389,7 @@ export interface AdEnrollment {
 }
 
 // Shop
-export const requestAdsEnrollment = async (requestedPlan: AdPlanType, message?: string): Promise<AdEnrollment> => {
+export const requestAdsEnrollment = async (requestedPlan: FlatTierName, message?: string): Promise<AdEnrollment> => {
   const res = await apiClient.post('/ads/shop/enrollment', { requestedPlan, message });
   return unwrap<AdEnrollment>(res);
 };

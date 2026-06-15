@@ -6,28 +6,43 @@
 
 import { BaseRepository } from '../../../repositories/BaseRepository';
 
-export type AdPlanType = 'a' | 'b' | 'c';
+// 'flat' = the $199/$499/$999 flat-tier model (the ONLY model offered as of 2026-06-15;
+// a/b/c are retired from the UI but kept for any dormant/legacy rows).
+export type AdPlanType = 'a' | 'b' | 'c' | 'flat';
 export type PlanCModel = 'per_booking' | 'revenue_share';
+export type FlatTierName = 'starter' | 'growth' | 'business';
 
 export interface AdBillingPlan {
   shopId: string;
   planType: AdPlanType;
-  markupBps: number;            // Plan B (2000 = 20%)
-  dashboardFeeCents: number;    // Plan A
-  perBookingFeeCents: number;   // Plan C
-  revenueShareBps: number;      // Plan C alt
-  planCModel: PlanCModel;
+  markupBps: number;            // Plan B (2000 = 20%) — legacy
+  dashboardFeeCents: number;    // Plan A — legacy
+  perBookingFeeCents: number;   // Plan C — legacy
+  revenueShareBps: number;      // Plan C alt — legacy
+  planCModel: PlanCModel;       // legacy
+  flatFeeCents: number;         // flat tier — the monthly management fee
+  flatTierName: string | null;  // 'starter' | 'growth' | 'business' (reporting/UX)
   active: boolean;
 }
 
-// Plan B, default terms — the implicit plan for a shop with no explicit row (Q7).
+// Flat tier amounts (cents). Decision #3 (2026-06-15).
+export const FLAT_TIER_FEES: Record<FlatTierName, number> = {
+  starter: 19900,
+  growth: 49900,
+  business: 99900,
+};
+
+// Default = flat / Growth (Decision #4: flat is the only offered model). A shop with
+// no explicit row is treated as Growth until an admin sets a tier.
 export const DEFAULT_PLAN: Omit<AdBillingPlan, 'shopId'> = {
-  planType: 'b',
+  planType: 'flat',
   markupBps: 2000,
   dashboardFeeCents: 29900,
   perBookingFeeCents: 5000,
   revenueShareBps: 1000,
   planCModel: 'per_booking',
+  flatFeeCents: FLAT_TIER_FEES.growth,
+  flatTierName: 'growth',
   active: true,
 };
 
@@ -47,8 +62,8 @@ export class BillingPlanRepository extends BaseRepository {
     const res = await this.pool.query(
       `INSERT INTO ad_billing_plans
          (shop_id, plan_type, markup_bps, dashboard_fee_cents, per_booking_fee_cents,
-          revenue_share_bps, plan_c_model, active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          revenue_share_bps, plan_c_model, flat_fee_cents, flat_tier_name, active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (shop_id) DO UPDATE SET
          plan_type             = EXCLUDED.plan_type,
          markup_bps            = EXCLUDED.markup_bps,
@@ -56,6 +71,8 @@ export class BillingPlanRepository extends BaseRepository {
          per_booking_fee_cents = EXCLUDED.per_booking_fee_cents,
          revenue_share_bps     = EXCLUDED.revenue_share_bps,
          plan_c_model          = EXCLUDED.plan_c_model,
+         flat_fee_cents        = EXCLUDED.flat_fee_cents,
+         flat_tier_name        = EXCLUDED.flat_tier_name,
          active                = EXCLUDED.active,
          updated_at            = now()
        RETURNING *`,
@@ -67,6 +84,8 @@ export class BillingPlanRepository extends BaseRepository {
         p.perBookingFeeCents ?? d.perBookingFeeCents,
         p.revenueShareBps ?? d.revenueShareBps,
         p.planCModel ?? d.planCModel,
+        p.flatFeeCents ?? d.flatFeeCents,
+        p.flatTierName ?? d.flatTierName,
         p.active ?? d.active,
       ]
     );
@@ -78,7 +97,7 @@ export class BillingPlanRepository extends BaseRepository {
     const res = await this.pool.query(
       `SELECT DISTINCT c.shop_id,
               p.plan_type, p.markup_bps, p.dashboard_fee_cents, p.per_booking_fee_cents,
-              p.revenue_share_bps, p.plan_c_model, p.active
+              p.revenue_share_bps, p.plan_c_model, p.flat_fee_cents, p.flat_tier_name, p.active
          FROM ad_campaigns c
          LEFT JOIN ad_billing_plans p ON p.shop_id = c.shop_id
         WHERE c.deleted_at IS NULL AND c.status = 'active'`
@@ -97,6 +116,8 @@ export class BillingPlanRepository extends BaseRepository {
       perBookingFeeCents: r.per_booking_fee_cents,
       revenueShareBps: r.revenue_share_bps,
       planCModel: r.plan_c_model,
+      flatFeeCents: r.flat_fee_cents ?? 0,
+      flatTierName: r.flat_tier_name ?? null,
       active: r.active,
     };
   }

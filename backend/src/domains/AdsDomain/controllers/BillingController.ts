@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
-import { BillingPlanRepository, AdPlanType, PlanCModel } from '../repositories/BillingPlanRepository';
+import { BillingPlanRepository, AdPlanType, PlanCModel, FlatTierName, FLAT_TIER_FEES } from '../repositories/BillingPlanRepository';
 import { AdBillingService } from '../services/AdBillingService';
 import { AdBillingStripeService } from '../services/AdBillingStripeService';
 
@@ -31,14 +31,26 @@ export async function getBillingPlan(req: Request, res: Response): Promise<void>
 // PUT /shops/:shopId/billing-plan (admin)
 export async function setBillingPlan(req: Request, res: Response): Promise<void> {
   const b = req.body || {};
-  if (b.planType && !['a', 'b', 'c'].includes(b.planType)) {
-    res.status(400).json({ success: false, error: "planType must be 'a', 'b' or 'c'" });
+  // 'flat' is the live model ($199/$499/$999); a/b/c are legacy/dormant.
+  if (b.planType && !['a', 'b', 'c', 'flat'].includes(b.planType)) {
+    res.status(400).json({ success: false, error: "planType must be 'a', 'b', 'c' or 'flat'" });
+    return;
+  }
+  if (b.flatTierName && !['starter', 'growth', 'business'].includes(b.flatTierName)) {
+    res.status(400).json({ success: false, error: "flatTierName must be 'starter', 'growth' or 'business'" });
+    return;
+  }
+  if (b.planType === 'flat' && !b.flatTierName && b.flatFeeCents == null) {
+    res.status(400).json({ success: false, error: "flat plan requires flatTierName (starter|growth|business) or flatFeeCents" });
     return;
   }
   if (b.planCModel && !['per_booking', 'revenue_share'].includes(b.planCModel)) {
     res.status(400).json({ success: false, error: "planCModel must be 'per_booking' or 'revenue_share'" });
     return;
   }
+  // A tier name maps to its fee; an explicit flatFeeCents (if provided) overrides.
+  const flatTierName = b.flatTierName as FlatTierName | undefined;
+  const flatFeeCents = b.flatFeeCents ?? (flatTierName ? FLAT_TIER_FEES[flatTierName] : undefined);
   try {
     const updated = await plans.upsertPlan(req.params.shopId, {
       planType: b.planType as AdPlanType | undefined,
@@ -47,6 +59,8 @@ export async function setBillingPlan(req: Request, res: Response): Promise<void>
       perBookingFeeCents: b.perBookingFeeCents,
       revenueShareBps: b.revenueShareBps,
       planCModel: b.planCModel as PlanCModel | undefined,
+      flatFeeCents,
+      flatTierName: flatTierName ?? undefined,
       active: b.active,
     });
     res.json({ success: true, data: updated });

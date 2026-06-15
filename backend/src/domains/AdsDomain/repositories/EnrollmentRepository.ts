@@ -4,13 +4,15 @@
 // upserts a pending request, the admin decides. Mirrors the groups join-request flow.
 
 import { BaseRepository } from '../../../repositories/BaseRepository';
-import { AdPlanType } from './BillingPlanRepository';
+import { FlatTierName } from './BillingPlanRepository';
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
 
 export interface AdEnrollment {
   shopId: string;
-  requestedPlan: AdPlanType;
+  // Shops now request a flat TIER (starter/growth/business). Legacy rows may hold
+  // a/b/c — tolerated by the DB CHECK; treated as Growth on approval.
+  requestedPlan: FlatTierName;
   status: EnrollmentStatus;
   message: string | null;
   decidedBy: string | null;
@@ -28,7 +30,7 @@ export class EnrollmentRepository extends BaseRepository {
 
   /** Shop creates or updates its request. Re-requesting resets a declined request to
    *  pending; an already-approved shop is returned unchanged (no downgrade). */
-  async request(shopId: string, requestedPlan: AdPlanType, message: string | null): Promise<AdEnrollment> {
+  async request(shopId: string, requestedPlan: FlatTierName, message: string | null): Promise<AdEnrollment> {
     const res = await this.pool.query(
       `INSERT INTO ad_enrollment_requests (shop_id, requested_plan, status, message)
        VALUES ($1,$2,'pending',$3)

@@ -37,7 +37,7 @@ const ok = (label: string, cond: boolean, detail = '') => {
 (async () => {
   // Repositories are imported after dotenv so the shared pool sees the env.
   const { EnrollmentRepository } = await import('../src/domains/AdsDomain/repositories/EnrollmentRepository');
-  const { BillingPlanRepository } = await import('../src/domains/AdsDomain/repositories/BillingPlanRepository');
+  const { BillingPlanRepository, FLAT_TIER_FEES } = await import('../src/domains/AdsDomain/repositories/BillingPlanRepository');
   const enroll = new EnrollmentRepository();
   const plans = new BillingPlanRepository();
 
@@ -59,35 +59,35 @@ const ok = (label: string, cond: boolean, detail = '') => {
   // Clean slate.
   await raw.query(`DELETE FROM ad_enrollment_requests WHERE shop_id = $1`, [shopId]);
 
-  // ---- Part A: request → admin sees it → approve → plan set → re-request no-op ----
+  // ---- Part A: request → admin sees it → approve → flat plan set → re-request no-op ----
   console.log('Part A — approval path');
-  const a1 = await enroll.request(shopId, 'b', 'Please run ads for my shop — focused on screen repairs.');
-  ok('1. Shop submits request (Plan B)', a1.status === 'pending' && a1.requestedPlan === 'b', `status=${a1.status}`);
+  const a1 = await enroll.request(shopId, 'growth', 'Please run ads for my shop — focused on screen repairs.');
+  ok('1. Shop submits request (Growth tier)', a1.status === 'pending' && a1.requestedPlan === 'growth', `status=${a1.status}`);
 
   const pendingList = await enroll.list('pending');
   ok('2. Admin sees it in the pending list', pendingList.some((e) => e.shopId === shopId), `${pendingList.length} pending`);
 
-  // Mirror EnrollmentController.decideEnrollment (approve): decide + set billing plan.
+  // Mirror EnrollmentController.decideEnrollment (approve): decide + set the flat plan.
   const a3 = await enroll.decide(shopId, 'approved', 'qa-admin');
-  await plans.upsertPlan(shopId, { planType: a1.requestedPlan, active: true });
+  await plans.upsertPlan(shopId, { planType: 'flat', flatTierName: a1.requestedPlan, flatFeeCents: FLAT_TIER_FEES[a1.requestedPlan], active: true });
   ok('3. Admin approves', a3?.status === 'approved', `status=${a3?.status}`);
 
   const plan = await plans.getPlan(shopId);
-  ok('4. Shop billing plan set to the requested plan', plan?.planType === 'b', `plan_type=${plan?.planType}`);
+  ok('4. Shop billing plan set to the requested flat tier', plan?.planType === 'flat' && plan?.flatTierName === 'growth' && plan?.flatFeeCents === 49900, `plan=${plan?.planType}/${plan?.flatTierName}/${plan?.flatFeeCents}`);
 
-  const a5 = await enroll.request(shopId, 'c', 'changed my mind to C');
+  const a5 = await enroll.request(shopId, 'business', 'changed my mind to Business');
   ok('5. Re-request after approval is a no-op (stays approved)', a5.status === 'approved', `status=${a5.status}`);
 
   // ---- Part B: decline path → re-request reopens ----
   console.log('\nPart B — decline path');
   await raw.query(`DELETE FROM ad_enrollment_requests WHERE shop_id = $1`, [shopId]); // reset
-  const b1 = await enroll.request(shopId, 'a', 'Dashboard-only please.');
-  ok('6. Shop submits a new request (Plan A)', b1.status === 'pending' && b1.requestedPlan === 'a', `status=${b1.status}`);
+  const b1 = await enroll.request(shopId, 'starter', 'Starter tier please.');
+  ok('6. Shop submits a new request (Starter tier)', b1.status === 'pending' && b1.requestedPlan === 'starter', `status=${b1.status}`);
 
   const b2 = await enroll.decide(shopId, 'declined', 'qa-admin', 'Outside our service area for now.');
   ok('7. Admin declines with a reason', b2?.status === 'declined' && !!b2?.declineReason, `reason="${b2?.declineReason}"`);
 
-  const b3 = await enroll.request(shopId, 'b', 'Trying again with the managed plan.');
+  const b3 = await enroll.request(shopId, 'growth', 'Trying again with the Growth tier.');
   ok('8. Re-request reopens a declined request (→ pending)', b3.status === 'pending', `status=${b3.status}`);
 
   // Leave the shop with a fresh PENDING request for the browser walkthrough.

@@ -7,9 +7,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Inbox, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { listEnrollments, decideEnrollment, type AdEnrollment, type AdPlanType } from "@/services/api/ads";
+import { listEnrollments, decideEnrollment, type AdEnrollment, type FlatTierName } from "@/services/api/ads";
 
-const PLAN_LABEL: Record<AdPlanType, string> = { a: "Dashboard (A)", b: "Managed (B)", c: "Pay-per-result (C)" };
+const TIER_LABEL: Record<FlatTierName, string> = { starter: "Starter ($199)", growth: "Growth ($499)", business: "Business ($999)" };
 
 export const AdEnrollmentRequests: React.FC<{ onApproved?: () => void }> = ({ onApproved }) => {
   const [requests, setRequests] = useState<AdEnrollment[]>([]);
@@ -59,7 +59,7 @@ export const AdEnrollmentRequests: React.FC<{ onApproved?: () => void }> = ({ on
             <div className="min-w-0">
               <p className="text-sm text-white">
                 Shop <span className="font-medium">{r.shopId}</span>
-                <span className="ml-2 text-xs text-gray-400">wants {PLAN_LABEL[r.requestedPlan]}</span>
+                <span className="ml-2 text-xs text-gray-400">wants {TIER_LABEL[r.requestedPlan] ?? r.requestedPlan}</span>
               </p>
               {r.message && <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">“{r.message}”</p>}
             </div>

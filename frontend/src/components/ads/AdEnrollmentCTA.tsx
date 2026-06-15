@@ -10,19 +10,21 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Megaphone, Clock, CheckCircle2, XCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  getMyEnrollment, requestAdsEnrollment, type AdEnrollment, type AdPlanType,
+  getMyEnrollment, requestAdsEnrollment, FLAT_TIERS, type AdEnrollment, type FlatTierName,
 } from "@/services/api/ads";
 
-const PLANS: { value: AdPlanType; label: string; blurb: string }[] = [
-  { value: "b", label: "Managed (recommended)", blurb: "We run your ads and handle everything. You pay for ad spend plus a small margin." },
-  { value: "a", label: "Dashboard only", blurb: "You keep your own Facebook ad account; we provide the dashboard for a flat monthly fee." },
-  { value: "c", label: "Pay per result", blurb: "We run ads at our risk; you pay only when a booking comes in." },
-];
+// The three flat tiers (Decision 2026-06-15). Shop pays its own ad spend directly;
+// the fee is FixFlow's flat management fee.
+const PLANS: { value: FlatTierName; label: string; blurb: string }[] = FLAT_TIERS.map((t) => ({
+  value: t.name,
+  label: t.label,
+  blurb: t.blurb,
+}));
 
 export const AdEnrollmentCTA: React.FC<{ hasCampaigns: boolean }> = ({ hasCampaigns }) => {
   const [enrollment, setEnrollment] = useState<AdEnrollment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [plan, setPlan] = useState<AdPlanType>("b");
+  const [plan, setPlan] = useState<FlatTierName>("growth");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 

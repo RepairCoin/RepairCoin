@@ -7,7 +7,8 @@
 import { BaseRepository } from '../../../repositories/BaseRepository';
 
 export type ChargeType =
-  | 'plan_a_dashboard' | 'plan_b_margin' | 'plan_c_booking' | 'plan_c_revenue_share';
+  | 'plan_a_dashboard' | 'plan_b_margin' | 'plan_c_booking' | 'plan_c_revenue_share'
+  | 'flat_tier_fee'; // the flat-tier monthly management fee (the only live model as of 2026-06-15)
 export type ChargeStatus = 'pending' | 'invoiced' | 'paid' | 'void';
 
 export interface UpsertChargeInput {
