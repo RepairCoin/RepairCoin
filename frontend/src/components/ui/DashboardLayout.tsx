@@ -117,17 +117,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Mobile header bar — hamburger only */}
       {/* z-20 ensures header stays above content but below icons */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 bg-[#1e1f22] flex items-center justify-between px-4 transition-all duration-300 ease-in-out pt-2 pb-2 z-20 ${
-        isScrolled ? "top-0" : "top-8"
-      }`}>
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#101010] flex items-center justify-between px-4 pt-4 pb-2 z-20">
         <button
           onClick={toggleSidebar}
           className="p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-colors"
         >
           {isSidebarOpen ? (
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           ) : (
-            <Menu className="w-5 h-5" />
+            <Menu className="w-6 h-6" />
           )}
         </button>
       </div>
@@ -135,8 +133,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Icons — rendered once, repositioned via responsive classes */}
       {/* Mobile: top-right inside header area | Desktop: fixed top-right */}
       {userRole !== "admin" && (
-        <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-2 pb-2 transition-all duration-300 ease-in-out ${
-          isScrolled ? "top-0 lg:top-0" : "top-8 lg:top-6"
+        <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-4 pb-2 lg:pt-2 transition-all duration-300 ease-in-out ${
+          isScrolled ? "top-0 lg:top-0" : "top-0 lg:top-6"
         }`}>
           {userRole === "shop" && <CartIcon />}
           <MessageIcon />

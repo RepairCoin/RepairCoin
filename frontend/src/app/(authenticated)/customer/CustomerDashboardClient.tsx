@@ -231,14 +231,11 @@ export default function CustomerDashboardClient() {
     >
       <div
         className={
-          // Mobile/tablet (< lg): DashboardLayout's main already adds
-          // pt-[76px] to clear the fixed mobile header bar — adding pt-16
-          // here on top of that gave 140px of wasted vertical space.
-          // Use pt-0 on mobile + lg:pt-4 on desktop so the parent's offset
-          // is the single source of truth on small screens.
+          // Parent (DashboardLayout main) already adds pt-[76px] on mobile to
+          // clear the fixed header, so keep mobile top padding minimal here.
           isMessagesFullHeight
             ? "flex-1 flex flex-col overflow-hidden min-h-0 pb-4 pt-0 lg:py-4"
-            : "min-h-screen py-8 pt-16 lg:pt-8"
+            : "min-h-screen pb-8 pt-2 lg:py-8"
         }
         style={{
           backgroundImage: `url('/img/dashboard-bg.png')`,
