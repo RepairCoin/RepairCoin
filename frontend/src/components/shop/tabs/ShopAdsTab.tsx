@@ -103,8 +103,9 @@ export const ShopAdsTab: React.FC<ShopAdsTabProps> = ({ reviewScore, photoCount 
             ))}
           </div>
 
-          {/* Performance card */}
-          <div className="rounded-xl border border-white/10 bg-[#141414] p-5">
+          {/* Performance card — min-w-0 lets this 1fr grid track shrink to the viewport
+              so wide children (metric grid, lead kanban) scroll/wrap instead of overflowing. */}
+          <div className="min-w-0 rounded-xl border border-white/10 bg-[#141414] p-5">
             {!perf ? (
               <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
             ) : (
