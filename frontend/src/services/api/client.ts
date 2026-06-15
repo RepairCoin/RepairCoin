@@ -2,6 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import toast from "react-hot-toast";
 import { recordAuthFailure } from "@/utils/authRecovery";
 import { getApiBaseUrl } from "@/utils/apiUrl";
+import { getDeviceId } from "@/utils/deviceId";
 import {
   getShopAccessMessage,
   isShopAccessErrorCode,
@@ -61,6 +62,13 @@ apiClient.interceptors.request.use((config) => {
   // Add request ID for tracking
   if (typeof window !== 'undefined') {
     config.headers['X-Request-ID'] = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+    // Stable per-browser-context id so the backend's "one session per device"
+    // logic treats normal and incognito windows as separate devices.
+    const deviceId = getDeviceId();
+    if (deviceId) {
+      config.headers['X-Device-Id'] = deviceId;
+    }
   }
 
   return config;

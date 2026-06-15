@@ -113,6 +113,16 @@ const generateAndSetTokens = async (
   // Look up location from IP (non-blocking, fallback to 'Unknown location')
   const location = await getLocationFromIP(req.ip || '');
 
+  const userAgent = req.get('User-Agent');
+  // Stable per-browser-context id from the client (localStorage). Distinguishes
+  // normal vs incognito on the same machine, which share a user_agent.
+  const deviceId = req.get('X-Device-Id') || null;
+
+  // Keep one active session per device (logout's revoke is best-effort, so stale
+  // same-device sessions otherwise pile up). Matches on device_id when present,
+  // else user_agent.
+  await refreshTokenRepository.revokeActiveByDevice(payload.address, deviceId, userAgent);
+
   await refreshTokenRepository.createRefreshToken({
     tokenId,
     userAddress: payload.address,
@@ -120,9 +130,10 @@ const generateAndSetTokens = async (
     shopId: payload.shopId,
     token: refreshToken,
     expiresAt,
-    userAgent: req.get('User-Agent'),
+    userAgent,
     ipAddress: req.ip,
-    location
+    location,
+    deviceId: deviceId || undefined
   });
 
   const isProduction = process.env.NODE_ENV === 'production';

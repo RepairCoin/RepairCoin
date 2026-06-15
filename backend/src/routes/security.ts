@@ -20,7 +20,7 @@ router.get('/sessions', authMiddleware, async (req, res) => {
       });
     }
 
-    const sessions = await refreshTokenRepository.getActiveTokens(req.user.address);
+    const sessions = await refreshTokenRepository.getDistinctDeviceTokens(req.user.address);
 
     // Map sessions to a more frontend-friendly format
     const formattedSessions = sessions.map(session => ({
@@ -269,7 +269,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       });
     }
 
-    const sessions = await refreshTokenRepository.getActiveTokens(req.user.address);
+    const sessions = await refreshTokenRepository.getDistinctDeviceTokens(req.user.address);
 
     // Calculate stats
     const now = new Date();
