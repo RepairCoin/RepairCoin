@@ -151,7 +151,7 @@ class ShopApi {
   async getRecentRewards(shopId: string, limit: number = 5) {
     try {
       return await apiClient.get(
-        `/shops/${shopId}/transactions?limit=${limit}`,
+        `/shops/${shopId}/transactions?limit=${limit}&type=rewards`,
       );
     } catch (error: any) {
       console.error("Failed to get recent rewards:", error.message);
