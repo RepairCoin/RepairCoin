@@ -24,15 +24,16 @@ She clicks it and picks a tier. Here's what each one gets her:
 - **Starter — $199/mo:** runs ads on **Facebook** for **1 campaign**, on **her own ad account** (she pays
   Facebook directly), up to about **$1,000/mo** of ad budget. She replies to leads herself. Good for testing
   the waters.
-- **Growth — $499/mo ⭐ (most popular):** **FixFlow runs everything** on its managed account — **Facebook +
-  Instagram**, up to **3 campaigns**, up to about **$3,000/mo** budget. The big upgrade: **AI texts every
-  lead back automatically**, plus A/B ad testing, free ad swaps if one underperforms, and a test-budget
-  on-ramp.
+- **Growth — $499/mo ⭐ (most popular):** **FixFlow runs everything on her own ad account** — **Facebook +
+  Instagram**, up to **3 campaigns**, up to about **$3,000/mo** budget (she still pays Facebook directly). The
+  big upgrade: **AI texts every lead back automatically**, plus A/B ad testing, free ad swaps if one
+  underperforms, and a test-budget on-ramp.
 - **Business — $999/mo:** everything in Growth, scaled up — **Facebook + Instagram + Google**, up to **10
   campaigns**, **$6,000+/mo** budget, plus deeper reporting and priority support.
 
-> The three things that really change as you go up: **who runs it & how much you can spend**, **how many
-> campaigns**, and **whether AI answers your leads for you**.
+> Her ad account is always **her own** — FixFlow just runs the campaigns on it. The three things that change as
+> you go up: **how many channels & how much you can spend**, **how many campaigns**, and **whether AI answers
+> your leads for you**.
 
 Sarah picks **Growth ($499/mo)** — she wants the AI answering leads for her. She also sets her **ad budget at
 $3,000/mo** — the money that actually buys the ads.

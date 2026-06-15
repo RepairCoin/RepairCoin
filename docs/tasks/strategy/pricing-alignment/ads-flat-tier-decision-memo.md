@@ -4,12 +4,20 @@
 **Status:** Decision requested — no code written. Standing rule: do not commit/build until exec signs off.
 **Companion docs:** `pricing-sheet-vs-code-gap-analysis.md`, `../ads-system/ads-system-implementation-plan.md`.
 
+> **✅ DECIDED 2026-06-15:**
+> - **Spend funding (#1/#2):** the SHOP pays ad-spend DIRECTLY, on their OWN ad account, across ALL tiers.
+>   FixFlow never fronts, holds, or passes through ad money (Option 1 below) — it just manages the campaigns
+>   on the shop's account. FixFlow's only ad-related revenue is the flat management fee.
+> - **Tier amounts (#3):** $199 / $499 / $999 with the §6 inclusions.
+> - **Pricing model (#4):** FLAT-ONLY — the three tiers replace the old Plan A/B/C entirely (no $299 flat,
+>   no 20% markup, no pay-per-result). See §5 Decision #4.
+
 ---
 
 ## 1. The simple picture — what FixFlow earns per shop, per month
 
 **The one rule that makes this simple: the ad-spend money is NOT FixFlow's.** The shop pays Facebook/Google
-for the ads (directly, or reimburses FixFlow at cost). That money passes through — it never counts as FixFlow
+**directly, on their own ad account** — the money never touches FixFlow's books, so it can't be FixFlow
 revenue _or_ cost. So FixFlow's profit is just **the fees it charges, minus the tiny AI cost.**
 
 Here is the entire money picture for one shop on the ads add-on:
@@ -32,29 +40,32 @@ Here is the entire money picture for one shop on the ads add-on:
 
 ## 2. The decision that makes the table above true
 
-FixFlow's profit is clean and predictable **only if the shop funds the ad spend.** There are three ways to
-handle spend; only the first two are safe:
+FixFlow's profit is clean and predictable **only if the shop funds the ad spend.** Three ways to handle spend
+were on the table:
 
-1. **Shop pays Facebook directly** (their own ad account) — ✅ safest. FixFlow never touches ad money.
-2. **FixFlow fronts spend, bills it back at cost** (FixFlow's managed account) — ✅ same profit, just a
-   cash-flow timing gap. Recommended for the managed/higher tiers.
-3. **Spend bundled into the fee** (FixFlow pays for ads out of the $199–$999) — ❌ **do not do this.** A
-   competitive ad budget is 5–6× the fee, so FixFlow would _lose_ $800–$5,000 per shop. See Appendix A.
+1. **Shop pays Facebook directly** (their own ad account) — ✅ **DECIDED.** Safest; FixFlow never touches ad
+   money. The shop's own card is on file with Meta/Google; FixFlow gets management (agency) access to run the
+   campaigns. Applies to **every tier**.
+2. ~~FixFlow fronts spend, bills it back at cost~~ — not chosen (would need cash-flow float + pass-through
+   billing).
+3. ~~Spend bundled into the fee~~ — ❌ never (a competitive budget is 5–6× the fee → FixFlow loses
+   $800–$5,000/shop; see Appendix A).
 
-**Recommendation:** offer the flat tiers, and define every tier as **"fixed fee + shop-funded (or at-cost
-pass-through) ad spend."** Never bundle spend. This is exactly the table in Section 1.
+**Result:** every tier = **"fixed management fee + shop pays its own ad spend directly."** FixFlow carries zero
+ad-spend risk and never needs to invoice spend — only the flat fee. This is exactly the Section 1 table.
 
 ---
 
-## 3. Whose ad account per tier
+## 3. Whose ad account (DECIDED: the shop's own, every tier)
 
-- **Lower rung (~$199):** shop keeps **their own** Meta/Google account and pays the platform directly.
-  FixFlow just provides the dashboard + AI automation. (This is the already-built "Plan A" at $299.)
-- **Higher rungs (up to $999):** ads run on **FixFlow's managed account**; spend passed through at cost.
-  Tier scales by how much spend / how many channels / how many campaigns FixFlow manages.
+- **All tiers ($199 → $999):** the shop keeps **their own** Meta/Google ad account and pays the platform
+  **directly**. FixFlow takes **management (agency) access** to build and run the campaigns on the shop's
+  account — it does not run ads on a FixFlow account, and never holds the shop's ad money.
+- Tiers differ by **what FixFlow manages** on that account — channels, number of campaigns, AI lead
+  auto-answer — **not** by whose account it is (see §6).
 
-(Running many shops on FixFlow's shared account is why every creative is reviewed before it goes live — one
-bad ad can get the whole shared account flagged.)
+(Creative review still applies — it protects the **shop's own** ad account + brand quality, and keeps FixFlow
+in good standing as the managing agency on Meta/Google.)
 
 ---
 
@@ -85,12 +96,13 @@ approval — so FixFlow doesn't refund failures caused by the shop. The 60-day R
 
 ## 5. Decisions requested from exec
 
-1. **Spend funding:** confirm shops fund their own ad spend (Option 1 or 2 above), not bundled (Option 3)? ✅ recommended
-2. **Account per tier:** low tier = shop's own account; high tiers = FixFlow's managed account?
-3. **Tier definition:** what spend ceiling / channels / campaign count defines $199 vs. mid vs. $999?
-4. **Keep variable pricing too?** We can also offer the existing "20% markup on spend" model to very
-   high-spend shops, where it earns more than a flat fee (see Appendix B). Flat-only is simpler; offering
-   both captures more. Your call.
+1. ~~**Spend funding**~~ — ✅ **DECIDED 2026-06-15:** shop pays ad-spend directly (Option 1), all tiers.
+2. ~~**Account per tier**~~ — ✅ **DECIDED:** shop's own ad account on every tier (FixFlow manages it).
+3. ~~**Tier definition**~~ — ✅ **DECIDED 2026-06-15:** $199 / $499 / $999 with the §6 inclusions.
+4. ~~**Keep variable pricing too?**~~ — ✅ **DECIDED 2026-06-15: FLAT-ONLY. Drop Plan A/B/C.** The three
+   flat tiers ($199/$499/$999) are the *only* ads-billing model. This is the consistent endpoint of Decisions
+   #1/#2: shop-pays-directly already retired Plan B (markup on managed spend) and Plan C (FixFlow-funded
+   per-result); Plan A's flat $299 is superseded by the 3 rungs. Appendix B is now historical context only.
 5. **Launch safeguards (Section 4):** confirm which of #4 (test budget), #5 (creative iteration), #6 (ROI
    refund) to commit to before launch — the risk doc says these plus #1 are the minimum. Each adds build
    scope (#6 refund = ~2–3 days; #4 test budget = small; #5 = contract + light tooling).
@@ -102,17 +114,16 @@ billing path — low effort) plus the agreed safeguards.
 
 ---
 
-## 6. Proposed answer to Decision #3 — what each tier includes
+## 6. Decision #3 — what each tier includes (✅ CONFIRMED 2026-06-15)
 
-**Status: PROPOSED, pending exec confirmation.** The pricing sheet names the prices ($199–$999) but never
-defined what each rung includes. Below is a sensible breakdown built around what the system can deliver today.
-Final numbers/inclusions are a commercial call; swapping them later is a one-line config change, not a rebuild.
+**Status: ✅ CONFIRMED.** Prices and inclusions below are agreed. (Swapping any number later is still a
+one-line config change, not a rebuild.)
 
 | What the shop gets            | **Starter $199**              | **Growth $499** ⭐   | **Business $999**             |
 | ----------------------------- | ----------------------------- | -------------------- | ----------------------------- |
 | Ad channels                   | Facebook only                 | Facebook + Instagram | FB + Instagram + Google       |
 | Active campaigns              | 1                             | up to 3              | up to 10                      |
-| Ad account                    | shop's own (pays FB directly) | FixFlow managed      | FixFlow managed               |
+| Ad account                    | shop's own (pays directly)    | shop's own (pays directly) | shop's own (pays directly) |
 | Managed spend ceiling         | ~$1,000/mo                    | ~$3,000/mo           | ~$6,000+/mo                   |
 | AI lead auto-answer           | — (manual reply)              | ✅ full              | ✅ full                       |
 | Lead pipeline + ROI dashboard | ✅                            | ✅                   | ✅                            |
@@ -122,9 +133,10 @@ Final numbers/inclusions are a commercial call; swapping them later is a one-lin
 | Test-budget on-ramp           | —                             | ✅                   | ✅                            |
 | Reporting                     | monthly summary               | detailed + trends    | industry analytics + priority |
 
-**The three real differentiators** (everything else follows): (1) **account model + spend ceiling** — Starter
-on the shop's own account/small budget, Growth/Business on FixFlow's managed account; (2) **campaign count**
-(1 / 3 / 10); (3) **AI lead auto-answer** off at Starter, on at Growth+. These are all built today.
+**The three real differentiators** (everything else follows): (1) **channels + spend ceiling** — every tier is
+on the shop's own account (DECIDED §3); higher tiers add channels (FB → +IG → +Google) and a higher managed
+spend ceiling; (2) **campaign count** (1 / 3 / 10); (3) **AI lead auto-answer** off at Starter, on at Growth+.
+These are all built today.
 
 **Reality check:** campaign count, managed-vs-own account, AI auto-answer, lead Kanban, ROI dashboard, and A/B
 experiments are **built**. The **Google channel** is **not built** (Meta scaffold only) and **live spend
@@ -152,9 +164,12 @@ into a guaranteed loss.
 
 ---
 
-# Appendix B — Flat fee vs. the built "20% markup" model (optional reading)
+# Appendix B — Flat fee vs. the built "20% markup" model (HISTORICAL — markup retired)
 
-The Ads System already supports charging a **20% markup on managed ad spend** instead of a flat fee. Which
+> **Note:** Decision #4 retired the 20% markup (and all of Plan A/B/C). This appendix is kept only to record
+> *why* — the trade-off below is the reasoning, not a live option.
+
+The Ads System originally supported charging a **20% markup on managed ad spend** instead of a flat fee. Which
 earns more depends only on how much the shop spends:
 
 - A flat fee earns the same as the 20% markup when the shop spends **5× the fee**:
