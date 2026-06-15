@@ -1556,6 +1556,9 @@ export default function ShopDashboardClient() {
             <ShopPlansBillingTab
               planLabel={shopData.subscriptionActive ? "Standard — $500/mo" : undefined}
               subscriptionActive={shopData.subscriptionActive}
+              subscriptionStatus={shopData.subscriptionStatus}
+              subscriptionEndsAt={shopData.subscriptionEndsAt}
+              subscriptionCancelledAt={shopData.subscriptionCancelledAt}
             />
           )}
 

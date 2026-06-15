@@ -5,6 +5,7 @@
 //   - AI usage/allowance ← ai_shop_settings (getShopAiSettings)
 // Add-ons whose backend isn't built yet resolve to 'coming_soon' (graceful degradation).
 
+import apiClient from './client';
 import { getMyEnrollment } from './ads';
 import { getShopAiSettings } from './aiSettings';
 
@@ -48,6 +49,28 @@ export async function getAiUsageSummary(): Promise<AiUsageSummary | null> {
     const budgetUsd = s.monthlyBudgetUsd || 0;
     const spentUsd = s.currentMonthSpendUsd || 0;
     return { budgetUsd, spentUsd, percentUsed: budgetUsd > 0 ? spentUsd / budgetUsd : 0 };
+  } catch {
+    return null;
+  }
+}
+
+export interface PaymentMethodSummary {
+  brand: string;
+  last4: string;
+  expMonth?: number;
+  expYear?: number;
+}
+
+/** Default/first saved card for the BILLING section. Null if none on file or unreadable.
+ *  GET /shops/payment-methods → { paymentMethods: [{ card: { brand, last4, ... } }] }
+ *  (apiClient's response interceptor already returns the response body). */
+export async function getPaymentMethod(): Promise<PaymentMethodSummary | null> {
+  try {
+    const body: any = await apiClient.get('/shops/payment-methods');
+    const list: any[] = body?.paymentMethods ?? body?.data?.paymentMethods ?? [];
+    const card = list.find((p) => p?.card)?.card;
+    if (!card) return null;
+    return { brand: card.brand, last4: card.last4, expMonth: card.expMonth, expYear: card.expYear };
   } catch {
     return null;
   }

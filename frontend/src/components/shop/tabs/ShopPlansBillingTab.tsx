@@ -10,14 +10,16 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, CreditCard } from "lucide-react";
 import { ADDON_REGISTRY, type AddonDef } from "@/config/addonRegistry";
 import {
   resolveAddonStatuses,
   getAiUsageSummary,
+  getPaymentMethod,
   type AddonStatusMap,
   type AddonStatus,
   type AiUsageSummary,
+  type PaymentMethodSummary,
 } from "@/services/api/addons";
 
 export interface ShopPlansBillingTabProps {
@@ -25,6 +27,19 @@ export interface ShopPlansBillingTabProps {
   planLabel?: string;
   /** Whether the subscription is active (drives the YOUR PLAN status dot). */
   subscriptionActive?: boolean;
+  /** Raw subscription status (active/cancelled/paused/…) from shopData. */
+  subscriptionStatus?: string | null;
+  /** ISO date access ends / renews (period end), from shopData. */
+  subscriptionEndsAt?: string | null;
+  /** ISO date the subscription was cancelled, from shopData (drives the wind-down notice). */
+  subscriptionCancelledAt?: string | null;
+}
+
+function formatDate(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 const STATUS_BADGE: Record<AddonStatus, { label: string; cls: string }> = {
@@ -37,19 +52,28 @@ const STATUS_BADGE: Record<AddonStatus, { label: string; cls: string }> = {
 export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   planLabel,
   subscriptionActive,
+  subscriptionStatus,
+  subscriptionEndsAt,
+  subscriptionCancelledAt,
 }) => {
   const [statuses, setStatuses] = useState<AddonStatusMap>({});
   const [usage, setUsage] = useState<AiUsageSummary | null>(null);
+  const [card, setCard] = useState<PaymentMethodSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     (async () => {
       setLoading(true);
-      const [s, u] = await Promise.all([resolveAddonStatuses(), getAiUsageSummary()]);
+      const [s, u, pm] = await Promise.all([
+        resolveAddonStatuses(),
+        getAiUsageSummary(),
+        getPaymentMethod(),
+      ]);
       if (!active) return;
       setStatuses(s);
       setUsage(u);
+      setCard(pm);
       setLoading(false);
     })();
     return () => {
@@ -66,6 +90,15 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   }
 
   const pct = usage ? Math.min(100, Math.round(usage.percentUsed * 100)) : 0;
+  const endsLabel = formatDate(subscriptionEndsAt);
+  const isCancelled = !!subscriptionCancelledAt || subscriptionStatus === "cancelled";
+  const statusText = isCancelled
+    ? "Cancelled"
+    : subscriptionActive
+    ? "Active"
+    : subscriptionStatus
+    ? subscriptionStatus.charAt(0).toUpperCase() + subscriptionStatus.slice(1)
+    : "No active subscription";
 
   return (
     <div className="space-y-6">
@@ -76,12 +109,13 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
           <div className="flex items-center gap-2">
             <span
               className={`inline-block w-2.5 h-2.5 rounded-full ${
-                subscriptionActive ? "bg-green-400" : "bg-gray-500"
+                isCancelled ? "bg-amber-400" : subscriptionActive ? "bg-green-400" : "bg-gray-500"
               }`}
             />
             <span className="text-sm text-gray-200">
               {planLabel || (subscriptionActive ? "Active subscription" : "No active subscription")}
             </span>
+            <span className="text-xs text-gray-400">· {statusText}</span>
           </div>
           {/* Change-plan deep-link — tiered plans land with the P0 subscription work. */}
           <Link
@@ -91,6 +125,12 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
             Manage subscription
           </Link>
         </div>
+
+        {endsLabel && (
+          <p className="text-sm text-gray-400 mt-2">
+            {isCancelled ? `Access ends ${endsLabel}` : `Renews ${endsLabel}`}
+          </p>
+        )}
 
         {usage && (
           <div className="mt-4">
@@ -128,12 +168,33 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
         </div>
       </section>
 
-      {/* BILLING — placeholder; unified billing view lands in Phase 2. */}
+      {/* BILLING */}
       <section className="rounded-xl border border-gray-700 bg-gray-800/40 p-5">
-        <h2 className="text-base font-semibold text-white mb-1">Billing</h2>
-        <p className="text-sm text-gray-400">
-          Your payment method and invoices will appear here.
-        </p>
+        <h2 className="text-base font-semibold text-white mb-3">Billing</h2>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 text-sm">
+            <CreditCard className="w-4 h-4 text-gray-400" />
+            {card ? (
+              <span className="text-gray-200">
+                <span className="capitalize">{card.brand}</span> •••• {card.last4}
+                {card.expMonth && card.expYear && (
+                  <span className="text-gray-400">
+                    {" "}
+                    · expires {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-gray-400">No card on file</span>
+            )}
+          </div>
+          <Link
+            href="/shop?tab=settings"
+            className="text-sm text-yellow-400 hover:text-yellow-300 underline-offset-2 hover:underline"
+          >
+            Manage billing
+          </Link>
+        </div>
       </section>
     </div>
   );
