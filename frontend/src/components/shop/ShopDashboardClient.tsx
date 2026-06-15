@@ -36,6 +36,7 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
+import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
@@ -1549,6 +1550,13 @@ export default function ShopDashboardClient() {
           {/* Ads System (Stage 1) — read-only campaign performance for this shop */}
           {activeTab === "ads" && shopData && (
             <ShopAdsTab reviewScore={(shopData as any)?.review_score} />
+          )}
+
+          {activeTab === "plans" && shopData && (
+            <ShopPlansBillingTab
+              planLabel={shopData.subscriptionActive ? "Standard — $500/mo" : undefined}
+              subscriptionActive={shopData.subscriptionActive}
+            />
           )}
 
           {activeTab === "profile" && shopData && (
