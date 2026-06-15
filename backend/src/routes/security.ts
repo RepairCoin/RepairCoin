@@ -1,6 +1,6 @@
 // backend/src/routes/security.ts
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, invalidateRevocationCache } from '../middleware/auth';
 import { refreshTokenRepository } from '../repositories';
 import { logger } from '../utils/logger';
 
@@ -90,6 +90,7 @@ router.delete('/sessions/:tokenId', authMiddleware, async (req, res) => {
 
     // Revoke the session
     await refreshTokenRepository.revokeToken(tokenId, 'User revoked session');
+    invalidateRevocationCache(tokenId);
 
     logger.info('Session revoked by user', {
       userAddress: req.user.address,
@@ -136,6 +137,7 @@ router.post('/sessions/revoke-all', authMiddleware, async (req, res) => {
           session.tokenId,
           'User logged out of all other devices'
         );
+        invalidateRevocationCache(session.tokenId);
         revokedCount++;
       }
     }

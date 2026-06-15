@@ -17,6 +17,7 @@ interface BaseJWTPayload {
 
 interface AccessTokenPayload extends BaseJWTPayload {
   type: 'access';
+  tokenId?: string;
 }
 
 interface RefreshTokenPayload extends BaseJWTPayload {
@@ -39,6 +40,34 @@ declare global {
     }
   }
 }
+
+const REVOCATION_CACHE_TTL_MS = 30_000;
+const revocationCache = new Map<string, { revoked: boolean; cachedAt: number }>();
+
+const isSessionRevoked = async (tokenId: string): Promise<boolean> => {
+  const now = Date.now();
+  const cached = revocationCache.get(tokenId);
+  if (cached && now - cached.cachedAt < REVOCATION_CACHE_TTL_MS) {
+    return cached.revoked;
+  }
+
+  const revoked = await refreshTokenRepository.isTokenRevoked(tokenId);
+  revocationCache.set(tokenId, { revoked, cachedAt: now });
+
+  if (revocationCache.size > 10_000) {
+    for (const [key, value] of revocationCache) {
+      if (now - value.cachedAt >= REVOCATION_CACHE_TTL_MS) revocationCache.delete(key);
+    }
+  }
+
+  return revoked;
+};
+
+// Lets a user-initiated revoke take effect on the next request instead of waiting
+// for the cache TTL.
+export const invalidateRevocationCache = (tokenId: string): void => {
+  revocationCache.delete(tokenId);
+};
 
 // Main authentication middleware
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -153,7 +182,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             address: refreshDecoded.address,
             role: refreshDecoded.role,
             shopId: refreshDecoded.shopId
-          });
+          }, refreshDecoded.tokenId);
 
           // Set new access token in cookie
           const cookieOptions: any = {
@@ -229,6 +258,25 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       });
     }
 
+    // Honor session revocation even while the access token is still valid.
+    // Runs before the sliding window so a revoked session can't be re-minted.
+    if ('tokenId' in decoded && decoded.tokenId && await isSessionRevoked(decoded.tokenId)) {
+      logger.security('Access denied for revoked session', {
+        ip: req.ip,
+        address: decoded.address,
+        tokenId: decoded.tokenId
+      });
+
+      res.clearCookie('auth_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/' });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Your session has been revoked. Please login again.',
+        code: 'SESSION_REVOKED'
+      });
+    }
+
     // ============================================================
     // SLIDING WINDOW TOKEN REFRESH
     // ============================================================
@@ -252,7 +300,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           address: decoded.address,
           role: decoded.role,
           shopId: decoded.shopId
-        });
+        }, 'tokenId' in decoded ? decoded.tokenId : undefined);
 
         // Set cookie options
         const cookieOptions: any = {
@@ -323,10 +371,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       });
     }
     
-    // Extract tokenId from refresh token if available (needed by security routes)
-    let tokenId: string | undefined;
+    // tokenId for security routes: prefer the access token's own id, fall back
+    // to the refresh cookie for tokens issued before access tokens carried it.
+    let tokenId: string | undefined = 'tokenId' in decoded ? decoded.tokenId : undefined;
     const currentRefreshToken = req.cookies?.refresh_token;
-    if (currentRefreshToken) {
+    if (!tokenId && currentRefreshToken) {
       try {
         const refreshDecoded = jwt.decode(currentRefreshToken) as RefreshTokenPayload;
         if (refreshDecoded && refreshDecoded.tokenId) {
@@ -528,7 +577,10 @@ export const generateToken = (payload: Omit<BaseJWTPayload, 'iat' | 'exp'>): str
 };
 
 // Generate short-lived access token (15 minutes)
-export const generateAccessToken = (payload: Omit<BaseJWTPayload, 'iat' | 'exp'>): string => {
+export const generateAccessToken = (
+  payload: Omit<BaseJWTPayload, 'iat' | 'exp'>,
+  tokenId?: string
+): string => {
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
     throw new Error('JWT_SECRET not configured');
@@ -536,7 +588,8 @@ export const generateAccessToken = (payload: Omit<BaseJWTPayload, 'iat' | 'exp'>
 
   const accessPayload: Omit<AccessTokenPayload, 'iat' | 'exp'> = {
     ...payload,
-    type: 'access'
+    type: 'access',
+    ...(tokenId ? { tokenId } : {})
   };
 
   return jwt.sign(accessPayload, jwtSecret, {

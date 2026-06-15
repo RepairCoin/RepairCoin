@@ -126,6 +126,26 @@ export class RefreshTokenRepository extends BaseRepository {
     }
   }
 
+  async isTokenRevoked(tokenId: string): Promise<boolean> {
+    try {
+      const result = await this.pool.query(
+        `SELECT revoked, expires_at FROM refresh_tokens WHERE token_id = $1`,
+        [tokenId]
+      );
+
+      if (result.rows.length === 0) return true;
+
+      const row = result.rows[0];
+      if (row.revoked) return true;
+      if (new Date(row.expires_at) < new Date()) return true;
+      return false;
+    } catch (error) {
+      // Fail open: access token is short-lived; a DB blip shouldn't log everyone out
+      logger.error('Error checking token revocation:', error);
+      return false;
+    }
+  }
+
   // Revoke single token
   async revokeToken(tokenId: string, reason?: string, revokedByAdmin: boolean = false): Promise<void> {
     try {
