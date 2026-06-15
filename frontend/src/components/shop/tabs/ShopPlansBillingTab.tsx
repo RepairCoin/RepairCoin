@@ -117,9 +117,10 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
             </span>
             <span className="text-xs text-gray-400">· {statusText}</span>
           </div>
-          {/* Change-plan deep-link — tiered plans land with the P0 subscription work. */}
+          {/* Deep-link to the SubscriptionManagement tab (handles plan + payment method).
+              Tiered plans land with the P0 subscription work. */}
           <Link
-            href="/shop?tab=settings"
+            href="/shop?tab=subscription"
             className="text-sm text-yellow-400 hover:text-yellow-300 underline-offset-2 hover:underline"
           >
             Manage subscription
@@ -189,7 +190,7 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
             )}
           </div>
           <Link
-            href="/shop?tab=settings"
+            href="/shop?tab=payment-methods"
             className="text-sm text-yellow-400 hover:text-yellow-300 underline-offset-2 hover:underline"
           >
             Manage billing
@@ -200,17 +201,36 @@ export const ShopPlansBillingTab: React.FC<ShopPlansBillingTabProps> = ({
   );
 };
 
+interface CtaSpec {
+  label: string;
+  href?: string;
+  disabled?: boolean;
+}
+
+/** Dispatch the card's CTA by status, then activation type. Keeping this declarative
+ *  means an add-on flipping from 'coming_soon' → live needs no card-code change — its
+ *  registry activationType already drives the right button. */
+function ctaFor(addon: AddonDef, status: AddonStatus): CtaSpec {
+  if (status === "coming_soon") return { label: "Coming soon", disabled: true };
+  if (status === "active") return { label: "Manage", href: addon.manageLink, disabled: !addon.manageLink };
+  if (status === "pending") return { label: "View request", href: addon.manageLink, disabled: !addon.manageLink };
+
+  // status === 'off' → route by how this add-on is activated.
+  switch (addon.activationType) {
+    case "request": // request → admin approves (deep-link to the feature's request UI)
+    case "onboarding": // external onboarding (e.g. Stripe Connect) lives in the feature
+    case "toggle": // inline enable handled on the feature's settings page in v1
+      return { label: addon.ctaLabel, href: addon.manageLink, disabled: !addon.manageLink };
+    case "contact": // sales-assisted → Support (falls back to disabled if no link)
+      return { label: addon.ctaLabel, href: addon.manageLink, disabled: !addon.manageLink };
+    default:
+      return { label: addon.ctaLabel, disabled: true };
+  }
+}
+
 const AddonCard: React.FC<{ addon: AddonDef; status: AddonStatus }> = ({ addon, status }) => {
   const badge = STATUS_BADGE[status];
-  const isComingSoon = status === "coming_soon";
-
-  // CTA: active/pending → manage (deep-link); off → activate (deep-link); coming_soon → disabled.
-  const ctaLabel =
-    status === "active"
-      ? "Manage"
-      : status === "pending"
-      ? "View request"
-      : addon.ctaLabel;
+  const cta = ctaFor(addon, status);
 
   return (
     <div className="rounded-xl border border-gray-700 bg-gray-800/40 p-5 flex flex-col gap-3">
@@ -225,19 +245,19 @@ const AddonCard: React.FC<{ addon: AddonDef; status: AddonStatus }> = ({ addon, 
       </div>
       <p className="text-sm text-gray-300 leading-relaxed">{addon.description}</p>
       <div className="mt-auto pt-1">
-        {isComingSoon || !addon.manageLink ? (
+        {cta.disabled || !cta.href ? (
           <button
             disabled
             className="text-sm px-3 py-1.5 rounded-lg bg-gray-700/50 text-gray-500 cursor-not-allowed"
           >
-            {isComingSoon ? "Coming soon" : ctaLabel}
+            {cta.label}
           </button>
         ) : (
           <Link
-            href={addon.manageLink}
+            href={cta.href}
             className="inline-block text-sm px-3 py-1.5 rounded-lg bg-yellow-400 text-gray-900 font-medium hover:bg-yellow-300 transition-colors"
           >
-            {ctaLabel}
+            {cta.label}
           </Link>
         )}
       </div>

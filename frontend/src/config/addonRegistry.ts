@@ -68,6 +68,7 @@ export const ADDON_REGISTRY: AddonDef[] = [
     priceLabel: '$999/mo · up to 10 clients',
     category: 'agency',
     activationType: 'contact',
+    manageLink: '/shop?tab=support',
     ctaLabel: 'Contact us',
   },
 ];

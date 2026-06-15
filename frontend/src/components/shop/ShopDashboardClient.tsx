@@ -37,6 +37,7 @@ import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
 import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
+import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
@@ -1539,6 +1540,10 @@ export default function ShopDashboardClient() {
               isSuspended={!!isSuspended}
               isPaused={!!isPaused}
             />
+          )}
+
+          {activeTab === "payment-methods" && shopData && (
+            <PaymentMethodsTab />
           )}
 
           {activeTab === "marketing" && shopData && (
