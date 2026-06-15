@@ -1387,7 +1387,7 @@ export default function ShopDashboardClient() {
           {activeTab === "overview" && (
             <div className="space-y-6">
               {shopData && (
-                <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+                <AdEnrollmentTeaser shopId={shopData.shopId} onExplore={() => setActiveTab("plans")} />
               )}
               <OverviewTab
                 shopData={shopData}
@@ -1569,7 +1569,7 @@ export default function ShopDashboardClient() {
 
           {activeTab === "profile" && shopData && (
             <div className="space-y-6">
-              <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+              <AdEnrollmentTeaser shopId={shopData.shopId} onExplore={() => setActiveTab("plans")} />
               <ProfileTab
                 shopId={shopData.shopId}
                 shopData={shopData}

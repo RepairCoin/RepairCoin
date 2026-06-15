@@ -12,7 +12,7 @@ import { getMyEnrollment, listShopCampaigns } from "@/services/api/ads";
 
 const dismissKey = (shopId: string) => `ads_teaser_dismissed_${shopId}`;
 
-export const AdEnrollmentTeaser: React.FC<{ shopId: string; onGoToAds: () => void }> = ({ shopId, onGoToAds }) => {
+export const AdEnrollmentTeaser: React.FC<{ shopId: string; onExplore: () => void }> = ({ shopId, onExplore }) => {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export const AdEnrollmentTeaser: React.FC<{ shopId: string; onGoToAds: () => voi
             back — you just take the bookings.
           </p>
           <button
-            onClick={onGoToAds}
+            onClick={onExplore}
             className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium px-4 py-2 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800]"
           >
             Explore ads <ArrowRight className="w-4 h-4" />
