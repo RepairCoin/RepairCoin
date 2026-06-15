@@ -381,6 +381,8 @@ router.get('/wallet/:address',
       );
 
       const hasActiveStripeSubscription = stripeSubQuery.rows.length > 0;
+      const hasActiveShopSubscription = subscriptionStatus === 'active';
+      const hasActiveSubscription = hasActiveStripeSubscription || hasActiveShopSubscription;
 
       // Get actual on-chain RCG balance (not cached database value)
       // This ensures operational_status is based on real blockchain holdings
@@ -413,7 +415,7 @@ router.get('/wallet/:address',
         }
       }
 
-      const expectedOperationalStatus = hasActiveStripeSubscription
+      const expectedOperationalStatus = hasActiveSubscription
         ? 'subscription_qualified'
         : (rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified');
 

@@ -36,6 +36,16 @@ class AuthApi {
     }
   }
 
+  async loginDemoShop() {
+    try {
+      return await apiClient.post("/auth/demo/shop");
+    } catch (error) {
+      console.error("Failed to login demo shop:", error);
+      throw error;
+    }
+  }
+
+
   async getRefreshToken(refreshToken: string) {
     try {
       return await apiClient.post("/auth/refresh", { refreshToken });

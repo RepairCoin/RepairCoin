@@ -46,6 +46,46 @@ export const useDemoLogin = () => {
   });
 };
 
+export const useDemoShopLogin = () => {
+  const setAccount = useAuthStore((state) => state.setAccount);
+  const setUserProfile = useAuthStore((state) => state.setUserProfile);
+  const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
+  const setUserType = useAuthStore((state) => state.setUserType);
+  const setIsLoading = useAuthStore((state) => state.setIsLoading);
+  const setIsDemo = useAuthStore((state) => state.setIsDemo);
+  const { showError } = useAppToast();
+
+  return useMutation({
+    mutationFn: async () => {
+      setIsLoading(true);
+      return await authApi.loginDemoShop();
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        setAccount({ address: result.address, shopId: result.shopId });
+        setUserProfile(result.profile);
+        setAccessToken(result.token);
+        setRefreshToken("");
+        setUserType("shop");
+        setIsDemo(true);
+        apiClient.setAuthToken(result.token);
+        router.replace("/shop/tabs/home");
+      } else {
+        showError("Could not start demo mode. Please try again.");
+        setIsLoading(false);
+      }
+    },
+    onError: (error: any) => {
+      console.error("[useDemoShopLogin] Error:", error);
+      setIsLoading(false);
+      if (!error?.__toastShown) {
+        showError("Could not start demo mode. Please try again.");
+      }
+    },
+  });
+};
+
 export const useGetToken = () => {
   return useMutation({
     mutationFn: async (address: string) => {

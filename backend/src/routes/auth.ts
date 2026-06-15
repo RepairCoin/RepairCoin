@@ -1647,10 +1647,12 @@ router.get('/test-cookie', (req, res) => {
 
 /**
  * Demo mode – used for Play Store / App Store review.
- * The demo customer must exist in the database (created via `npm run demo:enable`).
+ * The demo customer and demo shop must exist in the database (created via `npm run demo:enable`).
  * Toggling is_active on/off controls whether the button is visible.
  */
 const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
+const DEMO_SHOP_ADDRESS = '0x00000000000000000000000000000000000de510';
+const DEMO_SHOP_ID = 'demo-shop-00000000000000000000000000000000';
 
 /**
  * Check if demo mode is enabled
@@ -1666,7 +1668,7 @@ router.get('/demo/status', async (_req, res) => {
 });
 
 /**
- * Demo mode login
+ * Demo customer login
  * POST /api/auth/demo
  */
 router.post('/demo', async (req, res) => {
@@ -1708,7 +1710,7 @@ router.post('/demo', async (req, res) => {
       isDemo: true,
     };
 
-    logger.info('Demo mode login', { ip: req.ip });
+    logger.info('Demo customer login', { ip: req.ip });
 
     return res.json({
       success: true,
@@ -1725,10 +1727,81 @@ router.post('/demo', async (req, res) => {
       profile,
     });
   } catch (error) {
-    logger.error('Error in demo login:', error);
+    logger.error('Error in demo customer login:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-export { DEMO_ADDRESS };
+/**
+ * Demo shop login
+ * POST /api/auth/demo/shop
+ */
+router.post('/demo/shop', async (req, res) => {
+  try {
+    // Check demo mode is enabled (gated by customer record being active)
+    const demoCustomer = await customerRepository.getCustomer(DEMO_ADDRESS);
+    if (!demoCustomer || !demoCustomer.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo mode is not available',
+      });
+    }
+
+    const shop = await shopRepository.getShop(DEMO_SHOP_ID);
+    if (!shop) {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo shop is not available',
+      });
+    }
+
+    const payload = { address: DEMO_SHOP_ADDRESS, role: 'shop' as const, shopId: DEMO_SHOP_ID };
+    const accessToken = generateAccessToken(payload);
+
+    const profile = {
+      id: DEMO_SHOP_ID,
+      shopId: DEMO_SHOP_ID,
+      address: DEMO_SHOP_ADDRESS,
+      walletAddress: DEMO_SHOP_ADDRESS,
+      name: shop.name || 'Demo Shop',
+      email: shop.email,
+      phone: shop.phone,
+      role: 'shop',
+      active: true,
+      verified: true,
+      isActive: true,
+      operational_status: 'subscription_qualified',
+      subscriptionActive: true,
+      createdAt: shop.joinDate,
+      joinDate: shop.joinDate,
+      totalTokensIssued: shop.totalTokensIssued || 0,
+      totalRedemptions: shop.totalRedemptions || 0,
+      isDemo: true,
+    };
+
+    logger.info('Demo shop login', { ip: req.ip });
+
+    return res.json({
+      success: true,
+      data: {
+        accessToken,
+        refreshToken: '',
+        expiresIn: 15 * 60,
+        address: DEMO_SHOP_ADDRESS,
+        role: 'shop',
+        shopId: DEMO_SHOP_ID,
+      },
+      token: accessToken,
+      userType: 'shop',
+      address: DEMO_SHOP_ADDRESS,
+      shopId: DEMO_SHOP_ID,
+      profile,
+    });
+  } catch (error) {
+    logger.error('Error in demo shop login:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export { DEMO_ADDRESS, DEMO_SHOP_ADDRESS, DEMO_SHOP_ID };
 export default router;

@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
+import { DemoBanner } from "@/shared/components/ui/DemoBanner";
 import { useHomeDataUI } from "@/feature/shop/account/hooks";
 import { ShopTabs } from "@/feature/shop/services/shop.interface";
 import {
@@ -51,6 +52,7 @@ export default function Home() {
             </Text>
           </View>
         </View>
+        <DemoBanner />
         <View className="flex-row w-full h-10 bg-[#121212] rounded-lg">
           {shopTabs.map((tab, i) => {
             const isActive = activeTab === tab;

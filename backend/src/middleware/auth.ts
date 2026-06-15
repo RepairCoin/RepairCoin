@@ -462,14 +462,15 @@ export const sensitiveOperationLimit = (req: Request, res: Response, next: NextF
   next();
 };
 
-// Demo mode address – tokens issued to this address skip DB validation
+// Demo mode addresses – tokens issued to these addresses skip DB validation
 const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
+const DEMO_SHOP_ADDRESS = '0x00000000000000000000000000000000000de510';
 
 // Validate user exists in database
 async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean> {
   try {
-    // Demo user has no DB record – allow through
-    if (tokenPayload.address === DEMO_ADDRESS) return true;
+    // Demo users have real DB records but skip validation as a safety net
+    if (tokenPayload.address === DEMO_ADDRESS || tokenPayload.address === DEMO_SHOP_ADDRESS) return true;
 
     switch (tokenPayload.role) {
       case 'admin':
@@ -656,6 +657,11 @@ export const requireActiveSubscription = (options: { strict?: boolean } = {}) =>
     try {
       // Only applies to shop users
       if (!req.user || req.user.role !== 'shop' || !req.user.shopId) {
+        return next();
+      }
+
+      // Demo shop bypasses subscription enforcement
+      if (req.user.address === DEMO_SHOP_ADDRESS) {
         return next();
       }
 
