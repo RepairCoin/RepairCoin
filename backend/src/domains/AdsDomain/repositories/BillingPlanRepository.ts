@@ -22,6 +22,8 @@ export interface AdBillingPlan {
   planCModel: PlanCModel;       // legacy
   flatFeeCents: number;         // flat tier — the monthly management fee
   flatTierName: string | null;  // 'starter' | 'growth' | 'business' (reporting/UX)
+  billingStartedAt: Date | null; // when the tier fee first began (first live campaign), §9.2
+  subscriptionStatus: 'active' | 'past_due' | 'paused' | 'cancelled'; // §9.1/§9.3
   active: boolean;
 }
 
@@ -31,6 +33,22 @@ export const FLAT_TIER_FEES: Record<FlatTierName, number> = {
   growth: 49900,
   business: 99900,
 };
+
+// Per-tier capacity + inclusions (lifecycle Phase 1). maxCampaigns is the capacity unit;
+// v1 = 1 campaign = 1 ad set (one budget/audience) — see the lifecycle design §3.
+export interface TierLimits {
+  maxCampaigns: number;
+  channels: string[];
+  aiAutoAnswer: boolean;
+}
+export const TIER_LIMITS: Record<FlatTierName, TierLimits> = {
+  starter:  { maxCampaigns: 1,  channels: ['facebook'],                       aiAutoAnswer: false },
+  growth:   { maxCampaigns: 3,  channels: ['facebook', 'instagram'],          aiAutoAnswer: true  },
+  business: { maxCampaigns: 10, channels: ['facebook', 'instagram', 'google'], aiAutoAnswer: true  },
+};
+/** Resolve a plan's tier to its limits, defaulting to Growth for legacy/unset rows. */
+export const limitsForTier = (tier: string | null | undefined): TierLimits =>
+  TIER_LIMITS[(tier as FlatTierName)] ?? TIER_LIMITS.growth;
 
 // Default = flat / Growth (Decision #4: flat is the only offered model). A shop with
 // no explicit row is treated as Growth until an admin sets a tier.
@@ -43,6 +61,8 @@ export const DEFAULT_PLAN: Omit<AdBillingPlan, 'shopId'> = {
   planCModel: 'per_booking',
   flatFeeCents: FLAT_TIER_FEES.growth,
   flatTierName: 'growth',
+  billingStartedAt: null,
+  subscriptionStatus: 'active',
   active: true,
 };
 
@@ -97,7 +117,8 @@ export class BillingPlanRepository extends BaseRepository {
     const res = await this.pool.query(
       `SELECT DISTINCT c.shop_id,
               p.plan_type, p.markup_bps, p.dashboard_fee_cents, p.per_booking_fee_cents,
-              p.revenue_share_bps, p.plan_c_model, p.flat_fee_cents, p.flat_tier_name, p.active
+              p.revenue_share_bps, p.plan_c_model, p.flat_fee_cents, p.flat_tier_name,
+              p.billing_started_at, p.subscription_status, p.active
          FROM ad_campaigns c
          LEFT JOIN ad_billing_plans p ON p.shop_id = c.shop_id
         WHERE c.deleted_at IS NULL AND c.status = 'active'`
@@ -118,7 +139,36 @@ export class BillingPlanRepository extends BaseRepository {
       planCModel: r.plan_c_model,
       flatFeeCents: r.flat_fee_cents ?? 0,
       flatTierName: r.flat_tier_name ?? null,
+      billingStartedAt: r.billing_started_at ?? null,
+      subscriptionStatus: r.subscription_status ?? 'active',
       active: r.active,
     };
+  }
+
+  /** Stamp when the shop's tier fee first began (first live campaign, §9.2). Idempotent. */
+  async markBillingStarted(shopId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_billing_plans SET billing_started_at = COALESCE(billing_started_at, now()), updated_at = now()
+       WHERE shop_id = $1`,
+      [shopId]
+    );
+  }
+
+  /** §9.1/§9.3 — set the subscription status (active/past_due/paused/cancelled). */
+  async setSubscriptionStatus(shopId: string, status: AdBillingPlan['subscriptionStatus']): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_billing_plans SET subscription_status = $1, updated_at = now() WHERE shop_id = $2`,
+      [status, shopId]
+    );
+  }
+
+  /** §9.6 — is the shop's ad account connected? (campaign-go-live precondition) */
+  async isAdsAccountConnected(shopId: string): Promise<boolean> {
+    const res = await this.pool.query(`SELECT ads_account_connected FROM shops WHERE shop_id = $1`, [shopId]);
+    return res.rows[0]?.ads_account_connected === true;
+  }
+  /** §9.6 — admin marks the shop's ad account connected/disconnected. */
+  async setAdsAccountConnected(shopId: string, connected: boolean): Promise<void> {
+    await this.pool.query(`UPDATE shops SET ads_account_connected = $1 WHERE shop_id = $2`, [connected, shopId]);
   }
 }

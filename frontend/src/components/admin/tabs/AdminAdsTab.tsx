@@ -15,7 +15,8 @@ import { ExperimentsPanel } from "@/components/ads/ExperimentsPanel";
 import { CreativesPanel } from "@/components/ads/CreativesPanel";
 import { MarginPanel } from "@/components/ads/MarginPanel";
 import { BillingPanel } from "@/components/ads/BillingPanel";
-import { AdEnrollmentRequests } from "@/components/ads/AdEnrollmentRequests";
+import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
+import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -103,7 +104,8 @@ export const AdminAdsTab: React.FC = () => {
       await load();
       if (selectedId === c.id) await select(c.id);
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't update status.");
+      // 409 = reactivation blocked by tier capacity (§9.5) — surface the upsell.
+      toast.error(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Couldn't update status.");
     }
   };
 
@@ -148,8 +150,11 @@ export const AdminAdsTab: React.FC = () => {
         </Button>
       </div>
 
-      {/* Shop opt-in requests (only renders when something is pending) */}
-      <AdEnrollmentRequests onApproved={load} />
+      {/* Shop messages inbox (#2) — reachable in any lifecycle state, flags shops awaiting a reply */}
+      <AdMessagesInbox />
+
+      {/* Campaign requests to build (shops self-serve subscribe; admin builds the campaigns) */}
+      <CampaignRequestsQueue onBuilt={load} />
 
       {/* First-response SLA */}
       <AwaitingResponse mode="admin" />

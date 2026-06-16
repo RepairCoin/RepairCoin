@@ -1,6 +1,7 @@
 # QA Guide — Ads System (shop opt-in + AI)
 
 Covers two flows end-to-end:
+
 1. **Shop "Request ads" opt-in** — teaser → shop picks a **flat tier** (Starter/Growth/Business) → admin
    approves → shop enrolled on that tier.
 2. **Ads AI** — Stage 3 AI-drafted outreach + Stage 3.5 full auto-answer (multi-turn, brand-voiced).
@@ -24,19 +25,24 @@ below = **peanut**. Remember: `NEXT_PUBLIC_*` vars + new components compile at d
 Both drive the REAL backend repositories/services — the same code the HTTP controllers call.
 
 ### A1 — Opt-in cycle (no AI cost)
+
 ```bash
 cd backend
 npx ts-node scripts/qa-ads-enrollment.ts peanut
 ```
-Expected **8/8**: request→pending (Growth tier), admin sees pending, approve→approved, **flat plan set to the
+
+Expected **9/9**: request→pending (Growth tier), admin sees pending, approve→approved, **flat plan set to the
 requested tier** (asserts `flat/growth/49900`), re-request-after-approve no-op, decline-with-reason, re-request
-reopens a declined request. Leaves peanut with a PENDING request for the browser walkthrough (B).
+reopens a declined request, **campaign brief round-trips** (budget/goal/services). Leaves peanut with a PENDING
+request for the browser walkthrough (B).
 
 ### A2 — Ads AI (makes ~3 live Haiku calls, a few cents)
+
 ```bash
 cd backend
 npx ts-node scripts/qa-ads-ai.ts peanut --keep
 ```
+
 Expected **10/10**: spend-cap gate, draft outreach, inbound auto-answered (agent ON), multi-turn reply,
 admin manual reply, agent-OFF fallback (not answered), AI cost ledgered, lead auto-marked contacted, full
 thread persisted, transport-off → "recorded". Prints the actual AI replies. `--keep` leaves the "ZZ AI QA
@@ -50,31 +56,48 @@ Campaign" so you can click it in the UI (C). Drop `--keep` to auto-clean.
 
 ## B. Browser walkthrough — the opt-in cycle
 
-### 0. Clean slate (so the shop sees the *form*, not a pending banner)
+### 0. Clean slate (so the shop sees the _form_, not a pending banner)
+
 ```bash
 cd backend
-npx ts-node scripts/cleanup-ads-demo.ts                    # remove any demo campaign
+npx ts-node scripts/cleanup-ads-demo.ts                    # remove the SEED-marked demo campaign only
 npx ts-node scripts/qa-ads-enrollment.ts --clean peanut    # remove any QA request
 ```
 
+> ⚠️ **Also remove ANY other campaigns the shop already has.** `cleanup-ads-demo.ts` only deletes the
+> seed-marked campaign (`created_by='ads-seed-script'`) — manually-created ones (e.g. "Spring Promo") persist.
+> The enrollment CTA (and its green "enrolled" banner) is **hidden whenever the shop has ≥1 active campaign**
+> (`AdEnrollmentCTA` returns null), so leftover campaigns make step 3 look like "nothing happened." Clear them
+> via the admin UI (delete each campaign) or directly:
+> `UPDATE ad_campaigns SET deleted_at=now() WHERE shop_id='peanut' AND deleted_at IS NULL;`
+
 ### 1. Shop discovers + requests
+
 - Log in as **peanut** → you land on **profile** → a yellow **"Want more customers?"** teaser is at the top
 - Click **"Explore ads →"** → lands on the **Plans & Billing** hub (the standalone Ads sidebar link was
   removed — ads is reached through the hub now)
 - On the **AI Ads Management** card (status "Not enabled") click **"Request ads"** → opens the Ads tab's
   **"Get more customers with ads"** form → pick a **tier (Starter $199 / Growth $499 / Business $999)** →
-  optional note → **Request ads**
-- ✅ Card flips to **"pending review"**
+  optionally fill the **campaign brief** (which services, monthly budget, offer, radius, goal) → **Request ads**
+- ✅ Card flips to **"pending review"**; the admin's "Ad program requests" panel shows the brief summary
 
 ### 2. Admin approves
+
 - Log in as **admin** → **Ads** tab → **"Ad program requests"** panel shows **peanut** + the **tier** it chose
   (e.g. "wants Growth ($499)")
 - Click **Approve** → toast "Approved — plan set." (sets the shop to the flat tier)
 
 ### 3. Shop is enrolled
-- Back as **peanut** → ✅ green **"You're enrolled 🎉 — your campaign is being set up."** (teaser is gone)
+
+- Back as **peanut** → ✅ green **"You're enrolled in the ad program 🎉"** (teaser is gone)
+- ⚠️ **This green banner only shows while the shop has NO campaign yet** — it's the transient state between
+  approval and the admin building the first campaign. If the shop already has a campaign (e.g. from a prior
+  test, see step 0), the banner is suppressed and you instead see the **ads dashboard** (campaigns +
+  performance) — which is itself the "you're enrolled" confirmation. To watch the banner appear, ensure step 0
+  cleared all campaigns first.
 
 ### 4. (Optional) Admin builds the campaign → shop sees live ads
+
 - Admin → **New Campaign** (Shop ID `peanut`), or `npx ts-node scripts/seed-ads-demo.ts peanut`
 - ✅ As peanut, "Your Ads" now shows performance + the leads pipeline
 
@@ -87,11 +110,13 @@ npx ts-node scripts/qa-ads-enrollment.ts --clean peanut    # remove any QA reque
 The AI enters once a lead exists. Use the kept "ZZ AI QA Campaign" (from A2) or any seeded campaign.
 
 ### Where it is (admin → Ads → click a campaign → Leads)
+
 - **"Draft reply with AI"** on a new/contacted lead → AI writes the first outreach (Option C)
 - **"Chat"** on a lead → conversation thread → **"AI answer"** generates the next reply from the full history
 - **"AI auto-answer" toggle** (campaign header) → when ON, incoming lead replies are answered automatically
 
 ### Try it
+
 1. Admin → Ads → click the campaign → **Leads** → click **"Chat"** on a lead with a message (e.g. seeded
    "Devon", or QA "Sam")
 2. Read the thread → click **"AI answer"** → watch a live, brand-voiced reply appear (~a fraction of a cent)
@@ -99,6 +124,7 @@ The AI enters once a lead exists. Use the kept "ZZ AI QA Campaign" (from A2) or 
 4. Each AI reply's cost shows up in the **True Margin** panel (the AI-cost line)
 
 ### Honest boundaries
+
 - The AI **converses + nudges toward booking**; it does **not** itself create the booking (separate future work).
 - **Transport is gated** (`ADS_LEAD_TRANSPORT_ENABLED` off) → replies are **"recorded"** for manual relay, not
   actually texted, until an SMS/WhatsApp/Messenger provider is wired.
@@ -106,6 +132,7 @@ The AI enters once a lead exists. Use the kept "ZZ AI QA Campaign" (from A2) or 
 ---
 
 ## D. Cleanup (leave staging spotless)
+
 ```bash
 cd backend
 npx ts-node scripts/qa-ads-enrollment.ts --clean peanut   # remove the enrollment request
@@ -116,6 +143,7 @@ npx ts-node scripts/cleanup-ads-demo.ts                    # remove any demo cam
 ---
 
 ## Notes
+
 - Approving enrollment only sets the **flat billing tier**; the admin still builds the campaign (Q8/v1).
 - The admin **BillingPanel** now offers the 3 flat tiers (Starter/Growth/Business); A/B/C are retired. The
   shop's flat fee accrues monthly as a `flat_tier_fee` charge (nightly `accrueMonthlyFees`); the shop pays its

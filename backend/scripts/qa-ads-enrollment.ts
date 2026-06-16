@@ -61,7 +61,9 @@ const ok = (label: string, cond: boolean, detail = '') => {
 
   // ---- Part A: request → admin sees it → approve → flat plan set → re-request no-op ----
   console.log('Part A — approval path');
-  const a1 = await enroll.request(shopId, 'growth', 'Please run ads for my shop — focused on screen repairs.');
+  const a1 = await enroll.request(shopId, 'growth', 'Please run ads for my shop — focused on screen repairs.', {
+    promoteServiceIds: ['svc-qa-1'], monthlyBudgetCents: 300000, offer: '$49 screen repair', targetRadiusMiles: 10, goal: 'more_bookings',
+  });
   ok('1. Shop submits request (Growth tier)', a1.status === 'pending' && a1.requestedPlan === 'growth', `status=${a1.status}`);
 
   const pendingList = await enroll.list('pending');
@@ -89,6 +91,12 @@ const ok = (label: string, cond: boolean, detail = '') => {
 
   const b3 = await enroll.request(shopId, 'growth', 'Trying again with the Growth tier.');
   ok('8. Re-request reopens a declined request (→ pending)', b3.status === 'pending', `status=${b3.status}`);
+
+  // ---- Campaign brief round-trip (from the a1 request above) ----
+  ok('9. Campaign brief round-trips (budget/goal/services)',
+    a1.monthlyBudgetCents === 300000 && a1.goal === 'more_bookings' && a1.promoteServiceIds.length === 1
+    && a1.offer === '$49 screen repair' && a1.targetRadiusMiles === 10,
+    `budget=${a1.monthlyBudgetCents} goal=${a1.goal} services=${a1.promoteServiceIds.length}`);
 
   // Leave the shop with a fresh PENDING request for the browser walkthrough.
   console.log(`\n──────────────────────────────────────────────`);

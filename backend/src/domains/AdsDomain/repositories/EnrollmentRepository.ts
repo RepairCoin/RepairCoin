@@ -7,6 +7,17 @@ import { BaseRepository } from '../../../repositories/BaseRepository';
 import { FlatTierName } from './BillingPlanRepository';
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
+export type CampaignGoal = 'more_bookings' | 'awareness' | 'promote_service';
+
+/** Optional campaign brief — what the shop wants advertised, so the admin builds the
+ *  right campaign instead of guessing. All fields optional. */
+export interface CampaignBrief {
+  promoteServiceIds?: string[];
+  monthlyBudgetCents?: number | null;
+  offer?: string | null;
+  targetRadiusMiles?: number | null;
+  goal?: CampaignGoal | null;
+}
 
 export interface AdEnrollment {
   shopId: string;
@@ -15,6 +26,12 @@ export interface AdEnrollment {
   requestedPlan: FlatTierName;
   status: EnrollmentStatus;
   message: string | null;
+  // Campaign brief (optional).
+  promoteServiceIds: string[];
+  monthlyBudgetCents: number | null;
+  offer: string | null;
+  targetRadiusMiles: number | null;
+  goal: CampaignGoal | null;
   decidedBy: string | null;
   decidedAt: Date | null;
   declineReason: string | null;
@@ -28,21 +45,38 @@ export class EnrollmentRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
-  /** Shop creates or updates its request. Re-requesting resets a declined request to
-   *  pending; an already-approved shop is returned unchanged (no downgrade). */
-  async request(shopId: string, requestedPlan: FlatTierName, message: string | null): Promise<AdEnrollment> {
+  /** Shop creates or updates its request (+ optional campaign brief). Re-requesting
+   *  resets a declined request to pending; an already-approved shop is returned
+   *  unchanged (no downgrade). */
+  async request(
+    shopId: string, requestedPlan: FlatTierName, message: string | null, brief: CampaignBrief = {}
+  ): Promise<AdEnrollment> {
     const res = await this.pool.query(
-      `INSERT INTO ad_enrollment_requests (shop_id, requested_plan, status, message)
-       VALUES ($1,$2,'pending',$3)
+      `INSERT INTO ad_enrollment_requests
+         (shop_id, requested_plan, status, message,
+          promote_service_ids, monthly_budget_cents, offer, target_radius_miles, goal)
+       VALUES ($1,$2,'pending',$3,$4,$5,$6,$7,$8)
        ON CONFLICT (shop_id) DO UPDATE SET
-         requested_plan = EXCLUDED.requested_plan,
-         message        = EXCLUDED.message,
-         status         = CASE WHEN ad_enrollment_requests.status = 'approved'
-                               THEN 'approved' ELSE 'pending' END,
+         requested_plan       = EXCLUDED.requested_plan,
+         message              = EXCLUDED.message,
+         promote_service_ids  = EXCLUDED.promote_service_ids,
+         monthly_budget_cents = EXCLUDED.monthly_budget_cents,
+         offer                = EXCLUDED.offer,
+         target_radius_miles  = EXCLUDED.target_radius_miles,
+         goal                 = EXCLUDED.goal,
+         status               = CASE WHEN ad_enrollment_requests.status = 'approved'
+                                     THEN 'approved' ELSE 'pending' END,
          decline_reason = NULL,
          updated_at     = now()
        RETURNING *`,
-      [shopId, requestedPlan, message]
+      [
+        shopId, requestedPlan, message,
+        brief.promoteServiceIds ?? [],
+        brief.monthlyBudgetCents ?? null,
+        brief.offer ?? null,
+        brief.targetRadiusMiles ?? null,
+        brief.goal ?? null,
+      ]
     );
     return this.mapRow(res.rows[0]);
   }
@@ -73,6 +107,11 @@ export class EnrollmentRepository extends BaseRepository {
       requestedPlan: r.requested_plan,
       status: r.status,
       message: r.message,
+      promoteServiceIds: r.promote_service_ids ?? [],
+      monthlyBudgetCents: r.monthly_budget_cents ?? null,
+      offer: r.offer ?? null,
+      targetRadiusMiles: r.target_radius_miles ?? null,
+      goal: r.goal ?? null,
       decidedBy: r.decided_by,
       decidedAt: r.decided_at,
       declineReason: r.decline_reason,

@@ -10,8 +10,9 @@
 import { logger } from '../../../utils/logger';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { PerformanceRepository, PerformanceRow } from '../repositories/PerformanceRepository';
-import { BillingPlanRepository, AdBillingPlan } from '../repositories/BillingPlanRepository';
+import { BillingPlanRepository, AdBillingPlan, limitsForTier } from '../repositories/BillingPlanRepository';
 import { BillingChargeRepository, ChargeType } from '../repositories/BillingChargeRepository';
+import { CampaignRequestRepository } from '../repositories/CampaignRequestRepository';
 
 export interface DayCharge {
   chargeType: ChargeType;
@@ -24,7 +25,8 @@ export class AdBillingService {
     private readonly campaigns = new CampaignRepository(),
     private readonly perf = new PerformanceRepository(),
     private readonly plans = new BillingPlanRepository(),
-    private readonly charges = new BillingChargeRepository()
+    private readonly charges = new BillingChargeRepository(),
+    private readonly campaignRequests = new CampaignRequestRepository()
   ) {}
 
   /** PURE — one campaign-day's charge for a plan, or null if nothing is owed.
@@ -100,6 +102,11 @@ export class AdBillingService {
         shopId: plan.shopId, campaignId: null, periodDate: monthStart,
         chargeType, basisCents: 0, amountCents,
       });
+      // §9.2: this shop is being billed (it has a live campaign — listActiveShopPlans
+      // is scoped to active campaigns), so stamp when billing first began. Idempotent.
+      if (plan.planType === 'flat' && !plan.billingStartedAt) {
+        await this.plans.markBillingStarted(plan.shopId);
+      }
       written++;
     }
     return written;
@@ -116,6 +123,26 @@ export class AdBillingService {
 
   async getAllShopsBilling() {
     return this.charges.getAllShopsTotals();
+  }
+
+  /** Lifecycle §9.5 — a shop's campaign capacity: tier limit vs. live campaigns used. */
+  async getShopCapacity(shopId: string): Promise<{
+    tier: string; maxCampaigns: number; usedCampaigns: number; remaining: number;
+  }> {
+    const plan = await this.plans.getOrDefault(shopId);
+    const limits = limitsForTier(plan.flatTierName);
+    // §9.5: committed = live campaigns + in-flight requests (approved/building).
+    const [live, committedRequests] = await Promise.all([
+      this.campaigns.countActiveByShop(shopId),
+      this.campaignRequests.countCommitted(shopId),
+    ]);
+    const usedCampaigns = live + committedRequests;
+    return {
+      tier: plan.flatTierName ?? 'growth',
+      maxCampaigns: limits.maxCampaigns,
+      usedCampaigns,
+      remaining: Math.max(0, limits.maxCampaigns - usedCampaigns),
+    };
   }
 
   /** Best-effort nightly entry point — accrues B/C daily + Plan A for the given month. */

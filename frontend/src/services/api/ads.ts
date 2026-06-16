@@ -379,18 +379,54 @@ export const submitWebformLead = async (payload: {
 // campaign creation admin-only; this just signals interest + sets the plan on approve.
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
+export type CampaignGoal = 'more_bookings' | 'awareness' | 'promote_service';
+
+/** Optional campaign brief — what the shop wants advertised. */
+export interface CampaignBrief {
+  promoteServiceIds?: string[];
+  monthlyBudgetCents?: number | null;
+  offer?: string | null;
+  targetRadiusMiles?: number | null;
+  goal?: CampaignGoal | null;
+}
+
 export interface AdEnrollment {
   shopId: string;
   requestedPlan: FlatTierName;   // legacy rows may hold a/b/c
   status: EnrollmentStatus;
   message: string | null;
+  promoteServiceIds: string[];
+  monthlyBudgetCents: number | null;
+  offer: string | null;
+  targetRadiusMiles: number | null;
+  goal: CampaignGoal | null;
   declineReason: string | null;
   createdAt: string;
 }
 
+export const CAMPAIGN_GOALS: { value: CampaignGoal; label: string }[] = [
+  { value: 'more_bookings', label: 'More bookings' },
+  { value: 'awareness', label: 'Brand awareness' },
+  { value: 'promote_service', label: 'Promote a specific service' },
+];
+
+export interface ShopCapacity {
+  tier: string;
+  maxCampaigns: number;
+  usedCampaigns: number;
+  remaining: number;
+}
+/** Tier campaign capacity for the current shop (lifecycle §9.5). */
+export const getShopCapacity = async (): Promise<ShopCapacity> => {
+  const res = await apiClient.get('/ads/shop/capacity');
+  return unwrap<ShopCapacity>(res);
+};
+
 // Shop
-export const requestAdsEnrollment = async (requestedPlan: FlatTierName, message?: string): Promise<AdEnrollment> => {
-  const res = await apiClient.post('/ads/shop/enrollment', { requestedPlan, message });
+export const requestAdsEnrollment = async (
+  requestedPlan: FlatTierName, message?: string, brief?: CampaignBrief
+): Promise<AdEnrollment> => {
+  const res = await apiClient.post('/ads/shop/enrollment', { requestedPlan, message, brief });
   return unwrap<AdEnrollment>(res);
 };
 export const getMyEnrollment = async (): Promise<AdEnrollment | null> => {
@@ -408,6 +444,124 @@ export const decideEnrollment = async (
 ): Promise<AdEnrollment> => {
   const res = await apiClient.post(`/ads/enrollments/${shopId}/decide`, { decision, declineReason });
   return unwrap<AdEnrollment>(res);
+};
+
+/* ----------------------- Durable shop↔admin thread (Phase 2) ----------------------- */
+export type AdMessageAuthor = 'shop' | 'admin' | 'system';
+export interface AdMessage {
+  id: string;
+  shopId: string;
+  author: AdMessageAuthor;
+  body: string;
+  kind: 'message' | 'event';
+  createdAt: string;
+}
+// Shop side (own thread)
+export const getMyAdMessages = async (): Promise<AdMessage[]> => {
+  const res = await apiClient.get('/ads/shop/messages');
+  return unwrap<AdMessage[]>(res);
+};
+export const postMyAdMessage = async (body: string): Promise<AdMessage> => {
+  const res = await apiClient.post('/ads/shop/messages', { body });
+  return unwrap<AdMessage>(res);
+};
+// Admin side (any shop's thread)
+export const listShopAdMessages = async (shopId: string): Promise<AdMessage[]> => {
+  const res = await apiClient.get(`/ads/shops/${shopId}/messages`);
+  return unwrap<AdMessage[]>(res);
+};
+export const postShopAdMessage = async (shopId: string, body: string): Promise<AdMessage> => {
+  const res = await apiClient.post(`/ads/shops/${shopId}/messages`, { body });
+  return unwrap<AdMessage>(res);
+};
+// Admin inbox — every shop with messages (#2), reachable in any lifecycle state.
+export interface AdInboxEntry {
+  shopId: string;
+  shopName: string | null;
+  total: number;
+  lastBody: string;
+  lastAuthor: AdMessageAuthor;
+  lastAt: string;
+  awaitingReply: boolean;
+}
+export const getAdMessageInbox = async (): Promise<AdInboxEntry[]> => {
+  const res = await apiClient.get('/ads/messages/inbox');
+  return unwrap<AdInboxEntry[]>(res);
+};
+
+/* ----------------------- Recurring campaign requests (Phase 3) ----------------------- */
+export type CampaignRequestStatus = 'pending' | 'approved' | 'building' | 'live' | 'declined' | 'cancelled';
+export interface AdCampaignRequest {
+  id: string;
+  shopId: string;
+  promoteServiceIds: string[];
+  monthlyBudgetCents: number | null;
+  offer: string | null;
+  targetRadiusMiles: number | null;
+  goal: CampaignGoal | null;
+  message: string | null;
+  status: CampaignRequestStatus;
+  campaignId: string | null;
+  declineReason: string | null;
+  createdAt: string;
+}
+// Shop
+export const submitCampaignRequest = async (brief: CampaignBrief, message?: string): Promise<AdCampaignRequest> => {
+  const res = await apiClient.post('/ads/shop/campaign-requests', { brief, message });
+  return unwrap<AdCampaignRequest>(res);
+};
+export const listMyCampaignRequests = async (): Promise<AdCampaignRequest[]> => {
+  const res = await apiClient.get('/ads/shop/campaign-requests');
+  return unwrap<AdCampaignRequest[]>(res);
+};
+// Admin
+export const listCampaignRequests = async (status?: CampaignRequestStatus): Promise<AdCampaignRequest[]> => {
+  const res = await apiClient.get('/ads/campaign-requests', { params: status ? { status } : undefined });
+  return unwrap<AdCampaignRequest[]>(res);
+};
+export const buildCampaignFromRequest = async (id: string, input?: { name?: string; dailyBudgetCents?: number }) => {
+  const res = await apiClient.post(`/ads/campaign-requests/${id}/build`, input ?? {});
+  return unwrap(res);
+};
+export const declineCampaignRequest = async (id: string, declineReason?: string): Promise<AdCampaignRequest> => {
+  const res = await apiClient.post(`/ads/campaign-requests/${id}/decline`, { declineReason });
+  return unwrap<AdCampaignRequest>(res);
+};
+// §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
+export const setShopAdsAccount = async (shopId: string, connected: boolean) => {
+  const res = await apiClient.post(`/ads/shops/${shopId}/ads-account`, { connected });
+  return unwrap(res);
+};
+
+/* ----------------------- Self-serve subscription / tier (Phase 4) ----------------------- */
+export interface PlanChange {
+  id: string;
+  fromTier: string | null;
+  toTier: string | null;
+  kind: 'upgrade' | 'downgrade' | 'cancel';
+  status: 'applied' | 'scheduled' | 'cancelled';
+  effectiveAt: string;
+  proratedAmountCents: number;
+  createdAt: string;
+}
+export interface AdSubscription {
+  tier: FlatTierName | null;
+  flatFeeCents: number;
+  subscriptionStatus: 'active' | 'past_due' | 'paused' | 'cancelled';
+  billingStartedAt: string | null;
+  adsAccountConnected: boolean;
+  history: PlanChange[];
+}
+export const getMySubscription = async (): Promise<AdSubscription> => {
+  const res = await apiClient.get('/ads/shop/subscription');
+  return unwrap<AdSubscription>(res);
+};
+export const changeMyTier = async (tier: FlatTierName): Promise<{ outcome: string; effectiveAt?: string; proratedAmountCents?: number }> => {
+  const res = await apiClient.post('/ads/shop/subscription/change', { tier });
+  return unwrap(res);
+};
+export const cancelMySubscription = async (): Promise<void> => {
+  await apiClient.post('/ads/shop/subscription/cancel', {});
 };
 
 /* --------------------------------- Shop ---------------------------------- */

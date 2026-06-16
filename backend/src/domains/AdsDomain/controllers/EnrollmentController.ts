@@ -6,7 +6,7 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
-import { EnrollmentRepository } from '../repositories/EnrollmentRepository';
+import { EnrollmentRepository, CampaignBrief } from '../repositories/EnrollmentRepository';
 import { BillingPlanRepository, FlatTierName, FLAT_TIER_FEES } from '../repositories/BillingPlanRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
 import { shopRepository } from '../../../repositories';
@@ -46,6 +46,26 @@ export async function requestAds(req: Request, res: Response): Promise<void> {
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
   const plan = (req.body?.requestedPlan as FlatTierName) ?? 'growth';
   if (!['starter', 'growth', 'business'].includes(plan)) { res.status(400).json({ success: false, error: "requestedPlan must be 'starter', 'growth' or 'business'" }); return; }
+
+  // Optional campaign brief — validate the bits we constrain in the DB.
+  const b = req.body?.brief ?? {};
+  if (b.monthlyBudgetCents != null && (!Number.isFinite(b.monthlyBudgetCents) || b.monthlyBudgetCents < 0)) {
+    res.status(400).json({ success: false, error: 'brief.monthlyBudgetCents must be a non-negative number' }); return;
+  }
+  if (b.targetRadiusMiles != null && (!Number.isInteger(b.targetRadiusMiles) || b.targetRadiusMiles < 1 || b.targetRadiusMiles > 100)) {
+    res.status(400).json({ success: false, error: 'brief.targetRadiusMiles must be an integer 1–100' }); return;
+  }
+  if (b.goal != null && !['more_bookings', 'awareness', 'promote_service'].includes(b.goal)) {
+    res.status(400).json({ success: false, error: "brief.goal must be 'more_bookings', 'awareness' or 'promote_service'" }); return;
+  }
+  const brief: CampaignBrief = {
+    promoteServiceIds: Array.isArray(b.promoteServiceIds) ? b.promoteServiceIds.map(String).slice(0, 20) : [],
+    monthlyBudgetCents: b.monthlyBudgetCents ?? null,
+    offer: b.offer ? String(b.offer).slice(0, 500) : null,
+    targetRadiusMiles: b.targetRadiusMiles ?? null,
+    goal: b.goal ?? null,
+  };
+
   try {
     const existing = await enrollments.getByShop(shopId);
     if (existing?.status === 'approved') {
@@ -53,7 +73,7 @@ export async function requestAds(req: Request, res: Response): Promise<void> {
       return;
     }
     const message = (req.body?.message || '').toString().slice(0, 1000) || null;
-    const enrollment = await enrollments.request(shopId, plan, message);
+    const enrollment = await enrollments.request(shopId, plan, message, brief);
     await notifyAdmins('ad_enrollment_request', `Shop ${shopId} requested to join the ad program (${plan} tier).`, { shopId, requestedPlan: plan });
     res.status(201).json({ success: true, data: enrollment });
   } catch (err) {

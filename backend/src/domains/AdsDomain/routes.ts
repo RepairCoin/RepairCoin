@@ -8,7 +8,7 @@ import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 import {
   createCampaign, listCampaigns, getCampaign, updateCampaign, deleteCampaign,
-  listShopCampaigns,
+  listShopCampaigns, getShopCapacity,
 } from './controllers/CampaignController';
 import {
   createCreative, listCreatives, updateCreative, reviewCreative, deleteCreative,
@@ -32,6 +32,16 @@ import {
 import {
   requestAds, getMyEnrollment, listEnrollments, decideEnrollment,
 } from './controllers/EnrollmentController';
+import {
+  getMyMessages, postMyMessage, listShopMessages, postAdminMessage, getMessageInbox,
+} from './controllers/MessageController';
+import {
+  submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
+  buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
+} from './controllers/CampaignRequestController';
+import {
+  getMySubscription, changeMyTier, cancelMySubscription,
+} from './controllers/SubscriptionController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
@@ -77,6 +87,13 @@ export function initializeRoutes(): Router {
   router.put('/shops/:shopId/billing-plan', ...admin, setBillingPlan);
   router.get('/shops/:shopId/billing', ...admin, getShopBilling);
   router.post('/shops/:shopId/billing/invoice', ...admin, invoiceShop); // gated Stripe push
+  router.get('/messages/inbox', ...admin, getMessageInbox);             // all-shop comms inbox (#2)
+  router.get('/shops/:shopId/messages', ...admin, listShopMessages);    // durable thread (Phase 2)
+  router.post('/shops/:shopId/messages', ...admin, postAdminMessage);
+  router.get('/campaign-requests', ...admin, listCampaignRequests);     // build queue (Phase 3)
+  router.post('/campaign-requests/:id/build', ...admin, buildCampaignFromRequest);
+  router.post('/campaign-requests/:id/decline', ...admin, declineCampaignRequest);
+  router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
 
   // ---- Admin: A/B experiments (Stage 5) ----
   router.post('/campaigns/:id/experiments', ...admin, createExperiment);
@@ -112,11 +129,19 @@ export function initializeRoutes(): Router {
 
   // ---- Shop: own read-only + self-serve enrollment ----
   router.get('/shop/campaigns', ...shop, listShopCampaigns);
+  router.get('/shop/capacity', ...shop, getShopCapacity);               // tier limit vs. used (§9.5)
   router.get('/shop/campaigns/:id/performance', ...shop, getShopCampaignPerformance);
   router.get('/shop/leads', ...shop, listShopLeads);
   router.get('/shop/leads/awaiting', ...shop, listShopAwaitingLeads);   // SLA (Stage 2)
   router.get('/shop/enrollment', ...shop, getMyEnrollment);             // "Request ads" status
   router.post('/shop/enrollment', ...shop, requestAds);                 // "Request ads" opt-in
+  router.get('/shop/messages', ...shop, getMyMessages);                 // durable thread (Phase 2)
+  router.post('/shop/messages', ...shop, postMyMessage);
+  router.get('/shop/campaign-requests', ...shop, listMyCampaignRequests); // recurring requests (Phase 3)
+  router.post('/shop/campaign-requests', ...shop, submitCampaignRequest);
+  router.get('/shop/subscription', ...shop, getMySubscription);          // self-serve tier (Phase 4)
+  router.post('/shop/subscription/change', ...shop, changeMyTier);
+  router.post('/shop/subscription/cancel', ...shop, cancelMySubscription);
 
   return router;
 }

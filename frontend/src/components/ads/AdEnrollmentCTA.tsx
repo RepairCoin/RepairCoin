@@ -1,105 +1,63 @@
 "use client";
 
-// Ads System — shop-facing "Request ads" opt-in. Shown in the shop's Ads tab. v1
-// keeps campaign creation admin-only, so this lets a shop SIGNAL interest and pick a
-// preferred plan; an admin then approves (which sets the plan) and builds the campaign.
-// Self-contained: fetches its own enrollment state. Renders nothing once the shop is
-// approved AND has live campaigns (the rest of the tab takes over).
+// Shop-facing self-serve "Subscribe to ads" (lifecycle Phase 5, decision #5). The shop
+// picks a tier — the subscription is set IMMEDIATELY (no admin approval) — plus an
+// optional brief that becomes the first campaign request the admin builds. A card is
+// required (§9.1). Hidden once subscribed: SubscriptionPanel + the campaign rail
+// take over.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Megaphone, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Megaphone, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  getMyEnrollment, requestAdsEnrollment, FLAT_TIERS, type AdEnrollment, type FlatTierName,
+  getMySubscription, changeMyTier, submitCampaignRequest, FLAT_TIERS,
+  type AdSubscription, type FlatTierName,
 } from "@/services/api/ads";
+import { CampaignBriefFields, briefToApi, emptyBrief, type BriefValue } from "@/components/ads/CampaignBriefFields";
 
-// The three flat tiers (Decision 2026-06-15). Shop pays its own ad spend directly;
-// the fee is FixFlow's flat management fee.
-const PLANS: { value: FlatTierName; label: string; blurb: string }[] = FLAT_TIERS.map((t) => ({
-  value: t.name,
-  label: t.label,
-  blurb: t.blurb,
-}));
+const PLANS = FLAT_TIERS.map((t) => ({ value: t.name, label: t.label, blurb: t.blurb }));
 
-export const AdEnrollmentCTA: React.FC<{ hasCampaigns: boolean }> = ({ hasCampaigns }) => {
-  const [enrollment, setEnrollment] = useState<AdEnrollment | null>(null);
+export const AdEnrollmentCTA: React.FC<{ shopId: string; hasCampaigns?: boolean }> = ({ shopId }) => {
+  const [sub, setSub] = useState<AdSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<FlatTierName>("growth");
   const [message, setMessage] = useState("");
+  const [brief, setBrief] = useState<BriefValue>(emptyBrief);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setEnrollment(await getMyEnrollment().catch(() => null)); }
+    try { setSub(await getMySubscription().catch(() => null)); }
     finally { setLoading(false); }
   }, []);
-
   useEffect(() => { void load(); }, [load]);
 
   const submit = async () => {
     setSubmitting(true);
     try {
-      await requestAdsEnrollment(plan, message.trim() || undefined);
-      toast.success("Request sent! An admin will review it shortly.");
+      await changeMyTier(plan);                      // self-serve subscribe — no admin approval
+      await submitCampaignRequest(briefToApi(brief), message.trim() || undefined);
+      toast.success("You're subscribed! Your campaign request is in — we'll build it shortly.");
       await load();
     } catch (e: any) {
-      toast.error(e?.response?.data?.error || e?.message || "Couldn't send request.");
+      if (e?.response?.status === 402) toast.error(e?.response?.data?.message || "Add a payment method first.");
+      else toast.error(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Couldn't subscribe.");
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) return null;
-  // Already running ads (approved, or admin-created campaigns with no request on file)
-  // → don't nag; let the rest of the tab show the live ads.
-  if (hasCampaigns && enrollment?.status !== "pending" && enrollment?.status !== "declined") return null;
-
-  // Approved, campaign not built yet.
-  if (enrollment?.status === "approved") {
-    return (
-      <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-3">
-        <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-medium text-white">You're enrolled in the ad program 🎉</p>
-          <p className="text-sm text-gray-300 mt-0.5">Your campaign is being set up — leads and performance will show here once it goes live.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Pending review.
-  if (enrollment?.status === "pending") {
-    return (
-      <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 flex items-start gap-3">
-        <Clock className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-medium text-white">Your ad request is pending review.</p>
-          <p className="text-sm text-gray-300 mt-0.5">An admin will approve it and set up your campaign soon. We'll notify you.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Declined → show reason + allow re-request below.
-  const declined = enrollment?.status === "declined";
+  if (sub?.tier) return null; // already subscribed → SubscriptionPanel / the campaign rail take over
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#141414] p-5">
-      {declined && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 mb-4 flex items-start gap-2">
-          <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-gray-300">
-            Your previous request was declined{enrollment?.declineReason ? `: ${enrollment.declineReason}` : "."} You can request again below.
-          </p>
-        </div>
-      )}
-
       <div className="flex items-center gap-2 mb-1">
         <Megaphone className="w-5 h-5 text-[#FFCC00]" />
         <h3 className="text-lg font-semibold text-white">Get more customers with ads</h3>
       </div>
       <p className="text-sm text-gray-400 mb-4">
-        We run Facebook &amp; Google ads for your shop, capture every customer who responds, and show you exactly what you got back. Pick how you'd like to work with us:
+        We run Facebook &amp; Google ads on your own ad account, capture every customer who responds, and show you exactly what you got back. Pick a plan:
       </p>
 
       <div className="space-y-2 mb-4">
@@ -118,10 +76,14 @@ export const AdEnrollmentCTA: React.FC<{ hasCampaigns: boolean }> = ({ hasCampai
         ))}
       </div>
 
+      <div className="mb-3">
+        <CampaignBriefFields shopId={shopId} value={brief} onChange={setBrief} />
+      </div>
+
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Anything you want us to know? (optional)"
+        placeholder="Anything else you want us to know? (optional)"
         rows={2}
         className="w-full px-3 py-2 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00] mb-3"
       />
@@ -131,10 +93,11 @@ export const AdEnrollmentCTA: React.FC<{ hasCampaigns: boolean }> = ({ hasCampai
         disabled={submitting}
         className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800] disabled:opacity-50"
       >
-        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />}
-        {declined ? "Request again" : "Request ads"}
+        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />} Subscribe &amp; request campaign
       </button>
-      <p className="text-xs text-gray-500 mt-2">No commitment — an admin will review and reach out before anything goes live.</p>
+      <p className="text-xs text-gray-500 mt-2 flex items-center gap-1.5">
+        <CreditCard className="w-3.5 h-3.5 shrink-0" /> A card on file is required. You pay your own ad spend directly; the plan fee starts when your first campaign goes live.
+      </p>
     </div>
   );
 };

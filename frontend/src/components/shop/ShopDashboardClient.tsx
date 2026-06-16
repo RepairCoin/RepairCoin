@@ -1554,7 +1554,7 @@ export default function ShopDashboardClient() {
 
           {/* Ads System (Stage 1) — read-only campaign performance for this shop */}
           {activeTab === "ads" && shopData && (
-            <ShopAdsTab reviewScore={(shopData as any)?.review_score} />
+            <ShopAdsTab shopId={shopData.shopId} reviewScore={(shopData as any)?.review_score} />
           )}
 
           {activeTab === "plans" && shopData && (
