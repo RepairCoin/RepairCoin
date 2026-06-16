@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePaymentStore, PaymentType, waitForPaymentStoreHydration } from "@/feature/services/payment/store/payment.store";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { serviceApi } from "@/feature/services/services/service.services";
+import { shopApi } from "@/feature/shop/services/shop.services";
 
 export default function PaymentSuccess() {
   const { order_id } = useLocalSearchParams<{ order_id: string }>();
@@ -112,7 +113,12 @@ export default function PaymentSuccess() {
               await queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
             }
           } else if (session.type === "token_purchase") {
-            // Token purchase is confirmed via webhook, but we refresh data
+            // Sync with Stripe directly in case the webhook hasn't fired yet
+            try {
+              await shopApi.checkPaymentStatus(session.orderId);
+            } catch {
+              // Webhook may have already completed it — not fatal
+            }
             await queryClient.invalidateQueries({ queryKey: ["repaircoin", "shops"] });
             await queryClient.invalidateQueries({ queryKey: ["repaircoin", "tokens"] });
           } else if (session.type === "subscription") {

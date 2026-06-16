@@ -293,6 +293,15 @@ class ShopApi {
       throw error;
     }
   }
+
+  async checkPaymentStatus(purchaseId: string): Promise<any> {
+    try {
+      return await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`);
+    } catch (error: any) {
+      console.error("Failed to check payment status:", error.message);
+      throw error;
+    }
+  }
 }
 
 export const shopApi = new ShopApi();
