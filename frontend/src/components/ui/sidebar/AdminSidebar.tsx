@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, LayoutDashboard, Shield, Users, Store, User, Unlock, ClipboardList, CreditCard, BarChart3, Coins, Tag, Lock, LifeBuoy, AlertTriangle, Bug, Bot, Megaphone } from "lucide-react";
-import { SettingsIcon, LogoutIcon } from "@/components/icon";
+import { SettingsIcon } from "@/components/icon";
 import { BaseSidebar, SidebarMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem } from "./useSidebar";
 
@@ -34,6 +34,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     handleCollapseToggle,
     handleItemClick,
     handleSubItemClick,
+    handleLogout,
     isItemActive,
     hasActiveSubItem,
     isExpanded,
@@ -45,6 +46,10 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     onTabChange,
     onCollapseChange,
   });
+
+  // Collapsed-state hover flyout: which group is open + its vertical anchor
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const [flyoutTop, setFlyoutTop] = useState(0);
 
   // Auto-collapse/expand subtabs when switching tabs
   useEffect(() => {
@@ -232,12 +237,94 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       icon: <SettingsIcon width={24} height={24} />,
       tabId: "settings",
     },
-    {
-      title: "Logout",
-      href: "/logout",
-      icon: <LogoutIcon width={24} height={24} />,
-    },
   ];
+
+  // Renders a group as a single icon with a hover flyout of its items (collapsed mode)
+  const renderCollapsedGroup = (opts: {
+    id: string;
+    title: string;
+    icon: React.ReactNode;
+    items: SidebarItem[];
+    iconHref: string;
+    groupActive: boolean;
+    itemActive: (item: SidebarItem) => boolean;
+    onItemClick: (item: SidebarItem, e: React.MouseEvent) => void;
+  }) => {
+    const { id, title, icon, items, iconHref, groupActive, itemActive, onItemClick } = opts;
+    const isOpen = hoveredGroup === id;
+    const hasFlyout = items.length > 1;
+    const triggerClass = `p-2 rounded-lg transition-colors ${
+      groupActive
+        ? "bg-[#FFCC00] text-[#101010]"
+        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+    }`;
+    const iconEl = React.isValidElement(icon)
+      ? React.cloneElement(icon as React.ReactElement<any>, {
+          className: `w-5 h-5 ${groupActive ? "text-[#101010]" : ""}`,
+        })
+      : icon;
+    return (
+      <div
+        key={id}
+        className="relative flex justify-center"
+        onMouseEnter={(e) => {
+          setHoveredGroup(id);
+          setFlyoutTop(e.currentTarget.getBoundingClientRect().top);
+        }}
+        onMouseLeave={() => setHoveredGroup(null)}
+      >
+        {hasFlyout ? (
+          <button
+            type="button"
+            title={title}
+            onClick={() => setHoveredGroup(id)}
+            className={triggerClass}
+          >
+            {iconEl}
+          </button>
+        ) : (
+          <Link
+            href={iconHref}
+            onClick={(e) => onItemClick(items[0], e)}
+            title={title}
+            className={triggerClass}
+          >
+            {iconEl}
+          </Link>
+        )}
+        {hasFlyout && isOpen && (
+          <div
+            style={{ position: "fixed", top: flyoutTop, left: 80 }}
+            className="z-[60] min-w-[190px] bg-[#1c1c1c] border border-gray-800 rounded-lg shadow-xl py-2 before:content-[''] before:absolute before:top-0 before:-left-2 before:h-full before:w-2"
+          >
+            <p className="px-3 pb-1 text-[11px] font-medium tracking-wide text-gray-400">
+              {title}
+            </p>
+            {items.map((item) => {
+              const active = itemActive(item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => {
+                    onItemClick(item, e);
+                    setHoveredGroup(null);
+                  }}
+                  className={`block px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? "bg-gray-800 text-[#FFCC00]"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  {item.title}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <BaseSidebar
@@ -246,10 +333,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       isCollapsed={isCollapsed}
       onCollapseToggle={handleCollapseToggle}
       onNavigateHome={navigateToHome}
+      onLogout={handleLogout}
       userRole="admin"
     >
       {/* Main Navigation */}
-      <nav className="py-3 sm:py-4">
+      <nav className="pt-3 sm:pt-4 pb-0">
         <ul className="space-y-1 px-2 sm:px-3">
           {menuItems.map((item) => {
             const hasSubItems = item.subItems && item.subItems.length > 0;
@@ -261,6 +349,24 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
               handleItemClick(item, e);
             };
 
+            // Collapsed + has sub-items → hover flyout (other items unchanged)
+            if (isCollapsed && hasSubItems) {
+              return (
+                <li key={item.href}>
+                  {renderCollapsedGroup({
+                    id: item.tabId || item.href,
+                    title: item.title,
+                    icon: item.icon,
+                    items: item.subItems!,
+                    iconHref: item.href,
+                    groupActive: isDirectlyActive || hasActiveSub,
+                    itemActive: (sub) => activeSubTab === sub.tabId,
+                    onItemClick: (sub, e) => handleSubItemClick(sub, e),
+                  })}
+                </li>
+              );
+            }
+
             return (
               <li key={item.href}>
                 <Link
@@ -269,11 +375,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   className={`
                     flex items-center ${
                       isCollapsed ? "justify-center" : "justify-between"
-                    } px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                    } px-3 sm:px-4 py-2 rounded-lg
                     transition-colors duration-200
                     ${
                       isDirectlyActive
-                        ? "bg-yellow-400 text-gray-900 font-medium"
+                        ? "bg-[#FFCC00] text-[#101010] font-medium"
                         : hasActiveSub
                         ? "bg-gray-800 text-yellow-400 font-medium border border-yellow-400 border-opacity-30"
                         : "text-gray-300 hover:bg-gray-800 hover:text-white"
@@ -292,7 +398,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                           {
                             className: `w-4 h-4 sm:w-5 sm:h-5 ${
                               isDirectlyActive
-                                ? "text-gray-900"
+                                ? "text-[#101010]"
                                 : hasActiveSub
                                 ? "text-yellow-400"
                                 : ""
@@ -301,7 +407,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         )
                       : item.icon}
                     {!isCollapsed && (
-                      <span className="text-sm sm:text-base">{item.title}</span>
+                      <span className="text-[13px] sm:text-sm">{item.title}</span>
                     )}
                   </div>
                   {!isCollapsed && hasSubItems && (
@@ -310,7 +416,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         itemExpanded ? "rotate-180" : ""
                       } ${
                         isDirectlyActive
-                          ? "text-gray-900"
+                          ? "text-[#101010]"
                           : hasActiveSub
                           ? "text-yellow-400"
                           : "text-gray-400"
@@ -339,13 +445,13 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                               transition-colors duration-200 text-sm
                               ${
                                 subIsActive
-                                  ? "bg-[#FFCC00] text-gray-900 font-medium"
+                                  ? "bg-[#FFCC00] text-[#101010] font-medium"
                                   : "text-gray-400 hover:bg-gray-800 hover:text-white"
                               }
                             `}
                           >
                             <span
-                              className={subIsActive ? "text-gray-900" : ""}
+                              className={subIsActive ? "text-[#101010]" : ""}
                             >
                               {subItem.icon}
                             </span>
@@ -363,7 +469,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </nav>
 
       {/* Settings Section */}
-      <div className="border-t border-gray-800 p-3 sm:p-4">
+      <div className="px-2 sm:px-3 pt-2 pb-3">
         <ul className="space-y-1">
           {bottomMenuItems.map((item) => {
             const isActive = item.tabId ? activeTab === item.tabId : false;
@@ -380,7 +486,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   className={`
                     flex items-center ${
                       isCollapsed ? "justify-center" : "space-x-3"
-                    } px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                    } px-3 sm:px-4 py-2 rounded-lg
                     transition-colors duration-200
                     ${
                       isActive
@@ -398,7 +504,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       })
                     : item.icon}
                   {!isCollapsed && (
-                    <span className="text-sm sm:text-base">{item.title}</span>
+                    <span className="text-[13px] sm:text-sm">{item.title}</span>
                   )}
                 </Link>
               </li>

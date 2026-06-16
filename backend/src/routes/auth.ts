@@ -457,7 +457,9 @@ router.post('/check-user', async (req, res) => {
             suspendedAt: customer.suspendedAt,
             suspensionReason: customer.suspensionReason,
             // External ID
-            fixflowCustomerId: customer.fixflowCustomerId
+            fixflowCustomerId: customer.fixflowCustomerId,
+            // Profile image
+            profile_image_url: customer.profile_image_url
           }
         });
       }
@@ -953,6 +955,7 @@ router.get('/session', authMiddleware, async (req, res) => {
           shopName: shop.name,
           name: shop.name,
           email: shop.email,
+          logoUrl: shop.logoUrl,
           active: shop.active,
           shopId: shop.shopId,
           createdAt: shop.joinDate,
@@ -970,6 +973,7 @@ router.get('/session', authMiddleware, async (req, res) => {
           role: 'customer',
           name: customer.name,
           email: customer.email,
+          profile_image_url: customer.profile_image_url,
           active: customer.isActive,
           tier: customer.tier,
           createdAt: customer.joinDate,
@@ -1216,6 +1220,8 @@ router.post('/customer', authLimiter, async (req, res) => {
           address: customer.address,
           walletAddress: customer.address,
           name: customer.name || 'Customer',
+          email: customer.email,
+          profile_image_url: customer.profile_image_url,
           role: 'customer',
           tier: customer.tier,
           active: customer.isActive,
@@ -1324,6 +1330,8 @@ router.post('/shop', authLimiter, async (req, res) => {
           walletAddress: shop.walletAddress,
           connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
           name: shop.name,
+          email: shop.email,
+          logoUrl: shop.logoUrl,
           role: 'shop',
           active: shop.active,
           verified: shop.verified,

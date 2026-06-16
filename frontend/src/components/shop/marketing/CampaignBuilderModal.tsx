@@ -877,7 +877,7 @@ export function CampaignBuilderModal({
         {/* Header */}
         {headerEnabled && (
           <div className="bg-[#1a1a2e] p-6 text-center">
-            <img src="/img/landing/repaircoin-icon.png" alt="RepairCoin" className="w-12 h-12 mx-auto mb-3" />
+            <img src="/img/landing/fixflow-icon.png" alt="Fixflow" className="w-12 h-12 mx-auto mb-3" />
             <h1 className="text-white text-lg font-semibold">{shopName}</h1>
           </div>
         )}
