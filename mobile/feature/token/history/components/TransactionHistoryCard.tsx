@@ -174,7 +174,7 @@ export default function TransactionHistoryCard(props: Props) {
     );
   }
 
-  // Shop variant - Purchase history
+  // Shop variant - unified transaction history (reward / redemption / purchase)
   const getStatusColor = () => {
     switch (props.status.toLowerCase()) {
       case 'completed':
@@ -183,14 +183,146 @@ export default function TransactionHistoryCard(props: Props) {
       case 'pending':
         return { bg: '#FFCC00', text: '#000' };
       case 'failed':
+      case 'cancelled':
+      case 'rejected':
         return { bg: '#EF4444', text: '#fff' };
       default:
         return { bg: '#666', text: '#fff' };
     }
   };
 
+  const statusColors = getStatusColor();
+  const shopType = props.type?.toLowerCase() || "";
+  const isPurchase = shopType === "purchase";
+  const isRedemption = [
+    "redemption",
+    "redeemed",
+    "redeem",
+    "service_redemption",
+  ].includes(shopType);
+  const shortAddress = (addr?: string | null) =>
+    addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+  // ── Reward / Earned / Redemption layout (anything that isn't a purchase) ──
+  if (!isPurchase) {
+    const earnedLabel = (() => {
+      if (shopType === "reward" || shopType === "mint")
+        return props.isTierBonus ? "Reward + Tier Bonus" : "Reward Issued";
+      if (shopType === "tier_bonus") return "Tier Bonus";
+      if (shopType === "referral") return "Referral Bonus";
+      if (shopType === "bonus") return "Bonus";
+      if (shopType === "earned") return "Earned";
+      return formatSnakeCase(props.type || "Reward");
+    })();
+
+    const config = !isRedemption
+      ? {
+          bg: "bg-[#DDF6E2]",
+          iconColor: "#1A9D5B",
+          icon: <Entypo name="check" color="#1A9D5B" size={18} />,
+          label: earnedLabel,
+          amountColor: "text-green-400",
+          sign: "+",
+        }
+      : {
+          bg: "bg-[#FDE8D0]",
+          iconColor: "#EA580C",
+          icon: <MaterialIcons name="money-off" color="#EA580C" size={18} />,
+          label: "Redemption",
+          amountColor: "text-orange-400",
+          sign: "-",
+        };
+
+    return (
+      <View className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 my-2">
+        <View className="flex-row justify-between items-center mb-3">
+          <View className="flex-row items-center flex-1 mr-2">
+            <View
+              className={`w-10 h-10 ${config.bg} rounded-full items-center justify-center`}
+            >
+              {config.icon}
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`font-bold text-lg ${config.amountColor}`}>
+                {config.sign}
+                {Math.abs(props.amount)} RCN
+              </Text>
+              <Text className="text-gray-400 text-xs">{config.label}</Text>
+            </View>
+          </View>
+          <View
+            className="px-3 py-1 rounded-full"
+            style={{ backgroundColor: statusColors.bg }}
+          >
+            <Text
+              className="text-xs font-semibold"
+              style={{ color: statusColors.text }}
+            >
+              {props.status.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+
+        <View className="border-b border-zinc-800 mb-3" />
+
+        <View className="space-y-2">
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Feather name="user" size={18} color="#4B5563" />
+              <Text className="text-gray-400 text-sm ml-2">Customer</Text>
+            </View>
+            <Text className="text-white text-sm font-semibold" numberOfLines={1}>
+              {props.customerName || shortAddress(props.customerAddress) || "—"}
+            </Text>
+          </View>
+
+          {props.repairAmount != null && (
+            <View className="flex-row justify-between items-center">
+              <View className="flex-row items-center">
+                <Feather name="tool" size={18} color="#4B5563" />
+                <Text className="text-gray-400 text-sm ml-2">Repair Amount</Text>
+              </View>
+              <Text className="text-white text-sm font-semibold">
+                ${Number(props.repairAmount).toFixed(2)} USD
+              </Text>
+            </View>
+          )}
+
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Feather name="calendar" size={18} color="#4B5563" />
+              <Text className="text-gray-400 text-sm ml-2">Date</Text>
+            </View>
+            <Text className="text-white text-sm">
+              {formattedDate(props.createdAt)}
+            </Text>
+          </View>
+
+          {props.failureReason && (
+            <View className="flex-row justify-between items-center">
+              <View className="flex-row items-center">
+                <Feather name="alert-circle" size={18} color="#EF4444" />
+                <Text className="text-gray-400 text-sm ml-2">Reason</Text>
+              </View>
+              <Text
+                className="text-red-400 text-sm flex-1 text-right ml-2"
+                numberOfLines={1}
+              >
+                {props.failureReason}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // ── Purchase layout ─────────────────────────────────────────────────────
+  const paymentMethod = props.paymentMethod || "—";
+  const totalCost = props.totalCost ?? 0;
+
   const getPaymentIcon = () => {
-    const method = props.paymentMethod.toLowerCase();
+    const method = paymentMethod.toLowerCase();
     if (method.includes('stripe') || method.includes('card')) {
       return <MaterialIcons name="credit-card" size={20} color="#4B5563" />;
     }
@@ -199,8 +331,6 @@ export default function TransactionHistoryCard(props: Props) {
     }
     return <Feather name="dollar-sign" size={20} color="#4B5563" />;
   };
-
-  const statusColors = getStatusColor();
 
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 my-2">
@@ -219,11 +349,11 @@ export default function TransactionHistoryCard(props: Props) {
             </Text>
           </View>
         </View>
-        <View 
+        <View
           className="px-3 py-1 rounded-full"
           style={{ backgroundColor: statusColors.bg }}
         >
-          <Text 
+          <Text
             className="text-xs font-semibold"
             style={{ color: statusColors.text }}
           >
@@ -243,7 +373,7 @@ export default function TransactionHistoryCard(props: Props) {
             <Text className="text-gray-400 text-sm ml-2">Payment Method</Text>
           </View>
           <Text className="text-white text-sm font-semibold">
-            {props.paymentMethod}
+            {paymentMethod}
           </Text>
         </View>
 
@@ -253,7 +383,7 @@ export default function TransactionHistoryCard(props: Props) {
             <Text className="text-gray-400 text-sm ml-2">Total Cost</Text>
           </View>
           <Text className="text-white text-sm font-semibold">
-            ${props.totalCost.toFixed(2)} USD
+            ${totalCost.toFixed(2)} USD
           </Text>
         </View>
 
@@ -279,15 +409,17 @@ export default function TransactionHistoryCard(props: Props) {
           </View>
         )}
 
-        <View className="flex-row justify-between items-center">
-          <View className="flex-row items-center">
-            <Feather name="trending-up" size={20} color="#4B5563" />
-            <Text className="text-gray-400 text-sm ml-2">Price per RCN</Text>
+        {totalCost > 0 && props.amount > 0 && (
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Feather name="trending-up" size={20} color="#4B5563" />
+              <Text className="text-gray-400 text-sm ml-2">Price per RCN</Text>
+            </View>
+            <Text className="text-white text-sm font-semibold">
+              ${(totalCost / props.amount).toFixed(4)} USD
+            </Text>
           </View>
-          <Text className="text-white text-sm font-semibold">
-            ${(props.totalCost / props.amount).toFixed(4)} USD
-          </Text>
-        </View>
+        )}
       </View>
     </View>
   );

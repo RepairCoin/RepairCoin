@@ -1,11 +1,10 @@
 import { useState, useCallback, useMemo } from "react";
-import { 
+import {
   useHistorySearch,
   useHistoryFilters,
   useShopTransactionsQuery,
 } from "../hooks";
-import { PurchaseHistoryData } from "../../services/token.interface";
-
+import { ShopTransactionData } from "../../services/token.interface";
 
 export function useHistoryListUI() {
   const [refreshing, setRefreshing] = useState(false);
@@ -17,18 +16,26 @@ export function useHistoryListUI() {
     setStatusFilter,
     dateFilter,
     setDateFilter,
+    typeFilter,
+    setTypeFilter,
     hasActiveFilters,
     clearFilters: clearFilterState,
   } = useHistoryFilters();
 
   const { data: transactionData, isLoading, error, refetch } = useShopTransactionsQuery();
 
-  const rawTransactions = useMemo((): PurchaseHistoryData[] => {
-    return transactionData?.purchases || [];
+  const rawTransactions = useMemo((): ShopTransactionData[] => {
+    return transactionData?.transactions || [];
   }, [transactionData]);
 
-  const transactions = useMemo((): PurchaseHistoryData[] => {
+  const transactions = useMemo((): ShopTransactionData[] => {
     let filtered = rawTransactions;
+
+    if (typeFilter !== "all") {
+      filtered = filtered.filter(
+        (tx) => tx.type?.toLowerCase() === typeFilter
+      );
+    }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -39,6 +46,9 @@ export function useHistoryListUI() {
         if (tx.totalCost?.toString().includes(query)) return true;
         if (tx.paymentMethod?.toLowerCase().includes(query)) return true;
         if (tx.status?.toLowerCase().includes(query)) return true;
+        if (tx.type?.toLowerCase().includes(query)) return true;
+        if (tx.customerName?.toLowerCase().includes(query)) return true;
+        if (tx.customerAddress?.toLowerCase().includes(query)) return true;
         return false;
       });
     }
@@ -82,7 +92,7 @@ export function useHistoryListUI() {
     }
 
     return filtered;
-  }, [rawTransactions, searchQuery, statusFilter, dateFilter]);
+  }, [rawTransactions, searchQuery, statusFilter, dateFilter, typeFilter]);
 
   const stats = useMemo(() => {
     const completedTx = rawTransactions.filter(
@@ -90,8 +100,18 @@ export function useHistoryListUI() {
         tx.status?.toLowerCase() === "completed" ||
         tx.status?.toLowerCase() === "success"
     );
-    const totalRcnPurchased = completedTx.reduce((sum, tx) => sum + tx.amount, 0);
-    const totalSpent = completedTx.reduce((sum, tx) => sum + (tx.totalCost || 0), 0);
+    const totalRcnPurchased = completedTx
+      .filter((tx) => tx.type?.toLowerCase() === "purchase")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+    const totalSpent = completedTx
+      .filter((tx) => tx.type?.toLowerCase() === "purchase")
+      .reduce((sum, tx) => sum + (tx.totalCost || 0), 0);
+    const totalRewarded = completedTx
+      .filter((tx) => tx.type?.toLowerCase() === "reward")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+    const totalRedeemed = completedTx
+      .filter((tx) => tx.type?.toLowerCase() === "redemption")
+      .reduce((sum, tx) => sum + tx.amount, 0);
     const pendingTx = rawTransactions.filter(
       (tx) => tx.status?.toLowerCase() === "pending"
     );
@@ -99,6 +119,8 @@ export function useHistoryListUI() {
     return {
       totalRcnPurchased,
       totalSpent,
+      totalRewarded,
+      totalRedeemed,
       totalTransactions: rawTransactions.length,
       pendingCount: pendingTx.length,
     };
@@ -133,6 +155,8 @@ export function useHistoryListUI() {
     setStatusFilter,
     dateFilter,
     setDateFilter,
+    typeFilter,
+    setTypeFilter,
     hasActiveFilters,
     clearFilters,
   };
