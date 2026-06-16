@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   LayoutGrid,
-  LogOut,
   MapPin,
   Gift,
   ShoppingBag,
@@ -12,14 +11,14 @@ import {
   UserPlus,
   CheckCircle,
   Calendar,
-  Search,
-  ChevronDown,
   Settings,
   MessageSquare,
   TrendingUp,
   HelpCircle,
+  ChevronDown,
+  LogOut,
 } from "lucide-react";
-import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
+import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
 
 interface CustomerSidebarProps {
@@ -37,7 +36,9 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
   onTabChange,
   onCollapseChange,
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
+  // Collapsed-state hover flyout: which group is open + its vertical anchor
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const [flyoutTop, setFlyoutTop] = useState(0);
 
   const {
     isCollapsed,
@@ -52,14 +53,15 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     activeTab,
     onTabChange,
     onCollapseChange,
-    defaultExpandedSections: ["dashboard", "services", "rewards", "discovery", "account", "settings"],
+    defaultExpandedSections: ["dashboard", "services", "rewards", "discovery", "account"],
   });
 
   // Customer sections definition - organized to match Figma design
   const customerSections: SidebarSection[] = [
     {
       id: "dashboard",
-      title: "DASHBOARD",
+      title: "Dashboard",
+      icon: <LayoutGrid className="w-5 h-5" />,
       items: [
         {
           title: "Overview",
@@ -71,7 +73,8 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     },
     {
       id: "services",
-      title: "SERVICES & BOOKINGS",
+      title: "Services",
+      icon: <ShoppingBag className="w-5 h-5" />,
       items: [
         {
           title: "Marketplace",
@@ -95,7 +98,8 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     },
     {
       id: "rewards",
-      title: "REWARDS & REFERRALS",
+      title: "Rewards and Referrals",
+      icon: <Gift className="w-5 h-5" />,
       items: [
         {
           title: "Referrals",
@@ -113,7 +117,8 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     },
     {
       id: "discovery",
-      title: "DISCOVERY",
+      title: "Discovery",
+      icon: <MapPin className="w-5 h-5" />,
       items: [
         {
           title: "Find Shop",
@@ -125,7 +130,8 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     },
     {
       id: "account",
-      title: "ACCOUNT",
+      title: "Account",
+      icon: <CheckCircle className="w-5 h-5" />,
       items: [
         {
           title: "Approvals",
@@ -157,6 +163,100 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
     },
   ];
 
+  const settingsItems = bottomMenuItems.filter(
+    (item) => item.href !== "/logout"
+  );
+  const logoutItem = bottomMenuItems.find((item) => item.href === "/logout");
+
+  // Renders a group as a single icon with a hover flyout of its items (collapsed mode)
+  const renderCollapsedGroup = (opts: {
+    id: string;
+    title: string;
+    icon: React.ReactNode;
+    items: SidebarItem[];
+    onItemClick: (item: SidebarItem, e: React.MouseEvent) => void;
+  }) => {
+    const { id, title, icon, items, onItemClick } = opts;
+    const groupActive = items.some((item) => isItemActive(item));
+    const isOpen = hoveredGroup === id;
+    const first = items[0];
+    const hasSubItems = items.length > 1;
+    const triggerClass = `p-2 rounded-lg transition-colors ${
+      groupActive
+        ? "bg-[#FFCC00] text-[#101010]"
+        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+    }`;
+    const iconEl = React.isValidElement(icon)
+      ? React.cloneElement(
+          icon as React.ReactElement<React.HTMLAttributes<HTMLElement>>,
+          { className: `w-5 h-5 ${groupActive ? "text-[#101010]" : ""}` }
+        )
+      : icon;
+    return (
+      <div
+        key={id}
+        className="relative flex justify-center"
+        onMouseEnter={(e) => {
+          setHoveredGroup(id);
+          setFlyoutTop(e.currentTarget.getBoundingClientRect().top);
+        }}
+        onMouseLeave={() => setHoveredGroup(null)}
+      >
+        {hasSubItems ? (
+          // Multi-item group: clicking only opens the flyout (no navigation)
+          <button
+            type="button"
+            title={title}
+            onClick={() => setHoveredGroup(id)}
+            className={triggerClass}
+          >
+            {iconEl}
+          </button>
+        ) : (
+          // Single item: navigate directly on click
+          <Link
+            href={first.href}
+            onClick={(e) => onItemClick(first, e)}
+            title={title}
+            className={triggerClass}
+          >
+            {iconEl}
+          </Link>
+        )}
+        {isOpen && (
+          <div
+            style={{ position: "fixed", top: flyoutTop, left: 80 }}
+            className="z-[60] min-w-[190px] bg-[#1c1c1c] border border-gray-800 rounded-lg shadow-xl py-2 before:content-[''] before:absolute before:top-0 before:-left-2 before:h-full before:w-2"
+          >
+            <p className="px-3 pb-1 text-[11px] font-medium tracking-wide text-gray-400">
+              {title}
+            </p>
+            {items.map((item) => {
+              const active = isItemActive(item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => {
+                    onItemClick(item, e);
+                    setHoveredGroup(null);
+                  }}
+                  className={`block px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? "bg-gray-800 text-[#FFCC00]"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  {item.title}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <BaseSidebar
       isOpen={isOpen}
@@ -166,42 +266,35 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
       onNavigateHome={navigateToHome}
       userRole="customer"
     >
-      {/* Search Box */}
-      {!isCollapsed && (
-        <div className="px-4 pt-4 pb-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#FFCC00] transition-colors"
-            />
-          </div>
-        </div>
-      )}
-
       {/* Main Navigation */}
-      <nav className="py-3 sm:py-4">
+      <nav className={`${isCollapsed ? "pt-2" : "pt-0"} pb-0`}>
         {!isCollapsed ? (
           /* Customer Sidebar with Sections */
-          <div className="space-y-4 px-2 sm:px-3">
+          <div className="px-2 sm:px-3">
             {customerSections.map((section) => {
               const sectionExpanded = isSectionExpanded(section.id);
 
               return (
-                <div key={section.id}>
-                  {/* Section Header */}
-                  <SectionHeader
-                    title={section.title}
-                    isExpanded={sectionExpanded}
-                    onToggle={() => toggleSection(section.id)}
-                  />
+                <div
+                  key={section.id}
+                  className="border-b border-gray-800 py-2"
+                >
+                  {/* Section Header — gray label + chevron, no icon */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="flex items-center justify-between w-full px-2 py-2 text-xs font-medium tracking-wide text-gray-400 hover:text-white transition-colors"
+                  >
+                    <span>{section.title}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        sectionExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
                   {/* Section Items */}
                   {sectionExpanded && (
-                    <ul className="space-y-1 mt-2">
+                    <ul className="space-y-1 mt-1">
                       {section.items.map((item) => {
                         const isActive = isItemActive(item);
 
@@ -228,75 +321,65 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
             })}
           </div>
         ) : (
-          /* Collapsed state - show icons only */
-          <ul className="space-y-1 px-2 sm:px-3">
-            {customerSections.flatMap((section) =>
-              section.items.map((item) => {
-                const isActive = isItemActive(item);
+          /* Collapsed state - group icons with hover flyouts */
+          <div className="px-2">
+            <div className="space-y-1">
+              {customerSections.map((section) =>
+                renderCollapsedGroup({
+                  id: section.id,
+                  title: section.title,
+                  icon: section.icon,
+                  items: section.items,
+                  onItemClick: (item, e) => {
+                    if (item.tabId && onTabChange) {
+                      e.preventDefault();
+                      onTabChange(item.tabId);
+                    }
+                  },
+                })
+              )}
+            </div>
 
-                const handleClick = (e: React.MouseEvent) => {
-                  if (item.tabId && onTabChange) {
-                    e.preventDefault();
-                    onTabChange(item.tabId);
-                  }
-                };
+            <div className="border-t border-gray-800 my-2" />
 
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={handleClick}
-                      className={`
-                        flex items-center justify-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg
-                        transition-colors duration-200
-                        ${
-                          isActive
-                            ? "bg-yellow-400 text-gray-900 font-medium"
-                            : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                        }
-                      `}
-                      title={item.title}
-                    >
-                      {React.isValidElement(item.icon)
-                        ? React.cloneElement(
-                            item.icon as React.ReactElement<
-                              React.HTMLAttributes<HTMLElement>
-                            >,
-                            {
-                              className: `w-4 h-4 sm:w-5 sm:h-5 ${
-                                isActive ? "text-gray-900" : ""
-                              }`,
-                            }
-                          )
-                        : item.icon}
-                    </Link>
-                  </li>
-                );
-              })
+            {/* Settings group */}
+            {renderCollapsedGroup({
+              id: "settings",
+              title: "Settings",
+              icon: <Settings className="w-5 h-5" />,
+              items: settingsItems,
+              onItemClick: (item, e) => handleItemClick(item, e),
+            })}
+
+            {logoutItem && (
+              <>
+                <div className="border-t border-gray-800 my-2" />
+                <div className="flex justify-center">
+                  <button
+                    onClick={(e) => handleItemClick(logoutItem, e)}
+                    title="Logout"
+                    className="p-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              </>
             )}
-          </ul>
+          </div>
         )}
       </nav>
 
-      {/* Settings Section */}
-      <div className="border-t border-gray-800 p-3 sm:p-4">
-        {!isCollapsed && (
-          <button
-            onClick={() => toggleSection("settings")}
-            className="flex items-center justify-between w-full px-2 py-2 text-[#FFCC00] text-xs font-semibold tracking-wider hover:opacity-80 transition-opacity mb-2"
-          >
-            <span>SETTINGS</span>
-            <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${
-                isSectionExpanded("settings") ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-        )}
+      {/* Settings Section — expanded only (collapsed handled in nav) */}
+      {!isCollapsed && (
+      <div className="px-2 sm:px-3 pt-2 pb-3">
+        <p className="px-2 py-2 text-xs font-medium tracking-wide text-gray-400">
+          Settings
+        </p>
 
-        {/* Show items if: collapsed, OR section is expanded */}
-        {(isCollapsed || isSectionExpanded("settings")) && (
-          <ul className="space-y-1">
+        {/* Settings items are always shown (non-collapsible) */}
+        <ul
+          className={`space-y-1 ${isCollapsed ? "" : "mt-1"}`}
+        >
             {bottomMenuItems.map((item) => {
               const isActive = item.tabId ? activeTab === item.tabId : false;
 
@@ -312,7 +395,7 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                     className={`
                       flex items-center ${
                         isCollapsed ? "justify-center" : "space-x-3"
-                      } px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                      } px-3 sm:px-4 py-2 rounded-lg
                       transition-colors duration-200
                       ${
                         isActive
@@ -335,15 +418,15 @@ const CustomerSidebar: React.FC<CustomerSidebarProps> = ({
                         )
                       : item.icon}
                     {!isCollapsed && (
-                      <span className="text-sm sm:text-base">{item.title}</span>
+                      <span className="text-[13px] sm:text-sm">{item.title}</span>
                     )}
                   </Link>
                 </li>
               );
             })}
-          </ul>
-        )}
+        </ul>
       </div>
+      )}
     </BaseSidebar>
   );
 };

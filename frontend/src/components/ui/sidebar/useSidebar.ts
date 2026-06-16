@@ -27,6 +27,7 @@ export interface SidebarSection {
   title: string;
   items: SidebarItem[];
   id: string;
+  icon?: React.ReactNode;
 }
 
 export interface UseSidebarProps {

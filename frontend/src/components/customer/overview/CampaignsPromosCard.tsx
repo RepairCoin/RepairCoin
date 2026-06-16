@@ -241,8 +241,8 @@ const CampaignModal: React.FC<CampaignModalProps> = ({ notification, onClose, on
                 >
                   {design.header?.showLogo !== false && (
                     <img
-                      src="/img/landing/repaircoin-icon.png"
-                      alt="RepairCoin"
+                      src="/img/landing/fixflow-icon.png"
+                      alt="Fixflow"
                       className="w-12 h-12 mx-auto mb-3"
                     />
                   )}

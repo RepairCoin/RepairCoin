@@ -5,10 +5,10 @@ import Link from "next/link";
 import { appointmentsApi } from "@/services/api/appointments";
 import {
   Settings,
-  LogOut,
   Search,
   BarChart3,
   ChevronDown,
+  LogOut,
   HouseIcon,
   HeartHandshakeIcon,
   ClipboardCheckIcon,
@@ -31,7 +31,7 @@ import {
   Package,
 } from "lucide-react";
 import { BuyRcnIcon } from "@/components/icon";
-import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
+import { BaseSidebar, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
 
 interface ShopSidebarProps {
@@ -51,6 +51,9 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+  // Collapsed-state hover flyout: which group is open + its vertical anchor
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const [flyoutTop, setFlyoutTop] = useState(0);
 
   // Fetch pending reschedule count for badge
   const fetchPendingCount = useCallback(async () => {
@@ -82,14 +85,15 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     activeTab,
     onTabChange,
     onCollapseChange,
-    defaultExpandedSections: ["settings"],
+    defaultExpandedSections: ["dashboard", "service", "rewards", "customers", "shop-tools"],
   });
 
   // Shop sections definition
   const shopSections: SidebarSection[] = [
     {
       id: "dashboard",
-      title: "DASHBOARD",
+      title: "Dashboard",
+      icon: <HouseIcon className="w-5 h-5" />,
       items: [
         {
           title: "Overview",
@@ -101,7 +105,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
     {
       id: "service",
-      title: "SERVICE",
+      title: "Service",
+      icon: <HeartHandshakeIcon className="w-5 h-5" />,
       items: [
         {
           title: "Services",
@@ -150,7 +155,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
     {
       id: "rewards",
-      title: "REWARDS MANAGEMENT",
+      title: "Rewards",
+      icon: <GemIcon className="w-5 h-5" />,
       items: [
         {
           title: "Tools",
@@ -162,7 +168,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
     {
       id: "customers",
-      title: "CUSTOMERS",
+      title: "Customers",
+      icon: <UsersIcon className="w-5 h-5" />,
       items: [
         {
           title: "Customers",
@@ -187,7 +194,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
     {
       id: "shop-tools",
-      title: "SHOP MANAGEMENT",
+      title: "Shop Management",
+      icon: <Store className="w-5 h-5" />,
       items: [
         {
           title: "Shop Profile",
@@ -275,6 +283,11 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
     },
   ];
 
+  const settingsItems = bottomMenuItems.filter(
+    (item) => item.href !== "/logout"
+  );
+  const logoutItem = bottomMenuItems.find((item) => item.href === "/logout");
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const isSearching = normalizedQuery.length > 0;
   const matchesQuery = (text: string) =>
@@ -298,6 +311,95 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
   const hasResults =
     filteredSections.length > 0 || filteredBottomItems.length > 0;
 
+  // Renders a group as a single icon with a hover flyout of its items (collapsed mode)
+  const renderCollapsedGroup = (opts: {
+    id: string;
+    title: string;
+    icon: React.ReactNode;
+    items: SidebarItem[];
+    onItemClick: (item: SidebarItem, e: React.MouseEvent) => void;
+  }) => {
+    const { id, title, icon, items, onItemClick } = opts;
+    const groupActive = items.some((item) => isItemActive(item));
+    const isOpen = hoveredGroup === id;
+    const first = items[0];
+    const hasSubItems = items.length > 1;
+    const triggerClass = `p-2 rounded-lg transition-colors ${
+      groupActive
+        ? "bg-[#FFCC00] text-[#101010]"
+        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+    }`;
+    const iconEl = React.isValidElement(icon)
+      ? React.cloneElement(
+          icon as React.ReactElement<React.HTMLAttributes<HTMLElement>>,
+          { className: `w-5 h-5 ${groupActive ? "text-[#101010]" : ""}` }
+        )
+      : icon;
+    return (
+      <div
+        key={id}
+        className="relative flex justify-center"
+        onMouseEnter={(e) => {
+          setHoveredGroup(id);
+          setFlyoutTop(e.currentTarget.getBoundingClientRect().top);
+        }}
+        onMouseLeave={() => setHoveredGroup(null)}
+      >
+        {hasSubItems ? (
+          // Multi-item group: clicking only opens the flyout (no navigation)
+          <button
+            type="button"
+            title={title}
+            onClick={() => setHoveredGroup(id)}
+            className={triggerClass}
+          >
+            {iconEl}
+          </button>
+        ) : (
+          // Single item: navigate directly on click
+          <Link
+            href={first.href}
+            onClick={(e) => onItemClick(first, e)}
+            title={title}
+            className={triggerClass}
+          >
+            {iconEl}
+          </Link>
+        )}
+        {isOpen && (
+          <div
+            style={{ position: "fixed", top: flyoutTop, left: 80 }}
+            className="z-[60] min-w-[190px] bg-[#1c1c1c] border border-gray-800 rounded-lg shadow-xl py-2 before:content-[''] before:absolute before:top-0 before:-left-2 before:h-full before:w-2"
+          >
+            <p className="px-3 pb-1 text-[11px] font-medium tracking-wide text-gray-400">
+              {title}
+            </p>
+            {items.map((item) => {
+              const active = isItemActive(item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => {
+                    onItemClick(item, e);
+                    setHoveredGroup(null);
+                  }}
+                  className={`block px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? "bg-gray-800 text-[#FFCC00]"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  {item.title}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <BaseSidebar
       isOpen={isOpen}
@@ -308,26 +410,36 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
       userRole="shop"
     >
       {/* Search Box */}
-      {!isCollapsed && (
-        <div className="px-4 pt-4 pb-2">
+      {!isCollapsed ? (
+        <div className="px-4 pt-1 pb-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#FFCC00] transition-colors"
+              className="w-full bg-[#1c1c1c] border border-transparent rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#FFCC00] transition-colors"
             />
           </div>
+        </div>
+      ) : (
+        <div className="px-2 pt-2 pb-0 flex justify-center">
+          <button
+            onClick={handleCollapseToggle}
+            title="Search"
+            className="p-2 rounded-full bg-[#1c1c1c] text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <Search className="w-5 h-5" />
+          </button>
         </div>
       )}
 
       {/* Main Navigation */}
-      <nav className="py-3 sm:py-4">
+      <nav className={`${isCollapsed ? "pt-2" : "pt-1"} pb-0`}>
         {!isCollapsed ? (
           /* Shop Sidebar with Sections */
-          <div className="space-y-4 px-2 sm:px-3">
+          <div className="px-2 sm:px-3">
             {isSearching && !hasResults && (
               <p className="px-2 py-3 text-sm text-gray-400">
                 No results for &ldquo;{searchQuery.trim()}&rdquo;
@@ -337,17 +449,26 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
               const sectionExpanded = isSearching || isSectionExpanded(section.id);
 
               return (
-                <div key={section.id}>
-                  {/* Section Header */}
-                  <SectionHeader
-                    title={section.title}
-                    isExpanded={sectionExpanded}
-                    onToggle={() => toggleSection(section.id)}
-                  />
+                <div
+                  key={section.id}
+                  className="border-b border-gray-800 py-2"
+                >
+                  {/* Section Header — gray label + chevron, no icon */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="flex items-center justify-between w-full px-2 py-2 text-xs font-medium tracking-wide text-gray-400 hover:text-white transition-colors"
+                  >
+                    <span>{section.title}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        sectionExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
                   {/* Section Items */}
                   {sectionExpanded && (
-                    <ul className="space-y-1 mt-2">
+                    <ul className="space-y-1 mt-1">
                       {section.items.map((item) => {
                         const isActive = isItemActive(item);
 
@@ -382,84 +503,70 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
             })}
           </div>
         ) : (
-          /* Collapsed state - show icons only */
-          <ul className="space-y-1 px-2 sm:px-3">
-            {filteredSections.flatMap((section) =>
-              section.items.map((item) => {
-                const isActive = isItemActive(item);
+          /* Collapsed state - group icons with hover flyouts */
+          <div className="px-2">
+            <div className="space-y-1">
+              {shopSections.map((section) =>
+                renderCollapsedGroup({
+                  id: section.id,
+                  title: section.title,
+                  icon: section.icon,
+                  items: section.items,
+                  onItemClick: (item, e) => {
+                    const isDirectPageRoute = !item.href.includes("?tab=");
+                    if (isDirectPageRoute) return;
+                    if (item.tabId && onTabChange) {
+                      e.preventDefault();
+                      onTabChange(item.tabId);
+                    }
+                  },
+                })
+              )}
+            </div>
 
-                // Check if this is a direct page route (not a tab route)
-                const isDirectPageRoute = !item.href.includes("?tab=");
+            <div className="border-t border-gray-800 my-2" />
 
-                const handleClick = (e: React.MouseEvent) => {
-                  // For direct page routes, let the Link navigate normally
-                  if (isDirectPageRoute) {
-                    return;
-                  }
-                  // For tab routes, prevent default and use onTabChange
-                  if (item.tabId && onTabChange) {
-                    e.preventDefault();
-                    onTabChange(item.tabId);
-                  }
-                };
+            {/* Settings group */}
+            {renderCollapsedGroup({
+              id: "settings",
+              title: "Settings",
+              icon: <Settings className="w-5 h-5" />,
+              items: settingsItems,
+              onItemClick: (item, e) => handleItemClick(item, e),
+            })}
 
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={handleClick}
-                      className={`
-                        flex items-center justify-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg
-                        transition-colors duration-200
-                        ${
-                          isActive
-                            ? "bg-yellow-400 text-gray-900 font-medium"
-                            : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                        }
-                      `}
-                      title={item.title}
-                    >
-                      {React.isValidElement(item.icon)
-                        ? React.cloneElement(
-                            item.icon as React.ReactElement<
-                              React.HTMLAttributes<HTMLElement>
-                            >,
-                            {
-                              className: `w-4 h-4 sm:w-5 sm:h-5 ${
-                                isActive ? "text-gray-900" : ""
-                              }`,
-                            }
-                          )
-                        : item.icon}
-                    </Link>
-                  </li>
-                );
-              })
+            {logoutItem && (
+              <>
+                <div className="border-t border-gray-800 my-2" />
+                <div className="flex justify-center">
+                  <button
+                    onClick={(e) => handleItemClick(logoutItem, e)}
+                    title="Logout"
+                    className="p-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              </>
             )}
-          </ul>
+          </div>
         )}
       </nav>
 
-      {/* Settings Section */}
-      {(!isSearching || filteredBottomItems.length > 0) && (
-      <div className="border-t border-gray-800 p-3 sm:p-4">
-        {!isCollapsed && !isSearching && (
-          <button
-            onClick={() => toggleSection("settings")}
-            className="flex items-center justify-between w-full px-2 py-2 text-[#FFCC00] text-xs font-semibold tracking-wider hover:opacity-80 transition-opacity mb-2"
-          >
-            <span>SETTINGS</span>
-            <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${
-                isSectionExpanded("settings") ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+      {/* Settings Section — static, always expanded (collapsed handled in nav) */}
+      {!isCollapsed && (!isSearching || filteredBottomItems.length > 0) && (
+      <div className="px-2 sm:px-3 pt-2 pb-3">
+        {!isSearching && (
+          <p className="px-2 py-2 text-xs font-medium tracking-wide text-gray-400">
+            Settings
+          </p>
         )}
 
-        {/* Show items if: collapsed, OR section is expanded */}
-        {(isCollapsed || isSearching || isSectionExpanded("settings")) && (
-          <ul className="space-y-1">
+        {/* Settings items are always shown (non-collapsible) */}
+        {(filteredBottomItems.length > 0) && (
+          <ul
+            className={`space-y-1 ${isSearching ? "" : "mt-1"}`}
+          >
             {filteredBottomItems.map((item) => {
               const isActive = item.tabId ? activeTab === item.tabId : false;
 
@@ -475,7 +582,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                     className={`
                       flex items-center ${
                         isCollapsed ? "justify-center" : "space-x-3"
-                      } px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                      } px-3 sm:px-4 py-2 rounded-lg
                       transition-colors duration-200
                       ${
                         isActive
@@ -498,7 +605,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                         )
                       : item.icon}
                     {!isCollapsed && (
-                      <span className="text-sm sm:text-base">{item.title}</span>
+                      <span className="text-[13px] sm:text-sm">{item.title}</span>
                     )}
                   </Link>
                 </li>

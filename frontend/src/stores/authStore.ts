@@ -11,6 +11,7 @@ export interface UserProfile {
   type: 'customer' | 'shop' | 'admin';
   name?: string;
   email?: string;
+  avatarUrl?: string;
   isActive?: boolean;
   tier?: 'bronze' | 'silver' | 'gold';
   shopId?: string;
@@ -94,7 +95,7 @@ export const useAuthStore = create<AuthState>()(
       // Set user profile
       setUserProfile: (profile) => {
         const userType = profile?.type || null;
-        set({ 
+        set({
           userProfile: profile,
           isAuthenticated: !!profile,
           userType,
@@ -261,15 +262,19 @@ export const useAuthStore = create<AuthState>()(
 
           // Build user profile
           // Note: token is stored in httpOnly cookie by backend, not in profile
-          // Prefer authResult.user (from authentication) over userCheck.user (from check-user)
-          // because authResult has more up-to-date data including suspension info
-          const userData = authResult?.user || userCheck.user;
+          // Merge: check-user has the full record (email, avatar, etc.) while the
+          // authenticate response is partial; let authResult override where present
+          // so we keep its fresher fields (e.g. suspension) without losing the rest.
+          const userData = authResult?.user
+            ? { ...userCheck.user, ...authResult.user }
+            : userCheck.user;
           const profile: UserProfile = {
             id: userData.id,
             address: userData.walletAddress || userData.address || address,
             type: userCheck.type as 'customer' | 'shop' | 'admin',
             name: userData.name || userData.shopName,
             email: userData.email,
+            avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
             isActive: userData.active !== false,
             tier: userData.tier,
             shopId: userData.shopId,
