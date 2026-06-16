@@ -5,6 +5,7 @@ import {
   StatusFilter,
   TransactionFilter,
   DateFilter,
+  ShopTransactionTypeFilter,
 } from "@/feature/token/services/token.interface";
 
 export const TIER_STYLES: Record<CustomerTierUpper, string> = {
@@ -93,6 +94,16 @@ export const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "pending", label: "Pending" },
   { id: "completed", label: "Completed" },
   { id: "failed", label: "Failed" },
+];
+
+export const TRANSACTION_TYPE_FILTERS: {
+  id: ShopTransactionTypeFilter;
+  label: string;
+}[] = [
+  { id: "all", label: "All Types" },
+  { id: "reward", label: "Rewards" },
+  { id: "redemption", label: "Redemptions" },
+  { id: "purchase", label: "Purchases" },
 ];
 
 export interface HowToRedeemStep {

@@ -16,7 +16,10 @@ import {
   RewardRequest,
   RewardResponse,
 } from "./shop.interface";
-import { PurchaseHistoryResponse } from "@/feature/token/services/token.interface";
+import {
+  PurchaseHistoryResponse,
+  ShopTransactionHistoryResponse,
+} from "@/feature/token/services/token.interface";
 import { StripeCheckoutResponse } from "@/feature/token/services/token.interface";
 
 class ShopApi {
@@ -299,6 +302,23 @@ class ShopApi {
       return await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`);
     } catch (error: any) {
       console.error("Failed to check payment status:", error.message);
+      throw error;
+    }
+  }
+
+  // Unified transaction history: rewards issued, redemptions processed, RCN purchases
+  async getShopTransactionHistory(
+    shopId: string,
+    type?: string,
+    limit: number = 100,
+  ): Promise<ShopTransactionHistoryResponse> {
+    try {
+      const typeParam = type && type !== "all" ? `&type=${type}` : "";
+      return await apiClient.get(
+        `/shops/${shopId}/transactions?limit=${limit}${typeParam}`,
+      );
+    } catch (error: any) {
+      console.error("Failed to get shop transaction history:", error.message);
       throw error;
     }
   }

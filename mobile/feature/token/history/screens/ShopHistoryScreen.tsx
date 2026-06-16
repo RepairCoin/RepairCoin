@@ -10,8 +10,12 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/shared/components/ui/ThemedView";
 import { SearchInput } from "@/shared/components/ui/SearchInput";
 import { SkeletonList } from "@/shared/components/ui/Skeleton";
-import { STATUS_FILTERS, DATE_FILTERS } from "@/shared/constants/token";
-import { PurchaseHistoryData } from "@/feature/token/services/token.interface";
+import {
+  STATUS_FILTERS,
+  DATE_FILTERS,
+  TRANSACTION_TYPE_FILTERS,
+} from "@/shared/constants/token";
+import { ShopTransactionData } from "@/feature/token/services/token.interface";
 import { useHistoryListUI } from "../hooks";
 import { TransactionHistoryCard, FilterChip } from "../components";
 
@@ -29,18 +33,25 @@ export default function ShopHistoryScreen() {
     setStatusFilter,
     dateFilter,
     setDateFilter,
+    typeFilter,
+    setTypeFilter,
     hasActiveFilters,
   } = useHistoryListUI();
 
-  const renderTransaction = ({ item }: { item: PurchaseHistoryData }) => (
+  const renderTransaction = ({ item }: { item: ShopTransactionData }) => (
     <TransactionHistoryCard
       variant="shop"
+      type={item.type}
       amount={item.amount}
       createdAt={item.createdAt}
+      status={item.status}
+      customerAddress={item.customerAddress}
+      customerName={item.customerName}
+      repairAmount={item.repairAmount}
+      isTierBonus={item.is_tier_bonus}
+      failureReason={item.failureReason}
       paymentMethod={item.paymentMethod}
       totalCost={item.totalCost}
-      status={item.status}
-      completedAt={item.completedAt}
     />
   );
 
@@ -78,7 +89,7 @@ export default function ShopHistoryScreen() {
         <Text className="text-gray-500 text-sm mt-1 text-center px-4">
           {hasActiveFilters
             ? "Try adjusting your filters"
-            : "Your RCN purchase history will appear here"}
+            : "Rewards issued, redemptions, and RCN purchases will appear here"}
         </Text>
       </View>
     );
@@ -88,7 +99,7 @@ export default function ShopHistoryScreen() {
     <ThemedView className="flex-1">
       <View className="pt-16 px-4 pb-2">
         <Text className="text-white text-2xl font-bold mb-4">
-          Purchase History
+          Transaction History
         </Text>
 
         {/* Search Input */}
@@ -99,6 +110,22 @@ export default function ShopHistoryScreen() {
             placeholder="Search transactions..."
           />
         </View>
+
+        {/* Type Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-3"
+        >
+          {TRANSACTION_TYPE_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={filter.label}
+              isActive={typeFilter === filter.id}
+              onPress={() => setTypeFilter(filter.id)}
+            />
+          ))}
+        </ScrollView>
 
         {/* Status Filters */}
         <ScrollView
