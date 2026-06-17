@@ -4,6 +4,7 @@
   import { customerRepository, shopRepository, transactionRepository, adminRepository } from '../../../repositories';
   import { ReferralRepository } from '../../../repositories/ReferralRepository';
   import { ReferralService } from '../../../services/ReferralService';
+  import { TokenProviderFactory } from '../../../providers/TokenProviderFactory';
   import { logger } from '../../../utils/logger';
 
   export interface TokenEarningRequest {
@@ -544,14 +545,10 @@
           return { success: false, error: 'Shop must be active and verified' };
         }
 
-        // Check customer balance
-        const currentBalance = await this.getTokenMinter().getCustomerBalance(customerAddress);
-        if (!currentBalance || currentBalance < amount) {
-          return {
-            success: false,
-            error: 'Insufficient balance',
-          };
-        }
+        // Balance sufficiency is validated by the token provider below against
+        // the customer's calculated available balance. (Previously this read the
+        // on-chain balance directly, which made redemptions fail whenever
+        // blockchain was disabled.)
 
         // Check redemption eligibility
         const isHomeShop = customer.fixflowCustomerId === shop.fixflowShopId;
@@ -564,19 +561,14 @@
           };
         }
 
-        // Record redemption transaction
-        const transactionId = `redeem_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        
-        await transactionRepository.recordTransaction({
-          id: transactionId,
-          type: 'redeem',
-          customerAddress: customerAddress.toLowerCase(),
-          shopId,
+        // Deduct via the active token provider. In database-only mode this
+        // validates the customer's available balance and records the redemption;
+        // with ENABLE_BLOCKCHAIN_MINTING=true it also burns on-chain.
+        const debit = await TokenProviderFactory.getProvider().debitTokens({
+          customerAddress,
           amount,
           reason: `Redemption at ${shop.name}`,
-          transactionHash: '', // In real implementation, would burn tokens
-          timestamp: new Date().toISOString(),
-          status: 'confirmed',
+          shopId,
           metadata: {
             shopName: shop.name,
             isHomeShop,
@@ -585,12 +577,14 @@
           }
         });
 
+        if (!debit.success) {
+          return { success: false, error: debit.error || 'Redemption failed' };
+        }
+
+        const transactionId = debit.transactionId;
+
         // Update shop statistics
         await this.updateShopStats(shopId, 0, amount);
-
-        // Update customer balance - deduct from current_rcn_balance and increment total_redemptions
-        await customerRepository.updateBalanceAfterRedemption(customerAddress, amount);
-        logger.info('Customer balance updated after redemption', { customerAddress, amount });
 
         logger.transaction('Token redemption processed successfully', {
           customerAddress,

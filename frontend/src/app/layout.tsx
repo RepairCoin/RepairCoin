@@ -32,32 +32,32 @@ const inriaSans = Inria_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.repaircoin.ai'),
-  title: 'RepairCoin - Loyalty Tokens for Repair Shops',
-  description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
+  title: 'FixFlow - Loyalty Tokens for Service Businesses',
+  description: 'Earn FixFlow tokens for services and redeem them at participating businesses',
   keywords: ['blockchain', 'loyalty', 'tokens', 'repair', 'cryptocurrency'],
   icons: {
-    icon: '/img/favicon-logo.png',
-    shortcut: '/img/favicon-logo.png',
-    apple: '/img/favicon-logo.png',
+    icon: '/img/landing/fixflow-icon.png',
+    shortcut: '/img/landing/fixflow-icon.png',
+    apple: '/img/landing/fixflow-icon.png',
   },
   openGraph: {
-    title: 'RepairCoin - Loyalty Tokens for Repair Shops',
-    description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
-    siteName: 'RepairCoin',
+    title: 'FixFlow - Loyalty Tokens for Service Businesses',
+    description: 'Earn FixFlow tokens for services and redeem them at participating businesses',
+    siteName: 'FixFlow',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'RepairCoin - Smart Loyalty for Service Businesses',
+        alt: 'FixFlow - Smart Loyalty for Service Businesses',
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'RepairCoin - Loyalty Tokens for Repair Shops',
-    description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
+    title: 'FixFlow - Loyalty Tokens for Service Businesses',
+    description: 'Earn FixFlow tokens for services and redeem them at participating businesses',
     images: ['/og-image.png'],
   },
 }

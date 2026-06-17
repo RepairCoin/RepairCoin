@@ -117,36 +117,42 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Mobile header bar — hamburger only */}
       {/* z-20 ensures header stays above content but below icons */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 bg-[#1e1f22] flex items-center justify-between px-4 transition-all duration-300 ease-in-out pt-2 pb-2 z-20 ${
-        isScrolled ? "top-0" : "top-8"
-      }`}>
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#101010] flex items-center justify-between px-4 pt-4 pb-2 z-20">
         <button
           onClick={toggleSidebar}
-          className="p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-colors"
+          className={
+            userRole === "shop"
+              ? "p-2 rounded-full bg-[#1f1f1f] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors"
+              : "p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-colors"
+          }
         >
           {isSidebarOpen ? (
-            <X className="w-5 h-5" />
+            <X className={userRole === "shop" ? "w-5 h-5" : "w-6 h-6"} />
           ) : (
-            <Menu className="w-5 h-5" />
+            <Menu className={userRole === "shop" ? "w-5 h-5" : "w-6 h-6"} />
           )}
         </button>
       </div>
 
       {/* Icons — rendered once, repositioned via responsive classes */}
       {/* Mobile: top-right inside header area | Desktop: fixed top-right */}
+      {/* Floating top-right icons. For shops on desktop the icons live in the
+          ShopBreadcrumb header bar, so this cluster is hidden there (lg:hidden)
+          — except on the messages tab where the breadcrumb is hidden, so it
+          stays visible as a fallback. Mobile always uses this floating cluster. */}
       {userRole !== "admin" && (
-        <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-2 pb-2 transition-all duration-300 ease-in-out ${
-          isScrolled ? "top-0 lg:top-0" : "top-8 lg:top-6"
-        }`}>
-          {userRole === "shop" && <CartIcon />}
-          <MessageIcon />
-          <NotificationBell />
+        <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-4 pb-2 lg:pt-2 transition-all duration-300 ease-in-out ${
+          isScrolled ? "top-0 lg:top-0" : "top-0 lg:top-6"
+        } ${userRole === "shop" && activeTab !== "messages" ? "lg:hidden" : ""}`}>
+          {userRole === "shop" && <CartIcon variant="subtle" />}
+          <MessageIcon variant={userRole === "shop" ? "subtle" : "default"} />
+          <NotificationBell variant={userRole === "shop" ? "subtle" : "default"} />
           {/* The Unified Assistant is the single AI "door" — the per-domain
               Insights / Marketing / Help launchers were retired into it
               (Help folded into the orchestrator's knowledge). The header mic
               is a quick voice trigger that opens this same assistant. */}
-          {userRole === "shop" && <HeaderVoiceMic />}
-          {userRole === "shop" && <UnifiedAssistantLauncher />}
+          {userRole === "shop" && <HeaderVoiceMic variant="subtle" />}
+          {userRole === "shop" && <UnifiedAssistantLauncher variant="subtle" />}
         </div>
       )}
 

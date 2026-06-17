@@ -37,7 +37,7 @@ export function useShopTransactionsQuery() {
   return useQuery({
     queryKey: queryKeys.shopTransactions(shopId),
     queryFn: async () => {
-      const response = await shopApi.getPurchaseHistory(shopId);
+      const response = await shopApi.getShopTransactionHistory(shopId);
       return response?.data;
     },
     enabled: !!shopId,

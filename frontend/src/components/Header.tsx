@@ -217,6 +217,7 @@ const Header: React.FC = () => {
                       type: 'shop',
                       name: userData.name,
                       email: userData.email,
+                      avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
                       isActive: userData.active,
                       shopId: userData.shopId,
                       registrationDate: userData.createdAt,
@@ -238,6 +239,7 @@ const Header: React.FC = () => {
                       type: 'customer',
                       name: userData.name,
                       email: userData.email,
+                      avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
                       isActive: userData.active,
                       tier: tierLower,
                       registrationDate: userData.createdAt,
@@ -257,6 +259,7 @@ const Header: React.FC = () => {
                       type: 'admin',
                       name: userData.name,
                       email: userData.email,
+                      avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
                       isActive: userData.active,
                       registrationDate: userData.createdAt,
                     });

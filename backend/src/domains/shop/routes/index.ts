@@ -25,6 +25,9 @@ import rcgRoutes from './rcg';
 import reportsRoutes from './reports';
 import { eventBus } from '../../../events/EventBus';
 import { getSharedPool } from '../../../utils/database-pool';
+import { ShopMetricsService } from '../../../services/ShopMetricsService';
+
+const dashboardMetricsService = new ShopMetricsService();
 
 interface ShopData {
   shopId: string;
@@ -381,6 +384,8 @@ router.get('/wallet/:address',
       );
 
       const hasActiveStripeSubscription = stripeSubQuery.rows.length > 0;
+      const hasActiveShopSubscription = subscriptionStatus === 'active';
+      const hasActiveSubscription = hasActiveStripeSubscription || hasActiveShopSubscription;
 
       // Get actual on-chain RCG balance (not cached database value)
       // This ensures operational_status is based on real blockchain holdings
@@ -413,7 +418,7 @@ router.get('/wallet/:address',
         }
       }
 
-      const expectedOperationalStatus = hasActiveStripeSubscription
+      const expectedOperationalStatus = hasActiveSubscription
         ? 'subscription_qualified'
         : (rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified');
 
@@ -2669,6 +2674,131 @@ router.get('/:shopId/transactions',
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve shop transactions'
+      });
+    }
+  }
+);
+
+// Get dashboard stat cards (revenue, bookings, new customers, reviews)
+router.get('/:shopId/dashboard-stats',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const date = (req.query.date as string) || undefined;
+      const stats = await dashboardMetricsService.getDashboardStats(shopId, date);
+      res.json({ success: true, data: stats });
+    } catch (error: any) {
+      logger.error('Error getting shop dashboard stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve shop dashboard stats'
+      });
+    }
+  }
+);
+
+// Get unified recent activity feed (campaigns, bookings, purchase orders, reviews)
+router.get('/:shopId/recent-activity',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 6, 50);
+      const pool = getSharedPool();
+
+      // Each source is queried independently so a missing table or a
+      // shop with no data in one domain never blanks the whole feed.
+      // Note: service_reviews.service_id is VARCHAR while shop_services.service_id
+      // is UUID, so that join is cast explicitly.
+      const sources: Array<{ kind: string; sql: string }> = [
+        {
+          kind: 'campaign',
+          sql: `
+            SELECT mc.id::text AS ref_id,
+                   mc.name AS subtitle,
+                   mc.status::text AS status,
+                   NULL::int AS rating,
+                   COALESCE(mc.sent_at, mc.updated_at, mc.created_at)::timestamptz AS ts
+            FROM marketing_campaigns mc
+            WHERE mc.shop_id = $1 AND mc.status = 'sent'
+            ORDER BY ts DESC LIMIT $2`,
+        },
+        {
+          kind: 'booking',
+          sql: `
+            SELECT o.order_id::text AS ref_id,
+                   COALESCE(NULLIF(TRIM(CONCAT_WS(' · ', s.service_name, c.name)), ''), 'Service booking') AS subtitle,
+                   o.status::text AS status,
+                   NULL::int AS rating,
+                   o.created_at::timestamptz AS ts
+            FROM service_orders o
+            INNER JOIN shop_services s ON o.service_id = s.service_id
+            LEFT JOIN customers c ON o.customer_address = c.address
+            WHERE o.shop_id = $1
+            ORDER BY ts DESC LIMIT $2`,
+        },
+        {
+          kind: 'purchase_order',
+          sql: `
+            SELECT po.id::text AS ref_id,
+                   COALESCE(NULLIF(TRIM(CONCAT_WS(' · ', po.po_number, po.vendor_name)), ''), 'Inventory restock') AS subtitle,
+                   po.status::text AS status,
+                   NULL::int AS rating,
+                   COALESCE(po.created_at, po.order_date::timestamp)::timestamptz AS ts
+            FROM purchase_orders po
+            WHERE po.shop_id = $1 AND po.deleted_at IS NULL
+            ORDER BY ts DESC LIMIT $2`,
+        },
+        {
+          kind: 'review',
+          sql: `
+            SELECT r.review_id::text AS ref_id,
+                   COALESCE(NULLIF(TRIM(CONCAT_WS(' · ', c.name, s.service_name)), ''), 'Customer review') AS subtitle,
+                   NULL::text AS status,
+                   r.rating AS rating,
+                   r.created_at::timestamptz AS ts
+            FROM service_reviews r
+            INNER JOIN shop_services s ON s.service_id::text = r.service_id
+            LEFT JOIN customers c ON r.customer_address = c.address
+            WHERE r.shop_id = $1
+            ORDER BY ts DESC LIMIT $2`,
+        },
+      ];
+
+      const results = await Promise.allSettled(
+        sources.map((src) => pool.query(src.sql, [shopId, limit]))
+      );
+
+      const activity = results
+        .flatMap((result, i) => {
+          if (result.status !== 'fulfilled') {
+            logger.warn(`recent-activity: ${sources[i].kind} source failed for shop ${shopId}:`, (result.reason as Error)?.message);
+            return [];
+          }
+          return result.value.rows.map((row: any) => ({
+            id: `${sources[i].kind}-${row.ref_id}`,
+            kind: sources[i].kind,
+            subtitle: row.subtitle,
+            status: row.status,
+            rating: row.rating,
+            timestamp: row.ts,
+          }));
+        })
+        .filter((e) => e.timestamp)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, limit);
+
+      res.json({ success: true, data: { activity } });
+    } catch (error: any) {
+      logger.error('Error getting shop recent activity:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve shop recent activity'
       });
     }
   }

@@ -103,7 +103,7 @@ const generateAndSetTokens = async (
   const tokenId = uuidv4();
 
   // Generate both tokens
-  const accessToken = generateAccessToken(payload);
+  const accessToken = generateAccessToken(payload, tokenId);
   const refreshToken = generateRefreshToken(payload, tokenId);
 
   // Store refresh token in database
@@ -113,6 +113,16 @@ const generateAndSetTokens = async (
   // Look up location from IP (non-blocking, fallback to 'Unknown location')
   const location = await getLocationFromIP(req.ip || '');
 
+  const userAgent = req.get('User-Agent');
+  // Stable per-browser-context id from the client (localStorage). Distinguishes
+  // normal vs incognito on the same machine, which share a user_agent.
+  const deviceId = req.get('X-Device-Id') || null;
+
+  // Keep one active session per device (logout's revoke is best-effort, so stale
+  // same-device sessions otherwise pile up). Matches on device_id when present,
+  // else user_agent.
+  await refreshTokenRepository.revokeActiveByDevice(payload.address, deviceId, userAgent);
+
   await refreshTokenRepository.createRefreshToken({
     tokenId,
     userAddress: payload.address,
@@ -120,9 +130,10 @@ const generateAndSetTokens = async (
     shopId: payload.shopId,
     token: refreshToken,
     expiresAt,
-    userAgent: req.get('User-Agent'),
+    userAgent,
     ipAddress: req.ip,
-    location
+    location,
+    deviceId: deviceId || undefined
   });
 
   const isProduction = process.env.NODE_ENV === 'production';
@@ -446,7 +457,9 @@ router.post('/check-user', async (req, res) => {
             suspendedAt: customer.suspendedAt,
             suspensionReason: customer.suspensionReason,
             // External ID
-            fixflowCustomerId: customer.fixflowCustomerId
+            fixflowCustomerId: customer.fixflowCustomerId,
+            // Profile image
+            profile_image_url: customer.profile_image_url
           }
         });
       }
@@ -942,6 +955,7 @@ router.get('/session', authMiddleware, async (req, res) => {
           shopName: shop.name,
           name: shop.name,
           email: shop.email,
+          logoUrl: shop.logoUrl,
           active: shop.active,
           shopId: shop.shopId,
           createdAt: shop.joinDate,
@@ -959,6 +973,7 @@ router.get('/session', authMiddleware, async (req, res) => {
           role: 'customer',
           name: customer.name,
           email: customer.email,
+          profile_image_url: customer.profile_image_url,
           active: customer.isActive,
           tier: customer.tier,
           createdAt: customer.joinDate,
@@ -1205,6 +1220,8 @@ router.post('/customer', authLimiter, async (req, res) => {
           address: customer.address,
           walletAddress: customer.address,
           name: customer.name || 'Customer',
+          email: customer.email,
+          profile_image_url: customer.profile_image_url,
           role: 'customer',
           tier: customer.tier,
           active: customer.isActive,
@@ -1313,6 +1330,8 @@ router.post('/shop', authLimiter, async (req, res) => {
           walletAddress: shop.walletAddress,
           connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
           name: shop.name,
+          email: shop.email,
+          logoUrl: shop.logoUrl,
           role: 'shop',
           active: shop.active,
           verified: shop.verified,
@@ -1487,7 +1506,7 @@ router.post('/refresh', async (req, res) => {
       address: decoded.address,
       role: decoded.role,
       shopId: decoded.shopId
-    });
+    }, decoded.tokenId);
 
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieDomain = getCookieDomain(req);
@@ -1636,10 +1655,12 @@ router.get('/test-cookie', (req, res) => {
 
 /**
  * Demo mode – used for Play Store / App Store review.
- * The demo customer must exist in the database (created via `npm run demo:enable`).
+ * The demo customer and demo shop must exist in the database (created via `npm run demo:enable`).
  * Toggling is_active on/off controls whether the button is visible.
  */
 const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
+const DEMO_SHOP_ADDRESS = '0x00000000000000000000000000000000000de510';
+const DEMO_SHOP_ID = 'demo-shop-00000000000000000000000000000000';
 
 /**
  * Check if demo mode is enabled
@@ -1655,7 +1676,7 @@ router.get('/demo/status', async (_req, res) => {
 });
 
 /**
- * Demo mode login
+ * Demo customer login
  * POST /api/auth/demo
  */
 router.post('/demo', async (req, res) => {
@@ -1697,7 +1718,7 @@ router.post('/demo', async (req, res) => {
       isDemo: true,
     };
 
-    logger.info('Demo mode login', { ip: req.ip });
+    logger.info('Demo customer login', { ip: req.ip });
 
     return res.json({
       success: true,
@@ -1714,10 +1735,81 @@ router.post('/demo', async (req, res) => {
       profile,
     });
   } catch (error) {
-    logger.error('Error in demo login:', error);
+    logger.error('Error in demo customer login:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-export { DEMO_ADDRESS };
+/**
+ * Demo shop login
+ * POST /api/auth/demo/shop
+ */
+router.post('/demo/shop', async (req, res) => {
+  try {
+    // Check demo mode is enabled (gated by customer record being active)
+    const demoCustomer = await customerRepository.getCustomer(DEMO_ADDRESS);
+    if (!demoCustomer || !demoCustomer.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo mode is not available',
+      });
+    }
+
+    const shop = await shopRepository.getShop(DEMO_SHOP_ID);
+    if (!shop) {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo shop is not available',
+      });
+    }
+
+    const payload = { address: DEMO_SHOP_ADDRESS, role: 'shop' as const, shopId: DEMO_SHOP_ID };
+    const accessToken = generateAccessToken(payload);
+
+    const profile = {
+      id: DEMO_SHOP_ID,
+      shopId: DEMO_SHOP_ID,
+      address: DEMO_SHOP_ADDRESS,
+      walletAddress: DEMO_SHOP_ADDRESS,
+      name: shop.name || 'Demo Shop',
+      email: shop.email,
+      phone: shop.phone,
+      role: 'shop',
+      active: true,
+      verified: true,
+      isActive: true,
+      operational_status: 'subscription_qualified',
+      subscriptionActive: true,
+      createdAt: shop.joinDate,
+      joinDate: shop.joinDate,
+      totalTokensIssued: shop.totalTokensIssued || 0,
+      totalRedemptions: shop.totalRedemptions || 0,
+      isDemo: true,
+    };
+
+    logger.info('Demo shop login', { ip: req.ip });
+
+    return res.json({
+      success: true,
+      data: {
+        accessToken,
+        refreshToken: '',
+        expiresIn: 15 * 60,
+        address: DEMO_SHOP_ADDRESS,
+        role: 'shop',
+        shopId: DEMO_SHOP_ID,
+      },
+      token: accessToken,
+      userType: 'shop',
+      address: DEMO_SHOP_ADDRESS,
+      shopId: DEMO_SHOP_ID,
+      profile,
+    });
+  } catch (error) {
+    logger.error('Error in demo shop login:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export { DEMO_ADDRESS, DEMO_SHOP_ADDRESS, DEMO_SHOP_ID };
 export default router;

@@ -69,6 +69,7 @@ export const useAuth = () => {
         type: userCheck.type as 'customer' | 'shop' | 'admin',
         name: userData.name || userData.shopName || userData.shop_name || '',
         email: userData.email || '',
+        avatarUrl: userData.logoUrl || userData.profile_image_url || undefined,
         isActive: userData.active !== false,
         tier: userData.tier || null,
         shopId: userData.shopId || userData.shop_id || null,

@@ -9,6 +9,7 @@ import {
 import { TokenMinter } from '../../../../contracts/TokenMinter';
 import { TierManager } from '../../../../contracts/TierManager';
 import { TokenService } from '../../../token/services/TokenService';
+import { TokenProviderFactory } from '../../../../providers/TokenProviderFactory';
 import { logger } from '../../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../../events/EventBus';
 
@@ -171,35 +172,16 @@ export class TokenOperationsService {
         throw new Error('Shop not found');
       }
 
-      // Check customer balance
-      const currentBalance = await this.getTokenMinterInstance().getCustomerBalance(customerAddress);
-      if (!currentBalance || currentBalance < amount) {
-        throw new Error(`Insufficient balance. Customer has ${currentBalance || 0} RCN, requested ${amount} RCN`);
-      }
-
-      // Process the redemption by burning tokens
-      const burnResult = await this.getTokenMinterInstance().burnTokensFromCustomer(
+      // Deduct via the active token provider. In database-only mode this
+      // checks the customer's calculated available balance and records the
+      // redemption; with ENABLE_BLOCKCHAIN_MINTING=true it also burns on-chain.
+      // (Previously this read the on-chain balance directly, which made admin
+      // redemptions fail whenever blockchain was disabled.)
+      const debit = await TokenProviderFactory.getProvider().debitTokens({
         customerAddress,
         amount,
-        '0x000000000000000000000000000000000000dEaD',
-        'Manual admin redemption'
-      );
-
-      if (!burnResult.success) {
-        throw new Error(burnResult.error || 'Failed to process redemption');
-      }
-
-      // Record transaction
-      await transactionRepository.recordTransaction({
-        id: `manual_redemption_${Date.now()}`,
-        type: 'redeem',
-        customerAddress: customerAddress.toLowerCase(),
-        shopId,
-        amount,
         reason: `Manual redemption: ${reason || 'Admin processed'}`,
-        transactionHash: burnResult.transactionHash || '',
-        timestamp: new Date().toISOString(),
-        status: 'confirmed',
+        shopId,
         metadata: {
           processedBy: adminAddress || 'admin',
           manual: true,
@@ -207,19 +189,23 @@ export class TokenOperationsService {
         }
       });
 
+      if (!debit.success) {
+        throw new Error(debit.error || 'Failed to process redemption');
+      }
+
       // Log admin activity
       await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'manual_redemption',
         actionDescription: `Manually processed redemption of ${amount} RCN for customer ${customerAddress}`,
         entityType: 'transaction',
-        entityId: `manual_redemption_${Date.now()}`,
+        entityId: debit.transactionId || `manual_redemption_${Date.now()}`,
         metadata: {
           customerAddress,
           shopId,
           amount,
           reason,
-          transactionHash: burnResult.transactionHash
+          transactionHash: debit.transactionHash
         }
       });
 
@@ -227,19 +213,22 @@ export class TokenOperationsService {
         customerAddress,
         amount,
         shopId,
-        transactionHash: burnResult.transactionHash
+        transactionId: debit.transactionId,
+        transactionHash: debit.transactionHash
       });
+
+      const newBalance = debit.metadata?.newBalance as number | undefined;
 
       return {
         success: true,
-        transactionHash: burnResult.transactionHash,
+        transactionHash: debit.transactionHash,
         message: `Successfully processed manual redemption of ${amount} RCN`,
         details: {
           customerAddress,
           shopId: shop.shopId,
           shopName: shop.name,
           amount,
-          newBalance: (currentBalance - amount)
+          newBalance
         }
       };
     } catch (error) {

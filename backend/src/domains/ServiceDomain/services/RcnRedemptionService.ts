@@ -63,30 +63,15 @@ export class RcnRedemptionService {
         };
       }
 
-      let customerBalance = customer.currentRcnBalance || 0;
-
-      // If balance is 0 but customer has lifetime earnings, sync balance from transactions
-      if (customerBalance === 0 && customer.lifetimeEarnings > 0) {
-        logger.warn('Customer has 0 balance but lifetime earnings > 0. Attempting balance sync...', {
-          customerAddress,
-          lifetimeEarnings: customer.lifetimeEarnings
-        });
-
-        try {
-          await customerRepository.syncCustomerBalance(customerAddress);
-          // Refetch customer data after sync
-          const syncedCustomer = await customerRepository.getCustomer(customerAddress);
-          if (syncedCustomer) {
-            customerBalance = syncedCustomer.currentRcnBalance || 0;
-            logger.info('Customer balance synced successfully', {
-              customerAddress,
-              newBalance: customerBalance
-            });
-          }
-        } catch (syncError) {
-          logger.error('Failed to sync customer balance', { customerAddress, error: syncError });
-          // Continue with 0 balance if sync fails
-        }
+      // Use the same balance calculation as the balance API (computed from transactions)
+      // instead of the stale currentRcnBalance column on the customer record.
+      let customerBalance = 0;
+      try {
+        const balanceInfo = await customerRepository.getCustomerBalance(customerAddress);
+        customerBalance = balanceInfo?.totalBalance ?? customer.currentRcnBalance ?? 0;
+      } catch (balanceError) {
+        logger.warn('Failed to fetch computed balance, falling back to currentRcnBalance', { customerAddress, balanceError });
+        customerBalance = customer.currentRcnBalance || 0;
       }
 
       logger.info('Customer balance check for RCN redemption', {

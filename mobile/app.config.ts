@@ -6,19 +6,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   
   return {
     name: "FixFlow",
-    slug: "fixflow-app",
+    slug: "repaircoin-app",
     owner: "repaircoin",
     version: "1.0.1",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "fixflow",
+    scheme: "repaircoin",
     userInterfaceStyle: "automatic",
     newArchEnabled: false,
     ios: {
       supportsTablet: false,
       bundleIdentifier: isProd
-        ? "com.fixflow.app"
-        : "com.fixflow.staging",
+        ? "com.repaircoin.app"
+        : "com.repaircoin.staging",
       runtimeVersion: "1.0.0",
       buildNumber: "1.0.0",
       infoPlist: {
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         NSCameraUsageDescription:
           "This app uses your camera to scan QR codes and take photos.",
         NSPhotoLibraryUsageDescription:
-          "This app needs access to your photo library to upload images.",
+          "FixFlow needs access to your photo library so you can select and upload profile photos and service images. For example, shop owners can upload photos of their services, and customers can set a profile picture from their existing photos.",
         NSMicrophoneUsageDescription:
           "This app uses your microphone for video recording.",
       },
@@ -41,12 +41,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: "#ffffff",
       },
       versionCode: 3,
-      googleServicesFile: isProd
-        ? "./google-services.json"
-        : "./google-services.staging.json",
-      package: isProd
-        ? "com.fixflow.app"
-        : "com.fixflow.staging",
+      googleServicesFile: "./google-services.json",
+      package: "com.repaircoin.app",
       runtimeVersion: {
         policy: "appVersion",
       },
@@ -121,7 +117,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-image-picker",
         {
           photosPermission:
-            "Allow FixFlow to access your photos to upload images.",
+            "FixFlow needs access to your photo library so you can select and upload profile photos and service images. For example, shop owners can upload photos of their services, and customers can set a profile picture from their existing photos.",
           cameraPermission:
             "Allow FixFlow to access your camera to take photos.",
         },
@@ -139,7 +135,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       eas: {
-        projectId: "7551ff24-3bee-4b40-9fac-e4d4f72974e8",
+        projectId: "ac220b86-d08f-403e-a3bb-d1657b30f245",
       },
       router: {},
     },
@@ -147,7 +143,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       enabled: true,
       checkAutomatically: "ON_LOAD" as const,
       fallbackToCacheTimeout: 0,
-      url: "https://u.expo.dev/7551ff24-3bee-4b40-9fac-e4d4f72974e8",
+      url: "https://u.expo.dev/ac220b86-d08f-403e-a3bb-d1657b30f245",
     },
   };
 };

@@ -1,6 +1,6 @@
 // backend/src/routes/security.ts
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, invalidateRevocationCache } from '../middleware/auth';
 import { refreshTokenRepository } from '../repositories';
 import { logger } from '../utils/logger';
 
@@ -20,7 +20,7 @@ router.get('/sessions', authMiddleware, async (req, res) => {
       });
     }
 
-    const sessions = await refreshTokenRepository.getActiveTokens(req.user.address);
+    const sessions = await refreshTokenRepository.getDistinctDeviceTokens(req.user.address);
 
     // Map sessions to a more frontend-friendly format
     const formattedSessions = sessions.map(session => ({
@@ -90,6 +90,7 @@ router.delete('/sessions/:tokenId', authMiddleware, async (req, res) => {
 
     // Revoke the session
     await refreshTokenRepository.revokeToken(tokenId, 'User revoked session');
+    invalidateRevocationCache(tokenId);
 
     logger.info('Session revoked by user', {
       userAddress: req.user.address,
@@ -136,6 +137,7 @@ router.post('/sessions/revoke-all', authMiddleware, async (req, res) => {
           session.tokenId,
           'User logged out of all other devices'
         );
+        invalidateRevocationCache(session.tokenId);
         revokedCount++;
       }
     }
@@ -269,7 +271,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       });
     }
 
-    const sessions = await refreshTokenRepository.getActiveTokens(req.user.address);
+    const sessions = await refreshTokenRepository.getDistinctDeviceTokens(req.user.address);
 
     // Calculate stats
     const now = new Date();

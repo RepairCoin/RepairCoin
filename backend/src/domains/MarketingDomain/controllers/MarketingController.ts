@@ -5,6 +5,11 @@ import { ContactRepository } from '../../../repositories/ContactRepository';
 import { EmailService } from '../../../services/EmailService';
 import { campaignEmailService } from '../../../services/CampaignEmailService';
 import { campaignRewardService, CampaignRewardBlockedError } from '../../../services/CampaignRewardService';
+import {
+  parseCampaignRewardInput,
+  rewardInputWrites,
+  CampaignRewardInputError
+} from './campaignRewardInput';
 import { logger } from '../../../utils/logger';
 
 export class MarketingController {
@@ -136,7 +141,8 @@ export class MarketingController {
         couponType,
         couponExpiresAt,
         serviceId,
-        manualEmails
+        manualEmails,
+        reward
       } = req.body;
 
       // Verify shop ownership using shopId from JWT (works for both wallet and social login)
@@ -151,6 +157,22 @@ export class MarketingController {
         return;
       }
 
+      let rewardInput;
+      try {
+        rewardInput = parseCampaignRewardInput(reward);
+      } catch (error) {
+        if (error instanceof CampaignRewardInputError) {
+          res.status(400).json({ success: false, error: error.message });
+          return;
+        }
+        throw error;
+      }
+
+      if (rewardInputWrites(rewardInput) && !(await this.marketingService.isCampaignRewardsEnabled(shopId))) {
+        res.status(403).json({ success: false, error: 'Campaign rewards are not enabled for this shop' });
+        return;
+      }
+
       const processedManualEmails = await this.processManualEmails(shopId, manualEmails);
 
       // Merge manual emails into audienceFilters
@@ -159,7 +181,7 @@ export class MarketingController {
         ...(processedManualEmails.length > 0 && { manualEmails: processedManualEmails })
       };
 
-      const campaign = await this.marketingService.createCampaign({
+      const createParams = {
         shopId,
         name,
         campaignType,
@@ -175,7 +197,19 @@ export class MarketingController {
         couponType,
         couponExpiresAt: couponExpiresAt ? new Date(couponExpiresAt) : undefined,
         serviceId
-      });
+      };
+
+      // A coupon reward stores its bonus RCN + expiry on the campaign's coupon_*
+      // columns; the code itself is minted at send.
+      if (rewardInputWrites(rewardInput) && rewardInput.config.rewardType === 'coupon') {
+        createParams.couponValue = rewardInput.config.couponValue;
+        createParams.couponType = 'fixed';
+        createParams.couponExpiresAt = rewardInput.config.couponExpiresAt ?? undefined;
+      }
+
+      const campaign = rewardInputWrites(rewardInput)
+        ? await this.marketingService.createCampaignWithReward(createParams, rewardInput.config)
+        : await this.marketingService.createCampaign(createParams);
 
       res.status(201).json({
         success: true,
@@ -239,8 +273,25 @@ export class MarketingController {
         couponType,
         couponExpiresAt,
         serviceId,
-        manualEmails
+        manualEmails,
+        reward
       } = req.body;
+
+      let rewardInput;
+      try {
+        rewardInput = parseCampaignRewardInput(reward);
+      } catch (error) {
+        if (error instanceof CampaignRewardInputError) {
+          res.status(400).json({ success: false, error: error.message });
+          return;
+        }
+        throw error;
+      }
+
+      if (rewardInputWrites(rewardInput) && !(await this.marketingService.isCampaignRewardsEnabled(existing.shopId))) {
+        res.status(403).json({ success: false, error: 'Campaign rewards are not enabled for this shop' });
+        return;
+      }
 
       const processedManualEmails = await this.processManualEmails(existing.shopId, manualEmails);
       const updatedAudienceFilters = audienceFilters !== undefined
@@ -250,7 +301,7 @@ export class MarketingController {
           }
         : audienceFilters;
 
-      const campaign = await this.marketingService.updateCampaign(campaignId, {
+      const updateParams = {
         name,
         subject,
         previewText,
@@ -264,7 +315,26 @@ export class MarketingController {
         couponType,
         couponExpiresAt: couponExpiresAt ? new Date(couponExpiresAt) : undefined,
         serviceId
-      });
+      };
+
+      // A coupon reward stores its bonus RCN + expiry on the campaign's coupon_*
+      // columns; the code itself is minted at send.
+      if (rewardInputWrites(rewardInput) && rewardInput.config.rewardType === 'coupon') {
+        updateParams.couponValue = rewardInput.config.couponValue;
+        updateParams.couponType = 'fixed';
+        updateParams.couponExpiresAt = rewardInput.config.couponExpiresAt ?? undefined;
+      }
+
+      const campaign = await this.marketingService.updateCampaign(campaignId, updateParams);
+
+      // Apply reward changes only when the caller sent a `reward` field
+      // (omitted → left untouched; null / { type: 'none' } → cleared).
+      if (rewardInput.action !== 'ignore') {
+        await this.marketingService.setCampaignReward(campaignId, rewardInput.config);
+        const refreshed = await this.marketingService.getCampaign(campaignId);
+        res.json({ success: true, data: refreshed ?? campaign });
+        return;
+      }
 
       res.json({ success: true, data: campaign });
     } catch (error: any) {

@@ -121,47 +121,62 @@ async function searchRelevantServices(
   try {
     const result = await pool.query(
       `SELECT
-        s.id as service_id,
+        s.service_id,
         s.service_name,
         s.shop_id,
         sh.name as shop_name,
-        s.price,
+        s.price_usd as price,
         s.description,
         s.image_url,
-        s.estimated_duration,
-        COALESCE(AVG(r.rating), 0) as rating,
-        COUNT(DISTINCT r.id) as review_count
-       FROM services s
-       JOIN shops sh ON sh.id = s.shop_id
-       LEFT JOIN service_reviews r ON r.service_id = s.id
+        s.duration_minutes as estimated_duration,
+        COALESCE(s.average_rating, 0) as rating,
+        COALESCE(s.review_count, 0) as review_count
+       FROM shop_services s
+       JOIN shops sh ON sh.shop_id = s.shop_id
        WHERE s.active = true
-         AND sh.subscription_status = 'active'
+         AND sh.subscription_active = true
          AND (
            s.service_name ILIKE $1
            OR s.description ILIKE $1
            OR s.tags::text ILIKE $1
          )
-       GROUP BY s.id, sh.id, sh.name
        ORDER BY
-         COALESCE(AVG(r.rating), 0) DESC,
-         COUNT(DISTINCT r.id) DESC,
-         s.price ASC
+         COALESCE(s.average_rating, 0) DESC,
+         COALESCE(s.review_count, 0) DESC,
+         s.price_usd ASC
        LIMIT $2`,
       [`%${searchQuery}%`, limit]
     );
 
-    return result.rows.map(row => ({
-      serviceId: row.service_id,
-      serviceName: row.service_name,
-      shopId: row.shop_id,
-      shopName: row.shop_name,
-      price: parseFloat(row.price),
-      rating: parseFloat(row.rating) || 0,
-      reviewCount: parseInt(row.review_count, 10),
-      description: row.description,
-      imageUrl: row.image_url,
-      estimatedDuration: row.estimated_duration,
-    }));
+    return result.rows.map(row => {
+      // Format duration from minutes to human-readable string
+      let duration = '';
+      if (row.estimated_duration) {
+        const minutes = parseInt(row.estimated_duration, 10);
+        if (minutes >= 60) {
+          const hours = Math.floor(minutes / 60);
+          const remainingMinutes = minutes % 60;
+          duration = remainingMinutes > 0
+            ? `${hours}h ${remainingMinutes}m`
+            : `${hours}h`;
+        } else {
+          duration = `${minutes}m`;
+        }
+      }
+
+      return {
+        serviceId: row.service_id,
+        serviceName: row.service_name,
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        price: parseFloat(row.price),
+        rating: parseFloat(row.rating) || 0,
+        reviewCount: parseInt(row.review_count, 10) || 0,
+        description: row.description,
+        imageUrl: row.image_url,
+        estimatedDuration: duration,
+      };
+    });
   } catch (err) {
     logger.error("searchRelevantServices failed", err);
     return [];

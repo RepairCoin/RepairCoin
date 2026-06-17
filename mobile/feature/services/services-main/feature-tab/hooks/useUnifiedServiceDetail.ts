@@ -136,11 +136,19 @@ export function useUnifiedServiceDetail() {
 
   const handleShareWhatsApp = async () => {
     const message = `${getShareMessage()}\n${getShareUrl()}`;
-    const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    // wa.me is a universal link: opens the WhatsApp app if installed, web otherwise.
+    // It works without the custom scheme being whitelisted, so use it as the fallback.
+    const appUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    const webUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     try {
-      await Linking.openURL(url);
+      const canOpen = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(canOpen ? appUrl : webUrl);
     } catch {
-      Alert.alert("WhatsApp Not Found", "WhatsApp is not installed on this device.");
+      try {
+        await Linking.openURL(webUrl);
+      } catch {
+        Alert.alert("Unable to Share", "Could not open WhatsApp on this device.");
+      }
     }
     setShowShareModal(false);
   };

@@ -5,6 +5,8 @@ export type Props = CustomerTransactionProps | ShopTransactionProps;
 export type StatusFilter = "all" | "pending" | "completed" | "failed";
 export type TransactionFilter = "all" | "earned" | "redeemed" | "gifts";
 export type DateFilter = "all" | "today" | "week" | "month";
+export type ShopTransactionType = "reward" | "redemption" | "purchase";
+export type ShopTransactionTypeFilter = "all" | ShopTransactionType;
 export type CustomerTransactionProps = {
   variant: "customer";
   type: string;
@@ -17,9 +19,17 @@ export type ShopTransactionProps = {
   variant: "shop";
   amount: number;
   createdAt: string;
-  paymentMethod: string;
-  totalCost: number;
   status: string;
+  // reward | redemption | purchase (falls back to the raw type for anything else)
+  type?: string;
+  customerAddress?: string | null;
+  customerName?: string | null;
+  repairAmount?: number | null;
+  isTierBonus?: boolean;
+  failureReason?: string | null;
+  // purchase-only fields
+  paymentMethod?: string;
+  totalCost?: number;
   completedAt?: string;
 };
 
@@ -203,6 +213,34 @@ export interface PurchaseHistory {
   total: number;
   totalPages: number;
 }
+
+// Unified shop transaction (rewards issued, redemptions processed, RCN purchases)
+export interface ShopTransactionData {
+  id: number | string;
+  type: string; // reward | redemption | purchase
+  amount: number;
+  customerAddress: string | null;
+  customerName: string | null;
+  repairAmount?: number | null;
+  status: string;
+  createdAt: string;
+  failureReason?: string | null;
+  is_tier_bonus?: boolean;
+  // purchase-only
+  totalCost?: number;
+  paymentMethod?: string;
+  paymentReference?: string;
+}
+
+export interface ShopTransactionHistory {
+  transactions: ShopTransactionData[];
+  total: number;
+  totalPages: number;
+  page: number;
+}
+
+export interface ShopTransactionHistoryResponse
+  extends BaseResponse<ShopTransactionHistory> {}
 
 export interface PurchaseHistoryResponse extends BaseResponse<PurchaseHistory> {}
 export interface CreateRedemptionSessionResponse extends BaseResponse<RedemptionSessionData> {}

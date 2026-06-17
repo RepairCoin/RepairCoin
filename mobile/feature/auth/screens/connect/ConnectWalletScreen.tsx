@@ -7,10 +7,12 @@ import { useAuthStore, AuthMethod } from "@/feature/auth/store/auth.store";
 import {
   useConnectWallet,
   useDemoLogin,
+  useDemoShopLogin,
 } from "@/feature/auth/hooks/useAuthQuery";
 import { authApi } from "@/feature/auth/services/auth.services";
 import { ThemedButton } from "@/shared/components/ui/ThemedButton";
 import VideoBackground from "@/shared/components/ui/VideoBackground";
+import { DemoAccountModal } from "@/shared/components/ui/DemoAccountModal";
 import WalletSelectionModal from "@/shared/components/wallet/WalletSelectionModal";
 import { client } from "@/shared/constants/thirdweb";
 
@@ -24,8 +26,10 @@ export default function ConnectWalletScreen() {
   const { connect } = useConnect();
   const connectWalletMutation = useConnectWallet();
   const demoLoginMutation = useDemoLogin();
+  const demoShopLoginMutation = useDemoShopLogin();
   const setAuthMethod = useAuthStore((state) => state.setAuthMethod);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string>();
   const [isLocalConnecting, setIsLocalConnecting] = useState(false);
   const [demoEnabled, setDemoEnabled] = useState(false);
@@ -119,7 +123,8 @@ export default function ConnectWalletScreen() {
   const showLoading =
     isLocalConnecting ||
     connectWalletMutation.isPending ||
-    demoLoginMutation.isPending;
+    demoLoginMutation.isPending ||
+    demoShopLoginMutation.isPending;
 
   if (isLoading) {
     return (
@@ -150,7 +155,7 @@ export default function ConnectWalletScreen() {
                 variant="primary"
                 loading={showLoading}
                 loadingTitle="Connecting..."
-                onPress={() => demoLoginMutation.mutate()}
+                onPress={() => setShowDemoModal(true)}
               />
             ) : (
               <ThemedButton
@@ -164,6 +169,20 @@ export default function ConnectWalletScreen() {
           </View>
         </View>
       </View>
+
+      <DemoAccountModal
+        visible={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+        onSelectCustomer={() => {
+          setShowDemoModal(false);
+          demoLoginMutation.mutate();
+        }}
+        onSelectShop={() => {
+          setShowDemoModal(false);
+          demoShopLoginMutation.mutate();
+        }}
+        isLoading={showLoading}
+      />
 
       <WalletSelectionModal
         visible={showWalletModal}

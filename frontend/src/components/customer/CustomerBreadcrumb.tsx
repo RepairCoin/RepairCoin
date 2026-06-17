@@ -101,7 +101,7 @@ export function CustomerBreadcrumb({
   if (!meta) return null;
 
   return (
-    <div className="mb-6">
+    <div className="pt-2 mb-6">
       {/* Breadcrumb Row */}
       <div className="flex items-center gap-2 text-sm">
         <Home className="w-5 h-5 text-gray-400" />
