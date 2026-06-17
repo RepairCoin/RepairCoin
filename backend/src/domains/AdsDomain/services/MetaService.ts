@@ -41,11 +41,14 @@ export class MetaService {
     return { appId, appSecret };
   }
 
-  /** Surface Facebook's Graph error detail for logs/toasts (instead of a generic axios message). */
+  /** Surface Facebook's Graph error detail for logs/toasts (instead of a generic axios message).
+   *  Meta puts the human-readable cause in error_user_msg/title — include it when present. */
   private fbError(err: any): string {
     const e = err?.response?.data?.error;
-    if (e) return `${e.message || e.type || 'graph_error'}${e.code ? ` (code ${e.code}${e.error_subcode ? `/${e.error_subcode}` : ''})` : ''}`;
-    return err?.message || 'unknown error';
+    if (!e) return err?.message || 'unknown error';
+    const code = e.code ? ` (code ${e.code}${e.error_subcode ? `/${e.error_subcode}` : ''})` : '';
+    const human = e.error_user_msg || e.error_user_title;
+    return `${e.message || e.type || 'graph_error'}${code}${human ? ` — ${human}` : ''}`;
   }
 
   /** Build the Meta OAuth dialog URL a shop is redirected to. Real (no API call). */
@@ -155,10 +158,15 @@ export class MetaService {
     }
   }
 
-  /** Create a PAUSED campaign; returns the Meta campaign id. */
+  /** Create a PAUSED campaign; returns the Meta campaign id. special_ad_categories must be a
+   *  JSON array — ['NONE'] for an ordinary (non housing/employment/credit) campaign. */
   async createCampaign(adAccountId: string, userToken: string, opts: { name: string; objective: string }): Promise<string> {
     return this.create(`${adAccountId}/campaigns`, userToken, {
-      name: opts.name, objective: opts.objective, status: 'PAUSED', special_ad_categories: '[]',
+      name: opts.name, objective: opts.objective, status: 'PAUSED',
+      special_ad_categories: JSON.stringify(['NONE']),
+      // Budget lives on the ad set (no campaign budget) → Meta requires this flag. false =
+      // ad sets don't share budget (predictable per-ad-set spend).
+      is_adset_budget_sharing_enabled: false,
     });
   }
 
@@ -173,6 +181,9 @@ export class MetaService {
       daily_budget: String(opts.dailyBudgetCents),
       billing_event: opts.billingEvent,
       optimization_goal: opts.optimizationGoal,
+      // Automatic bidding ("Highest volume") — no bid amount/cap required. Without an explicit
+      // strategy Meta defaults to one that demands a bid_amount → 100/2490487.
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
       targeting: JSON.stringify(opts.targeting),
       status: 'PAUSED',
     };

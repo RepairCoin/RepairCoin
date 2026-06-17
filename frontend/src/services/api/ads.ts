@@ -525,7 +525,8 @@ export const listCampaignRequests = async (status?: CampaignRequestStatus): Prom
   return unwrap<AdCampaignRequest[]>(res);
 };
 export const buildCampaignFromRequest = async (id: string, input?: { name?: string; dailyBudgetCents?: number }) => {
-  const res = await apiClient.post(`/ads/campaign-requests/${id}/build`, input ?? {});
+  // 4 min: Build generates an AI image (gpt-image-1 ~20-80s) + several Meta Graph calls.
+  const res = await apiClient.post(`/ads/campaign-requests/${id}/build`, input ?? {}, { timeout: 240000 });
   return unwrap(res);
 };
 export const declineCampaignRequest = async (id: string, declineReason?: string): Promise<AdCampaignRequest> => {
@@ -537,7 +538,8 @@ export interface CampaignDraftEdit {
   dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string; regenerateImage?: boolean;
 }
 export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
-  const res = await apiClient.patch(`/ads/campaigns/${id}/draft`, edits);
+  // Regenerating the image runs gpt-image-1 → allow up to 4 min.
+  const res = await apiClient.patch(`/ads/campaigns/${id}/draft`, edits, { timeout: 240000 });
   return unwrap<AdCampaign>(res);
 };
 export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {

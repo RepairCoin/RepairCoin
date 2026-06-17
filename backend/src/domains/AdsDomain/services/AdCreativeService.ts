@@ -34,6 +34,20 @@ export interface AdCreativeContent {
   linkUrl: string;
 }
 
+/** A valid PUBLIC http(s) URL, or null. Rejects junk like "a" and non-public hosts
+ *  (localhost / no-dot) so Meta doesn't reject the ad link (error 2061006). */
+export function publicUrl(candidate?: string | null): string | null {
+  if (!candidate) return null;
+  try {
+    const u = new URL(candidate.trim());
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if (!u.hostname.includes('.') || u.hostname === 'localhost') return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 export class AdCreativeService {
   constructor(
     private readonly anthropic = new AnthropicClient(),
@@ -53,7 +67,12 @@ export class AdCreativeService {
     const industry = kit?.industryStyle || 'local service business';
     const voice = kit?.brandVoice || kit?.toneNotes || 'friendly and professional';
     const offer = request.offer || (request.goal ? request.goal.replace(/_/g, ' ') : 'our services');
-    const linkUrl = (shop as any)?.website || process.env.FRONTEND_URL || 'http://localhost:3001';
+    // Meta requires a valid public landing URL. Prefer the shop's website, then a configured
+    // default, falling back to the brand site — never a junk/localhost value (error 2061006).
+    const linkUrl = publicUrl((shop as any)?.website)
+      || publicUrl(process.env.META_DEFAULT_LINK_URL)
+      || publicUrl(process.env.FRONTEND_URL)
+      || 'https://repaircoin.ai';
 
     // --- Copy (best-effort; spend-capped; falls back to the offer) ---
     let headline = offer.slice(0, 40);

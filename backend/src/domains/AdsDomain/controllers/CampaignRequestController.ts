@@ -106,7 +106,9 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
   try {
     const r = await requests.findById(id);
     if (!r) { res.status(404).json({ success: false, error: 'Request not found' }); return; }
-    if (r.status === 'live' || r.status === 'declined' || r.status === 'cancelled') {
+    if (r.status === 'live' || r.status === 'building' || r.status === 'declined' || r.status === 'cancelled') {
+      // 'building' = already built (or a prior build that completed server-side after a client
+      // timeout) — block a duplicate. Failed builds roll back and stay pending/approved.
       res.status(400).json({ success: false, error: `Request already ${r.status}` }); return;
     }
     // §9.6 — can't go live until the shop's ad account is connected.
