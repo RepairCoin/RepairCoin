@@ -9,8 +9,10 @@ import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { AdsEvents } from '../events';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
+import { AdBillingService } from '../services/AdBillingService';
 
 const campaigns = new CampaignRepository();
+const adBilling = new AdBillingService();
 const safeguards = new SafeguardRepository();
 
 const adminId = (req: Request) => (req as any).user?.address ?? 'admin';
@@ -78,6 +80,26 @@ export async function getCampaign(req: Request, res: Response): Promise<void> {
 // PATCH /campaigns/:id (admin)
 export async function updateCampaign(req: Request, res: Response): Promise<void> {
   try {
+    // §9.5 — reactivating a paused campaign re-checks tier capacity, closing the
+    // downgrade-then-unpause loophole (capacity counts active campaigns, so a currently
+    // paused one isn't in the count; if the shop is already at the cap from other
+    // active/committed campaigns, block the transition with the upsell).
+    if (req.body?.status === 'active') {
+      const target = await campaigns.findById(req.params.id);
+      if (!target) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+      if (target.status !== 'active') {
+        const cap = await adBilling.getShopCapacity(target.shopId);
+        if (cap.remaining <= 0) {
+          res.status(409).json({
+            success: false, error: 'tier_capacity_reached',
+            message: `Shop is at ${cap.usedCampaigns}/${cap.maxCampaigns} campaigns (${cap.tier}). Upgrade or pause another campaign before reactivating this one.`,
+            data: cap,
+          });
+          return;
+        }
+      }
+    }
+
     const campaign = await campaigns.update(req.params.id, req.body || {});
     if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
     res.json({ success: true, data: campaign });
@@ -114,5 +136,17 @@ export async function listShopCampaigns(req: Request, res: Response): Promise<vo
   } catch (err) {
     logger.error('CampaignController.listShopCampaigns failed', err);
     res.status(500).json({ success: false, error: 'Failed to list campaigns' });
+  }
+}
+
+// GET /shop/capacity (shop) — tier campaign limit vs. live campaigns used (lifecycle §9.5).
+export async function getShopCapacity(req: Request, res: Response): Promise<void> {
+  const shopId = shopIdOf(req);
+  if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
+  try {
+    res.json({ success: true, data: await adBilling.getShopCapacity(shopId) });
+  } catch (err) {
+    logger.error('CampaignController.getShopCapacity failed', err);
+    res.status(500).json({ success: false, error: 'Failed to load capacity' });
   }
 }

@@ -10,8 +10,9 @@
 import { logger } from '../../../utils/logger';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { PerformanceRepository, PerformanceRow } from '../repositories/PerformanceRepository';
-import { BillingPlanRepository, AdBillingPlan } from '../repositories/BillingPlanRepository';
+import { BillingPlanRepository, AdBillingPlan, limitsForTier } from '../repositories/BillingPlanRepository';
 import { BillingChargeRepository, ChargeType } from '../repositories/BillingChargeRepository';
+import { CampaignRequestRepository } from '../repositories/CampaignRequestRepository';
 
 export interface DayCharge {
   chargeType: ChargeType;
@@ -24,11 +25,13 @@ export class AdBillingService {
     private readonly campaigns = new CampaignRepository(),
     private readonly perf = new PerformanceRepository(),
     private readonly plans = new BillingPlanRepository(),
-    private readonly charges = new BillingChargeRepository()
+    private readonly charges = new BillingChargeRepository(),
+    private readonly campaignRequests = new CampaignRequestRepository()
   ) {}
 
   /** PURE — one campaign-day's charge for a plan, or null if nothing is owed.
-   *  Plan A is per-shop monthly (handled by accrueMonthlyDashboard), so returns null here. */
+   *  Plan A and 'flat' are per-shop monthly (handled by accrueMonthlyFees), so return null here.
+   *  'flat' shops pay ad-spend directly (Decision #1) → no per-campaign charge at all. */
   static computeCampaignDayCharge(plan: AdBillingPlan, day: PerformanceRow): DayCharge | null {
     if (plan.planType === 'b') {
       const amount = Math.round((day.spendCents * plan.markupBps) / 10000);
@@ -57,7 +60,8 @@ export class AdBillingService {
     for (const c of active) {
       let plan = planCache.get(c.shopId);
       if (!plan) { plan = await this.plans.getOrDefault(c.shopId); planCache.set(c.shopId, plan); }
-      if (!plan.active || plan.planType === 'a') continue;
+      // Plan A and flat accrue a monthly fee (accrueMonthlyFees), not per-campaign-day.
+      if (!plan.active || plan.planType === 'a' || plan.planType === 'flat') continue;
 
       const rows = await this.perf.getDailyRows(c.id, windowDays);
       for (const day of rows) {
@@ -73,17 +77,36 @@ export class AdBillingService {
     return written;
   }
 
-  /** Plan A flat dashboard fee — one charge per shop per month. `monthStart` is the
-   *  first day of the billing month (YYYY-MM-01), passed in (no Date.now in scripts). */
-  async accrueMonthlyDashboard(monthStart: string): Promise<number> {
+  /** Per-shop monthly flat fee — one charge per shop per month. Handles BOTH the flat
+   *  tier (`flat_tier_fee`, the only live model) and legacy Plan A (`plan_a_dashboard`).
+   *  `monthStart` is the first day of the billing month (YYYY-MM-01), passed in (no
+   *  Date.now in scripts). */
+  async accrueMonthlyFees(monthStart: string): Promise<number> {
     const shopPlans = await this.plans.listActiveShopPlans();
     let written = 0;
     for (const plan of shopPlans) {
-      if (!plan.active || plan.planType !== 'a' || plan.dashboardFeeCents <= 0) continue;
+      if (!plan.active) continue;
+
+      let chargeType: ChargeType | null = null;
+      let amountCents = 0;
+      if (plan.planType === 'flat' && plan.flatFeeCents > 0) {
+        chargeType = 'flat_tier_fee';
+        amountCents = plan.flatFeeCents;
+      } else if (plan.planType === 'a' && plan.dashboardFeeCents > 0) {
+        chargeType = 'plan_a_dashboard';
+        amountCents = plan.dashboardFeeCents;
+      }
+      if (!chargeType) continue;
+
       await this.charges.upsert({
         shopId: plan.shopId, campaignId: null, periodDate: monthStart,
-        chargeType: 'plan_a_dashboard', basisCents: 0, amountCents: plan.dashboardFeeCents,
+        chargeType, basisCents: 0, amountCents,
       });
+      // §9.2: this shop is being billed (it has a live campaign — listActiveShopPlans
+      // is scoped to active campaigns), so stamp when billing first began. Idempotent.
+      if (plan.planType === 'flat' && !plan.billingStartedAt) {
+        await this.plans.markBillingStarted(plan.shopId);
+      }
       written++;
     }
     return written;
@@ -102,12 +125,32 @@ export class AdBillingService {
     return this.charges.getAllShopsTotals();
   }
 
+  /** Lifecycle §9.5 — a shop's campaign capacity: tier limit vs. live campaigns used. */
+  async getShopCapacity(shopId: string): Promise<{
+    tier: string; maxCampaigns: number; usedCampaigns: number; remaining: number;
+  }> {
+    const plan = await this.plans.getOrDefault(shopId);
+    const limits = limitsForTier(plan.flatTierName);
+    // §9.5: committed = live campaigns + in-flight requests (approved/building).
+    const [live, committedRequests] = await Promise.all([
+      this.campaigns.countActiveByShop(shopId),
+      this.campaignRequests.countCommitted(shopId),
+    ]);
+    const usedCampaigns = live + committedRequests;
+    return {
+      tier: plan.flatTierName ?? 'growth',
+      maxCampaigns: limits.maxCampaigns,
+      usedCampaigns,
+      remaining: Math.max(0, limits.maxCampaigns - usedCampaigns),
+    };
+  }
+
   /** Best-effort nightly entry point — accrues B/C daily + Plan A for the given month. */
   async runNightly(monthStart: string): Promise<void> {
     try {
       const bc = await this.accrue(3);
-      const a = await this.accrueMonthlyDashboard(monthStart);
-      if (bc + a > 0) logger.info(`Ad billing accrual: ${bc} campaign-day + ${a} dashboard charge(s)`);
+      const a = await this.accrueMonthlyFees(monthStart);
+      if (bc + a > 0) logger.info(`Ad billing accrual: ${bc} campaign-day + ${a} monthly-fee charge(s)`);
     } catch (err) {
       logger.error('AdBillingService.runNightly failed', err);
     }

@@ -36,6 +36,8 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { ShopAdsTab } from "@/components/shop/tabs/ShopAdsTab";
+import { ShopPlansBillingTab } from "@/components/shop/tabs/ShopPlansBillingTab";
+import { PaymentMethodsTab } from "@/components/shop/tabs/PaymentMethodsTab";
 import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { ServiceAnalyticsTab } from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
@@ -1385,7 +1387,7 @@ export default function ShopDashboardClient() {
           {activeTab === "overview" && (
             <div className="space-y-6">
               {shopData && (
-                <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+                <AdEnrollmentTeaser shopId={shopData.shopId} onExplore={() => setActiveTab("plans")} />
               )}
               <OverviewTab
                 shopData={shopData}
@@ -1540,6 +1542,10 @@ export default function ShopDashboardClient() {
             />
           )}
 
+          {activeTab === "payment-methods" && shopData && (
+            <PaymentMethodsTab />
+          )}
+
           {activeTab === "marketing" && shopData && (
             <SubscriptionGuard shopData={shopData}>
               <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
@@ -1548,12 +1554,22 @@ export default function ShopDashboardClient() {
 
           {/* Ads System (Stage 1) — read-only campaign performance for this shop */}
           {activeTab === "ads" && shopData && (
-            <ShopAdsTab reviewScore={(shopData as any)?.review_score} />
+            <ShopAdsTab shopId={shopData.shopId} reviewScore={(shopData as any)?.review_score} />
+          )}
+
+          {activeTab === "plans" && shopData && (
+            <ShopPlansBillingTab
+              planLabel={shopData.subscriptionActive ? "Standard — $500/mo" : undefined}
+              subscriptionActive={shopData.subscriptionActive}
+              subscriptionStatus={shopData.subscriptionStatus}
+              subscriptionEndsAt={shopData.subscriptionEndsAt}
+              subscriptionCancelledAt={shopData.subscriptionCancelledAt}
+            />
           )}
 
           {activeTab === "profile" && shopData && (
             <div className="space-y-6">
-              <AdEnrollmentTeaser shopId={shopData.shopId} onGoToAds={() => setActiveTab("ads")} />
+              <AdEnrollmentTeaser shopId={shopData.shopId} onExplore={() => setActiveTab("plans")} />
               <ProfileTab
                 shopId={shopData.shopId}
                 shopData={shopData}

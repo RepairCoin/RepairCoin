@@ -157,6 +157,16 @@ export class CampaignRepository extends BaseRepository {
     return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id }));
   }
 
+  /** Count a shop's live (active) campaigns — the capacity unit (lifecycle §9.5). In
+   *  Phase 3 this expands to also count in-flight requests (approved/building). */
+  async countActiveByShop(shopId: string): Promise<number> {
+    const res = await this.pool.query(
+      `SELECT count(*)::int AS n FROM ad_campaigns WHERE shop_id = $1 AND status = 'active' AND deleted_at IS NULL`,
+      [shopId]
+    );
+    return res.rows[0].n;
+  }
+
   /** Resolve our campaign from a Meta campaign id (webhook/insights attribution). */
   async findByMetaCampaignId(metaCampaignId: string): Promise<AdCampaign | null> {
     const res = await this.pool.query(

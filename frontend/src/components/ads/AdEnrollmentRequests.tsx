@@ -7,9 +7,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Inbox, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { listEnrollments, decideEnrollment, type AdEnrollment, type AdPlanType } from "@/services/api/ads";
+import { listEnrollments, decideEnrollment, fmtUsd, CAMPAIGN_GOALS, type AdEnrollment, type FlatTierName } from "@/services/api/ads";
 
-const PLAN_LABEL: Record<AdPlanType, string> = { a: "Dashboard (A)", b: "Managed (B)", c: "Pay-per-result (C)" };
+const TIER_LABEL: Record<FlatTierName, string> = { starter: "Starter ($199)", growth: "Growth ($499)", business: "Business ($999)" };
+const GOAL_LABEL = Object.fromEntries(CAMPAIGN_GOALS.map((g) => [g.value, g.label]));
+
+/** Compact one-line summary of the optional campaign brief, or null if empty. */
+function briefSummary(r: AdEnrollment): string | null {
+  const parts: string[] = [];
+  if (r.promoteServiceIds?.length) parts.push(`${r.promoteServiceIds.length} service${r.promoteServiceIds.length > 1 ? "s" : ""}`);
+  if (r.monthlyBudgetCents != null) parts.push(`${fmtUsd(r.monthlyBudgetCents)}/mo budget`);
+  if (r.targetRadiusMiles != null) parts.push(`${r.targetRadiusMiles} mi radius`);
+  if (r.goal) parts.push(`goal: ${GOAL_LABEL[r.goal] ?? r.goal}`);
+  return parts.length ? parts.join(" · ") : null;
+}
 
 export const AdEnrollmentRequests: React.FC<{ onApproved?: () => void }> = ({ onApproved }) => {
   const [requests, setRequests] = useState<AdEnrollment[]>([]);
@@ -59,8 +70,10 @@ export const AdEnrollmentRequests: React.FC<{ onApproved?: () => void }> = ({ on
             <div className="min-w-0">
               <p className="text-sm text-white">
                 Shop <span className="font-medium">{r.shopId}</span>
-                <span className="ml-2 text-xs text-gray-400">wants {PLAN_LABEL[r.requestedPlan]}</span>
+                <span className="ml-2 text-xs text-gray-400">wants {TIER_LABEL[r.requestedPlan] ?? r.requestedPlan}</span>
               </p>
+              {briefSummary(r) && <p className="text-xs text-[#FFCC00] mt-1">{briefSummary(r)}</p>}
+              {r.offer && <p className="text-xs text-gray-400 mt-0.5">Offer: {r.offer}</p>}
               {r.message && <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">“{r.message}”</p>}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">

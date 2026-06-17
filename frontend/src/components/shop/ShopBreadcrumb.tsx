@@ -23,6 +23,7 @@ import {
   MessageCircle,
   AlertTriangle,
   User,
+  CreditCard,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -120,6 +121,16 @@ const TAB_CONFIG: Record<string, {
     title: "Subscription",
     icon: <Settings className="w-5 h-5" />,
     description: "Manage your shop subscription plan",
+  },
+  plans: {
+    title: "Plans & Billing",
+    icon: <CreditCard className="w-5 h-5" />,
+    description: "Your plan, add-ons, and billing in one place",
+  },
+  "payment-methods": {
+    title: "Payment Methods",
+    icon: <CreditCard className="w-5 h-5" />,
+    description: "Add, remove, and set your default card",
   },
   marketing: {
     title: "Marketing",
