@@ -13,6 +13,7 @@ import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
 import { MetaConnectionService } from './MetaConnectionService';
 import { MetaInsightsService } from './MetaInsightsService';
+import { metaPushService } from './MetaPushService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
 const LEAD_RETENTION_DAYS = 180;
@@ -62,6 +63,13 @@ export class SafeguardScheduler {
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);
+      // Push P4 — mirror safeguard hard-pauses to Meta so spend actually stops (best-effort).
+      for (const d of decisions) {
+        if (d.action === 'hard_pause') {
+          await metaPushService.pushStatus(d.campaignId, 'PAUSED')
+            .catch((e: any) => logger.warn(`Safeguard Meta pause failed for ${d.campaignId}: ${e?.message || e}`));
+        }
+      }
 
       // Q9 retention: purge unconverted leads past the retention window.
       const purged = await this.leads.purgeExpired(LEAD_RETENTION_DAYS);

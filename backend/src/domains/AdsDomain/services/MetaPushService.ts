@@ -68,12 +68,27 @@ export class MetaPushService {
       });
       // Phase 2 — auto-creative (AI image + copy) → creative → ad.
       const creative = await this.creatives.build(shopId, request, campaign.name);
+      // Phase 4 — for lead objectives, attach a native instant form (best-effort; falls back
+      // to the link creative if the form can't be created). Leads arrive via the webhook.
+      let metaLeadFormId: string | undefined;
+      if (spec.objective === 'OUTCOME_LEADS' && conn.pageTokenEnc) {
+        try {
+          const pageToken = decryptToken(conn.pageTokenEnc);
+          metaLeadFormId = await metaService.ensureLeadForm(conn.pageId, pageToken, {
+            name: `${campaign.name} — leads`,
+            privacyPolicyUrl: creative.linkUrl,
+          });
+        } catch (e: any) {
+          logger.warn(`MetaPushService: lead form creation failed, using link creative — ${e?.message || e}`);
+        }
+      }
       metaCreativeId = await metaService.createAdCreative(conn.adAccountId, token, {
         pageId: conn.pageId,
         imageUrl: creative.imageUrl,
         headline: creative.headline,
         message: creative.primaryText,
         linkUrl: creative.linkUrl,
+        leadFormId: metaLeadFormId,
       });
       metaAdId = await metaService.createAd(conn.adAccountId, token, {
         name: `${campaign.name} — ad`,
@@ -82,6 +97,7 @@ export class MetaPushService {
       });
       await this.campaigns.setMetaObjects(campaign.id, {
         metaCampaignId, metaAdSetId, metaCreativeId, metaAdId, metaStatus: 'PAUSED',
+        metaLeadFormId: metaLeadFormId ?? null,
       });
       logger.info(`MetaPushService: created PAUSED campaign ${metaCampaignId} (adset ${metaAdSetId}, ad ${metaAdId}) for shop ${shopId}`);
     } catch (err) {
@@ -92,6 +108,23 @@ export class MetaPushService {
       if (metaCampaignId) await metaService.deleteObject(metaCampaignId, token);
       throw err;
     }
+  }
+
+  /** Push a status change (ACTIVE|PAUSED) to the campaign's Meta objects. Used by go-live,
+   *  admin/shop pause/activate, and the safeguard auto-pause. Returns false when there's
+   *  nothing to push (not enabled / not pushed / disconnected). Throws on a Graph error so
+   *  go-live can surface it; best-effort callers (pause) should catch. */
+  async pushStatus(campaignId: string, status: 'ACTIVE' | 'PAUSED'): Promise<boolean> {
+    if (!this.enabled()) return false;
+    const campaign = await this.campaigns.findById(campaignId);
+    if (!campaign?.metaCampaignId) return false;
+    const conn = await this.connections.getConnection(campaign.shopId);
+    if (!conn?.userTokenEnc) return false;
+    const token = decryptToken(conn.userTokenEnc);
+    const ids = [campaign.metaCampaignId, campaign.metaAdSetId, campaign.metaAdId].filter(Boolean) as string[];
+    for (const id of ids) await metaService.setObjectStatus(id, status, token);
+    await this.campaigns.setMetaObjects(campaignId, { metaStatus: status });
+    return true;
   }
 }
 

@@ -11,11 +11,14 @@ import { metaService } from '../services/MetaService';
 import { signState, verifyState } from '../services/metaOAuthState';
 import { encryptToken, decryptToken } from '../../../utils/tokenCrypto';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
+import { CampaignRepository } from '../repositories/CampaignRepository';
 import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { metaConnectionService } from '../services/MetaConnectionService';
 import { metaInsightsService } from '../services/MetaInsightsService';
+import { metaPushService } from '../services/MetaPushService';
 
 const connections = new MetaConnectionRepository();
+const campaigns = new CampaignRepository();
 const messages = new AdMessageRepository();
 
 const shopIdOf = (req: Request): string | undefined => (req as any).user?.shopId;
@@ -152,8 +155,13 @@ export async function disconnectMyMeta(req: Request, res: Response): Promise<voi
   const shopId = shopIdOf(req);
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
   try {
+    // Pause any live Meta campaigns first (token still valid), then clear (best-effort).
+    try {
+      const pushed = (await campaigns.listWithMetaCampaign()).filter((c) => c.shopId === shopId);
+      for (const c of pushed) await metaPushService.pushStatus(c.id, 'PAUSED').catch(() => undefined);
+    } catch (e) { logger.warn('disconnect: pausing Meta campaigns failed', e); }
     await connections.clearConnection(shopId);
-    void postEvent(shopId, 'Ad account disconnected.');
+    void postEvent(shopId, 'Ad account disconnected — live campaigns paused.');
     res.json({ success: true });
   } catch (err) {
     logger.error('MetaConnectController.disconnectMyMeta failed', err);

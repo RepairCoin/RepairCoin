@@ -180,10 +180,15 @@ export class MetaService {
     return this.create(`${adAccountId}/adsets`, userToken, body);
   }
 
-  /** Create an ad creative (link_data: image + copy + CTA → link); returns the creative id. */
+  /** Create an ad creative (link_data: image + copy + CTA). When `leadFormId` is given the CTA
+   *  opens the native instant lead form (SIGN_UP); otherwise it links out (LEARN_MORE). */
   async createAdCreative(adAccountId: string, userToken: string, opts: {
-    pageId: string; imageUrl: string; headline: string; message: string; linkUrl: string; callToAction?: string;
+    pageId: string; imageUrl: string; headline: string; message: string; linkUrl: string;
+    callToAction?: string; leadFormId?: string;
   }): Promise<string> {
+    const call_to_action = opts.leadFormId
+      ? { type: 'SIGN_UP', value: { lead_gen_form_id: opts.leadFormId, link: opts.linkUrl } }
+      : { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } };
     const objectStorySpec = {
       page_id: opts.pageId,
       link_data: {
@@ -191,12 +196,35 @@ export class MetaService {
         link: opts.linkUrl,
         message: opts.message,
         name: opts.headline,
-        call_to_action: { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } },
+        call_to_action,
       },
     };
     return this.create(`${adAccountId}/adcreatives`, userToken, {
       name: `${opts.headline} — creative`.slice(0, 100),
       object_story_spec: JSON.stringify(objectStorySpec),
+    });
+  }
+
+  /** Set a Meta object's status (ACTIVE|PAUSED). Used for pause/activate + safeguard sync. */
+  async setObjectStatus(objectId: string, status: 'ACTIVE' | 'PAUSED', userToken: string): Promise<void> {
+    this.requireConfig();
+    try {
+      await axios.post(`${GRAPH}/${objectId}`, null, { params: { status, access_token: userToken }, timeout: 15000 });
+    } catch (err: any) {
+      logger.error('MetaService.setObjectStatus failed', { detail: err?.response?.data || err?.message, objectId, status });
+      throw new Error(`status_update_failed (${objectId}): ${this.fbError(err)}`);
+    }
+  }
+
+  /** Create a basic leadgen instant form (name/email/phone) on the Page; returns its id.
+   *  Uses the PAGE token (not the user token). Leads arrive via the existing webhook. */
+  async ensureLeadForm(pageId: string, pageToken: string, opts: { name: string; privacyPolicyUrl: string }): Promise<string> {
+    return this.create(`${pageId}/leadgen_forms`, pageToken, {
+      name: opts.name.slice(0, 200),
+      questions: JSON.stringify([{ type: 'FULL_NAME' }, { type: 'EMAIL' }, { type: 'PHONE' }]),
+      privacy_policy: JSON.stringify({ url: opts.privacyPolicyUrl, link_text: 'Privacy Policy' }),
+      follow_up_action_url: opts.privacyPolicyUrl,
+      locale: 'en_US',
     });
   }
 
