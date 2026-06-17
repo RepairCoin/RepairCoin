@@ -180,6 +180,36 @@ export class MetaService {
     return this.create(`${adAccountId}/adsets`, userToken, body);
   }
 
+  /** Create an ad creative (link_data: image + copy + CTA → link); returns the creative id. */
+  async createAdCreative(adAccountId: string, userToken: string, opts: {
+    pageId: string; imageUrl: string; headline: string; message: string; linkUrl: string; callToAction?: string;
+  }): Promise<string> {
+    const objectStorySpec = {
+      page_id: opts.pageId,
+      link_data: {
+        picture: opts.imageUrl,
+        link: opts.linkUrl,
+        message: opts.message,
+        name: opts.headline,
+        call_to_action: { type: opts.callToAction ?? 'LEARN_MORE', value: { link: opts.linkUrl } },
+      },
+    };
+    return this.create(`${adAccountId}/adcreatives`, userToken, {
+      name: `${opts.headline} — creative`.slice(0, 100),
+      object_story_spec: JSON.stringify(objectStorySpec),
+    });
+  }
+
+  /** Create a PAUSED ad linking an ad set to a creative; returns the ad id. */
+  async createAd(adAccountId: string, userToken: string, opts: { name: string; adsetId: string; creativeId: string }): Promise<string> {
+    return this.create(`${adAccountId}/ads`, userToken, {
+      name: opts.name,
+      adset_id: opts.adsetId,
+      creative: JSON.stringify({ creative_id: opts.creativeId }),
+      status: 'PAUSED',
+    });
+  }
+
   /** Delete a created Meta object (rollback on partial-failure). Best-effort. */
   async deleteObject(objectId: string, userToken: string): Promise<void> {
     try { await axios.delete(`${GRAPH}/${objectId}`, { params: { access_token: userToken }, timeout: 15000 }); }

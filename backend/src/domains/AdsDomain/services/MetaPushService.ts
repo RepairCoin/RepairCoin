@@ -8,6 +8,7 @@
 import { logger } from '../../../utils/logger';
 import { metaService } from './MetaService';
 import { buildCampaignSpec } from './metaTargeting';
+import { adCreativeService, AdCreativeService } from './AdCreativeService';
 import { decryptToken } from '../../../utils/tokenCrypto';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { CampaignRepository, AdCampaign } from '../repositories/CampaignRepository';
@@ -16,7 +17,8 @@ import { AdCampaignRequest } from '../repositories/CampaignRequestRepository';
 export class MetaPushService {
   constructor(
     private readonly connections = new MetaConnectionRepository(),
-    private readonly campaigns = new CampaignRepository()
+    private readonly campaigns = new CampaignRepository(),
+    private readonly creatives: AdCreativeService = adCreativeService
   ) {}
 
   /** Push is live only when the flag is on AND a Meta App is configured. */
@@ -49,6 +51,8 @@ export class MetaPushService {
 
     let metaCampaignId: string | undefined;
     let metaAdSetId: string | undefined;
+    let metaCreativeId: string | undefined;
+    let metaAdId: string | undefined;
     try {
       metaCampaignId = await metaService.createCampaign(conn.adAccountId, token, {
         name: campaign.name, objective: spec.objective,
@@ -62,10 +66,28 @@ export class MetaPushService {
         targeting: spec.targeting,
         promotedPageId: conn.pageId,
       });
-      await this.campaigns.setMetaObjects(campaign.id, { metaCampaignId, metaAdSetId, metaStatus: 'PAUSED' });
-      logger.info(`MetaPushService: created PAUSED campaign ${metaCampaignId} / adset ${metaAdSetId} for shop ${shopId}`);
+      // Phase 2 — auto-creative (AI image + copy) → creative → ad.
+      const creative = await this.creatives.build(shopId, request, campaign.name);
+      metaCreativeId = await metaService.createAdCreative(conn.adAccountId, token, {
+        pageId: conn.pageId,
+        imageUrl: creative.imageUrl,
+        headline: creative.headline,
+        message: creative.primaryText,
+        linkUrl: creative.linkUrl,
+      });
+      metaAdId = await metaService.createAd(conn.adAccountId, token, {
+        name: `${campaign.name} — ad`,
+        adsetId: metaAdSetId,
+        creativeId: metaCreativeId,
+      });
+      await this.campaigns.setMetaObjects(campaign.id, {
+        metaCampaignId, metaAdSetId, metaCreativeId, metaAdId, metaStatus: 'PAUSED',
+      });
+      logger.info(`MetaPushService: created PAUSED campaign ${metaCampaignId} (adset ${metaAdSetId}, ad ${metaAdId}) for shop ${shopId}`);
     } catch (err) {
-      // Roll back any Meta objects we created so there are no orphans.
+      // Roll back any Meta objects we created so there are no orphans (child → parent).
+      if (metaAdId) await metaService.deleteObject(metaAdId, token);
+      if (metaCreativeId) await metaService.deleteObject(metaCreativeId, token);
       if (metaAdSetId) await metaService.deleteObject(metaAdSetId, token);
       if (metaCampaignId) await metaService.deleteObject(metaCampaignId, token);
       throw err;
