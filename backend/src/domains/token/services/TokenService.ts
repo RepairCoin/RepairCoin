@@ -1,8 +1,9 @@
   // backend/src/services/tokenService.ts
   // TokenMinter is lazy-imported (see getTokenMinter) so the dormant contract
-  // module isn't loaded at startup; only the MintResult *type* is imported here.
+  // module isn't loaded at startup. The MintResult type lives in a shared,
+  // non-archived types file so active code never imports from contracts/_archive/.
   // docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
-  import type { MintResult } from '../../../contracts/_archive/TokenMinter';
+  import type { MintResult } from '../../../contracts/tokenTypes';
   import { TierManager, CustomerData } from '../../../contracts/TierManager';
   import { customerRepository, shopRepository, transactionRepository, adminRepository } from '../../../repositories';
   import { ReferralRepository } from '../../../repositories/ReferralRepository';

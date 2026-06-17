@@ -68,9 +68,8 @@ The frontend now learns the flag via a new public `GET /api/config` → `{ block
 - Shop **Stake RCG** sidebar item (`ui/sidebar/ShopSidebar.tsx`) + Staking tab render (`shop/ShopDashboardClient.tsx`); **RCG OTC** page redirects to `/shop` (`shop/rcg-otc/page.tsx`); crypto **ThirdwebPayment** modal; **Buy RCG Tokens** buttons (`RCGBalanceCard`, `OnboardingModal`, `OnboardingBanner`)
 - **Kept on purpose:** login/wallet-connect (separate track), Stripe RCN purchase, RCG tier/balance display (DB-backed).
 
-**🔵 Still blockchain-coupled (separate frontend track — wallet login removal, breaking):**
-- **Wallet auth/login:** `providers/AuthProvider.tsx`, `hooks/useWalletDetection.tsx`, `components/auth/DualAuthConnect.tsx`, `components/WalletConnectPrompt.tsx`, auth pages under `app/(auth)/` — even email login currently runs through Thirdweb's embedded wallet. Removing this is the breaking change that needs a deprecation notice.
-- **Config:** `config/contracts.ts`, `utils/thirdweb.ts` (still imported unconditionally).
+**✅ Wallet login via Thirdweb is KEPT permanently (decision June 18):**
+Wallet/Thirdweb authentication is intentionally OUT of scope for blockchain removal. `providers/AuthProvider.tsx`, `hooks/useWalletDetection.tsx`, `components/auth/DualAuthConnect.tsx`, `components/WalletConnectPrompt.tsx`, auth pages under `app/(auth)/`, and `config/contracts.ts` / `utils/thirdweb.ts` all stay as-is. Only blockchain *token actions* (mint/burn/RCG/staking/crypto-pay) are gated off in DB-only mode. Do not remove wallet login.
 
 ## 🔵 Mobile — still blockchain-coupled (separate mobile track)
 - `feature/auth/screens/connect/ConnectWalletScreen.tsx`, `shared/constants/thirdweb.ts`, `feature/token/redeem/hooks/useRedemptionSignature.ts`, wallet registration flow.

@@ -10,17 +10,9 @@ import { TierManager, CustomerData } from "../TierManager";
 
 import { createThirdwebClient, getContract, prepareContractCall, sendTransaction, readContract, waitForReceipt } from "thirdweb";
 import { logger } from '../../utils/logger';
+import { MintResult } from '../tokenTypes';
 
-export interface MintResult {
-  success: boolean;
-  tokensToMint?: number;
-  transactionHash?: string;
-  message?: string;
-  error?: string;
-  newTier?: string;
-  gasUsed?: string;
-  timestamp?: string;
-}
+export { MintResult };
 
 export interface EngagementMintParams {
   customerAddress: string;
