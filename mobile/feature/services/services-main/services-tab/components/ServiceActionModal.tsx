@@ -20,6 +20,7 @@ interface ServiceActionModalProps {
   onToggleStatus: (value: boolean) => void;
   onViewDetails?: () => void;
   onGroupRewards?: () => void;
+  onDelete?: () => void;
 }
 
 export function ServiceActionModal({
@@ -31,6 +32,7 @@ export function ServiceActionModal({
   onToggleStatus,
   onViewDetails,
   onGroupRewards,
+  onDelete,
 }: ServiceActionModalProps) {
   const haptics = useHaptics();
 
@@ -147,6 +149,25 @@ export function ServiceActionModal({
                   <Text className="text-white font-medium">View Details & Reviews</Text>
                   <Text className="text-gray-500 text-xs mt-1">
                     See service info and customer reviews
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* Delete Button */}
+            {onDelete && (
+              <TouchableOpacity
+                onPress={() => { haptics.selection(); onDelete(); }}
+                disabled={isUpdating}
+                className="bg-gray-800 rounded-lg p-4 mb-3 flex-row items-center"
+              >
+                <View className="bg-red-500/20 rounded-full p-2">
+                  <Ionicons name="trash" size={20} color="#EF4444" />
+                </View>
+                <View className="ml-3">
+                  <Text className="text-red-400 font-medium">Delete Service</Text>
+                  <Text className="text-gray-500 text-xs mt-1">
+                    Permanently remove this service
                   </Text>
                 </View>
               </TouchableOpacity>

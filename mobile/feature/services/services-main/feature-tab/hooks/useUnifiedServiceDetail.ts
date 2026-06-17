@@ -5,7 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useQuery } from "@tanstack/react-query";
-import { useGetServiceQuery, useTrackRecentlyViewedMutation } from "./useFeatureTabQuery";
+import { useGetServiceQuery, useTrackRecentlyViewedMutation, useDeleteServiceMutation } from "./useFeatureTabQuery";
 import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { messageApi } from "@/feature/messages/services/message.services";
@@ -357,6 +357,27 @@ export function useUnifiedServiceDetail() {
     }
   };
 
+  const deleteServiceMutation = useDeleteServiceMutation();
+  const handleDeleteService = () => {
+    if (!serviceData || !id) return;
+    Alert.alert(
+      "Delete Service",
+      `Delete "${serviceData.serviceName}"? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            deleteServiceMutation.mutate(
+              { serviceId: id },
+              { onSuccess: () => goBack() }
+            ),
+        },
+      ]
+    );
+  };
+
   // Navigation
   const handleGoBack = () => {
     goBack();
@@ -410,6 +431,8 @@ export function useUnifiedServiceDetail() {
     formatDayRange,
     openDaysCount,
     handleEdit,
+    handleDeleteService,
+    deleteIsPending: deleteServiceMutation.isPending,
 
     // Shared
     showShareModal,

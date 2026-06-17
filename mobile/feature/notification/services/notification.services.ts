@@ -154,9 +154,13 @@ class NotificationApi {
     address: string
   ): Promise<AppointmentNotificationPreferences | null> {
     try {
-      return await apiClient.get<AppointmentNotificationPreferences>(
-        `/customers/${address}/notification-preferences`
-      );
+      // Backend wraps the payload: { success, data }. Unwrap so callers get the
+      // preferences object directly (otherwise saved values never load back).
+      const response = await apiClient.get<{
+        success: boolean;
+        data: AppointmentNotificationPreferences | null;
+      }>(`/customers/${address}/notification-preferences`);
+      return response?.data ?? null;
     } catch (error: any) {
       if (error?.response?.status === 404) return null;
       console.error("Failed to get appointment preferences:", error);
@@ -185,9 +189,13 @@ class NotificationApi {
 
   async getGeneralPreferences(): Promise<GeneralNotificationPreferences | null> {
     try {
-      return await apiClient.get<GeneralNotificationPreferences>(
-        "/notifications/preferences/general"
-      );
+      // Backend wraps the payload: { success, data }. Unwrap so callers get the
+      // preferences object directly (otherwise saved values never load back).
+      const response = await apiClient.get<{
+        success: boolean;
+        data: GeneralNotificationPreferences | null;
+      }>("/notifications/preferences/general");
+      return response?.data ?? null;
     } catch (error: any) {
       if (error?.response?.status === 404) return null;
       console.error("Failed to get general preferences:", error);
