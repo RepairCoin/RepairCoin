@@ -13,6 +13,7 @@ import { encryptToken, decryptToken } from '../../../utils/tokenCrypto';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { metaConnectionService } from '../services/MetaConnectionService';
+import { metaInsightsService } from '../services/MetaInsightsService';
 
 const connections = new MetaConnectionRepository();
 const messages = new AdMessageRepository();
@@ -166,6 +167,17 @@ export async function handleMetaDeauthorize(req: Request, res: Response): Promis
   try { await metaConnectionService.handleDeauthorize(req.body?.signed_request); }
   catch (err) { logger.error('MetaConnectController.handleMetaDeauthorize failed', err); }
   res.status(200).json({ success: true });
+}
+
+// POST /ads/meta/sync-insights (admin) — run the Meta insights import now (also nightly). Phase 3.
+export async function triggerMetaInsightsSync(_req: Request, res: Response): Promise<void> {
+  try {
+    const synced = await metaInsightsService.syncAll();
+    res.json({ success: true, data: { synced } });
+  } catch (err) {
+    logger.error('MetaConnectController.triggerMetaInsightsSync failed', err);
+    res.status(500).json({ success: false, error: 'Failed to sync insights' });
+  }
 }
 
 // POST /ads/meta/data-deletion — PUBLIC. Meta data-deletion request. Must respond with

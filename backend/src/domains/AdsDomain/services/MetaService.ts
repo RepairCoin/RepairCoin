@@ -230,17 +230,28 @@ export class MetaService {
     }
   }
 
-  // --- Lead-field fetch / insights — separate later phases. STUBS. ---
+  /** Fetch daily campaign insights (spend/impressions/clicks) for the window. Returns the
+   *  raw Meta `data` rows (mapped by metaInsights.mapInsights). Phase 3. */
+  async fetchCampaignInsights(metaCampaignId: string, userToken: string, datePreset = 'last_7d'): Promise<any[]> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${metaCampaignId}/insights`, {
+        params: { fields: 'spend,impressions,clicks', level: 'campaign', time_increment: 1, date_preset: datePreset, access_token: userToken },
+        timeout: 20000,
+      });
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    } catch (err: any) {
+      logger.error('MetaService.fetchCampaignInsights failed', { detail: err?.response?.data || err?.message, metaCampaignId });
+      throw new Error(`insights_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  // --- Lead-field fetch — separate later phase. STUB. ---
 
   /** Fetch a lead's full fields (name/phone/email) by leadgen_id + page token. */
   async fetchLeadFields(_leadgenId: string, _pageToken: string): Promise<never> {
-    logger.warn('MetaService.fetchLeadFields not implemented — campaign-push/insights slice');
-    throw new Error('Meta lead fetch not implemented — requires the Stage-4 push/insights build');
-  }
-
-  /** Pull yesterday's campaign insights (spend/impressions/clicks) → ad_performance_daily. */
-  async syncInsights(): Promise<never> {
-    throw new Error('Meta insights sync not implemented — requires the Stage-4 push/insights build');
+    logger.warn('MetaService.fetchLeadFields not implemented — Phase 4 lead-form slice');
+    throw new Error('Meta lead fetch not implemented — requires the Phase-4 lead-form build');
   }
 }
 

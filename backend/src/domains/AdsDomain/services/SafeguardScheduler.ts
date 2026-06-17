@@ -12,6 +12,7 @@ import { LeadRepository } from '../repositories/LeadRepository';
 import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
 import { MetaConnectionService } from './MetaConnectionService';
+import { MetaInsightsService } from './MetaInsightsService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
 const LEAD_RETENTION_DAYS = 180;
@@ -25,7 +26,8 @@ export class SafeguardScheduler {
     private readonly leads = new LeadRepository(),
     private readonly billing = new AdBillingService(),
     private readonly subscriptions = new SubscriptionService(),
-    private readonly metaConnections = new MetaConnectionService()
+    private readonly metaConnections = new MetaConnectionService(),
+    private readonly metaInsights = new MetaInsightsService()
   ) {}
 
   start(): void {
@@ -53,6 +55,10 @@ export class SafeguardScheduler {
       // sweep evaluates fresh leads/bookings/revenue totals.
       await this.perf.rollUpFromPipeline(90);
       await this.perf.rollUpCohortRevenue(120); // Stage 5 cohort 30d/90d revenue
+      // Push Phase 3: import Meta spend/impressions/clicks BEFORE the sweep so it acts on
+      // fresh spend (no-op unless ADS_META_PUSH_ENABLED + a configured Meta App).
+      const insightsSynced = await this.metaInsights.syncAll();
+      if (insightsSynced > 0) logger.info(`Ads Meta insights: synced ${insightsSynced} campaign(s)`);
       const decisions = await this.evaluator.runNightly();
       const acted = decisions.filter((d) => d.action !== 'none').length;
       if (acted > 0) logger.info(`Ads safeguard scheduler: acted on ${acted} campaign(s)`);

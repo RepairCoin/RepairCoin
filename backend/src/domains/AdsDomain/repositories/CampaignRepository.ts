@@ -207,6 +207,15 @@ export class CampaignRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** Campaigns pushed to Meta (have a meta_campaign_id) — the nightly insights-sync set. */
+  async listWithMetaCampaign(): Promise<Array<{ id: string; shopId: string; metaCampaignId: string }>> {
+    const res = await this.pool.query(
+      `SELECT id, shop_id, meta_campaign_id FROM ad_campaigns
+        WHERE meta_campaign_id IS NOT NULL AND deleted_at IS NULL`
+    );
+    return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id, metaCampaignId: r.meta_campaign_id }));
+  }
+
   /** Resolve our campaign from a Meta campaign id (webhook/insights attribution). */
   async findByMetaCampaignId(metaCampaignId: string): Promise<AdCampaign | null> {
     const res = await this.pool.query(

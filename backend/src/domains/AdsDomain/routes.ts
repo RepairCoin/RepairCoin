@@ -45,6 +45,7 @@ import {
 import {
   getMetaConnectUrl, handleMetaOauthCallback, listMyMetaAccounts, selectMyMetaAccount,
   getMyMetaConnection, disconnectMyMeta, handleMetaDeauthorize, handleMetaDataDeletion,
+  triggerMetaInsightsSync,
 } from './controllers/MetaConnectController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
@@ -107,6 +108,7 @@ export function initializeRoutes(): Router {
   router.post('/campaign-requests/:id/build', ...admin, buildCampaignFromRequest);
   router.post('/campaign-requests/:id/decline', ...admin, declineCampaignRequest);
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
+  router.post('/meta/sync-insights', ...admin, triggerMetaInsightsSync);        // push P3: import Meta spend/impr/clicks now
 
   // ---- Admin: A/B experiments (Stage 5) ----
   router.post('/campaigns/:id/experiments', ...admin, createExperiment);

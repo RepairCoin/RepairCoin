@@ -76,6 +76,21 @@ export class PerformanceRepository extends BaseRepository {
     );
   }
 
+  /** Stage-4 push Phase 3 — write Meta insights (spend/impressions/clicks) ONLY, leaving
+   *  leads/bookings/revenue to the pipeline roll-up (orthogonal columns, no clobber). */
+  async upsertMetaInsights(campaignId: string, date: string, m: { spendCents: number; impressions: number; clicks: number }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ad_performance_daily (campaign_id, date, spend_cents, impressions, clicks)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (campaign_id, date) DO UPDATE SET
+         spend_cents = EXCLUDED.spend_cents,
+         impressions = EXCLUDED.impressions,
+         clicks      = EXCLUDED.clicks,
+         updated_at  = now()`,
+      [campaignId, date, m.spendCents ?? 0, m.impressions ?? 0, m.clicks ?? 0]
+    );
+  }
+
   /** Nightly roll-up (Stage 2): derive leads_captured (from ad_leads) and
    *  bookings_created + revenue_cents (from service_orders linked via ad_lead_id)
    *  per campaign+day. Manual-entry columns (spend/impressions/clicks) are left
