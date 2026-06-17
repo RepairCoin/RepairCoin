@@ -72,6 +72,24 @@ export interface CreateRedemptionSessionRequest {
   shopId: string;
   amount: number;
 }
+
+export interface VerifyRedemptionRequest {
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+}
+
+// Authoritative redemption verification returned by the backend.
+// Mirrors the data the web app uses to render the home/cross-shop badge.
+export interface RedemptionVerification {
+  canRedeem: boolean;
+  message?: string;
+  isHomeShop: boolean;
+  maxRedeemable: number;
+  crossShopLimit: number;
+  availableBalance: number;
+}
+
 export interface HowItWorksItem {
   icon: string;
   title: string;

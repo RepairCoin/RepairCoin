@@ -1,14 +1,14 @@
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
+    ActivityIndicator,
+    Image,
+    Modal,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 interface WalletOption {
   id: string;
@@ -34,13 +34,13 @@ const walletOptions: WalletOption[] = [
     type: "social",
     available: true,
   },
-  // {
-  //   id: "metamask",
-  //   name: "MetaMask",
-  //   icon: require("@/assets/icons/icons8-metamask-100.png"),
-  //   type: "wallet",
-  //   available: true,
-  // },
+  {
+    id: "metamask",
+    name: "MetaMask",
+    icon: require("@/assets/icons/icons8-metamask-100.png"),
+    type: "wallet",
+    available: true,
+  },
 ];
 
 export default function WalletSelectionModal({
@@ -54,8 +54,10 @@ export default function WalletSelectionModal({
   const walletAppOptions = walletOptions.filter((w) => w.type === "wallet");
 
   const renderWalletOption = (option: WalletOption) => {
-    const isCurrentlyConnecting = isConnecting && connectingWallet === option.id;
-    const isDisabled = !option.available || (isConnecting && connectingWallet !== option.id);
+    const isCurrentlyConnecting =
+      isConnecting && connectingWallet === option.id;
+    const isDisabled =
+      !option.available || (isConnecting && connectingWallet !== option.id);
 
     return (
       <TouchableOpacity
@@ -71,7 +73,9 @@ export default function WalletSelectionModal({
           <View>
             <Text className="text-white font-semibold">{option.name}</Text>
             {!option.available && (
-              <Text className="text-gray-500 text-xs">Not available in simulator</Text>
+              <Text className="text-gray-500 text-xs">
+                Not available in simulator
+              </Text>
             )}
           </View>
         </View>
@@ -105,22 +109,22 @@ export default function WalletSelectionModal({
               Continue with
             </Text>
             {socialOptions.map(renderWalletOption)}
-
-            {/* <Text className="text-gray-400 text-sm font-semibold mb-3 mt-4 uppercase">
+            <Text className="text-gray-400 text-sm font-semibold mb-3 mt-4 uppercase">
               Wallet Apps
             </Text>
-            {walletAppOptions.map(renderWalletOption)} */}
-
+            {walletAppOptions.map(renderWalletOption)}
             <Text className="text-gray-500 text-xs text-center mt-4">
-              By connecting, you agree to FixFlow's Terms of Service and Privacy Policy
+              By connecting, you agree to FixFlow's Terms of Service and Privacy
+              Policy
             </Text>
-
             {isConnecting && (
               <TouchableOpacity
                 onPress={onClose}
                 className="bg-gray-700 rounded-xl py-3 mt-4"
               >
-                <Text className="text-white text-center font-semibold">Cancel</Text>
+                <Text className="text-white text-center font-semibold">
+                  Cancel
+                </Text>
               </TouchableOpacity>
             )}
           </ScrollView>
