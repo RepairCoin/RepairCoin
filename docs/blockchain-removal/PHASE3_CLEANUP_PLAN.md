@@ -24,9 +24,9 @@ All steps below are complete. Verified against the working tree:
 
 **Verification:** `npx tsc --noEmit` clean; 13 provider tests + 91 shop.redeem tests pass with `ENABLE_BLOCKCHAIN_MINTING=false`.
 
-**Remaining nits (optional, cosmetic):**
-- Move the `MintResult` type out of `_archive/TokenMinter` (e.g. into `ITokenProvider` or a shared types file) so even the type-only import doesn't reach into `_archive/`.
-- Run Step 5 (throwaway-env `=true` smoke test) once to formally prove reversibility survived the archive.
+**Remaining nits:**
+- ~~Move the `MintResult` type out of `_archive/TokenMinter`~~ ✅ DONE June 18 — moved to new `backend/src/contracts/tokenTypes.ts`; `TokenService` imports from there; archived `TokenMinter` re-exports it for back-compat. No active code references `_archive/` now (not even a type import).
+- Run Step 5 (throwaway-env `=true` smoke test) once to formally prove reversibility survived the archive (partly covered by `backend/tests/_resolve.test.ts`).
 
 The original plan is retained below for history.
 
