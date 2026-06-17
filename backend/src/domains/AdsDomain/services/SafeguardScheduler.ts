@@ -11,6 +11,7 @@ import { PerformanceRepository } from '../repositories/PerformanceRepository';
 import { LeadRepository } from '../repositories/LeadRepository';
 import { AdBillingService } from './AdBillingService';
 import { SubscriptionService } from './SubscriptionService';
+import { MetaConnectionService } from './MetaConnectionService';
 
 // Q9: unconverted leads are retained 180 days, then hard-deleted nightly.
 const LEAD_RETENTION_DAYS = 180;
@@ -23,7 +24,8 @@ export class SafeguardScheduler {
     private readonly perf = new PerformanceRepository(),
     private readonly leads = new LeadRepository(),
     private readonly billing = new AdBillingService(),
-    private readonly subscriptions = new SubscriptionService()
+    private readonly subscriptions = new SubscriptionService(),
+    private readonly metaConnections = new MetaConnectionService()
   ) {}
 
   start(): void {
@@ -62,6 +64,10 @@ export class SafeguardScheduler {
       // Lifecycle Phase 4: apply scheduled tier downgrades that are now due (§9.7/#3).
       const applied = await this.subscriptions.applyDueScheduledChanges();
       if (applied > 0) logger.info(`Ads lifecycle: applied ${applied} scheduled tier change(s)`);
+
+      // Connect-Meta Phase 3: re-extend long-lived user tokens nearing expiry.
+      const refreshed = await this.metaConnections.refreshExpiring();
+      if (refreshed > 0) logger.info(`Ads Meta connect: refreshed ${refreshed} token(s)`);
 
       // Q4/Q7: accrue ad-management revenue (Plan B/C daily + Plan A monthly).
       const now = new Date();

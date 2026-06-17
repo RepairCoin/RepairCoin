@@ -42,6 +42,10 @@ import {
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
 } from './controllers/SubscriptionController';
+import {
+  getMetaConnectUrl, handleMetaOauthCallback, listMyMetaAccounts, selectMyMetaAccount,
+  getMyMetaConnection, disconnectMyMeta, handleMetaDeauthorize, handleMetaDataDeletion,
+} from './controllers/MetaConnectController';
 import { taxonomyFor } from './services/industryTaxonomies';
 
 export function initializeRoutes(): Router {
@@ -66,6 +70,15 @@ export function initializeRoutes(): Router {
   // POST = signed lead delivery (raw body parsed in app.ts for signature check).
   router.get('/webhooks/meta/leads', verifyMetaWebhook);
   router.post('/webhooks/meta/leads', receiveMetaWebhook);
+
+  // PUBLIC — Meta OAuth callback (browser redirect from Facebook). shopId is read from the
+  // signed `state`, never a param; on success stores the token and bounces to the picker.
+  router.get('/meta/oauth/callback', handleMetaOauthCallback);
+
+  // PUBLIC — Meta signed_request callbacks (app removed / data-deletion request). The service
+  // verifies the signature; both map the Meta user id → shop and clear the connection.
+  router.post('/meta/deauthorize', handleMetaDeauthorize);
+  router.post('/meta/data-deletion', handleMetaDataDeletion);
 
   // ---- Admin: campaigns ----
   router.post('/campaigns', ...admin, createCampaign);
@@ -142,6 +155,13 @@ export function initializeRoutes(): Router {
   router.get('/shop/subscription', ...shop, getMySubscription);          // self-serve tier (Phase 4)
   router.post('/shop/subscription/change', ...shop, changeMyTier);
   router.post('/shop/subscription/cancel', ...shop, cancelMySubscription);
+
+  // ---- Shop: Connect Meta (Stage-4 connect slice; gated by ADS_META_CONNECT_ENABLED) ----
+  router.get('/shop/meta/connect', ...shop, getMetaConnectUrl);          // → OAuth dialog URL
+  router.get('/shop/meta/connection', ...shop, getMyMetaConnection);     // current status
+  router.get('/shop/meta/accounts', ...shop, listMyMetaAccounts);        // ad accounts + Pages picker
+  router.post('/shop/meta/select', ...shop, selectMyMetaAccount);        // store choice + flip §9.6 gate
+  router.post('/shop/meta/disconnect', ...shop, disconnectMyMeta);
 
   return router;
 }

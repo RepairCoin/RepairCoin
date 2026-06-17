@@ -483,6 +483,7 @@ export interface AdInboxEntry {
   lastAuthor: AdMessageAuthor;
   lastAt: string;
   awaitingReply: boolean;
+  adsAccountConnected: boolean;
 }
 export const getAdMessageInbox = async (): Promise<AdInboxEntry[]> => {
   const res = await apiClient.get('/ads/messages/inbox');
@@ -562,6 +563,37 @@ export const changeMyTier = async (tier: FlatTierName): Promise<{ outcome: strin
 };
 export const cancelMySubscription = async (): Promise<void> => {
   await apiClient.post('/ads/shop/subscription/cancel', {});
+};
+
+/* ----------------------- Connect Meta (Stage-4 connect slice) ----------------------- */
+export interface MetaConnection {
+  enabled: boolean;       // ADS_META_CONNECT_ENABLED + a configured Meta App
+  connected: boolean;     // §9.6 gate (a Page is selected)
+  hasToken: boolean;      // OAuth done but no account/Page picked yet
+  adAccountId: string | null;
+  pageId: string | null;
+}
+export interface MetaAdAccount { id: string; accountId: string; name: string; status?: number; }
+export interface MetaPageLite { id: string; name: string; }
+
+export const getMetaConnection = async (): Promise<MetaConnection> => {
+  const res = await apiClient.get('/ads/shop/meta/connection');
+  return unwrap<MetaConnection>(res);
+};
+export const getMetaConnectUrl = async (): Promise<string> => {
+  const res = await apiClient.get('/ads/shop/meta/connect');
+  return unwrap<{ authUrl: string }>(res).authUrl;
+};
+export const getMetaAccounts = async (): Promise<{ adAccounts: MetaAdAccount[]; pages: MetaPageLite[] }> => {
+  const res = await apiClient.get('/ads/shop/meta/accounts');
+  return unwrap(res);
+};
+export const selectMetaAccount = async (adAccountId: string, pageId: string) => {
+  const res = await apiClient.post('/ads/shop/meta/select', { adAccountId, pageId });
+  return unwrap<{ adAccountId: string; pageId: string; connected: boolean }>(res);
+};
+export const disconnectMeta = async (): Promise<void> => {
+  await apiClient.post('/ads/shop/meta/disconnect', {});
 };
 
 /* --------------------------------- Shop ---------------------------------- */

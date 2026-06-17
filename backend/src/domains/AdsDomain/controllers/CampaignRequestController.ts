@@ -17,6 +17,7 @@ import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
 import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
+import { metaPushService } from '../services/MetaPushService';
 import { shopRepository } from '../../../repositories';
 
 const requests = new CampaignRequestRepository();
@@ -132,10 +133,30 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       notes: r.offer ? `Offer: ${r.offer}` : null,
       createdBy: adminId(req),
     } as any);
-    await campaigns.update(campaign.id, { status: 'active' }); // go live → billing starts (§9.2, nightly)
     await safeguards.ensureDefault(campaign.id);
-    const updated = await requests.setStatus(id, 'live', { campaignId: campaign.id, decidedBy: adminId(req) });
 
+    // Stage-4 PUSH (Option B): create the real campaign PAUSED on the shop's Meta ad account,
+    // then the admin reviews + goes live (Phase 5). Until ADS_META_PUSH_ENABLED, stays record-only.
+    if (metaPushService.enabled()) {
+      try {
+        await metaPushService.pushNewCampaign(r.shopId, r, campaign);
+      } catch (err: any) {
+        await campaigns.softDelete(campaign.id); // roll back our record (Meta objects rolled back inside)
+        logger.error('buildCampaignFromRequest: Meta push failed', err?.message || err);
+        res.status(502).json({ success: false, error: 'meta_push_failed', message: err?.message || 'Failed to create the campaign on Meta.' });
+        return;
+      }
+      await campaigns.update(campaign.id, { status: 'paused' }); // drafted on Meta, not yet live
+      const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: adminId(req) });
+      void postEvent(r.shopId, `Campaign "${name}" drafted on Meta (paused) — review & go live.`);
+      await notifyShop(r.shopId, `Your campaign "${name}" is being set up — we'll take it live shortly.`);
+      res.status(201).json({ success: true, data: { request: updated, campaign, pushed: true } });
+      return;
+    }
+
+    // Concierge / record-only path (push disabled) — unchanged: go live immediately as a record.
+    await campaigns.update(campaign.id, { status: 'active' }); // go live → billing starts (§9.2, nightly)
+    const updated = await requests.setStatus(id, 'live', { campaignId: campaign.id, decidedBy: adminId(req) });
     void postEvent(r.shopId, `Campaign "${name}" is live.`);
     await notifyShop(r.shopId, `Your campaign "${name}" is now live.`);
     await eventBus.publish(createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaign.id, { shopId: r.shopId, name }, 'AdsDomain'));
