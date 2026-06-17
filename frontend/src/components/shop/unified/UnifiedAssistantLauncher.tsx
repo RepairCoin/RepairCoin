@@ -27,8 +27,9 @@ import { useUnifiedAssistantStore } from "@/stores/unifiedAssistantStore";
  * DashboardLayout gates on userRole === 'shop'. The per-domain Insights /
  * Marketing / Help launchers stay (D1) as deep-dive surfaces underneath.
  */
-export const UnifiedAssistantLauncher: React.FC = () => {
+export const UnifiedAssistantLauncher: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const subtle = variant === 'subtle';
   // Open state lives in the shared store so the global voice triggers
   // (HeaderVoiceMic / MobileBottomNavMic) can open this same panel.
   const open = useUnifiedAssistantStore((s) => s.isOpen);
@@ -86,9 +87,13 @@ export const UnifiedAssistantLauncher: React.FC = () => {
         <button
           type="button"
           aria-label="Open your business assistant"
-          className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]"
+          className={
+            subtle
+              ? 'relative p-2 rounded-full bg-[#1f1f1f] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors'
+              : 'relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]'
+          }
         >
-          <Sparkles className="w-6 h-6" />
+          <Sparkles className={subtle ? 'w-5 h-5' : 'w-6 h-6'} />
         </button>
       </SheetTrigger>
 

@@ -165,6 +165,64 @@ export const getShopTransactions = async (shopId: string, params?: FilterParams)
   }
 };
 
+// Dashboard stat cards (revenue, bookings, new customers, reviews)
+export interface DashboardMetric {
+  value: number;
+  trend: number; // % change vs yesterday
+  spark: number[];
+}
+
+export interface ShopDashboardStats {
+  revenue: DashboardMetric;
+  bookings: DashboardMetric;
+  newCustomers: DashboardMetric;
+  reviews: {
+    avgRating: number | null;
+    reviewCount: number;
+    spark: number[];
+  };
+}
+
+export const getShopDashboardStats = async (
+  shopId: string
+): Promise<ShopDashboardStats | null> => {
+  try {
+    const response = await apiClient.get<ShopDashboardStats>(`/shops/${shopId}/dashboard-stats`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting shop dashboard stats:', error);
+    return null;
+  }
+};
+
+// Unified recent activity feed for the dashboard (campaigns, bookings, purchase orders, reviews)
+export type ShopActivityKind = 'campaign' | 'booking' | 'purchase_order' | 'review';
+
+export interface ShopActivityEvent {
+  id: string;
+  kind: ShopActivityKind;
+  subtitle: string;
+  status: string | null;
+  rating: number | null;
+  timestamp: string;
+}
+
+export const getShopRecentActivity = async (
+  shopId: string,
+  limit = 6
+): Promise<ShopActivityEvent[]> => {
+  try {
+    const queryString = buildQueryString({ limit });
+    const response = await apiClient.get<{ activity: ShopActivityEvent[] }>(
+      `/shops/${shopId}/recent-activity${queryString}`
+    );
+    return response.data?.activity || [];
+  } catch (error) {
+    console.error('Error getting shop recent activity:', error);
+    return [];
+  }
+};
+
 // Rewards
 export const issueReward = async (
   shopId: string,
@@ -510,6 +568,8 @@ export const shopApi = {
   
   // Transactions
   getTransactions: getShopTransactions,
+  getRecentActivity: getShopRecentActivity,
+  getDashboardStats: getShopDashboardStats,
   
   // Rewards
   issueReward,

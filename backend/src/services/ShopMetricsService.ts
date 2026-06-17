@@ -21,6 +21,23 @@ export interface DailyStats {
   cancellations: number;
 }
 
+export interface DashboardMetric {
+  value: number;
+  trend: number; // percentage change vs the previous day
+  spark: number[]; // last 7 days, oldest -> newest
+}
+
+export interface DashboardStats {
+  revenue: DashboardMetric;
+  bookings: DashboardMetric;
+  newCustomers: DashboardMetric;
+  reviews: {
+    avgRating: number | null; // all-time average
+    reviewCount: number; // all-time count
+    spark: number[]; // last 7 days of review counts
+  };
+}
+
 export interface WeeklyStats {
   bookingsCount: number;
   bookingsTrend: number;
@@ -120,6 +137,108 @@ export class ShopMetricsService {
       logger.error('Error getting daily stats:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get dashboard stat cards: today's revenue, bookings and new customers
+   * (each with a vs-yesterday trend and a 7-day sparkline) plus the shop's
+   * all-time review rating.
+   */
+  async getDashboardStats(shopId: string, date?: string): Promise<DashboardStats> {
+    // All day-bucketing is done inside Postgres via generate_series so there is
+    // no JS/DB timezone mismatch: each query returns exactly 7 ordered rows
+    // (oldest -> newest) ending on `date` (or CURRENT_DATE when omitted).
+    // The anchor date is COALESCE($2::date, CURRENT_DATE).
+    const anchor = date ?? null;
+    const metric = (spark: number[]) => ({
+      value: spark[spark.length - 1] || 0,
+      trend: this.calculateTrend(spark[spark.length - 1] || 0, spark[spark.length - 2] || 0),
+      spark,
+    });
+
+    // Bookings + revenue per day. Revenue counts money collected (paid or
+    // completed), so a paid booking today shows up immediately.
+    const ordersRes = await this.pool.query(
+      `WITH days AS (
+         SELECT generate_series(
+           COALESCE($2::date, CURRENT_DATE) - INTERVAL '6 days',
+           COALESCE($2::date, CURRENT_DATE),
+           INTERVAL '1 day'
+         )::date AS day
+       )
+       SELECT
+         COALESCE(COUNT(o.order_id), 0) AS bookings,
+         COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) AS revenue
+       FROM days d
+       LEFT JOIN service_orders o
+         ON o.shop_id = $1 AND o.booking_date::date = d.day
+       GROUP BY d.day
+       ORDER BY d.day`,
+      [shopId, anchor]
+    );
+    const bookingsSpark = ordersRes.rows.map((r) => parseInt(r.bookings) || 0);
+    const revenueSpark = ordersRes.rows.map((r) => parseFloat(r.revenue) || 0);
+
+    // New customers per day (first-ever booking falls on that day)
+    const custRes = await this.pool.query(
+      `WITH days AS (
+         SELECT generate_series(
+           COALESCE($2::date, CURRENT_DATE) - INTERVAL '6 days',
+           COALESCE($2::date, CURRENT_DATE),
+           INTERVAL '1 day'
+         )::date AS day
+       ),
+       firsts AS (
+         SELECT customer_address, MIN(booking_date)::date AS first_day
+         FROM service_orders WHERE shop_id = $1
+         GROUP BY customer_address
+       )
+       SELECT COALESCE(COUNT(f.customer_address), 0) AS new_customers
+       FROM days d
+       LEFT JOIN firsts f ON f.first_day = d.day
+       GROUP BY d.day
+       ORDER BY d.day`,
+      [shopId, anchor]
+    );
+    const custSpark = custRes.rows.map((r) => parseInt(r.new_customers) || 0);
+
+    // Reviews received per day
+    const reviewSeriesRes = await this.pool.query(
+      `WITH days AS (
+         SELECT generate_series(
+           COALESCE($2::date, CURRENT_DATE) - INTERVAL '6 days',
+           COALESCE($2::date, CURRENT_DATE),
+           INTERVAL '1 day'
+         )::date AS day
+       )
+       SELECT COALESCE(COUNT(r.review_id), 0) AS reviews
+       FROM days d
+       LEFT JOIN service_reviews r
+         ON r.shop_id = $1 AND r.created_at::date = d.day
+       GROUP BY d.day
+       ORDER BY d.day`,
+      [shopId, anchor]
+    );
+    const reviewSpark = reviewSeriesRes.rows.map((r) => parseInt(r.reviews) || 0);
+
+    // All-time review rating + count for the Reviews card
+    const overallReviews = await this.pool.query(
+      `SELECT AVG(rating) AS avg_rating, COUNT(*) AS review_count
+       FROM service_reviews WHERE shop_id = $1`,
+      [shopId]
+    );
+    const overall = overallReviews.rows[0] || {};
+
+    return {
+      revenue: metric(revenueSpark),
+      bookings: metric(bookingsSpark),
+      newCustomers: metric(custSpark),
+      reviews: {
+        avgRating: overall.avg_rating != null ? parseFloat(overall.avg_rating) : null,
+        reviewCount: parseInt(overall.review_count) || 0,
+        spark: reviewSpark,
+      },
+    };
   }
 
   /**
