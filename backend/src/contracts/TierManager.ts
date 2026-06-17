@@ -1,5 +1,5 @@
 // contracts/TierManager.ts
-import { createThirdwebClient, getContract, readContract } from "thirdweb";
+import { createThirdwebClient, getContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 
 export type TierLevel = "BRONZE" | "SILVER" | "GOLD";
@@ -68,20 +68,29 @@ export class TierManager {
   };
 
   constructor() {
-    // Use RCN-specific env vars first, fall back to legacy if needed
-    const clientId = process.env.RCN_THIRDWEB_CLIENT_ID || process.env.THIRDWEB_CLIENT_ID;
-    const secretKey = process.env.RCN_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY;
-    
-    if (!clientId || !secretKey) {
-      throw new Error("Missing required Thirdweb credentials");
+    // The Thirdweb client is only needed by getContract() (a blockchain-only
+    // path). It is created lazily so that tier *math* — calculateTier and the
+    // rest of this class — works in database-only mode without Thirdweb
+    // credentials. See docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md (step 0).
+    this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS || '';
+  }
+
+  // Lazily create the Thirdweb client; only blockchain paths reach this.
+  private getClient(): any {
+    if (!this.client) {
+      const clientId = process.env.RCN_THIRDWEB_CLIENT_ID || process.env.THIRDWEB_CLIENT_ID;
+      const secretKey = process.env.RCN_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY;
+
+      if (!clientId || !secretKey) {
+        throw new Error("Missing required Thirdweb credentials");
+      }
+
+      this.client = createThirdwebClient({
+        clientId: clientId,
+        secretKey: secretKey,
+      });
     }
-    
-    this.client = createThirdwebClient({
-      clientId: clientId,
-      secretKey: secretKey,
-    });
-    
-    this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
+    return this.client;
   }
 
   // Calculate customer tier based on lifetime earnings
@@ -318,7 +327,7 @@ export class TierManager {
   // Get contract instance
   async getContract() {
     return getContract({
-      client: this.client,
+      client: this.getClient(),
       chain: baseSepolia,
       address: this.contractAddress,
     });

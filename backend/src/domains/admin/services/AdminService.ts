@@ -8,7 +8,7 @@ import {
   treasuryRepository,
   refreshTokenRepository
 } from '../../../repositories';
-import { TokenMinter } from '../../../contracts/TokenMinter';
+import { getContractAdminService } from '../../../services/ContractAdminService';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
@@ -68,15 +68,7 @@ export interface SellRcnParams {
 }
 
 export class AdminService {
-  private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
-
-  private getTokenMinterInstance(): TokenMinter {
-    if (!this.tokenMinter) {
-      this.tokenMinter = new TokenMinter();
-    }
-    return this.tokenMinter;
-  }
 
   private getTierManager(): TierManager {
     if (!this.tierManager) {
@@ -99,7 +91,7 @@ export class AdminService {
       // Get blockchain stats
       let totalSupply = 0;
       try {
-        const contractStats = await this.getTokenMinterInstance().getContractStats();
+        const contractStats = await getContractAdminService().getContractStats();
         if (contractStats && contractStats.totalSupplyReadable > 0) {
           totalSupply = contractStats.totalSupplyReadable;
         }

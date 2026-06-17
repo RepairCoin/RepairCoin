@@ -1,11 +1,37 @@
 # RepairCoin — Current Status & Next Tasks
 
-**Last Updated:** June 11, 2026
+**Last Updated:** June 16, 2026
 **Maintainer note:** This is the single durable status doc. Update it at the end of each session instead of creating new SESSION_*/WHATS_NEXT_* files.
 
 ---
 
-## 🟢 Done this session (June 11, 2026) — UNCOMMITTED
+## 🟢 Done this session (June 15–16, 2026) — UNCOMMITTED (working tree)
+
+> Blockchain-removal initiative (Strategy B) — picked up from the June 11 Phase 1+2 work below. Phase 1+2 were committed as `572e9fed`; everything in this section is **still uncommitted** in the working tree.
+
+### 1. RCG shop-tier / pricing moved fully off-chain (was the main blocker)
+Shop tier (Standard/Premium/Elite) and RCN purchase pricing now derive from admin-managed DB columns `shops.rcg_tier` / `shops.rcg_balance` instead of reading the RCG balance from chain. No active code path reads RCG balance/tier on-chain anymore. Converted: `RCGService`, `ShopPurchaseService`, shop `/rcg-info`, shop data-fetch sync, admin `rcg-management /distribution`; `RCGTokenReader.getContractStats()` made chain-free. `RCGTokenReader.getBalance()`/`getShopTier()` are now dormant. (typecheck clean)
+
+### 2. Database-only mode rolled into deploy configs
+`ENABLE_BLOCKCHAIN_MINTING=false` added to `.do/app.yaml` (staging auto-deploy), `backend/app.yaml`, `backend/.env.staging`. Dev `.env` already false.
+
+### 3. Live DB-only earn→redeem walkthrough — PASSED ✅ (June 16)
+Ran the real `TokenProviderFactory → DatabaseTokenProvider` path against an isolated local Postgres (flag `false`): EARN 25 → bal 25, REDEEM 10 → bal 15, OVER-REDEEM 1000 rejected, ledger shows `mint`+`redeem` confirmed with **no on-chain hash**. 220 tests pass with the flag off.
+- **Finding:** `DatabaseTokenProvider` constructs `new TierManager()`, whose constructor throws without Thirdweb creds even in DB-only mode — unnecessary coupling. Folded into Phase 3 Step 0.
+
+### 4. Phase 3 archive — ✅ DONE (June 16, verified June 17)
+The 14 static `TokenMinter` importers were all converted to flag-gated `await import('../contracts/_archive/TokenMinter')`, and `TokenMinter`/`MultiContractMinter`/shop `BlockchainService` were physically moved into `backend/src/contracts/_archive/`. `ContractAdminService.ts` is now the single lazy blockchain-admin entry point and is wired into 5 consumers (AdminService, ContractOperationsService, health, MonitoringService, EmergencyFreezeService). `TierManager` was decoupled (Thirdweb client now lazy, constructor no longer throws without creds). `RCGTokenReader` deliberately kept active (chain-free pricing helper). Verified: `tsc --noEmit` clean; 13 provider + 91 redeem tests pass with the flag off. Only cosmetic nit left: a type-only `import type { MintResult }` still points into `_archive/` (erased at compile, harmless). See `docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md`.
+
+### 5. Living tracker updated
+`docs/blockchain-removal/IMPLEMENTATION_STATUS.md` is the current source of truth for done-vs-still-connected.
+
+---
+
+## 🟢 Previously done (June 11, 2026)
+
+> Phase 1+2 below are now **committed** (`572e9fed`). The AI chat tab strip status is unverified — confirm before assuming it's committed.
+
+### 1. AI Repair Assistant — "Recent Chats" tab strip (frontend-only)
 
 ### 1. AI Repair Assistant — "Recent Chats" tab strip (frontend-only)
 Customers can keep up to 5 recent conversations and switch between them via a thin tab strip; each thread keeps its own messages, auto-titled from the first message; `+` starts a new chat, `×` closes one. Persisted in `localStorage` (per-device), with a migration that wraps any existing single conversation into a thread (no data loss).
@@ -41,10 +67,11 @@ Implemented the abstraction that lets blockchain be toggled on/off via `ENABLE_B
 
 ## ⏭️ Next steps
 
-1. **Review & commit** the uncommitted work above (nothing is committed yet). Suggested branch: `feat/token-provider-abstraction` for the backend Phase 1+2; the AI chat tabs can be a separate frontend commit.
-2. **Product decision:** what should "Mint to Wallet" do in database-only mode? (hide the button, or no-op). Blocks finalizing the mint-to-wallet path.
-3. **Phase 3 (later):** archive blockchain files (`contracts/TokenMinter.ts`, etc.) once the team confirms — keep `ENABLE_BLOCKCHAIN_MINTING=false`. See `docs/blockchain-removal/`.
-4. Optional: fix the pre-existing `CustomerAIPanel.tsx` response-type errors.
+1. **Review & commit** the June 15–17 working-tree changes — now a large set: RCG-off-chain, deploy-config flags, `ContractAdminService.ts`, the `_archive/` move + all 14 consumers converted to dynamic import, `TierManager` decoupling, and updated docs. Note: a `git status` check showed these as still uncommitted/untracked in this checkout — confirm where any "push" actually landed before assuming it's on `origin/main`. (Backend Phase 1–3 of the blockchain-removal initiative is now functionally complete; this commit closes it out.)
+2. **Manual prod step:** set `ENABLE_BLOCKCHAIN_MINTING=false` on the **live DigitalOcean prod** App Platform component (dashboard → App → Settings → env vars). The in-repo `.do/app.yaml` only covers staging auto-deploy.
+3. **Product decision:** what should "Mint to Wallet" do in database-only mode? (hide the button, or no-op). Blocks finalizing the mint-to-wallet path.
+4. **Frontend/mobile tracks (later):** remove wallet-only login + RCG/staking UI (breaking change; needs deprecation notice).
+5. Optional cleanup: (a) move the `MintResult` type out of `_archive/TokenMinter` so nothing — not even a type import — reaches into `_archive/`; (b) run the Phase 3 Step-5 re-enable smoke test (`=true` in a throwaway env) to formally prove reversibility; (c) fix the pre-existing `CustomerAIPanel.tsx` response-type errors.
 
 ---
 

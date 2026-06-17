@@ -2,7 +2,8 @@
 import { customerRepository, transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { TierLevel } from '../../../contracts/TierManager';
-import { TokenMinter } from '../../../contracts/TokenMinter';
+// TokenMinter is lazy-imported (see getTokenMinter) so the dormant contract
+// module isn't loaded at startup. docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
 import { VerificationService } from '../../token/services/VerificationService';
 
 export interface CustomerBalanceInfo {
@@ -39,16 +40,12 @@ export interface InstantMintResult {
  * Handles real-time balance tracking, mint-to-wallet queuing, and balance synchronization.
  */
 export class CustomerBalanceService {
-  private tokenMinter: TokenMinter | null = null;
-
   /**
-   * Get TokenMinter instance (lazy initialization)
+   * Get TokenMinter instance (lazy dynamic import — blockchain-only path).
    */
-  private getTokenMinter(): TokenMinter {
-    if (!this.tokenMinter) {
-      this.tokenMinter = new TokenMinter();
-    }
-    return this.tokenMinter;
+  private async getTokenMinter() {
+    const { getTokenMinter } = await import('../../../contracts/_archive/TokenMinter');
+    return getTokenMinter();
   }
 
   /**
@@ -308,7 +305,7 @@ export class CustomerBalanceService {
       }
 
       // Step 2: Mint tokens directly to blockchain
-      const tokenMinter = this.getTokenMinter();
+      const tokenMinter = await this.getTokenMinter();
       const mintResult = await tokenMinter.adminMintTokens(
         address,
         amount,

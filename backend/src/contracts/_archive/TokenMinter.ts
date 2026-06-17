@@ -2,14 +2,14 @@
 import { config } from 'dotenv';
 import path from 'path';
 // Load environment variables from root directory
-config({ path: path.join(__dirname, '..', '.env') }); 
+config({ path: path.join(__dirname, '..', '..', '.env') });
 import { baseSepolia, base } from "thirdweb/chains";
 import { privateKeyToAccount } from "thirdweb/wallets";
-import { TierManager, CustomerData } from "./TierManager";
+import { TierManager, CustomerData } from "../TierManager";
 
 
 import { createThirdwebClient, getContract, prepareContractCall, sendTransaction, readContract, waitForReceipt } from "thirdweb";
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 
 export interface MintResult {
   success: boolean;

@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TokenService } from '../../token/services/TokenService';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
@@ -13,13 +12,11 @@ import { getSharedPool } from '../../../utils/database-pool';
 
 const router = Router();
 
-// Lazy loading helper
-let tokenMinter: TokenMinter | null = null;
-const getTokenMinter = (): TokenMinter => {
-    if (!tokenMinter) {
-        tokenMinter = new TokenMinter();
-    }
-    return tokenMinter;
+// Lazy loading helper — dynamic import so the dormant contract module isn't
+// loaded at startup. docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
+const getTokenMinter = async () => {
+    const { getTokenMinter: load } = await import('../../../contracts/_archive/TokenMinter');
+    return load();
 };
 
 // Get treasury statistics
@@ -58,7 +55,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
         let circulatingSupply = 0;
         
         try {
-            const contractStats = await getTokenMinter().getContractStats();
+            const contractStats = await (await getTokenMinter()).getContractStats();
             if (contractStats && contractStats.totalSupplyReadable > 0) {
                 circulatingSupply = contractStats.totalSupplyReadable;
                 logger.info('✅ Fetched circulating supply from blockchain:', circulatingSupply);
@@ -264,7 +261,7 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
 // Get admin wallet info
 router.get('/treasury/admin-wallet', async (req: Request, res: Response) => {
     try {
-        const tokenMinter = getTokenMinter();
+        const tokenMinter = await getTokenMinter();
         const account = (tokenMinter as any).account;
         const walletAddress = account?.address || 'Not configured';
         
@@ -413,7 +410,7 @@ router.post('/treasury/manual-transfer',
         try {
             const { customerAddress, amount, reason } = req.body;
             
-            const minter = getTokenMinter();
+            const minter = await getTokenMinter();
             
             // Check current balance
             const currentBalance = await minter.getCustomerBalance(customerAddress) || 0;
@@ -491,7 +488,7 @@ router.post('/treasury/manual-transfer',
 router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
-        const minter = getTokenMinter();
+        const minter = await getTokenMinter();
         const adminAddress = '0x761E5E59485ec6feb263320f5d636042bD9EBc8c';
         
         // Get existing treasury stats
@@ -605,7 +602,7 @@ router.post('/treasury/mint-bulk',
                 });
             }
             
-            const minter = getTokenMinter();
+            const minter = await getTokenMinter();
             const results = [];
             let successCount = 0;
             let failCount = 0;

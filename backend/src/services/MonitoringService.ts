@@ -1,7 +1,9 @@
 import { logger } from '../utils/logger';
 import { healthRepository, treasuryRepository, customerRepository, shopRepository } from '../repositories';
-import { getTokenMinter } from '../contracts/TokenMinter';
+import { getContractAdminService } from './ContractAdminService';
 import { contractMonitoringService } from './ContractMonitoringService';
+
+const blockchainEnabled = () => process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
 
 export class MonitoringService {
   private intervalId: NodeJS.Timeout | null = null;
@@ -80,7 +82,13 @@ export class MonitoringService {
 
   private async checkLowTreasuryBalance() {
     try {
+      // On-chain admin treasury balance only exists when blockchain is enabled.
+      // In database-only mode there is no on-chain treasury to monitor.
+      if (!blockchainEnabled()) {
+        return;
+      }
       // Check admin wallet balance
+      const { getTokenMinter } = await import('../contracts/_archive/TokenMinter');
       const tokenMinter = getTokenMinter();
       const adminAddress = '0x761E5E59485ec6feb263320f5d636042bD9EBc8c'; // From env
       const adminBalance = await tokenMinter.getCustomerBalance(adminAddress) || 0;
@@ -173,11 +181,11 @@ export class MonitoringService {
 
   private async checkBlockchainHealth() {
     try {
-      const tokenMinter = getTokenMinter();
-      
+      const contractAdmin = getContractAdminService();
+
       // Check if contract is accessible
-      const contractStats = await tokenMinter.getContractStats();
-      
+      const contractStats = await contractAdmin.getContractStats();
+
       if (!contractStats) {
         logger.warn('Cannot access blockchain contract');
         return { status: 'warning', error: 'Contract inaccessible' };
@@ -185,7 +193,7 @@ export class MonitoringService {
 
       // Check if contract is paused
       try {
-        const isPaused = await tokenMinter.isContractPaused();
+        const isPaused = await contractAdmin.isContractPaused();
         if (isPaused) {
           logger.warn('Contract is paused');
           return { status: 'warning', error: 'Contract paused' };

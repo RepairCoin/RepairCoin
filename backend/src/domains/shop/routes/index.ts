@@ -12,7 +12,8 @@ import {
   redemptionSessionRepository
 } from '../../../repositories';
 import { idempotencyRepository } from '../../../repositories/IdempotencyRepository';
-import { TokenMinter } from '../../../contracts/TokenMinter';
+// TokenMinter is lazy-imported (see getTokenMinter) inside flag-gated branches
+// only. docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
 import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { DatabaseService } from '../../../services/DatabaseService';
@@ -84,17 +85,14 @@ router.use('/calendar', calendarRoutes); // Calendar integration routes (auth ha
 router.use('/gmail', gmailRoutes); // Gmail integration routes (auth handled in route file)
 
 // Lazy loading helpers
-let tokenMinter: TokenMinter | null = null;
 let tierManager: TierManager | null = null;
 let referralService: ReferralService | null = null;
 
-const getTokenMinter = (): TokenMinter => {
-  if (!tokenMinter) {
-    // Import getTokenMinter from the module to use singleton
-    const { getTokenMinter: getTokenMinterInstance } = require('../../../contracts/TokenMinter');
-    tokenMinter = getTokenMinterInstance();
-  }
-  return tokenMinter;
+const getTokenMinter = async () => {
+  // Dynamic import so the dormant contract module isn't loaded at startup;
+  // callers are all inside ENABLE_BLOCKCHAIN_MINTING branches.
+  const { getTokenMinter: getTokenMinterInstance } = await import('../../../contracts/_archive/TokenMinter');
+  return getTokenMinterInstance();
 };
 
 const getTierManager = (): TierManager => {
@@ -387,36 +385,10 @@ router.get('/wallet/:address',
       const hasActiveShopSubscription = subscriptionStatus === 'active';
       const hasActiveSubscription = hasActiveStripeSubscription || hasActiveShopSubscription;
 
-      // Get actual on-chain RCG balance (not cached database value)
-      // This ensures operational_status is based on real blockchain holdings
-      let rcgBalance = shop.rcg_balance || 0;
-      if (shop.walletAddress) {
-        try {
-          const { RCGTokenReader } = await import('../../../contracts/RCGTokenReader');
-          const rcgReader = new RCGTokenReader();
-          const onChainBalance = await rcgReader.getBalance(shop.walletAddress);
-          rcgBalance = parseFloat(onChainBalance) || 0;
-
-          // Update cached balance in database if different
-          if (rcgBalance !== (shop.rcg_balance || 0)) {
-            await db.query(
-              `UPDATE shops SET rcg_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE shop_id = $2`,
-              [rcgBalance, shop.shopId]
-            );
-            shop.rcg_balance = rcgBalance;
-            logger.info('Synced RCG balance from blockchain', {
-              shopId: shop.shopId,
-              oldBalance: shop.rcg_balance,
-              newBalance: rcgBalance
-            });
-          }
-        } catch (rcgError) {
-          logger.warn('Failed to fetch on-chain RCG balance, using cached value', {
-            shopId: shop.shopId,
-            error: rcgError instanceof Error ? rcgError.message : 'Unknown error'
-          });
-        }
-      }
+      // RCG balance is the DB-stored value (admin-managed). On-chain sync was
+      // removed as part of the reversible blockchain removal — the DB is the
+      // source of truth. See docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+      const rcgBalance = shop.rcg_balance || 0;
 
       const expectedOperationalStatus = hasActiveSubscription
         ? 'subscription_qualified'
@@ -1333,7 +1305,7 @@ router.post('/:shopId/redeem',
       try {
         const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
         if (blockchainEnabled) {
-          const onChainBalance = await getTokenMinter().getCustomerBalance(customerAddress);
+          const onChainBalance = await (await getTokenMinter()).getCustomerBalance(customerAddress);
 
           if (onChainBalance && onChainBalance > 0) {
             // Calculate how much to burn from blockchain vs database
@@ -1371,7 +1343,7 @@ router.post('/:shopId/redeem',
 
             // Now attempt blockchain burn
             const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-            const burnResult = await getTokenMinter().burnTokensFromCustomer(
+            const burnResult = await (await getTokenMinter()).burnTokensFromCustomer(
               customerAddress,
               amountFromBlockchain,
               BURN_ADDRESS,
@@ -2237,7 +2209,7 @@ router.post('/:shopId/issue-reward',
 
         if (blockchainEnabled) {
           try {
-            const tokenMinter = getTokenMinter();
+            const tokenMinter = await getTokenMinter();
 
             logger.info('Attempting token transfer from admin wallet...', {
               customerAddress,

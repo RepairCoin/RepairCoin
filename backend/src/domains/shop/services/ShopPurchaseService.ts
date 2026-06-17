@@ -2,8 +2,6 @@
 import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { revenueDistributionService } from '../../../services/RevenueDistributionService';
-import { RCGTokenReader } from '../../../contracts/RCGTokenReader';
-import { getBlockchainService } from './BlockchainService';
 import { getStripeService } from '../../../services/StripeService';
 
 interface ShopRcnPurchase {
@@ -48,12 +46,6 @@ export interface PurchaseResponse {
 export class ShopPurchaseService {
   private static readonly MINIMUM_PURCHASE = 5; // 5 RCN minimum ($0.50 USD) due to Stripe requirements
   private static readonly MAXIMUM_PURCHASE = 100000; // 100,000 RCN maximum per transaction
-  
-  private rcgReader: RCGTokenReader;
-
-  constructor() {
-    this.rcgReader = new RCGTokenReader();
-  }
 
   /**
    * Initiate a shop RCN purchase
@@ -72,19 +64,17 @@ export class ShopPurchaseService {
         throw new Error('Shop is not active');
       }
 
-      // Get shop's RCG balance to determine tier AND check if operational
-      let shopTier = 'standard';
-      let rcgBalance = 0;
+      // Determine tier from the DB-stored shop tier (set by admin via
+      // /admin/shops/:shopId RCG update). Blockchain RCG reads were removed as
+      // part of the reversible blockchain removal — the DB is the source of
+      // truth. See docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+      let shopTier = shop.rcg_tier || 'standard';
+      let rcgBalance = shop.rcg_balance || 0;
       let hasCommitment = false;
-      
-      if (shop.walletAddress) {
-        try {
-          const balanceStr = await this.rcgReader.getBalance(shop.walletAddress);
-          rcgBalance = parseFloat(balanceStr);
-          shopTier = revenueDistributionService.determineTierFromRCGBalance(rcgBalance);
-        } catch (error) {
-          logger.warn(`Failed to get RCG balance for shop ${shop.shopId}, using standard tier`, error);
-        }
+
+      // 'none' tier has no purchase pricing — fall back to standard pricing
+      if (shopTier === 'none') {
+        shopTier = 'standard';
       }
 
       // Check if shop is qualified (either by RCG holdings or subscription)
