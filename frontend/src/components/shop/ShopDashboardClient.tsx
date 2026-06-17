@@ -14,7 +14,7 @@ import { toast } from "react-hot-toast";
 import apiClient, { isAccountSwitchError } from "@/services/api/client";
 
 // Import our new components
-import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
+import { DashboardOverview } from "@/components/shop/tabs/DashboardOverview";
 import { AdEnrollmentTeaser } from "@/components/ads/AdEnrollmentTeaser";
 import { PurchaseTab } from "@/components/shop/tabs/PurchaseTab";
 import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
@@ -228,7 +228,7 @@ export default function ShopDashboardClient() {
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("profile");
+  const [activeTab, setActiveTab] = useState<string>("overview");
   const [authToken, setAuthToken] = useState<string | null>(null);
 
   // Purchase form state
@@ -352,9 +352,9 @@ export default function ShopDashboardClient() {
     if (tab) {
       setActiveTab(tab);
     } else {
-      // If no tab specified, set URL to default tab (profile)
+      // If no tab specified, set URL to default tab (overview/dashboard)
       const url = new URL(window.location.href);
-      url.searchParams.set("tab", "profile");
+      url.searchParams.set("tab", "overview");
       window.history.replaceState({}, "", url);
     }
 
@@ -1289,7 +1289,7 @@ export default function ShopDashboardClient() {
         className={
           isMessagesFullHeight
             ? "flex-1 flex flex-col overflow-hidden min-h-0 pb-4 pt-0 lg:py-4"
-            : "min-h-screen py-8"
+            : "min-h-screen pt-2 pb-8 lg:py-8"
         }
       >
         <div
@@ -1389,14 +1389,7 @@ export default function ShopDashboardClient() {
               {shopData && (
                 <AdEnrollmentTeaser shopId={shopData.shopId} onExplore={() => setActiveTab("plans")} />
               )}
-              <OverviewTab
-                shopData={shopData}
-                purchases={purchases}
-                onRefreshData={loadShopData}
-                authToken={authToken ?? undefined}
-                loading={loading}
-                error={error}
-              />
+              <DashboardOverview shopData={shopData} onNavigate={handleTabChange} />
             </div>
           )}
 

@@ -6,8 +6,9 @@ import { useAuthStore } from '@/stores/authStore';
 import * as messagingApi from '@/services/api/messaging';
 import { MessagePreviewDropdown } from './MessagePreviewDropdown';
 
-export const MessageIcon: React.FC = () => {
+export const MessageIcon: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
   const { userType, switchingAccount } = useAuthStore();
+  const subtle = variant === 'subtle';
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -51,15 +52,19 @@ export const MessageIcon: React.FC = () => {
       <button
         ref={buttonRef}
         onClick={handleClick}
-        className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]"
+        className={
+          subtle
+            ? 'relative p-2 rounded-full bg-[#1f1f1f] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors'
+            : 'relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]'
+        }
         aria-label="Messages"
       >
         {/* Message Icon */}
-        <MessageCircle className="w-6 h-6" />
+        <MessageCircle className={subtle ? 'w-5 h-5' : 'w-6 h-6'} />
 
         {/* Unread Count Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
+          <span className={`absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold leading-none rounded-full ${subtle ? 'bg-[#FFCC00] text-black' : 'bg-red-600 text-white'}`}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

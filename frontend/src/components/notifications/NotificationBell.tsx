@@ -700,9 +700,10 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
   );
 };
 
-export const NotificationBell: React.FC = () => {
+export const NotificationBell: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
+  const subtle = variant === 'subtle';
   const { notifications, unreadCount, isConnected } = useNotificationStore();
   const { markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationActions();
 
@@ -751,12 +752,16 @@ export const NotificationBell: React.FC = () => {
         {/* Bell Icon Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]"
+          className={
+            subtle
+              ? 'relative p-2 rounded-full bg-[#1f1f1f] text-gray-300 hover:bg-[#2a2a2a] hover:text-white transition-colors'
+              : 'relative p-2.5 rounded-full bg-[#FFCC00] text-[#1e1f22] hover:bg-[#e6b800] transition-all duration-300 lg:shadow-[0_2px_8px_4px_#101010]'
+          }
           aria-label="Notifications"
         >
           {/* Bell Icon */}
           <svg
-            className="w-6 h-6"
+            className={subtle ? 'w-5 h-5' : 'w-6 h-6'}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -772,7 +777,7 @@ export const NotificationBell: React.FC = () => {
 
           {/* Unread Count Badge */}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
+            <span className={`absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold leading-none rounded-full ${subtle ? 'bg-[#FFCC00] text-black' : 'bg-red-600 text-white'}`}>
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}

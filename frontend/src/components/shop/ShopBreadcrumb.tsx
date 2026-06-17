@@ -1,6 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useAuthStore } from "@/stores/authStore";
+import { useRCGBalance } from "@/hooks/useRCGBalance";
+import { CartIcon } from "@/components/ui/CartIcon";
+import { MessageIcon } from "@/components/messaging/MessageIcon";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { HeaderVoiceMic } from "@/components/voice/HeaderVoiceMic";
+import { UnifiedAssistantLauncher } from "@/components/shop/unified/UnifiedAssistantLauncher";
 import {
   Home,
   ChevronRight,
@@ -24,6 +31,11 @@ import {
   AlertTriangle,
   User,
   CreditCard,
+  Package,
+  Wrench,
+  FileBarChart,
+  LifeBuoy,
+  Wallet,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -46,6 +58,11 @@ const TAB_CONFIG: Record<string, {
     title: "Inventory",
     icon: <ShoppingBagIcon className="w-5 h-5" />,
     description: "Manage your inventory items and stock levels",
+  },
+  "purchase-orders": {
+    title: "Purchase Orders",
+    icon: <Package className="w-5 h-5" />,
+    description: "Manage your inventory purchase orders",
   },
   messages: {
     title: "Messages",
@@ -97,6 +114,11 @@ const TAB_CONFIG: Record<string, {
     icon: <GemIcon className="w-5 h-5" />,
     description: "Issue RCN rewards to your customers",
   },
+  tools: {
+    title: "Tools",
+    icon: <Wrench className="w-5 h-5" />,
+    description: "Manage rewards, redemptions, and promotional codes",
+  },
   customers: {
     title: "Customers",
     icon: <UsersIcon className="w-5 h-5" />,
@@ -116,6 +138,11 @@ const TAB_CONFIG: Record<string, {
     title: "Shop Location",
     icon: <MapPinnedIcon className="w-5 h-5" />,
     description: "Set your shop's location for accurate delivery and customer navigation",
+  },
+  staking: {
+    title: "Stake RCG",
+    icon: <TrendingUp className="w-5 h-5" />,
+    description: "Stake your RCG tokens to earn rewards from platform revenue sharing",
   },
   subscription: {
     title: "Subscription",
@@ -137,10 +164,25 @@ const TAB_CONFIG: Record<string, {
     icon: <MegaphoneIcon className="w-5 h-5" />,
     description: "Promote your shop and reach more customers",
   },
+  reports: {
+    title: "Reports",
+    icon: <FileBarChart className="w-5 h-5" />,
+    description: "Stay informed with automated email reports about your shop's performance. Choose which reports you want to receive and when.",
+  },
   settings: {
     title: "Settings",
     icon: <Settings className="w-5 h-5" />,
     description: "Configure your shop settings and preferences",
+  },
+  support: {
+    title: "Support",
+    icon: <LifeBuoy className="w-5 h-5" />,
+    description: "Get help from our support team",
+  },
+  "wallet-payouts": {
+    title: "Wallet & Payouts",
+    icon: <Wallet className="w-5 h-5" />,
+    description: "Manage your wallet and payout settings",
   },
   // groups: {
   //   title: "Affiliate Groups",
@@ -154,6 +196,14 @@ const TAB_CONFIG: Record<string, {
   },
 };
 
+const DEFAULT_TAB = {
+  title: "Dashboard",
+  icon: <HouseIcon className="w-5 h-5" />,
+  description: "Manage your shop and take action with AI-powered business insights.",
+};
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 interface ShopBreadcrumbProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -163,32 +213,73 @@ export const ShopBreadcrumb: React.FC<ShopBreadcrumbProps> = ({
   activeTab,
   onTabChange,
 }) => {
-  const tabConfig = TAB_CONFIG[activeTab];
+  const name = useAuthStore((s) => s.userProfile?.name);
+  const avatarUrl = useAuthStore((s) => s.userProfile?.avatarUrl);
+  const shopId = useAuthStore((s) => s.userProfile?.shopId);
+  const { rcgInfo } = useRCGBalance(shopId);
+  const [avatarError, setAvatarError] = useState(false);
 
-  // Don't show breadcrumb for overview tab
-  if (activeTab === "overview" || !tabConfig) {
-    return null;
-  }
+  const tabConfig = TAB_CONFIG[activeTab] || DEFAULT_TAB;
+  const isHome = activeTab === "overview";
+  const firstName = (name || "there").split(" ")[0];
+  const tier =
+    rcgInfo?.tier && rcgInfo.tier !== "none" ? capitalize(rcgInfo.tier) : null;
+  const showAvatar = avatarUrl && !avatarError;
 
   const handleHomeClick = () => {
     onTabChange("overview");
   };
 
   return (
-    <div className="border-b border-[#303236] pb-4 mb-6">
-      <div className="flex items-center gap-2 mb-2">
-        <button
-          onClick={handleHomeClick}
-          className="p-1 rounded hover:bg-[#303236] transition-colors"
-          title="Go to Overview"
-        >
-          <Home className="w-5 h-5 text-white hover:text-[#FFCC00] transition-colors" />
-        </button>
-        <ChevronRight className="w-4 h-4 text-gray-400" />
-        <span className="text-[#FFCC00]">{tabConfig.icon}</span>
-        <span className="text-base font-medium text-[#FFCC00]">{tabConfig.title}</span>
+    <div className="px-2 lg:px-0 pb-4 mb-6 flex items-start justify-between gap-4">
+      {/* Page title */}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-2">
+          {!isHome && (
+            <>
+              <button
+                onClick={handleHomeClick}
+                className="p-1 rounded hover:bg-[#303236] transition-colors"
+                title="Go to Overview"
+              >
+                <Home className="w-5 h-5 text-white hover:text-[#FFCC00] transition-colors" />
+              </button>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </>
+          )}
+          <span className="text-[#FFCC00]">{tabConfig.icon}</span>
+          <span className="text-base font-medium text-[#FFCC00]">{tabConfig.title}</span>
+        </div>
+        <p className="text-sm text-[#ddd]">{tabConfig.description}</p>
       </div>
-      <p className="text-sm text-[#ddd]">{tabConfig.description}</p>
+
+      {/* Actions + user — desktop only; mobile uses the floating cluster */}
+      <div className="hidden lg:flex flex-shrink-0 items-center gap-2.5">
+        <CartIcon variant="subtle" />
+        <MessageIcon variant="subtle" />
+        <NotificationBell variant="subtle" />
+        <HeaderVoiceMic variant="subtle" />
+        <UnifiedAssistantLauncher variant="subtle" />
+
+        <div className="ml-6 flex items-center gap-2.5">
+          {showAvatar ? (
+            <img
+              src={avatarUrl}
+              alt={firstName}
+              onError={() => setAvatarError(true)}
+              className="h-9 w-9 rounded-xl object-cover"
+            />
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFCC00] text-sm font-bold text-[#101010]">
+              {firstName.charAt(0).toUpperCase()}
+            </span>
+          )}
+          <div className="leading-tight">
+            <p className="text-sm font-medium text-white">Hi, {firstName}</p>
+            {tier && <p className="text-xs text-[#FFCC00]">{tier} Tier</p>}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

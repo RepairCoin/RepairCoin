@@ -19,9 +19,10 @@ import { unlockAudioPlayback } from "@/lib/audioUnlock";
 // Once seen/used, never show the header-mic coach-mark again.
 const MIC_COACH_KEY = "rc_header_mic_coach_seen";
 
-export const HeaderVoiceMic: React.FC = () => {
+export const HeaderVoiceMic: React.FC<{ variant?: 'default' | 'subtle' }> = ({ variant = 'default' }) => {
   const openWithMic = useUnifiedAssistantStore((s) => s.openWithMic);
   const [showCoach, setShowCoach] = useState(false);
+  const subtle = variant === 'subtle';
 
   // First-visit coach-mark. Set in an effect (not initial state) to avoid an
   // SSR/client hydration mismatch; storage access guarded for private mode.
@@ -66,9 +67,9 @@ export const HeaderVoiceMic: React.FC = () => {
         }}
         aria-label="Talk to your assistant"
         title="Talk to your assistant"
-        className="relative z-10 p-2.5 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg transition-shadow hover:shadow-xl"
+        className={`relative z-10 ${subtle ? 'p-2' : 'p-2.5'} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg transition-shadow hover:shadow-xl`}
       >
-        <Mic className="w-6 h-6" />
+        <Mic className={subtle ? 'w-5 h-5' : 'w-6 h-6'} />
       </button>
 
       {/* First-visit coach-mark — appears below the mic, pointing up at it. */}

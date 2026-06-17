@@ -190,8 +190,7 @@ export function useSidebar({
   );
 
   const navigateToHome = useCallback(() => {
-    const defaultTab = userRole === 'shop' ? 'profile' : 'overview';
-    const destination = `/${userRole}?tab=${defaultTab}`;
+    const destination = `/${userRole}?tab=overview`;
     router.push(destination);
   }, [userRole, router]);
 
