@@ -126,6 +126,81 @@ export class MetaPushService {
     await this.campaigns.setMetaObjects(campaignId, { metaStatus: status });
     return true;
   }
+
+  /** Go live (Option B): verify a funding source (real spend starts now — §3.1 deferred from
+   *  P1), then activate the campaign/adset/ad on Meta. Throws a descriptive error for the UI. */
+  async goLive(campaignId: string): Promise<void> {
+    if (!this.enabled()) throw new Error('push_disabled');
+    const campaign = await this.campaigns.findById(campaignId);
+    if (!campaign?.metaCampaignId) throw new Error('not_a_meta_draft');
+    const conn = await this.connections.getConnection(campaign.shopId);
+    if (!conn?.userTokenEnc || !conn.adAccountId) throw new Error('meta_not_connected');
+    const token = decryptToken(conn.userTokenEnc);
+    const status = await metaService.getAccountStatus(conn.adAccountId, token);
+    if (status.accountStatus !== 1) throw new Error('ad_account_not_active');
+    if (!status.hasFunding) throw new Error('no_funding_source: add a payment method to the shop\'s Meta ad account before going live');
+    const ids = [campaign.metaCampaignId, campaign.metaAdSetId, campaign.metaAdId].filter(Boolean) as string[];
+    for (const id of ids) await metaService.setObjectStatus(id, 'ACTIVE', token);
+    await this.campaigns.setMetaObjects(campaignId, { metaStatus: 'ACTIVE' });
+  }
+
+  /** In-app draft edits (Phase 5 Level 2): budget / radius (ad set) and headline / primaryText /
+   *  image (a new creative, since Meta creatives are immutable). Persists budget/radius locally. */
+  async updateDraft(campaignId: string, edits: {
+    dailyBudgetCents?: number; radiusMiles?: number;
+    headline?: string; primaryText?: string; regenerateImage?: boolean;
+    request?: AdCampaignRequest;
+  }): Promise<void> {
+    if (!this.enabled()) throw new Error('push_disabled');
+    const campaign = await this.campaigns.findById(campaignId);
+    if (!campaign?.metaCampaignId) throw new Error('not_a_meta_draft');
+    const conn = await this.connections.getConnection(campaign.shopId);
+    if (!conn?.userTokenEnc || !conn.adAccountId || !conn.pageId) throw new Error('meta_not_connected');
+    const token = decryptToken(conn.userTokenEnc);
+
+    // 1) Ad set — budget + radius (rebuild the geo targeting around the new radius).
+    const adsetEdit: { dailyBudgetCents?: number; targeting?: Record<string, any> } = {};
+    if (edits.dailyBudgetCents != null) adsetEdit.dailyBudgetCents = edits.dailyBudgetCents;
+    if (edits.radiusMiles != null) {
+      const geo = await this.connections.getShopGeo(campaign.shopId);
+      adsetEdit.targeting = buildCampaignSpec({
+        goal: edits.request?.goal ?? null, monthlyBudgetCents: null, targetRadiusMiles: edits.radiusMiles, lat: geo.lat, lng: geo.lng,
+      }).targeting;
+    }
+    if (campaign.metaAdSetId && (adsetEdit.dailyBudgetCents != null || adsetEdit.targeting)) {
+      await metaService.updateAdSet(campaign.metaAdSetId, token, adsetEdit);
+    }
+    const dbUpdate: Record<string, any> = {};
+    if (edits.dailyBudgetCents != null) dbUpdate.dailyBudgetCents = edits.dailyBudgetCents;
+    if (edits.radiusMiles != null) dbUpdate.targetRadiusMiles = edits.radiusMiles;
+    if (Object.keys(dbUpdate).length) await this.campaigns.update(campaignId, dbUpdate);
+
+    // 2) Creative — text and/or image edit → build a NEW creative → point the ad at it.
+    const wantsCreativeEdit = !!(edits.headline || edits.primaryText || edits.regenerateImage);
+    if (wantsCreativeEdit && campaign.metaAdId && edits.request) {
+      let imageUrl: string;
+      let headline: string;
+      let primaryText: string;
+      let linkUrl: string;
+      if (edits.regenerateImage) {
+        const fresh = await this.creatives.build(campaign.shopId, edits.request, campaign.name);
+        imageUrl = fresh.imageUrl; headline = edits.headline || fresh.headline; primaryText = edits.primaryText || fresh.primaryText; linkUrl = fresh.linkUrl;
+      } else {
+        // Keep the current image; merge text edits over the existing creative.
+        const cur = campaign.metaCreativeId ? await metaService.getCreativeSpec(campaign.metaCreativeId, token) : null;
+        if (!cur?.picture) throw new Error('creative_unavailable_for_text_edit');
+        imageUrl = cur.picture; headline = edits.headline || cur.headline; primaryText = edits.primaryText || cur.message; linkUrl = cur.link;
+      }
+      const oldCreativeId = campaign.metaCreativeId;
+      const newCreativeId = await metaService.createAdCreative(conn.adAccountId, token, {
+        pageId: conn.pageId, imageUrl, headline, message: primaryText, linkUrl,
+        leadFormId: campaign.metaLeadFormId ?? undefined,
+      });
+      await metaService.updateAdCreative(campaign.metaAdId, token, newCreativeId);
+      await this.campaigns.setMetaObjects(campaignId, { metaCreativeId: newCreativeId });
+      if (oldCreativeId) await metaService.deleteObject(oldCreativeId, token); // best-effort cleanup
+    }
+  }
 }
 
 export const metaPushService = new MetaPushService();

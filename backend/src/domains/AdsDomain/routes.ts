@@ -38,6 +38,7 @@ import {
 import {
   submitCampaignRequest, listMyCampaignRequests, listCampaignRequests,
   buildCampaignFromRequest, declineCampaignRequest, setAdsAccountConnected,
+  goLiveCampaign, updateCampaignDraft,
 } from './controllers/CampaignRequestController';
 import {
   getMySubscription, changeMyTier, cancelMySubscription,
@@ -107,6 +108,8 @@ export function initializeRoutes(): Router {
   router.get('/campaign-requests', ...admin, listCampaignRequests);     // build queue (Phase 3)
   router.post('/campaign-requests/:id/build', ...admin, buildCampaignFromRequest);
   router.post('/campaign-requests/:id/decline', ...admin, declineCampaignRequest);
+  router.post('/campaigns/:id/go-live', ...admin, goLiveCampaign);              // push P5: activate a PAUSED draft
+  router.patch('/campaigns/:id/draft', ...admin, updateCampaignDraft);          // push P5: edit budget/radius/creative
   router.post('/shops/:shopId/ads-account', ...admin, setAdsAccountConnected);  // §9.6 connect gate
   router.post('/meta/sync-insights', ...admin, triggerMetaInsightsSync);        // push P3: import Meta spend/impr/clicks now
 

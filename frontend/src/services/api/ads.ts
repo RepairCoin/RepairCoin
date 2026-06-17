@@ -20,6 +20,10 @@ export interface AdCampaign {
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;
+  // Stage-4 push: present when the campaign was created on Meta.
+  metaCampaignId?: string | null;
+  metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
+  targetRadiusMiles?: number | null;
 }
 
 export interface CampaignRoi {
@@ -527,6 +531,18 @@ export const buildCampaignFromRequest = async (id: string, input?: { name?: stri
 export const declineCampaignRequest = async (id: string, declineReason?: string): Promise<AdCampaignRequest> => {
   const res = await apiClient.post(`/ads/campaign-requests/${id}/decline`, { declineReason });
   return unwrap<AdCampaignRequest>(res);
+};
+// Stage-4 push P5 — review/edit a PAUSED Meta draft, then take it live (Option B).
+export interface CampaignDraftEdit {
+  dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string; regenerateImage?: boolean;
+}
+export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
+  const res = await apiClient.patch(`/ads/campaigns/${id}/draft`, edits);
+  return unwrap<AdCampaign>(res);
+};
+export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/go-live`, {});
+  return unwrap(res);
 };
 // §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
 export const setShopAdsAccount = async (shopId: string, connected: boolean) => {

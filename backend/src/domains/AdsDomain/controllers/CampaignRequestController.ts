@@ -184,6 +184,49 @@ export async function declineCampaignRequest(req: Request, res: Response): Promi
   }
 }
 
+// POST /campaigns/:id/go-live (admin) — Option B: activate a PAUSED Meta draft after review.
+// Verifies a funding source, activates campaign/adset/ad on Meta, flips our campaign → active
+// + the request → live (billing starts §9.2).
+export async function goLiveCampaign(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    await metaPushService.goLive(campaignId); // throws on funding / connect / Graph error
+    await campaigns.update(campaignId, { status: 'active' });
+    await requests.setLiveByCampaign(campaignId);
+    void postEvent(campaign.shopId, `Campaign "${campaign.name}" is now live.`);
+    await notifyShop(campaign.shopId, `Your campaign "${campaign.name}" is now live.`);
+    await eventBus.publish(createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaignId, { shopId: campaign.shopId, name: campaign.name }, 'AdsDomain'));
+    res.json({ success: true, data: { campaignId, status: 'active' } });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.goLiveCampaign failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'go_live_failed', message: err?.message || 'Failed to go live.' });
+  }
+}
+
+// PATCH /campaigns/:id/draft (admin) — Phase-5 Level-2 in-app edits before go-live.
+export async function updateCampaignDraft(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const request = await requests.findByCampaignId(campaignId);
+    await metaPushService.updateDraft(campaignId, {
+      dailyBudgetCents: req.body?.dailyBudgetCents,
+      radiusMiles: req.body?.radiusMiles,
+      headline: req.body?.headline,
+      primaryText: req.body?.primaryText,
+      regenerateImage: req.body?.regenerateImage === true,
+      request: request ?? undefined,
+    });
+    res.json({ success: true, data: await campaigns.findById(campaignId) });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.updateCampaignDraft failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'draft_update_failed', message: err?.message || 'Failed to update the draft.' });
+  }
+}
+
 // POST /shops/:shopId/ads-account (admin) — mark the shop's ad account connected/disconnected (§9.6).
 export async function setAdsAccountConnected(req: Request, res: Response): Promise<void> {
   const shopId = req.params.shopId;

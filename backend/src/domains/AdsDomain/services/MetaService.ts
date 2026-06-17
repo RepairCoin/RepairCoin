@@ -216,6 +216,46 @@ export class MetaService {
     }
   }
 
+  /** Update an ad set's budget / targeting (Phase 5 in-app edits). No-op if nothing to set. */
+  async updateAdSet(adsetId: string, userToken: string, opts: { dailyBudgetCents?: number; targeting?: Record<string, any> }): Promise<void> {
+    const body: Record<string, any> = {};
+    if (opts.dailyBudgetCents != null) body.daily_budget = String(opts.dailyBudgetCents);
+    if (opts.targeting) body.targeting = JSON.stringify(opts.targeting);
+    if (Object.keys(body).length === 0) return;
+    this.requireConfig();
+    try {
+      await axios.post(`${GRAPH}/${adsetId}`, null, { params: { ...body, access_token: userToken }, timeout: 15000 });
+    } catch (err: any) {
+      logger.error('MetaService.updateAdSet failed', { detail: err?.response?.data || err?.message, adsetId });
+      throw new Error(`adset_update_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Point an ad at a (new) creative — creatives are immutable, so edits = new creative + this. */
+  async updateAdCreative(adId: string, userToken: string, creativeId: string): Promise<void> {
+    this.requireConfig();
+    try {
+      await axios.post(`${GRAPH}/${adId}`, null, { params: { creative: JSON.stringify({ creative_id: creativeId }), access_token: userToken }, timeout: 15000 });
+    } catch (err: any) {
+      logger.error('MetaService.updateAdCreative failed', { detail: err?.response?.data || err?.message, adId });
+      throw new Error(`ad_update_failed: ${this.fbError(err)}`);
+    }
+  }
+
+  /** Read a creative's current image/headline/copy/link (to rebuild on a text-only edit). */
+  async getCreativeSpec(creativeId: string, userToken: string): Promise<{ picture: string; headline: string; message: string; link: string } | null> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${creativeId}`, { params: { fields: 'object_story_spec', access_token: userToken }, timeout: 15000 });
+      const ld = res.data?.object_story_spec?.link_data;
+      if (!ld) return null;
+      return { picture: String(ld.picture ?? ''), headline: String(ld.name ?? ''), message: String(ld.message ?? ''), link: String(ld.link ?? '') };
+    } catch (err: any) {
+      logger.warn(`MetaService.getCreativeSpec failed: ${this.fbError(err)}`);
+      return null;
+    }
+  }
+
   /** Create a basic leadgen instant form (name/email/phone) on the Page; returns its id.
    *  Uses the PAGE token (not the user token). Leads arrive via the existing webhook. */
   async ensureLeadForm(pageId: string, pageToken: string, opts: { name: string; privacyPolicyUrl: string }): Promise<string> {
