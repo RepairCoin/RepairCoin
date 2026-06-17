@@ -451,7 +451,20 @@ class RepairCoinApp {
 
     // Health check (always first)
     this.app.use('/api/health', healthRoutes);
-    
+
+    // Public runtime config (no auth) - lets the frontend learn feature-flag
+    // state. blockchainEnabled mirrors the ENABLE_BLOCKCHAIN_MINTING env flag so
+    // the UI can hide blockchain-only features (mint, staking, RCG, crypto pay)
+    // in database-only mode. See docs/blockchain-removal/.
+    this.app.get('/api/config', (_req, res) => {
+      res.json({
+        success: true,
+        data: {
+          blockchainEnabled: process.env.ENABLE_BLOCKCHAIN_MINTING === 'true'
+        }
+      });
+    });
+
     // Setup routes (TEMPORARY - REMOVE AFTER USE)
     this.app.use('/api/setup', setupRoutes);
     

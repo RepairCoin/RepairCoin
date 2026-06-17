@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createThirdwebClient, getContract, prepareContractCall, sendTransaction, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { inAppWallet, preAuthenticate } from "thirdweb/wallets";
 import { toast } from "react-hot-toast";
+import { useAppConfig } from "@/contexts/AppConfigContext";
 
 // Configuration - CHANGE THESE VALUES AS NEEDED
 const FROM_EMAIL = "testdeo016@gmail.com";
@@ -17,6 +19,15 @@ const client = createThirdwebClient({
 });
 
 export default function TransferRCGPage() {
+  const router = useRouter();
+  // RCG transfer is a blockchain-only feature; redirect away in database-only mode
+  const { blockchainEnabled, loading: configLoading } = useAppConfig();
+  useEffect(() => {
+    if (!configLoading && !blockchainEnabled) {
+      router.replace('/admin');
+    }
+  }, [configLoading, blockchainEnabled, router]);
+
   const [balance, setBalance] = useState<string>("Loading...");
   const [balanceRaw, setBalanceRaw] = useState<bigint>(BigInt(0));
   const [isTransferring, setIsTransferring] = useState(false);
@@ -171,6 +182,11 @@ export default function TransferRCGPage() {
       setIsTransferring(false);
     }
   };
+
+  // Blockchain disabled (database-only mode): render nothing while redirecting
+  if (!configLoading && !blockchainEnabled) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-black text-white p-8">

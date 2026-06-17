@@ -59,13 +59,18 @@ These are the "re-enable path." As of Phase 3 they all reach the contract via **
 
 ---
 
-## 🔵 Frontend — still blockchain-coupled (Phase 3 / separate frontend track)
+## 🔵 Frontend — blockchain-only UI now flag-gated (June 17); wallet-login removal still pending
 
-Not touched yet. Major areas using `thirdweb`:
-- **Wallet auth/login:** `providers/AuthProvider.tsx`, `hooks/useWalletDetection.tsx`, `components/auth/DualAuthConnect.tsx`, `components/WalletConnectPrompt.tsx`, auth pages under `app/(auth)/`
-- **RCG features:** `app/(authenticated)/admin/transfer-rcg`, `app/(authenticated)/shop/rcg-otc`, `components/shop/tabs/StakingTab.tsx`
-- **Payments:** `components/ThirdwebPayment.tsx`
-- **Config:** `config/contracts.ts`, `utils/thirdweb.ts`
+**✅ Done June 17 — hide blockchain-only UI in database-only mode (uncommitted):**
+The frontend now learns the flag via a new public `GET /api/config` → `{ blockchainEnabled }` (mirrors `ENABLE_BLOCKCHAIN_MINTING`), consumed by `frontend/src/contexts/AppConfigContext.tsx` (`AppConfigProvider` + `useBlockchainEnabled()`; fails closed → hidden while loading/on error). When the flag is off, these are hidden:
+- Customer **Mint to Wallet** card (`customer/OverviewTab.tsx`)
+- Admin **Bulk Mint** + **Manual Transfer** cards (`admin/tabs/AdvancedTreasuryTab.tsx`); **RCG Transfer** page redirects to `/admin` (`admin/transfer-rcg/page.tsx`)
+- Shop **Stake RCG** sidebar item (`ui/sidebar/ShopSidebar.tsx`) + Staking tab render (`shop/ShopDashboardClient.tsx`); **RCG OTC** page redirects to `/shop` (`shop/rcg-otc/page.tsx`); crypto **ThirdwebPayment** modal; **Buy RCG Tokens** buttons (`RCGBalanceCard`, `OnboardingModal`, `OnboardingBanner`)
+- **Kept on purpose:** login/wallet-connect (separate track), Stripe RCN purchase, RCG tier/balance display (DB-backed).
+
+**🔵 Still blockchain-coupled (separate frontend track — wallet login removal, breaking):**
+- **Wallet auth/login:** `providers/AuthProvider.tsx`, `hooks/useWalletDetection.tsx`, `components/auth/DualAuthConnect.tsx`, `components/WalletConnectPrompt.tsx`, auth pages under `app/(auth)/` — even email login currently runs through Thirdweb's embedded wallet. Removing this is the breaking change that needs a deprecation notice.
+- **Config:** `config/contracts.ts`, `utils/thirdweb.ts` (still imported unconditionally).
 
 ## 🔵 Mobile — still blockchain-coupled (separate mobile track)
 - `feature/auth/screens/connect/ConnectWalletScreen.tsx`, `shared/constants/thirdweb.ts`, `feature/token/redeem/hooks/useRedemptionSignature.ts`, wallet registration flow.

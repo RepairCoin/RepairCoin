@@ -22,6 +22,7 @@ import {
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { useRouter } from "next/navigation";
 import GroupBalancesCard from "./GroupBalancesCard";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 const client = createThirdwebClient({
   clientId:
@@ -79,6 +80,8 @@ export const OverviewTab: React.FC = () => {
 
   // Mint to Wallet state
   const [showMintModal, setShowMintModal] = useState(false);
+  // Blockchain-only feature: hide "Mint to Wallet" in database-only mode
+  const blockchainEnabled = useBlockchainEnabled();
   const [mintAmount, setMintAmount] = useState("");
   const [isMinting, setIsMinting] = useState(false);
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
@@ -460,8 +463,8 @@ export const OverviewTab: React.FC = () => {
             lifetimeEarned={balanceData?.lifetimeEarned || 0}
           />
 
-          {/* Mint RCN to Wallet */}
-          {balanceData && balanceData.availableBalance > 0 && (
+          {/* Mint RCN to Wallet (blockchain-only; hidden in database-only mode) */}
+          {blockchainEnabled && balanceData && balanceData.availableBalance > 0 && (
             <MintRCNCard
               availableBalance={balanceData.availableBalance}
               onMintClick={handleMintButtonClick}

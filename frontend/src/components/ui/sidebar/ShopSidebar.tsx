@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { appointmentsApi } from "@/services/api/appointments";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import {
   Settings,
   Search,
@@ -55,6 +56,8 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
   // Collapsed-state hover flyout: which group is open + its vertical anchor
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [flyoutTop, setFlyoutTop] = useState(0);
+  // RCG staking is a blockchain-only feature; hide its nav item in database-only mode
+  const blockchainEnabled = useBlockchainEnabled();
 
   // Fetch pending reschedule count for badge
   const fetchPendingCount = useCallback(async () => {
@@ -242,12 +245,16 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           ),
           tabId: "purchase",
         },
-        {
-          title: "Stake RCG",
-          href: "/shop?tab=staking",
-          icon: <TrendingUp className="w-5 h-5" />,
-          tabId: "staking",
-        },
+        ...(blockchainEnabled
+          ? [
+              {
+                title: "Stake RCG",
+                href: "/shop?tab=staking",
+                icon: <TrendingUp className="w-5 h-5" />,
+                tabId: "staking",
+              },
+            ]
+          : []),
       ],
     },
   ];
