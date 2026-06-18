@@ -8,7 +8,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { metaService } from '../services/MetaService';
-import { signState, verifyState } from '../services/metaOAuthState';
+import { signState, verifyStateDetailed } from '../services/metaOAuthState';
 import { encryptToken, decryptToken } from '../../../utils/tokenCrypto';
 import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { CampaignRepository } from '../repositories/CampaignRepository';
@@ -64,9 +64,10 @@ export async function handleMetaOauthCallback(req: Request, res: Response): Prom
   if (!connectEnabled() || !redirectUri()) return fail('disabled');
 
   const { code, state, error } = req.query as Record<string, string>;
-  if (error) return fail(error);
-  const payload = verifyState(state);
-  if (!payload) return fail('bad_state');
+  if (error) { logger.warn(`Meta OAuth callback error: ${error}`); return fail(error); }
+  const sv = verifyStateDetailed(state);
+  if (!sv.payload) return fail(`bad_state:${sv.reason}`); // reason: expired | bad_signature | no_secret | …
+  const payload = sv.payload;
   if (!code) return fail('no_code');
 
   try {
@@ -134,6 +135,12 @@ export async function getMyMetaConnection(req: Request, res: Response): Promise<
   if (!shopId) { res.status(401).json({ success: false, error: 'Shop ID required' }); return; }
   try {
     const conn = await connections.getConnection(shopId);
+    // Lead ads need the Page to accept Meta's Lead Gen ToS — surface it so the shop can accept.
+    let leadgenTosAccepted: boolean | null = null;
+    if (conn?.connected && conn.pageId && conn.pageTokenEnc) {
+      try { leadgenTosAccepted = await metaService.getPageLeadgenTosAccepted(conn.pageId, decryptToken(conn.pageTokenEnc)); }
+      catch { leadgenTosAccepted = null; }
+    }
     res.json({
       success: true,
       data: {
@@ -142,6 +149,7 @@ export async function getMyMetaConnection(req: Request, res: Response): Promise<
         hasToken: !!conn?.userTokenEnc,
         adAccountId: conn?.adAccountId ?? null,
         pageId: conn?.pageId ?? null,
+        leadgenTosAccepted,
       },
     });
   } catch (err) {

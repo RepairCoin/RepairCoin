@@ -58,12 +58,13 @@ export class CampaignRequestRepository extends BaseRepository {
     return res.rows.map((r) => this.mapRow(r));
   }
 
-  /** Admin queue — optionally filtered by status (default: open = pending/approved/building). */
+  /** Admin "to build" queue — requests that still need building. Excludes 'building' (already
+   *  drafted on Meta → reviewed/taken live in the campaign detail, not rebuilt here) and 'live'. */
   async list(status?: CampaignRequestStatus): Promise<AdCampaignRequest[]> {
     const res = status
       ? await this.pool.query(`SELECT * FROM ad_campaign_requests WHERE status = $1 ORDER BY created_at ASC`, [status])
       : await this.pool.query(
-          `SELECT * FROM ad_campaign_requests WHERE status IN ('pending','approved','building') ORDER BY created_at ASC`
+          `SELECT * FROM ad_campaign_requests WHERE status IN ('pending','approved') ORDER BY created_at ASC`
         );
     return res.rows.map((r) => this.mapRow(r));
   }

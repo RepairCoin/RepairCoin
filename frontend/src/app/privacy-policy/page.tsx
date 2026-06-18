@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPolicyPage() {
-  const lastUpdated = "April 3, 2026";
+  const lastUpdated = "June 18, 2026";
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
@@ -135,8 +135,8 @@ export default function PrivacyPolicyPage() {
           </ul>
           <p className="mt-3">
             To exercise these rights, contact us at{" "}
-            <a href="mailto:Repaircoin2025@gmail.com" className="text-[#FFCC00] hover:underline">
-              Repaircoin2025@gmail.com
+            <a href="mailto:Hello@repaircoin.ai" className="text-[#FFCC00] hover:underline">
+              Hello@repaircoin.ai
             </a>
           </p>
         </Section>
@@ -162,8 +162,35 @@ export default function PrivacyPolicyPage() {
           </ul>
         </Section>
 
+        {/* Advertising & Meta Platform Data */}
+        <Section title="10. Advertising &amp; Meta Platform Data (Business Accounts)">
+          <p className="mb-3">
+            For shops that use FixFlow&apos;s advertising service, FixFlow helps run and manage online ad campaigns on
+            the shop&apos;s <strong>own</strong> Meta (Facebook &amp; Instagram) advertising account. A shop owner
+            voluntarily connects their Meta account to FixFlow using Facebook Login; the shop&apos;s own payment method
+            on Meta funds the ad spend (FixFlow does not pay for or resell ad spend).
+          </p>
+          <h3 className="text-white font-semibold mb-3">Meta data we access (with the shop&apos;s authorization)</h3>
+          <ul className="list-disc list-inside space-y-2 text-gray-300 mb-4">
+            <li><strong>Ad account &amp; Page</strong> — the shop&apos;s ad account ID and Facebook Page they select, so campaigns run in the right place</li>
+            <li><strong>Campaign data &amp; insights</strong> — campaign/ad-set/ad details and performance metrics (spend, impressions, clicks) to create, manage, and report on ads</li>
+            <li><strong>Lead-ad form submissions</strong> — when a customer responds to a lead ad, the name/email/phone they submit, so the shop can follow up</li>
+          </ul>
+          <h3 className="text-white font-semibold mb-3">How we use and protect it</h3>
+          <ul className="list-disc list-inside space-y-2 text-gray-300">
+            <li>Used solely to create, manage, optimize, and report on the shop&apos;s ad campaigns and to deliver the leads those ads generate — never sold or used for unrelated purposes</li>
+            <li>Access tokens are <strong>encrypted at rest</strong>; ad campaigns run on the shop&apos;s own Meta account and the shop can revoke FixFlow&apos;s access at any time (disconnect in FixFlow or remove the app in Meta settings)</li>
+            <li>Removing the app, or our deauthorize/data-deletion endpoints, clears the shop&apos;s stored Meta tokens and connection from FixFlow</li>
+            <li>Our use of Meta Platform Data complies with the <strong>Meta Platform Terms</strong> and Developer Policies</li>
+          </ul>
+          <p className="mt-3">
+            This section applies to shop/business accounts that opt into advertising; it does not change what we
+            collect from customers using the marketplace.
+          </p>
+        </Section>
+
         {/* Changes to This Policy */}
-        <Section title="10. Changes to This Policy">
+        <Section title="11. Changes to This Policy">
           <p>
             We may update this Privacy Policy from time to time. We will notify you of any changes by updating the
             &quot;Last updated&quot; date at the top of this page. Continued use of the app after changes constitutes
@@ -172,14 +199,14 @@ export default function PrivacyPolicyPage() {
         </Section>
 
         {/* Contact Us */}
-        <Section title="11. Contact Us">
+        <Section title="12. Contact Us">
           <p className="mb-3">If you have questions about this Privacy Policy, contact us at:</p>
           <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4">
             <p className="text-gray-300"><strong>FixFlow</strong></p>
             <p className="text-gray-300">
               Email:{" "}
-              <a href="mailto:Repaircoin2025@gmail.com" className="text-[#FFCC00] hover:underline">
-                Repaircoin2025@gmail.com
+              <a href="mailto:Hello@repaircoin.ai" className="text-[#FFCC00] hover:underline">
+                Hello@repaircoin.ai
               </a>
             </p>
           </div>

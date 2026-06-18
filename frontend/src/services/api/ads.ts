@@ -590,6 +590,7 @@ export interface MetaConnection {
   hasToken: boolean;      // OAuth done but no account/Page picked yet
   adAccountId: string | null;
   pageId: string | null;
+  leadgenTosAccepted?: boolean | null; // has the Page accepted Meta's Lead Gen ToS? (null = unknown)
 }
 export interface MetaAdAccount { id: string; accountId: string; name: string; status?: number; }
 export interface MetaPageLite { id: string; name: string; }

@@ -12,13 +12,14 @@ import { logger } from '../../../utils/logger';
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
-// Scopes for the CONNECT slice (list ad accounts + Pages, store token). The later push/
-// lead slices add `pages_manage_ads` + `leads_retrieval` — those need the matching use
-// cases enabled + App Review, so they're excluded here to keep the dev dialog loadable.
-// Override via META_OAUTH_SCOPES (comma-separated) without a code change.
+// Scopes the connect + push flow requests. `pages_manage_ads` powers page-linked ad creatives.
+// `leads_retrieval` (native instant lead forms) is EXCLUDED for now — it isn't yet enabled on
+// the app's Marketing API use case; requesting it would 400 ("Invalid Scopes"). The push falls
+// back to a link creative without it. Re-add it here once it's added to the use case (or set
+// META_OAUTH_SCOPES to override per environment — no code change needed).
 const DEFAULT_SCOPES = [
   'business_management', 'ads_management', 'ads_read',
-  'pages_show_list', 'pages_read_engagement',
+  'pages_show_list', 'pages_read_engagement', 'pages_manage_ads',
 ].join(',');
 const SCOPES = process.env.META_OAUTH_SCOPES || DEFAULT_SCOPES;
 
@@ -187,6 +188,9 @@ export class MetaService {
       targeting: JSON.stringify(opts.targeting),
       status: 'PAUSED',
     };
+    // Lead-gen optimization uses a native instant form on the ad (ON_AD destination) — required
+    // so a creative carrying a lead_gen_form_id is accepted (else Meta 100/1892040).
+    if (opts.optimizationGoal === 'LEAD_GENERATION') body.destination_type = 'ON_AD';
     if (opts.promotedPageId) body.promoted_object = JSON.stringify({ page_id: opts.promotedPageId });
     return this.create(`${adAccountId}/adsets`, userToken, body);
   }
@@ -214,6 +218,21 @@ export class MetaService {
       name: `${opts.headline} — creative`.slice(0, 100),
       object_story_spec: JSON.stringify(objectStorySpec),
     });
+  }
+
+  /** Whether the Page has accepted Meta's Lead Generation Terms of Service (required before
+   *  lead ads can run). Best-effort — returns false on error so the UI prompts the shop. */
+  async getPageLeadgenTosAccepted(pageId: string, pageToken: string): Promise<boolean> {
+    this.requireConfig();
+    try {
+      const res = await axios.get(`${GRAPH}/${pageId}`, {
+        params: { fields: 'leadgen_tos_accepted', access_token: pageToken }, timeout: 15000,
+      });
+      return res.data?.leadgen_tos_accepted === true;
+    } catch (err: any) {
+      logger.warn(`MetaService.getPageLeadgenTosAccepted failed: ${this.fbError(err)}`);
+      return false;
+    }
   }
 
   /** Set a Meta object's status (ACTIVE|PAUSED). Used for pause/activate + safeguard sync. */
