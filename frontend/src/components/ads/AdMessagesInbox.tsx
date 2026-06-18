@@ -7,8 +7,9 @@
 // the ones awaiting a reply. Click a row to open the thread inline.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Inbox, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
-import { getAdMessageInbox, type AdInboxEntry } from "@/services/api/ads";
+import { Loader2, Inbox, RefreshCw, ChevronDown, ChevronRight, Link2, CheckCircle2 } from "lucide-react";
+import toast from "react-hot-toast";
+import { getAdMessageInbox, setShopAdsAccount, type AdInboxEntry } from "@/services/api/ads";
 import { AdMessageThread } from "@/components/ads/AdMessageThread";
 
 const timeAgo = (iso: string): string => {
@@ -28,6 +29,7 @@ export const AdMessagesInbox: React.FC = () => {
   const [entries, setEntries] = useState<AdInboxEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpenShop] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +38,19 @@ export const AdMessagesInbox: React.FC = () => {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Admin connect/disconnect a shop's ad account (§9.6) — reachable before any campaign
+  // request exists, which is required when the shop can't self-connect (Meta flow off).
+  const toggleConnect = async (shopId: string, connect: boolean) => {
+    setBusy(shopId);
+    try {
+      await setShopAdsAccount(shopId, connect);
+      toast.success(connect ? `${shopId}'s ad account connected.` : `${shopId}'s ad account disconnected.`);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't update connection.");
+    } finally { setBusy(null); }
+  };
 
   if (loading) return null;
   if (entries.length === 0) return null; // no shop has messaged yet — keep the tab clean
@@ -82,7 +97,23 @@ export const AdMessagesInbox: React.FC = () => {
                 </div>
               </button>
               {isOpen && (
-                <div className="mt-2">
+                <div className="mt-2 space-y-2">
+                  {/* Ad-account connection (§9.6) — admin can connect before a request exists */}
+                  <div className="rounded-lg border border-white/10 bg-[#141414] p-3 flex items-center gap-2 flex-wrap">
+                    {e.adsAccountConnected ? (
+                      <span className="text-xs text-green-400 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Ad account connected</span>
+                    ) : (
+                      <span className="text-xs text-amber-400">⚠ Ad account not connected — a campaign can&apos;t go live until it is.</span>
+                    )}
+                    <button
+                      onClick={() => toggleConnect(e.shopId, !e.adsAccountConnected)}
+                      disabled={busy === e.shopId}
+                      className="ml-auto inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50"
+                    >
+                      {busy === e.shopId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
+                      {e.adsAccountConnected ? "Disconnect" : "Connect"}
+                    </button>
+                  </div>
                   <AdMessageThread mode="admin" shopId={e.shopId} />
                 </div>
               )}

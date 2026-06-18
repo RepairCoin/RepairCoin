@@ -12,7 +12,7 @@ import {
   type AdSubscription, type FlatTierName,
 } from "@/services/api/ads";
 
-export const SubscriptionPanel: React.FC = () => {
+export const SubscriptionPanel: React.FC<{ onChanged?: () => void }> = ({ onChanged }) => {
   const [sub, setSub] = useState<AdSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -37,6 +37,7 @@ export const SubscriptionPanel: React.FC = () => {
           : `Plan set to ${tier}.`
       );
       await load();
+      onChanged?.();
     } catch (e: any) {
       if (e?.response?.status === 402) toast.error(e?.response?.data?.message || "Add a payment method first.");
       else toast.error(e?.response?.data?.error || e?.message || "Couldn't change plan.");
@@ -46,7 +47,7 @@ export const SubscriptionPanel: React.FC = () => {
   const cancel = async () => {
     if (!window.confirm("Cancel ads? Your campaigns will pause at the end of the cycle.")) return;
     setBusy(true);
-    try { await cancelMySubscription(); toast.success("Ads cancelled."); await load(); }
+    try { await cancelMySubscription(); toast.success("Ads cancelled."); await load(); onChanged?.(); }
     catch (e: any) { toast.error(e?.message || "Couldn't cancel."); }
     finally { setBusy(false); }
   };
@@ -78,9 +79,7 @@ export const SubscriptionPanel: React.FC = () => {
 
       <p className="text-xs text-gray-500 mb-2">Upgrades apply now (prorated); downgrades take effect next cycle.</p>
 
-      <p className={`text-xs mb-2 ${sub.adsAccountConnected ? "text-green-400" : "text-amber-400"}`}>
-        {sub.adsAccountConnected ? "✓ Ad account connected" : "⚠ Ad account not connected yet — campaigns can't go live until it is (we'll reach out to set this up)."}
-      </p>
+      {/* Ad-account connection UX lives in <MetaConnectCard/> (rendered in ShopAdsTab). */}
 
       {sub.history.length > 0 && (
         <div className="space-y-1 mb-3">

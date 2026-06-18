@@ -20,6 +20,10 @@ export interface AdCampaign {
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;
+  // Stage-4 push: present when the campaign was created on Meta.
+  metaCampaignId?: string | null;
+  metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
+  targetRadiusMiles?: number | null;
 }
 
 export interface CampaignRoi {
@@ -483,6 +487,7 @@ export interface AdInboxEntry {
   lastAuthor: AdMessageAuthor;
   lastAt: string;
   awaitingReply: boolean;
+  adsAccountConnected: boolean;
 }
 export const getAdMessageInbox = async (): Promise<AdInboxEntry[]> => {
   const res = await apiClient.get('/ads/messages/inbox');
@@ -520,12 +525,26 @@ export const listCampaignRequests = async (status?: CampaignRequestStatus): Prom
   return unwrap<AdCampaignRequest[]>(res);
 };
 export const buildCampaignFromRequest = async (id: string, input?: { name?: string; dailyBudgetCents?: number }) => {
-  const res = await apiClient.post(`/ads/campaign-requests/${id}/build`, input ?? {});
+  // 4 min: Build generates an AI image (gpt-image-1 ~20-80s) + several Meta Graph calls.
+  const res = await apiClient.post(`/ads/campaign-requests/${id}/build`, input ?? {}, { timeout: 240000 });
   return unwrap(res);
 };
 export const declineCampaignRequest = async (id: string, declineReason?: string): Promise<AdCampaignRequest> => {
   const res = await apiClient.post(`/ads/campaign-requests/${id}/decline`, { declineReason });
   return unwrap<AdCampaignRequest>(res);
+};
+// Stage-4 push P5 — review/edit a PAUSED Meta draft, then take it live (Option B).
+export interface CampaignDraftEdit {
+  dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string; regenerateImage?: boolean;
+}
+export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
+  // Regenerating the image runs gpt-image-1 → allow up to 4 min.
+  const res = await apiClient.patch(`/ads/campaigns/${id}/draft`, edits, { timeout: 240000 });
+  return unwrap<AdCampaign>(res);
+};
+export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {
+  const res = await apiClient.post(`/ads/campaigns/${id}/go-live`, {});
+  return unwrap(res);
 };
 // §9.6 — admin marks a shop's ad account connected/disconnected (build precondition).
 export const setShopAdsAccount = async (shopId: string, connected: boolean) => {
@@ -562,6 +581,37 @@ export const changeMyTier = async (tier: FlatTierName): Promise<{ outcome: strin
 };
 export const cancelMySubscription = async (): Promise<void> => {
   await apiClient.post('/ads/shop/subscription/cancel', {});
+};
+
+/* ----------------------- Connect Meta (Stage-4 connect slice) ----------------------- */
+export interface MetaConnection {
+  enabled: boolean;       // ADS_META_CONNECT_ENABLED + a configured Meta App
+  connected: boolean;     // §9.6 gate (a Page is selected)
+  hasToken: boolean;      // OAuth done but no account/Page picked yet
+  adAccountId: string | null;
+  pageId: string | null;
+}
+export interface MetaAdAccount { id: string; accountId: string; name: string; status?: number; }
+export interface MetaPageLite { id: string; name: string; }
+
+export const getMetaConnection = async (): Promise<MetaConnection> => {
+  const res = await apiClient.get('/ads/shop/meta/connection');
+  return unwrap<MetaConnection>(res);
+};
+export const getMetaConnectUrl = async (): Promise<string> => {
+  const res = await apiClient.get('/ads/shop/meta/connect');
+  return unwrap<{ authUrl: string }>(res).authUrl;
+};
+export const getMetaAccounts = async (): Promise<{ adAccounts: MetaAdAccount[]; pages: MetaPageLite[] }> => {
+  const res = await apiClient.get('/ads/shop/meta/accounts');
+  return unwrap(res);
+};
+export const selectMetaAccount = async (adAccountId: string, pageId: string) => {
+  const res = await apiClient.post('/ads/shop/meta/select', { adAccountId, pageId });
+  return unwrap<{ adAccountId: string; pageId: string; connected: boolean }>(res);
+};
+export const disconnectMeta = async (): Promise<void> => {
+  await apiClient.post('/ads/shop/meta/disconnect', {});
 };
 
 /* --------------------------------- Shop ---------------------------------- */

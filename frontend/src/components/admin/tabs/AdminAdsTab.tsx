@@ -17,6 +17,7 @@ import { MarginPanel } from "@/components/ads/MarginPanel";
 import { BillingPanel } from "@/components/ads/BillingPanel";
 import { CampaignRequestsQueue } from "@/components/ads/CampaignRequestsQueue";
 import { AdMessagesInbox } from "@/components/ads/AdMessagesInbox";
+import { MetaDraftReview } from "@/components/ads/MetaDraftReview";
 import {
   listCampaigns, createCampaign, updateCampaign, getCampaignPerformance,
   enterDailyMetrics, getAllShopsSummary, fmtUsd, fmtRoi,
@@ -242,6 +243,9 @@ export const AdminAdsTab: React.FC = () => {
               <button onClick={() => select(selected.id)} className="text-gray-400 hover:text-white"><RefreshCw className="w-4 h-4" /></button>
             </div>
           </div>
+
+          {/* Push P5 — review/edit + Go-live for a PAUSED Meta draft (renders only for drafts) */}
+          <MetaDraftReview campaign={selected} onChanged={load} />
 
           {!perf ? (
             <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading performance…</div>

@@ -10,6 +10,7 @@ import { AdsEvents } from '../events';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { SafeguardRepository } from '../repositories/SafeguardRepository';
 import { AdBillingService } from '../services/AdBillingService';
+import { metaPushService } from '../services/MetaPushService';
 
 const campaigns = new CampaignRepository();
 const adBilling = new AdBillingService();
@@ -102,6 +103,14 @@ export async function updateCampaign(req: Request, res: Response): Promise<void>
 
     const campaign = await campaigns.update(req.params.id, req.body || {});
     if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+
+    // Push P4 — mirror pause/activate to the shop's Meta objects (best-effort; the DB stays
+    // the source of truth, a transient Meta error shouldn't fail the toggle).
+    if ((req.body?.status === 'active' || req.body?.status === 'paused') && campaign.metaCampaignId) {
+      void metaPushService.pushStatus(campaign.id, req.body.status === 'active' ? 'ACTIVE' : 'PAUSED')
+        .catch((e: any) => logger.warn(`Meta status push failed for ${campaign.id}: ${e?.message || e}`));
+    }
+
     res.json({ success: true, data: campaign });
   } catch (err) {
     logger.error('CampaignController.updateCampaign failed', err);

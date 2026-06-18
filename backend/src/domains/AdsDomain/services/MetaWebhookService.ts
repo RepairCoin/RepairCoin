@@ -31,6 +31,24 @@ export function verifyMetaSignature(
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** Parse + verify a Meta `signed_request` (deauthorize / data-deletion callbacks).
+ *  Format: `<base64url(hmac)>.<base64url(json)>`; HMAC-SHA256 of the payload string with the
+ *  app secret. Returns the decoded payload (incl. `user_id`) or null on any failure. */
+export function parseSignedRequest(signedRequest: string | undefined, appSecret: string | undefined): any | null {
+  if (!signedRequest || !appSecret || !signedRequest.includes('.')) return null;
+  const [encodedSig, payload] = signedRequest.split('.');
+  if (!encodedSig || !payload) return null;
+  const b64 = (s: string) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  try {
+    const expected = crypto.createHmac('sha256', appSecret).update(payload).digest();
+    const sig = b64(encodedSig);
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(sig, expected)) return null;
+    return JSON.parse(b64(payload).toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /** Pull leadgen events from a Meta webhook payload (object='page'). Tolerant of
  *  missing fields — only events with a leadgen_id are returned. */
 export function parseLeadEvents(payload: any): MetaLeadEvent[] {

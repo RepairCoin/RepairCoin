@@ -323,6 +323,9 @@ class RepairCoinApp {
       '/ai/brand-kit/analyze-brand', // Claude vision — full brand profile
       '/ai/brand-kit/templates',     // on-demand template gen (gpt-image-1)
       '/ai/brand-kit/generate-banner', // banner gen (gpt-image-1, wide = slowest)
+      '/campaign-requests/',         // ads push: Build generates an AI creative (gpt-image-1)
+      '/draft',                      // ads push: draft edit can regenerate the AI image
+      '/go-live',                    // ads push: go-live does several Graph round-trips
     ];
     this.app.use((req, res, next) => {
       const isSlowAi = SLOW_AI_PATHS.some((p) => req.path.includes(p));

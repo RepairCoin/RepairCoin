@@ -94,6 +94,21 @@ export class CampaignRequestRepository extends BaseRepository {
     return res.rows[0] ? this.mapRow(res.rows[0]) : null;
   }
 
+  /** The request that was built into a given campaign (Phase 5 — go-live / draft edits). */
+  async findByCampaignId(campaignId: string): Promise<AdCampaignRequest | null> {
+    const res = await this.pool.query(`SELECT * FROM ad_campaign_requests WHERE campaign_id = $1 LIMIT 1`, [campaignId]);
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Flip a built request building → live when its campaign goes live (Phase 5). */
+  async setLiveByCampaign(campaignId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE ad_campaign_requests SET status = 'live', updated_at = now()
+        WHERE campaign_id = $1 AND status <> 'live'`,
+      [campaignId]
+    );
+  }
+
   private mapRow(r: any): AdCampaignRequest {
     return {
       id: r.id,
