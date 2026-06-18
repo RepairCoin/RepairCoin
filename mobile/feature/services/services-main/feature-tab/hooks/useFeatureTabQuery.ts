@@ -122,6 +122,9 @@ export function useTrackRecentlyViewedMutation() {
 
 export function useDeleteServiceMutation() {
   const { showSuccess, showError } = useAppToast();
+  const queryClient = useQueryClient();
+  const { userProfile } = useAuthStore();
+  const shopId = userProfile?.shopId;
 
   return useMutation({
     mutationFn: async ({ serviceId }: { serviceId: string }) => {
@@ -129,6 +132,12 @@ export function useDeleteServiceMutation() {
       return response.data;
     },
     onSuccess: () => {
+      // Partial key match invalidates all pages/filters for this shop's services
+      if (shopId) {
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.services(), 'shop', shopId],
+        });
+      }
       showSuccess("Service deleted successfully!");
     },
     onError: (error: any) => {

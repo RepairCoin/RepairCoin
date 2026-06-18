@@ -160,7 +160,7 @@ export class ServiceRepository extends BaseRepository {
    */
   async getServiceById(serviceId: string): Promise<ShopService | null> {
     try {
-      const query = 'SELECT * FROM shop_services WHERE service_id = $1';
+      const query = 'SELECT * FROM shop_services WHERE service_id = $1 AND deleted_at IS NULL';
       const result = await this.pool.query(query, [serviceId]);
 
       if (result.rows.length === 0) {
@@ -208,7 +208,7 @@ export class ServiceRepository extends BaseRepository {
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         ${favoritesJoin}
-        WHERE s.service_id = $1
+        WHERE s.service_id = $1 AND s.deleted_at IS NULL
       `;
       const result = await this.pool.query(query, params);
 
@@ -246,7 +246,7 @@ export class ServiceRepository extends BaseRepository {
       // Build WHERE clause and its params together so count and main queries stay in sync
       const whereParams: (string | number)[] = [shopId];
       let paramCount = 1;
-      let whereClause = 'WHERE s.shop_id = $1';
+      let whereClause = 'WHERE s.shop_id = $1 AND s.deleted_at IS NULL';
 
       if (options.activeOnly) {
         whereClause += ' AND s.active = true';
@@ -373,6 +373,9 @@ export class ServiceRepository extends BaseRepository {
       const whereClauses: string[] = [];
       const params: unknown[] = [];
       let paramCount = 0;
+
+      // Never surface soft-deleted services
+      whereClauses.push('s.deleted_at IS NULL');
 
       // Always filter for active services unless specified otherwise
       if (filters.activeOnly !== false) {
@@ -615,14 +618,16 @@ export class ServiceRepository extends BaseRepository {
   }
 
   /**
-   * Soft delete a service (set active = false)
+   * Soft delete a service (set deleted_at; also deactivate so active-only
+   * customer-facing queries continue to exclude it). Distinct from the
+   * Deactivate toggle, which only flips active.
    */
   async deleteService(serviceId: string): Promise<void> {
     try {
       const query = `
         UPDATE shop_services
-        SET active = false, updated_at = NOW()
-        WHERE service_id = $1
+        SET deleted_at = NOW(), active = false, updated_at = NOW()
+        WHERE service_id = $1 AND deleted_at IS NULL
       `;
       const result = await this.pool.query(query, [serviceId]);
 
@@ -808,7 +813,7 @@ export class ServiceRepository extends BaseRepository {
         JOIN shop_services ss ON sga.service_id = ss.service_id
         JOIN shops s ON ss.shop_id = s.shop_id
         ${favoritesJoin}
-        WHERE sga.group_id = $1 AND sga.active = true AND ss.active = true
+        WHERE sga.group_id = $1 AND sga.active = true AND ss.active = true AND ss.deleted_at IS NULL
       `;
 
       if (filters?.category) {

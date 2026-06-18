@@ -59,6 +59,8 @@ export default function UnifiedServiceDetailScreen() {
     formatDayRange,
     openDaysCount,
     handleEdit,
+    handleDeleteService,
+    deleteIsPending,
 
     // Shared
     showShareModal,
@@ -452,14 +454,26 @@ export default function UnifiedServiceDetailScreen() {
 
       {/* Fixed Bottom Actions - Different for each role */}
       {isShopOwner ? (
-        <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-6 pt-4 pb-8 border-t border-gray-800">
+        <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-6 pt-4 pb-8 border-t border-gray-800 flex-row items-center gap-3">
           <TouchableOpacity
             onPress={handleEdit}
-            className="bg-[#FFCC00] rounded-xl py-4 flex-row items-center justify-center"
+            className="flex-1 bg-[#FFCC00] rounded-xl py-4 flex-row items-center justify-center"
             activeOpacity={0.8}
           >
             <Ionicons name="pencil" size={20} color="black" />
             <Text className="text-black text-lg font-bold ml-2">Edit Service</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleDeleteService}
+            disabled={deleteIsPending}
+            className="bg-red-500/15 border border-red-500/40 rounded-xl py-4 px-5 items-center justify-center"
+            activeOpacity={0.8}
+          >
+            {deleteIsPending ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Ionicons name="trash" size={22} color="#EF4444" />
+            )}
           </TouchableOpacity>
         </View>
       ) : (
