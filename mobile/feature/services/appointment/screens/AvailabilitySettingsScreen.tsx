@@ -9,7 +9,9 @@ import {
   Alert,
   TextInput,
   RefreshControl,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
@@ -95,6 +97,7 @@ export default function AvailabilitySettingsScreen() {
     customCloseTime: "",
     reason: "",
   });
+  const [showOverrideDatePicker, setShowOverrideDatePicker] = useState(false);
 
   const loadAllData = useCallback(async () => {
     if (!shopId) return;
@@ -632,15 +635,39 @@ export default function AvailabilitySettingsScreen() {
           {/* Date */}
           <View className="mb-3">
             <Text className="text-gray-400 text-xs mb-1">Date</Text>
-            <TextInput
-              className="bg-[#2a2a2c] rounded-lg px-3 h-11 text-white text-sm"
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#666"
-              value={newOverride.overrideDate}
-              onChangeText={(v) =>
-                setNewOverride((p) => ({ ...p, overrideDate: v }))
-              }
-            />
+            <TouchableOpacity
+              onPress={() => setShowOverrideDatePicker(true)}
+              className="bg-[#2a2a2c] rounded-lg px-3 h-11 flex-row items-center justify-between"
+            >
+              <Text
+                className={`text-sm ${newOverride.overrideDate ? "text-white" : "text-[#666]"}`}
+              >
+                {newOverride.overrideDate
+                  ? formatOverrideDate(newOverride.overrideDate)
+                  : "Select date"}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color="#FFCC00" />
+            </TouchableOpacity>
+            {showOverrideDatePicker && (
+              <DateTimePicker
+                value={
+                  newOverride.overrideDate
+                    ? new Date(newOverride.overrideDate + "T00:00:00")
+                    : new Date()
+                }
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={new Date()}
+                onChange={(event, selected) => {
+                  setShowOverrideDatePicker(false);
+                  if (event.type === "dismissed" || !selected) return;
+                  const y = selected.getFullYear();
+                  const m = String(selected.getMonth() + 1).padStart(2, "0");
+                  const d = String(selected.getDate()).padStart(2, "0");
+                  setNewOverride((p) => ({ ...p, overrideDate: `${y}-${m}-${d}` }));
+                }}
+              />
+            )}
           </View>
 
           {/* Reason */}
@@ -833,7 +860,13 @@ function ConfigField({
 }
 
 function formatOverrideDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
+  // The API may return "YYYY-MM-DD" OR a full ISO timestamp ("2026-06-18T00:00:00.000Z").
+  // Blindly appending "T00:00:00" to an ISO string produces "...ZT00:00:00" → Invalid Date.
+  // Take just the date part and build a local Date (also avoids a tz off-by-one).
+  const datePart = (dateStr || "").split("T")[0].split(" ")[0];
+  const [y, m, d] = datePart.split("-").map(Number);
+  const date = y && m && d ? new Date(y, m - 1, d) : new Date(dateStr);
+  if (isNaN(date.getTime())) return "Invalid date";
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",

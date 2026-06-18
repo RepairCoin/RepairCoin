@@ -492,7 +492,20 @@ function OverridesTab({ overrides, onAddOverride, onDeleteOverride }: OverridesT
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const formatDateForDisplay = (date: Date | string): string => {
-    const d = typeof date === "string" ? new Date(date) : date;
+    let d: Date;
+    if (date instanceof Date) {
+      d = date;
+    } else if (typeof date === "string") {
+      // The API may return "YYYY-MM-DD", an ISO timestamp, or a space-separated
+      // timestamp ("2026-06-18 00:00:00") which Hermes can't parse → "Invalid Date".
+      // Take just the date part and build a local Date to avoid that + tz off-by-one.
+      const datePart = date.split("T")[0].split(" ")[0];
+      const [y, m, dd] = datePart.split("-").map(Number);
+      d = y && m && dd ? new Date(y, m - 1, dd) : new Date(date);
+    } else {
+      d = new Date(NaN);
+    }
+    if (isNaN(d.getTime())) return "Invalid date";
     return d.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
