@@ -483,8 +483,8 @@ export class ServiceRepository extends BaseRepository {
           sh.location_state as shop_state,
           sh.location_zip_code as shop_zip_code,
           NULL as shop_logo,
-          COALESCE(AVG(r.rating), 0) as avg_rating,
-          COUNT(r.review_id) as review_count,
+          COALESCE((SELECT AVG(rating) FROM service_reviews WHERE service_id = s.service_id), 0) as avg_rating,
+          (SELECT COUNT(*) FROM service_reviews WHERE service_id = s.service_id) as review_count,
           ${favoritesSelect},
           (
             SELECT json_agg(json_build_object(
@@ -517,10 +517,8 @@ export class ServiceRepository extends BaseRepository {
           ) as inventory_status
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
-        LEFT JOIN service_reviews r ON s.service_id = r.service_id
         ${favoritesJoin}
         ${whereClause}
-        GROUP BY s.service_id, sh.shop_id${customerAddress ? ', sf.customer_address' : ''}
         ${orderByClause}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;

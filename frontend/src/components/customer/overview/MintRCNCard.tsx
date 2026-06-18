@@ -21,12 +21,12 @@ export const MintRCNCard: React.FC<MintRCNCardProps> = ({
   }
 
   return (
-    <div className="bg-[#212121] rounded-xl overflow-visible relative">
+    <div className="rounded-2xl border border-[#262626] bg-[#161616] overflow-visible relative">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <div className="flex items-center gap-2">
-          <Coins className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-white font-semibold text-base">Mint RCN to Wallet</h3>
+      <div className="flex items-center justify-between gap-3 px-4 py-5 border-b border-[#262626]">
+        <div className="flex items-center gap-3">
+          <Coins className="w-4 h-4 text-[#FFCC00]" />
+          <h3 className="text-white font-semibold text-sm">Mint RCN to Wallet</h3>
         </div>
         <div className="relative">
           <button
@@ -82,8 +82,8 @@ export const MintRCNCard: React.FC<MintRCNCardProps> = ({
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <p className="text-sm text-gray-400 mb-4">
+      <div className="p-4 py-6">
+        <p className="text-sm text-white text-center mb-4">
           Convert your offchain RCN to blockchain tokens.
         </p>
 
@@ -103,7 +103,7 @@ export const MintRCNCard: React.FC<MintRCNCardProps> = ({
 
         {/* Available Balance */}
         <div className="flex items-center justify-between mt-4 text-sm">
-          <span className="text-gray-400">Available to mint:</span>
+          <span className="text-white">Available to mint:</span>
           <span className="text-[#FFCC00] font-bold text-base">{availableBalance} RCN</span>
         </div>
       </div>

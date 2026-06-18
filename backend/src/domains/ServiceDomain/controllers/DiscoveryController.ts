@@ -435,16 +435,47 @@ export class DiscoveryController {
       const days = Math.min(parseInt(req.query.days as string) || 7, 30);
       const customerAddress = req.user?.role === 'customer' ? req.user.address?.toLowerCase() : null;
 
+      const lat = req.query.lat !== undefined ? parseFloat(req.query.lat as string) : NaN;
+      const lng = req.query.lng !== undefined ? parseFloat(req.query.lng as string) : NaN;
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+      const radius = req.query.radius !== undefined ? parseFloat(req.query.radius as string) : 25;
+
       const pool = getSharedPool();
 
-      // Build favorites join if customer is authenticated
-      const favoritesJoin = customerAddress
-        ? `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $3`
-        : '';
-      const favoritesSelect = customerAddress
-        ? '(sf.customer_address IS NOT NULL) as is_favorited,'
-        : 'false as is_favorited,';
-      const favoritesGroupBy = customerAddress ? ', sf.customer_address' : '';
+      const params: (string | number)[] = [days];
+
+      let favoritesJoin = '';
+      let favoritesSelect = 'false as is_favorited,';
+      let favoritesGroupBy = '';
+      if (customerAddress) {
+        params.push(customerAddress);
+        favoritesJoin = `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $${params.length}`;
+        favoritesSelect = '(sf.customer_address IS NOT NULL) as is_favorited,';
+        favoritesGroupBy = ', sf.customer_address';
+      }
+
+      let distanceSelect = 'NULL::float as distance_miles';
+      let proximityFilter = '';
+      if (hasCoords) {
+        params.push(lat, lng);
+        const latIdx = params.length - 1;
+        const lngIdx = params.length;
+        // acos can overflow [-1, 1] by a hair due to float error; clamp with LEAST.
+        const distExpr = `
+          3958.8 * acos(LEAST(1.0,
+            cos(radians($${latIdx})) * cos(radians(sh.location_lat)) *
+            cos(radians(sh.location_lng) - radians($${lngIdx})) +
+            sin(radians($${latIdx})) * sin(radians(sh.location_lat))
+          ))`;
+        distanceSelect = `${distExpr} as distance_miles`;
+        if (Number.isFinite(radius)) {
+          params.push(radius);
+          proximityFilter = `AND sh.location_lat IS NOT NULL AND sh.location_lng IS NOT NULL AND ${distExpr} <= $${params.length}`;
+        }
+      }
+
+      params.push(limit);
+      const limitIdx = params.length;
 
       // Find services with most bookings in last N days
       const query = `
@@ -475,6 +506,7 @@ export class DiscoveryController {
           sh.location_state,
           sh.location_zip_code,
           ${favoritesSelect}
+          ${distanceSelect},
           COUNT(o.order_id) as booking_count,
           COUNT(o.order_id) * 100 +
           COALESCE(s.average_rating, 0) * 20 as trending_score,
@@ -503,16 +535,12 @@ export class DiscoveryController {
         ${favoritesJoin}
         WHERE s.active = true
           AND sh.active = true
+          ${proximityFilter}
         GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.average_rating, s.review_count, sh.shop_id, sh.name, sh.address, sh.location_city, sh.country, sh.phone, sh.email, sh.verified, sh.location_lat, sh.location_lng, sh.location_state, sh.location_zip_code${favoritesGroupBy}
         HAVING COUNT(o.order_id) > 0
         ORDER BY trending_score DESC, booking_count DESC
-        LIMIT $2
+        LIMIT $${limitIdx}
       `;
-
-      const params: (string | number)[] = [days, limit];
-      if (customerAddress) {
-        params.push(customerAddress);
-      }
 
       const result = await pool.query(query, params);
 
@@ -547,7 +575,8 @@ export class DiscoveryController {
         },
         groups: row.groups || [],
         bookingCount: parseInt(row.booking_count),
-        trendingScore: parseFloat(row.trending_score)
+        trendingScore: parseFloat(row.trending_score),
+        distanceMiles: row.distance_miles != null ? parseFloat(row.distance_miles) : null
       }));
 
       res.json({

@@ -68,15 +68,13 @@ export const YourTierLevelCard: React.FC<YourTierLevelCardProps> = ({
     rcnToNextTier = Math.max(currentTierInfo.max - lifetimeEarned, 0);
   }
 
-  const TierIcon = currentTierInfo.icon;
-
   return (
-    <div className="bg-[#212121] rounded-xl overflow-visible relative">
+    <div className="rounded-2xl border border-[#262626] bg-[#161616] overflow-visible relative">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-[#FFCC00]" />
-          <h3 className="text-white font-semibold text-base">Your Tier Level</h3>
+      <div className="flex items-center justify-between gap-3 px-4 py-5 border-b border-[#262626]">
+        <div className="flex items-center gap-3">
+          <Trophy className="w-4 h-4 text-[#FFCC00]" />
+          <h3 className="text-white font-semibold text-sm">Your Tier Level</h3>
         </div>
         <div className="relative">
           <button
@@ -153,25 +151,17 @@ export const YourTierLevelCard: React.FC<YourTierLevelCardProps> = ({
       </div>
 
       {/* Content */}
-      <div className="p-5">
-        {/* Tier Display with Icon */}
+      <div className="p-4">
+        {/* Tier Display */}
         <div className="text-center mb-5">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <TierIcon
-              className="w-8 h-8"
-              style={{ color: currentTierInfo.color.primary }}
-            />
-          </div>
-          <div
-            className={`text-3xl font-bold bg-gradient-to-r ${currentTierInfo.color.gradient} bg-clip-text text-transparent`}
-          >
-            {tier || "Bronze"} Tier
+          <div className="text-3xl font-semibold text-white">
+            {normalizedTier.charAt(0) + normalizedTier.slice(1).toLowerCase()} Tier
           </div>
         </div>
 
         {/* Progress Bar - Always visible */}
         <div className="mb-3">
-          <div className="w-full h-2.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
             <div
               className={`h-full bg-gradient-to-r ${currentTierInfo.color.gradient} rounded-full transition-all duration-500`}
               style={{ width: `${progress}%` }}
@@ -181,9 +171,9 @@ export const YourTierLevelCard: React.FC<YourTierLevelCardProps> = ({
 
         {/* Progress Text */}
         {currentTierInfo.next ? (
-          <p className="text-sm text-gray-400 text-center">
-            Earn <span className="text-[#FFCC00] font-semibold">{rcnToNextTier} RCN</span> to proceed to{" "}
-            <span className="text-white font-semibold">{currentTierInfo.next} Tier</span>
+          <p className="text-sm text-white text-center">
+            Earn <span className="font-semibold">{rcnToNextTier} RCN</span> to proceed to{" "}
+            <span className="font-semibold">{currentTierInfo.next} Tier</span>
           </p>
         ) : (
           <p className="text-sm text-[#FFCC00] text-center font-medium">
