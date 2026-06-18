@@ -1,5 +1,4 @@
 // backend/src/handlers/webhookHandlers.ts
-import { TokenMinter } from "../contracts/TokenMinter";
 import { TierManager } from "../contracts/TierManager";
 import { customerRepository, shopRepository, transactionRepository } from "../repositories";
 import { logger } from "../utils/logger";
@@ -18,15 +17,15 @@ interface TransactionRecord {
   metadata?: any;
 }
 
-// Lazy loading helpers
-let tokenMinter: TokenMinter | null = null;
+// Lazy loading helpers.
+// TokenMinter is dynamically imported so the dormant contract module isn't
+// loaded at startup; the mint* methods used here are pure reward-math (no chain).
+// See docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md.
 let tierManager: TierManager | null = null;
 
-const getTokenMinter = (): TokenMinter => {
-  if (!tokenMinter) {
-    tokenMinter = new TokenMinter();
-  }
-  return tokenMinter;
+const getTokenMinter = async () => {
+  const { getTokenMinter: load } = await import("../contracts/_archive/TokenMinter");
+  return load();
 };
 
 const getTierManager = (): TierManager => {
@@ -80,7 +79,7 @@ export async function handleRepairCompleted(data: any, webhookId: string): Promi
     }
     
     // Mint repair tokens
-    const mintResult = await getTokenMinter().mintRepairTokens(
+    const mintResult = await (await getTokenMinter()).mintRepairTokens(
       customer_wallet_address,
       parseFloat(repair_amount),
       shop_id,
@@ -180,7 +179,7 @@ export async function handleReferralVerified(data: any, webhookId: string): Prom
     }
     
     // Mint referral tokens
-    const mintResult = await getTokenMinter().mintReferralTokens(
+    const mintResult = await (await getTokenMinter()).mintReferralTokens(
       referrer_wallet_address,
       referee_wallet_address,
       shop_id
@@ -270,7 +269,7 @@ export async function handleAdFunnelConversion(data: any, webhookId: string): Pr
     }
     
     // Mint engagement tokens
-    const mintResult = await getTokenMinter().mintEngagementTokens({
+    const mintResult = await (await getTokenMinter()).mintEngagementTokens({
       customerAddress: customer_wallet_address,
       engagementType: engagement_type,
       baseAmount: parseFloat(base_amount),

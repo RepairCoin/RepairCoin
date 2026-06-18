@@ -6,9 +6,11 @@ import {
   GiftTokenResponse,
   MyRedemptionSessionsResponse,
   RedemptionSessionStatusResponse,
+  RedemptionVerification,
   TransferHistoryResponse,
   ValidateTransferRequest,
   ValidateTransferResponse,
+  VerifyRedemptionRequest,
 } from "@/feature/token/services/token.interface";
 
 class TokenApi {
@@ -21,6 +23,27 @@ class TokenApi {
       return await apiClient.post("/tokens/redemption-session/create", request);
     } catch (error: any) {
       console.error("Failed to create redemption session:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Authoritatively verify a redemption without creating a session.
+   * Uses the backend's `validateOnly` flag so the home/cross-shop
+   * relationship matches the web app (which derives it from the
+   * customer's stored home shop, not a client-side transaction scan).
+   */
+  async verifyRedemption(
+    request: VerifyRedemptionRequest
+  ): Promise<RedemptionVerification> {
+    try {
+      const response = await apiClient.post<any>(
+        "/tokens/redemption-session/create",
+        { ...request, validateOnly: true }
+      );
+      return (response?.data ?? response) as RedemptionVerification;
+    } catch (error: any) {
+      console.error("Failed to verify redemption:", error.message);
       throw error;
     }
   }

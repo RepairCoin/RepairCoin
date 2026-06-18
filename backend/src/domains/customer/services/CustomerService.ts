@@ -1,6 +1,7 @@
 // backend/src/services/CustomerService.ts
 import { customerRepository, transactionRepository, shopRepository, adminRepository, CustomerRepository } from "../../../repositories";
-import { TokenMinter } from '../../../contracts/TokenMinter';
+// TokenMinter is lazy-imported (see getTokenMinter) so the dormant contract
+// module isn't loaded at startup. docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
 import { TierManager, CustomerData } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
@@ -51,7 +52,6 @@ export interface ListCustomersParams {
 }
 
 export class CustomerService {
-  private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
   private referralService: ReferralService;
   private customerRepository: CustomerRepository;
@@ -61,11 +61,9 @@ export class CustomerService {
     this.customerRepository = new CustomerRepository();
   }
 
-  private getTokenMinter(): TokenMinter {
-    if (!this.tokenMinter) {
-      this.tokenMinter = new TokenMinter();
-    }
-    return this.tokenMinter;
+  private async getTokenMinter() {
+    const { getTokenMinter } = await import('../../../contracts/_archive/TokenMinter');
+    return getTokenMinter();
   }
 
   private getTierManager(): TierManager {
@@ -439,7 +437,7 @@ export class CustomerService {
         reason
       });
 
-      const result = await this.getTokenMinter().adminMintTokens(address, amount, `admin_${reason}`);
+      const result = await (await this.getTokenMinter()).adminMintTokens(address, amount, `admin_${reason}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Token minting failed');
@@ -494,7 +492,7 @@ export class CustomerService {
       }
 
       // Check current balance
-      const currentBalance = await this.getTokenMinter().getCustomerBalance(params.customerAddress);
+      const currentBalance = await (await this.getTokenMinter()).getCustomerBalance(params.customerAddress);
       if (!currentBalance || currentBalance < params.amount) {
         throw new Error('Insufficient balance');
       }

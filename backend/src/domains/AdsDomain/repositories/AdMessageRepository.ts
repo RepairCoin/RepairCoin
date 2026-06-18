@@ -28,6 +28,7 @@ export interface AdInboxEntry {
   lastAuthor: AdMessageAuthor;
   lastAt: Date;
   awaitingReply: boolean;
+  adsAccountConnected: boolean; // §9.6 gate — lets the admin connect a shop pre-request
 }
 
 export class AdMessageRepository extends BaseRepository {
@@ -60,6 +61,7 @@ export class AdMessageRepository extends BaseRepository {
       `SELECT DISTINCT ON (m.shop_id)
          m.shop_id,
          s.name AS shop_name,
+         s.ads_account_connected,
          COUNT(*)            OVER (PARTITION BY m.shop_id) AS total,
          m.body              AS last_body,
          m.author           AS last_author,
@@ -81,6 +83,7 @@ export class AdMessageRepository extends BaseRepository {
         lastAuthor: r.last_author as AdMessageAuthor,
         lastAt: r.last_at,
         awaitingReply: r.awaiting_reply === true,
+        adsAccountConnected: r.ads_account_connected === true,
       }))
       .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
   }

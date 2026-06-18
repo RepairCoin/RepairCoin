@@ -15,7 +15,9 @@
 // Campaign rewards spec: docs/tasks/strategy/campaign-rewards/.
 
 import { shopRepository, customerRepository } from '../repositories';
-import { getTokenMinter } from '../contracts/TokenMinter';
+// TokenMinter is lazy-imported inside the ENABLE_BLOCKCHAIN_MINTING branch only,
+// so the dormant contract module isn't loaded in DB-only mode.
+// docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
 import { TierManager } from '../contracts/TierManager';
 import { logger } from '../utils/logger';
 
@@ -85,6 +87,7 @@ export class RewardIssuanceService {
     let onChain = false;
     if (process.env.ENABLE_BLOCKCHAIN_MINTING === 'true') {
       try {
+        const { getTokenMinter } = await import('../contracts/_archive/TokenMinter');
         const minter = getTokenMinter();
         const note = reason || `Campaign reward from shop ${shop.name}`;
         const transfer = await minter.transferTokens(customerAddress, rcnAmount, note);

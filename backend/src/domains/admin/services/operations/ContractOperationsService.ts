@@ -1,21 +1,19 @@
 // backend/src/domains/admin/services/operations/ContractOperationsService.ts
 import { adminRepository } from '../../../../repositories';
-import { TokenMinter } from '../../../../contracts/TokenMinter';
+import { getContractAdminService, ContractAdminService } from '../../../../services/ContractAdminService';
 import { logger } from '../../../../utils/logger';
 
 /**
  * ContractOperationsService
  * Handles smart contract control operations (pause, unpause, emergency stop)
  * Extracted from AdminService for better security and maintainability
+ *
+ * Routes through ContractAdminService so the dormant TokenMinter is only loaded
+ * when ENABLE_BLOCKCHAIN_MINTING=true. See docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md.
  */
 export class ContractOperationsService {
-  private tokenMinter: TokenMinter | null = null;
-
-  private getTokenMinterInstance(): TokenMinter {
-    if (!this.tokenMinter) {
-      this.tokenMinter = new TokenMinter();
-    }
-    return this.tokenMinter;
+  private getTokenMinterInstance(): ContractAdminService {
+    return getContractAdminService();
   }
 
   async pauseContract(adminAddress?: string) {

@@ -4,7 +4,7 @@ import RepairCoinApp from '../../src/app';
 import { CustomerRepository } from '../../src/repositories/CustomerRepository';
 import { AdminRepository } from '../../src/repositories/AdminRepository';
 import { TransactionRepository } from '../../src/repositories/TransactionRepository';
-import { TokenMinter } from '../../src/contracts/TokenMinter';
+import { TokenMinter, getTokenMinter } from '../../src/contracts/_archive/TokenMinter';
 import jwt from 'jsonwebtoken';
 
 // Mock repositories and services
@@ -13,7 +13,7 @@ jest.mock('../../src/repositories/AdminRepository');
 jest.mock('../../src/repositories/TransactionRepository');
 jest.mock('../../src/repositories/ShopRepository');
 jest.mock('../../src/repositories/TreasuryRepository');
-jest.mock('../../src/contracts/TokenMinter');
+jest.mock('../../src/contracts/_archive/TokenMinter');
 jest.mock('thirdweb');
 
 /**
@@ -110,6 +110,12 @@ describe('Customer Admin Operations Tests', () => {
         success: true,
         transactionHash: '0xmocktxhash123'
       } as any);
+
+    // CustomerService now resolves the minter via the lazy getTokenMinter()
+    // factory (await import(...).getTokenMinter()), not `new TokenMinter()`.
+    // Make the auto-mocked factory return a mocked instance so the spied
+    // prototype methods above are exercised.
+    (getTokenMinter as jest.Mock).mockImplementation(() => new (TokenMinter as any)());
   });
 
   // ==========================================

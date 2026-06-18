@@ -5,10 +5,10 @@
 // declines. Concierge: this is where the admin acts on shop requests.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Inbox, Hammer, X, Link2 } from "lucide-react";
+import { Loader2, Inbox, Hammer, X } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  listCampaignRequests, buildCampaignFromRequest, declineCampaignRequest, setShopAdsAccount,
+  listCampaignRequests, buildCampaignFromRequest, declineCampaignRequest,
   CAMPAIGN_GOALS, type AdCampaignRequest,
 } from "@/services/api/ads";
 
@@ -50,17 +50,6 @@ export const CampaignRequestsQueue: React.FC<{ onBuilt?: () => void }> = ({ onBu
     } finally { setBusy(null); }
   };
 
-  const connect = async (r: AdCampaignRequest) => {
-    setBusy(r.id);
-    try {
-      await setShopAdsAccount(r.shopId, true);
-      toast.success(`${r.shopId}'s ad account connected — you can build now.`);
-      await load();
-    } catch (e: any) {
-      toast.error(e?.message || "Couldn't connect.");
-    } finally { setBusy(null); }
-  };
-
   const decline = async (r: AdCampaignRequest) => {
     const reason = window.prompt("Decline reason (optional)?") ?? undefined;
     setBusy(r.id);
@@ -93,9 +82,6 @@ export const CampaignRequestsQueue: React.FC<{ onBuilt?: () => void }> = ({ onBu
               {r.message && <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">“{r.message}”</p>}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button onClick={() => connect(r)} disabled={busy === r.id} title="Mark this shop's ad account connected (build precondition)" className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-[#1A1A1A] border border-gray-700 text-gray-300 hover:border-[#FFCC00] hover:text-white disabled:opacity-50">
-                <Link2 className="w-3.5 h-3.5" /> Connect
-              </button>
               <button onClick={() => build(r)} disabled={busy === r.id} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-green-500/15 text-green-400 hover:bg-green-500/25 disabled:opacity-50">
                 {busy === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Hammer className="w-3.5 h-3.5" />} Build
               </button>

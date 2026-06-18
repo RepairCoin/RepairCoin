@@ -6,7 +6,8 @@ import {
   adminRepository,
   treasuryRepository
 } from '../../../../repositories';
-import { TokenMinter } from '../../../../contracts/TokenMinter';
+// TokenMinter is lazy-imported (see getTokenMinterInstance) so the dormant
+// contract module isn't loaded at startup. docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
 import { TierManager } from '../../../../contracts/TierManager';
 import { TokenService } from '../../../token/services/TokenService';
 import { TokenProviderFactory } from '../../../../providers/TokenProviderFactory';
@@ -35,14 +36,11 @@ export interface SellRcnParams {
  * Extracted from AdminService for better maintainability and security
  */
 export class TokenOperationsService {
-  private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
 
-  private getTokenMinterInstance(): TokenMinter {
-    if (!this.tokenMinter) {
-      this.tokenMinter = new TokenMinter();
-    }
-    return this.tokenMinter;
+  private async getTokenMinterInstance() {
+    const { getTokenMinter } = await import('../../../../contracts/_archive/TokenMinter');
+    return getTokenMinter();
   }
 
   private getTierManager(): TierManager {
@@ -83,7 +81,7 @@ export class TokenOperationsService {
       });
 
       // Mint tokens using TokenMinter
-      const tokenMinter = this.getTokenMinterInstance();
+      const tokenMinter = await this.getTokenMinterInstance();
       const mintResult = await tokenMinter.adminMintTokens(
         params.customerAddress,
         params.amount,
@@ -522,7 +520,7 @@ export class TokenOperationsService {
       });
 
       // Mint tokens directly to shop wallet
-      const tokenMinter = new TokenMinter();
+      const tokenMinter = await this.getTokenMinterInstance();
       const mintResult = await tokenMinter.adminMintTokens(
         shop.wallet_address,
         totalToMint,

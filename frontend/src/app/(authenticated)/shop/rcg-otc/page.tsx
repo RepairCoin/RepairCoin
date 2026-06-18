@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Package, Shield, TrendingUp, AlertCircle, RefreshCw } from 'lucide-reac
 import { formatNumber } from '@/lib/utils';
 import { useRCGPrice } from '@/hooks/useRCGPrice';
 import { useActiveAccount } from 'thirdweb/react';
+import { useAppConfig } from '@/contexts/AppConfigContext';
 
 export default function RCGOTCPurchase() {
   const router = useRouter();
@@ -17,6 +18,18 @@ export default function RCGOTCPurchase() {
   const [selectedPackage, setSelectedPackage] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const { marketPrice, loading: priceLoading, error: priceError, lastUpdated, refetch } = useRCGPrice();
+
+  // RCG OTC purchase is a blockchain-only feature; redirect away in database-only mode
+  const { blockchainEnabled, loading: configLoading } = useAppConfig();
+  useEffect(() => {
+    if (!configLoading && !blockchainEnabled) {
+      router.replace('/shop');
+    }
+  }, [configLoading, blockchainEnabled, router]);
+
+  if (!configLoading && !blockchainEnabled) {
+    return null;
+  }
 
   const otcPremium = 0.05; // 5% premium for convenience
   const effectivePrice = marketPrice * (1 + otcPremium);

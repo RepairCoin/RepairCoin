@@ -17,6 +17,7 @@ import { AdMessageRepository } from '../repositories/AdMessageRepository';
 import { NotificationRepository } from '../../../repositories/NotificationRepository';
 import { AdBillingService } from '../services/AdBillingService';
 import { parseBrief } from '../services/briefValidation';
+import { metaPushService } from '../services/MetaPushService';
 import { shopRepository } from '../../../repositories';
 
 const requests = new CampaignRequestRepository();
@@ -105,7 +106,9 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
   try {
     const r = await requests.findById(id);
     if (!r) { res.status(404).json({ success: false, error: 'Request not found' }); return; }
-    if (r.status === 'live' || r.status === 'declined' || r.status === 'cancelled') {
+    if (r.status === 'live' || r.status === 'building' || r.status === 'declined' || r.status === 'cancelled') {
+      // 'building' = already built (or a prior build that completed server-side after a client
+      // timeout) — block a duplicate. Failed builds roll back and stay pending/approved.
       res.status(400).json({ success: false, error: `Request already ${r.status}` }); return;
     }
     // §9.6 — can't go live until the shop's ad account is connected.
@@ -132,10 +135,30 @@ export async function buildCampaignFromRequest(req: Request, res: Response): Pro
       notes: r.offer ? `Offer: ${r.offer}` : null,
       createdBy: adminId(req),
     } as any);
-    await campaigns.update(campaign.id, { status: 'active' }); // go live → billing starts (§9.2, nightly)
     await safeguards.ensureDefault(campaign.id);
-    const updated = await requests.setStatus(id, 'live', { campaignId: campaign.id, decidedBy: adminId(req) });
 
+    // Stage-4 PUSH (Option B): create the real campaign PAUSED on the shop's Meta ad account,
+    // then the admin reviews + goes live (Phase 5). Until ADS_META_PUSH_ENABLED, stays record-only.
+    if (metaPushService.enabled()) {
+      try {
+        await metaPushService.pushNewCampaign(r.shopId, r, campaign);
+      } catch (err: any) {
+        await campaigns.softDelete(campaign.id); // roll back our record (Meta objects rolled back inside)
+        logger.error('buildCampaignFromRequest: Meta push failed', err?.message || err);
+        res.status(502).json({ success: false, error: 'meta_push_failed', message: err?.message || 'Failed to create the campaign on Meta.' });
+        return;
+      }
+      await campaigns.update(campaign.id, { status: 'paused' }); // drafted on Meta, not yet live
+      const updated = await requests.setStatus(id, 'building', { campaignId: campaign.id, decidedBy: adminId(req) });
+      void postEvent(r.shopId, `Campaign "${name}" drafted on Meta (paused) — review & go live.`);
+      await notifyShop(r.shopId, `Your campaign "${name}" is being set up — we'll take it live shortly.`);
+      res.status(201).json({ success: true, data: { request: updated, campaign, pushed: true } });
+      return;
+    }
+
+    // Concierge / record-only path (push disabled) — unchanged: go live immediately as a record.
+    await campaigns.update(campaign.id, { status: 'active' }); // go live → billing starts (§9.2, nightly)
+    const updated = await requests.setStatus(id, 'live', { campaignId: campaign.id, decidedBy: adminId(req) });
     void postEvent(r.shopId, `Campaign "${name}" is live.`);
     await notifyShop(r.shopId, `Your campaign "${name}" is now live.`);
     await eventBus.publish(createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaign.id, { shopId: r.shopId, name }, 'AdsDomain'));
@@ -160,6 +183,49 @@ export async function declineCampaignRequest(req: Request, res: Response): Promi
   } catch (err) {
     logger.error('CampaignRequestController.declineCampaignRequest failed', err);
     res.status(500).json({ success: false, error: 'Failed to decline request' });
+  }
+}
+
+// POST /campaigns/:id/go-live (admin) — Option B: activate a PAUSED Meta draft after review.
+// Verifies a funding source, activates campaign/adset/ad on Meta, flips our campaign → active
+// + the request → live (billing starts §9.2).
+export async function goLiveCampaign(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    await metaPushService.goLive(campaignId); // throws on funding / connect / Graph error
+    await campaigns.update(campaignId, { status: 'active' });
+    await requests.setLiveByCampaign(campaignId);
+    void postEvent(campaign.shopId, `Campaign "${campaign.name}" is now live.`);
+    await notifyShop(campaign.shopId, `Your campaign "${campaign.name}" is now live.`);
+    await eventBus.publish(createDomainEvent(AdsEvents.CAMPAIGN_CREATED, campaignId, { shopId: campaign.shopId, name: campaign.name }, 'AdsDomain'));
+    res.json({ success: true, data: { campaignId, status: 'active' } });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.goLiveCampaign failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'go_live_failed', message: err?.message || 'Failed to go live.' });
+  }
+}
+
+// PATCH /campaigns/:id/draft (admin) — Phase-5 Level-2 in-app edits before go-live.
+export async function updateCampaignDraft(req: Request, res: Response): Promise<void> {
+  const campaignId = req.params.id;
+  try {
+    const campaign = await campaigns.findById(campaignId);
+    if (!campaign) { res.status(404).json({ success: false, error: 'Campaign not found' }); return; }
+    const request = await requests.findByCampaignId(campaignId);
+    await metaPushService.updateDraft(campaignId, {
+      dailyBudgetCents: req.body?.dailyBudgetCents,
+      radiusMiles: req.body?.radiusMiles,
+      headline: req.body?.headline,
+      primaryText: req.body?.primaryText,
+      regenerateImage: req.body?.regenerateImage === true,
+      request: request ?? undefined,
+    });
+    res.json({ success: true, data: await campaigns.findById(campaignId) });
+  } catch (err: any) {
+    logger.error('CampaignRequestController.updateCampaignDraft failed', err?.message || err);
+    res.status(502).json({ success: false, error: 'draft_update_failed', message: err?.message || 'Failed to update the draft.' });
   }
 }
 

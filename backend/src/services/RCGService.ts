@@ -57,19 +57,21 @@ export class RCGService extends BaseRepository {
   async getShopTierInfo(shopId: number): Promise<ShopTierInfo | null> {
     try {
       const shop = await this.shopRepo.getShop(shopId.toString());
-      if (!shop || !shop.walletAddress) {
+      if (!shop) {
         return null;
       }
 
-      const rcgBalance = await this.rcgReader.getBalance(shop.walletAddress);
-      const tier = await this.rcgReader.getShopTier(shop.walletAddress);
+      // Tier comes from the DB column (admin-managed), not an on-chain read.
+      // See docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+      const tier = (shop.rcg_tier as ShopTierInfo['tier']) || 'standard';
+      const rcgBalance = (shop.rcg_balance ?? 0).toString();
       const rcnPrice = this.rcgReader.getRCNPriceForTier(tier);
 
       const tierBenefits = this.getTierBenefits(tier);
 
       return {
         shopId: shopId,
-        walletAddress: shop.walletAddress,
+        walletAddress: shop.walletAddress || '',
         rcgBalance,
         tier,
         rcnPrice,
@@ -132,9 +134,10 @@ export class RCGService extends BaseRepository {
         total: shops.length
       };
 
+      // Tier comes from the DB column (admin-managed), not on-chain reads.
       for (const shop of shops) {
-        if (shop.walletAddress) {
-          const tier = await this.rcgReader.getShopTier(shop.walletAddress);
+        const tier = (shop.rcg_tier as keyof TierDistribution) || 'none';
+        if (tier in distribution && tier !== 'total') {
           distribution[tier]++;
         }
       }
@@ -271,17 +274,17 @@ export class RCGService extends BaseRepository {
         shopName?: string;
       }> = [];
 
+      // Balances come from the DB column (admin-managed), not on-chain reads.
+      // See docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
       for (const shop of shops.slice(0, 10)) {
-        if (shop.walletAddress) {
-          const balance = await this.rcgReader.getBalance(shop.walletAddress);
-          if (parseFloat(balance) > 0) {
-            holders.push({
-              address: shop.walletAddress,
-              balance,
-              isShop: true,
-              shopName: shop.name
-            });
-          }
+        const balanceNum = shop.rcg_balance ?? 0;
+        if (balanceNum > 0) {
+          holders.push({
+            address: shop.walletAddress || '',
+            balance: balanceNum.toString(),
+            isShop: true,
+            shopName: shop.name
+          });
         }
       }
 

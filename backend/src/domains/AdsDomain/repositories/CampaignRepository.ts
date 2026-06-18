@@ -24,6 +24,24 @@ export interface AdCampaign {
   createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;
+  // Stage-4 push — ids of the objects created on the shop's Meta ad account.
+  metaCampaignId: string | null;
+  metaAdSetId: string | null;
+  metaAdId: string | null;
+  metaCreativeId: string | null;
+  metaLeadFormId: string | null;
+  metaStatus: string | null;
+  metaLastSyncedAt: Date | null;
+}
+
+export interface MetaObjectIds {
+  metaCampaignId?: string | null;
+  metaAdSetId?: string | null;
+  metaAdId?: string | null;
+  metaCreativeId?: string | null;
+  metaLeadFormId?: string | null;
+  metaStatus?: string | null;
+  metaLastSyncedAt?: Date | null;
 }
 
 export interface CreateCampaignInput {
@@ -167,6 +185,37 @@ export class CampaignRepository extends BaseRepository {
     return res.rows[0].n;
   }
 
+  /** Persist Meta object ids / status after a push (Stage-4). Only sets provided fields. */
+  async setMetaObjects(id: string, m: MetaObjectIds): Promise<AdCampaign | null> {
+    const sets: string[] = [];
+    const params: any[] = [];
+    const col = (c: string, v: any) => { params.push(v); sets.push(`${c} = $${params.length}`); };
+    if (m.metaCampaignId !== undefined) col('meta_campaign_id', m.metaCampaignId);
+    if (m.metaAdSetId !== undefined) col('meta_adset_id', m.metaAdSetId);
+    if (m.metaAdId !== undefined) col('meta_ad_id', m.metaAdId);
+    if (m.metaCreativeId !== undefined) col('meta_creative_id', m.metaCreativeId);
+    if (m.metaLeadFormId !== undefined) col('meta_lead_form_id', m.metaLeadFormId);
+    if (m.metaStatus !== undefined) col('meta_status', m.metaStatus);
+    if (m.metaLastSyncedAt !== undefined) col('meta_last_synced_at', m.metaLastSyncedAt);
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = now()`);
+    params.push(id);
+    const res = await this.pool.query(
+      `UPDATE ad_campaigns SET ${sets.join(', ')} WHERE id = $${params.length} AND deleted_at IS NULL RETURNING *`,
+      params
+    );
+    return res.rows[0] ? this.mapRow(res.rows[0]) : null;
+  }
+
+  /** Campaigns pushed to Meta (have a meta_campaign_id) — the nightly insights-sync set. */
+  async listWithMetaCampaign(): Promise<Array<{ id: string; shopId: string; metaCampaignId: string }>> {
+    const res = await this.pool.query(
+      `SELECT id, shop_id, meta_campaign_id FROM ad_campaigns
+        WHERE meta_campaign_id IS NOT NULL AND deleted_at IS NULL`
+    );
+    return res.rows.map((r) => ({ id: r.id, shopId: r.shop_id, metaCampaignId: r.meta_campaign_id }));
+  }
+
   /** Resolve our campaign from a Meta campaign id (webhook/insights attribution). */
   async findByMetaCampaignId(metaCampaignId: string): Promise<AdCampaign | null> {
     const res = await this.pool.query(
@@ -206,6 +255,13 @@ export class CampaignRepository extends BaseRepository {
       createdBy: r.created_by,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
+      metaCampaignId: r.meta_campaign_id ?? null,
+      metaAdSetId: r.meta_adset_id ?? null,
+      metaAdId: r.meta_ad_id ?? null,
+      metaCreativeId: r.meta_creative_id ?? null,
+      metaLeadFormId: r.meta_lead_form_id ?? null,
+      metaStatus: r.meta_status ?? null,
+      metaLastSyncedAt: r.meta_last_synced_at ?? null,
     };
   }
 }

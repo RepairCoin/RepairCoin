@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { getApiBaseUrl } from "@/utils/apiUrl";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -210,6 +211,8 @@ interface TierBonusStats {
 export default function ShopDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
+  // Blockchain-only features (RCG staking, crypto payment) hidden in database-only mode
+  const blockchainEnabled = useBlockchainEnabled();
   const searchParams = useSearchParams();
   const { isAuthenticated, userType, isLoading: authLoading, authInitialized, userProfile } = useAuthStore();
   const { existingApplication } = useShopRegistration();
@@ -1591,7 +1594,7 @@ export default function ShopDashboardClient() {
             <SupportTab />
           )}
 
-          {activeTab === "staking" && shopData && (
+          {activeTab === "staking" && shopData && blockchainEnabled && (
             <SubscriptionGuard shopData={shopData}>
               <StakingTab />
             </SubscriptionGuard>
@@ -1612,8 +1615,8 @@ export default function ShopDashboardClient() {
             </SubscriptionGuard>
           )}
 
-          {/* Payment Modal */}
-          {showPayment && currentPurchaseId && (
+          {/* Payment Modal (crypto/Thirdweb path; blockchain-only) */}
+          {showPayment && currentPurchaseId && blockchainEnabled && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
               <div className="max-w-md w-full">
                 <ThirdwebPayment

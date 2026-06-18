@@ -24,8 +24,16 @@ import {
   ProviderStatus,
 } from '../interfaces/ITokenProvider';
 import { DatabaseTokenProvider } from './DatabaseTokenProvider';
-import { getTokenMinter } from '../contracts/TokenMinter';
 import { logger } from '../utils/logger';
+
+// TokenMinter is lazy-imported so the dormant contract module is only loaded
+// when this (blockchain-only) provider is actually used. This is what lets the
+// contract code be archived without static importers in DB-only mode.
+// See docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md.
+async function loadMinter() {
+  const { getTokenMinter } = await import('../contracts/_archive/TokenMinter');
+  return getTokenMinter();
+}
 
 export class BlockchainTokenProvider implements ITokenProvider {
   readonly providerType = 'blockchain' as const;
@@ -37,7 +45,7 @@ export class BlockchainTokenProvider implements ITokenProvider {
   async creditTokens(params: CreditTokensParams): Promise<TokenOperationResult> {
     try {
       // Mint on-chain first; if it fails we don't touch the DB.
-      const mint = await getTokenMinter().adminMintTokens(
+      const mint = await (await loadMinter()).adminMintTokens(
         params.customerAddress,
         params.amount,
         params.reason
@@ -76,7 +84,7 @@ export class BlockchainTokenProvider implements ITokenProvider {
       let transactionHash: string | undefined;
 
       if (burnAddress) {
-        const burn = await getTokenMinter().burnTokensFromCustomer(
+        const burn = await (await loadMinter()).burnTokensFromCustomer(
           params.customerAddress,
           params.amount,
           burnAddress,
@@ -116,7 +124,7 @@ export class BlockchainTokenProvider implements ITokenProvider {
 
   async getBalance(customerAddress: string): Promise<TokenBalance> {
     try {
-      const onChain = await getTokenMinter().getCustomerBalance(customerAddress);
+      const onChain = await (await loadMinter()).getCustomerBalance(customerAddress);
       if (onChain !== null) {
         return { balance: onChain, source: 'blockchain', lastUpdated: new Date() };
       }
@@ -141,7 +149,7 @@ export class BlockchainTokenProvider implements ITokenProvider {
     let contractStats: unknown;
     let chainHealthy = false;
     try {
-      contractStats = await getTokenMinter().getContractStats();
+      contractStats = await (await loadMinter()).getContractStats();
       chainHealthy = true;
     } catch (error) {
       contractStats = {

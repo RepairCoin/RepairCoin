@@ -1,28 +1,21 @@
 "use client";
 
-// Shop-facing self-serve "Subscribe to ads" (lifecycle Phase 5, decision #5). The shop
-// picks a tier — the subscription is set IMMEDIATELY (no admin approval) — plus an
-// optional brief that becomes the first campaign request the admin builds. A card is
-// required (§9.1). Hidden once subscribed: SubscriptionPanel + the campaign rail
-// take over.
+// Shop-facing self-serve "Subscribe to ads" — STEP 1 of onboarding (lifecycle Phase 5,
+// decision #5). The shop picks a tier; the subscription is set IMMEDIATELY (no admin
+// approval). A card is required (§9.1). This is plan-only — connecting Meta (step 2) and
+// requesting a campaign (step 3) happen after, in order. Hidden once subscribed.
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Megaphone, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  getMySubscription, changeMyTier, submitCampaignRequest, FLAT_TIERS,
-  type AdSubscription, type FlatTierName,
-} from "@/services/api/ads";
-import { CampaignBriefFields, briefToApi, emptyBrief, type BriefValue } from "@/components/ads/CampaignBriefFields";
+import { getMySubscription, changeMyTier, FLAT_TIERS, type AdSubscription, type FlatTierName } from "@/services/api/ads";
 
 const PLANS = FLAT_TIERS.map((t) => ({ value: t.name, label: t.label, blurb: t.blurb }));
 
-export const AdEnrollmentCTA: React.FC<{ shopId: string; hasCampaigns?: boolean }> = ({ shopId }) => {
+export const AdEnrollmentCTA: React.FC<{ onSubscribed?: () => void }> = ({ onSubscribed }) => {
   const [sub, setSub] = useState<AdSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<FlatTierName>("growth");
-  const [message, setMessage] = useState("");
-  const [brief, setBrief] = useState<BriefValue>(emptyBrief);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -36,9 +29,9 @@ export const AdEnrollmentCTA: React.FC<{ shopId: string; hasCampaigns?: boolean 
     setSubmitting(true);
     try {
       await changeMyTier(plan);                      // self-serve subscribe — no admin approval
-      await submitCampaignRequest(briefToApi(brief), message.trim() || undefined);
-      toast.success("You're subscribed! Your campaign request is in — we'll build it shortly.");
+      toast.success("You're subscribed! Next: connect your Meta ad account.");
       await load();
+      onSubscribed?.();
     } catch (e: any) {
       if (e?.response?.status === 402) toast.error(e?.response?.data?.message || "Add a payment method first.");
       else toast.error(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Couldn't subscribe.");
@@ -48,7 +41,7 @@ export const AdEnrollmentCTA: React.FC<{ shopId: string; hasCampaigns?: boolean 
   };
 
   if (loading) return null;
-  if (sub?.tier) return null; // already subscribed → SubscriptionPanel / the campaign rail take over
+  if (sub?.tier) return null; // already subscribed → later steps take over
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#141414] p-5">
@@ -57,7 +50,8 @@ export const AdEnrollmentCTA: React.FC<{ shopId: string; hasCampaigns?: boolean 
         <h3 className="text-lg font-semibold text-white">Get more customers with ads</h3>
       </div>
       <p className="text-sm text-gray-400 mb-4">
-        We run Facebook &amp; Google ads on your own ad account, capture every customer who responds, and show you exactly what you got back. Pick a plan:
+        We run Facebook &amp; Google ads on your own ad account, capture every customer who responds, and show you
+        exactly what you got back. Start by choosing a plan:
       </p>
 
       <div className="space-y-2 mb-4">
@@ -76,24 +70,12 @@ export const AdEnrollmentCTA: React.FC<{ shopId: string; hasCampaigns?: boolean 
         ))}
       </div>
 
-      <div className="mb-3">
-        <CampaignBriefFields shopId={shopId} value={brief} onChange={setBrief} />
-      </div>
-
-      <textarea
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Anything else you want us to know? (optional)"
-        rows={2}
-        className="w-full px-3 py-2 bg-[#0F0F0F] border border-gray-700 rounded-md text-white text-sm focus:outline-none focus:border-[#FFCC00] mb-3"
-      />
-
       <button
         onClick={submit}
         disabled={submitting}
         className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-md bg-[#FFCC00] text-black hover:bg-[#E6B800] disabled:opacity-50"
       >
-        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />} Subscribe &amp; request campaign
+        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />} Subscribe
       </button>
       <p className="text-xs text-gray-500 mt-2 flex items-center gap-1.5">
         <CreditCard className="w-3.5 h-3.5 shrink-0" /> A card on file is required. You pay your own ad spend directly; the plan fee starts when your first campaign goes live.
