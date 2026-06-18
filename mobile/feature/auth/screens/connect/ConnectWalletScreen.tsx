@@ -21,9 +21,6 @@ const video = require("@/assets/clips/onboarding1.mp4");
 const isStaging =
   process.env.EXPO_PUBLIC_API_URL?.includes("staging");
 
-const isDemoDisabled =
-  process.env.EXPO_PUBLIC_DEMO === "disable";
-
 export default function ConnectWalletScreen() {
   const { isLoading } = useAuthStore();
   const { connect } = useConnect();
@@ -39,7 +36,6 @@ export default function ConnectWalletScreen() {
   const isCancelledRef = useRef(false);
 
   useEffect(() => {
-    if (isDemoDisabled) return;
     authApi.getDemoStatus().then((res) => setDemoEnabled(res.enabled));
   }, []);
 
