@@ -185,6 +185,41 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/map', async (req: Request, res: Response) => {
   try {
     const pool = getSharedPool();
+
+    const lat = req.query.lat !== undefined ? parseFloat(String(req.query.lat)) : NaN;
+    const lng = req.query.lng !== undefined ? parseFloat(String(req.query.lng)) : NaN;
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    const radius = req.query.radius !== undefined ? parseFloat(String(req.query.radius)) : 25;
+    const limit = req.query.limit !== undefined ? parseInt(String(req.query.limit), 10) : NaN;
+
+    const params: any[] = [];
+    let distanceSelect = 'NULL::float as distance_miles';
+    let proximityFilter = '';
+    let orderBy = 'ORDER BY s.name';
+
+    if (hasCoords) {
+      params.push(lat, lng);
+      // acos can overflow [-1, 1] by a hair due to float error; clamp with LEAST.
+      const distExpr = `
+        3958.8 * acos(LEAST(1.0,
+          cos(radians($1)) * cos(radians(s.location_lat)) *
+          cos(radians(s.location_lng) - radians($2)) +
+          sin(radians($1)) * sin(radians(s.location_lat))
+        ))`;
+      distanceSelect = `${distExpr} as distance_miles`;
+      if (Number.isFinite(radius)) {
+        params.push(radius);
+        proximityFilter = `AND ${distExpr} <= $${params.length}`;
+      }
+      orderBy = 'ORDER BY distance_miles ASC';
+    }
+
+    let limitClause = '';
+    if (Number.isFinite(limit) && limit > 0) {
+      params.push(limit);
+      limitClause = `LIMIT $${params.length}`;
+    }
+
     const query = `
       SELECT
         s.shop_id,
@@ -199,6 +234,7 @@ router.get('/map', async (req: Request, res: Response) => {
         s.verified,
         s.logo_url,
         s.category,
+        ${distanceSelect},
         COALESCE(
           (SELECT COUNT(*) FROM shop_services ss WHERE ss.shop_id = s.shop_id AND ss.active = true), 0
         )::int as service_count,
@@ -221,9 +257,11 @@ router.get('/map', async (req: Request, res: Response) => {
         AND s.verified = true
         AND s.location_lat IS NOT NULL
         AND s.location_lng IS NOT NULL
-      ORDER BY s.name
+        ${proximityFilter}
+      ${orderBy}
+      ${limitClause}
     `;
-    const result = await pool.query(query);
+    const result = await pool.query(query, params);
 
     const shops = result.rows.map(row => ({
       shopId: row.shop_id,
@@ -244,6 +282,7 @@ router.get('/map', async (req: Request, res: Response) => {
       serviceCount: row.service_count,
       avgRating: row.avg_rating ? parseFloat(row.avg_rating) : 0,
       totalReviews: row.total_reviews,
+      distanceMiles: row.distance_miles != null ? parseFloat(row.distance_miles) : null,
     }));
 
     res.json({

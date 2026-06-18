@@ -143,7 +143,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {userRole !== "admin" && (
         <div className={`fixed right-4 z-[1001] flex items-center gap-3 pt-4 pb-2 lg:pt-2 transition-all duration-300 ease-in-out ${
           isScrolled ? "top-0 lg:top-0" : "top-0 lg:top-6"
-        } ${userRole === "shop" && activeTab !== "messages" ? "lg:hidden" : ""}`}>
+        } ${activeTab !== "messages" ? "lg:hidden" : ""}`}>
           {userRole === "shop" && <CartIcon variant="subtle" />}
           <MessageIcon variant={userRole === "shop" ? "subtle" : "default"} />
           <NotificationBell variant={userRole === "shop" ? "subtle" : "default"} />

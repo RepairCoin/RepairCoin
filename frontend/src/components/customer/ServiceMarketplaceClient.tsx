@@ -42,6 +42,23 @@ export const ServiceMarketplaceClient: React.FC = () => {
     loadCustomerGroups();
   }, []);
 
+  useEffect(() => {
+    const category = searchParams.get('category');
+    const search = searchParams.get('search');
+    if (category || search) {
+      setFilters((prev) => ({
+        ...prev,
+        ...(category ? { category: category as FilterState['category'] } : {}),
+        ...(search ? { search } : {}),
+      }));
+      setPage(1);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('category');
+      url.searchParams.delete('search');
+      window.history.replaceState({}, '', url);
+    }
+  }, [searchParams]);
+
   // Handle service query parameter to auto-open service details
   useEffect(() => {
     const serviceId = searchParams.get('service');

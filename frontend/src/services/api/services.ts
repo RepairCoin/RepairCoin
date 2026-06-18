@@ -89,6 +89,9 @@ export interface ShopServiceWithShopInfo extends ShopService {
   };
   // Inventory status for linked items
   inventoryStatus?: 'available' | 'low_stock' | 'out_of_stock';
+  // Trending: bookings in the recent period
+  bookingCount?: number;
+  distanceMiles?: number | null;
   // Legacy fields for compatibility
   averageRating?: number;
 }
@@ -1095,6 +1098,9 @@ export const getSimilarServices = async (
 export const getTrendingServices = async (options?: {
   limit?: number;
   days?: number;
+  lat?: number;
+  lng?: number;
+  radius?: number;
 }): Promise<ShopServiceWithShopInfo[]> => {
   try {
     const queryString = options ? buildQueryString(options as Record<string, unknown>) : '';
