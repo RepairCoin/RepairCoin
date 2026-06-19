@@ -295,7 +295,8 @@ export const AdvancedTreasuryTab: React.FC = () => {
         const rcgResult = await getRCGMetrics();
         setRcgMetrics(rcgResult.data);
         if (rcgResult.warning) {
-          toast.warning(rcgResult.warning, { duration: 5000 });
+          // react-hot-toast has no .warning(); use a custom icon instead
+          toast(rcgResult.warning, { duration: 5000, icon: '⚠️' });
         }
       } catch (error) {
         console.error('Error loading RCG metrics:', error);

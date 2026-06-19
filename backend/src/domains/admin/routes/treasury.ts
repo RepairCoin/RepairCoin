@@ -19,6 +19,11 @@ const getTokenMinter = async () => {
     return load();
 };
 
+// In database-only mode (ENABLE_BLOCKCHAIN_MINTING=false) we must not touch the
+// chain. These routes guard on this so the treasury page doesn't make Base Sepolia
+// RPC calls (which add latency and a chain dependency) when minting is disabled.
+const blockchainEnabled = () => process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
+
 // Get treasury statistics
 // Note: Authentication is already handled by the admin router middleware
 router.get('/treasury', async (req: Request, res: Response) => {
@@ -54,14 +59,16 @@ router.get('/treasury', async (req: Request, res: Response) => {
         // Get actual circulating supply from blockchain
         let circulatingSupply = 0;
         
-        try {
-            const contractStats = await (await getTokenMinter()).getContractStats();
-            if (contractStats && contractStats.totalSupplyReadable > 0) {
-                circulatingSupply = contractStats.totalSupplyReadable;
-                logger.info('✅ Fetched circulating supply from blockchain:', circulatingSupply);
+        if (blockchainEnabled()) {
+            try {
+                const contractStats = await (await getTokenMinter()).getContractStats();
+                if (contractStats && contractStats.totalSupplyReadable > 0) {
+                    circulatingSupply = contractStats.totalSupplyReadable;
+                    logger.info('✅ Fetched circulating supply from blockchain:', circulatingSupply);
+                }
+            } catch (error) {
+                logger.warn('Could not fetch contract stats, using database value:', error);
             }
-        } catch (error) {
-            logger.warn('Could not fetch contract stats, using database value:', error);
         }
         
         // Get top RCN buyers (shops with most purchases)
@@ -261,10 +268,24 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
 // Get admin wallet info
 router.get('/treasury/admin-wallet', async (req: Request, res: Response) => {
     try {
+        // Database-only mode: don't instantiate the on-chain minter just to read a wallet
+        if (!blockchainEnabled()) {
+            return res.json({
+                success: true,
+                data: {
+                    adminWallet: 'Not applicable (database-only mode)',
+                    contractAddress: process.env.RCN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5',
+                    chainId: 84532,
+                    chainName: 'Base Sepolia',
+                    message: 'Blockchain minting is disabled; running in database-only mode.'
+                }
+            });
+        }
+
         const tokenMinter = await getTokenMinter();
         const account = (tokenMinter as any).account;
         const walletAddress = account?.address || 'Not configured';
-        
+
         res.json({
             success: true,
             data: {
