@@ -5,6 +5,7 @@
 // callback. Keyed off META_OAUTH_STATE_SECRET (fallback JWT_SECRET). PURE + unit-tested.
 
 import crypto from 'crypto';
+import { logger } from '../../../utils/logger';
 
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -28,23 +29,36 @@ export function signState(shopId: string, now = Date.now()): string {
   return `${body}.${sig}`;
 }
 
-/** Verify a state string; returns the payload or null (tampered / expired / malformed). */
-export function verifyState(state: string | undefined, now = Date.now()): StatePayload | null {
+export interface StateResult { payload?: StatePayload; reason?: string; }
+
+/** Core verify — returns the payload OR a specific failure reason (for diagnostics/UI). */
+export function verifyStateDetailed(state: string | undefined, now = Date.now()): StateResult {
   const s = secret();
-  if (!s || !state || !state.includes('.')) return null;
+  if (!s) return { reason: 'no_secret' };
+  if (!state) return { reason: 'no_state' };
+  if (!state.includes('.')) return { reason: 'malformed' };
   const [body, sig] = state.split('.');
-  if (!body || !sig) return null;
+  if (!body || !sig) return { reason: 'malformed' };
   const expected = crypto.createHmac('sha256', s).update(body).digest('hex');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { reason: 'bad_signature' };
+  let payload: StatePayload;
   try {
     const json = Buffer.from(body.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
-    const payload = JSON.parse(json) as StatePayload;
-    if (!payload?.shopId || typeof payload.ts !== 'number') return null;
-    if (now - payload.ts > TTL_MS || payload.ts > now + 60_000) return null; // expired / future-skew
-    return payload;
+    payload = JSON.parse(json) as StatePayload;
   } catch {
-    return null;
+    return { reason: 'parse_error' };
   }
+  if (!payload?.shopId || typeof payload.ts !== 'number') return { reason: 'bad_payload' };
+  if (payload.ts > now + 60_000) return { reason: 'future_skew' };
+  if (now - payload.ts > TTL_MS) return { reason: 'expired' };
+  return { payload };
+}
+
+/** Verify a state string; returns the payload or null (tampered / expired / malformed). */
+export function verifyState(state: string | undefined, now = Date.now()): StatePayload | null {
+  const r = verifyStateDetailed(state, now);
+  if (!r.payload) logger.warn(`metaOAuthState.verifyState failed: ${r.reason}`);
+  return r.payload ?? null;
 }

@@ -113,6 +113,18 @@ export const MetaConnectCard: React.FC<{ onChanged?: () => void }> = ({ onChange
             {conn.pageId && <> · Page <span className="text-gray-300">{conn.pageId}</span></>}
           </p>
         )}
+        {/* Lead ads require the Page to accept Meta's Lead Generation Terms (one-time, per Page). */}
+        {conn.enabled && conn.pageId && conn.leadgenTosAccepted === false && (
+          <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/10 p-2.5 text-xs text-amber-300/90">
+            ⚠ To run lead-form ads, your Facebook Page must accept Meta&apos;s Lead Generation Terms (one-time).{" "}
+            <a
+              href={`https://www.facebook.com/ads/leadgen/tos/?page_id=${conn.pageId}`}
+              target="_blank" rel="noreferrer"
+              className="text-[#FFCC00] underline font-medium"
+            >Accept Lead Ads Terms →</a>{" "}
+            <button onClick={() => void load()} className="text-gray-300 hover:text-white underline">I&apos;ve accepted — recheck</button>
+          </div>
+        )}
       </div>
     );
   }

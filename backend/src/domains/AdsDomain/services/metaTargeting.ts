@@ -28,14 +28,18 @@ const DEFAULT_RADIUS_MILES = 10;
 const MIN_DAILY_CENTS = 100;      // Meta minimum ≈ $1/day
 const MILES_TO_KM = 1.609344;
 
-/** Map the brief goal → Meta objective. Unset/ambiguous → OUTCOME_LEADS (locked default). */
+/** Map the brief goal → Meta objective. v1 default = OUTCOME_TRAFFIC (drive to the shop's
+ *  landing page; leads captured by the on-page AdLeadForm → no native instant form, no
+ *  leads_retrieval / page Lead-Gen ToS / ON_AD coupling). Native OUTCOME_LEADS instant-form
+ *  ads are a documented follow-up — re-enable here once leads_retrieval + form creation are
+ *  enabled & hardened. */
 export function objectiveForGoal(goal: string | null | undefined): MetaObjective {
   switch ((goal || '').toLowerCase()) {
     case 'awareness': return 'OUTCOME_AWARENESS';
-    case 'traffic': return 'OUTCOME_TRAFFIC';
     case 'more_bookings':
     case 'leads':
-    default: return 'OUTCOME_LEADS';
+    case 'traffic':
+    default: return 'OUTCOME_TRAFFIC';
   }
 }
 

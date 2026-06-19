@@ -6,15 +6,15 @@ import {
 } from '../../src/domains/AdsDomain/services/metaTargeting';
 
 describe('objectiveForGoal', () => {
-  it('maps known goals', () => {
+  it('maps awareness; v1 routes lead/bookings/traffic → OUTCOME_TRAFFIC', () => {
     expect(objectiveForGoal('awareness')).toBe('OUTCOME_AWARENESS');
     expect(objectiveForGoal('traffic')).toBe('OUTCOME_TRAFFIC');
-    expect(objectiveForGoal('more_bookings')).toBe('OUTCOME_LEADS');
-    expect(objectiveForGoal('leads')).toBe('OUTCOME_LEADS');
+    expect(objectiveForGoal('more_bookings')).toBe('OUTCOME_TRAFFIC');
+    expect(objectiveForGoal('leads')).toBe('OUTCOME_TRAFFIC');
   });
-  it('defaults unset/ambiguous to OUTCOME_LEADS', () => {
-    expect(objectiveForGoal(null)).toBe('OUTCOME_LEADS');
-    expect(objectiveForGoal('something_else')).toBe('OUTCOME_LEADS');
+  it('defaults unset/ambiguous to OUTCOME_TRAFFIC (v1 — native lead forms deferred)', () => {
+    expect(objectiveForGoal(null)).toBe('OUTCOME_TRAFFIC');
+    expect(objectiveForGoal('something_else')).toBe('OUTCOME_TRAFFIC');
   });
 });
 
@@ -59,9 +59,9 @@ describe('buildTargeting', () => {
 describe('buildCampaignSpec', () => {
   it('assembles objective + budget + optimization + targeting', () => {
     const spec = buildCampaignSpec({ goal: null, monthlyBudgetCents: 300000, targetRadiusMiles: 10, lat: 1, lng: 2 });
-    expect(spec.objective).toBe('OUTCOME_LEADS');
+    expect(spec.objective).toBe('OUTCOME_TRAFFIC');
     expect(spec.dailyBudgetCents).toBe(10000);
-    expect(spec.optimizationGoal).toBe('LEAD_GENERATION');
+    expect(spec.optimizationGoal).toBe('LINK_CLICKS');
     expect(spec.billingEvent).toBe('IMPRESSIONS');
     expect(spec.targeting.geo_locations.custom_locations[0].radius).toBe(Math.round(10 * 1.609344));
   });
