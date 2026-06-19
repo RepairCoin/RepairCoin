@@ -23,6 +23,32 @@ interface MigrationRecord {
   applied_at: Date;
 }
 
+// Known historical number-reuses on the shared staging/prod DB, where a version is
+// recorded under a name that no longer matches the repo file at that number. These are
+// benign (the underlying schema was verified present) so the collision gate ignores
+// them. Do NOT add here to silence a NEW collision — renumber the file instead
+// (npm run db:create-migration picks a free number). Key = version, value = DB name.
+const KNOWN_DRIFT: Record<number, string> = {
+  0: 'create_migration_tracking',   // staging recorded v0 before 000_base_schema existed
+  53: 'add_shop_profile_enhancements',
+  54: 'add_booking_approval_and_reschedule',
+  118: 'create_inventory_v2_enhancements',
+};
+
+// Legacy duplicate-numbered migration files (kept in sync with
+// scripts/check-migration-numbers.js). On staging the shared number is recorded under
+// ONE of each group's names, so the OTHER file(s) won't match — that's expected, not a
+// new collision. The gate exempts these files. New collisions are NOT added here.
+const GRANDFATHERED_DUP_FILES = new Set<string>([
+  '095_add_category_check_constraint.sql',
+  '095_create_calendar_integration.sql',
+  '117_add_human_reply_baseline_to_ai_shop_settings.sql',
+  '117_create_inventory_v2_enhancements.sql',
+  '132_add_suspension_columns.sql',
+  '132_create_ai_orchestrate_messages.sql',
+  '132_fix_purchase_order_number_uniqueness.sql',
+]);
+
 class MigrationRunner {
   private pool: Pool;
   private migrationsDir: string;
@@ -136,6 +162,12 @@ class MigrationRunner {
       const migrationFiles = this.getMigrationFiles();
       console.log(`📁 Found ${migrationFiles.length} migration files\n`);
 
+      // Gate: refuse to run if any file's number is already claimed in the DB by a
+      // DIFFERENT migration. On a shared dev/staging DB this is how two devs collide —
+      // whoever runs second would otherwise have their migration silently skipped and
+      // its change lost. Abort before applying anything (no partial state).
+      this.assertNoNumberCollisions(appliedMigrations, migrationFiles);
+
       // Find pending migrations
       const pendingMigrations = migrationFiles.filter(file => {
         const version = this.extractVersion(file);
@@ -153,7 +185,18 @@ class MigrationRunner {
       // Run each pending migration — continue on error so one failure doesn't block the rest
       let successCount = 0;
       let failCount = 0;
+      let baselineSkipCount = 0;
       for (const file of pendingMigrations) {
+        const version = this.extractVersion(file);
+        // The pending set is computed up-front. A migration run earlier in THIS pass —
+        // notably the 000 baseline, which seeds schema_migrations for every version it
+        // represents — may have recorded this version since then. Re-check and skip
+        // instead of re-applying work the baseline already covers (which would fail on
+        // non-idempotent statements like CREATE INDEX / ADD CONSTRAINT).
+        if (version !== null && (await this.isApplied(version))) {
+          baselineSkipCount++;
+          continue;
+        }
         try {
           await this.runMigration(file);
           successCount++;
@@ -164,6 +207,9 @@ class MigrationRunner {
         }
       }
 
+      if (baselineSkipCount > 0) {
+        console.log(`\nℹ️  ${baselineSkipCount} migration(s) skipped — already represented by the 000 baseline`);
+      }
       if (failCount > 0) {
         console.log(`\n⚠️ Migrations completed with ${failCount} failure(s), ${successCount} succeeded\n`);
       } else {
@@ -206,6 +252,55 @@ class MigrationRunner {
       'SELECT version, name, applied_at FROM schema_migrations ORDER BY version'
     );
     return result.rows;
+  }
+
+  private async isApplied(version: number): Promise<boolean> {
+    const result = await this.pool.query(
+      'SELECT 1 FROM schema_migrations WHERE version = $1',
+      [version]
+    );
+    return result.rows.length > 0;
+  }
+
+  private assertNoNumberCollisions(applied: MigrationRecord[], files: string[]): void {
+    // Map applied version -> recorded name (only real names; the 000 baseline seeds many
+    // rows as 'baselined_via_000', which legitimately won't match file names).
+    const appliedName = new Map<number, string>();
+    for (const m of applied) {
+      if (m.name !== 'baselined_via_000') appliedName.set(m.version, m.name);
+    }
+
+    const collisions: Array<{ version: number; file: string; dbName: string }> = [];
+    for (const file of files) {
+      const version = this.extractVersion(file);
+      if (version === null) continue;
+      const dbName = appliedName.get(version);
+      if (dbName === undefined) continue;                  // not applied (or baseline) → fine
+      if (dbName === this.extractName(file)) continue;     // same migration, already applied → fine
+      if (KNOWN_DRIFT[version] === dbName) continue;        // known historical drift → fine
+      if (GRANDFATHERED_DUP_FILES.has(file)) continue;     // known legacy duplicate → fine
+      collisions.push({ version, file, dbName });
+    }
+
+    if (collisions.length === 0) return;
+
+    console.error('\n🛑 Migration number collision detected — refusing to run.\n');
+    console.error('   These files share a number with a DIFFERENT migration already applied');
+    console.error('   to this database. Running would silently skip the file and lose its change.\n');
+    for (const c of collisions.sort((a, b) => a.version - b.version)) {
+      console.error(`   [${String(c.version).padStart(3, '0')}] file "${c.file}" vs DB "${c.dbName}"`);
+    }
+    console.error('\n   Fix: renumber your file to a free number, then migrate again.');
+    console.error('   Tip: `npm run db:create-migration <name>` picks a DB-aware free number.\n');
+
+    if (process.env.MIGRATE_ALLOW_COLLISIONS === 'true') {
+      console.error('   ⚠️  MIGRATE_ALLOW_COLLISIONS=true set — continuing despite collisions.\n');
+      return;
+    }
+    // Hard stop. Exit non-zero directly (not via throw) so this is NOT swallowed by
+    // run()'s "non-fatal, app continues" catch — a number collision is a repo error
+    // that must block migrate/CI/deploy, unlike a normal migration failure.
+    process.exit(1);
   }
 
   private getMigrationFiles(): string[] {

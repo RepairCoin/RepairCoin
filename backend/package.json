@@ -35,6 +35,7 @@
     "_comment_migrations": "# Database Migration Commands",
     "db:migrate": "node dist/scripts/run-migrations.js || npx ts-node scripts/run-migrations.ts",
     "db:create-migration": "node scripts/create-migration.js",
+    "db:check-migrations": "node scripts/check-migration-numbers.js",
     "_predev_disabled": "npm run db:check",
     "docs": "echo 'API Documentation available at: http://localhost:3000/api-docs'",
     "docs:open": "open http://localhost:3000/api-docs || start http://localhost:3000/api-docs",
