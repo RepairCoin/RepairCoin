@@ -209,7 +209,7 @@ export interface MyRedemptionSessionsResponse {
 
 export interface ApprovalRequest {
   sessionId: string;
-  signature: string;
+  signature?: string;
   transactionHash?: string;
 }
 
