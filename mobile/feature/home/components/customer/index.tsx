@@ -12,11 +12,16 @@ import {
 } from "react-native";
 import { /* MaterialIcons, */ Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { /* useMutation, useQueryClient */ } from "@tanstack/react-query";
+import {} from /* useMutation, useQueryClient */ "@tanstack/react-query";
 import { Tier } from "@/shared/utilities/GlobalTypes";
 import { ServiceData } from "@/feature/services/services/service.interface";
 import { useCustomer } from "@/feature/customer/profile/hooks/useCustomer";
-import { useAllServicesQuery, useGetTrendingServicesQuery, useGetRecentlyViewedQuery, useGetFavoritesQuery } from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
+import {
+  useAllServicesQuery,
+  useGetTrendingServicesQuery,
+  useGetRecentlyViewedQuery,
+  useGetFavoritesQuery,
+} from "@/feature/services/services-main/feature-tab/hooks/useFeatureTabQuery";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { apiClient } from "@/shared/utilities/axios";
 import { useAppToast } from "@/shared/hooks";
@@ -25,11 +30,13 @@ import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 import RecentlyViewedSection from "./RecentlyViewedSection";
 import CampaignsPromosSection from "./CampaignsPromosSection";
+import NoShowWarningBanner from "../ui/NoShowWarningBanner";
 
 export default function CustomerWalletTab() {
   const { account, userProfile } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const walletAddress = account?.address || userProfile?.walletAddress || userProfile?.address;
+  const walletAddress =
+    account?.address || userProfile?.walletAddress || userProfile?.address;
 
   const {
     data: customerData,
@@ -56,10 +63,10 @@ export default function CustomerWalletTab() {
     refetch: refetchRecentlyViewed,
   } = useGetRecentlyViewedQuery({ limit: 8 });
 
-  const { data: favoritesData, refetch: refetchFavorites } = useGetFavoritesQuery();
+  const { data: favoritesData, refetch: refetchFavorites } =
+    useGetFavoritesQuery();
 
-  const 
-  favoritedIds = useMemo(() => {
+  const favoritedIds = useMemo(() => {
     if (!favoritesData) return new Set<string>();
     return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
   }, [favoritesData]);
@@ -81,7 +88,13 @@ export default function CustomerWalletTab() {
     } finally {
       setRefreshing(false);
     }
-  }, [refetch, refetchServices, refetchTrending, refetchRecentlyViewed, refetchFavorites]);
+  }, [
+    refetch,
+    refetchServices,
+    refetchTrending,
+    refetchRecentlyViewed,
+    refetchFavorites,
+  ]);
 
   const totalBalance = customerData?.customer?.currentRcnBalance || 0;
 
@@ -136,11 +149,11 @@ export default function CustomerWalletTab() {
       return [];
     }
     const activeServices = servicesData.filter(
-      (service: ServiceData) => service.active
+      (service: ServiceData) => service.active,
     );
     const sortedServices = [...activeServices].sort(
       (a: ServiceData, b: ServiceData) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
     return sortedServices.slice(0, 4);
   }, [servicesData]);
@@ -192,6 +205,7 @@ export default function CustomerWalletTab() {
           />
         }
       >
+        <NoShowWarningBanner />
         <ActionCard
           balance={tokenData.balance}
           tier={tokenData.tier}

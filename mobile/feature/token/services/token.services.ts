@@ -142,11 +142,13 @@ class TokenApi {
     }
   }
 
-  async approvalRedemptionSession(sessionId: string, signature: string): Promise<any> {
+  async approvalRedemptionSession(sessionId: string, signature?: string): Promise<any> {
     try {
+      // Signature is optional: the backend only verifies it in blockchain mode
+      // (ENABLE_BLOCKCHAIN_MINTING). Otherwise approval is authorized via JWT.
       return await apiClient.post<any>(`/tokens/redemption-session/approve`, {
         sessionId,
-        signature,
+        ...(signature ? { signature } : {}),
       });
     } catch (error) {
       console.error("Failed to approve redemption session:", error);

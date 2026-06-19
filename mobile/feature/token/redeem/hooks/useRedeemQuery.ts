@@ -53,7 +53,7 @@ export const useApproveRedemptionSession = () => {
     }: ApprovalRequest) => {
       console.log("[useApproveRedemptionSession] Approving session:", {
         sessionId,
-        signature: signature.substring(0, 10) + "...",
+        signature: signature ? signature.substring(0, 10) + "..." : "none",
         hasTransactionHash: !!transactionHash,
       });
 
