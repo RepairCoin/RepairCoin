@@ -430,9 +430,17 @@ router.post('/treasury/manual-transfer',
     async (req: Request, res: Response) => {
         try {
             const { customerAddress, amount, reason } = req.body;
-            
+
+            // Blockchain-native action — unavailable in database-only mode
+            if (!blockchainEnabled()) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Blockchain minting is disabled (database-only mode). Manual on-chain transfers are unavailable.'
+                });
+            }
+
             const minter = await getTokenMinter();
-            
+
             // Check current balance
             const currentBalance = await minter.getCustomerBalance(customerAddress) || 0;
             
@@ -509,7 +517,6 @@ router.post('/treasury/manual-transfer',
 router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
-        const minter = await getTokenMinter();
         const adminAddress = '0x761E5E59485ec6feb263320f5d636042bD9EBc8c';
         
         // Get existing treasury stats
@@ -552,8 +559,14 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
             WHERE shop_rewards - redeemed - admin_transfers > 0
         `, [adminAddress]);
         
-        const adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
-        const contractStats = await minter.getContractStats();
+        // Chain reads only when blockchain is enabled; database-only mode uses defaults
+        let adminBalance = 0;
+        let contractStats: any = null;
+        if (blockchainEnabled()) {
+            const minter = await getTokenMinter();
+            adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
+            contractStats = await minter.getContractStats();
+        }
         
         const totalPurchasedByShops = parseFloat(existingStats.rows[0]?.total_sold || '0');
         const totalIssuedByShops = parseFloat(mintedStats.rows[0]?.total_issued_by_shops || '0');
@@ -566,7 +579,7 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
             success: true,
             data: {
                 treasury: {
-                    totalSupply: contractStats.totalSupplyReadable || 0,
+                    totalSupply: contractStats?.totalSupplyReadable || 0,
                     totalSold: totalPurchasedByShops,
                     totalRevenue: parseFloat(existingStats.rows[0]?.total_revenue || '0'),
                     totalMinted: totalMinted,
@@ -608,7 +621,15 @@ router.post('/treasury/mint-bulk',
     async (req: Request, res: Response) => {
         try {
             const { recipients, amount, reason } = req.body;
-            
+
+            // Blockchain-native action — unavailable in database-only mode
+            if (!blockchainEnabled()) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Blockchain minting is disabled (database-only mode). Bulk minting is unavailable.'
+                });
+            }
+
             if (!Array.isArray(recipients) || recipients.length === 0) {
                 return res.status(400).json({
                     success: false,
