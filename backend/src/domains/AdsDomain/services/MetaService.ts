@@ -144,15 +144,26 @@ export class MetaService {
 
   // --- Stage-4 PUSH: create objects on the shop's ad account (user token w/ ads_management) ---
 
-  /** Account status + whether a funding source exists. account_status 1 = ACTIVE. */
-  async getAccountStatus(adAccountId: string, userToken: string): Promise<{ accountStatus: number; hasFunding: boolean }> {
+  /** Account status + funding + currency context. account_status 1 = ACTIVE.
+   *  `currency` is the ISO code (e.g. USD, PHP); `minDailyBudget` is Meta's minimum daily
+   *  budget for THIS account, in the account-currency minor units (the same unit a budget is
+   *  sent in) — used to validate before a push so we surface a clear error, not a raw Graph one. */
+  async getAccountStatus(adAccountId: string, userToken: string): Promise<{
+    accountStatus: number; hasFunding: boolean; currency: string | null; minDailyBudget: number | null;
+  }> {
     this.requireConfig();
     try {
       const res = await axios.get(`${GRAPH}/${adAccountId}`, {
-        params: { fields: 'account_status,funding_source', access_token: userToken },
+        params: { fields: 'account_status,funding_source,currency,min_daily_budget', access_token: userToken },
         timeout: 15000,
       });
-      return { accountStatus: Number(res.data?.account_status ?? 0), hasFunding: !!res.data?.funding_source };
+      const min = res.data?.min_daily_budget;
+      return {
+        accountStatus: Number(res.data?.account_status ?? 0),
+        hasFunding: !!res.data?.funding_source,
+        currency: res.data?.currency ?? null,
+        minDailyBudget: min != null ? Number(min) : null,
+      };
     } catch (err: any) {
       logger.error('MetaService.getAccountStatus failed', { detail: err?.response?.data || err?.message });
       throw new Error(`account_status_failed: ${this.fbError(err)}`);

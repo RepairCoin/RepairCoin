@@ -16,6 +16,9 @@ export interface AdCampaign {
   targetUnits: 'mi' | 'km';
   dailyBudgetCents: number;
   status: 'draft' | 'active' | 'paused' | 'archived';
+  /** Admin-selected Meta objective (OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT).
+   *  Null → push derives it from the request goal. */
+  objective: string | null;
   aiAgentEnabled: boolean;
   notes: string | null;
   startedAt: Date | null;
@@ -64,6 +67,7 @@ export interface UpdateCampaignInput {
   targetUnits?: 'mi' | 'km';
   dailyBudgetCents?: number;
   status?: AdCampaign['status'];
+  objective?: string | null;
   aiAgentEnabled?: boolean;
   notes?: string | null;
 }
@@ -139,6 +143,7 @@ export class CampaignRepository extends BaseRepository {
     if (input.targetRadiusMiles !== undefined) col('target_radius_miles', input.targetRadiusMiles);
     if (input.targetUnits !== undefined) col('target_units', input.targetUnits);
     if (input.dailyBudgetCents !== undefined) col('daily_budget_cents', input.dailyBudgetCents);
+    if (input.objective !== undefined) col('objective', input.objective);
     if (input.aiAgentEnabled !== undefined) col('ai_agent_enabled', input.aiAgentEnabled);
     if (input.notes !== undefined) col('notes', input.notes);
     // status transitions also stamp the matching timestamp
@@ -247,6 +252,7 @@ export class CampaignRepository extends BaseRepository {
       targetUnits: r.target_units,
       dailyBudgetCents: r.daily_budget_cents,
       status: r.status,
+      objective: r.objective ?? null,
       aiAgentEnabled: r.ai_agent_enabled,
       notes: r.notes,
       startedAt: r.started_at,

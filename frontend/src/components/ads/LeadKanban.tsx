@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, ChevronRight, Phone, Mail, Sparkles, Copy, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 import {
-  listLeads, listShopLeads, updateLeadStatus, draftLeadReply,
+  listLeads, listShopLeads, updateLeadStatus, updateShopLeadStatus, draftLeadReply,
   type AdLead, type LeadStatus,
 } from "@/services/api/ads";
 import { LeadConversation } from "@/components/ads/LeadConversation";
@@ -40,7 +40,9 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [convoLead, setConvoLead] = useState<AdLead | null>(null);
-  const editable = mode === "admin";
+  const isAdmin = mode === "admin";
+  // Both admin and shop can work a lead (advance status, call/email) — the shop owns the
+  // customer relationship. Chat / AI-draft stay admin-only (and chat-channel-only).
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +60,8 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
   const move = async (lead: AdLead, status: LeadStatus) => {
     setBusyId(lead.id);
     try {
-      const updated = await updateLeadStatus(lead.id, status);
+      const fn = isAdmin ? updateLeadStatus : updateShopLeadStatus;
+      const updated = await fn(lead.id, status);
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? updated : l)));
     } catch (e: any) {
       toast.error(e?.message || "Couldn't update lead.");
@@ -118,7 +121,7 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                     <p className="text-[11px] text-gray-600 mt-1.5">
                       {lead.attributionMethod} · {new Date(lead.createdAt).toLocaleDateString()}
                     </p>
-                    {editable && (
+                    {(
                       <div className="mt-2 flex items-center gap-2">
                         {NEXT[col.status] && (
                           <button
@@ -139,18 +142,35 @@ export const LeadKanban: React.FC<LeadKanbanProps> = ({ mode, campaignId }) => {
                             Lost
                           </button>
                         )}
-                        <button
-                          onClick={() => setConvoLead(lead)}
-                          className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00] ml-auto"
-                          title="Open conversation"
-                        >
-                          <MessageSquare className="w-3 h-3" /> Chat
-                        </button>
+                        {/* Chat only for admins on leads with a real 2-way channel (Messenger/WhatsApp).
+                            Everyone else (shop, or form/manual leads) reaches the customer by call/email. */}
+                        {isAdmin && lead.hasChatChannel ? (
+                          <button
+                            onClick={() => setConvoLead(lead)}
+                            className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00] ml-auto"
+                            title="Open conversation"
+                          >
+                            <MessageSquare className="w-3 h-3" /> Chat
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2 ml-auto">
+                            {lead.phone && (
+                              <a href={`tel:${lead.phone}`} title="Call" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                                <Phone className="w-3 h-3" /> Call
+                              </a>
+                            )}
+                            {lead.email && (
+                              <a href={`mailto:${lead.email}`} title="Email" className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-[#FFCC00]">
+                                <Mail className="w-3 h-3" /> Email
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* AI-drafted outreach (Stage 3, Option C) — new/contacted only */}
-                    {editable && (col.status === "new" || col.status === "contacted") && (
+                    {/* AI reply drafting — admin-only, chat-channel leads (Messenger/WhatsApp), new/contacted */}
+                    {isAdmin && lead.hasChatChannel && (col.status === "new" || col.status === "contacted") && (
                       <div className="mt-2">
                         {!drafts[lead.id] ? (
                           <button

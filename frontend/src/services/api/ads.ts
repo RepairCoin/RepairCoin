@@ -17,9 +17,11 @@ export interface AdCampaign {
   platform: string;
   dailyBudgetCents: number;
   status: CampaignStatus;
+  objective?: string | null; // OUTCOME_TRAFFIC | OUTCOME_AWARENESS | OUTCOME_ENGAGEMENT (admin picker)
   aiAgentEnabled: boolean;
   notes: string | null;
   createdAt: string;
+  startedAt?: string | null; // set the first time it goes live — distinguishes pre-live drafts
   // Stage-4 push: present when the campaign was created on Meta.
   metaCampaignId?: string | null;
   metaStatus?: string | null; // PAUSED (drafted, awaiting Go-live) | ACTIVE
@@ -79,6 +81,8 @@ export interface AdLead {
   email: string | null;
   leadStatus: LeadStatus;
   attributionMethod: string;
+  /** True only for Messenger/WhatsApp leads → enables Chat / AI-reply. Form/manual leads are false. */
+  hasChatChannel?: boolean;
   createdAt: string;
 }
 
@@ -290,6 +294,9 @@ export interface AdCreative {
   landingUrlType: LandingUrlType | null;
   headline: string | null;
   body: string | null;
+  imageUrl: string | null;
+  metaCreativeId: string | null;
+  generationPrompt: string | null;
   version: number;
   reviewStatus: CreativeReviewStatus;
   reviewedBy: string | null;
@@ -333,6 +340,12 @@ export const listLeads = async (params?: { campaignId?: string; status?: LeadSta
 
 export const updateLeadStatus = async (id: string, status: LeadStatus, lostReason?: string) => {
   const res = await apiClient.patch(`/ads/leads/${id}/status`, { status, lostReason });
+  return unwrap<AdLead>(res);
+};
+
+// Shop works its own leads (ownership verified server-side via the lead's campaign shop_id).
+export const updateShopLeadStatus = async (id: string, status: LeadStatus, lostReason?: string) => {
+  const res = await apiClient.patch(`/ads/shop/leads/${id}/status`, { status, lostReason });
   return unwrap<AdLead>(res);
 };
 
@@ -383,7 +396,7 @@ export const submitWebformLead = async (payload: {
 // campaign creation admin-only; this just signals interest + sets the plan on approve.
 
 export type EnrollmentStatus = 'pending' | 'approved' | 'declined';
-export type CampaignGoal = 'more_bookings' | 'awareness' | 'promote_service';
+export type CampaignGoal = 'more_bookings' | 'leads' | 'awareness' | 'promote_service';
 
 /** Optional campaign brief — what the shop wants advertised. */
 export interface CampaignBrief {
@@ -408,10 +421,12 @@ export interface AdEnrollment {
   createdAt: string;
 }
 
+// Goals are OUTCOMES (what the shop wants), not what to advertise (the service picker covers that).
+// v1 offers two lead-driving outcomes. 'awareness' + 'promote_service' are kept in the type for
+// legacy rows but dropped from the picker — see ads-v1-gaps-and-next-steps.md.
 export const CAMPAIGN_GOALS: { value: CampaignGoal; label: string }[] = [
   { value: 'more_bookings', label: 'More bookings' },
-  { value: 'awareness', label: 'Brand awareness' },
-  { value: 'promote_service', label: 'Promote a specific service' },
+  { value: 'leads', label: 'More leads / inquiries' },
 ];
 
 export interface ShopCapacity {
@@ -535,11 +550,25 @@ export const declineCampaignRequest = async (id: string, declineReason?: string)
 };
 // Stage-4 push P5 — review/edit a PAUSED Meta draft, then take it live (Option B).
 export interface CampaignDraftEdit {
-  dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string; regenerateImage?: boolean;
+  dailyBudgetCents?: number; radiusMiles?: number; headline?: string; primaryText?: string;
+  regenerateImage?: boolean;
+  /** Admin description for a prompt-driven image regenerate (implies regenerateImage). */
+  imagePrompt?: string;
+  /** Meta objective picker (pre-push only): OUTCOME_TRAFFIC | OUTCOME_AWARENESS. */
+  objective?: string;
 }
 export const updateCampaignDraft = async (id: string, edits: CampaignDraftEdit): Promise<AdCampaign> => {
   // Regenerating the image runs gpt-image-1 → allow up to 4 min.
   const res = await apiClient.patch(`/ads/campaigns/${id}/draft`, edits, { timeout: 240000 });
+  return unwrap<AdCampaign>(res);
+};
+/** Regenerate the campaign's AI ad image from an admin description (re-arms review → pending). */
+export const regenerateAdImage = async (campaignId: string, imagePrompt: string): Promise<AdCampaign> =>
+  updateCampaignDraft(campaignId, { regenerateImage: true, imagePrompt });
+/** Prepare→push: create the PAUSED Meta objects from a reviewed local draft (validates budget). */
+export const pushCampaignToMeta = async (id: string): Promise<AdCampaign> => {
+  // Several Meta Graph create calls — allow generous time.
+  const res = await apiClient.post(`/ads/campaigns/${id}/push`, {}, { timeout: 120000 });
   return unwrap<AdCampaign>(res);
 };
 export const goLiveCampaign = async (id: string): Promise<{ campaignId: string; status: string }> => {

@@ -41,8 +41,10 @@ export const CampaignRequestsQueue: React.FC<{ onBuilt?: () => void }> = ({ onBu
     if (name === undefined) return; // cancelled
     setBusy(r.id);
     try {
-      await buildCampaignFromRequest(r.id, name ? { name } : undefined);
-      toast.success("Campaign built and live.");
+      const result: any = await buildCampaignFromRequest(r.id, name ? { name } : undefined);
+      toast.success(result?.prepared
+        ? "Draft created — review the creative & details, then push it to Meta."
+        : "Campaign built and live.");
       await load();
       onBuilt?.();
     } catch (e: any) {

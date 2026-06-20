@@ -32,6 +32,8 @@ export interface AdCreativeContent {
   headline: string;
   primaryText: string;
   linkUrl: string;
+  /** The image prompt actually used (auto-derived, or the admin's custom description). */
+  imagePrompt: string;
 }
 
 /** A valid PUBLIC http(s) URL, or null. Rejects junk like "a" and non-public hosts
@@ -57,8 +59,15 @@ export class AdCreativeService {
   ) {}
 
   /** Build the AI creative for a campaign. Throws if the image can't be generated
-   *  (e.g. ai_images_enabled off) so the push rolls back with a clear reason. */
-  async build(shopId: string, request: AdCampaignRequest, campaignName: string): Promise<AdCreativeContent> {
+   *  (e.g. ai_images_enabled off) so the push rolls back with a clear reason.
+   *  `opts.imagePrompt` lets an admin describe the image (regenerate flow) — otherwise we
+   *  auto-derive it from the brand kit + offer. */
+  async build(
+    shopId: string,
+    request: AdCampaignRequest,
+    campaignName: string,
+    opts: { imagePrompt?: string; landingUrl?: string } = {}
+  ): Promise<AdCreativeContent> {
     const [shop, kit] = await Promise.all([
       shopRepository.getShop(shopId).catch(() => null),
       this.brandKit.getBrandKit(shopId).catch(() => null),
@@ -67,9 +76,12 @@ export class AdCreativeService {
     const industry = kit?.industryStyle || 'local service business';
     const voice = kit?.brandVoice || kit?.toneNotes || 'friendly and professional';
     const offer = request.offer || (request.goal ? request.goal.replace(/_/g, ' ') : 'our services');
-    // Meta requires a valid public landing URL. Prefer the shop's website, then a configured
-    // default, falling back to the brand site — never a junk/localhost value (error 2061006).
-    const linkUrl = publicUrl((shop as any)?.website)
+    // Meta requires a valid public landing URL. Prefer our own campaign landing page (closes the
+    // click→lead loop + shows the promoted services), then the shop's website, then a configured
+    // default — never a junk/localhost value (error 2061006). The landing URL is rejected locally
+    // (localhost), so dev falls back to the shop site; staging/prod set ADS_LANDING_BASE_URL.
+    const linkUrl = publicUrl(opts.landingUrl)
+      || publicUrl((shop as any)?.website)
       || publicUrl(process.env.META_DEFAULT_LINK_URL)
       || publicUrl(process.env.FRONTEND_URL)
       || 'https://repaircoin.ai';
@@ -98,7 +110,9 @@ export class AdCreativeService {
     }
 
     // --- Image (AI default; gated by ai_images_enabled, spend-capped inside generate) ---
+    // An admin-supplied description (regenerate) takes precedence over the auto prompt.
     const prompt =
+      opts.imagePrompt?.trim() ||
       `Professional, eye-catching social media ad image for ${shopName}, a ${industry}. ` +
       `Theme: ${offer}. Clean, vibrant, photographic; leave space for a small logo. No text in the image.`;
     const img = await this.images.generate(shopId, { prompt, useCase: 'ads', dimensions: '1536x1024' });
@@ -106,7 +120,7 @@ export class AdCreativeService {
       throw new Error(`creative_image_failed: ${img.error || 'image generation unavailable'}`);
     }
 
-    return { imageUrl: img.imageUrl, headline, primaryText, linkUrl };
+    return { imageUrl: img.imageUrl, headline, primaryText, linkUrl, imagePrompt: prompt };
   }
 }
 

@@ -14,6 +14,21 @@ export interface CampaignSpecInput {
   targetRadiusMiles: number | null;
   lat: number | null;
   lng: number | null;
+  /** Admin-selected objective override (picker). When set + valid, used instead of
+   *  deriving from the goal. */
+  objective?: string | null;
+}
+
+/** Validate an admin-supplied objective string → a supported MetaObjective, or null. */
+export function asMetaObjective(value: string | null | undefined): MetaObjective | null {
+  switch (value) {
+    case 'OUTCOME_TRAFFIC':
+    case 'OUTCOME_AWARENESS':
+    case 'OUTCOME_LEADS':
+      return value;
+    default:
+      return null;
+  }
 }
 
 export interface MetaCampaignSpec {
@@ -79,7 +94,8 @@ export function buildTargeting(input: CampaignSpecInput): Record<string, any> {
 
 /** Assemble the full spec the push service feeds to the Marketing API. */
 export function buildCampaignSpec(input: CampaignSpecInput): MetaCampaignSpec {
-  const objective = objectiveForGoal(input.goal);
+  // An explicit, valid objective (picker) wins; otherwise derive from the goal.
+  const objective = asMetaObjective(input.objective) ?? objectiveForGoal(input.goal);
   const { optimizationGoal, billingEvent } = optimizationForObjective(objective);
   return {
     objective,

@@ -19,6 +19,9 @@ export interface AdLead {
   leadStatus: LeadStatus;
   attributionMethod: AttributionMethod;
   consentToContact: boolean;
+  /** True when the lead has a 2-way chat channel (Messenger/WhatsApp) — drives whether the UI
+   *  offers Chat / AI-reply. Web-form & manual leads (phone/email only) are false → contact by call/email. */
+  hasChatChannel: boolean;
   firstResponseAt: Date | null;
   notes: string | null;
   lostReason: string | null;
@@ -195,6 +198,7 @@ export class LeadRepository extends BaseRepository {
       leadStatus: r.lead_status,
       attributionMethod: r.attribution_method,
       consentToContact: r.consent_to_contact,
+      hasChatChannel: !!(r.messenger_id || r.whatsapp_id),
       firstResponseAt: r.first_response_at,
       notes: r.notes,
       lostReason: r.lost_reason,
