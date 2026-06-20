@@ -1,4 +1,4 @@
--- 165 — persist the AI-generated push creative on ad_creatives so it lands in the
+-- 168 — persist the AI-generated push creative on ad_creatives so it lands in the
 -- admin review (Creatives panel) as 'pending' and gates go-live until approved.
 -- image_url        = the stored DO-Spaces image the Meta creative was built from
 -- meta_creative_id = the Meta ad-creative this row represents (identifies the "pushed" creative)
