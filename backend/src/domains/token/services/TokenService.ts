@@ -1,5 +1,9 @@
   // backend/src/services/tokenService.ts
-  import { TokenMinter, MintResult } from '../../../contracts/TokenMinter';
+  // TokenMinter is lazy-imported (see getTokenMinter) so the dormant contract
+  // module isn't loaded at startup. The MintResult type lives in a shared,
+  // non-archived types file so active code never imports from contracts/_archive/.
+  // docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
+  import type { MintResult } from '../../../contracts/tokenTypes';
   import { TierManager, CustomerData } from '../../../contracts/TierManager';
   import { customerRepository, shopRepository, transactionRepository, adminRepository } from '../../../repositories';
   import { ReferralRepository } from '../../../repositories/ReferralRepository';
@@ -42,7 +46,6 @@
   }
 
   export class TokenService {
-    private tokenMinter: TokenMinter | null = null;
     private tierManager: TierManager | null = null;
     private referralRepository: ReferralRepository;
     private referralService: ReferralService | null = null;
@@ -58,11 +61,9 @@
       return this.referralService;
     }
 
-    private getTokenMinter(): TokenMinter {
-      if (!this.tokenMinter) {
-        this.tokenMinter = new TokenMinter();
-      }
-      return this.tokenMinter;
+    private async getTokenMinter() {
+      const { getTokenMinter } = await import('../../../contracts/_archive/TokenMinter');
+      return getTokenMinter();
     }
 
     private getTierManager(): TierManager {
@@ -94,7 +95,7 @@
         }
 
         // Process the repair earning
-        const result = await this.getTokenMinter().mintRepairTokens(
+        const result = await (await this.getTokenMinter()).mintRepairTokens(
           customerAddress,
           repairAmount,
           shopId,
@@ -199,7 +200,7 @@
         }
 
         // Process the service earning (use same logic as repair earning)
-        const result = await this.getTokenMinter().mintRepairTokens(
+        const result = await (await this.getTokenMinter()).mintRepairTokens(
           customerAddress,
           serviceAmount,
           shopId,
@@ -388,7 +389,7 @@
         }
 
         // Process referral minting
-        const result = await this.getTokenMinter().mintReferralTokens(
+        const result = await (await this.getTokenMinter()).mintReferralTokens(
           referrerAddress,
           refereeAddress,
           shopId
@@ -462,7 +463,7 @@
         }
 
         // Process engagement earning
-        const result = await this.getTokenMinter().mintEngagementTokens({
+        const result = await (await this.getTokenMinter()).mintEngagementTokens({
           customerAddress,
           engagementType: engagementType as any,
           baseAmount,
@@ -613,7 +614,7 @@
     async getTokenStatistics(): Promise<TokenServiceStats> {
       try {
         const [contractStats, platformStats] = await Promise.all([
-          this.getTokenMinter().getContractStats(),
+          this.getTokenMinter().then(m => m.getContractStats()),
           // Use AdminRepository to get optimized platform statistics from materialized view
           adminRepository.getPlatformStatisticsFromView()
         ]);
@@ -690,7 +691,7 @@
 
         // Mint tokens using TokenMinter private method via repair tokens
         // Since mintTokens is private, we use a workaround
-        const result = await (this.getTokenMinter() as any).mintTokens(
+        const result = await ((await this.getTokenMinter()) as any).mintTokens(
           customerAddress,
           amount,
           `manual_${sourceType}_${Date.now()}`
@@ -768,7 +769,7 @@
     // Get customer balance (earned vs total)
     async getBalance(customerAddress: string): Promise<number> {
       try {
-        const balance = await this.getTokenMinter().getCustomerBalance(customerAddress);
+        const balance = await (await this.getTokenMinter()).getCustomerBalance(customerAddress);
         return balance || 0;
       } catch (error) {
         logger.error('Error getting balance:', error);
@@ -778,7 +779,7 @@
 
     async getRCNBalance(address: string): Promise<number> {
       try {
-        const balance = await this.getTokenMinter().getCustomerBalance(address);
+        const balance = await (await this.getTokenMinter()).getCustomerBalance(address);
         return balance || 0;
       } catch (error) {
         logger.error('Error getting RCN balance:', error);
@@ -834,7 +835,7 @@
             break;
 
           case 'redeem':
-            const currentBalance = await this.getTokenMinter().getCustomerBalance(customerAddress);
+            const currentBalance = await (await this.getTokenMinter()).getCustomerBalance(customerAddress);
             if (!currentBalance || currentBalance < amount) {
               return {
                 isValid: false,
@@ -875,7 +876,7 @@
     async emergencyPause(): Promise<MintResult> {
       try {
         logger.security('Emergency pause initiated');
-        return await this.getTokenMinter().pauseContract();
+        return await (await this.getTokenMinter()).pauseContract();
       } catch (error: any) {
         logger.error('Emergency pause failed:', error);
         return { success: false, error: error.message };
@@ -885,7 +886,7 @@
     async emergencyUnpause(): Promise<MintResult> {
       try {
         logger.security('Emergency unpause initiated');
-        return await this.getTokenMinter().unpauseContract();
+        return await (await this.getTokenMinter()).unpauseContract();
       } catch (error: any) {
         logger.error('Emergency unpause failed:', error);
         return { success: false, error: error.message };

@@ -1,11 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import apiClient from '@/services/api/client';
+import { useAppConfig } from '@/contexts/AppConfigContext';
 
 export default function DebugPendingMints() {
+  const router = useRouter();
+  // Pending mints are a blockchain-only concept; redirect away in database-only mode
+  const { blockchainEnabled, loading: configLoading } = useAppConfig();
+  useEffect(() => {
+    if (!configLoading && !blockchainEnabled) {
+      router.replace('/admin');
+    }
+  }, [configLoading, blockchainEnabled, router]);
+
   const [shopId, setShopId] = useState('zwiftech');
   const [debugData, setDebugData] = useState<any>(null);
   const [allShopsData, setAllShopsData] = useState<any>(null);
@@ -36,6 +47,11 @@ export default function DebugPendingMints() {
       setLoading(false);
     }
   };
+
+  // Blockchain disabled (database-only mode): render nothing while redirecting
+  if (!configLoading && !blockchainEnabled) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">

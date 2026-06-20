@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import apiClient from "@/shared/utilities/axios";
 
 class AuthApi {
@@ -21,7 +22,7 @@ class AuthApi {
 
   async getDemoStatus(): Promise<{ enabled: boolean }> {
     try {
-      return await apiClient.get("/auth/demo/status");
+      return await apiClient.get(`/auth/demo/status?platform=${Platform.OS}`);
     } catch {
       return { enabled: false };
     }
@@ -29,7 +30,7 @@ class AuthApi {
 
   async loginDemo() {
     try {
-      return await apiClient.post("/auth/demo");
+      return await apiClient.post("/auth/demo", { platform: Platform.OS });
     } catch (error) {
       console.error("Failed to login demo:", error);
       throw error;
@@ -38,7 +39,7 @@ class AuthApi {
 
   async loginDemoShop() {
     try {
-      return await apiClient.post("/auth/demo/shop");
+      return await apiClient.post("/auth/demo/shop", { platform: Platform.OS });
     } catch (error) {
       console.error("Failed to login demo shop:", error);
       throw error;

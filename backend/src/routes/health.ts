@@ -1,22 +1,12 @@
 // backend/src/routes/health.ts
 import { Router, Request, Response } from 'express';
-import { TokenMinter } from '../contracts/TokenMinter';
+import { getContractAdminService } from '../services/ContractAdminService';
 import { ResponseHelper } from '../utils/responseHelper';
 import { asyncHandler } from '../middleware/errorHandler';
 import { healthRepository } from '../repositories';
 import { getPoolStats } from '../utils/database-pool';
 
 const router = Router();
-
-// Lazy loading helper
-let tokenMinter: TokenMinter | null = null;
-
-const getTokenMinter = (): TokenMinter => {
-  if (!tokenMinter) {
-    tokenMinter = new TokenMinter();
-  }
-  return tokenMinter;
-};
 
 // Fast ping endpoint - NO database or blockchain calls
 router.get('/ping', (req: Request, res: Response) => {
@@ -164,7 +154,7 @@ async function checkBlockchainHealth() {
     // Check if TokenMinter has these methods, if not provide fallback
     let isPaused = false;
     try {
-      isPaused = await getTokenMinter().isContractPaused();
+      isPaused = await getContractAdminService().isContractPaused();
     } catch (error) {
       // Method might not exist, continue with default
     }
@@ -187,7 +177,7 @@ async function checkContractHealth() {
     // Check if TokenMinter has these methods, if not provide fallback
     let stats = null;
     try {
-      stats = await getTokenMinter().getContractStats();
+      stats = await getContractAdminService().getContractStats();
     } catch (error) {
       // Method might not exist, provide basic info
       stats = {

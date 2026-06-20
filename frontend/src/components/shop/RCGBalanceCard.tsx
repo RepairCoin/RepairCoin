@@ -6,6 +6,7 @@ import { ExternalLink, TrendingUp, Award } from 'lucide-react';
 import { useRCGBalance } from '@/hooks/useRCGBalance';
 import { formatNumber, formatRCGBalance } from '@/lib/utils';
 import { RCGPurchaseModal } from './RCGPurchaseModal';
+import { useBlockchainEnabled } from '@/contexts/AppConfigContext';
 
 interface RCGBalanceCardProps {
   shopId: string | undefined;
@@ -14,6 +15,8 @@ interface RCGBalanceCardProps {
 export function RCGBalanceCard({ shopId }: RCGBalanceCardProps) {
   const { rcgInfo, loading, error } = useRCGBalance(shopId);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  // Buying RCG is on-chain; tier/balance display stays (DB-backed) but hide the buy action
+  const blockchainEnabled = useBlockchainEnabled();
 
   if (loading) {
     return (
@@ -146,10 +149,11 @@ export function RCGBalanceCard({ shopId }: RCGBalanceCardProps) {
           </div>
         )}
 
-        {/* Buy RCG Button */}
+        {/* Buy RCG Button (on-chain; hidden in database-only mode) */}
+        {blockchainEnabled && (
         <div className="pt-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full bg-gray-800 border-gray-600 text-white hover:bg-gray-700 hover:border-gray-500"
             onClick={() => setShowPurchaseModal(true)}
           >
@@ -157,9 +161,11 @@ export function RCGBalanceCard({ shopId }: RCGBalanceCardProps) {
             <ExternalLink className="ml-2 h-4 w-4" />
           </Button>
         </div>
+        )}
       </CardContent>
-      
+
       {/* Purchase Modal */}
+      {blockchainEnabled && (
       <RCGPurchaseModal
         open={showPurchaseModal}
         onClose={() => setShowPurchaseModal(false)}
@@ -167,6 +173,7 @@ export function RCGBalanceCard({ shopId }: RCGBalanceCardProps) {
         currentTier={rcgInfo.tier}
         nextTierRequired={rcgInfo.nextTierInfo?.required || 0}
       />
+      )}
     </Card>
   );
 }

@@ -19,7 +19,7 @@ import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
 import { MessagesTab } from "@/components/customer/tabs/MessagesTab";
 import { CustomerFAQSection } from "@/components/customer/CustomerFAQSection";
-import { CustomerBreadcrumb } from "@/components/customer/CustomerBreadcrumb";
+import { CustomerHeader } from "@/components/customer/CustomerHeader";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { CustomerNoShowStatus, getOverallCustomerNoShowStatus } from "@/services/api/noShow";
@@ -268,8 +268,8 @@ export default function CustomerDashboardClient() {
                 />
               )}
 
-              {/* Breadcrumb */}
-              <CustomerBreadcrumb activeTab={activeTab} />
+              {/* Header: search + user + notifications, with breadcrumb below */}
+              <CustomerHeader activeTab={activeTab} />
 
               {/* No-Show Warning Banner - Show tier restrictions */}
               <NoShowWarningBanner status={noShowStatus} />

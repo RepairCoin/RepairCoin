@@ -1,5 +1,5 @@
 import { DatabaseService } from './DatabaseService';
-import { TokenMinter } from '../contracts/TokenMinter';
+import { getContractAdminService, ContractAdminService } from './ContractAdminService';
 import { logger } from '../utils/logger';
 
 export interface FreezeOptions {
@@ -20,11 +20,11 @@ export interface SystemStatus {
 
 export class EmergencyFreezeService {
     private db: DatabaseService;
-    private tokenMinter: TokenMinter;
+    private contractAdmin: ContractAdminService;
 
     constructor() {
         this.db = DatabaseService.getInstance();
-        this.tokenMinter = new TokenMinter();
+        this.contractAdmin = getContractAdminService();
     }
 
     /**
@@ -255,13 +255,9 @@ export class EmergencyFreezeService {
      */
     private async pauseTokenContract(): Promise<void> {
         try {
-            // Check if contract has pause functionality
-            if (typeof this.tokenMinter.pauseContract === 'function') {
-                await this.tokenMinter.pauseContract();
-            } else {
-                logger.warn('Token contract does not support pausing - would need to be implemented');
-                // For now, we'll rely on the system status checks in other services
-            }
+            // In DB-only mode this is a safe no-op; with blockchain enabled it
+            // pauses the on-chain contract.
+            await this.contractAdmin.pauseContract();
         } catch (error) {
             logger.error('Failed to pause token contract:', error);
             throw error;
@@ -273,13 +269,9 @@ export class EmergencyFreezeService {
      */
     private async unpauseTokenContract(): Promise<void> {
         try {
-            // Check if contract has unpause functionality
-            if (typeof this.tokenMinter.unpauseContract === 'function') {
-                await this.tokenMinter.unpauseContract();
-            } else {
-                logger.warn('Token contract does not support unpausing - would need to be implemented');
-                // For now, we'll rely on the system status checks in other services
-            }
+            // In DB-only mode this is a safe no-op; with blockchain enabled it
+            // unpauses the on-chain contract.
+            await this.contractAdmin.unpauseContract();
         } catch (error) {
             logger.error('Failed to unpause token contract:', error);
             throw error;

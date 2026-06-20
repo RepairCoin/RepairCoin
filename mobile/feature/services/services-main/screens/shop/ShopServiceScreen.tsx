@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, TouchableOpacity } from "react-native";
+import { View, Text, Pressable, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
@@ -21,6 +21,7 @@ import {
   useServiceStatusUI,
   useShopServiceNavigation,
 } from "../../services-tab/hooks";
+import { useDeleteServiceMutation } from "../../feature-tab/hooks";
 
 // Feature
 import ServicesTab from "../../services-tab/components/ServicesTab";
@@ -49,10 +50,31 @@ export default function ShopServiceScreen() {
 
   const { isUpdating, handleToggleStatus } = useServiceStatusUI();
   const { handleEdit, handleAddService } = useShopServiceNavigation();
+  const deleteServiceMutation = useDeleteServiceMutation();
 
   const handleViewDetails = () => {
     closeActionModal();
     setShowDetailsModal(true);
+  };
+
+  const handleDelete = () => {
+    if (!selectedService) return;
+    const { serviceId, serviceName } = selectedService;
+    Alert.alert(
+      "Delete Service",
+      `Delete "${serviceName}"? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            closeActionModal();
+            deleteServiceMutation.mutate({ serviceId });
+          },
+        },
+      ]
+    );
   };
 
   const handleGroupRewards = () => {
@@ -144,6 +166,7 @@ export default function ShopServiceScreen() {
           handleToggleStatus(selectedService, value, updateSelectedService)
         }
         onViewDetails={handleViewDetails}
+        onDelete={handleDelete}
         onGroupRewards={handleGroupRewards}
       />
 

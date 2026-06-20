@@ -1656,23 +1656,43 @@ router.get('/test-cookie', (req, res) => {
 /**
  * Demo mode – used for Play Store / App Store review.
  * The demo customer and demo shop must exist in the database (created via `npm run demo:enable`).
- * Toggling is_active on/off controls whether the button is visible.
+ * Feature-gated per platform: DEMO_ENABLE_IOS and DEMO_ENABLE_ANDROID environment variables.
  */
-const DEMO_ADDRESS = '0x00000000000000000000000000000000000de210';
-const DEMO_SHOP_ADDRESS = '0x00000000000000000000000000000000000de510';
-const DEMO_SHOP_ID = 'demo-shop-00000000000000000000000000000000';
+const IOS_DEMO_ADDRESS    = '0x00000000000000000000000000000000000de210';
+const IOS_DEMO_SHOP_ADDRESS = '0x00000000000000000000000000000000000de510';
+const IOS_DEMO_SHOP_ID    = 'demo-shop-00000000000000000000000000000000';
+
+const ANDROID_DEMO_ADDRESS    = '0x00000000000000000000000000000000000de211';
+const ANDROID_DEMO_SHOP_ADDRESS = '0x00000000000000000000000000000000000de511';
+const ANDROID_DEMO_SHOP_ID    = 'demo-shop-00000000000000000000000000000001';
+
+// Keep legacy exports pointing to iOS accounts for backwards compatibility
+const DEMO_ADDRESS = IOS_DEMO_ADDRESS;
+const DEMO_SHOP_ADDRESS = IOS_DEMO_SHOP_ADDRESS;
+const DEMO_SHOP_ID = IOS_DEMO_SHOP_ID;
+
+type DemoPlatform = 'ios' | 'android';
+
+const parsePlatform = (value: unknown): DemoPlatform =>
+  value === 'android' ? 'android' : 'ios';
+
+const isDemoEnabled = (platform: DemoPlatform): boolean =>
+  platform === 'android'
+    ? process.env.DEMO_ENABLE_ANDROID === 'true'
+    : process.env.DEMO_ENABLE_IOS === 'true';
+
+const getDemoAccounts = (platform: DemoPlatform) =>
+  platform === 'android'
+    ? { address: ANDROID_DEMO_ADDRESS, shopAddress: ANDROID_DEMO_SHOP_ADDRESS, shopId: ANDROID_DEMO_SHOP_ID }
+    : { address: IOS_DEMO_ADDRESS, shopAddress: IOS_DEMO_SHOP_ADDRESS, shopId: IOS_DEMO_SHOP_ID };
 
 /**
- * Check if demo mode is enabled
- * GET /api/auth/demo/status
+ * Check if demo mode is enabled for a given platform
+ * GET /api/auth/demo/status?platform=ios|android
  */
-router.get('/demo/status', async (_req, res) => {
-  try {
-    const customer = await customerRepository.getCustomer(DEMO_ADDRESS);
-    return res.json({ enabled: !!customer?.isActive });
-  } catch {
-    return res.json({ enabled: false });
-  }
+router.get('/demo/status', (req, res) => {
+  const platform = parsePlatform(req.query.platform);
+  return res.json({ enabled: isDemoEnabled(platform) });
 });
 
 /**
@@ -1681,16 +1701,26 @@ router.get('/demo/status', async (_req, res) => {
  */
 router.post('/demo', async (req, res) => {
   try {
-    const customer = await customerRepository.getCustomer(DEMO_ADDRESS);
+    const platform = parsePlatform(req.body.platform);
 
-    if (!customer || !customer.isActive) {
+    if (!isDemoEnabled(platform)) {
       return res.status(403).json({
         success: false,
         error: 'Demo mode is not available',
       });
     }
 
-    const payload = { address: DEMO_ADDRESS, role: 'customer' as const };
+    const { address: demoAddress } = getDemoAccounts(platform);
+    const customer = await customerRepository.getCustomer(demoAddress);
+
+    if (!customer) {
+      return res.status(403).json({
+        success: false,
+        error: 'Demo mode is not available',
+      });
+    }
+
+    const payload = { address: demoAddress, role: 'customer' as const };
     const accessToken = generateAccessToken(payload);
 
     const profile = {
@@ -1726,12 +1756,12 @@ router.post('/demo', async (req, res) => {
         accessToken,
         refreshToken: '',
         expiresIn: 15 * 60,
-        address: DEMO_ADDRESS,
+        address: demoAddress,
         role: 'customer',
       },
       token: accessToken,
       userType: 'customer',
-      address: DEMO_ADDRESS,
+      address: demoAddress,
       profile,
     });
   } catch (error) {
@@ -1746,16 +1776,17 @@ router.post('/demo', async (req, res) => {
  */
 router.post('/demo/shop', async (req, res) => {
   try {
-    // Check demo mode is enabled (gated by customer record being active)
-    const demoCustomer = await customerRepository.getCustomer(DEMO_ADDRESS);
-    if (!demoCustomer || !demoCustomer.isActive) {
+    const platform = parsePlatform(req.body.platform);
+
+    if (!isDemoEnabled(platform)) {
       return res.status(403).json({
         success: false,
         error: 'Demo mode is not available',
       });
     }
 
-    const shop = await shopRepository.getShop(DEMO_SHOP_ID);
+    const { shopAddress: demoShopAddress, shopId: demoShopId } = getDemoAccounts(platform);
+    const shop = await shopRepository.getShop(demoShopId);
     if (!shop) {
       return res.status(403).json({
         success: false,
@@ -1763,14 +1794,14 @@ router.post('/demo/shop', async (req, res) => {
       });
     }
 
-    const payload = { address: DEMO_SHOP_ADDRESS, role: 'shop' as const, shopId: DEMO_SHOP_ID };
+    const payload = { address: demoShopAddress, role: 'shop' as const, shopId: demoShopId };
     const accessToken = generateAccessToken(payload);
 
     const profile = {
-      id: DEMO_SHOP_ID,
-      shopId: DEMO_SHOP_ID,
-      address: DEMO_SHOP_ADDRESS,
-      walletAddress: DEMO_SHOP_ADDRESS,
+      id: demoShopId,
+      shopId: demoShopId,
+      address: demoShopAddress,
+      walletAddress: demoShopAddress,
       name: shop.name || 'Demo Shop',
       email: shop.email,
       phone: shop.phone,
@@ -1795,14 +1826,14 @@ router.post('/demo/shop', async (req, res) => {
         accessToken,
         refreshToken: '',
         expiresIn: 15 * 60,
-        address: DEMO_SHOP_ADDRESS,
+        address: demoShopAddress,
         role: 'shop',
-        shopId: DEMO_SHOP_ID,
+        shopId: demoShopId,
       },
       token: accessToken,
       userType: 'shop',
-      address: DEMO_SHOP_ADDRESS,
-      shopId: DEMO_SHOP_ID,
+      address: demoShopAddress,
+      shopId: demoShopId,
       profile,
     });
   } catch (error) {

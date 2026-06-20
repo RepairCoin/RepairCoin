@@ -1,5 +1,12 @@
-import { logger } from '../../../utils/logger';
-import { getTokenMinter } from '../../../contracts/TokenMinter';
+import { logger } from '../../utils/logger';
+
+// TokenMinter is lazy-imported only when blockchain is enabled, so this module
+// (and the dormant contract code) isn't loaded in database-only mode.
+// See docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md.
+async function getMinter() {
+  const { getTokenMinter } = await import('./TokenMinter');
+  return getTokenMinter();
+}
 
 export interface BlockchainMintRequest {
   shopAddress: string;
@@ -56,7 +63,7 @@ export class BlockchainService {
 
     try {
       // Attempt to mint tokens on blockchain using admin mint function
-      const tokenMinter = getTokenMinter();
+      const tokenMinter = await getMinter();
       const result = await tokenMinter.adminMintTokens(
         request.shopAddress,
         request.amount,
@@ -99,8 +106,11 @@ export class BlockchainService {
    * Check blockchain balance for a wallet
    */
   async getBlockchainBalance(walletAddress: string): Promise<number> {
+    if (!this.blockchainEnabled) {
+      return 0;
+    }
     try {
-      const tokenMinter = getTokenMinter();
+      const tokenMinter = await getMinter();
       const balance = await tokenMinter.getCustomerBalance(walletAddress);
       return balance || 0;
     } catch (error) {

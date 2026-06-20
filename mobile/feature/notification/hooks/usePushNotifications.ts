@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { usePaymentStore } from "@/feature/services/payment/store/payment.store";
 import { notificationApi } from "@/feature/notification/services/notification.services";
@@ -11,6 +12,10 @@ import {
   PushNotificationState,
   NotificationData,
 } from "@/feature/notification/services/notification.interface";
+
+// Persists the user's explicit "Turn off notifications" choice so the app does
+// NOT silently re-register the push token on the next launch / re-login.
+const PUSH_DISABLED_KEY = "push_notifications_disabled";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -139,6 +144,9 @@ export function usePushNotifications() {
             deviceName: Device.deviceName || undefined,
             appVersion: Constants.expoConfig?.version,
           });
+
+          // Successfully registered → clear any prior "turned off" choice.
+          await AsyncStorage.removeItem(PUSH_DISABLED_KEY);
 
           setState({
             expoPushToken,
@@ -280,12 +288,19 @@ export function usePushNotifications() {
   );
 
   const unregisterPushNotifications = useCallback(async () => {
-    if (!state.expoPushToken) return;
+    // Remember the user's choice first, so it persists even if the backend call
+    // fails — otherwise the next launch / re-login would silently re-register
+    // and turn notifications back on.
+    await AsyncStorage.setItem(PUSH_DISABLED_KEY, "true");
 
+    // Deactivate ALL of this user's tokens (by wallet), not just the one in
+    // local state. The current token may have rotated or be missing from state,
+    // and the backend keeps sending to any token still marked is_active = true —
+    // so deactivating only the in-memory token can leave a live one behind.
     try {
-      await notificationApi.deactivatePushToken(state.expoPushToken);
+      await notificationApi.deactivateAllPushTokens();
     } catch (error) {
-      console.error("[Push] Failed to deactivate token:", error);
+      console.error("[Push] Failed to deactivate tokens:", error);
     }
 
     setState({
@@ -295,7 +310,7 @@ export function usePushNotifications() {
       permissionStatus: state.permissionStatus,
       error: null,
     });
-  }, [state.expoPushToken, state.permissionStatus]);
+  }, [state.permissionStatus]);
 
   const unregisterAllPushNotifications = useCallback(async () => {
     try {
@@ -319,7 +334,20 @@ export function usePushNotifications() {
       return;
     }
     if (isAuthenticated && accessToken) {
-      registerForPushNotifications();
+      (async () => {
+        // Respect an explicit "Turn off notifications" choice — do not
+        // auto-register on launch / re-login if the user disabled push.
+        const disabled = await AsyncStorage.getItem(PUSH_DISABLED_KEY);
+        if (disabled === "true") {
+          setState((prev) => ({
+            ...prev,
+            isRegistered: false,
+            isLoading: false,
+          }));
+          return;
+        }
+        registerForPushNotifications();
+      })();
     } else {
       setState((prev) => ({
         ...prev,
@@ -345,8 +373,14 @@ export function usePushNotifications() {
   }, [handleNotificationReceived, handleNotificationResponse]);
 
   useEffect(() => {
-    const subscription = Notifications.addPushTokenListener(async (newToken) => {
+    const subscription = Notifications.addPushTokenListener(async () => {
       if (isRegistering.current) {
+        return;
+      }
+
+      // Don't re-register on token rotation if the user turned push off.
+      const disabled = await AsyncStorage.getItem(PUSH_DISABLED_KEY);
+      if (disabled === "true") {
         return;
       }
 

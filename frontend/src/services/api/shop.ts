@@ -83,11 +83,23 @@ export interface ShopMapData {
   serviceCount: number;
   avgRating: number;
   totalReviews: number;
+  distanceMiles?: number | null;
 }
 
-export const getShopsForMap = async (): Promise<ShopMapData[]> => {
+export const getShopsForMap = async (options?: {
+  lat?: number;
+  lng?: number;
+  radius?: number;
+  limit?: number;
+}): Promise<ShopMapData[]> => {
   try {
-    const response = await apiClient.get<ShopMapData[]>('/shops/map');
+    const params = new URLSearchParams();
+    if (options?.lat != null) params.set('lat', String(options.lat));
+    if (options?.lng != null) params.set('lng', String(options.lng));
+    if (options?.radius != null) params.set('radius', String(options.radius));
+    if (options?.limit != null) params.set('limit', String(options.limit));
+    const qs = params.toString();
+    const response = await apiClient.get<ShopMapData[]>(`/shops/map${qs ? `?${qs}` : ''}`);
     return response.data || [];
   } catch (error) {
     console.error('Error getting shops for map:', error);

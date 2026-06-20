@@ -104,8 +104,8 @@ export function CustomerBreadcrumb({
     <div className="pt-2 mb-6">
       {/* Breadcrumb Row */}
       <div className="flex items-center gap-2 text-sm">
-        <Home className="w-5 h-5 text-gray-400" />
-        <ChevronRight className="w-4 h-4 text-gray-600" />
+        <Home className="w-5 h-5 text-white" />
+        <ChevronRight className="w-4 h-4 text-white" />
         <div className="flex items-center gap-2">
           {meta.icon}
           <span className="text-white font-medium">{meta.title}</span>
@@ -113,7 +113,7 @@ export function CustomerBreadcrumb({
       </div>
 
       {/* Description */}
-      <p className="text-gray-500 text-sm mt-1">
+      <p className="text-white text-sm mt-1">
         {description || meta.description}
       </p>
     </div>

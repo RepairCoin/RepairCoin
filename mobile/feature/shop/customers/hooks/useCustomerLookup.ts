@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/feature/auth/store/auth.store";
 import { customerApi } from "@/feature/customer/profile/services/customer.services";
-import { balanceApi } from "@/feature/token/services";
+import { balanceApi, tokenApi } from "@/feature/token/services";
 import { useCallback, useEffect, useState } from "react";
 import { CustomerRedemptionData } from "../../services/shop.interface";
 import { CROSS_SHOP_LIMIT_PERCENTAGE } from "@/shared/utilities/calculateMaxRedeemable";
@@ -14,6 +14,9 @@ export const useCustomerLookup = () => {
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [customerError, setCustomerError] = useState<string | null>(null);
 
+  // The shop's business identifier — same value the redemption session uses.
+  const shopId = shopData?.id ?? shopData?.shopId;
+
   useEffect(() => {
     if (customerAddress && customerAddress.length === 42) {
       lookupCustomer(customerAddress);
@@ -21,35 +24,48 @@ export const useCustomerLookup = () => {
       setCustomerData(null);
       setCustomerError(null);
     }
-  }, [customerAddress, shopData?.shopId]);
+  }, [customerAddress, shopId]);
 
   const lookupCustomer = async (address: string) => {
     setIsLoadingCustomer(true);
     setCustomerError(null);
 
     try {
-      const [customerResponse, balanceResponse, crossShopResponse, isHomeShop] =
+      // Ask the backend for the authoritative home/cross-shop relationship
+      // (validateOnly) instead of inferring it from a client-side transaction
+      // scan, so the badge matches the web app. `amount: 1` is a placeholder
+      // just to satisfy the endpoint's validation; only the relationship data
+      // is consumed here.
+      const [customerResponse, balanceResponse, verification] =
         await Promise.all([
           customerApi.getCustomerByWalletAddress(address),
           balanceApi.getCustomerBalance(address),
-          customerApi.getCrossShopBalance(address).catch(() => null),
-          shopData?.shopId
-            ? customerApi.hasEarnedAtShop(address, shopData.shopId)
-            : Promise.resolve(false),
+          shopId
+            ? tokenApi
+                .verifyRedemption({ customerAddress: address, shopId, amount: 1 })
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
       if (customerResponse && balanceResponse) {
-        const balance = balanceResponse.data?.totalBalance || 0;
         const lifetimeEarnings =
           customerResponse.data?.customer?.lifetimeEarnings || 0;
 
-        const crossShopLimit =
-          crossShopResponse?.data?.crossShopLimit ??
-          lifetimeEarnings * CROSS_SHOP_LIMIT_PERCENTAGE;
+        // Prefer the backend's available balance; fall back to the balance API.
+        const balance =
+          verification?.availableBalance ??
+          balanceResponse.data?.totalBalance ??
+          0;
 
-        const maxRedeemable = isHomeShop
-          ? balance
-          : Math.min(balance, crossShopLimit);
+        // Home-shop status, cross-shop limit and max redeemable come straight
+        // from the verification endpoint (with local fallbacks if it fails).
+        const isHomeShop = verification?.isHomeShop ?? false;
+        const crossShopLimit =
+          verification?.crossShopLimit ??
+          lifetimeEarnings * CROSS_SHOP_LIMIT_PERCENTAGE;
+        const maxRedeemable =
+          verification?.maxRedeemable ??
+          (isHomeShop ? balance : Math.min(balance, crossShopLimit));
 
         setCustomerData({
           address,

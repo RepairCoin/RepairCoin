@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { getApiBaseUrl } from '@/utils/apiUrl';
+import { useBlockchainEnabled } from '@/contexts/AppConfigContext';
 import {
   CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle,
   DollarSign, Users, TrendingUp, Settings, History, Send, Shield,
@@ -230,6 +231,8 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const [showManualTransfer, setShowManualTransfer] = useState(false);
   const [showBulkMint, setShowBulkMint] = useState(false);
   const [showPricingAdjust, setShowPricingAdjust] = useState(false);
+  // Blockchain-only ops (on-chain transfer / mint) are hidden in database-only mode
+  const blockchainEnabled = useBlockchainEnabled();
   const [showEmergencyFreeze, setShowEmergencyFreeze] = useState(false);
   const [showEmergencyUnfreeze, setShowEmergencyUnfreeze] = useState(false);
   const [freezeStatus, setFreezeStatus] = useState<any>(null);
@@ -292,7 +295,8 @@ export const AdvancedTreasuryTab: React.FC = () => {
         const rcgResult = await getRCGMetrics();
         setRcgMetrics(rcgResult.data);
         if (rcgResult.warning) {
-          toast.warning(rcgResult.warning, { duration: 5000 });
+          // react-hot-toast has no .warning(); use a custom icon instead
+          toast(rcgResult.warning, { duration: 5000, icon: '⚠️' });
         }
       } catch (error) {
         console.error('Error loading RCG metrics:', error);
@@ -1010,7 +1014,8 @@ export const AdvancedTreasuryTab: React.FC = () => {
         <div className="space-y-4 sm:space-y-6">
           {/* Operations Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-            {/* Manual Token Transfer */}
+            {/* Manual Token Transfer (blockchain-only; hidden in database-only mode) */}
+            {blockchainEnabled && (
             <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
               <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                 <Send className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0" />
@@ -1026,8 +1031,10 @@ export const AdvancedTreasuryTab: React.FC = () => {
                 Transfer Tokens
               </button>
             </div>
+            )}
 
-            {/* Bulk Token Minting */}
+            {/* Bulk Token Minting (blockchain-only; hidden in database-only mode) */}
+            {blockchainEnabled && (
             <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
               <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                 <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 flex-shrink-0" />
@@ -1043,6 +1050,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
                 Bulk Mint
               </button>
             </div>
+            )}
 
             {/* Price Adjustment */}
             <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 sm:col-span-2 lg:col-span-1">

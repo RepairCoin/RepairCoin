@@ -1,12 +1,15 @@
 # Blockchain Integration Analysis - Document Index
 
 **Analysis Date:** June 3, 2026  
-**Status:** Complete  
+**Status:** Complete — Strategy B Phases 1 & 2 IMPLEMENTED (DB-only live as of June 15, 2026)  
 **Confidence Level:** High
 
 ---
 
 ## Quick Start (5 minutes)
+
+**👉 For current progress / what's left:**
+→ Start with: `IMPLEMENTATION_STATUS.md` (live tracker — done vs. still-connected inventory)
 
 **For executives/decision-makers:**
 → Start with: `BLOCKCHAIN_REMOVAL_SUMMARY.md` (2 pages)
@@ -282,6 +285,14 @@ You're not refactoring core logic. You're removing optional functionality.
 
 ## Next Steps
 
+> **Update (June 15, 2026):** The team chose **Strategy B (reversible Provider Pattern)**. Phases 1 & 2 are implemented and committed (`572e9fed`), and `ENABLE_BLOCKCHAIN_MINTING=false` — the platform now runs database-only. See `BLOCKCHAIN_REVERSIBLE_REMOVAL_STRATEGY.md` → "Implementation Status" for details.
+
+**Remaining work:**
+1. Smoke-test redeem + earn end-to-end in DB-only mode (verify nothing depends on the flag being `true`).
+2. Decide whether to migrate the credit/earning flows through the provider (currently still blockchain-native, flag-gated).
+3. **Phase 3** — once the team confirms, archive (don't delete) the blockchain files (`TokenMinter`, `MultiContractMinter`, `RCGTokenReader`, `BlockchainService`, frontend/mobile Thirdweb code). Keep the flag `false`.
+
+**Original rollout plan (Strategy A, superseded):**
 1. **Week 0:** Share all 3 documents with team
 2. **Week 0:** Answer critical questions above
 3. **Week 0:** Plan staging environment

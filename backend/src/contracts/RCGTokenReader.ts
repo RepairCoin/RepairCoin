@@ -1,6 +1,6 @@
 import { createThirdwebClient, getContract, ThirdwebClient, ThirdwebContract } from 'thirdweb';
 import { baseSepolia } from 'thirdweb/chains';
-import { balanceOf, totalSupply } from 'thirdweb/extensions/erc20';
+import { balanceOf } from 'thirdweb/extensions/erc20';
 import { logger } from '../utils/logger';
 
 interface RCGStats {
@@ -74,31 +74,22 @@ export class RCGTokenReader {
   }
 
   async getContractStats(): Promise<RCGStats> {
-    await this.initialize();
-    
-    try {
-      // Get actual total supply from contract
-      const supply = await totalSupply({
-        contract: this.contract,
-      });
-
-      // For now, return fixed allocations
-      // In production, you'd calculate circulating supply by checking vesting contracts
-      return {
-        totalSupply: this.TOTAL_SUPPLY,
-        circulatingSupply: this.PUBLIC_SALE_ALLOCATION, // Simplified for now
-        teamAllocation: this.TEAM_ALLOCATION,
-        investorAllocation: this.INVESTOR_ALLOCATION,
-        publicSaleAllocation: this.PUBLIC_SALE_ALLOCATION,
-        daoTreasuryAllocation: this.DAO_TREASURY_ALLOCATION,
-        stakingRewardsAllocation: this.STAKING_REWARDS_ALLOCATION,
-        holders: 0, // Would need to track this separately
-        stakedAmount: '0' // Would come from staking contract
-      };
-    } catch (error) {
-      logger.error('Failed to get RCG contract stats:', error);
-      throw error;
-    }
+    // RCG tokenomics are fixed constants — no on-chain read required.
+    // (Previously this fetched totalSupply() from the contract but discarded
+    // the result.) Decoupled as part of the reversible blockchain removal so
+    // admin RCG metrics work in DB-only mode. See
+    // docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+    return {
+      totalSupply: this.TOTAL_SUPPLY,
+      circulatingSupply: this.PUBLIC_SALE_ALLOCATION, // Simplified for now
+      teamAllocation: this.TEAM_ALLOCATION,
+      investorAllocation: this.INVESTOR_ALLOCATION,
+      publicSaleAllocation: this.PUBLIC_SALE_ALLOCATION,
+      daoTreasuryAllocation: this.DAO_TREASURY_ALLOCATION,
+      stakingRewardsAllocation: this.STAKING_REWARDS_ALLOCATION,
+      holders: 0, // Would need to track this separately
+      stakedAmount: '0' // Would come from staking contract
+    };
   }
 
   async getBalance(address: string): Promise<string> {

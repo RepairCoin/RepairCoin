@@ -2,9 +2,28 @@
 
 **Goal:** Remove blockchain now, keep architecture clean to add it back later without refactoring
 
-**Status:** Architecture Design Complete
-**Last Updated:** June 3, 2026
+**Status:** Phases 1 & 2 IMPLEMENTED — running DB-only
+**Last Updated:** June 15, 2026
 **Estimated Effort:** 3-4 weeks (120-160 hours)
+
+---
+
+## 📍 Implementation Status (June 15, 2026)
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1** | Abstraction layer (`ITokenProvider`, `DatabaseTokenProvider`, `BlockchainTokenProvider`, `TokenProviderFactory`) | ✅ **Done** — committed `572e9fed` |
+| **Phase 2** | Route clean debit/redeem flows through the provider | ✅ **Done** — committed `572e9fed` |
+| **Phase 3** | Archive blockchain files (TokenMinter, etc.) | ⏳ Pending team confirmation |
+
+**Live config:** `ENABLE_BLOCKCHAIN_MINTING=false` in `backend/.env` (set June 15, 2026) — the platform now runs **database-only**. Flip to `true` + restart to re-enable blockchain; no code changes needed.
+
+**Wired to the provider:**
+- `TokenService.redeemTokens` → `provider.debitTokens()`
+- `TokenOperationsService.processManualRedemption` → `provider.debitTokens()`
+- 13 provider unit tests in `backend/tests/providers/DatabaseTokenProvider.test.ts`
+
+**Deliberately NOT migrated** (blockchain-native / composite-atomic — already flag-gated, so DB-only works without rewiring): `RewardIssuanceService.issueRewardAtomic`, `RedemptionSessionService.processApprovedRedemption`, on-chain burn shop routes, `manualMint` / mint-to-wallet, and admin treasury batch mints. These stay on the `TokenMinter` path as the archive/re-enable route.
 
 ---
 

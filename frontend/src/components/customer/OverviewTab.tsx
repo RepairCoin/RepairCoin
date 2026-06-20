@@ -4,12 +4,10 @@ import React, { useEffect, useState } from "react";
 import { useReadContract, useActiveAccount } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { Wallet, CircleCheck, TrendingUp, Gift } from "lucide-react";
-import { useCustomer } from "@/hooks/useCustomer";
-import { useCustomerStore, type TransactionHistory } from "@/stores/customerStore";
-import { useAuthStore } from "@/stores/authStore";
-import { DataTable, type Column } from "../ui/DataTable";
 import { Coins, X, Loader2, CheckCircle, ExternalLink } from "lucide-react";
+import { useCustomer } from "@/hooks/useCustomer";
+import { useCustomerStore } from "@/stores/customerStore";
+import { useAuthStore } from "@/stores/authStore";
 import { toast } from "react-hot-toast";
 import apiClient from "@/services/api/client";
 import { SuspendedActionModal } from "./SuspendedActionModal";
@@ -17,11 +15,17 @@ import {
   TrendingServicesList,
   YourTierLevelCard,
   MintRCNCard,
-  CampaignsPromosCard,
+  WalletSummaryCard,
+  AskAICustomerCard,
+  ActiveServicesCard,
+  RecommendedShopsCard,
+  TrustedProfessionalsCard,
+  PopularServicesCard,
 } from "./overview";
-import { ShopServiceWithShopInfo } from "@/services/api/services";
+import { ShopServiceWithShopInfo, ServiceOrderWithDetails } from "@/services/api/services";
+import { ShopMapData } from "@/services/api/shop";
 import { useRouter } from "next/navigation";
-import GroupBalancesCard from "./GroupBalancesCard";
+import { useBlockchainEnabled } from "@/contexts/AppConfigContext";
 
 const client = createThirdwebClient({
   clientId:
@@ -37,32 +41,6 @@ const contract = getContract({
     "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
 
-// Compact stat card component for the new design
-interface CompactStatCardProps {
-  icon: React.ReactNode;
-  value: string | number;
-  label: string;
-  sublabel?: string;
-}
-
-const CompactStatCard: React.FC<CompactStatCardProps> = ({
-  icon,
-  value,
-  label,
-  sublabel,
-}) => (
-  <div className="bg-[#212121] rounded-xl p-4 sm:p-5 flex items-center gap-4">
-    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#2A2A2A] flex items-center justify-center flex-shrink-0">
-      {icon}
-    </div>
-    <div className="min-w-0">
-      <div className="text-xs sm:text-sm text-gray-400">{label}</div>
-      <div className="text-xl sm:text-2xl font-bold text-white truncate">{value}</div>
-      {sublabel && <div className="text-xs text-gray-500">{sublabel}</div>}
-    </div>
-  </div>
-);
-
 export const OverviewTab: React.FC = () => {
   const router = useRouter();
   const account = useActiveAccount();
@@ -70,7 +48,6 @@ export const OverviewTab: React.FC = () => {
   const {
     customerData,
     balanceData,
-    transactions,
     blockchainBalance,
     isLoading,
     error,
@@ -79,6 +56,8 @@ export const OverviewTab: React.FC = () => {
 
   // Mint to Wallet state
   const [showMintModal, setShowMintModal] = useState(false);
+  // Blockchain-only feature: hide "Mint to Wallet" in database-only mode
+  const blockchainEnabled = useBlockchainEnabled();
   const [mintAmount, setMintAmount] = useState("");
   const [isMinting, setIsMinting] = useState(false);
   const [showSuspendedModal, setShowSuspendedModal] = useState(false);
@@ -88,139 +67,7 @@ export const OverviewTab: React.FC = () => {
     amount?: number;
   } | null>(null);
 
-  // Check if user is suspended
   const isSuspended = userProfile?.suspended || false;
-
-  // Use dummy data if no real transactions
-  const displayTransactions = transactions.length > 0 ? transactions : [];
-
-  // Define columns for DataTable - simplified for overview
-  const transactionColumns: Column[] = [
-    {
-      key: "date",
-      header: "Date",
-      accessor: (transaction: TransactionHistory) => (
-        <div>
-          <div className="font-medium text-gray-300 text-xs">
-            {new Date(transaction.createdAt).toLocaleDateString("en-US", {
-              timeZone: "America/Chicago",
-              month: "2-digit",
-              day: "2-digit",
-              year: "numeric",
-            })}
-          </div>
-          <div className="text-xs text-gray-500">
-            {new Date(transaction.createdAt).toLocaleTimeString("en-US", {
-              timeZone: "America/Chicago",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </div>
-        </div>
-      ),
-      className: "text-xs",
-    },
-    {
-      key: "description",
-      header: "Description",
-      accessor: (transaction: TransactionHistory) => (
-        <div className="text-gray-200 text-xs truncate max-w-[120px]">
-          {transaction.type === "earned"
-            ? "Service"
-            : transaction.type === "redeemed"
-            ? "Redemption"
-            : transaction.description}
-        </div>
-      ),
-      className: "text-xs",
-    },
-    {
-      key: "shop",
-      header: "Shop",
-      accessor: (transaction: TransactionHistory) => (
-        <span className="text-gray-400 text-xs truncate block max-w-[80px]">
-          {transaction.shopName || "—"}
-        </span>
-      ),
-      className: "text-xs hidden md:table-cell",
-      headerClassName: "hidden md:table-cell",
-    },
-    {
-      key: "type",
-      header: "Type",
-      accessor: (transaction: TransactionHistory) => {
-        const badgeColor: Record<string, string> = {
-          earned: "bg-green-900/30 text-green-400 border border-green-800/50",
-          tier_bonus: "bg-purple-900/30 text-purple-400 border border-purple-800/50",
-          referral: "bg-blue-900/30 text-blue-400 border border-blue-800/50",
-          redeemed: "bg-red-900/30 text-red-400 border border-red-800/50",
-          rejected_redemption: "bg-orange-900/30 text-orange-400 border border-orange-800/50",
-          cancelled_redemption: "bg-gray-900/30 text-gray-400 border border-gray-800/50",
-          transfer: "bg-cyan-900/30 text-cyan-400 border border-cyan-800/50",
-          transfer_in: "bg-cyan-900/30 text-cyan-400 border border-cyan-800/50",
-          transfer_out: "bg-orange-900/30 text-orange-400 border border-orange-800/50",
-          shop_purchase: "bg-yellow-900/30 text-yellow-400 border border-yellow-800/50",
-          cross_shop_verification: "bg-teal-900/30 text-teal-400 border border-teal-800/50",
-          service_redemption: "bg-red-900/30 text-red-400 border border-red-800/50",
-          service_redemption_refund: "bg-green-900/30 text-green-400 border border-green-800/50",
-        };
-        const typeLabel: Record<string, string> = {
-          earned: "Earned",
-          tier_bonus: "Bonus",
-          referral: "Referral",
-          redeemed: "Redeemed",
-          rejected_redemption: "Rejected",
-          cancelled_redemption: "Cancelled",
-          transfer: "Transfer",
-          transfer_in: "Received",
-          transfer_out: "Sent",
-          shop_purchase: "Purchase",
-          cross_shop_verification: "Verified",
-          service_redemption: "Service",
-          service_redemption_refund: "Refund",
-        };
-        return (
-          <span
-            className={`inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-              badgeColor[transaction.type] || "bg-green-900/30 text-green-400 border border-green-800/50"
-            }`}
-          >
-            {typeLabel[transaction.type] || transaction.type}
-          </span>
-        );
-      },
-    },
-    {
-      key: "amount",
-      header: "Amount",
-      accessor: (transaction: TransactionHistory) => {
-        if (
-          transaction.type === "rejected_redemption" ||
-          transaction.type === "cancelled_redemption"
-        ) {
-          return (
-            <span className="text-xs font-medium text-gray-400">
-              {transaction.metadata?.originalRequestAmount || 0} RCN
-            </span>
-          );
-        }
-        const isNegative = transaction.type === "redeemed" || transaction.type === "service_redemption" || transaction.type === "transfer_out";
-        const isPositive = transaction.type === "earned" || transaction.type === "tier_bonus" || transaction.type === "referral" || transaction.type === "transfer_in" || transaction.type === "service_redemption_refund";
-        return (
-          <span
-            className={`text-xs font-bold ${
-              isNegative ? "text-red-400" : isPositive ? "text-green-400" : "text-gray-300"
-            }`}
-          >
-            {isNegative ? "-" : isPositive ? "+" : ""}
-            {transaction.amount} RCN
-          </span>
-        );
-      },
-      className: "text-right",
-      headerClassName: "text-right",
-    },
-  ];
 
   // Read token balance from contract
   const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
@@ -229,23 +76,16 @@ export const OverviewTab: React.FC = () => {
     params: customerData?.address ? [customerData.address] : [""],
   });
 
-  // Get address from Thirdweb account OR from session cache (userProfile)
-  // This allows fetching immediately on page refresh without waiting for Thirdweb
   const walletAddress = account?.address || userProfile?.address;
 
-  // Fetch data when wallet address becomes available (from either source)
-  // This is critical for page refresh where Thirdweb takes time to restore wallet
+  // Fetch data when wallet address becomes available
   useEffect(() => {
     if (switchingAccount) return;
-
     if (walletAddress) {
-      // Check if we need to fetch - either no data or data is for different address
       const currentDataAddress = customerData?.address?.toLowerCase();
       const connectedAddress = walletAddress.toLowerCase();
-
       if (!customerData || currentDataAddress !== connectedAddress) {
-        console.log('[OverviewTab] Wallet address available, fetching customer data for:', connectedAddress, '(source:', account?.address ? 'Thirdweb' : 'session cache', ')');
-        fetchCustomerData(true); // Force fetch to ensure fresh data
+        fetchCustomerData(true);
       }
     }
   }, [walletAddress, customerData, fetchCustomerData, account?.address, switchingAccount]);
@@ -258,24 +98,20 @@ export const OverviewTab: React.FC = () => {
     }
   }, [tokenBalance]);
 
-  // Mint to Wallet functionality
   const handleMintToWallet = async () => {
     if (!walletAddress) {
       toast.error("Please connect your wallet first");
       return;
     }
-
     const amount = parseFloat(mintAmount);
     if (isNaN(amount) || amount <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
-
     if (amount > (balanceData?.availableBalance || 0)) {
       toast.error("Amount exceeds available balance");
       return;
     }
-
     if (amount > 10000) {
       toast.error("Maximum mint amount is 10,000 RCN per transaction");
       return;
@@ -283,7 +119,6 @@ export const OverviewTab: React.FC = () => {
 
     setIsMinting(true);
     setMintResult(null);
-
     try {
       const result = (await apiClient.post(
         `/customers/balance/${walletAddress}/instant-mint`,
@@ -303,7 +138,6 @@ export const OverviewTab: React.FC = () => {
         toast.success(`Successfully minted ${amount} RCN to your wallet!`);
         setMintAmount("");
         fetchCustomerData(true);
-        // Refresh wallet balance from blockchain after short delay for confirmation
         setTimeout(() => refetchTokenBalance(), 3000);
       } else {
         toast.error(result.error || "Failed to mint tokens");
@@ -332,26 +166,23 @@ export const OverviewTab: React.FC = () => {
     setMintResult(null);
   };
 
-  const getExplorerUrl = (txHash: string) => {
-    return `https://sepolia.basescan.org/tx/${txHash}`;
-  };
-
-  const handleMaxMint = () => {
-    setMintAmount(balanceData?.availableBalance?.toString() || "0");
-  };
-
+  const getExplorerUrl = (txHash: string) => `https://sepolia.basescan.org/tx/${txHash}`;
+  const handleMaxMint = () => setMintAmount(balanceData?.availableBalance?.toString() || "0");
   const handleMintButtonClick = () => {
-    if (isSuspended) {
-      setShowSuspendedModal(true);
-    } else {
-      setShowMintModal(true);
-    }
+    if (isSuspended) setShowSuspendedModal(true);
+    else setShowMintModal(true);
   };
 
-  // Handle service view - navigate to marketplace with service selected
-  const handleViewService = (service: ShopServiceWithShopInfo) => {
+  // Navigation handlers
+  const handleViewService = (service: ShopServiceWithShopInfo) =>
     router.push(`/customer?tab=marketplace&service=${service.serviceId}`);
-  };
+  const handleViewOrder = (_order: ServiceOrderWithDetails) =>
+    router.push(`/customer?tab=bookings`);
+  const handleViewShop = (shop: ShopMapData) =>
+    router.push(`/customer?tab=marketplace&shop=${shop.shopId}`);
+  const handleSelectCategory = (category: string) =>
+    router.push(`/customer?tab=marketplace&category=${category}`);
+  const handleSeeMoreCategories = () => router.push(`/customer?tab=marketplace`);
 
   // Loading state
   if (isLoading && !customerData) {
@@ -379,102 +210,56 @@ export const OverviewTab: React.FC = () => {
 
   return (
     <>
-      {/* Header Section */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">
-          Hello There!{" "}
-          <span className="text-[#FFCC00]">{customerData?.name || "Guest"}</span>
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Welcome back! Here&apos;s a quick look at your RepairCoin activity and
-          rewards.
-        </p>
-      </div>
+      <div className="max-w-[1080px] mx-auto space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+        {/* ============================= LEFT COLUMN ============================= */}
+        <div className="rounded-2xl border border-[#262626] bg-[#161616] p-5">
+          <div className="space-y-5">
+            <AskAICustomerCard />
 
-      {/* Stats Grid - 4 compact cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <CompactStatCard
-          icon={<Wallet className="w-5 h-5 text-[#FFCC00]" />}
-          value={`${balanceData?.availableBalance || 0} RCN`}
-          label="Available Balance"
-          sublabel="Off-chain balance"
-        />
-        <CompactStatCard
-          icon={<CircleCheck className="w-5 h-5 text-green-400" />}
-          value={`${blockchainBalance || 0} RCN`}
-          label="Wallet Balance"
-          sublabel="On-chain balance"
-        />
-        <CompactStatCard
-          icon={<TrendingUp className="w-5 h-5 text-[#FFCC00]" />}
-          value={balanceData?.lifetimeEarned || 0}
-          label="Tokens Earned"
-        />
-        <CompactStatCard
-          icon={<Gift className="w-5 h-5 text-[#FFCC00]" />}
-          value={balanceData?.totalRedeemed || 0}
-          label="Tokens Redeemed"
-        />
-      </div>
+            <ActiveServicesCard onViewOrder={handleViewOrder} />
 
-      {/* Two-column layout - 3:2 ratio for wider right column */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left Column - Trending Services & Transaction History */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Trending Services */}
-          <TrendingServicesList onViewService={handleViewService} />
-
-          {/* Transaction History */}
-          <div className="bg-[#212121] rounded-xl overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-800">
-              <Coins className="w-5 h-5 text-[#FFCC00]" />
-              <h3 className="text-white font-semibold text-base">Transaction History</h3>
-            </div>
-            <div className="p-4">
-              <DataTable
-                data={displayTransactions.slice(0, 5)}
-                columns={transactionColumns}
-                keyExtractor={(transaction) => transaction.id}
-                emptyMessage="No transactions yet"
-                emptyIcon={
-                  <div className="text-center py-6">
-                    <div className="text-4xl mb-3">📋</div>
-                    <p className="text-gray-400 text-sm">No transactions yet</p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      Start earning RCN by booking services!
-                    </p>
-                  </div>
-                }
-                className="w-full"
-                headerClassName="bg-gray-800/50 text-sm"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <TrendingServicesList onViewService={handleViewService} />
+              <RecommendedShopsCard onViewShop={handleViewShop} />
             </div>
           </div>
         </div>
 
-        {/* Right Column - Tier, Mint, Campaigns */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Your Tier Level */}
+        {/* ============================= RIGHT COLUMN ============================= */}
+        <div className="space-y-5">
+          <WalletSummaryCard
+            availableBalance={balanceData?.availableBalance || 0}
+            walletBalance={blockchainBalance || 0}
+            tokensEarned={balanceData?.lifetimeEarned || 0}
+            tokensRedeemed={balanceData?.totalRedeemed || 0}
+          />
+
           <YourTierLevelCard
             tier={customerData?.tier || "BRONZE"}
             lifetimeEarned={balanceData?.lifetimeEarned || 0}
           />
 
-          {/* Mint RCN to Wallet */}
-          {balanceData && balanceData.availableBalance > 0 && (
+          {/* Mint RCN to Wallet (blockchain-only; hidden in database-only mode) */}
+          {blockchainEnabled && balanceData && balanceData.availableBalance > 0 && (
             <MintRCNCard
               availableBalance={balanceData.availableBalance}
               onMintClick={handleMintButtonClick}
               disabled={isSuspended}
             />
           )}
-
-          {/* Campaigns & Promos */}
-          <CampaignsPromosCard />
-
-          {/* Group Token Balances - HIDDEN per client request */}
-          {/* <GroupBalancesCard /> */}
         </div>
+      </div>
+
+        <TrustedProfessionalsCard
+          onSelectCategory={handleSelectCategory}
+          onSeeMore={handleSeeMoreCategories}
+        />
+
+        <PopularServicesCard
+          onViewService={handleViewService}
+          onSeeMore={handleSeeMoreCategories}
+        />
       </div>
 
       {/* Mint to Wallet Modal */}
@@ -509,27 +294,6 @@ export const OverviewTab: React.FC = () => {
                       Your tokens have been successfully minted to your wallet.
                     </p>
                   </div>
-                  {mintResult.transactionHash && (
-                    <div className="bg-[#2F2F2F] p-4 rounded-lg">
-                      <p className="text-gray-400 text-xs mb-2">
-                        Transaction Hash:
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <code className="text-[#FFCC00] text-xs break-all flex-1">
-                          {mintResult.transactionHash}
-                        </code>
-                        <a
-                          href={getExplorerUrl(mintResult.transactionHash)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#FFCC00] hover:text-yellow-400 transition-colors flex-shrink-0"
-                          title="View on Block Explorer"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  )}
                   {mintResult.transactionHash && (
                     <a
                       href={getExplorerUrl(mintResult.transactionHash)}
@@ -606,9 +370,7 @@ export const OverviewTab: React.FC = () => {
                     </button>
                     <button
                       onClick={handleMintToWallet}
-                      disabled={
-                        isMinting || !mintAmount || parseFloat(mintAmount) <= 0
-                      }
+                      disabled={isMinting || !mintAmount || parseFloat(mintAmount) <= 0}
                       className="flex-1 px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {isMinting ? (

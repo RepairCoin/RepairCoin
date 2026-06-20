@@ -1,6 +1,5 @@
 // backend/src/domains/shop/routes/rcg.ts
 import { Router, Request, Response } from 'express';
-import { RCGTokenReader } from '../../../contracts/RCGTokenReader';
 import { logger } from '../../../utils/logger';
 import { shopRepository } from '../../../repositories';
 
@@ -23,18 +22,10 @@ router.get('/:shopId/rcg-info', async (req: Request, res: Response) => {
       });
     }
 
-    if (!shop.walletAddress) {
-      return res.status(400).json({
-        success: false,
-        error: 'Shop has no wallet address configured'
-      });
-    }
+    // RCG balance/tier come from the DB column (admin-managed), not on-chain
+    // reads. See docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+    const balance = shop.rcg_balance ?? 0;
 
-    // Get RCG balance
-    const rcgReader = new RCGTokenReader();
-    const balanceString = await rcgReader.getBalance(shop.walletAddress);
-    const balance = parseFloat(balanceString);
-    
     // Determine tier based on balance
     let tier = 'none';
     let nextTierRequired = 10000; // Standard tier minimum

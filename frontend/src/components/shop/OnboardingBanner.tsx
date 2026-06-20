@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info, ExternalLink, CreditCard, Shield, AlertCircle } from 'lucide-react';
 import { RCGPurchaseModal } from './RCGPurchaseModal';
+import { useBlockchainEnabled } from '@/contexts/AppConfigContext';
 import Link from 'next/link';
 
 interface OnboardingBannerProps {
@@ -18,6 +19,8 @@ interface OnboardingBannerProps {
 
 export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
   const [showRCGModal, setShowRCGModal] = useState(false);
+  // Buying RCG is on-chain; hide the prompt in database-only mode (RCG is admin-set)
+  const blockchainEnabled = useBlockchainEnabled();
   
   const isOperational = shopData.operational_status === 'rcg_qualified' || 
                        shopData.operational_status === 'subscription_qualified';
@@ -81,10 +84,10 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
                       </div>
                     )}
                   </div>
-                  {!hasEnoughRCG && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                  {!hasEnoughRCG && blockchainEnabled && (
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="w-full bg-amber-600 hover:bg-amber-700 text-white border-amber-700"
                       onClick={() => setShowRCGModal(true)}
                     >

@@ -23,9 +23,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       buildNumber: "1.0.0",
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          "This app uses your location to find nearby shops.",
+          "FixFlow uses your location to show repair shops near you. For example, when browsing the service marketplace, your location helps sort and display the closest available shops so you can find and book a nearby repair service.",
         NSLocationAlwaysUsageDescription:
-          "This app uses your location to find nearby shops.",
+          "FixFlow uses your location to show repair shops near you. For example, when browsing the service marketplace, your location helps sort and display the closest available shops so you can find and book a nearby repair service.",
         NSCameraUsageDescription:
           "This app uses your camera to scan QR codes and take photos.",
         NSPhotoLibraryUsageDescription:
@@ -97,9 +97,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission:
-            "Allow FixFlow to access your location to find nearby shops.",
+            "FixFlow uses your location to show repair shops near you. For example, when browsing the service marketplace, your location helps sort and display the closest available shops so you can find and book a nearby repair service.",
           locationWhenInUsePermission:
-            "Allow FixFlow to access your location while using the app.",
+            "FixFlow uses your location to show repair shops near you. For example, when browsing the service marketplace, your location helps sort and display the closest available shops so you can find and book a nearby repair service.",
           isAndroidBackgroundLocationEnabled: false,
         },
       ],

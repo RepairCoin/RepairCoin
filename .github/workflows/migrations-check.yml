@@ -1,0 +1,27 @@
+name: Migration checks
+
+# Fails a PR if any two backend migrations share a number. The runner keys on the
+# numeric prefix, so duplicate numbers cause one migration to be silently skipped on
+# fresh builds. See backend/scripts/check-migration-numbers.js.
+
+on:
+  pull_request:
+    paths:
+      - 'backend/migrations/**'
+      - 'backend/scripts/check-migration-numbers.js'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/migrations/**'
+
+jobs:
+  check-migration-numbers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check migration numbers are unique
+        working-directory: backend
+        run: node scripts/check-migration-numbers.js

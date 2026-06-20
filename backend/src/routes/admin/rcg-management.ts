@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAdmin } from '../../middleware/auth';
 import { shopRepository } from '../../repositories';
-import { RCGTokenReader } from '../../contracts/RCGTokenReader';
+import { getRCGTokenReader } from '../../contracts/RCGTokenReader';
 import { logger } from '../../utils/logger';
 
 const router = Router();
@@ -15,32 +15,28 @@ router.use(requireAdmin);
  */
 router.get('/distribution', async (req: Request, res: Response) => {
   try {
-    const rcgReader = new RCGTokenReader();
-    
-    // Get total supply from contract stats
+    const rcgReader = getRCGTokenReader();
+
+    // Get total supply from fixed tokenomics constants (chain-free)
     const stats = await rcgReader.getContractStats();
     const totalSupply = stats.totalSupply;
-    
-    // Get treasury balance (admin wallet)
-    const treasuryBalance = await rcgReader.getBalance(process.env.ADMIN_ADDRESSES?.split(',')[0] || '');
-    
-    // Get shops and their RCG holdings
+
+    // Treasury balance is not tracked off-chain. On-chain reads were removed as
+    // part of the reversible blockchain removal (DB is the source of truth).
+    // See docs/blockchain-removal/IMPLEMENTATION_STATUS.md.
+    const treasuryBalance = 0;
+
+    // Get shops and their RCG holdings from the DB-stored balance column
     const shops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-    const shopHoldings = await Promise.all(
-      shops.items.map(async (shop) => {
-        if (!shop.walletAddress) return { shop: shop.shopId, balance: 0 };
-        const balance = await rcgReader.getBalance(shop.walletAddress);
-        return {
-          shop: shop.shopId,
-          balance: parseFloat(balance),
-          tier: shop.rcg_tier || 'none'
-        };
-      })
-    );
-    
+    const shopHoldings = shops.items.map((shop) => ({
+      shop: shop.shopId,
+      balance: shop.rcg_balance || 0,
+      tier: shop.rcg_tier || 'none'
+    }));
+
     // Calculate distribution
     const totalInShops = shopHoldings.reduce((sum, s) => sum + s.balance, 0);
-    const circulating = parseFloat(totalSupply) - parseFloat(treasuryBalance);
+    const circulating = parseFloat(totalSupply) - treasuryBalance;
     
     // Tier distribution
     const tierDistribution = {
@@ -54,10 +50,10 @@ router.get('/distribution', async (req: Request, res: Response) => {
       success: true,
       data: {
         totalSupply: parseFloat(totalSupply),
-        treasuryBalance: parseFloat(treasuryBalance),
+        treasuryBalance: treasuryBalance,
         circulatingSupply: circulating,
         distribution: {
-          treasury: parseFloat(treasuryBalance),
+          treasury: treasuryBalance,
           shops: totalInShops,
           other: circulating - totalInShops
         },

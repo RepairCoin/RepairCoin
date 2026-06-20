@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TokenService } from '../../token/services/TokenService';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
@@ -13,14 +12,17 @@ import { getSharedPool } from '../../../utils/database-pool';
 
 const router = Router();
 
-// Lazy loading helper
-let tokenMinter: TokenMinter | null = null;
-const getTokenMinter = (): TokenMinter => {
-    if (!tokenMinter) {
-        tokenMinter = new TokenMinter();
-    }
-    return tokenMinter;
+// Lazy loading helper — dynamic import so the dormant contract module isn't
+// loaded at startup. docs/blockchain-removal/PHASE3_CLEANUP_PLAN.md
+const getTokenMinter = async () => {
+    const { getTokenMinter: load } = await import('../../../contracts/_archive/TokenMinter');
+    return load();
 };
+
+// In database-only mode (ENABLE_BLOCKCHAIN_MINTING=false) we must not touch the
+// chain. These routes guard on this so the treasury page doesn't make Base Sepolia
+// RPC calls (which add latency and a chain dependency) when minting is disabled.
+const blockchainEnabled = () => process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
 
 // Get treasury statistics
 // Note: Authentication is already handled by the admin router middleware
@@ -57,14 +59,16 @@ router.get('/treasury', async (req: Request, res: Response) => {
         // Get actual circulating supply from blockchain
         let circulatingSupply = 0;
         
-        try {
-            const contractStats = await getTokenMinter().getContractStats();
-            if (contractStats && contractStats.totalSupplyReadable > 0) {
-                circulatingSupply = contractStats.totalSupplyReadable;
-                logger.info('✅ Fetched circulating supply from blockchain:', circulatingSupply);
+        if (blockchainEnabled()) {
+            try {
+                const contractStats = await (await getTokenMinter()).getContractStats();
+                if (contractStats && contractStats.totalSupplyReadable > 0) {
+                    circulatingSupply = contractStats.totalSupplyReadable;
+                    logger.info('✅ Fetched circulating supply from blockchain:', circulatingSupply);
+                }
+            } catch (error) {
+                logger.warn('Could not fetch contract stats, using database value:', error);
             }
-        } catch (error) {
-            logger.warn('Could not fetch contract stats, using database value:', error);
         }
         
         // Get top RCN buyers (shops with most purchases)
@@ -264,10 +268,24 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
 // Get admin wallet info
 router.get('/treasury/admin-wallet', async (req: Request, res: Response) => {
     try {
-        const tokenMinter = getTokenMinter();
+        // Database-only mode: don't instantiate the on-chain minter just to read a wallet
+        if (!blockchainEnabled()) {
+            return res.json({
+                success: true,
+                data: {
+                    adminWallet: 'Not applicable (database-only mode)',
+                    contractAddress: process.env.RCN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5',
+                    chainId: 84532,
+                    chainName: 'Base Sepolia',
+                    message: 'Blockchain minting is disabled; running in database-only mode.'
+                }
+            });
+        }
+
+        const tokenMinter = await getTokenMinter();
         const account = (tokenMinter as any).account;
         const walletAddress = account?.address || 'Not configured';
-        
+
         res.json({
             success: true,
             data: {
@@ -412,9 +430,17 @@ router.post('/treasury/manual-transfer',
     async (req: Request, res: Response) => {
         try {
             const { customerAddress, amount, reason } = req.body;
-            
-            const minter = getTokenMinter();
-            
+
+            // Blockchain-native action — unavailable in database-only mode
+            if (!blockchainEnabled()) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Blockchain minting is disabled (database-only mode). Manual on-chain transfers are unavailable.'
+                });
+            }
+
+            const minter = await getTokenMinter();
+
             // Check current balance
             const currentBalance = await minter.getCustomerBalance(customerAddress) || 0;
             
@@ -491,7 +517,6 @@ router.post('/treasury/manual-transfer',
 router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
-        const minter = getTokenMinter();
         const adminAddress = '0x761E5E59485ec6feb263320f5d636042bD9EBc8c';
         
         // Get existing treasury stats
@@ -534,8 +559,14 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
             WHERE shop_rewards - redeemed - admin_transfers > 0
         `, [adminAddress]);
         
-        const adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
-        const contractStats = await minter.getContractStats();
+        // Chain reads only when blockchain is enabled; database-only mode uses defaults
+        let adminBalance = 0;
+        let contractStats: any = null;
+        if (blockchainEnabled()) {
+            const minter = await getTokenMinter();
+            adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
+            contractStats = await minter.getContractStats();
+        }
         
         const totalPurchasedByShops = parseFloat(existingStats.rows[0]?.total_sold || '0');
         const totalIssuedByShops = parseFloat(mintedStats.rows[0]?.total_issued_by_shops || '0');
@@ -548,7 +579,7 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
             success: true,
             data: {
                 treasury: {
-                    totalSupply: contractStats.totalSupplyReadable || 0,
+                    totalSupply: contractStats?.totalSupplyReadable || 0,
                     totalSold: totalPurchasedByShops,
                     totalRevenue: parseFloat(existingStats.rows[0]?.total_revenue || '0'),
                     totalMinted: totalMinted,
@@ -590,7 +621,15 @@ router.post('/treasury/mint-bulk',
     async (req: Request, res: Response) => {
         try {
             const { recipients, amount, reason } = req.body;
-            
+
+            // Blockchain-native action — unavailable in database-only mode
+            if (!blockchainEnabled()) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Blockchain minting is disabled (database-only mode). Bulk minting is unavailable.'
+                });
+            }
+
             if (!Array.isArray(recipients) || recipients.length === 0) {
                 return res.status(400).json({
                     success: false,
@@ -605,7 +644,7 @@ router.post('/treasury/mint-bulk',
                 });
             }
             
-            const minter = getTokenMinter();
+            const minter = await getTokenMinter();
             const results = [];
             let successCount = 0;
             let failCount = 0;

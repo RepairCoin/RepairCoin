@@ -45,6 +45,11 @@ services:
   - key: ENABLE_SWAGGER
     scope: RUN_TIME
     value: "true"
+  # Reversible blockchain removal — DB-only mode (no on-chain mint/burn).
+  # See docs/blockchain-removal/IMPLEMENTATION_STATUS.md. Set "true" to re-enable.
+  - key: ENABLE_BLOCKCHAIN_MINTING
+    scope: RUN_TIME
+    value: "false"
 databases:
 - cluster_name: db-postgresql-repaircoin-staging
   db_name: repaircoin

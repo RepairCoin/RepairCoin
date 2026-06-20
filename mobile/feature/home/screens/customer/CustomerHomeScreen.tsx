@@ -6,7 +6,6 @@ import { DemoBanner } from "@/shared/components/ui/DemoBanner";
 import {
   CustomerWalletTab,
   MessageButton,
-  NoShowWarningBanner,
   NotificationBell,
 } from "./../../components";
 
@@ -46,7 +45,6 @@ export default function CustomerDashboard() {
           </View>
         </View>
         <DemoBanner />
-        <NoShowWarningBanner />
         <CustomerWalletTab />
       </View>
     </View>

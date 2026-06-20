@@ -724,7 +724,7 @@ export class RedemptionSessionService {
    */
   private async processApprovedRedemption(session: RedemptionSession): Promise<void> {
     const { customerRepository, shopRepository, transactionRepository } = await import('../../../repositories');
-    const { getTokenMinter } = await import('../../../contracts/TokenMinter');
+    const { getTokenMinter } = await import('../../../contracts/_archive/TokenMinter');
     
     // Get shop data
     const shop = await shopRepository.getShop(session.shopId);

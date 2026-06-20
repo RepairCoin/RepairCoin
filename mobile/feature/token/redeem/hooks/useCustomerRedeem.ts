@@ -104,6 +104,12 @@ export const useCustomerRedeem = () => {
       }
 
       const sessionAmount = session.maxAmount || session.amount || 0;
+
+      // Signature is optional and only verified by the backend in blockchain mode
+      // (ENABLE_BLOCKCHAIN_MINTING). In the default database mode the approval is
+      // authorized via the JWT session, matching the web flow. Generate it
+      // opportunistically, but don't block approval if it can't be produced
+      // (e.g. external wallet, lapsed session, signMessage unsupported).
       const signature = await generateSignature({
         sessionId,
         customerAddress: session.customerAddress,
@@ -112,20 +118,9 @@ export const useCustomerRedeem = () => {
         expiresAt: session.expiresAt,
       });
 
-      if (!signature) {
-        toast.show("Failed to generate signature", {
-          type: "danger",
-          placement: "top",
-          duration: 3000,
-          animationType: "slide-in",
-          style: { marginTop: 24 },
-        });
-        return;
-      }
-
       const result = await approveSession.mutateAsync({
         sessionId,
-        signature,
+        ...(signature ? { signature } : {}),
       });
 
       if (result?.data?.status === "approved") {
