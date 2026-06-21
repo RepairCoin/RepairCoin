@@ -9,7 +9,26 @@ import { Loader2, CalendarCheck } from "lucide-react";
 import { AdLeadForm } from "@/components/ads/AdLeadForm";
 
 interface Service { id: string; name: string; priceUsd: number | null; imageUrl: string | null; category: string | null; }
-interface Landing { shopId: string; shopName: string; offer: string | null; goal: string | null; services: Service[]; }
+interface Landing { shopId: string; shopName: string; offer: string | null; goal: string | null; services: Service[]; pixelId: string | null; }
+
+// Load the Meta Pixel base code once + fire PageView. Idempotent (guards window.fbq).
+function initMetaPixel(pixelId: string) {
+  const w = window as any;
+  if (!w.fbq) {
+    const n: any = function (...args: any[]) {
+      n.callMethod ? n.callMethod.apply(n, args) : n.queue.push(args);
+    };
+    n.queue = []; n.push = n; n.loaded = true; n.version = "2.0";
+    w.fbq = n;
+    if (!w._fbq) w._fbq = n;
+    const t = document.createElement("script");
+    t.async = true;
+    t.src = "https://connect.facebook.net/en_US/fbevents.js";
+    const s = document.getElementsByTagName("script")[0];
+    s.parentNode?.insertBefore(t, s);
+  }
+  try { w.fbq("init", pixelId); w.fbq("track", "PageView"); } catch { /* ignore */ }
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -24,7 +43,12 @@ export const LandingView: React.FC<{ campaignId: string }> = ({ campaignId }) =>
     let alive = true;
     fetch(`${API_BASE}/ads/landing/${encodeURIComponent(campaignId)}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((j) => { if (alive) setData(j.data as Landing); })
+      .then((j) => {
+        if (!alive) return;
+        const d = j.data as Landing;
+        setData(d);
+        if (d.pixelId) initMetaPixel(d.pixelId); // PageView; Lead fires on form submit
+      })
       .catch(() => { if (alive) setFailed(true); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };

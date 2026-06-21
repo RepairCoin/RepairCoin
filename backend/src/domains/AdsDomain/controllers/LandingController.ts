@@ -10,10 +10,12 @@ import { logger } from '../../../utils/logger';
 import { getSharedPool } from '../../../utils/database-pool';
 import { CampaignRepository } from '../repositories/CampaignRepository';
 import { CampaignRequestRepository } from '../repositories/CampaignRequestRepository';
+import { MetaConnectionRepository } from '../repositories/MetaConnectionRepository';
 import { shopRepository } from '../../../repositories';
 
 const campaigns = new CampaignRepository();
 const requests = new CampaignRequestRepository();
+const connections = new MetaConnectionRepository();
 
 // GET /ads/landing/:campaignId — PUBLIC.
 export async function getCampaignLanding(req: Request, res: Response): Promise<void> {
@@ -21,9 +23,10 @@ export async function getCampaignLanding(req: Request, res: Response): Promise<v
     const campaign = await campaigns.findById(req.params.campaignId);
     if (!campaign) { res.status(404).json({ success: false, error: 'not_found' }); return; }
 
-    const [request, shop] = await Promise.all([
+    const [request, shop, conn] = await Promise.all([
       requests.findByCampaignId(campaign.id),
       shopRepository.getShop(campaign.shopId).catch(() => null),
+      connections.getConnection(campaign.shopId).catch(() => null),
     ]);
 
     const ids = request?.promoteServiceIds ?? [];
@@ -51,6 +54,7 @@ export async function getCampaignLanding(req: Request, res: Response): Promise<v
         offer: request?.offer ?? null,
         goal: request?.goal ?? null,
         services,
+        pixelId: conn?.pixelId ?? null, // Meta Pixel → fire PageView + Lead for conversion tracking
       },
     });
   } catch (err) {

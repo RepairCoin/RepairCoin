@@ -39,7 +39,11 @@ Two bars: **v1 "Ship"** (clicks → landing page → leads, the buildable core) 
 - [ ] **Browser QA pass** — draft-staging, landing page, AI-card, unified-assistant fix are headless-verified only
 - [ ] **Verify customer "Book online"** end-to-end now that the chain-hiding merge landed (was wallet-blocked)
 - [ ] **Service-aware AI copy** — ad copy should name the promoted service (landing page already shows it) _(~0.5d, buildable)_
-- [ ] **Meta Pixel "Lead" event** — optimize clicks for form submissions; biggest lead-quality lift, no App Review _(~1d)_
+- [x] **Meta Pixel "Lead" event — TRACKING** ✅ — pixel auto-created/resolved on the shop's ad account at
+  connection (migration 170, `meta_pixel_id`); landing page fires `PageView` + `Lead` on submit (no App Review)
+- [ ] **Meta Pixel "Lead" event — OPTIMIZATION** (follow-up) — switch the ad set to optimize for the Lead conversion:
+  `optimization_goal: OFFSITE_CONVERSIONS` + `promoted_object: { pixel_id, custom_event_type: LEAD }` (needs pixel
+  to have collected events first → that's why tracking ships first). Tunes delivery toward form-submitters, not clickers. _(~0.5d)_
 - [ ] UX polish — clearer disabled "Push to Meta" state; show resolved objective in DraftComposer _(~0.5d)_
 
 ### C. Full Vision — REMAINING (larger scope / commercial)
@@ -172,7 +176,11 @@ of truth, and the data model already has `messenger_id` + a `'messenger'` channe
 
 **Also (lead-quality upgrade for the clicks path):** a **Meta Pixel "Lead" conversion event** on the landing page
 lets TRAFFIC/Sales optimize for the actual form submission — biggest lift for the least Meta-approval friction.
-Native `OUTCOME_LEADS` instant forms remain a later option (code supports it via `ensureLeadForm`).
+**TRACKING is BUILT 2026-06-21** (migration 170 `meta_pixel_id`; `MetaService.ensureAdPixel` auto-creates/resolves
+the shop's ad-account pixel at connection; `LandingView` fires `PageView`, `AdLeadForm` fires `Lead`). **Follow-up =
+OPTIMIZATION:** point the ad set at the Lead conversion (`optimization_goal: OFFSITE_CONVERSIONS` +
+`promoted_object: {pixel_id, custom_event_type: LEAD}`) once the pixel has events. Native `OUTCOME_LEADS` instant
+forms remain a later option (code supports it via `ensureLeadForm`).
 
 **Effort:** picker + persisted objective ~0.5 day (now); Messenger path ~3–5 days + App Review; Pixel ~1 day.
 

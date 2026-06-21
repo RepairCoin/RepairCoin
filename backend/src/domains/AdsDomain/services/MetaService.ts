@@ -170,6 +170,27 @@ export class MetaService {
     }
   }
 
+  /** Return the ad account's existing Meta Pixel id, or CREATE one ("FixFlow Lead Tracking")
+   *  if none exists. Used so the landing page can fire a "Lead" conversion attributed to the
+   *  shop's ad account. Throws on a Graph error (caller treats as best-effort). */
+  async ensureAdPixel(adAccountId: string, userToken: string): Promise<string> {
+    this.requireConfig();
+    try {
+      const existing = await axios.get(`${GRAPH}/${adAccountId}/adspixels`, {
+        params: { fields: 'id,name', limit: 1, access_token: userToken }, timeout: 15000,
+      });
+      const found = existing.data?.data?.[0]?.id;
+      if (found) return String(found);
+      const created = await axios.post(`${GRAPH}/${adAccountId}/adspixels`, null, {
+        params: { name: 'FixFlow Lead Tracking', access_token: userToken }, timeout: 15000,
+      });
+      return String(created.data?.id);
+    } catch (err: any) {
+      logger.error('MetaService.ensureAdPixel failed', { detail: err?.response?.data || err?.message });
+      throw new Error(`pixel_failed: ${this.fbError(err)}`);
+    }
+  }
+
   /** Create a PAUSED campaign; returns the Meta campaign id. special_ad_categories must be a
    *  JSON array — ['NONE'] for an ordinary (non housing/employment/credit) campaign. */
   async createCampaign(adAccountId: string, userToken: string, opts: { name: string; objective: string }): Promise<string> {
