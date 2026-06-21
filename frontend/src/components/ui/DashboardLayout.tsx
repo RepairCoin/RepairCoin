@@ -10,7 +10,6 @@ import { CartIcon } from "@/components/ui/CartIcon";
 import { UnifiedAssistantLauncher, UnifiedAssistantHost } from "@/components/shop/unified/UnifiedAssistantLauncher";
 import { HeaderVoiceMic } from "@/components/voice/HeaderVoiceMic";
 import { MobileBottomNavMic } from "@/components/voice/MobileBottomNavMic";
-import { VoiceCommandPill } from "@/components/voice/VoiceCommandPill";
 import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
@@ -166,14 +165,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           component itself is lg:hidden, so this mount is a no-op on
           desktop. Shop-only mirrors the other voice surfaces. */}
       {userRole === "shop" && <MobileBottomNavMic />}
-
-      {/* Floating "Ask AI Anything" pill on the shop Profile tab — fixed at the
-          bottom, centered within the content area (offset for the sidebar so
-          it's not pulled left by the viewport-centered default). Desktop only;
-          mobile uses the bottom-nav mic. */}
-      {userRole === "shop" && activeTab === "profile" && (
-        <VoiceCommandPill floating sidebarCollapsed={isSidebarCollapsed} />
-      )}
 
       {/* Main Content Area. In fullHeight mode, becomes a flex column that
           bounds children to the remaining viewport height — required for
